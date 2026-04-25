@@ -11019,6 +11019,24 @@ function supaConfigured() {
     && !SUPABASE_URL.includes('VOTRE_PROJET');
 }
 
+// ── Custom fetch : timeout 10 s pour éviter les locks GoTrue orphelins ──
+function _supaFetch(url, options = {}) {
+  const ctrl = new AbortController();
+  // Merge signal : respecte un signal existant (ex: annulation de l'appelant)
+  const existing = options.signal;
+  if (existing) {
+    existing.addEventListener('abort', () => ctrl.abort());
+  }
+  const timer = setTimeout(() => ctrl.abort(), 10_000);
+  return fetch(url, { ...options, signal: ctrl.signal })
+    .catch(err => {
+      // Ne pas laisser remonter l'AbortError en erreur non gérée
+      if (err.name === 'AbortError') throw new Error('Supabase request timeout (10s)');
+      throw err;
+    })
+    .finally(() => clearTimeout(timer));
+}
+
 // ── Init ──────────────────────────────────────────────────────────
 function initSupabase() {
   if (!supaConfigured()) return;
@@ -11027,14 +11045,43 @@ function initSupabase() {
     return;
   }
   try {
-    _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: {
+        persistSession:    true,
+        autoRefreshToken:  true,
+        detectSessionInUrl: false,
+        // Évite les locks inter-onglets orphelins (GoTrue >= 2.60)
+        lock: async (name, acquireTimeout, fn) => {
+          if (typeof navigator.locks?.request === 'function') {
+            return navigator.locks.request(name, { steal: false }, fn)
+              .catch(err => {
+                // Lock volé par un autre onglet : réessayer une fois
+                if (err?.name === 'NotAllowedError' || err?.message?.includes('stole')) {
+                  return navigator.locks.request(name, { steal: true }, fn);
+                }
+                throw err;
+              });
+          }
+          // Fallback : pas de Web Locks API (vieux navigateurs)
+          return fn();
+        },
+      },
+      global: {
+        fetch: _supaFetch,
+      },
+    });
 
     // Restaurer la session existante (localStorage Supabase)
-    _supabase.auth.getSession().then(({ data }) => {
-      supaSession = data.session || null;
-      updateSupaIndicator();
-      if (activeTab === 'tabCompte') renderCompteTab();
-    });
+    _supabase.auth.getSession()
+      .then(({ data }) => {
+        supaSession = data.session || null;
+        updateSupaIndicator();
+        if (activeTab === 'tabCompte') renderCompteTab();
+      })
+      .catch(err => {
+        // 504 / timeout au démarrage → on continue sans session, on réessaie au prochain tick
+        console.warn('PokéForge: getSession failed (réseau?)', err.message);
+      });
 
     // Écouter les changements d'auth (login / logout / refresh token)
     _supabase.auth.onAuthStateChange((_event, session) => {
@@ -11102,12 +11149,15 @@ async function supaCloudSave() {
 
 async function supaCheckCloudLoad() {
   if (!_supabase || !supaSession) return;
-  const { data, error } = await _supabase
-    .from('player_saves')
-    .select('state, saved_at')
-    .eq('user_id', supaSession.user.id)
-    .eq('slot', activeSaveSlot)
-    .single();
+  let data, error;
+  try {
+    ({ data, error } = await _supabase
+      .from('player_saves')
+      .select('state, saved_at')
+      .eq('user_id', supaSession.user.id)
+      .eq('slot', activeSaveSlot)
+      .single());
+  } catch { return; }
   if (error || !data) return;
 
   const cloudTs = new Date(data.saved_at).getTime();
@@ -11130,12 +11180,15 @@ async function supaCheckCloudLoad() {
 
 async function supaForceCloudLoad() {
   if (!_supabase || !supaSession) return;
-  const { data, error } = await _supabase
-    .from('player_saves')
-    .select('state, saved_at')
-    .eq('user_id', supaSession.user.id)
-    .eq('slot', activeSaveSlot)
-    .single();
+  let data, error;
+  try {
+    ({ data, error } = await _supabase
+      .from('player_saves')
+      .select('state, saved_at')
+      .eq('user_id', supaSession.user.id)
+      .eq('slot', activeSaveSlot)
+      .single());
+  } catch { notify('Erreur réseau — réessaie dans un moment.', 'error'); return; }
   if (error || !data) { notify('Aucune sauvegarde cloud trouvée.', 'error'); return; }
 
   const fmt = new Date(data.saved_at).toLocaleString('fr-FR');
@@ -11698,6 +11751,21 @@ Object.assign(globalThis, {
   isZoneDegraded, getZoneMastery, openCollectionModal,
   getZoneSlotCost, ZONE_SLOT_COSTS, ZONE_BGS, SHOP_ITEMS,
   collectAllZones, openZoneWindow, closeZoneWindow,
+});
+
+// ── Intercepteur global des rejets non gérés GoTrue ──────────────────
+// GoTrue peut générer des "unhandledrejection" liés aux locks ou aux timeouts réseau.
+// On les absorbe silencieusement pour éviter le bruit console côté dev.
+window.addEventListener('unhandledrejection', e => {
+  const msg = e.reason?.message || String(e.reason || '');
+  if (
+    msg.includes('Lock') && msg.includes('stole') ||
+    msg.includes('lock:sb-') ||
+    msg.includes('AuthRetryableFetchError') ||
+    msg.includes('Supabase request timeout')
+  ) {
+    e.preventDefault(); // supprime le log "Uncaught (in promise)"
+  }
 });
 
 function boot() {
