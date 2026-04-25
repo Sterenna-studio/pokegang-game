@@ -217,9 +217,8 @@ function respecAgentStats(agentId) {
     `Réattribuer les stats de <b>${agent.name}</b> pour <b>1 000 000₽</b> ?<br><span style="color:var(--text-dim);font-size:11px">Tous les pts distribués seront récupérés. Les stats de base restent inchangées.</span>`,
     () => {
       state.gang.money -= RESPEC_COST;
-      // Count already-allocated points to return them
-      const spent = (agent.allocatedStats?.capture || 0) + (agent.allocatedStats?.combat || 0) + (agent.allocatedStats?.luck || 0);
-      agent.statPoints = (agent.statPoints || 0) + spent;
+      // Total points ever earned = 1 per level (level 1 = 0 pts, level 50 = 49 pts, etc.)
+      agent.statPoints    = Math.max(0, (agent.level || 1) - 1);
       agent.allocatedStats = { capture: 0, combat: 0, luck: 0 };
       // Restore stats to base
       agent.stats = { ...agent.baseStats };
