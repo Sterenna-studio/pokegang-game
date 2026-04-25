@@ -41,6 +41,18 @@ import { TRANSLATOR_PHRASES_FR } from './data/flavor-data.js';
 // FR→EN / EN→FR name maps moved to data/dex-helpers.js
 const { FR_TO_EN, EN_TO_FR } = buildSpeciesNameMaps(POKEMON_GEN1);
 
+// ── Constantes Pokédex ─────────────────────────────────────────
+// Pokédex Kanto = les 151 espèces originales (dex 1–151) + MissingNo (dex 0, caché)
+const KANTO_DEX_SIZE    = 151;
+// Pokédex National = toutes les espèces non-cachées disponibles dans le jeu
+const NATIONAL_DEX_SIZE = POKEMON_GEN1.filter(s => !s.hidden).length;
+
+// Helpers de comptage — centralisés ici pour éviter la duplication partout dans l'UI
+function getDexKantoCaught()   { return POKEMON_GEN1.filter(s => !s.hidden && s.dex >= 1 && s.dex <= 151 && state.pokedex[s.en]?.caught).length; }
+function getDexNationalCaught(){ return POKEMON_GEN1.filter(s => !s.hidden && state.pokedex[s.en]?.caught).length; }
+// Nombre d'espèces UNIQUES avec au moins un exemplaire chromatique (≠ shinyCaught qui compte les doublons)
+function getShinySpeciesCount(){ return POKEMON_GEN1.filter(s => !s.hidden && state.pokedex[s.en]?.shiny).length; }
+
 // Nature config moved to data/game-config-data.js
 
 // Zone visuals/config moved to data/zones-visuals-data.js and data/zones-config-data.js
@@ -563,8 +575,10 @@ function openImportPreviewModal(raw) {
   const money       = (raw.gang?.money ?? 0).toLocaleString();
   const pokeCount   = (raw.pokemons  || []).length;
   const agentCount  = (raw.agents    || []).length;
-  const dexCaught   = Object.values(raw.pokedex || {}).filter(e => e.caught).length;
-  const shinyCount  = Object.values(raw.pokedex || {}).filter(e => e.shiny).length;
+  const _dexRaw     = raw.pokedex || {};
+  const dexKanto    = POKEMON_GEN1.filter(s => !s.hidden && s.dex >= 1 && s.dex <= 151 && _dexRaw[s.en]?.caught).length;
+  const dexCaught   = POKEMON_GEN1.filter(s => !s.hidden && _dexRaw[s.en]?.caught).length;
+  const shinyCount  = POKEMON_GEN1.filter(s => !s.hidden && _dexRaw[s.en]?.shiny).length;
   const savedAt     = raw._savedAt ? new Date(raw._savedAt).toLocaleString('fr-FR') : '—';
   const playtime    = raw.playtime  ? formatPlaytime(raw.playtime) : '—';
 
@@ -614,8 +628,9 @@ function openImportPreviewModal(raw) {
             <div style="font-size:8px;color:var(--text-dim)">👤 Agents <span style="color:var(--text)">${agentCount}</span></div>
             <div style="font-size:8px;color:var(--text-dim)">⭐ Rép. <span style="color:var(--gold)">${reputation}</span></div>
             <div style="font-size:8px;color:var(--text-dim)">₽ <span style="color:var(--text)">${money}</span></div>
-            <div style="font-size:8px;color:var(--text-dim)">📖 Pokédex <span style="color:var(--text)">${dexCaught}</span></div>
-            <div style="font-size:8px;color:var(--text-dim)">✨ Shinies <span style="color:var(--text)">${shinyCount}</span></div>
+            <div style="font-size:8px;color:var(--text-dim)">📖 Kanto <span style="color:var(--text)">${dexKanto}/${KANTO_DEX_SIZE}</span></div>
+            <div style="font-size:8px;color:var(--text-dim)">🌐 National <span style="color:var(--text)">${dexCaught}/${NATIONAL_DEX_SIZE}</span></div>
+            <div style="font-size:8px;color:var(--text-dim)">✨ Espèces chromas <span style="color:var(--text)">${shinyCount}</span></div>
           </div>
           <div style="font-size:7px;color:var(--text-dim);border-top:1px solid var(--border);padding-top:6px;margin-top:2px">
             Sauvegardé le ${savedAt}<br>Temps de jeu : ${playtime} · Schéma v${schemaVer}
@@ -2958,7 +2973,7 @@ function getTabHint(tabId) {
     case 'tabMissions':
       return `Missions journalières et hebdomadaires = source de ₽ et d'objets rares. Reviens chaque jour.`;
     case 'tabPokedex':
-      return `${Object.values(state.pokedex).filter(e=>e.caught).length}/${POKEMON_GEN1.length} espèces capturées. Certaines sont très rares — explore toutes les zones.`;
+      return `Kanto ${getDexKantoCaught()}/${KANTO_DEX_SIZE} · National ${getDexNationalCaught()}/${NATIONAL_DEX_SIZE} · Chromas ${getShinySpeciesCount()} espèces. Explore toutes les zones pour compléter !`;
     default:
       return null;
   }
@@ -3783,7 +3798,6 @@ function renderGangTab() {
   const g = state.gang;
   const s = state.stats;
   const teamPks = (g.bossTeam || []).map(id => state.pokemons.find(p => p.id === id)).filter(Boolean);
-  const dexCaught = Object.values(state.pokedex).filter(e => e.caught).length;
   const mvp = state.pokemons.length > 0
     ? state.pokemons.reduce((best, p) => calculatePrice(p) > calculatePrice(best) ? p : best)
     : null;
@@ -3852,7 +3866,8 @@ function renderGangTab() {
     [state.pokemons.length,                  'Possédés'],
     [s.totalCaught,                          'Capturés'],
     [s.totalSold,                            'Vendus'],
-    [s.shinyCaught,                          '✨ Chromas'],
+    [getShinySpeciesCount(),                  '✨ Espèces chroma'],
+    [s.shinyCaught,                          '✨ Chromas (total)'],
     [`${s.totalFightsWon}/${s.totalFights}`, 'Combats'],
     [`${s.totalMoneyEarned.toLocaleString()}₽`, 'Gains'],
   ].map(([val, label]) => `<div class="gang-stat-card"><div class="stat-value">${val}</div><div class="stat-label">${label}</div></div>`).join('');
@@ -3882,7 +3897,7 @@ ${(() => {
         <div style="display:flex;gap:16px;margin-top:6px;flex-wrap:wrap">
           <span style="font-size:10px;color:var(--gold)">⭐ ${g.reputation.toLocaleString()}</span>
           <span style="font-size:10px;color:var(--text)">₽ ${g.money.toLocaleString()}</span>
-          <span style="font-size:10px;color:var(--text-dim)">📖 ${dexCaught}/${POKEMON_GEN1.length}</span>
+          <span style="font-size:10px;color:var(--text-dim)" title="Pokédex Kanto (151) / National (${NATIONAL_DEX_SIZE})">📖 ${getDexKantoCaught()}/${KANTO_DEX_SIZE} <span style="font-size:8px;opacity:.6">[${getDexNationalCaught()}/${NATIONAL_DEX_SIZE}]</span></span>
         </div>
         <div style="margin-top:8px;background:var(--border);border-radius:2px;height:4px;max-width:220px">
           <div style="background:var(--gold-dim);height:4px;border-radius:2px;width:${repPct}%;transition:width .5s"></div>
@@ -5610,8 +5625,9 @@ function exportGangImage(mode = 'portrait') {
   const mvp = state.pokemons.length > 0
     ? state.pokemons.reduce((best, p) => calculatePrice(p) > calculatePrice(best) ? p : best)
     : null;
-  const dexCaught = Object.values(state.pokedex).filter(e => e.caught).length;
-  const dexTotal  = POKEMON_GEN1.length;
+  const dexCaught  = getDexKantoCaught();
+  const dexTotal   = KANTO_DEX_SIZE;
+  const dexNatCaught = getDexNationalCaught();
   const topSp = Object.entries(state.pokedex).sort((a,b) => (b[1].count||0) - (a[1].count||0))[0];
 
   // ── Background ────────────────────────────────────────────
@@ -5738,9 +5754,9 @@ function exportGangImage(mode = 'portrait') {
             <span style="font-size:9px;color:#ffcc5a">⭐ Réputation : ${g.reputation.toLocaleString()}</span>
             <span style="font-size:9px;color:#e0e0e0">₽ ${g.money.toLocaleString()}</span>
           </div>
-          <div style="font-size:8px;color:#aaa">Pokémon : ${state.pokemons.length} &nbsp;&nbsp; Shiny : ${s.shinyCaught||0}</div>
+          <div style="font-size:8px;color:#aaa">Pokémon : ${state.pokemons.length} &nbsp;&nbsp; ✨ Espèces chromas : ${getShinySpeciesCount()} (${s.shinyCaught||0} capturés)</div>
           <div style="font-size:8px;color:#aaa">Victoires : ${s.totalFightsWon||0} &nbsp;&nbsp; Captures : ${s.totalCaught||0}</div>
-          <div style="font-size:8px;color:${dexCaught >= dexTotal ? '#ffcc5a' : '#444'}">📖 Pokédex : ${dexCaught}/${dexTotal}${dexCaught >= dexTotal ? ' ✓ COMPLET !' : ''}</div>
+          <div style="font-size:8px;color:${dexCaught >= dexTotal ? '#ffcc5a' : '#aaa'}">📖 Kanto : ${dexCaught}/${dexTotal}${dexCaught >= dexTotal ? ' ✓ COMPLET !' : ''} &nbsp;&nbsp; National : ${dexNatCaught}/${NATIONAL_DEX_SIZE}</div>
         </div>
       </div>
 
@@ -8784,16 +8800,21 @@ function renderPokedexTab() {
     </div>`;
   }).join('');
 
-  const caught = Object.values(state.pokedex).filter(e => e.caught).length;
-  const total = POKEMON_GEN1.length;
+  const kantoCaught    = getDexKantoCaught();
+  const nationalCaught = getDexNationalCaught();
+  const shinySpecies   = getShinySpeciesCount();
   let dexCounter = document.getElementById('dexCounter');
   if (!dexCounter) {
     dexCounter = document.createElement('div');
     dexCounter.id = 'dexCounter';
-    dexCounter.style.cssText = 'font-family:var(--font-pixel);font-size:9px;color:var(--text-dim);margin-bottom:8px';
+    dexCounter.style.cssText = 'font-family:var(--font-pixel);font-size:9px;color:var(--text-dim);margin-bottom:8px;display:flex;gap:12px;flex-wrap:wrap';
     grid.parentNode.insertBefore(dexCounter, grid);
   }
-  dexCounter.textContent = `${caught}/${total} capturés`;
+  dexCounter.innerHTML = `
+    <span title="Pokédex Kanto (151 espèces originales)">📖 Kanto&nbsp;<b style="color:var(--text)">${kantoCaught}/${KANTO_DEX_SIZE}</b></span>
+    <span title="Pokédex National (toutes espèces disponibles)" style="opacity:.7">🌐 National&nbsp;<b style="color:var(--text)">${nationalCaught}/${NATIONAL_DEX_SIZE}</b></span>
+    <span title="Espèces uniques dont au moins un exemplaire chromatique">✨ Chromas&nbsp;<b style="color:var(--gold)">${shinySpecies}</b></span>
+  `;
 
   grid.querySelectorAll('.dex-entry[data-dex-en]').forEach(el => {
     el.addEventListener('click', () => {
@@ -9446,8 +9467,10 @@ function openHubImportModal(raw) {
   const count4star  = (raw.pokemons  || []).filter(p => p.potential === 4).length;
   const count4shiny = (raw.pokemons  || []).filter(p => p.potential === 4 && p.shiny).length;
   const agentCount  = (raw.agents    || []).length;
-  const dexCaught   = Object.values(raw.pokedex || {}).filter(e => e.caught).length;
-  const shinyCount  = Object.values(raw.pokedex || {}).filter(e => e.shiny).length;
+  const rawDex      = raw.pokedex || {};
+  const dexKanto    = POKEMON_GEN1.filter(s => !s.hidden && s.dex >= 1 && s.dex <= 151 && rawDex[s.en]?.caught).length;
+  const dexNat      = POKEMON_GEN1.filter(s => !s.hidden && rawDex[s.en]?.caught).length;
+  const shinyCount  = POKEMON_GEN1.filter(s => !s.hidden && rawDex[s.en]?.shiny).length;
   const savedAt     = raw._savedAt ? new Date(raw._savedAt).toLocaleString('fr-FR') : '—';
   const playtime    = raw.playtime  ? formatPlaytime(raw.playtime) : '—';
   const schemaVer   = raw._schemaVersion ?? raw.version ?? '?';
@@ -9495,8 +9518,8 @@ function openHubImportModal(raw) {
           <div style="font-size:8px;color:var(--text-dim)">👤 Agents <span style="color:var(--text)">${agentCount}</span></div>
           <div style="font-size:8px;color:var(--text-dim)">⭐ Rép. <span style="color:var(--gold)">${reputation}</span></div>
           <div style="font-size:8px;color:var(--text-dim)">₽ <span style="color:var(--text)">${money}</span></div>
-          <div style="font-size:8px;color:var(--text-dim)">📖 Pokédex <span style="color:var(--text)">${dexCaught}</span></div>
-          <div style="font-size:8px;color:var(--text-dim)">✨ Shinies <span style="color:var(--text)">${shinyCount}</span></div>
+          <div style="font-size:8px;color:var(--text-dim)">📖 Pokédex Kanto <span style="color:var(--text)">${dexKanto}/151</span> <span style="opacity:.6">(Nat. ${dexNat})</span></div>
+          <div style="font-size:8px;color:var(--text-dim)">✨ Espèces chroma <span style="color:var(--text)">${shinyCount}</span></div>
         </div>
         <div style="font-size:7px;color:var(--text-dim);border-top:1px solid var(--border);padding-top:6px;margin-top:2px">
           Sauvegardé le ${savedAt} · Temps de jeu : ${playtime} · Schéma v${schemaVer}
