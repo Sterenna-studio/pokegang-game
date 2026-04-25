@@ -38,33 +38,6 @@ function renderTrainingTab() {
     }
   }
 
-  // Pokemon not in room, not in team, not in pension — filtered by search
-  const q = _trSearch.toLowerCase();
-  const freeSlots = slots - tr.pokemon.length;
-  const pensionIds = new Set([state.pension?.slotA, state.pension?.slotB].filter(Boolean));
-  const allCandidates = state.pokemons
-    .filter(p => !inRoom.has(p.id) && !teamIds.has(p.id) && !pensionIds.has(p.id) && p.level < 100)
-    .sort((a, b) => getPokemonPower(b) - getPokemonPower(a));
-  const candidates = q
-    ? allCandidates.filter(p => speciesName(p.species_en).toLowerCase().includes(q) || p.species_en.includes(q))
-    : allCandidates;
-
-  // Nettoyer la sélection si les IDs ne sont plus valides
-  _trSelected = new Set([..._trSelected].filter(id => candidates.find(p => p.id === id)));
-
-  const addableCount = Math.min(_trSelected.size, freeSlots);
-  const candidatesHtml = candidates.map(p => {
-    const checked = _trSelected.has(p.id);
-    return `<label class="tr-candidate" data-tr-add="${p.id}" style="display:flex;align-items:center;gap:8px;padding:6px;border-bottom:1px solid var(--border);cursor:pointer;background:${checked ? 'rgba(68,136,204,.12)' : ''}">
-      <input type="checkbox" class="tr-check" data-id="${p.id}" ${checked ? 'checked' : ''} style="width:14px;height:14px;cursor:pointer;accent-color:var(--blue)">
-      <img src="${pokeSprite(p.species_en, p.shiny)}" style="width:32px;height:32px">
-      <div style="flex:1">
-        <div style="font-size:10px">${speciesName(p.species_en)} ${'*'.repeat(p.potential)}${p.shiny ? ' ✨' : ''}</div>
-        <div style="font-size:9px;color:var(--text-dim)">Lv.${p.level}</div>
-      </div>
-    </label>`;
-  }).join('') || `<div style="color:var(--text-dim);font-size:10px;padding:12px">Aucun Pokemon disponible</div>`;
-
   const recentLog = (tr.log || []).slice(-8).reverse().map(e => {
     let color = 'var(--text-dim)';
     if (e.includes('[W]')) color = 'var(--gold)';
@@ -126,13 +99,12 @@ function renderTrainingTab() {
         <div style="font-family:var(--font-pixel);font-size:9px;color:var(--text-dim);margin-bottom:8px">AJOUTER UN POKEMON</div>
         <input id="trSearchInput" type="text" placeholder="Rechercher…" value="${_trSearch}"
           style="width:100%;padding:6px 8px;margin-bottom:6px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:10px;box-sizing:border-box;outline:none">
-        ${_trSelected.size > 0 ? `
-        <button id="btnTrAddSelected" style="width:100%;margin-bottom:6px;padding:6px;background:var(--bg);border:1px solid var(--blue);border-radius:var(--radius-sm);color:var(--blue);font-family:var(--font-pixel);font-size:8px;cursor:pointer">
-          + Ajouter ${addableCount} sélectionné${addableCount > 1 ? 's' : ''} (${freeSlots} slot${freeSlots > 1 ? 's' : ''} libre${freeSlots > 1 ? 's' : ''})
-        </button>` : ''}
-        <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);max-height:400px;overflow-y:auto">${candidatesHtml}</div>
+        <div id="trPickerArea"></div>
       </div>
     </div>`;
+
+  // ── Render picker area (sans recréer l'input — préserve le focus) ──
+  _refreshTrPicker(tab);
 
   // Clear all training slots
   document.getElementById('btnTrClearAll')?.addEventListener('click', () => {
@@ -169,39 +141,86 @@ function renderTrainingTab() {
     });
   });
 
-  // Recherche — filtre en temps réel sans re-render complet
+  // Recherche — met à jour uniquement la liste, sans recréer l'input
   tab.querySelector('#trSearchInput')?.addEventListener('input', e => {
     _trSearch = e.target.value;
-    renderTrainingTab();
+    _refreshTrPicker(tab);
   });
+}
+
+// Met à jour uniquement la zone picker (liste + bouton "ajouter sélectionnés")
+// sans toucher à l'input de recherche → préserve le focus et le curseur
+function _refreshTrPicker(tab) {
+  const state = globalThis.state;
+  const pickerArea = tab?.querySelector('#trPickerArea');
+  if (!pickerArea) return;
+
+  const tr = state.trainingRoom;
+  const slots = 6;
+  const inRoom = new Set(tr.pokemon);
+  const teamIds = new Set([...state.gang.bossTeam]);
+  for (const a of state.agents) a.team.forEach(id => teamIds.add(id));
+  const pensionIds = new Set([state.pension?.slotA, state.pension?.slotB].filter(Boolean));
+  const freeSlots = slots - tr.pokemon.length;
+
+  const q = _trSearch.toLowerCase();
+  const allCandidates = state.pokemons
+    .filter(p => !inRoom.has(p.id) && !teamIds.has(p.id) && !pensionIds.has(p.id) && p.level < 100)
+    .sort((a, b) => getPokemonPower(b) - getPokemonPower(a));
+  const candidates = q
+    ? allCandidates.filter(p => speciesName(p.species_en).toLowerCase().includes(q) || p.species_en.includes(q))
+    : allCandidates;
+
+  // Nettoyer la sélection si les IDs ne sont plus valides
+  _trSelected = new Set([..._trSelected].filter(id => candidates.find(p => p.id === id)));
+
+  const addableCount = Math.min(_trSelected.size, freeSlots);
+  const candidatesHtml = candidates.map(p => {
+    const checked = _trSelected.has(p.id);
+    return `<label class="tr-candidate" data-tr-add="${p.id}" style="display:flex;align-items:center;gap:8px;padding:6px;border-bottom:1px solid var(--border);cursor:pointer;background:${checked ? 'rgba(68,136,204,.12)' : ''}">
+      <input type="checkbox" class="tr-check" data-id="${p.id}" ${checked ? 'checked' : ''} style="width:14px;height:14px;cursor:pointer;accent-color:var(--blue)">
+      <img src="${pokeSprite(p.species_en, p.shiny)}" style="width:32px;height:32px">
+      <div style="flex:1">
+        <div style="font-size:10px">${speciesName(p.species_en)} ${'*'.repeat(p.potential)}${p.shiny ? ' ✨' : ''}</div>
+        <div style="font-size:9px;color:var(--text-dim)">Lv.${p.level}</div>
+      </div>
+    </label>`;
+  }).join('') || `<div style="color:var(--text-dim);font-size:10px;padding:12px">Aucun Pokemon disponible</div>`;
+
+  pickerArea.innerHTML = `
+    ${_trSelected.size > 0 ? `
+    <button id="btnTrAddSelected" style="width:100%;margin-bottom:6px;padding:6px;background:var(--bg);border:1px solid var(--blue);border-radius:var(--radius-sm);color:var(--blue);font-family:var(--font-pixel);font-size:8px;cursor:pointer">
+      + Ajouter ${addableCount} sélectionné${addableCount > 1 ? 's' : ''} (${freeSlots} slot${freeSlots > 1 ? 's' : ''} libre${freeSlots > 1 ? 's' : ''})
+    </button>` : ''}
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);max-height:400px;overflow-y:auto">${candidatesHtml}</div>`;
 
   // Checkboxes — toggle sélection
-  tab.querySelectorAll('.tr-check').forEach(cb => {
+  pickerArea.querySelectorAll('.tr-check').forEach(cb => {
     cb.addEventListener('change', e => {
       e.stopPropagation();
       const id = cb.dataset.id;
       if (cb.checked) _trSelected.add(id);
       else _trSelected.delete(id);
-      renderTrainingTab();
+      _refreshTrPicker(tab);
     });
   });
 
   // Clic sur une ligne = toggle checkbox
-  tab.querySelectorAll('.tr-candidate').forEach(el => {
+  pickerArea.querySelectorAll('.tr-candidate').forEach(el => {
     el.addEventListener('click', e => {
-      if (e.target.type === 'checkbox') return; // géré par le cb lui-même
+      if (e.target.type === 'checkbox') return;
       const cb = el.querySelector('.tr-check');
       if (!cb) return;
       cb.checked = !cb.checked;
       const id = el.dataset.trAdd;
       if (cb.checked) _trSelected.add(id);
       else _trSelected.delete(id);
-      renderTrainingTab();
+      _refreshTrPicker(tab);
     });
   });
 
   // Bouton "Ajouter X sélectionnés"
-  tab.querySelector('#btnTrAddSelected')?.addEventListener('click', () => {
+  pickerArea.querySelector('#btnTrAddSelected')?.addEventListener('click', () => {
     const state = globalThis.state;
     const availSlots = 6 - state.trainingRoom.pokemon.length;
     let added = 0;
