@@ -8889,41 +8889,42 @@ function renderPokedexTab() {
     });
   });
 
-  // ── Build species list based on active filter + search ─────────
+  // ── Build species pool (always complete — filter only dims) ──────
   const search = document.getElementById('dexSearchInput')?.value?.toLowerCase() || '';
 
-  let list = POKEMON_GEN1;
-  // Apply view filter first
-  switch (dexViewFilter) {
-    case 'kanto':
-      list = list.filter(sp => !sp.hidden && sp.dex >= 1 && sp.dex <= 151);
-      break;
-    case 'national':
-      list = list.filter(sp => !sp.hidden);
-      break;
-    case 'shiny':
-      list = list.filter(sp => !sp.hidden && state.pokedex[sp.en]?.shiny);
-      break;
-    case 'missing':
-      list = list.filter(sp => !sp.hidden && !state.pokedex[sp.en]?.caught);
-      break;
-  }
-  // Then apply text search
+  // Pool = full dex for this view (never shrinks due to filter)
+  const isNational = dexViewFilter === 'national';
+  let pool = isNational
+    ? POKEMON_GEN1.filter(sp => !sp.hidden)
+    : POKEMON_GEN1.filter(sp => !sp.hidden && sp.dex >= 1 && sp.dex <= 151);
+
+  // Text search hides entries (intentional user action)
   if (search) {
-    list = list.filter(sp =>
+    pool = pool.filter(sp =>
       sp.en.includes(search) || sp.fr.toLowerCase().includes(search) ||
       String(sp.dex).includes(search)
     );
   }
 
+  // Predicate: is this entry "highlighted" by the current filter?
+  function isHighlighted(sp) {
+    switch (dexViewFilter) {
+      case 'shiny':   return !!state.pokedex[sp.en]?.shiny;
+      case 'missing': return !state.pokedex[sp.en]?.caught;
+      default:        return true; // kanto / national → tout est mis en avant
+    }
+  }
+  const hasActiveOverlay = dexViewFilter === 'shiny' || dexViewFilter === 'missing';
+
   // ── Render grid ────────────────────────────────────────────────
-  grid.innerHTML = list.length ? list.map(sp => {
-    const entry   = state.pokedex[sp.en];
-    const caught  = entry?.caught;
-    const seen    = entry?.seen;
-    const sel     = dexSelectedEn === sp.en ? 'selected' : '';
+  grid.innerHTML = pool.length ? pool.map(sp => {
+    const entry    = state.pokedex[sp.en];
+    const caught   = entry?.caught;
+    const seen     = entry?.seen;
+    const sel      = dexSelectedEn === sp.en ? 'selected' : '';
     const hasShiny = !!entry?.shiny;
-    return `<div class="dex-entry ${caught ? 'caught' : ''} ${!seen && !caught ? 'unseen' : ''} ${sel}" data-dex-en="${sp.en}" style="position:relative">
+    const dimmed   = hasActiveOverlay && !isHighlighted(sp) ? 'dex-dimmed' : '';
+    return `<div class="dex-entry ${caught ? 'caught' : ''} ${!seen && !caught ? 'unseen' : ''} ${dimmed} ${sel}" data-dex-en="${sp.en}" style="position:relative">
       ${caught || seen
         ? `<img src="${pokeSprite(sp.en, hasShiny)}" style="width:36px;height:36px;${!caught ? 'filter:brightness(0)' : ''}">`
         : `<div style="width:36px;height:36px;display:flex;align-items:center;justify-content:center;color:var(--text-dim);font-size:14px">?</div>`
@@ -8931,7 +8932,7 @@ function renderPokedexTab() {
       ${hasShiny ? `<span style="position:absolute;top:-3px;right:-3px;font-size:9px;line-height:1;pointer-events:none" title="Chromatique obtenu">✨</span>` : ''}
       <div class="dex-number">#${String(sp.dex).padStart(3, '0')}</div>
     </div>`;
-  }).join('') : `<div style="color:var(--text-dim);font-size:9px;padding:16px;font-family:var(--font-pixel)">Aucun Pokémon dans ce filtre.</div>`;
+  }).join('') : `<div style="color:var(--text-dim);font-size:9px;padding:16px;font-family:var(--font-pixel)">Aucun résultat.</div>`;
 
   grid.querySelectorAll('.dex-entry[data-dex-en]').forEach(el => {
     el.addEventListener('click', () => {

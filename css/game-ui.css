@@ -866,7 +866,8 @@
     .dex-entry.caught { border-color: var(--green); }
     .dex-entry.selected { border-color: var(--gold); border-width: 2px; }
     .dex-entry.caught .dex-number { color: var(--green); }
-    .dex-entry.unseen { opacity: .35; }
+    .dex-entry.unseen  { opacity: .35; }
+    .dex-entry.dex-dimmed { opacity: .15; pointer-events: none; filter: grayscale(1); }
 
     .dex-entry img { width: 36px; height: 36px; }
     .dex-entry .dex-number { font-family: var(--font-pixel); font-size: 7px; margin-top: 2px; }
