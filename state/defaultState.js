@@ -1,13 +1,16 @@
 'use strict';
 
-export const APP_VERSION = '2.2.0';
-export const GAME_VERSION = 'v0.0 — pre-alpha';
+export const APP_VERSION = '2.3.0';
+export const GAME_VERSION = 'v0.1 — pre-alpha';
 
-export const SAVE_SCHEMA_VERSION = 7;
+export const SAVE_SCHEMA_VERSION = 8;
 
-export const SAVE_KEYS = ['pokeforge.v6', 'pokeforge.v6.s2', 'pokeforge.v6.s3'];
+export const SAVE_KEYS = ['pokeforge.v7', 'pokeforge.v7.s2', 'pokeforge.v7.s3'];
 
 export const LEGACY_SAVE_KEYS = [
+  'pokeforge.v6',
+  'pokeforge.v6.s2',
+  'pokeforge.v6.s3',
   'pokeforge.v5',
   'pokeforge.v4',
   'pokeforge.v3',
@@ -17,7 +20,7 @@ export const LEGACY_SAVE_KEYS = [
 ];
 
 export const DEFAULT_STATE = {
-  version: '6.0.0',
+  version: '7.0.0',
   _schemaVersion: SAVE_SCHEMA_VERSION,
   lang: 'fr',
   gang: {

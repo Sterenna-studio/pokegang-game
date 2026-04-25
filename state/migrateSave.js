@@ -194,6 +194,27 @@ export function migrateSave(saved, deps) {
     merged.stats.dexCaught = Object.values(merged.pokedex || {}).filter(e => e.caught).length;
   }
 
+  // ── Migration schema v8 : intégrité Pokédex ──────────────────
+  // Pour les anciennes saves, s'assurer que chaque Pokémon possédé
+  // est bien marqué caught/seen dans le Pokédex, et que le flag
+  // shiny n'est jamais rétrogradé (seen/caught/shiny = historiques).
+  if ((saved?._schemaVersion ?? 0) < 8) {
+    for (const pk of merged.pokemons || []) {
+      const en = pk.species_en;
+      if (!en) continue;
+      if (!merged.pokedex[en]) merged.pokedex[en] = { seen: false, caught: false, shiny: false, count: 0 };
+      merged.pokedex[en].caught = true;
+      merged.pokedex[en].seen   = true;
+      merged.pokedex[en].count  = (merged.pokedex[en].count || 0) + 1;
+      if (pk.shiny) merged.pokedex[en].shiny = true;
+    }
+    // Recalcul shinyCaught — only correct upward
+    const ownedShiny = (merged.pokemons || []).filter(p => p.shiny).length;
+    if ((merged.stats.shinyCaught || 0) < ownedShiny) merged.stats.shinyCaught = ownedShiny;
+    // Recalcul dexCaught
+    merged.stats.dexCaught = Object.values(merged.pokedex || {}).filter(e => e.caught).length;
+  }
+
   merged._schemaVersion = SAVE_SCHEMA_VERSION;
   return merged;
 }

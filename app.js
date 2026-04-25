@@ -8780,23 +8780,25 @@ function rebuildPokedex() {
   // Step 1 — preserve existing seen AND shiny flags (both are historical — never reset)
   // "shiny" = has ever obtained a chroma of this species (includes sold ones)
   const next = {};
+  // seen / caught / shiny = historical flags → only ever go UP, never down
+  // count = rebuilt from current ownership (can go down if sold)
   for (const [en, entry] of Object.entries(state.pokedex)) {
     next[en] = {
       seen:   !!entry.seen,
-      caught: false,          // rebuilt from owned pokemons below
-      shiny:  !!entry.shiny,  // preserved — historical flag, never goes down
-      count:  0,              // rebuilt from owned pokemons below
+      caught: !!entry.caught, // preserved — may have been sold but was once caught
+      shiny:  !!entry.shiny,  // preserved — may have been sold but was once obtained
+      count:  0,              // rebuilt from current ownership below
     };
   }
 
-  // Step 2 — rebuild caught/count from owned pokemons; shiny can only be added, not removed
+  // Step 2 — add missing entries + rebuild count from owned pokemons
   for (const pk of state.pokemons) {
     const en = pk.species_en;
     if (!next[en]) next[en] = { seen: true, caught: false, shiny: false, count: 0 };
-    next[en].caught = true;
-    next[en].seen   = true;
+    next[en].caught = true;   // add only
+    next[en].seen   = true;   // add only
     next[en].count  = (next[en].count || 0) + 1;
-    if (pk.shiny) next[en].shiny = true; // add only — never clears an existing true
+    if (pk.shiny) next[en].shiny = true; // add only
   }
 
   // Step 3 — eggs: mark species as seen
