@@ -10986,18 +10986,20 @@ async function supaForceCloudLoad() {
 
 async function supaUpdateLeaderboard() {
   if (!_supabase || !supaSession) return;
-  const shinyCount  = (state.pokemons || []).filter(p => p.shiny).length;
-  const dexCount    = Object.values(state.pokedex || {}).filter(v => v > 0).length;
   await _supabase.from('players').upsert({
-    user_id:       supaSession.user.id,
-    gang_name:     state.gang.name     || 'Team ???',
-    boss_name:     state.gang.bossName || 'Boss',
-    reputation:    state.gang.reputation  || 0,
-    total_caught:  state.stats?.caught    || 0,
-    total_sold:    state.stats?.sold      || 0,
-    shiny_count:   shinyCount,
-    pokedex_count: dexCount,
-    updated_at:    new Date().toISOString(),
+    user_id:            supaSession.user.id,
+    gang_name:          state.gang.name        || 'Team ???',
+    boss_name:          state.gang.bossName    || 'Boss',
+    reputation:         state.gang.reputation  || 0,
+    total_caught:       state.stats?.totalCaught  || 0,
+    total_sold:         state.stats?.totalSold    || 0,
+    shiny_count:        state.stats?.shinyCaught  || 0,
+    shiny_species_count: getShinySpeciesCount(),
+    dex_kanto_count:    getDexKantoCaught(),
+    dex_national_count: getDexNationalCaught(),
+    agents_count:       (state.agents || []).length,
+    agents_elite_count: state.stats?.agentsEliteCount || 0,
+    updated_at:         new Date().toISOString(),
   });
 }
 
