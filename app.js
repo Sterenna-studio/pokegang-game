@@ -12147,13 +12147,6 @@ function boot() {
   document.getElementById('btnCodex')?.addEventListener('click', openCodexModal);
 
   // (legacy battle log drag code removed — battle log is now the Events tab)
-  if (false) { // placeholder to keep diff clean
-    const battleLogPanel = document.getElementById('battleLog');
-    battleLogPanel?.classList.add('is-dragging');
-
-    document.addEventListener('mousemove', (e) => {
-      if (!isDragging) return;
-  }
   // Events tab renders on demand (switchTab triggers renderEventsTab via renderActiveTab)
 
   // Init filter/sort listeners for PC (reset page on change, force full rebuild)
