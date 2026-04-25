@@ -86,6 +86,7 @@ export const DEFAULT_STATE = {
     eventsCompleted: 0,
     eggsHatched: 0,
     blueDefeated: 0,
+    agentsEliteCount: 0,   // nombre d'agents ayant déjà obtenu le grade Élite (max 4)
   },
   settings: {
     llmEnabled: false,

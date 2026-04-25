@@ -19,7 +19,7 @@ import { MISSIONS, HOURLY_QUEST_POOL } from './data/missions-data.js';
 import { TRAINER_TYPES } from './data/trainers-data.js';
 import { getDexDesc, buildSpeciesNameMaps } from './data/dex-helpers.js';
 import { BALLS, SHOP_ITEMS, MYSTERY_EGG_BASE_COST, MYSTERY_EGG_POOL, MYSTERY_EGG_HATCH_MS, POTENTIAL_MULT, BASE_PRICE, getMysteryEggCost as computeMysteryEggCost } from './data/economy-data.js';
-import { NATURES, NATURE_KEYS, BOSS_SPRITES, AGENT_NAMES_M, AGENT_NAMES_F, AGENT_SPRITES, AGENT_PERSONALITIES, TITLE_REQUIREMENTS, TITLE_BONUSES } from './data/game-config-data.js';
+import { NATURES, NATURE_KEYS, BOSS_SPRITES, AGENT_NAMES_M, AGENT_NAMES_F, AGENT_SPRITES, AGENT_PERSONALITIES, TITLE_REQUIREMENTS, TITLE_BONUSES, AGENT_RANK_LABELS, RANK_CHAIN } from './data/game-config-data.js';
 import { I18N } from './data/i18n-data.js';
 import { ZONE_BG_URL, GYM_ORDER } from './data/zones-config-data.js';
 import { HOURLY_QUEST_REROLL_COST, BOOST_DURATIONS } from './data/gameplay-config-data.js';
@@ -702,7 +702,7 @@ function openLegacyImportModal(legacyData) {
     ? agents.map(a => `<label style="display:flex;align-items:center;gap:8px;padding:6px;border-bottom:1px solid var(--border);cursor:pointer">
         <input type="radio" name="legacyAgent" value="${a.id}" style="accent-color:var(--gold)">
         <img src="${a.sprite || ''}" style="width:32px;height:32px" onerror="this.style.display='none'">
-        <span style="font-size:10px">${a.name} — Lv.${a.level} (${a.title})</span>
+        <span style="font-size:10px">${a.name} — Lv.${a.level} (${getAgentRankLabel?.(a) ?? a.title})</span>
       </label>`).join('')
     : '<div style="color:var(--text-dim);font-size:10px;padding:8px">Aucun agent dans cette save</div>';
 
@@ -2095,6 +2095,16 @@ function getZoneAgentSlots(zoneId) {
   return 0;
 }
 
+// ── Scaling de difficulté par niveau de mastery ───────────────
+// Plus une zone a de combats gagnés (→ mastery élevée), plus les ennemis sont forts.
+// Ces constantes sont paramétrables librement.
+const ZONE_DIFFICULTY_SCALING = {
+  //  mastery: { levelBonus, statMult, raidChanceBonus, tripleRaidChance, potentialBoost }
+  1: { levelBonus: 0,  statMult: 1.00, raidChanceBonus: 0.00, tripleRaidChance: 0.00, potentialBoost: 0 },
+  2: { levelBonus: 4,  statMult: 1.15, raidChanceBonus: 0.06, tripleRaidChance: 0.00, potentialBoost: 0 },
+  3: { levelBonus: 10, statMult: 1.35, raidChanceBonus: 0.15, tripleRaidChance: 0.12, potentialBoost: 1 },
+};
+
 // Open zone windows tracking
 const openZones = new Set();
 const zoneSpawnTimers = {};
@@ -2104,27 +2114,41 @@ globalThis.openZones = openZones;
 globalThis.zoneSpawns = zoneSpawns;
 globalThis.zoneSpawnTimers = zoneSpawnTimers;
 
-function makeTrainerTeam(zone, trainerKey, forcedSize) {
+// masteryLevel (1-3) permet de renforcer les équipes ennemies selon la progression de zone.
+function makeTrainerTeam(zone, trainerKey, forcedSize, masteryLevel = 1) {
   const trainer = TRAINER_TYPES[trainerKey];
   if (!trainer) return [];
   const teamSize = forcedSize ?? clamp(trainer.diff, 1, 3);
+  const scaling = ZONE_DIFFICULTY_SCALING[masteryLevel] || ZONE_DIFFICULTY_SCALING[1];
   const team = [];
   for (let i = 0; i < teamSize; i++) {
     const sp = pick(zone.pool);
-    const level = randInt(5 + trainer.diff * 3, 10 + trainer.diff * 5);
-    team.push({ species_en: sp, level, stats: calculateStats({ species_en: sp, level, nature: 'hardy', potential: 2 }) });
+    const baseLevel = randInt(5 + trainer.diff * 3, 10 + trainer.diff * 5);
+    const level = Math.min(100, baseLevel + scaling.levelBonus);
+    const potential = Math.min(5, 2 + scaling.potentialBoost);
+    const stats = calculateStats({ species_en: sp, level, nature: 'hardy', potential });
+    // Multiplier les stats offensives/défensives selon le scaling
+    if (scaling.statMult !== 1.0) {
+      stats.atk = Math.round(stats.atk * scaling.statMult);
+      stats.def = Math.round(stats.def * scaling.statMult);
+      stats.spd = Math.round(stats.spd * scaling.statMult);
+    }
+    team.push({ species_en: sp, level, stats });
   }
   return team;
 }
 
 // Build a raid: 2-3 trainers combined into one encounter
-function makeRaidSpawn(zone, zoneId) {
+function makeRaidSpawn(zone, zoneId, masteryLevel = 1) {
   const trainerKeys = zone.trainers.length >= 2
     ? [pick(zone.trainers), pick(zone.trainers), zone.eliteTrainer || pick(zone.trainers)]
     : [zone.eliteTrainer || 'acetrainer', zone.eliteTrainer || 'acetrainer', zone.eliteTrainer || 'acetrainer'];
 
+  const scaling = ZONE_DIFFICULTY_SCALING[masteryLevel] || ZONE_DIFFICULTY_SCALING[1];
+  // Mastery 3 : chance de raid à 3 dresseurs (triple raid)
+  const forceTriple = masteryLevel >= 3 && Math.random() < scaling.tripleRaidChance;
   // Pick 2-3 distinct trainers
-  const numTrainers = randInt(2, 3);
+  const numTrainers = forceTriple ? 3 : randInt(2, 3);
   const raidTrainers = [];
   const usedKeys = [];
   for (let i = 0; i < numTrainers; i++) {
@@ -2133,7 +2157,7 @@ function makeRaidSpawn(zone, zoneId) {
     raidTrainers.push({
       key,
       trainer: TRAINER_TYPES[key],
-      team: makeTrainerTeam(zone, key, 2),
+      team: makeTrainerTeam(zone, key, 2, masteryLevel),
     });
     usedKeys.push(key);
   }
@@ -2174,12 +2198,16 @@ function spawnInZone(zoneId) {
   const isChestBoosted = isBoostActive('chestBoost');
   const r = Math.random();
 
+  // Niveau de mastery pour le scaling de difficulté
+  const mastery = getZoneMastery(zoneId);
+  const diffScaling = ZONE_DIFFICULTY_SCALING[mastery] || ZONE_DIFFICULTY_SCALING[1];
+
   // DEGRADED MODE: rep dropped below zone threshold — combat only (no pokemon, no chests, no events)
   if (isDegraded) {
     if (zone.trainers.length > 0) {
       const trainerKey = pick(zone.trainers);
       const trainer = TRAINER_TYPES[trainerKey];
-      if (trainer) return { type: 'trainer', trainerKey, trainer, team: makeTrainerTeam(zone, trainerKey) };
+      if (trainer) return { type: 'trainer', trainerKey, trainer, team: makeTrainerTeam(zone, trainerKey, undefined, mastery) };
     }
     return null;
   }
@@ -2191,7 +2219,7 @@ function spawnInZone(zoneId) {
   }
 
   // 2. Special event (mastery >= 1, i.e. always possible in active zones)
-  const canEvent = getZoneMastery(zoneId) >= 1;
+  const canEvent = mastery >= 1;
   if (canEvent && r < chestChance + 0.08) {
     const eligible = SPECIAL_EVENTS.filter(ev =>
       state.gang.reputation >= ev.minRep &&
@@ -2205,18 +2233,27 @@ function spawnInZone(zoneId) {
   }
 
   // 3. Elite trainer (mastery >= 2, i.e. 10+ wins in zone)
-  if (getZoneMastery(zoneId) >= 2 && zone.eliteTrainer && r < chestChance + 0.13) {
+  if (mastery >= 2 && zone.eliteTrainer && r < chestChance + 0.13) {
     const trainerKey = zone.eliteTrainer;
     const trainer = TRAINER_TYPES[trainerKey];
     if (trainer) {
-      // Elite: boosted difficulty (diff+2), bigger team, better rewards
+      // Elite: boosted difficulty (diff+2), bigger team, meilleures récompenses
+      // Le scaling mastery s'applique en plus du boost élite de base
       const eliteDiff = trainer.diff + 2;
       const teamSize = clamp(eliteDiff, 2, 4);
       const team = [];
       for (let i = 0; i < teamSize; i++) {
         const sp = pick(zone.pool);
-        const level = randInt(10 + eliteDiff * 4, 20 + eliteDiff * 6);
-        team.push({ species_en: sp, level, stats: calculateStats({ species_en: sp, level, nature: 'hardy', potential: 3 }) });
+        const baseLevel = randInt(10 + eliteDiff * 4, 20 + eliteDiff * 6);
+        const level = Math.min(100, baseLevel + diffScaling.levelBonus);
+        const potential = Math.min(5, 3 + diffScaling.potentialBoost);
+        const stats = calculateStats({ species_en: sp, level, nature: 'hardy', potential });
+        if (diffScaling.statMult !== 1.0) {
+          stats.atk = Math.round(stats.atk * diffScaling.statMult);
+          stats.def = Math.round(stats.def * diffScaling.statMult);
+          stats.spd = Math.round(stats.spd * diffScaling.statMult);
+        }
+        team.push({ species_en: sp, level, stats });
       }
       const eliteTrainer = {
         ...trainer,
@@ -2230,19 +2267,21 @@ function spawnInZone(zoneId) {
     }
   }
 
-  // 4. Raid — 2+ agents (or boss+agent) in zone → group combat (~10%)
+  // 4. Raid — 2+ agents (ou boss+agent) dans la zone + bonus de chance selon mastery
   const zoneAgentCount = state.agents.filter(a => a.assignedZone === zoneId).length;
   const bossHere = state.gang.bossZone === zoneId;
   const canRaid = (zoneAgentCount >= 2 || (zoneAgentCount >= 1 && bossHere)) && zone.trainers.length > 0;
-  if (canRaid && r < 0.30 + 0.10) {
-    return makeRaidSpawn(zone, zoneId);
+  // Mastery augmente la probabilité de raid : base 10%, +6% mastery 2, +15% mastery 3
+  const raidThreshold = 0.30 + 0.10 + diffScaling.raidChanceBonus;
+  if (canRaid && r < raidThreshold) {
+    return makeRaidSpawn(zone, zoneId, mastery);
   }
 
-  // 5. Normal trainer (20%)
+  // 5. Normal trainer (20% base — mastery augmente légèrement la pression via les raids, pas ici)
   if (r < 0.30 && zone.trainers.length > 0) {
     const trainerKey = pick(zone.trainers);
     const trainer = TRAINER_TYPES[trainerKey];
-    const team = makeTrainerTeam(zone, trainerKey);
+    const team = makeTrainerTeam(zone, trainerKey, undefined, mastery);
     return { type: 'trainer', trainerKey, trainer, team };
   }
 
@@ -2250,7 +2289,7 @@ function spawnInZone(zoneId) {
   if (zone.type === 'city' && r < 0.55 && zone.trainers.length > 0) {
     const trainerKey = pick(zone.trainers);
     const trainer = TRAINER_TYPES[trainerKey];
-    if (trainer) return { type: 'trainer', trainerKey, trainer, team: makeTrainerTeam(zone, trainerKey) };
+    if (trainer) return { type: 'trainer', trainerKey, trainer, team: makeTrainerTeam(zone, trainerKey, undefined, mastery) };
   }
 
   // 6. Pokemon spawn — Rare Scope triples chance of rare+ species
@@ -3799,7 +3838,7 @@ function renderGangTab() {
       <img src="${a.sprite}" style="width:44px;height:44px;image-rendering:pixelated" onerror="this.src='${trainerSprite('acetrainer')}'">
       <div style="flex:1;min-width:0">
         <div style="font-family:var(--font-pixel);font-size:9px;color:var(--text)">${a.name}</div>
-        <div style="font-size:9px;color:var(--gold)">${a.title} — Lv.${a.level}</div>
+        <div style="font-size:9px;color:var(--gold)">${getAgentRankLabel(a)} — Lv.${a.level}</div>
         <div style="font-size:8px;color:var(--text-dim)">ATK ${a.stats.combat} CAP ${a.stats.capture} LCK ${a.stats.luck}</div>
         <select class="agent-zone-select" data-agent-id="${a.id}" style="width:100%;margin-top:3px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:3px;font-size:8px;padding:2px 4px">
           <option value="">— Aucune zone —</option>${zoneOptions}
@@ -6070,18 +6109,63 @@ function tickZoneSpawn(zoneId) {
   _tryWingDrop(zoneId);
 }
 
-// Chance de drop d'aile sur Îles Écume (silver_wing) et Route Victoire (rainbow_wing)
+// ── Config spawn d'ombres légendaires (ailes spéciales) ──────
+const SPECIAL_WING_EVENTS = {
+  seafoam_islands: {
+    item:            'silver_wing',
+    itemName:        "Argent'Aile",
+    minDrop:         1,
+    maxDrop:         3,
+    legendaryShadow: 'lugia',       // espèce dont le sprite est utilisé en ombre
+    shadowLabel:     'Ombre de Lugia',
+    spawnChance:     0.06,          // 6% par tick de spawn (mastery ≥ 2)
+    despawnMs:       20_000,        // l'ombre disparaît après 20 s si non cliquée
+  },
+  victory_road: {
+    item:            'rainbow_wing',
+    itemName:        "Arcenci'Aile",
+    minDrop:         1,
+    maxDrop:         3,
+    legendaryShadow: 'ho-oh',
+    shadowLabel:     'Ombre de Ho-Oh',
+    spawnChance:     0.06,
+    despawnMs:       20_000,
+  },
+};
+
+// Tente de faire apparaître une ombre légendaire cliquable dans la zone.
+// Appelé à chaque tick de spawn si la zone est ouverte.
 function _tryWingDrop(zoneId) {
-  const WING_ZONES = { seafoam_islands: 'silver_wing', victory_road: 'rainbow_wing' };
-  const wingId = WING_ZONES[zoneId];
-  if (!wingId) return;
-  const zs = state.zones?.[zoneId];
-  if (!zs || (zs.mastery || 0) < 3) return; // zone doit être au moins niveau 3
-  if (Math.random() > 0.05) return; // 5% par spawn
-  const qty = Math.random() < 0.15 ? 3 : 1; // 15% chance d'obtenir 3
-  zs.pendingItems = zs.pendingItems || {};
-  zs.pendingItems[wingId] = (zs.pendingItems[wingId] || 0) + qty;
-  saveState();
+  const cfg = SPECIAL_WING_EVENTS[zoneId];
+  if (!cfg) return;
+
+  // Mastery minimum 2 (au moins 10 combats gagnés dans la zone)
+  if (getZoneMastery(zoneId) < 2) return;
+
+  // Max 1 ombre active à la fois dans la zone
+  const existing = (zoneSpawns[zoneId] || []).some(s => s.type === 'wing_shadow');
+  if (existing) return;
+
+  if (Math.random() > cfg.spawnChance) return;
+
+  // Créer l'objet spawn
+  const spawnObj = {
+    id:         uid(),
+    type:       'wing_shadow',
+    zoneId,
+    wingCfg:    cfg,
+  };
+
+  if (!zoneSpawns[zoneId]) zoneSpawns[zoneId] = [];
+  zoneSpawns[zoneId].push(spawnObj);
+  renderSpawnInWindow(zoneId, spawnObj);
+  updateZoneTimers(zoneId);
+
+  // Despawn automatique après cfg.despawnMs si non cliqué
+  spawnObj.timeout = setTimeout(() => {
+    removeSpawn(zoneId, spawnObj.id);
+    updateZoneTimers(zoneId);
+  }, cfg.despawnMs);
 }
 
 // Adds a red "VS" badge over a trainer spawn element to indicate combat
@@ -6165,6 +6249,54 @@ function renderSpawnInWindow(zoneId, spawnObj) {
         saveState();
       }, 400);
     });
+  } else if (spawnObj.type === 'wing_shadow') {
+    // ── Ombre légendaire cliquable (Lugia / Ho-Oh) ─────────────
+    const cfg = spawnObj.wingCfg;
+    const spriteUrl = pokeSprite(cfg.legendaryShadow);
+    el.innerHTML = `
+      <div style="position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer">
+        <img src="${spriteUrl}"
+          style="width:64px;height:64px;image-rendering:pixelated;
+                 filter:brightness(0) saturate(0) opacity(.75) drop-shadow(0 0 10px rgba(150,120,255,.9));
+                 animation:float 2.5s ease-in-out infinite">
+        <div style="font-family:var(--font-pixel);font-size:6px;color:rgba(200,180,255,.9);
+                    text-shadow:0 0 6px rgba(150,120,255,.8);letter-spacing:.5px">${cfg.shadowLabel}</div>
+        <div style="font-size:7px;color:var(--gold);animation:glow 1.5s ease-in-out infinite">✦ ${cfg.itemName}</div>
+      </div>`;
+    el.title = `${cfg.shadowLabel} — cliquer pour obtenir des ${cfg.itemName}`;
+    el.style.animation = 'none'; // override default — sprite se charge de l'animation
+
+    el.addEventListener('click', () => {
+      if (el.classList.contains('catching')) return;
+      el.classList.add('catching');
+
+      // Annuler le despawn automatique
+      if (spawnObj.timeout) { clearTimeout(spawnObj.timeout); spawnObj.timeout = null; }
+
+      // Éclair visuel
+      el.style.filter = 'brightness(3)';
+      SFX.play('chest');
+
+      setTimeout(() => {
+        // Drop 1 à 3 ailes
+        const qty = randInt(cfg.minDrop, cfg.maxDrop);
+        state.inventory[cfg.item] = (state.inventory[cfg.item] || 0) + qty;
+
+        // Feedback + log
+        const msg = `✦ ${qty}× ${cfg.itemName} obtenu${qty > 1 ? 's' : ''} ! (${cfg.shadowLabel})`;
+        notify(msg, 'gold');
+        addLog(msg);
+
+        // Burst doré à l'endroit du spawn
+        showCaptureBurst(viewport, parseInt(el.style.left) + 32, parseInt(el.style.top) + 32, 4, false);
+
+        removeSpawn(zoneId, spawnObj.id);
+        updateTopBar();
+        updateZoneTimers(zoneId);
+        saveState();
+      }, 300);
+    });
+
   } else if (spawnObj.type === 'event') {
     const evt = spawnObj.event;
     // Pokeball sprite based on event difficulty/rarity
@@ -8757,7 +8889,7 @@ function renderAgentsTab() {
         <img src="${a.sprite}" alt="${a.name}" onerror="this.src='${FALLBACK_TRAINER_SVG}';this.onerror=null">
         <div class="agent-meta">
           <div class="agent-name">${a.name}</div>
-          <div class="agent-title">${a.title} — Lv.${a.level}</div>
+          <div class="agent-title agent-rank-${a.title}">${getAgentRankLabel(a)} — Lv.${a.level}</div>
           <div class="agent-xp-bar"><div class="agent-xp-fill" style="width:${xpPct}%"></div></div>
         </div>
       </div>
@@ -11239,7 +11371,7 @@ Object.assign(globalThis, {
   // UI / state helpers
   notify, saveState,
   checkForNewlyUnlockedZones, updateTopBar, tryAutoIncubate,
-  renderZonesTab, renderGangTab, renderPokemonGrid, renderEggsView,
+  renderZonesTab, renderGangTab, renderAgentsTab, renderPokemonGrid, renderEggsView,
   // Audio
   SFX,
   // Zone / spawn functions (agent module)
@@ -11255,7 +11387,7 @@ Object.assign(globalThis, {
   BASE_PRICE, POTENTIAL_MULT, NATURES, BALLS, MYSTERY_EGG_POOL,
   MAX_COMBAT_REWARD, BALL_SPRITES,
   AGENT_NAMES_M, AGENT_NAMES_F, AGENT_SPRITES, AGENT_PERSONALITIES,
-  TITLE_REQUIREMENTS, TITLE_BONUSES,
+  TITLE_REQUIREMENTS, TITLE_BONUSES, AGENT_RANK_LABELS, RANK_CHAIN,
   // sessionObjectives module
   isZoneUnlocked,
   BOOST_DURATIONS, ITEM_SPRITE_URLS,

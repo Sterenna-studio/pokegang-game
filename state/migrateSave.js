@@ -75,10 +75,41 @@ export function migrateSave(saved, deps) {
   if (!merged.missions.hourly) merged.missions.hourly = { reset: 0, slots: [], baseline: {}, claimed: [] };
   if (!Array.isArray(merged.missions.completed)) merged.missions.completed = [];
 
+  // ── Migration grades agents (v2) ────────────────────────────
+  // Ancien système : grunt / lieutenant / captain
+  // Nouveau système : grunt / sergent / lieutenant / commandant / elite / general
+  if (!merged.stats.agentsEliteCount) merged.stats.agentsEliteCount = 0;
+
   for (const agent of merged.agents) {
     if (agent.notifyCaptures === undefined) agent.notifyCaptures = true;
     if (!Array.isArray(agent.perkLevels)) agent.perkLevels = [];
     if (agent.pendingPerk === undefined) agent.pendingPerk = false;
+
+    // Convertir l'ancien grade 'captain' → 'commandant'
+    if (agent.title === 'captain') agent.title = 'commandant';
+
+    // Recalcul des promotions manquantes selon le niveau actuel
+    // (ex : un grunt lv.60 doit être promu sergent + lieutenant)
+    const lvl = agent.level || 1;
+    const CHAIN = [
+      { from: 'grunt',      to: 'sergent',    lvl: 25 },
+      { from: 'sergent',    to: 'lieutenant', lvl: 50 },
+      { from: 'lieutenant', to: 'commandant', lvl: 75 },
+    ];
+    for (const step of CHAIN) {
+      if (agent.title === step.from && lvl >= step.lvl) {
+        agent.title = step.to;
+      }
+    }
+    // Palier 100 : si commandant niveau 100 sans grade élite/général encore affecté
+    if (agent.title === 'commandant' && lvl >= 100) {
+      if (merged.stats.agentsEliteCount < 4) {
+        agent.title = 'elite';
+        merged.stats.agentsEliteCount++;
+      } else {
+        agent.title = 'general';
+      }
+    }
   }
 
   for (const p of merged.pokemons) {

@@ -71,7 +71,7 @@ function openAgentRecruitModal(onAfterRecruit) {
 
   const candidates = [rollNewAgent(), rollNewAgent(), rollNewAgent()];
 
-  const TITLE_FR = { grunt:'Grunt', soldier:'Soldat', lieutenant:'Lieutenant', captain:'Capitaine', commander:'Commandant' };
+  const TITLE_FR = { grunt:'Grunt', sergent:'Sergent', lieutenant:'Lieutenant', commandant:'Commandant', elite:'Élite', general:'Général' };
   function statBar(val, max = 20) {
     const pct = Math.round(Math.min(val / max, 1) * 100);
     return `<div style="height:4px;background:var(--bg);border-radius:2px;width:80px;overflow:hidden"><div style="height:100%;width:${pct}%;background:var(--gold)"></div></div>`;
@@ -193,21 +193,69 @@ function grantAgentXP(agent, amount) {
   checkPromotion(agent);
 }
 
-function checkPromotion(agent) {
-  const TITLE_REQUIREMENTS = globalThis.TITLE_REQUIREMENTS;
-  if (agent.title === 'grunt' &&
-      agent.level >= TITLE_REQUIREMENTS.lieutenant.level &&
-      agent.combatsWon >= TITLE_REQUIREMENTS.lieutenant.combatsWon) {
-    agent.title = 'lieutenant';
-    globalThis.notify(globalThis.t('agent_promo', { agent: agent.name, title: 'Lieutenant' }), 'gold');
-    globalThis.addLog(globalThis.t('agent_promo', { agent: agent.name, title: 'Lieutenant' }));
+// Retourne le label d'affichage du grade d'un agent (avec nom de gang pour élite/général)
+function getAgentRankLabel(agent) {
+  const AGENT_RANK_LABELS = globalThis.AGENT_RANK_LABELS;
+  const state = globalThis.state;
+  const def = AGENT_RANK_LABELS?.[agent.title];
+  if (!def) return agent.title;
+  const base = state.lang === 'fr' ? def.fr : def.en;
+  if (agent.title === 'elite' || agent.title === 'general') {
+    return `${base} ${state.gang?.name || ''}`.trim();
   }
-  if (agent.title === 'lieutenant' &&
-      agent.level >= TITLE_REQUIREMENTS.captain.level &&
-      agent.combatsWon >= TITLE_REQUIREMENTS.captain.combatsWon) {
-    agent.title = 'captain';
-    globalThis.notify(globalThis.t('agent_promo', { agent: agent.name, title: 'Captain' }), 'gold');
-    globalThis.addLog(globalThis.t('agent_promo', { agent: agent.name, title: 'Captain' }));
+  return base;
+}
+
+// Vérifie et applique la promotion de grade pour un agent.
+// Chaîne : grunt → sergent (25) → lieutenant (50) → commandant (75) → élite/général (100)
+// Les 4 premiers à atteindre le niveau 100 sont "Élite [gang]", les suivants "Général [gang]".
+function checkPromotion(agent) {
+  const RANK_CHAIN = globalThis.RANK_CHAIN; // ['grunt','sergent','lieutenant','commandant']
+  const TITLE_REQUIREMENTS = globalThis.TITLE_REQUIREMENTS;
+  const AGENT_RANK_LABELS = globalThis.AGENT_RANK_LABELS;
+  const state = globalThis.state;
+
+  // Escalier de promotions fixes
+  const steps = [
+    { from: 'grunt',      to: 'sergent',    level: TITLE_REQUIREMENTS.sergent.level },
+    { from: 'sergent',    to: 'lieutenant', level: TITLE_REQUIREMENTS.lieutenant.level },
+    { from: 'lieutenant', to: 'commandant', level: TITLE_REQUIREMENTS.commandant.level },
+  ];
+
+  let promoted = false;
+
+  for (const step of steps) {
+    if (agent.title === step.from && agent.level >= step.level) {
+      agent.title = step.to;
+      const label = AGENT_RANK_LABELS?.[step.to]?.fr || step.to;
+      globalThis.notify(`🏅 ${agent.name} promu ${label} !`, 'gold');
+      globalThis.addLog(`${agent.name} — promotion : ${label}`);
+      promoted = true;
+    }
+  }
+
+  // Palier niveau 100 : élite (4 premiers) ou général (les suivants)
+  if (agent.title === 'commandant' && agent.level >= 100) {
+    if (!state.stats) state.stats = {};
+    const eliteCount = state.stats.agentsEliteCount || 0;
+    const gangName = state.gang?.name || '';
+    if (eliteCount < 4) {
+      agent.title = 'elite';
+      state.stats.agentsEliteCount = eliteCount + 1;
+      globalThis.notify(`★★ ${agent.name} est désormais Élite ${gangName} ! ★★`, 'gold');
+      globalThis.addLog(`${agent.name} — grade ÉLITE ${gangName} obtenu !`);
+    } else {
+      agent.title = 'general';
+      globalThis.notify(`★ ${agent.name} est désormais Général ${gangName} !`, 'gold');
+      globalThis.addLog(`${agent.name} — grade GÉNÉRAL ${gangName} obtenu !`);
+    }
+    promoted = true;
+  }
+
+  // Refresh immédiat de l'onglet actif si une promotion a eu lieu
+  if (promoted) {
+    if (globalThis.activeTab === 'tabAgents') globalThis.renderAgentsTab?.();
+    if (globalThis.activeTab === 'tabGang')   globalThis.renderGangTab?.();
   }
 }
 
@@ -561,6 +609,7 @@ Object.assign(globalThis, {
   assignAgentToZone,
   grantAgentXP,
   checkPromotion,
+  getAgentRankLabel,
   getAgentCombatPower,
   passiveAgentTick,
   agentTick,

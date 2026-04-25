@@ -1910,7 +1910,27 @@
     }
     .agent-card-full .agent-meta { flex: 1; min-width: 0; }
     .agent-card-full .agent-name { font-family: var(--font-pixel); font-size: 11px; color: var(--text); }
-    .agent-card-full .agent-title { font-size: 10px; color: var(--gold); text-transform: uppercase; }
+    .agent-card-full .agent-title {
+      font-size: 10px;
+      font-family: var(--font-pixel);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      color: var(--gold); /* fallback */
+    }
+    /* Couleur par grade */
+    .agent-card-full .agent-rank-grunt      { color: var(--text-dim); }
+    .agent-card-full .agent-rank-sergent    { color: #7eb8f7; }        /* bleu clair */
+    .agent-card-full .agent-rank-lieutenant { color: #6ecf8a; }        /* vert */
+    .agent-card-full .agent-rank-commandant { color: #f0a842; }        /* orange */
+    .agent-card-full .agent-rank-elite {
+      color: var(--gold);
+      text-shadow: 0 0 8px rgba(255, 204, 60, .7);
+      animation: glow 2s ease-in-out infinite;
+    }
+    .agent-card-full .agent-rank-general {
+      color: #e05c5c;
+      text-shadow: 0 0 6px rgba(220, 80, 80, .6);
+    }
     .agent-card-full .agent-xp-bar {
       height: 6px;
       background: var(--bg);

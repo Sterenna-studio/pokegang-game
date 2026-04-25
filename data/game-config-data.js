@@ -56,10 +56,40 @@ const AGENT_SPRITES = [
 ];
 const AGENT_PERSONALITIES = ['loyal','nervous','reckless','calm','cunning','lazy','fierce','quiet','greedy','brave','curious','stubborn'];
 
+// ── Nouveau système de grades (v2) ────────────────────────────
+// Progression séquentielle : grunt → sergent → lieutenant → commandant → élite/général
+// Élite [gang] : les 4 premiers à atteindre le niveau 100
+// Général [gang] : tous ceux qui suivent
 const TITLE_REQUIREMENTS = {
-  lieutenant: { level: 50, combatsWon: 25 },
-  captain:    { level: 75, combatsWon: 200 },
+  sergent:    { level: 25 },
+  lieutenant: { level: 50 },
+  commandant: { level: 75 },
+  elite:      { level: 100 },
+  general:    { level: 100 },
 };
-const TITLE_BONUSES = { grunt: 0, lieutenant: 0.15, captain: 0.30 };
 
-export { NATURES, NATURE_KEYS, BOSS_SPRITES, AGENT_NAMES_M, AGENT_NAMES_F, AGENT_SPRITES, AGENT_PERSONALITIES, TITLE_REQUIREMENTS, TITLE_BONUSES };
+// Bonus de puissance de combat par grade
+const TITLE_BONUSES = {
+  grunt:      0,
+  sergent:    0.08,
+  lieutenant: 0.18,
+  commandant: 0.30,
+  elite:      0.45,
+  general:    0.40,
+};
+
+// Labels d'affichage par grade (FR / EN)
+// Pour 'elite' et 'general', le nom du gang est ajouté dynamiquement
+const AGENT_RANK_LABELS = {
+  grunt:      { fr: 'Grunt',      en: 'Grunt'      },
+  sergent:    { fr: 'Sergent',    en: 'Sergeant'   },
+  lieutenant: { fr: 'Lieutenant', en: 'Lieutenant' },
+  commandant: { fr: 'Commandant', en: 'Commander'  },
+  elite:      { fr: 'Élite',      en: 'Elite'      },
+  general:    { fr: 'Général',    en: 'General'    },
+};
+
+// Chaîne ordonnée des grades (hors élite/général qui sont des variantes du dernier palier)
+const RANK_CHAIN = ['grunt', 'sergent', 'lieutenant', 'commandant'];
+
+export { NATURES, NATURE_KEYS, BOSS_SPRITES, AGENT_NAMES_M, AGENT_NAMES_F, AGENT_SPRITES, AGENT_PERSONALITIES, TITLE_REQUIREMENTS, TITLE_BONUSES, AGENT_RANK_LABELS, RANK_CHAIN };
