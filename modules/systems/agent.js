@@ -280,6 +280,7 @@ function passiveAgentTick() {
   const now = Date.now();
   const openZones = globalThis.openZones;
   const ZONE_BY_ID = globalThis.ZONE_BY_ID;
+  if (!openZones || !ZONE_BY_ID) return; // pas encore initialisé
 
   for (const agent of state.agents) {
     if (!agent.assignedZone) continue;

@@ -39,7 +39,7 @@ const ZONES = [
     trainers:['acetrainer','blackbelt'], eliteTrainer:'lance', investCost:35000 },
   { id:'unknown_cave',  fr:'Grotte Inconnue',   en:'Cerulean Cave',     rep:1100,spawnRate:0.03, type:'route',
     pool:['mewtwo','ditto','kadabra','alakazam','electrode','rhydon','chansey','wigglytuff'],
-    trainers:[], eliteTrainer:'red', investCost:60000 },
+    trainers:['lorelei','bruno','agatha','lance','blue'], eliteTrainer:'red', investCost:60000 },
 
   // ══ VILLES (spawn + arène) ══
   { id:'pewter_gym',    fr:'Argenta',           en:'Pewter City',       rep:150, spawnRate:0.06, type:'city',

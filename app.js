@@ -992,6 +992,7 @@ const SFX = (() => {
   }
   function playTone(freq, duration, type = 'square', volume = 0.15) {
     const c = getCtx();
+    if (c.state === 'suspended') { c.resume().catch(() => {}); return; }
     const osc = c.createOscillator();
     const gain = c.createGain();
     const sfxMult = (state?.settings?.sfxVol ?? 80) / 100;
@@ -11172,7 +11173,7 @@ async function supaFetchLeaderboard() {
   if (!_supabase) return '<div style="color:var(--text-dim);font-size:10px">Non disponible.</div>';
   const { data, error } = await _supabase
     .from('players')
-    .select('user_id, gang_name, boss_name, reputation, shiny_count, pokedex_count')
+    .select('user_id, gang_name, boss_name, reputation, shiny_count, shiny_species_count, dex_kanto_count, dex_national_count')
     .order('reputation', { ascending: false })
     .limit(10);
 
@@ -11193,7 +11194,7 @@ async function supaFetchLeaderboard() {
         </div>
         <div style="text-align:right">
           <div style="color:var(--gold);font-size:10px;font-weight:bold">${p.reputation.toLocaleString('fr-FR')} rép</div>
-          <div style="color:var(--text-dim);font-size:8px;margin-top:2px">✨ ${p.shiny_count} shiny &nbsp;·&nbsp; 📖 ${p.pokedex_count}/151</div>
+          <div style="color:var(--text-dim);font-size:8px;margin-top:2px">✨ ${p.shiny_species_count ?? p.shiny_count ?? 0} esp. chroma &nbsp;·&nbsp; 📖 ${p.dex_kanto_count ?? 0}/151 <span style="opacity:.6">(Nat. ${p.dex_national_count ?? 0})</span></div>
         </div>
       </div>`;
   }).join('');
