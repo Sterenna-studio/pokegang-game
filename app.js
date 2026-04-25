@@ -6705,6 +6705,9 @@ function openCombatPopup(zoneId, spawnObj) {
   inlineCombat.classList.add('active');
   inlineCombat.classList.remove('collapsed');
 
+  // Switch to battle log tab so player can watch the fight
+  if (activeTab !== 'tabBattleLog') switchTab('tabBattleLog');
+
   // Auto-execute combat after brief delay (flee cancels it)
   let autoCombatTimer = setTimeout(executeCombat, 600);
   inlineCombat.querySelector(`[data-zone-flee="${zoneId}"]`)?.addEventListener('click', () => {
@@ -6863,18 +6866,30 @@ function executeCombat() {
         document.getElementById(`combatFighterEnemy-${zoneId}`)?.classList.add('fighter-ko');
       }
 
-      if (actionsEl) actionsEl.innerHTML = `<span style="color:var(--text-dim);font-size:9px;font-family:var(--font-pixel)">Fermeture...</span>`;
       logEl?.scrollTo(0, logEl.scrollHeight);
 
-      // Auto-close after 3.5s
-      setTimeout(() => {
+      // Close handler — can be triggered by button or auto-close timer
+      function doCloseCombat() {
+        clearTimeout(autoCloseTimer);
         if (inlineCombat) inlineCombat.classList.remove('active');
         removeSpawn(zoneId, spawnObj.id);
         updateTopBar();
         currentCombat = null;
         globalThis.currentCombat = null;
         if (activeTab === 'tabGang') renderGangTab();
-      }, 3500);
+      }
+
+      if (actionsEl) {
+        actionsEl.innerHTML = '';
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'inline-flee-btn';
+        closeBtn.textContent = 'Fermer';
+        closeBtn.addEventListener('click', doCloseCombat);
+        actionsEl.appendChild(closeBtn);
+      }
+
+      // Auto-close after 7s if player doesn't click
+      const autoCloseTimer = setTimeout(doCloseCombat, 7000);
     }
   }
   animateStep();
@@ -7382,18 +7397,30 @@ function renderBattleLog() {
     const time = new Date(e.ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
     const resultColor = e.win ? 'var(--green)' : 'var(--red)';
     const resultText = e.win ? `+${e.reward}₽ +${e.repGain}rep` : 'Défaite';
-    return `<div class="battle-log-entry" data-log-idx="${i}">
+    return `<div class="battle-log-entry expanded" data-log-idx="${i}">
       <div class="battle-log-summary" style="display:flex;gap:4px;align-items:center">
         <span style="color:var(--text-dim);font-size:9px">${time}</span>
         <span style="flex:1;font-size:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.zoneName}</span>
         <span style="color:${resultColor};font-size:9px;white-space:nowrap">${resultText}</span>
-        <span style="color:var(--text-dim);font-size:8px">›</span>
+        <span class="battle-log-chevron" style="color:var(--text-dim);font-size:8px">›</span>
+        <button class="battle-log-close" data-log-idx="${i}" title="Fermer">✕</button>
       </div>
       <div class="battle-log-detail">${(e.lines || []).map(l => `<div>${l}</div>`).join('')}</div>
     </div>`;
   }).join('');
-  history.querySelectorAll('.battle-log-entry').forEach(el => {
-    el.addEventListener('click', () => el.classList.toggle('expanded'));
+  history.querySelectorAll('.battle-log-summary').forEach(summaryEl => {
+    summaryEl.addEventListener('click', ev => {
+      if (ev.target.classList.contains('battle-log-close')) return;
+      summaryEl.closest('.battle-log-entry').classList.toggle('expanded');
+    });
+  });
+  history.querySelectorAll('.battle-log-close').forEach(btn => {
+    btn.addEventListener('click', ev => {
+      ev.stopPropagation();
+      const idx = parseInt(btn.dataset.logIdx, 10);
+      battleLogEntries.splice(idx, 1);
+      renderBattleLog();
+    });
   });
   updateBattleLogMiniSprites();
 }
