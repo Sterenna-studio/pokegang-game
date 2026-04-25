@@ -681,8 +681,113 @@
     .zone-ftab:hover { border-color: var(--border-light); color: var(--text); }
     .zone-ftab.active { border-color: var(--red); color: var(--gold); background: var(--bg-hover); }
 
-    #zoneSelector { width: 100%; }
+    #zoneSelector { width: 100%; min-width: 0; }
     #zoneWindows { max-height: none !important; }
+
+    /* ── Fog-map layout (grid + fav sidebar) ────────────────────── */
+    .fog-map-layout {
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+    }
+    .fog-fav-sidebar {
+      flex: 0 0 32px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-top: 8px;
+    }
+    .fog-fav-pill {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--gold-dim);
+      font-size: 14px;
+      cursor: pointer;
+      transition: border-color .15s, color .15s, transform .1s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+    }
+    .fog-fav-pill:hover { border-color: var(--gold-dim); color: var(--gold); transform: scale(1.1); }
+    .fog-fav-pill.active {
+      border-color: var(--gold);
+      color: var(--gold);
+      background: var(--bg-hover);
+      box-shadow: 0 0 8px rgba(255,204,90,.3);
+    }
+
+    /* ── Zone context menu ───────────────────────────────────────── */
+    .zone-ctx-menu {
+      position: fixed;
+      z-index: 9999;
+      background: var(--bg-card);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-sm);
+      min-width: 172px;
+      box-shadow: 0 4px 24px rgba(0,0,0,.65);
+      overflow: hidden;
+      animation: ctxFadeIn .1s ease;
+      user-select: none;
+    }
+    @keyframes ctxFadeIn {
+      from { opacity: 0; transform: scale(.95) translateY(-4px); }
+      to   { opacity: 1; transform: scale(1)  translateY(0); }
+    }
+    .zone-ctx-header {
+      font-family: var(--font-pixel);
+      font-size: 8px;
+      color: var(--gold);
+      padding: 7px 10px 5px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-panel);
+      letter-spacing: 1px;
+    }
+    .zone-ctx-header .zone-ctx-back {
+      all: unset;
+      cursor: pointer;
+      color: var(--gold);
+      font-family: var(--font-pixel);
+      font-size: 8px;
+      letter-spacing: 1px;
+    }
+    .zone-ctx-header .zone-ctx-back:hover { color: var(--text); }
+    .zone-ctx-section {
+      font-family: var(--font-pixel);
+      font-size: 7px;
+      color: var(--text-dim);
+      letter-spacing: 1px;
+      padding: 5px 10px 2px;
+      background: var(--bg-panel);
+    }
+    .zone-ctx-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      padding: 7px 10px;
+      background: none;
+      border: none;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+      font-size: 11px;
+      cursor: pointer;
+      text-align: left;
+      transition: background .1s;
+      box-sizing: border-box;
+    }
+    .zone-ctx-item:last-child { border-bottom: none; }
+    .zone-ctx-item:hover:not(:disabled) { background: var(--bg-hover); }
+    .zone-ctx-item:disabled, .zone-ctx-item.zone-ctx-disabled { opacity: .38; cursor: default; pointer-events: none; }
+    .zone-ctx-icon { font-size: 12px; flex-shrink: 0; width: 16px; text-align: center; }
+    .zone-ctx-sub::after { content: ''; flex: 1; }
+    .zone-ctx-sub .zone-ctx-icon + span { flex: 1; }
+    .zone-ctx-empty { padding: 8px 10px; font-size: 10px; color: var(--text-dim); font-style: italic; }
+    .zone-ctx-agent.assigned { color: var(--gold); }
+    .zone-ctx-agent.assigned .zone-ctx-icon { color: var(--gold); }
 
     /* ── Fog-of-War Zone Map ─────────────────────────────────────── */
     .fog-split-layout {

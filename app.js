@@ -12,6 +12,14 @@ import './modules/systems/agent.js';
 import './modules/systems/sessionObjectives.js';
 import './modules/systems/trainingRoom.js';
 import './modules/systems/pension.js';
+import {
+  renderZoneSelector   as _zsRenderSelector,
+  refreshZoneTile      as _zsRefreshTile,
+  refreshZoneIncomeTile as _zsRefreshIncome,
+  updateZoneButtons    as _zsUpdateButtons,
+  bindZoneActionButtons as _zsBindActions,
+  showZoneContextMenu  as _zsShowCtxMenu,
+} from './modules/ui/zoneSelector.js';
 
 import { POKEDEX_DESC } from './data/pokedex-desc.js';
 import { ZONE_BGS, COSMETIC_BGS } from './data/zones-visuals-data.js';
@@ -2927,7 +2935,7 @@ function triggerGymRaid(zoneId, isAuto) {
 // ════════════════════════════════════════════════════════════════
 
 let activeTab = 'tabZones';
-let zoneFilter = 'all'; // 'all' | 'fav' | 'route' | 'city' | 'special'
+// zoneFilter state is now managed inside modules/ui/zoneSelector.js
 
 function hintLink(label, tabId) {
   return `<button onclick="switchTab('${tabId}')" style="font-family:var(--font-pixel);font-size:9px;color:var(--red);background:none;border:none;border-bottom:1px solid var(--red);cursor:pointer;padding:0">${label}</button>`;
@@ -4557,227 +4565,17 @@ function collectAllZones() {
 // ════════════════════════════════════════════════════════════════
 
 function renderZonesTab() {
-  renderZoneSelector();
+  _zsRenderSelector();
   renderZoneWindows();
-  _bindZoneActionButtons();
+  _zsBindActions();
   renderGangBasePanel(); // updates drawer handle + panel content
 }
 
-function _bindZoneActionButtons() {
-  // ── "Fermer tout" ──────────────────────────────────────────
-  const btnCloseAll = document.getElementById('btnCloseAllZones');
-  if (btnCloseAll && !btnCloseAll._bound) {
-    btnCloseAll._bound = true;
-    btnCloseAll.addEventListener('click', () => {
-      [...openZones].forEach(zid => closeZoneWindow(zid));
-    });
-  }
-
-  // ── "Tout récolter" ────────────────────────────────────────
-  const btnCollectAll = document.getElementById('btnCollectAllZones');
-  if (btnCollectAll && !btnCollectAll._bound) {
-    btnCollectAll._bound = true;
-    btnCollectAll.addEventListener('click', collectAllZones);
-  }
-
-  _updateZoneButtons();
-}
-
-function renderZoneSelector() {
-  const el = document.getElementById('zoneSelector');
-  if (!el) return;
-
-  // Filter zones based on active tab
-  let filteredZones;
-  switch (zoneFilter) {
-    case 'fav':     filteredZones = ZONES.filter(z => (state.favoriteZones||[]).includes(z.id)); break;
-    case 'route':   filteredZones = ZONES.filter(z => z.type === 'route'); break;
-    case 'city':    filteredZones = ZONES.filter(z => z.type === 'city'); break;
-    case 'special': filteredZones = ZONES.filter(z => z.type === 'special'); break;
-    default:        filteredZones = ZONES; break;
-  }
-
-  function buildTile(zone) {
-    const unlocked = isZoneUnlocked(zone.id);
-    const isOpen = openZones.has(zone.id);
-    const name = state.lang === 'fr' ? zone.fr : zone.en;
-    const bg = ZONE_BGS[zone.id];
-    const bgStyle = bg
-      ? `background-image:url('${bg.url}'),linear-gradient(180deg,${bg.fb});background-size:cover;background-position:center;`
-      : `background:var(--bg-panel);`;
-    const zState = state.zones[zone.id] || {};
-    const combats = zState.combatsWon || 0;
-    const gymTag = zone.type === 'city' ? ' [VILLE]' : zone.type === 'special' ? ' [SP]' : '';
-    const mastery = getZoneMastery(zone.id) || 0;
-    const degraded = isZoneDegraded(zone.id);
-
-    if (unlocked) {
-      const degradedTag = degraded ? ' ⚠' : '';
-      const income = zState.pendingIncome || 0;
-      const incomeTier = income <= 0 ? 0 : income < 500 ? 1 : income < 2000 ? 2 : income < 5000 ? 3 : income < 15000 ? 4 : 5;
-      const incomeHtml = incomeTier > 0 ? `<div class="zone-income-btn income-tier${incomeTier}" data-collect-zone="${zone.id}">₽</div>` : '';
-      const isCity = zone.type === 'city';
-      const isFav = (state.favoriteZones || []).includes(zone.id);
-      let displayName = name;
-      if (isCity) {
-        const raidReady = (state.zones[zone.id]?.combatsWon || 0) >= 10 && zone.gymLeader;
-        displayName = zState.gymDefeated
-          ? `<span style="color:var(--gold)">${name} ⚔</span>`
-          : raidReady
-            ? `<span style="color:var(--red)">${name} !</span>`
-            : `<span style="color:var(--text-dim)">${name}</span>`;
-      }
-      const poolPreview = zone.pool.slice(0, 5).map(en =>
-        `<img src="${pokeSprite(en)}" style="width:16px;height:16px;image-rendering:pixelated;filter:drop-shadow(0 1px 3px rgba(0,0,0,1))" title="${SPECIES_BY_EN[en]?.fr || en}">`
-      ).join('');
-      const musicKey = zone.music;
-      const musicIcon = musicKey ? '🎵' : '';
-
-      return `<div class="fog-tile unlocked ${isOpen ? 'fog-open' : ''} zone-type-${zone.type}${degraded ? ' fog-degraded' : ''}"
-        data-zone="${zone.id}" style="${bgStyle}">
-        <div class="fog-tile-overlay"></div>
-        <div class="fog-tile-pool-preview">${poolPreview}</div>
-        <div class="fog-tile-content">
-          <div class="fog-tile-name">${displayName}${degradedTag}</div>
-          <div class="fog-tile-stats">${'★'.repeat(mastery)}${mastery ? ' ' : ''}${combats}W${musicIcon ? ' '+musicIcon : ''}</div>
-          <div class="fog-tile-status">${isOpen ? '[OUVERT]' : (degraded ? '[COMBAT]' : '[ENTRER]')}</div>
-        </div>
-        ${incomeHtml}
-        <button class="zone-fav-btn" data-fav-zone="${zone.id}" title="${isFav ? 'Retirer des favoris' : 'Ouvrir automatiquement au démarrage'}">${isFav ? '★' : '☆'}</button>
-      </div>`;
-    } else {
-      const repDiff = zone.rep > state.gang.reputation ? zone.rep - state.gang.reputation : 0;
-      const needsItem = zone.unlockItem && !state.purchases?.[zone.unlockItem];
-      const itemDef = needsItem ? SHOP_ITEMS.find(s => s.id === zone.unlockItem) : null;
-      const isWingPermit = needsItem && (zone.unlockItem === 'tourbillon_permit' || zone.unlockItem === 'carillon_permit');
-      let lockHint, lockSub;
-      if (isWingPermit) {
-        const wingId   = zone.unlockItem === 'tourbillon_permit' ? 'silver_wing' : 'rainbow_wing';
-        const wingName = zone.unlockItem === 'tourbillon_permit' ? "Argent'Aile" : "Arcenci'Aile";
-        const have     = state.inventory?.[wingId] || 0;
-        const pct      = Math.min(100, Math.round(have / 50 * 100));
-        lockHint = `${wingName}`;
-        lockSub  = `<div style="height:3px;background:rgba(255,255,255,0.15);border-radius:2px;margin:3px 0;overflow:hidden">
-                      <div style="height:100%;width:${pct}%;background:var(--gold);border-radius:2px"></div>
-                    </div>
-                    <div style="font-size:8px;color:var(--gold)">${have}/50</div>`;
-      } else if (needsItem) {
-        lockHint = state.lang === 'fr' ? (itemDef?.fr || zone.unlockItem) : (itemDef?.en || zone.unlockItem);
-        lockSub  = '';
-      } else {
-        lockHint = `Rep +${repDiff}`;
-        lockSub  = '';
-      }
-      return `<div class="fog-tile locked">
-        <div class="fog-tile-overlay fog"></div>
-        <div class="fog-tile-content">
-          <div class="fog-tile-name" style="letter-spacing:2px;color:rgba(255,255,255,0.3)">?????</div>
-          <div class="fog-tile-stats" style="${needsItem ? 'color:var(--gold)' : ''}">${lockHint}</div>
-          ${lockSub}
-        </div>
-      </div>`;
-    }
-  }
-
-  el.innerHTML = `<div class="fog-map">${filteredZones.map(buildTile).join('')}</div>`;
-
-  el.querySelectorAll('.fog-tile.unlocked').forEach(tile => {
-    tile.addEventListener('click', () => {
-      const zid = tile.dataset.zone;
-      if (openZones.has(zid)) closeZoneWindow(zid);
-      else openZoneWindow(zid);
-    });
-  });
-
-  el.querySelectorAll('[data-collect-zone]').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      openCollectionModal(btn.dataset.collectZone);
-    });
-  });
-
-  el.querySelectorAll('[data-fav-zone]').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      const zid = btn.dataset.favZone;
-      if (!state.favoriteZones) state.favoriteZones = [];
-      const idx = state.favoriteZones.indexOf(zid);
-      if (idx === -1) {
-        state.favoriteZones.push(zid);
-        btn.textContent = '★';
-        btn.title = 'Retirer des favoris';
-        notify(`${ZONE_BY_ID[zid]?.fr || zid} ajoutée aux favoris — s'ouvrira au démarrage`, 'success');
-      } else {
-        state.favoriteZones.splice(idx, 1);
-        btn.textContent = '☆';
-        btn.title = 'Ouvrir automatiquement au démarrage';
-        notify(`${ZONE_BY_ID[zid]?.fr || zid} retirée des favoris`, 'success');
-      }
-      SFX.play('click');
-      saveState();
-    });
-  });
-
-  // Bind filter tabs
-  document.querySelectorAll('.zone-ftab').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.filter === zoneFilter);
-    if (!btn._filterBound) {
-      btn._filterBound = true;
-      btn.addEventListener('click', () => {
-        zoneFilter = btn.dataset.filter;
-        renderZoneSelector();
-      });
-    }
-  });
-}
-
-// Mise à jour légère d'une tuile de zone sans re-render complet de la liste
-function _refreshZoneTile(zoneId) {
-  const tile = document.querySelector(`#zoneSelector [data-zone="${zoneId}"]`);
-  if (!tile) return;
-  const isOpen = openZones.has(zoneId);
-  tile.classList.toggle('fog-open', isOpen);
-  const statusEl = tile.querySelector('.fog-tile-status');
-  if (statusEl) {
-    const degraded = isZoneDegraded(zoneId);
-    statusEl.textContent = isOpen ? '[OUVERT]' : degraded ? '[COMBAT]' : '[ENTRER]';
-  }
-  _refreshZoneIncomeTile(zoneId);
-}
-
-// Met à jour uniquement le bouton ₽ d'une fog-tile après une récolte
-function _refreshZoneIncomeTile(zoneId) {
-  const tile = document.querySelector(`#zoneSelector [data-zone="${zoneId}"]`);
-  if (!tile) return;
-  const income = state.zones?.[zoneId]?.pendingIncome || 0;
-  const incomeTier = income <= 0 ? 0 : income < 500 ? 1 : income < 2000 ? 2 : income < 5000 ? 3 : income < 15000 ? 4 : 5;
-  const existing = tile.querySelector('.zone-income-btn');
-  if (incomeTier === 0) {
-    existing?.remove();
-  } else if (existing) {
-    existing.className = `zone-income-btn income-tier${incomeTier}`;
-  } else {
-    const btn = document.createElement('div');
-    btn.className = `zone-income-btn income-tier${incomeTier}`;
-    btn.dataset.collectZone = zoneId;
-    btn.textContent = '₽';
-    btn.addEventListener('click', e => { e.stopPropagation(); openCollectionModal(zoneId); });
-    const content = tile.querySelector('.fog-tile-content');
-    if (content) content.appendChild(btn);
-  }
-}
-
-// Met à jour la visibilité du bouton Fermer-tout + Tout-récolter
-function _updateZoneButtons() {
-  const btnClose = document.getElementById('btnCloseAllZones');
-  const btnCollect = document.getElementById('btnCollectAllZones');
-  const hasOpen = openZones.size > 0;
-  if (btnClose) btnClose.style.display = hasOpen ? '' : 'none';
-  if (btnCollect) {
-    const hasPending = hasOpen && [...openZones].some(zid => (state.zones[zid]?.pendingIncome || 0) > 0);
-    btnCollect.style.display = hasPending ? '' : 'none';
-  }
-}
+// ── Zone selector UI — delegated to modules/ui/zoneSelector.js ──
+function renderZoneSelector()           { _zsRenderSelector(); }
+function _refreshZoneTile(zoneId)       { _zsRefreshTile(zoneId); }
+function _refreshZoneIncomeTile(zoneId) { _zsRefreshIncome(zoneId); }
+function _updateZoneButtons()           { _zsUpdateButtons(); }
 
 function openZoneWindow(zoneId) {
   // Guard : si déjà ouverte, ne rien faire (évite les timers orphelins)
@@ -11896,6 +11694,10 @@ Object.assign(globalThis, {
   pokeSprite, tryAutoEvolution,
   // pension module
   showConfirm, renderPCTab,
+  // zoneSelector module — zone helpers + data it reads from globalThis
+  isZoneDegraded, getZoneMastery, openCollectionModal,
+  getZoneSlotCost, ZONE_SLOT_COSTS, ZONE_BGS, SHOP_ITEMS,
+  collectAllZones, openZoneWindow, closeZoneWindow,
 });
 
 function boot() {
