@@ -1056,28 +1056,79 @@
       padding: 4px;
       max-height: 200px;
     }
-    .battle-log-entry {
-      border-bottom: 1px solid var(--border);
-      padding: 4px 6px;
-    }
-    .battle-log-entry:hover { background: rgba(255,255,255,.04); }
-    .battle-log-summary { font-size: 10px; cursor: pointer; }
-    .battle-log-detail { display: none; font-size: 9px; color: var(--text-dim); padding-top: 4px; }
-    .battle-log-entry.expanded .battle-log-detail { display: block; }
-    .battle-log-entry.expanded .battle-log-chevron { transform: rotate(90deg); display: inline-block; }
-    .battle-log-collapsed .battle-log-body { display: none; }
-    .battle-log-close {
-      background: none;
-      border: none;
+    /* ── Event Feed (tabBattleLog) ───────────────────────────────── */
+    .feed-filter-btn {
+      font-family: var(--font-pixel);
+      font-size: 7px;
+      padding: 2px 6px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 3px;
       color: var(--text-dim);
-      font-size: 9px;
       cursor: pointer;
-      padding: 0 2px;
-      line-height: 1;
-      opacity: 0.5;
-      transition: opacity .15s, color .15s;
+      transition: all .15s;
     }
-    .battle-log-close:hover { opacity: 1; color: var(--red); }
+    .feed-filter-btn.active, .feed-filter-btn:hover { border-color: var(--gold); color: var(--gold); }
+    .feed-entry {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      padding: 5px 4px;
+      border-bottom: 1px solid var(--border);
+      font-size: 9px;
+    }
+    .feed-entry.feed-has-detail { cursor: pointer; }
+    .feed-entry.feed-has-detail:hover { background: rgba(255,255,255,.03); }
+    .feed-icon { font-size: 12px; flex-shrink: 0; line-height: 1.3; }
+    .feed-body { flex: 1; min-width: 0; }
+    .feed-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .feed-detail { display: none; font-size: 8px; color: var(--text-dim); margin-top: 3px; line-height: 1.5; }
+    .feed-entry.feed-open .feed-detail { display: block; }
+    .feed-entry.feed-open .feed-title { white-space: normal; }
+    .feed-time { font-size: 8px; color: var(--text-dim); flex-shrink: 0; margin-top: 1px; }
+
+    /* ── Zone Battle Area ────────────────────────────────────────── */
+    .zone-battle-area { display: none; border-top: 2px solid var(--red); background: rgba(0,0,0,.85); }
+    .zone-battle-area.active { display: block; }
+    .zba-header {
+      display: flex;
+      align-items: center;
+      padding: 3px 8px;
+      background: rgba(200,30,30,.18);
+      border-bottom: 1px solid rgba(200,30,30,.35);
+    }
+    .zba-header.zba-raid { background: rgba(200,50,200,.22); border-bottom-color: rgba(200,50,200,.4); }
+    .zba-title { font-family: var(--font-pixel); font-size: 8px; color: var(--text); flex: 1; }
+    .zba-collapse-btn { background: none; border: none; color: var(--text-dim); font-size: 10px; cursor: pointer; padding: 0 4px; }
+    .zba-body { padding: 6px; }
+    .zba-body.zba-hidden { display: none; }
+    .zba-field { display: flex; gap: 6px; align-items: flex-start; margin-bottom: 6px; }
+    .zba-gang-side { display: flex; gap: 6px; flex: 1; flex-wrap: wrap; }
+    .zba-trainer-col { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 60px; }
+    .zba-tr-sprite { width: 32px; height: 32px; image-rendering: pixelated; }
+    .zba-tr-sprite.zba-elite { filter: drop-shadow(0 0 4px gold); }
+    .zba-tr-name { font-family: var(--font-pixel); font-size: 7px; color: var(--text-dim); text-align: center; max-width: 64px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .zba-pk-slots { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+    .zba-pk-slot { display: flex; flex-direction: column; align-items: center; gap: 1px; transition: opacity .3s; }
+    .zba-pk-slot.zba-fainted { filter: grayscale(1); }
+    .zba-pk-name { font-size: 8px; color: var(--text-dim); white-space: nowrap; }
+    .zba-hp-txt { font-size: 7px; color: var(--text-dim); }
+    .zba-vs-col { font-family: var(--font-pixel); font-size: 10px; color: var(--text-dim); padding: 12px 4px 0; flex-shrink: 0; }
+    .zba-enemy-side { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 80px; }
+    .zba-enemy-trainers { display: flex; gap: 4px; }
+    .zba-active-enemy { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+    .zba-enemy-queue { display: flex; gap: 3px; flex-wrap: wrap; justify-content: center; margin-top: 3px; }
+    .zba-log {
+      max-height: 90px;
+      overflow-y: auto;
+      font-size: 9px;
+      background: rgba(0,0,0,.4);
+      border-radius: var(--radius-sm);
+      padding: 4px 6px;
+      margin-bottom: 4px;
+      line-height: 1.5;
+    }
+    .zba-actions { display: flex; justify-content: flex-end; gap: 6px; align-items: center; }
 
     /* ── Combat Popup ────────────────────────────────────────────── */
     #combatPopup {

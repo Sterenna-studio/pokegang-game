@@ -3220,8 +3220,9 @@ function renderActiveTab() {
     case 'tabPokedex':  renderPokedexTab(); break;
     case 'tabAgents':   renderAgentsTab(); break;
     case 'tabBag':        switchTab('tabMarket'); break;
-    case 'tabCosmetics':  renderCosmeticsTab(); break;
-    case 'tabMissions':   renderMissionsTab(); break;
+    case 'tabCosmetics':   renderCosmeticsTab(); break;
+    case 'tabMissions':    renderMissionsTab(); break;
+    case 'tabBattleLog':   renderEventsTab(); break;
     case 'tabTraining': pcView = 'training'; switchTab('tabPC'); break;
     case 'tabLab':      pcView = 'lab'; switchTab('tabPC'); break;
     case 'tabCompte':   renderCompteTab(); break;
@@ -4876,6 +4877,7 @@ function buildZoneWindowEl(zoneId) {
         <span class="boss-cd-label" style="display:none;font-family:var(--font-pixel);font-size:7px;color:var(--red);background:rgba(0,0,0,.8);border-radius:2px;padding:1px 3px;white-space:nowrap;position:absolute;top:-16px;left:50%;transform:translateX(-50%)"></span>
       </div>` : ''}
     </div>
+    <div class="zone-battle-area" id="zba-${zoneId}"></div>
     <div class="zone-slots-bar" style="display:flex;align-items:center;gap:6px;padding:3px 8px;font-family:var(--font-pixel);font-size:8px;background:rgba(0,0,0,.55);border-top:1px solid var(--border)">
       <span class="slot-count" style="color:var(--text-dim)">Agents: ${assignedAgents.length}/${zState.slots || 1}</span>
       ${(zState.slots || 1) < ZONE_SLOT_COSTS.length + 1 ? (() => {
@@ -6252,8 +6254,10 @@ function renderSpawnInWindow(zoneId, spawnObj) {
       animateCapture(zoneId, spawnObj, el);
     });
   } else if (spawnObj.type === 'raid') {
-    // Master Ball sprite for raids
-    el.innerHTML = `<img src="${ITEM_SPRITE_URLS.masterball}" style="width:48px;height:48px;image-rendering:pixelated;filter:drop-shadow(0 0 8px #ff4444)">`;
+    // Raid: show the lead trainer sprite (no more Pokéball)
+    const raidLeaderKey = spawnObj.raidTrainers?.[0]?.key || spawnObj.trainerKey || 'gymleader';
+    el.innerHTML = `<img src="${trainerSprite(raidLeaderKey)}" style="width:52px;height:52px;image-rendering:pixelated;filter:drop-shadow(0 0 8px #f44)">
+      <div style="font-family:var(--font-pixel);font-size:6px;color:#f66;background:rgba(0,0,0,.75);border-radius:2px;padding:1px 4px;margin-top:2px;text-align:center">⚔ RAID</div>`;
     el.title = state.lang === 'fr' ? spawnObj.trainer.fr : spawnObj.trainer.en;
     el.style.animation = 'glow 1s ease-in-out infinite, float 2s ease-in-out infinite';
     el.addEventListener('click', () => {
@@ -6562,164 +6566,191 @@ function buildPlayerTeamForZone(zoneId) {
   return allAllyIds.map(id => state.pokemons.find(p => p.id === id)).filter(Boolean);
 }
 
+// ── Combat helpers ─────────────────────────────────────────────
+// Type effectiveness chart (Gen 1–6 offensive chart)
+const TYPE_CHART = {
+  Normal:   { Rock:0.5, Ghost:0, Steel:0.5 },
+  Fire:     { Fire:0.5, Water:0.5, Grass:2, Ice:2, Bug:2, Rock:0.5, Dragon:0.5, Steel:2 },
+  Water:    { Fire:2, Water:0.5, Grass:0.5, Ground:2, Rock:2, Dragon:0.5 },
+  Electric: { Water:2, Electric:0.5, Grass:0.5, Ground:0, Flying:2, Dragon:0.5 },
+  Grass:    { Fire:0.5, Water:2, Grass:0.5, Poison:0.5, Ground:2, Flying:0.5, Bug:0.5, Rock:2, Dragon:0.5, Steel:0.5 },
+  Ice:      { Water:0.5, Grass:2, Ice:0.5, Ground:2, Flying:2, Dragon:2, Steel:0.5 },
+  Fighting: { Normal:2, Ice:2, Rock:2, Dark:2, Steel:2, Poison:0.5, Flying:0.5, Psychic:0.5, Bug:0.5, Ghost:0 },
+  Poison:   { Grass:2, Fairy:2, Ground:0.5, Rock:0.5, Ghost:0.5, Poison:0.5, Steel:0 },
+  Ground:   { Fire:2, Electric:2, Poison:2, Rock:2, Steel:2, Grass:0.5, Bug:0.5, Flying:0 },
+  Flying:   { Grass:2, Fighting:2, Bug:2, Electric:0.5, Rock:0.5, Steel:0.5 },
+  Psychic:  { Fighting:2, Poison:2, Psychic:0.5, Steel:0.5, Dark:0 },
+  Bug:      { Grass:2, Psychic:2, Dark:2, Fire:0.5, Fighting:0.5, Flying:0.5, Ghost:0.5, Steel:0.5, Fairy:0.5 },
+  Rock:     { Fire:2, Ice:2, Flying:2, Bug:2, Fighting:0.5, Ground:0.5, Steel:0.5 },
+  Ghost:    { Psychic:2, Ghost:2, Normal:0, Dark:0.5 },
+  Dragon:   { Dragon:2, Steel:0.5, Fairy:0 },
+  Dark:     { Psychic:2, Ghost:2, Fighting:0.5, Dark:0.5, Fairy:0.5 },
+  Steel:    { Ice:2, Rock:2, Fairy:2, Fire:0.5, Water:0.5, Electric:0.5, Steel:0.5 },
+};
+
+function getTypeEffectiveness(atkType, defTypes) {
+  const chart = TYPE_CHART[atkType] || {};
+  return (defTypes || ['Normal']).reduce((m, dt) => m * (chart[dt] ?? 1.0), 1.0);
+}
+
+/** HP d'un Pokémon pour la durée du combat (basé sur sa DEF + niveau) */
+function calcCombatHp(stats, level) {
+  return Math.max(10, Math.floor(stats.def * 1.5 + level * 2 + 10));
+}
+
+/** Dégâts infligés — formule inspirée Gen, × 4 pour un rythme de 3-8 tours */
+function calcCombatDamage(atk, def, level, typeMod = 1.0) {
+  const rand = 0.85 + Math.random() * 0.15;
+  return Math.max(1, Math.floor(((2 * level / 5 + 2) * 60 * (atk / Math.max(1, def)) / 50 + 2) * typeMod * rand * 4));
+}
+
 function openCombatPopup(zoneId, spawnObj) {
-  // Prevent opening multiple combat popups simultaneously
   if (currentCombat) return;
   const available = buildPlayerTeamForZone(zoneId);
   if (available.length === 0) {
-    notify(state.lang === 'fr' ? 'Aucun Pokémon disponible !' : 'No Pokémon available!');
+    notify('Aucun Pokémon disponible !');
     return;
   }
 
-  currentCombat = { zoneId, spawnObj, playerTeam: available };
-  globalThis.currentCombat = currentCombat;
+  const inlineCombat = document.getElementById(`zba-${zoneId}`);
+  if (!inlineCombat) return; // zone window not open
 
-  // Jingle d'intro de combat — désactivé temporairement
-  // (() => { ... })();
-
-  const inlineCombat = document.getElementById('battleArena');
-  if (!inlineCombat) return;
-
-  // Mark combat active — ne pas forcer l'ouverture si le log est réduit
-  const logPanel = document.getElementById('battleLog');
-  logPanel?.classList.add('has-combat');
-  const logTitle = document.getElementById('battleLogTitle');
-  const logToggle = document.getElementById('battleLogToggle');
-  const zoneDef = ZONE_BY_ID[zoneId];
-  if (logTitle) logTitle.textContent = `COMBAT — ${zoneDef ? (state.lang === 'fr' ? zoneDef.fr : zoneDef.en) : zoneId}`;
-
+  const isRaid = spawnObj.isRaid;
   const trainerName = state.lang === 'fr' ? spawnObj.trainer.fr : spawnObj.trainer.en;
   const dialogue = getTrainerDialogue();
-  const isRaid = spawnObj.isRaid;
 
-  // ── Agent at rest check
-  const agentsInZone = state.agents.filter(a => a.assignedZone === zoneId);
-  const agentsAtRest = agentsInZone.filter(a => {
-    const avail = a.team.map(id => state.pokemons.find(p => p.id === id)).filter(Boolean);
-    return a.team.length > 0 && avail.length === 0;
-  });
-  function proceedWithCombat() {
-  // ── Ally side: group by source (Boss always included + each Agent)
-  const zoneAgents = state.agents.filter(a => a.assignedZone === zoneId);
+  // ── Build gang trainers ──────────────────────────────────────
+  const mkPkSlot = pk => ({ pk, maxHp: calcCombatHp(pk.stats, pk.level), hp: calcCombatHp(pk.stats, pk.level) });
+  const gangTrainers = [];
 
-  let allyGroupsHtml = '';
-  // Boss is omnipresent — always show if they have a team
-  if (state.gang.bossTeam.length > 0) {
-    const bossPokemons = state.gang.bossTeam
-      .map(id => state.pokemons.find(p => p.id === id))
-      .filter(Boolean);
-    if (bossPokemons.length) {
-      allyGroupsHtml += `<div class="combat-group">
-        <div class="combat-group-label">${state.gang.bossName}</div>
-        <div class="combat-group-pokes">${bossPokemons.map(p => renderCombatPoke(p, true)).join('')}</div>
-      </div>`;
+  const bossPokemons = state.gang.bossTeam.map(id => state.pokemons.find(p => p.id === id)).filter(Boolean);
+  if (bossPokemons.length) {
+    gangTrainers.push({ id: 'boss', name: state.gang.bossName || 'Boss',
+      sprite: trainerSprite(state.gang.bossSprite || 'acetrainer'),
+      pkList: bossPokemons.map(mkPkSlot), activeIdx: 0 });
+  }
+  for (const agent of state.agents.filter(a => a.assignedZone === zoneId)) {
+    const agentPks = agent.team.map(id => state.pokemons.find(p => p.id === id)).filter(Boolean);
+    if (agentPks.length) {
+      gangTrainers.push({ id: agent.id, name: agent.name, sprite: agent.sprite,
+        pkList: agentPks.map(mkPkSlot), activeIdx: 0 });
     }
   }
-  for (const agent of zoneAgents) {
-    const agentPokemons = agent.team
-      .map(id => state.pokemons.find(p => p.id === id))
-      .filter(Boolean);
-    if (agentPokemons.length) {
-      allyGroupsHtml += `<div class="combat-group">
-        <div class="combat-group-label">${agent.name}</div>
-        <div class="combat-group-pokes">${agentPokemons.map(p => renderCombatPoke(p, true)).join('')}</div>
-      </div>`;
-    }
-  }
-  if (!allyGroupsHtml) {
-    allyGroupsHtml = `<div class="combat-group"><div class="combat-group-pokes">${available.slice(0, 6).map(p => renderCombatPoke(p, true)).join('')}</div></div>`;
+  if (!gangTrainers.length) {
+    gangTrainers.push({ id: 'gang', name: state.gang.bossName || 'Gang',
+      sprite: trainerSprite(state.gang.bossSprite || 'acetrainer'),
+      pkList: available.slice(0, 6).map(mkPkSlot), activeIdx: 0 });
   }
 
-  // ── Enemy side: all Pokémon with HP bars + trainer header(s)
-  let enemyHeaderHtml = '';
+  // ── Build enemy trainers ─────────────────────────────────────
+  const mkEnemySlot = ep => {
+    const sp = SPECIES_BY_EN[ep.species_en];
+    const stats = ep.stats || { atk: sp?.baseAtk || 50, def: sp?.baseDef || 50, spd: sp?.baseSpd || 50 };
+    const maxHp = calcCombatHp(stats, ep.level);
+    return { pk: ep, stats, maxHp, hp: maxHp };
+  };
+  let enemyTrainers;
   if (isRaid) {
-    enemyHeaderHtml = spawnObj.raidTrainers.map(rt =>
-      `<img src="${trainerSprite(rt.key)}" style="width:36px;height:36px;filter:drop-shadow(0 0 4px #f44)" title="${rt.trainer.fr || rt.key}">`
-    ).join('');
+    enemyTrainers = spawnObj.raidTrainers
+      .map(rt => ({ id: rt.key, name: rt.trainer.fr || rt.key,
+        sprite: trainerSprite(rt.key), pkList: (rt.team || []).map(mkEnemySlot), activeIdx: 0 }))
+      .filter(t => t.pkList.length > 0);
   } else {
-    enemyHeaderHtml = `<img src="${trainerSprite(spawnObj.trainer.sprite || spawnObj.trainerKey)}" style="width:40px;height:40px${spawnObj.elite ? ';filter:drop-shadow(0 0 6px gold)' : ''}">`;
+    enemyTrainers = [{ id: spawnObj.trainerKey || 'trainer', name: trainerName,
+      sprite: trainerSprite(spawnObj.trainer.sprite || spawnObj.trainerKey),
+      pkList: spawnObj.team.map(mkEnemySlot), activeIdx: 0 }];
+  }
+  // Flat pool of all enemy Pokémon (order matters: faint → next)
+  const enemyPool = enemyTrainers.flatMap(t => t.pkList);
+
+  currentCombat = { zoneId, spawnObj, playerTeam: available, gangTrainers, enemyTrainers, enemyPool };
+  globalThis.currentCombat = currentCombat;
+
+  // ── Translator easter egg ────────────────────────────────────
+  let translatorLine = '';
+  if (state.purchases?.translator) {
+    const POKEMON_SPEECH = ['Pika pi!', 'Chu...', 'Bulba!', 'Char char!', 'Squirt!', 'Gengar~', 'Eevee?', 'Meow!'];
+    const cry = pick(POKEMON_SPEECH);
+    const phrase = state.lang === 'fr' ? pick(TRANSLATOR_PHRASES_FR) : null;
+    translatorLine = `<div style="color:var(--blue);font-size:9px">[${cry}]${phrase ? ` → "${phrase}"` : ''}</div>`;
   }
 
-  const enemyPokesHtml = spawnObj.team.map((ep, i) =>
-    `<div class="combat-enemy-slot" id="combatEnemyPoke-${zoneId}-${i}">
-      <img src="${pokeSprite(ep.species_en)}" style="width:${spawnObj.team.length <= 3 ? 52 : 40}px;height:${spawnObj.team.length <= 3 ? 52 : 40}px" title="${speciesName(ep.species_en)} Lv.${ep.level}">
-      <div style="font-size:8px;color:var(--text-dim);text-align:center">${speciesName(ep.species_en)}</div>
-      <div class="hp-bar" style="width:48px"><div class="hp-fill" id="combatEnemyHp-${zoneId}-${i}" style="width:100%"></div></div>
-    </div>`
+  // ── HTML ─────────────────────────────────────────────────────
+  const gangHtml = gangTrainers.map(t => {
+    const slotsHtml = t.pkList.map((slot, i) => {
+      const isActive = i === 0;
+      return `<div class="zba-pk-slot${isActive ? ' zba-pk-active' : ''}" id="zba-slot-${t.id}-${i}">
+        <img src="${isActive ? pokeSpriteBack(slot.pk.species_en, slot.pk.shiny) : pokeSprite(slot.pk.species_en, slot.pk.shiny)}"
+          style="width:${isActive ? 44 : 22}px;height:${isActive ? 44 : 22}px${slot.pk.shiny ? ';filter:drop-shadow(0 0 3px var(--gold))' : ''}">
+        ${isActive ? `<div class="zba-pk-name">${speciesName(slot.pk.species_en)} Lv.${slot.pk.level}</div>` : ''}
+        <div class="hp-bar" style="width:${isActive ? 56 : 22}px">
+          <div class="hp-fill" id="zba-hp-${t.id}-${i}" style="width:100%"></div>
+        </div>
+        ${isActive ? `<div class="zba-hp-txt" id="zba-hptxt-${t.id}-${i}">${slot.maxHp}/${slot.maxHp}</div>` : ''}
+      </div>`;
+    }).join('');
+    return `<div class="zba-trainer-col">
+      <img src="${t.sprite}" class="zba-tr-sprite" onerror="this.src='${trainerSprite('acetrainer')}'">
+      <div class="zba-tr-name">${t.name}</div>
+      <div class="zba-pk-slots">${slotsHtml}</div>
+    </div>`;
+  }).join('');
+
+  const firstEnemy = enemyPool[0];
+  const enemyTrainerSpritesHtml = isRaid
+    ? enemyTrainers.map(t => `<img src="${t.sprite}" class="zba-tr-sprite" style="filter:drop-shadow(0 0 4px #f44)">`).join('')
+    : `<img src="${enemyTrainers[0].sprite}" class="zba-tr-sprite${spawnObj.elite ? ' zba-elite' : ''}">`;
+
+  const queueHtml = enemyPool.slice(1).map(e =>
+    `<img src="${pokeSprite(e.pk.species_en)}" style="width:24px;height:24px;opacity:.7" title="${speciesName(e.pk.species_en)} Lv.${e.pk.level}">`
   ).join('');
 
-  const leadAlly  = available[0];
-  const leadEnemy = spawnObj.team[0];
-  const fighterTrainerHtml = isRaid
-    ? `<img src="${trainerSprite(spawnObj.raidTrainers[0].key)}" style="width:32px;height:32px;image-rendering:pixelated">`
-    : `<img src="${trainerSprite(spawnObj.trainer.sprite || spawnObj.trainerKey)}" style="width:32px;height:32px;image-rendering:pixelated${spawnObj.elite ? ';filter:drop-shadow(0 0 4px gold)' : ''}">`;
-
   inlineCombat.innerHTML = `
-    <div class="combat-title ${isRaid ? 'raid-title' : ''}" data-zone-combat-toggle="${zoneId}">
-      ${isRaid ? '[RAID] ' : '[ATK] '}${trainerName}
-      <span style="font-size:8px;color:var(--text-dim);margin-left:4px">${spawnObj.team.length} Pok.</span>
+    <div class="zba-header${isRaid ? ' zba-raid' : ''}">
+      <span class="zba-title">${isRaid ? '⚔ RAID' : '⚔'} ${trainerName}
+        <span style="font-size:7px;color:var(--text-dim);margin-left:4px">${enemyPool.length} Pok.</span>
+      </span>
+      <button class="zba-collapse-btn" data-zba-col="${zoneId}">▲</button>
     </div>
-    <div class="combat-fighters-strip" id="combatFighters-${zoneId}">
-      <div class="fighter-col fighter-col-ally">
-        <img src="${pokeSpriteBack(leadAlly.species_en, leadAlly.shiny)}" class="fighter-sprite" id="combatFighterAlly-${zoneId}">
-        <div class="fighter-name" id="combatFighterAllyName-${zoneId}">${speciesName(leadAlly.species_en)} Lv.${leadAlly.level}</div>
+    <div class="zba-body" id="zba-body-${zoneId}">
+      <div class="zba-field">
+        <div class="zba-gang-side">${gangHtml}</div>
+        <div class="zba-vs-col">⚔</div>
+        <div class="zba-enemy-side">
+          <div class="zba-enemy-trainers">${enemyTrainerSpritesHtml}</div>
+          <div class="zba-tr-name">${trainerName}</div>
+          <div class="zba-active-enemy">
+            <img src="${pokeSprite(firstEnemy.pk.species_en)}" id="zba-enemy-sprite-${zoneId}" style="width:52px;height:52px">
+            <div class="zba-pk-name" id="zba-enemy-name-${zoneId}">${speciesName(firstEnemy.pk.species_en)} Lv.${firstEnemy.pk.level}</div>
+            <div class="hp-bar" style="width:64px"><div class="hp-fill" id="zba-enemy-hp-${zoneId}" style="width:100%"></div></div>
+            <div class="zba-hp-txt" id="zba-enemy-hptxt-${zoneId}">${firstEnemy.maxHp}/${firstEnemy.maxHp}</div>
+          </div>
+          <div class="zba-enemy-queue" id="zba-queue-${zoneId}">${queueHtml}</div>
+        </div>
       </div>
-      <div class="fighter-col fighter-col-vs">
-        <span class="fighter-vs-icon">⚔</span>
-        ${fighterTrainerHtml}
+      <div class="zba-log" id="zba-log-${zoneId}">
+        <div style="color:var(--text-dim);font-style:italic">"${dialogue}"</div>
+        ${translatorLine}
       </div>
-      <div class="fighter-col fighter-col-enemy">
-        <img src="${pokeSprite(leadEnemy.species_en)}" class="fighter-sprite" id="combatFighterEnemy-${zoneId}">
-        <div class="fighter-name" id="combatFighterEnemyName-${zoneId}">${speciesName(leadEnemy.species_en)} Lv.${leadEnemy.level}</div>
+      <div class="zba-actions" id="zba-actions-${zoneId}">
+        <span style="color:var(--text-dim);font-size:9px">Combat auto…</span>
+        <button class="inline-flee-btn" id="zba-flee-${zoneId}">Fuir</button>
       </div>
-    </div>
-    <div class="combat-arena-full">
-      <div class="combat-side ally-side">
-        <div style="font-size:8px;color:var(--text-dim);margin-bottom:4px">Ton gang (${available.length})</div>
-        ${allyGroupsHtml}
-      </div>
-      <div class="combat-vs-col">VS</div>
-      <div class="combat-side enemy-side">
-        <div class="combat-enemy-header">${enemyHeaderHtml}</div>
-        <div class="combat-enemy-pokes">${enemyPokesHtml}</div>
-      </div>
-    </div>
-    <div class="combat-log-inline" id="inlineLog-${zoneId}">
-      <div style="color:var(--text-dim)">"${dialogue}"</div>
-      ${(() => {
-        if (!state.purchases?.translator) return '';
-        const POKEMON_SPEECH = ['Pika pi!', 'Chu...', 'Bulba!', 'Char char!', 'Squirt!', 'Gengar~', 'Eevee?', 'Meow!'];
-        const cry = pick(POKEMON_SPEECH);
-        const phrase = state.lang === 'fr' ? pick(TRANSLATOR_PHRASES_FR) : null;
-        const text = phrase ? `[${cry}] &rarr; "${phrase}"` : `[${cry}]`;
-        return `<div style="color:var(--blue);font-size:9px;margin-top:4px">${text}</div>`;
-      })()}
-    </div>
-    <div class="combat-actions-inline" id="inlineActions-${zoneId}">
-      <span style="color:var(--text-dim);font-size:9px">Combat automatique...</span>
-      <button class="inline-flee-btn" data-zone-flee="${zoneId}">Fuir</button>
-    </div>
-    <div class="combat-summary"></div>
-  `;
+    </div>`;
 
   inlineCombat.classList.add('active');
-  inlineCombat.classList.remove('collapsed');
 
-  // Switch to battle log tab so player can watch the fight
-  if (activeTab !== 'tabBattleLog') switchTab('tabBattleLog');
+  // Collapse toggle
+  inlineCombat.querySelector(`[data-zba-col="${zoneId}"]`)?.addEventListener('click', () => {
+    document.getElementById(`zba-body-${zoneId}`)?.classList.toggle('zba-hidden');
+  });
 
-  // Auto-execute combat after brief delay (flee cancels it)
+  // Flee button
   let autoCombatTimer = setTimeout(executeCombat, 600);
-  inlineCombat.querySelector(`[data-zone-flee="${zoneId}"]`)?.addEventListener('click', () => {
+  document.getElementById(`zba-flee-${zoneId}`)?.addEventListener('click', () => {
     clearTimeout(autoCombatTimer);
     closeCombatPopup();
   });
-  inlineCombat.querySelector(`[data-zone-combat-toggle="${zoneId}"]`)?.addEventListener('click', () => {
-    inlineCombat.classList.toggle('collapsed');
-  });
-  } // end proceedWithCombat
-
-  proceedWithCombat();
 }
 
 function renderCombatPoke(p, isBack) {
@@ -6732,179 +6763,197 @@ function renderCombatPoke(p, isBack) {
 
 function executeCombat() {
   if (!currentCombat) return;
-  const { zoneId, spawnObj, playerTeam } = currentCombat;
-  const inlineCombat = document.getElementById('battleArena');
-  if (!inlineCombat) return;
-
-  const actionsEl = document.getElementById(`inlineActions-${zoneId}`);
-  const logEl = document.getElementById(`inlineLog-${zoneId}`);
-  const summary = inlineCombat.querySelector('.combat-summary');
-
-  // Resolve trainer display name (spawnObj.trainer has .fr/.en)
-  const trainerName = spawnObj.trainer
-    ? (state.lang === 'fr' ? spawnObj.trainer.fr : spawnObj.trainer.en)
-    : (spawnObj.trainerKey || 'Dresseur');
-
-  // Disable buttons during animation
-  if (actionsEl) actionsEl.innerHTML = `<span style="color:var(--text-dim);font-size:10px">Combat en cours...</span>`;
-
-  // --- Simulate turn-by-turn matchups ---
-  const playerQueue = [...playerTeam]; // copies
-  const enemyQueue = [...spawnObj.team];
-  const battleLog = [];
-  let playerLosses = 0;
-
-  let pi = 0, ei = 0;
-  const matchups = [];
-  while (pi < playerQueue.length && ei < enemyQueue.length) {
-    const player = playerQueue[pi];
-    const enemy = enemyQueue[ei];
-    const pPow = getPokemonPower(player) * (0.75 + Math.random() * 0.5);
-    const ePow = (enemy.stats.atk + enemy.stats.def + enemy.stats.spd) * (0.75 + Math.random() * 0.5);
-    const playerWins = pPow >= ePow;
-    matchups.push({ playerIdx: pi, enemyIdx: ei, playerWins, pName: speciesName(player.species_en), eName: speciesName(enemy.species_en) });
-    if (playerWins) { ei++; } // enemy fainted, next enemy
-    else { pi++; playerLosses++; } // player fainted, next player
-  }
-  const overallWin = ei >= enemyQueue.length; // all enemies beaten
-
-  // --- Animate matchups sequentially ---
+  const { zoneId, spawnObj, playerTeam, gangTrainers, enemyPool } = currentCombat;
+  const logEl    = document.getElementById(`zba-log-${zoneId}`);
+  const actionsEl = document.getElementById(`zba-actions-${zoneId}`);
   const spawnWithZone = { ...spawnObj, zoneId };
   const teamIds = playerTeam.map(p => p.id);
 
-  let prevEnemyIdx = -1;
-  let step = 0;
-  function animateStep() {
-    if (step < matchups.length) {
-      const m = matchups[step];
-      const pSlots = inlineCombat.querySelectorAll('.combat-ally-slot');
-      const eSlot = document.getElementById(`combatEnemyPoke-${zoneId}-${m.enemyIdx}`);
-      const eHp   = document.getElementById(`combatEnemyHp-${zoneId}-${m.enemyIdx}`);
+  if (actionsEl) actionsEl.innerHTML = `<span style="color:var(--text-dim);font-size:9px">Combat en cours…</span>`;
 
-      // Fighters strip
-      const fAlly      = document.getElementById(`combatFighterAlly-${zoneId}`);
-      const fEnemy     = document.getElementById(`combatFighterEnemy-${zoneId}`);
-      const fAllyName  = document.getElementById(`combatFighterAllyName-${zoneId}`);
-      const fEnemyName = document.getElementById(`combatFighterEnemyName-${zoneId}`);
-      const curAlly    = playerQueue[m.playerIdx];
-      const curEnemy   = enemyQueue[m.enemyIdx];
+  let enemyActiveIdx = 0;
+  let turn = 0;
 
-      if (fAlly  && curAlly)  { fAlly.src  = pokeSpriteBack(curAlly.species_en, curAlly.shiny);  fAlly.classList.add('fighter-active'); }
-      if (fEnemy && curEnemy) { fEnemy.src  = pokeSprite(curEnemy.species_en);                    fEnemy.classList.add('fighter-active'); }
-      if (fAllyName  && curAlly)  fAllyName.textContent  = `${speciesName(curAlly.species_en)} Lv.${curAlly.level}`;
-      if (fEnemyName && curEnemy) fEnemyName.textContent = `${speciesName(curEnemy.species_en)} Lv.${curEnemy.level}`;
+  // ── DOM helpers ────────────────────────────────────────────────
+  function logMsg(html, color = 'var(--text-dim)') {
+    if (!logEl) return;
+    const d = document.createElement('div');
+    d.style.cssText = `font-size:9px;color:${color};padding:1px 0;line-height:1.4`;
+    d.innerHTML = html;
+    logEl.appendChild(d);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
 
-      // Highlight active combatants
-      pSlots.forEach((s, i) => s.style.opacity = i === m.playerIdx ? '1' : '0.4');
-      if (eSlot) eSlot.style.outline = '2px solid var(--red)';
-
-      // "Trainer sends X!" when enemy changes
-      if (m.enemyIdx !== prevEnemyIdx) {
-        prevEnemyIdx = m.enemyIdx;
-        if (logEl) logEl.innerHTML += `<div style="color:var(--text-dim);font-style:italic">→ ${trainerName} envoie <b style="color:var(--text)">${speciesName(curEnemy.species_en)}</b> !</div>`;
-      }
-
-      // Attack line with move name
-      const moveName = (curAlly?.moves?.length ? curAlly.moves[Math.floor(Math.random() * curAlly.moves.length)] : null) || 'Attaque';
-      if (logEl) logEl.innerHTML += `<div style="color:var(--text-dim);font-size:9px">${speciesName(curAlly.species_en)} utilise <b>${moveName}</b>...</div>`;
-      logEl?.scrollTo(0, logEl.scrollHeight);
-
-      setTimeout(() => {
-        if (m.playerWins && eHp) {
-          eHp.style.width = '0%';
-          eHp.classList.add('critical');
-          eSlot?.querySelector('img')?.classList.add('shake');
-          if (logEl) logEl.innerHTML += `<div style="color:var(--green)">✓ <b>${speciesName(curEnemy.species_en)}</b> est mis K.O. !</div>`;
-        } else {
-          const pSlot = pSlots[m.playerIdx];
-          if (pSlot) {
-            pSlot.querySelector('.hp-fill') && (pSlot.querySelector('.hp-fill').style.width = '0%');
-            pSlot.querySelector('.hp-fill')?.classList.add('critical');
-            pSlot.classList.add('shake');
-          }
-          if (logEl) logEl.innerHTML += `<div style="color:var(--red)">✗ <b>${speciesName(curAlly.species_en)}</b> est K.O. !</div>`;
+  function updateGangBars() {
+    for (const t of gangTrainers) {
+      for (let i = 0; i < t.pkList.length; i++) {
+        const s = t.pkList[i];
+        const hpEl  = document.getElementById(`zba-hp-${t.id}-${i}`);
+        const txtEl = document.getElementById(`zba-hptxt-${t.id}-${i}`);
+        const slotEl = document.getElementById(`zba-slot-${t.id}-${i}`);
+        if (hpEl)  hpEl.style.width = `${Math.max(0, s.hp / s.maxHp * 100)}%`;
+        if (txtEl) txtEl.textContent = `${Math.max(0, s.hp)}/${s.maxHp}`;
+        if (slotEl) {
+          slotEl.style.opacity = s.hp <= 0 ? '0.25' : (i === t.activeIdx ? '1' : '0.6');
+          if (s.hp <= 0) slotEl.classList.add('zba-fainted');
         }
-        logEl?.scrollTo(0, logEl.scrollHeight);
-        step++;
-        setTimeout(animateStep, 600);
-      }, 500);
-    } else {
-      // Animation done — apply result
-      const reward = overallWin ? Math.min(MAX_COMBAT_REWARD, randInt(spawnWithZone.trainer.reward[0], spawnWithZone.trainer.reward[1])) : 0;
-      const repGain = getCombatRepGain(spawnWithZone.trainerKey || spawnWithZone.trainer?.sprite, overallWin);
-      applyCombatResult({ win: overallWin, reward, repGain }, teamIds, spawnWithZone);
-      // Log to battle log panel
-      const zoneDef = ZONE_BY_ID[zoneId];
-      const zName = zoneDef ? (state.lang === 'fr' ? zoneDef.fr : zoneDef.en) : zoneId;
-      addBattleLogEntry({
-        ts: Date.now(),
-        zoneName: zName,
-        trainerName: spawnWithZone.trainer?.fr || spawnWithZone.trainerKey || '?',
-        trainerKey: spawnWithZone.trainerKey || spawnWithZone.trainer?.sprite || null,
-        allySpecies: playerQueue[0]?.species_en || null,
-        allyLevel: playerQueue[0]?.level || null,
-        enemySpecies: enemyQueue[0]?.species_en || null,
-        enemyLevel: enemyQueue[0]?.level || null,
-        win: overallWin,
-        reward,
-        repGain,
-        lines: matchups.map(m => m.playerWins ? `${m.pName} bat ${m.eName}` : `${m.pName} KO`),
-      });
-      if (overallWin) {
-        const z = state.zones[zoneId];
-        if (z) z.combatsWon = (z.combatsWon || 0) + 1;
-        if (logEl) logEl.innerHTML += `<div style="color:var(--gold);font-weight:bold">VICTOIRE ! ₽ accumulés · +${repGain} rep</div>`;
-        if (summary) summary.innerHTML = `<span style="color:var(--gold)">₽ accumulés · +${repGain} rep</span>`;
-      } else {
-        if (logEl) logEl.innerHTML += `<div style="color:var(--red)">Defaite...</div>`;
-        if (summary) summary.innerHTML = `<span style="color:var(--red)">Defaite</span>`;
       }
-      // Flash loser sprite in fighters strip
-      if (!overallWin) {
-        document.getElementById(`combatFighterAlly-${zoneId}`)?.classList.add('fighter-ko');
-      } else {
-        document.getElementById(`combatFighterEnemy-${zoneId}`)?.classList.add('fighter-ko');
-      }
-
-      logEl?.scrollTo(0, logEl.scrollHeight);
-
-      // Close handler — can be triggered by button or auto-close timer
-      function doCloseCombat() {
-        clearTimeout(autoCloseTimer);
-        if (inlineCombat) inlineCombat.classList.remove('active');
-        removeSpawn(zoneId, spawnObj.id);
-        updateTopBar();
-        currentCombat = null;
-        globalThis.currentCombat = null;
-        if (activeTab === 'tabGang') renderGangTab();
-      }
-
-      if (actionsEl) {
-        actionsEl.innerHTML = '';
-        const closeBtn = document.createElement('button');
-        closeBtn.className = 'inline-flee-btn';
-        closeBtn.textContent = 'Fermer';
-        closeBtn.addEventListener('click', doCloseCombat);
-        actionsEl.appendChild(closeBtn);
-      }
-
-      // Auto-close after 7s if player doesn't click
-      const autoCloseTimer = setTimeout(doCloseCombat, 7000);
     }
   }
-  animateStep();
+
+  function updateEnemyDisplay() {
+    const cur = enemyPool[enemyActiveIdx];
+    if (!cur) return;
+    const hpEl     = document.getElementById(`zba-enemy-hp-${zoneId}`);
+    const txtEl    = document.getElementById(`zba-enemy-hptxt-${zoneId}`);
+    const nameEl   = document.getElementById(`zba-enemy-name-${zoneId}`);
+    const spriteEl = document.getElementById(`zba-enemy-sprite-${zoneId}`);
+    const queueEl  = document.getElementById(`zba-queue-${zoneId}`);
+    if (hpEl)     hpEl.style.width = `${Math.max(0, cur.hp / cur.maxHp * 100)}%`;
+    if (txtEl)    txtEl.textContent = `${Math.max(0, cur.hp)}/${cur.maxHp}`;
+    if (nameEl)   nameEl.textContent = `${speciesName(cur.pk.species_en)} Lv.${cur.pk.level}`;
+    if (spriteEl) spriteEl.src = pokeSprite(cur.pk.species_en);
+    if (queueEl)  queueEl.innerHTML = enemyPool.slice(enemyActiveIdx + 1)
+      .filter(e => e.hp > 0)
+      .map(e => `<img src="${pokeSprite(e.pk.species_en)}" style="width:24px;height:24px;opacity:.7" title="${speciesName(e.pk.species_en)} Lv.${e.pk.level}">`)
+      .join('');
+  }
+
+  // ── Win / Loss condition checks ────────────────────────────────
+  function isEnemyDefeated() { return enemyPool.every(e => e.hp <= 0); }
+  function isGangDefeated()  { return gangTrainers.every(t => t.activeIdx >= t.pkList.length); }
+  function getActiveGang(t)  { return t.pkList[t.activeIdx] ?? null; }
+
+  // ── Finish combat ──────────────────────────────────────────────
+  function finishCombat(win) {
+    const reward  = win ? Math.min(MAX_COMBAT_REWARD, randInt(spawnWithZone.trainer.reward[0], spawnWithZone.trainer.reward[1])) : 0;
+    const repGain = getCombatRepGain(spawnWithZone.trainerKey || spawnWithZone.trainer?.sprite, win);
+    applyCombatResult({ win, reward, repGain }, teamIds, spawnWithZone);
+    if (win) { const z = state.zones[zoneId]; if (z) z.combatsWon = (z.combatsWon || 0) + 1; }
+
+    const zoneDef = ZONE_BY_ID[zoneId];
+    const zName   = zoneDef ? (state.lang === 'fr' ? zoneDef.fr : zoneDef.en) : zoneId;
+    pushFeedEvent({
+      category: 'combat',
+      title: win
+        ? `Victoire — ${spawnWithZone.trainer?.fr || spawnWithZone.trainerKey} +${reward}₽ +${repGain}rep`
+        : `Défaite — ${spawnWithZone.trainer?.fr || spawnWithZone.trainerKey}`,
+      detail: `Zone: ${zName} · ${turn} tour${turn > 1 ? 's' : ''} · ${enemyPool.length} Pok. adverses`,
+      win,
+    });
+
+    logMsg(win
+      ? `<b style="color:var(--gold)">VICTOIRE ! +${reward}₽ · +${repGain} rép</b>`
+      : `<b style="color:var(--red)">DÉFAITE…</b>`, win ? 'var(--gold)' : 'var(--red)');
+
+    function doClose() {
+      clearTimeout(autoCloseTimer);
+      const zba = document.getElementById(`zba-${zoneId}`);
+      if (zba) { zba.classList.remove('active'); zba.innerHTML = ''; }
+      removeSpawn(zoneId, spawnObj.id);
+      updateTopBar();
+      currentCombat = null;
+      globalThis.currentCombat = null;
+      if (activeTab === 'tabGang') renderGangTab();
+    }
+    if (actionsEl) {
+      actionsEl.innerHTML = '';
+      const btn = document.createElement('button');
+      btn.className = 'inline-flee-btn';
+      btn.textContent = 'Fermer';
+      btn.addEventListener('click', doClose);
+      actionsEl.appendChild(btn);
+    }
+    const autoCloseTimer = setTimeout(doClose, 8000);
+  }
+
+  // ── Turn loop ──────────────────────────────────────────────────
+  function doTurn() {
+    turn++;
+    const curEnemy = enemyPool[enemyActiveIdx];
+    if (!curEnemy || curEnemy.hp <= 0) { finishCombat(isEnemyDefeated()); return; }
+
+    const eSp       = SPECIES_BY_EN[curEnemy.pk.species_en];
+    const eTypes    = eSp?.types || ['Normal'];
+    const eDef      = curEnemy.stats?.def ?? curEnemy.pk.stats?.def ?? 50;
+
+    // Phase 1 — Gang attacks (each active trainer Pokémon attacks)
+    for (const t of gangTrainers) {
+      const slot = getActiveGang(t);
+      if (!slot || slot.hp <= 0) continue;
+      const sp       = SPECIES_BY_EN[slot.pk.species_en];
+      const atkType  = sp?.types?.[0] || 'Normal';
+      const typeMod  = getTypeEffectiveness(atkType, eTypes);
+      const dmg      = calcCombatDamage(slot.pk.stats.atk, eDef, slot.pk.level, typeMod);
+      curEnemy.hp   -= dmg;
+      const move     = slot.pk.moves?.[Math.floor(Math.random() * (slot.pk.moves?.length || 1))] || 'Attaque';
+      const effTag   = typeMod >= 2 ? ' <b style="color:var(--gold)">Super efficace!</b>' : typeMod <= 0.5 && typeMod > 0 ? ' <i>Peu efficace…</i>' : typeMod === 0 ? ' <i>Aucun effet</i>' : '';
+      logMsg(`${t.name}: <b>${speciesName(slot.pk.species_en)}</b> → <i>${move}</i> <b style="color:var(--red)">−${dmg}</b>${effTag}`);
+      if (curEnemy.hp <= 0) { curEnemy.hp = 0; break; }
+    }
+    updateEnemyDisplay();
+
+    if (isEnemyDefeated()) { finishCombat(true); return; }
+
+    // Enemy fainted → send next
+    if (curEnemy.hp <= 0) {
+      logMsg(`<b style="color:var(--gold)">${speciesName(curEnemy.pk.species_en)} est K.O. !</b>`);
+      enemyActiveIdx++;
+      while (enemyActiveIdx < enemyPool.length && enemyPool[enemyActiveIdx].hp <= 0) enemyActiveIdx++;
+      if (enemyActiveIdx < enemyPool.length) {
+        logMsg(`→ L'adversaire envoie <b>${speciesName(enemyPool[enemyActiveIdx].pk.species_en)}</b> !`, 'var(--text)');
+        updateEnemyDisplay();
+      }
+    }
+
+    // Phase 2 — Enemy attacks (after a short delay)
+    setTimeout(() => {
+      const attacker = enemyPool[enemyActiveIdx];
+      if (!attacker || attacker.hp <= 0) { setTimeout(doTurn, 400); return; }
+
+      // Find first non-fainted gang Pokémon
+      let targetT = null, targetS = null;
+      for (const t of gangTrainers) {
+        const s = getActiveGang(t);
+        if (s && s.hp > 0) { targetT = t; targetS = s; break; }
+      }
+      if (targetS) {
+        const eSp2     = SPECIES_BY_EN[attacker.pk.species_en];
+        const atkType2 = eSp2?.types?.[0] || 'Normal';
+        const dTypes   = SPECIES_BY_EN[targetS.pk.species_en]?.types || ['Normal'];
+        const typeMod2 = getTypeEffectiveness(atkType2, dTypes);
+        const eAtk     = attacker.stats?.atk ?? attacker.pk.stats?.atk ?? 50;
+        const dmg2     = calcCombatDamage(eAtk, targetS.pk.stats.def, attacker.pk.level, typeMod2);
+        targetS.hp    -= dmg2;
+        const effTag2  = typeMod2 >= 2 ? ' <b style="color:var(--gold)">Super efficace!</b>' : typeMod2 <= 0.5 && typeMod2 > 0 ? ' <i>Peu efficace…</i>' : '';
+        logMsg(`<b style="color:var(--red)">${speciesName(attacker.pk.species_en)}</b> → <b>${speciesName(targetS.pk.species_en)}</b> <b style="color:var(--red)">−${dmg2}</b>${effTag2}`);
+
+        if (targetS.hp <= 0) {
+          targetS.hp = 0;
+          logMsg(`<b>${speciesName(targetS.pk.species_en)}</b> est K.O. !`, 'var(--red)');
+          targetT.activeIdx++;
+          while (targetT.activeIdx < targetT.pkList.length && targetT.pkList[targetT.activeIdx].hp <= 0) targetT.activeIdx++;
+          if (targetT.activeIdx < targetT.pkList.length)
+            logMsg(`${targetT.name} envoie <b>${speciesName(targetT.pkList[targetT.activeIdx].pk.species_en)}</b> !`, 'var(--text)');
+        }
+      }
+
+      updateGangBars();
+      if (isGangDefeated()) { finishCombat(false); return; }
+      setTimeout(doTurn, 500);
+    }, 600);
+  }
+
+  // Start turn loop
+  setTimeout(doTurn, 600);
 }
 
 function closeCombatPopup() {
-  const arena = document.getElementById('battleArena');
-  if (arena) {
-    arena.classList.remove('active');
-    arena.innerHTML = '';
+  if (currentCombat) {
+    const { zoneId } = currentCombat;
+    const zba = document.getElementById(`zba-${zoneId}`);
+    if (zba) { zba.classList.remove('active'); zba.innerHTML = ''; }
   }
-  const logPanel = document.getElementById('battleLog');
-  logPanel?.classList.remove('has-combat');
-  const logTitle = document.getElementById('battleLogTitle');
-  if (logTitle) logTitle.textContent = 'LOG COMBATS';
   currentCombat = null;
   globalThis.currentCombat = null;
 }
@@ -7376,96 +7425,86 @@ function closeContextMenu() {
   ctxMenu = null;
 }
 
-// ── Battle Log ────────────────────────────────────────────────
-const battleLogEntries = [];
-const BATTLE_LOG_MAX = 50;
+// ── Game Event Feed ─────────────────────────────────────────────
+// Remplace l'ancien battleLog — reçoit toutes les catégories d'événements.
+// Appelé via pushFeedEvent({ category, title, detail?, win? })
+const gameFeed = [];
+const FEED_MAX = 100;
+let feedFilter = 'all';
 
-function addBattleLogEntry(entry) {
-  battleLogEntries.unshift(entry);
-  if (battleLogEntries.length > BATTLE_LOG_MAX) battleLogEntries.pop();
-  renderBattleLog();
+const FEED_CAT = {
+  combat:  { icon: '⚔', label: 'Combat' },
+  capture: { icon: '🔴', label: 'Capture' },
+  agent:   { icon: '🕵', label: 'Agent' },
+  loot:    { icon: '💰', label: 'Butin' },
+  zone:    { icon: '🗺', label: 'Zone' },
+  system:  { icon: '⚙', label: 'Système' },
+};
+
+function pushFeedEvent({ category = 'system', title = '', detail = '', win = null } = {}) {
+  const cat = FEED_CAT[category] || FEED_CAT.system;
+  gameFeed.unshift({ ts: Date.now(), category, icon: cat.icon, title, detail, win });
+  if (gameFeed.length > FEED_MAX) gameFeed.pop();
+  if (activeTab === 'tabBattleLog') renderEventsTab();
 }
 
-function renderBattleLog() {
-  const history = document.getElementById('battleHistory');
-  if (!history) return;
-  if (battleLogEntries.length === 0) {
-    history.innerHTML = '<div style="color:var(--text-dim);padding:8px;text-align:center;font-size:9px">Aucun combat enregistré</div>';
+function renderEventsTab() {
+  const filtersEl = document.getElementById('feedFilters');
+  const listEl    = document.getElementById('feedList');
+  if (!listEl) return;
+
+  if (filtersEl && !filtersEl.dataset.wired) {
+    filtersEl.dataset.wired = '1';
+    const cats = ['all', ...Object.keys(FEED_CAT)];
+    filtersEl.innerHTML = cats.map(c => {
+      const label = c === 'all' ? 'Tout' : (FEED_CAT[c].icon + ' ' + FEED_CAT[c].label);
+      return `<button class="feed-filter-btn" data-ff="${c}">${label}</button>`;
+    }).join('');
+    filtersEl.querySelectorAll('.feed-filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => { feedFilter = btn.dataset.ff; renderEventsTab(); });
+    });
+  }
+  // Highlight active filter
+  filtersEl?.querySelectorAll('.feed-filter-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.ff === feedFilter);
+  });
+
+  const filtered = feedFilter === 'all' ? gameFeed : gameFeed.filter(e => e.category === feedFilter);
+  if (filtered.length === 0) {
+    listEl.innerHTML = `<div style="color:var(--text-dim);text-align:center;padding:24px;font-size:9px">Aucun événement</div>`;
     return;
   }
-  history.innerHTML = battleLogEntries.map((e, i) => {
-    const time = new Date(e.ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-    const resultColor = e.win ? 'var(--green)' : 'var(--red)';
-    const resultText = e.win ? `+${e.reward}₽ +${e.repGain}rep` : 'Défaite';
-    return `<div class="battle-log-entry expanded" data-log-idx="${i}">
-      <div class="battle-log-summary" style="display:flex;gap:4px;align-items:center">
-        <span style="color:var(--text-dim);font-size:9px">${time}</span>
-        <span style="flex:1;font-size:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.zoneName}</span>
-        <span style="color:${resultColor};font-size:9px;white-space:nowrap">${resultText}</span>
-        <span class="battle-log-chevron" style="color:var(--text-dim);font-size:8px">›</span>
-        <button class="battle-log-close" data-log-idx="${i}" title="Fermer">✕</button>
+
+  listEl.innerHTML = filtered.map((e, i) => {
+    const time  = new Date(e.ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    const color = e.win === true ? 'var(--green)' : e.win === false ? 'var(--red)' : 'var(--text)';
+    return `<div class="feed-entry${e.detail ? ' feed-has-detail' : ''}" data-fi="${i}">
+      <span class="feed-icon">${e.icon}</span>
+      <div class="feed-body">
+        <div class="feed-title" style="color:${color}">${e.title}</div>
+        ${e.detail ? `<div class="feed-detail">${e.detail}</div>` : ''}
       </div>
-      <div class="battle-log-detail">${(e.lines || []).map(l => `<div>${l}</div>`).join('')}</div>
+      <span class="feed-time">${time}</span>
     </div>`;
   }).join('');
-  history.querySelectorAll('.battle-log-summary').forEach(summaryEl => {
-    summaryEl.addEventListener('click', ev => {
-      if (ev.target.classList.contains('battle-log-close')) return;
-      summaryEl.closest('.battle-log-entry').classList.toggle('expanded');
-    });
+
+  listEl.querySelectorAll('.feed-entry.feed-has-detail').forEach(el => {
+    el.addEventListener('click', () => el.classList.toggle('feed-open'));
   });
-  history.querySelectorAll('.battle-log-close').forEach(btn => {
-    btn.addEventListener('click', ev => {
-      ev.stopPropagation();
-      const idx = parseInt(btn.dataset.logIdx, 10);
-      battleLogEntries.splice(idx, 1);
-      renderBattleLog();
-    });
-  });
-  updateBattleLogMiniSprites();
 }
 
-// Show mini pokemon/trainer sprites in the battle log header when collapsed
-function updateBattleLogMiniSprites() {
-  const logPanel = document.getElementById('battleLog');
-  const logTitle = document.getElementById('battleLogTitle');
-  // If battle log is now a tab, mini sprites aren't needed
-  if (!logTitle) return;
-  if (!logPanel) return;
-
-  const isCollapsed = logPanel.classList.contains('battle-log-collapsed');
-  let miniEl = document.getElementById('battleLogMiniSprites');
-
-  if (!isCollapsed) {
-    if (miniEl) miniEl.remove();
-    return;
-  }
-
-  // Build mini sprites from recent battle log entries
-  const recentEntries = battleLogEntries.slice(0, 5);
-  if (recentEntries.length === 0) {
-    if (miniEl) miniEl.remove();
-    return;
-  }
-
-  if (!miniEl) {
-    miniEl = document.createElement('div');
-    miniEl.id = 'battleLogMiniSprites';
-    miniEl.className = 'battle-log-mini-sprites';
-    logTitle.after(miniEl);
-  }
-
-  miniEl.innerHTML = recentEntries.map(e => {
-    const sprites = [];
-    // Add trainer sprite if available
-    if (e.trainerKey) {
-      sprites.push(`<img src="${trainerSprite(e.trainerKey)}" title="${e.trainerName || e.trainerKey}" onerror="this.style.display='none'">`);
-    }
-    // Add pokemon sprites from the fight (ally and enemy)
-    if (e.allySpecies) sprites.push(`<span style="display:inline-flex;flex-direction:column;align-items:center;gap:0"><img src="${pokeSprite(e.allySpecies)}" title="${e.allySpecies}">${e.allyLevel ? `<span style="font-size:6px;color:var(--text-dim);line-height:1">Lv.${e.allyLevel}</span>` : ''}</span>`);
-    if (e.enemySpecies) sprites.push(`<span style="display:inline-flex;flex-direction:column;align-items:center;gap:0"><img src="${pokeSprite(e.enemySpecies)}" title="${e.enemySpecies}">${e.enemyLevel ? `<span style="font-size:6px;color:var(--red);line-height:1">Lv.${e.enemyLevel}</span>` : ''}</span>`);
-    return sprites.join('');
-  }).join('<span style="color:var(--border);margin:0 2px">|</span>');
+// Compatibility shim for legacy addBattleLogEntry calls (gym auto-raids, etc.)
+function addBattleLogEntry(entry) {
+  const zoneName = entry.zoneName || '?';
+  const result   = entry.win
+    ? `+${entry.reward || 0}₽ +${entry.repGain || 0}rep`
+    : 'Défaite';
+  pushFeedEvent({
+    category: 'combat',
+    title: `${entry.win ? 'Victoire' : 'Défaite'} — ${zoneName} ${result}`,
+    detail: (entry.lines || []).join(' · '),
+    win: !!entry.win,
+  });
 }
 
 function renderPCTab() {
@@ -11994,7 +12033,7 @@ Object.assign(globalThis, {
   SFX,
   // Zone / spawn functions (agent module)
   initZone, spawnInZone, makePokemon, getPokemonPower, levelUpPokemon,
-  getCombatRepGain, addBattleLogEntry, rollChestLoot, triggerGymRaid,
+  getCombatRepGain, addBattleLogEntry, pushFeedEvent, rollChestLoot, triggerGymRaid,
   tryCapture, calculateStats, showCaptureBurst,
   removeSpawn, updateZoneTimers,
   // Combat (agent module)
@@ -12107,52 +12146,15 @@ function boot() {
   document.getElementById('btnBackToIntro')?.addEventListener('click', () => showIntro());
   document.getElementById('btnCodex')?.addEventListener('click', openCodexModal);
 
-  // Battle log toggle + drag
-  const battleLogPanel = document.getElementById('battleLog');
-  const battleLogHeader = document.getElementById('battleLogHeader');
-  if (battleLogHeader && battleLogPanel) {
-    let isDragging = false, dragStartX = 0, dragStartY = 0, panelStartRight = 0, panelStartBottom = 0;
-
-    battleLogHeader.addEventListener('mousedown', (e) => {
-      if (e.button !== 0) return;
-      isDragging = true;
-      dragStartX = e.clientX;
-      dragStartY = e.clientY;
-      const rect = battleLogPanel.getBoundingClientRect();
-      panelStartRight = window.innerWidth - rect.right;
-      panelStartBottom = window.innerHeight - rect.bottom;
-      battleLogPanel.classList.add('is-dragging');
-      e.preventDefault();
-    });
+  // (legacy battle log drag code removed — battle log is now the Events tab)
+  if (false) { // placeholder to keep diff clean
+    const battleLogPanel = document.getElementById('battleLog');
+    battleLogPanel?.classList.add('is-dragging');
 
     document.addEventListener('mousemove', (e) => {
       if (!isDragging) return;
-      const dx = dragStartX - e.clientX;
-      const dy = dragStartY - e.clientY;
-      const newRight = Math.max(0, Math.min(window.innerWidth - 100, panelStartRight + dx));
-      const newBottom = Math.max(0, Math.min(window.innerHeight - 40, panelStartBottom + dy));
-      battleLogPanel.style.right = newRight + 'px';
-      battleLogPanel.style.bottom = newBottom + 'px';
-      battleLogPanel.style.left = 'auto';
-      battleLogPanel.style.top = 'auto';
-    });
-
-    document.addEventListener('mouseup', (e) => {
-      if (!isDragging) return;
-      isDragging = false;
-      battleLogPanel.classList.remove('is-dragging');
-      // If minimal movement, treat as click (toggle collapse)
-      const dx = Math.abs(dragStartX - e.clientX);
-      const dy = Math.abs(dragStartY - e.clientY);
-      if (dx < 5 && dy < 5) {
-        battleLogPanel.classList.toggle('battle-log-collapsed');
-        const tog = document.getElementById('battleLogToggle');
-        if (tog) tog.textContent = battleLogPanel.classList.contains('battle-log-collapsed') ? '▲' : '▼';
-        updateBattleLogMiniSprites();
-      }
-    });
   }
-  renderBattleLog();
+  // Events tab renders on demand (switchTab triggers renderEventsTab via renderActiveTab)
 
   // Init filter/sort listeners for PC (reset page on change, force full rebuild)
   document.getElementById('pcSearch')?.addEventListener('input', () => {

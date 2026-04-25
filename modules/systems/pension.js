@@ -8,6 +8,8 @@
 //   POTENTIAL_MULT, ITEM_SPRITE_URLS
 // ════════════════════════════════════════════════════════════════
 
+let _pensionSearch = ''; // persisted across re-renders (like _trSearch in trainingRoom)
+
 const EGG_HATCH_MS = {
   common:    1 * 60 * 1000,
   uncommon:  5 * 60 * 1000,
@@ -207,8 +209,8 @@ function renderPensionView(container) {
   for (const a of state.agents) a.team.forEach(id => teamIds.add(id));
   const trainingIds = new Set(state.trainingRoom?.pokemon || []);
 
-  // Récupère la valeur de recherche courante (persistée entre re-renders)
-  const pensionQ = (container.querySelector('#pensionSearchInput')?.value || '').toLowerCase();
+  // Récupère la valeur de recherche persistée au niveau module (comme _trSearch)
+  const pensionQ = _pensionSearch.toLowerCase();
 
   const allPensionCandidates = state.pokemons
     .filter(pk => !usedIds.has(pk.id) && !teamIds.has(pk.id) && !trainingIds.has(pk.id) && SPECIES_BY_EN[pk.species_en]?.rarity !== 'legendary')
@@ -266,8 +268,9 @@ function renderPensionView(container) {
     renderPensionView(container);
   });
 
-  // Recherche pension
-  container.querySelector('#pensionSearchInput')?.addEventListener('input', () => {
+  // Recherche pension — stockée au niveau module pour survivre aux re-renders
+  container.querySelector('#pensionSearchInput')?.addEventListener('input', e => {
+    _pensionSearch = e.target.value;
     renderPensionView(container);
   });
 
