@@ -11019,22 +11019,50 @@ function supaConfigured() {
     && !SUPABASE_URL.includes('VOTRE_PROJET');
 }
 
-// ── Custom fetch : timeout 10 s pour éviter les locks GoTrue orphelins ──
+// ── Custom fetch : timeout 12 s ───────────────────────────────────────
 function _supaFetch(url, options = {}) {
   const ctrl = new AbortController();
-  // Merge signal : respecte un signal existant (ex: annulation de l'appelant)
   const existing = options.signal;
-  if (existing) {
-    existing.addEventListener('abort', () => ctrl.abort());
-  }
-  const timer = setTimeout(() => ctrl.abort(), 10_000);
+  if (existing?.addEventListener) existing.addEventListener('abort', () => ctrl.abort());
+  const timer = setTimeout(() => ctrl.abort(), 12_000);
   return fetch(url, { ...options, signal: ctrl.signal })
     .catch(err => {
-      // Ne pas laisser remonter l'AbortError en erreur non gérée
-      if (err.name === 'AbortError') throw new Error('Supabase request timeout (10s)');
+      if (err.name === 'AbortError') throw new Error('Supabase request timeout (12s)');
       throw err;
     })
     .finally(() => clearTimeout(timer));
+}
+
+// ── Mutex réentrant JS — remplace le Web Locks API pour GoTrue ───────
+// Raison : GoTrue appelle _recoverAndRefresh() DEPUIS l'intérieur du lock
+// courant quand une requête échoue (504). Le Web Locks API ne supporte pas la
+// réentrance → deadlock de 5s → vol de lock → "Uncaught (in promise)".
+// Un mutex JS simple est réentrant par nature (même thread) et évite tout ça.
+function _makeSupaLock() {
+  let _promise = Promise.resolve(); // chaîne de promesses sérialisées
+  let _depth   = 0;                 // compteur de réentrance
+  return async function supaLock(_name, _acquireTimeout, fn) {
+    if (_depth > 0) {
+      // Réentrant : exécuter fn directement sans attendre le mutex
+      _depth++;
+      try { return await fn(); } finally { _depth--; }
+    }
+    // Première acquisition : sérialiser derrière les appels précédents
+    let release;
+    const next = new Promise(r => (release = r));
+    const prev = _promise;
+    _promise    = next;
+    await prev;
+    _depth = 1;
+    try {
+      return await fn();
+    } catch (err) {
+      throw err;
+    } finally {
+      _depth = 0;
+      release();
+    }
+  };
 }
 
 // ── Init ──────────────────────────────────────────────────────────
@@ -11047,28 +11075,12 @@ function initSupabase() {
   try {
     _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       auth: {
-        persistSession:    true,
-        autoRefreshToken:  true,
+        persistSession:     true,
+        autoRefreshToken:   true,
         detectSessionInUrl: false,
-        // Évite les locks inter-onglets orphelins (GoTrue >= 2.60)
-        lock: async (name, acquireTimeout, fn) => {
-          if (typeof navigator.locks?.request === 'function') {
-            return navigator.locks.request(name, { steal: false }, fn)
-              .catch(err => {
-                // Lock volé par un autre onglet : réessayer une fois
-                if (err?.name === 'NotAllowedError' || err?.message?.includes('stole')) {
-                  return navigator.locks.request(name, { steal: true }, fn);
-                }
-                throw err;
-              });
-          }
-          // Fallback : pas de Web Locks API (vieux navigateurs)
-          return fn();
-        },
+        lock: _makeSupaLock(), // mutex JS réentrant, pas de Web Locks API
       },
-      global: {
-        fetch: _supaFetch,
-      },
+      global: { fetch: _supaFetch },
     });
 
     // Restaurer la session existante (localStorage Supabase)
@@ -11079,8 +11091,7 @@ function initSupabase() {
         if (activeTab === 'tabCompte') renderCompteTab();
       })
       .catch(err => {
-        // 504 / timeout au démarrage → on continue sans session, on réessaie au prochain tick
-        console.warn('PokéForge: getSession failed (réseau?)', err.message);
+        console.warn('PokéForge: getSession failed (réseau?)', err?.message ?? err);
       });
 
     // Écouter les changements d'auth (login / logout / refresh token)

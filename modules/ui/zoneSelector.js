@@ -16,10 +16,15 @@
 let _zoneFilter = 'all'; // 'all' | 'fav' | 'route' | 'city' | 'special'
 let _ctxMenu    = null;  // active context menu DOM node
 
+// ── Classic-script globals (const → pas sur window, mais dans la portée ──
+// lexicale globale partagée entre tous les scripts de la page).
+// Déclarés ici pour que les moteurs strict-mode ne les rejettent pas.
+/* globals ZONES, ZONE_BY_ID, SPECIES_BY_EN */
+
 // ── Filter helpers ────────────────────────────────────────────
 function _getFilteredZones() {
-  const ZONES = globalThis.ZONES || [];
   const state = globalThis.state;
+  // ZONES est un const de script classique, accessible par nom nu
   switch (_zoneFilter) {
     case 'fav':     return ZONES.filter(z => (state.favoriteZones || []).includes(z.id));
     case 'route':   return ZONES.filter(z => z.type === 'route');
@@ -34,7 +39,7 @@ function toggleZoneFav(zoneId) {
   const state = globalThis.state;
   if (!state.favoriteZones) state.favoriteZones = [];
   const idx = state.favoriteZones.indexOf(zoneId);
-  const zone = globalThis.ZONE_BY_ID?.[zoneId];
+  const zone = ZONE_BY_ID?.[zoneId];
   const name = state.lang === 'fr' ? zone?.fr : zone?.en;
   if (idx === -1) {
     state.favoriteZones.push(zoneId);
@@ -82,7 +87,7 @@ export function showZoneContextMenu(zoneId, x, y) {
 
   const state     = globalThis.state;
   const openZones = globalThis.openZones;
-  const zone      = globalThis.ZONE_BY_ID?.[zoneId];
+  const zone      = ZONE_BY_ID?.[zoneId];
   if (!zone) return;
 
   const zState     = state.zones[zoneId] || {};
@@ -171,7 +176,7 @@ export function showZoneContextMenu(zoneId, x, y) {
       html += `<div class="zone-ctx-section">DISPONIBLES</div>`;
       for (const a of available) {
         const curZone = a.assignedZone
-          ? (globalThis.ZONE_BY_ID?.[a.assignedZone]?.fr || a.assignedZone)
+          ? (ZONE_BY_ID?.[a.assignedZone]?.fr || a.assignedZone)
           : 'sans zone';
         html += `<button class="zone-ctx-item zone-ctx-agent${canAdd ? '' : ' zone-ctx-disabled'}"
           data-agent-id="${a.id}" ${canAdd ? '' : 'disabled'}>
@@ -291,7 +296,7 @@ function _buildTile(zone) {
     const poolPreview = (zone.pool || []).slice(0, 5).map(en =>
       `<img src="${globalThis.pokeSprite?.(en) || ''}"
         style="width:16px;height:16px;image-rendering:pixelated;filter:drop-shadow(0 1px 3px rgba(0,0,0,1))"
-        title="${globalThis.SPECIES_BY_EN?.[en]?.fr || en}">`
+        title="${SPECIES_BY_EN?.[en]?.fr || en}">`
     ).join('');
 
     return `<div class="fog-tile unlocked ${isOpen ? 'fog-open' : ''} zone-type-${zone.type}${degraded ? ' fog-degraded' : ''}"
