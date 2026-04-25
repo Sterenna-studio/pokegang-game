@@ -9221,12 +9221,19 @@ function renderAgentsTab() {
       <div class="agent-personality">${a.personality.join(', ')}</div>
 
       <!-- Stat points & respec -->
-      <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
-        <button data-agent-statmodal="${a.id}" style="flex:1;font-family:var(--font-pixel);font-size:7px;padding:4px;background:${statPts > 0 ? 'rgba(255,204,90,.12)' : 'var(--bg)'};border:1px solid ${statPts > 0 ? 'var(--gold)' : 'var(--border)'};border-radius:var(--radius-sm);color:${statPts > 0 ? 'var(--gold)' : 'var(--text-dim)'};cursor:pointer">
-          📊 Stats${statPts > 0 ? ` (${statPts} pts !)` : ''}
-        </button>
-        <button data-agent-respec="${a.id}" title="Réattribuer les stats (1 000 000₽)" style="font-family:var(--font-pixel);font-size:7px;padding:4px 8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">🔄 Respec</button>
-      </div>
+      ${!a.natureDefined
+        ? `<div style="margin-top:6px">
+            <button data-agent-statmodal="${a.id}" style="width:100%;font-family:var(--font-pixel);font-size:7px;padding:6px;background:rgba(224,92,92,.12);border:2px solid #e05c5c;border-radius:var(--radius-sm);color:#e05c5c;cursor:pointer;animation:pulse 1.6s infinite">
+              🌟 DÉFINIR SA NATURE PROFONDE
+            </button>
+          </div>`
+        : `<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
+            <button data-agent-statmodal="${a.id}" style="flex:1;font-family:var(--font-pixel);font-size:7px;padding:4px;background:${statPts > 0 ? 'rgba(255,204,90,.12)' : 'var(--bg)'};border:1px solid ${statPts > 0 ? 'var(--gold)' : 'var(--border)'};border-radius:var(--radius-sm);color:${statPts > 0 ? 'var(--gold)' : 'var(--text-dim)'};cursor:pointer">
+              📊 Stats${statPts > 0 ? ` (${statPts} pts !)` : ''}
+            </button>
+            <button data-agent-respec="${a.id}" title="Réattribuer les stats (1 000 000₽)" style="font-family:var(--font-pixel);font-size:7px;padding:4px 8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">🔄 Respec</button>
+          </div>`
+      }
 
       <label class="agent-notify-toggle">
         <input type="checkbox" class="agent-notify-cb" data-agent-id="${a.id}" ${a.notifyCaptures !== false ? 'checked' : ''}>
@@ -9349,9 +9356,15 @@ function renderAgentsTab() {
     });
   });
 
-  // Stat modal per agent
+  // Stat modal per agent — route to nature modal if not yet defined
   grid.querySelectorAll('[data-agent-statmodal]').forEach(btn => {
-    btn.addEventListener('click', () => openAgentStatModal(btn.dataset.agentStatmodal));
+    btn.addEventListener('click', () => {
+      const agentId = btn.dataset.agentStatmodal;
+      const agent   = state.agents.find(a => a.id === agentId);
+      if (!agent) return;
+      if (!agent.natureDefined) openAgentNatureModal(agentId);
+      else                      openAgentStatModal(agentId);
+    });
   });
 
   // Respec per agent

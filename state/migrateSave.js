@@ -86,18 +86,27 @@ export function migrateSave(saved, deps) {
     if (agent.pendingPerk === undefined) agent.pendingPerk = false;
 
     // ── Nouveau système stat points ──────────────────────────────
-    // baseStats = snapshot des stats actuelles (inclut anciens perks baked in)
-    if (!agent.baseStats) {
-      agent.baseStats = { capture: agent.stats.capture, combat: agent.stats.combat, luck: agent.stats.luck };
-    }
     if (!agent.allocatedStats) agent.allocatedStats = { capture: 0, combat: 0, luck: 0 };
-    if (agent.statPoints === undefined) {
-      // Convertir un éventuel pendingPerk en 1 pt
-      agent.statPoints = agent.pendingPerk ? 1 : 0;
-      agent.pendingPerk = false;
-    }
     if (!agent.preferredBall) agent.preferredBall = 'pokeball';
     if (!agent.behavior)      agent.behavior      = 'all';
+
+    // natureDefined : true pour les agents créés avec le nouveau système,
+    // false pour les agents d'anciennes saves qui n'ont pas eu le choix de nature.
+    if (agent.natureDefined === undefined) {
+      agent.natureDefined = false;      // ancien agent — devra définir sa nature
+      // baseStats temporaires = stats actuelles (seront remplacées après le choix de nature)
+      if (!agent.baseStats) {
+        agent.baseStats = { capture: agent.stats.capture, combat: agent.stats.combat, luck: agent.stats.luck };
+      }
+      agent.statPoints   = 0;          // accordés après le choix de nature
+      agent.pendingPerk  = false;
+    } else {
+      // Nouvel agent — baseStats déjà définis à la création
+      if (!agent.baseStats) {
+        agent.baseStats = { capture: agent.stats.capture, combat: agent.stats.combat, luck: agent.stats.luck };
+      }
+      if (agent.statPoints === undefined) agent.statPoints = 0;
+    }
 
     // Convertir l'ancien grade 'captain' → 'commandant'
     if (agent.title === 'captain') agent.title = 'commandant';

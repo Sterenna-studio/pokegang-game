@@ -42,6 +42,7 @@ function rollNewAgent() {
     baseStats:      { capture: baseCapture, combat: baseCombat, luck: baseLuck },
     allocatedStats: { capture: 0, combat: 0, luck: 0 },
     statPoints: 0,
+    natureDefined: true,
     preferredBall: 'pokeball',
     behavior: 'all', // 'all' | 'capture' | 'combat'
     personality,
@@ -197,8 +198,8 @@ function grantAgentXP(agent, amount) {
   while (agent.xp >= needed && agent.level < 100) {
     agent.xp -= needed;
     agent.level++;
-    agent.statPoints = (agent.statPoints || 0) + 1;
-    globalThis.notify(`📈 ${agent.name} Lv.${agent.level} — 1 pt de stat disponible !`, 'gold');
+    agent.statPoints = (agent.statPoints || 0) + 3;
+    globalThis.notify(`📈 ${agent.name} Lv.${agent.level} — 3 pts de stat disponibles !`, 'gold');
   }
   checkPromotion(agent);
 }
@@ -217,8 +218,8 @@ function respecAgentStats(agentId) {
     `Réattribuer les stats de <b>${agent.name}</b> pour <b>1 000 000₽</b> ?<br><span style="color:var(--text-dim);font-size:11px">Tous les pts distribués seront récupérés. Les stats de base restent inchangées.</span>`,
     () => {
       state.gang.money -= RESPEC_COST;
-      // Total points ever earned = 1 per level (level 1 = 0 pts, level 50 = 49 pts, etc.)
-      agent.statPoints    = Math.max(0, (agent.level || 1) - 1);
+      // Total points ever earned = 3 per level (level 1 = 0 pts, level 50 = 147 pts, etc.)
+      agent.statPoints    = Math.max(0, ((agent.level || 1) - 1) * 3);
       agent.allocatedStats = { capture: 0, combat: 0, luck: 0 };
       // Restore stats to base
       agent.stats = { ...agent.baseStats };
@@ -722,6 +723,98 @@ function agentOpenChest(agent, zoneId, spawnObj) {
 
 // (Agent capture animation is now handled by agentCaptureVisibleSpawn above)
 
+// ── Nature profonde (agents migrés sans baseStats d'origine) ─────
+// Génère 3 profils de nature : chaque profil révèle 1 stat, les 2 autres sont masquées.
+// Après le choix, les baseStats sont posées, les statPoints accumulés sont accordés,
+// puis le modal d'attribution s'ouvre directement.
+function openAgentNatureModal(agentId) {
+  const state = globalThis.state;
+  const agent = state.agents.find(a => a.id === agentId);
+  if (!agent || agent.natureDefined) return;
+
+  const R  = (min, max) => globalThis.randInt(min, max);
+  // 3 profils orientés : combattant / captureur / chanceux
+  const profiles = [
+    { combat: R(12, 20), capture: R(3, 11),  luck: R(1, 8),   revealed: 'combat',  icon:'⚔️',  label:'Combattant' },
+    { combat: R(3, 11),  capture: R(12, 20), luck: R(1, 8),   revealed: 'capture', icon:'🎯',  label:'Chasseur'   },
+    { combat: R(4, 13),  capture: R(4, 13),  luck: R(10, 18), revealed: 'luck',    icon:'🍀',  label:'Chanceux'   },
+  ];
+
+  // Mélanger aléatoirement pour éviter que l'ordre révèle toujours le même
+  for (let i = profiles.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [profiles[i], profiles[j]] = [profiles[j], profiles[i]];
+  }
+
+  const STAT_LABELS = { combat:'ATK', capture:'CAP', luck:'LCK' };
+  const STAT_COLORS = { combat:'#e05c5c', capture:'#7eb8f7', luck:'#6ecf8a' };
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:10001;display:flex;align-items:center;justify-content:center;padding:16px';
+
+  overlay.innerHTML = `
+    <div style="background:var(--bg-panel);border:2px solid var(--gold);border-radius:var(--radius);padding:24px;max-width:500px;width:100%">
+      <div style="font-family:var(--font-pixel);font-size:11px;color:var(--gold);margin-bottom:6px">🌟 NATURE PROFONDE</div>
+      <div style="font-size:10px;color:var(--text-dim);margin-bottom:20px">
+        <b style="color:var(--text)">${agent.name}</b> n'a pas encore révélé sa vraie nature.<br>
+        Choisis l'une de ses trois essences — les statistiques de base seront définitivement posées.
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px">
+        ${profiles.map((p, i) => {
+          const rev = p.revealed;
+          const revVal = p[rev];
+          const slots = ['combat','capture','luck'].map(s =>
+            s === rev
+              ? `<div style="margin:4px 0;font-size:10px;color:${STAT_COLORS[s]}"><b>${STAT_LABELS[s]} ${revVal}</b></div>`
+              : `<div style="margin:4px 0;font-size:10px;color:var(--text-dim)">${STAT_LABELS[s]} <b style="letter-spacing:2px">???</b></div>`
+          ).join('');
+          return `<button data-nature-idx="${i}" style="
+            background:var(--bg-card);border:2px solid var(--border);border-radius:var(--radius);
+            padding:14px 10px;cursor:pointer;text-align:center;transition:border-color .15s;
+            display:flex;flex-direction:column;align-items:center;gap:6px">
+            <div style="font-size:22px">${p.icon}</div>
+            <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text)">${p.label}</div>
+            <div style="margin-top:4px">${slots}</div>
+          </button>`;
+        }).join('')}
+      </div>
+      <div style="font-size:8px;color:var(--text-dim);text-align:center;opacity:.7">
+        Ce choix est définitif. Les statistiques masquées seront révélées après ta sélection.
+      </div>
+    </div>`;
+
+  // Hover effect
+  overlay.querySelectorAll('[data-nature-idx]').forEach(btn => {
+    btn.addEventListener('mouseenter', () => btn.style.borderColor = 'var(--gold)');
+    btn.addEventListener('mouseleave', () => btn.style.borderColor = 'var(--border)');
+    btn.addEventListener('click', () => {
+      const chosen = profiles[parseInt(btn.dataset.natureIdx)];
+
+      // Set definitive baseStats
+      agent.baseStats      = { combat: chosen.combat, capture: chosen.capture, luck: chosen.luck };
+      agent.stats          = { combat: chosen.combat, capture: chosen.capture, luck: chosen.luck };
+      agent.allocatedStats = { combat: 0, capture: 0, luck: 0 };
+      agent.natureDefined  = true;
+      // Grant all accumulated stat points: 3 per level earned
+      agent.statPoints     = Math.max(0, ((agent.level || 1) - 1) * 3);
+
+      globalThis.saveState();
+      overlay.remove();
+
+      // Reveal + notify
+      globalThis.notify(
+        `✨ ${agent.name} — Nature ${chosen.label} révélée ! ATK ${chosen.combat} / CAP ${chosen.capture} / LCK ${chosen.luck} · ${agent.statPoints} pts à distribuer`,
+        'gold'
+      );
+      globalThis.renderAgentsTab?.();
+      // Open stat modal immediately so points can be spent
+      openAgentStatModal(agentId);
+    });
+  });
+
+  document.body.appendChild(overlay);
+}
+
 Object.assign(globalThis, {
   getAgentRecruitCost,
   rollNewAgent,
@@ -740,6 +833,7 @@ Object.assign(globalThis, {
   agentOpenChest,
   respecAgentStats,
   openAgentStatModal,
+  openAgentNatureModal,
 });
 
 export {};
