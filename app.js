@@ -4002,25 +4002,101 @@ ${(() => {
 }
 
 function openExportModal() {
+  // ── Options state ────────────────────────────────────────────
+  const opts = {
+    showVitrine:  true,
+    showTitres:   true,
+    showBossTeam: true,
+    showStats:    true,
+    showBadges:   true,
+    showAgents:   true,
+    spriteGen:    'game',   // 'game' | 'gen5' | 'gen1'
+  };
+
   const modal = document.createElement('div');
-  modal.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center';
+
+  const toggleDefs = [
+    ['showVitrine',  '🎭', 'Vitrine'],
+    ['showTitres',   '🏆', 'Titres'],
+    ['showBossTeam', '⚔',  'Équipe Boss'],
+    ['showStats',    '📊', 'Statistiques'],
+    ['showBadges',   '🎖',  'Badges Pokédex'],
+    ['showAgents',   '👥', 'Agents'],
+  ];
+
+  const chkStyle = 'display:flex;align-items:center;gap:8px;cursor:pointer;font-size:9px;color:var(--text);user-select:none';
+  const chkInputStyle = 'width:14px;height:14px;accent-color:var(--gold);cursor:pointer';
+  const radioStyle = 'display:flex;align-items:center;gap:8px;cursor:pointer;font-size:9px;color:var(--text);user-select:none';
+
   modal.innerHTML = `
-    <div style="background:var(--bg-panel);border:2px solid var(--red);border-radius:var(--radius);padding:24px;max-width:340px;width:90%;display:flex;flex-direction:column;gap:14px">
-      <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold)">EXPORTER LA FICHE</div>
-      <div style="display:flex;gap:10px">
-        <button id="exportPortrait" style="flex:1;font-family:var(--font-pixel);font-size:8px;padding:12px;background:var(--bg);border:2px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px">
-          <span style="font-size:20px">🖼</span> Portrait
+    <div style="background:var(--bg-panel);border:2px solid var(--red);border-radius:var(--radius);
+      padding:24px;max-width:480px;width:95%;display:flex;flex-direction:column;gap:16px;max-height:90vh;overflow-y:auto">
+
+      <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold)">📋 EXPORTER MON GANG</div>
+
+      <!-- Sections -->
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="font-size:8px;color:var(--text-dim);font-family:var(--font-pixel);border-bottom:1px solid var(--border);padding-bottom:4px">SECTIONS À INCLURE</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px">
+          ${toggleDefs.map(([key, icon, label]) => `
+            <label style="${chkStyle}">
+              <input type="checkbox" data-opt="${key}" ${opts[key] ? 'checked' : ''} style="${chkInputStyle}">
+              ${icon} ${label}
+            </label>`).join('')}
+        </div>
+      </div>
+
+      <!-- Sprites -->
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="font-size:8px;color:var(--text-dim);font-family:var(--font-pixel);border-bottom:1px solid var(--border);padding-bottom:4px">STYLE DE SPRITES</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <label style="${radioStyle}">
+            <input type="radio" name="xpSprite" value="game" checked style="accent-color:var(--gold);cursor:pointer">
+            🎮 Sprites du jeu (paramètre actif)
+          </label>
+          <label style="${radioStyle}">
+            <input type="radio" name="xpSprite" value="gen5" style="accent-color:var(--gold);cursor:pointer">
+            🖼 Showdown — Gen 5 (BW)
+          </label>
+          <label style="${radioStyle}">
+            <input type="radio" name="xpSprite" value="gen1" style="accent-color:var(--gold);cursor:pointer">
+            👾 Rétro — Gen 1 (pixel art)
+          </label>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button id="xpOpen" style="flex:1;font-family:var(--font-pixel);font-size:8px;padding:12px;
+          background:var(--red);border:2px solid var(--red);border-radius:var(--radius-sm);
+          color:#fff;cursor:pointer;min-width:140px">
+          ↗ Ouvrir la fiche
         </button>
-        <button id="exportLandscape" style="flex:1;font-family:var(--font-pixel);font-size:8px;padding:12px;background:var(--bg);border:2px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px">
-          <span style="font-size:20px">🖼</span><span style="transform:rotate(90deg);display:inline-block">↕</span> Paysage
+        <button id="xpCancel" style="font-family:var(--font-pixel);font-size:8px;padding:12px;
+          background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);
+          color:var(--text-dim);cursor:pointer">
+          ✕ Annuler
         </button>
       </div>
-      <button id="exportCancel" style="font-family:var(--font-pixel);font-size:8px;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">Annuler</button>
+      <div style="font-size:8px;color:var(--text-dim);line-height:1.6">
+        💡 Dans la fiche : Ctrl+P → PDF · Clic droit → Enregistrer pour PNG
+      </div>
     </div>`;
+
   document.body.appendChild(modal);
-  modal.querySelector('#exportPortrait').addEventListener('click', () => { modal.remove(); exportGangImage('portrait'); });
-  modal.querySelector('#exportLandscape').addEventListener('click', () => { modal.remove(); exportGangImage('landscape'); });
-  modal.querySelector('#exportCancel').addEventListener('click', () => modal.remove());
+
+  // Checkbox bindings
+  modal.querySelectorAll('input[type=checkbox]').forEach(cb => {
+    cb.addEventListener('change', () => { opts[cb.dataset.opt] = cb.checked; });
+  });
+  // Radio bindings
+  modal.querySelectorAll('input[type=radio]').forEach(r => {
+    r.addEventListener('change', () => { if (r.checked) opts.spriteGen = r.value; });
+  });
+
+  modal.querySelector('#xpOpen').addEventListener('click', () => { modal.remove(); _exportAsPDF(opts); });
+  modal.querySelector('#xpCancel').addEventListener('click', () => modal.remove());
   modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
 }
 
@@ -5415,20 +5491,43 @@ function openCodexModal() {
   });
 }
 
-// ── Gang Export (Canvas screenshot) ──────────────────────────
-function exportGangImage(mode = 'portrait') {
-  const g = state.gang;
-  const s = state.stats;
+// ── Gang Export — Card Builder ────────────────────────────────
+function buildExportCard(opts = {}) {
+  const g  = state.gang;
+  const s  = state.stats;
 
-  // ── Data ──────────────────────────────────────────────────
-  const teamPks = g.bossTeam.map(id => state.pokemons.find(p => p.id === id)).filter(Boolean);
-  const mvp = state.pokemons.length > 0
-    ? state.pokemons.reduce((best, p) => calculatePrice(p) > calculatePrice(best) ? p : best)
-    : null;
-  const dexCaught  = getDexKantoCaught();
-  const dexTotal   = KANTO_DEX_SIZE;
-  const dexNatCaught = getDexNationalCaught();
-  const topSp = Object.entries(state.pokedex).sort((a,b) => (b[1].count||0) - (a[1].count||0))[0];
+  const LOGO_FULL  = 'https://lab.sterenna.fr/PG/pokegang_logo/pokegang_logo_full_B.png';
+  const LOGO_SMALL = 'https://lab.sterenna.fr/PG/pokegang_logo/pokegang_logo_medium.png';
+
+  // ── Sprite helper — respects opts.spriteGen ────────────────
+  // 'game' = same as in-game setting (pokeSprite)
+  // 'gen5' = force Showdown Gen 5 BW sprites
+  // 'gen1' = force Showdown Gen 1 pixel sprites
+  const gen = opts.spriteGen || 'game';
+  function _pkSprite(species_en, shiny) {
+    if (gen === 'gen5') {
+      const base = shiny ? 'gen5-shiny' : 'gen5';
+      return `https://play.pokemonshowdown.com/sprites/${base}/${sanitizeSpriteName(species_en)}.png`;
+    }
+    if (gen === 'gen1') {
+      // Gen 1 had no color — use gen1 for normal, gen2-shiny for shinies (first gen with color)
+      const base = shiny ? 'gen2-shiny' : 'gen1';
+      return `https://play.pokemonshowdown.com/sprites/${base}/${sanitizeSpriteName(species_en)}.png`;
+    }
+    // 'game': respect the in-game setting (already has classicSprites logic)
+    return pokeSprite(species_en, shiny);
+  }
+
+  // ── Inline image helpers (no crossorigin — avoids CORS errors) ──
+  const img = (src, w, h) =>
+    `<img src="${src}" width="${w}" height="${h}"
+      style="image-rendering:pixelated;display:block;object-fit:contain"
+      onerror="this.style.visibility='hidden'">`;
+  const sec = label =>
+    `<div style="font-family:'Press Start 2P',monospace;font-size:7px;color:#555;
+      text-align:center;padding:8px 0 6px;letter-spacing:.12em">— ${label} —</div>`;
+  const hr  = () =>
+    `<div style="height:1px;background:rgba(204,51,51,.35);margin:0 20px"></div>`;
 
   // ── Background ────────────────────────────────────────────
   const bgKey = state.cosmetics?.gameBg;
@@ -5437,69 +5536,231 @@ function exportGangImage(mode = 'portrait') {
     ? `background-image:url('${bgUrl}');background-size:cover;background-position:center`
     : 'background:linear-gradient(180deg,#180606 0%,#200d0d 45%,#160808 80%,#0e0404 100%)';
 
-  // ── Helpers ───────────────────────────────────────────────
-  const sp = (src, size, alt = '') =>
-    `<img src="${src}" width="${size}" height="${size}" alt="${alt}"
-      style="image-rendering:pixelated;object-fit:contain;display:block"
-      onerror="this.style.visibility='hidden'">`;
+  // ── Data ──────────────────────────────────────────────────
+  const teamPks     = g.bossTeam.map(id => state.pokemons.find(p => p.id === id)).filter(Boolean);
+  const mvp         = state.pokemons.length > 0
+    ? state.pokemons.reduce((best, p) => calculatePrice(p) > calculatePrice(best) ? p : best)
+    : null;
+  const showcaseIds = (g.showcase || [null, null, null]).slice(0, 3);
+  const showcasePks = showcaseIds.map(id => (id ? state.pokemons.find(p => p.id === id) : null) || null);
+  const kantoCaught = getDexKantoCaught();
+  const kantoTotal  = KANTO_DEX_SIZE;
+  const natCaught   = getDexNationalCaught();
+  const natTotal    = NATIONAL_DEX_SIZE;
+  const shinySpecies = getShinySpeciesCount();
+  const mainTitle   = getBossFullTitle();
+  const tC          = getTitleLabel(g.titleC);
+  const tD          = getTitleLabel(g.titleD);
+  const agents      = state.agents.slice(0, 16);
+  const col1        = agents.slice(0, 8);
+  const col2        = agents.slice(8, 16);
 
-  // ── Boss team ─────────────────────────────────────────────
-  const bossTeamHtml = teamPks.map(pk => `
-    <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
-      ${sp(pokeSprite(pk.species_en, pk.shiny), 64, speciesName(pk.species_en))}
-      <span style="font-size:9px;color:${pk.shiny ? '#ffcc5a' : '#888'}">${'★'.repeat(pk.potential)} Lv.${pk.level}</span>
-      <span style="font-size:8px;color:#aaa">${speciesName(pk.species_en)}</span>
-    </div>`).join('');
+  // ── Dex achievement badges ─────────────────────────────────
+  const badges = [];
+  if (kantoCaught >= kantoTotal)          badges.push({ label: 'Kanto Complet',     color: '#ffcc5a', icon: '🏅' });
+  if (natCaught >= natTotal)              badges.push({ label: 'National Complet',   color: '#4fc3f7', icon: '🌐' });
+  if (shinySpecies >= 30)                 badges.push({ label: 'Chasseur Shiny',     color: '#e879f9', icon: '✨' });
+  if ((s.totalFightsWon || 0) >= 100)    badges.push({ label: 'Vétéran',            color: '#f97316', icon: '⚔' });
+  if ((s.totalCaught    || 0) >= 500)    badges.push({ label: 'Grand Chasseur',      color: '#22c55e', icon: '🎯' });
 
-  // ── MVP ───────────────────────────────────────────────────
-  const mvpHtml = mvp ? `
-    <div style="border:2px solid #ffcc5a;border-radius:6px;padding:8px 10px;background:rgba(255,204,90,0.08);text-align:center;flex-shrink:0">
-      <div style="font-size:9px;color:#ffcc5a;margin-bottom:4px;font-family:'Press Start 2P',monospace">💰 MVP</div>
-      ${sp(pokeSprite(mvp.species_en, mvp.shiny), 60, speciesName(mvp.species_en))}
-      <div style="font-size:9px;color:#e0e0e0;margin-top:4px">${speciesName(mvp.species_en)}${mvp.shiny ? ' ★' : ''}</div>
-      <div style="font-size:10px;color:#ffcc5a;font-weight:bold">${calculatePrice(mvp).toLocaleString()}₽</div>
-    </div>` : '';
-
-  // ── Agents ────────────────────────────────────────────────
-  const agentsHtml = state.agents.map(ag => {
-    const agPks = ag.team.map(id => state.pokemons.find(p => p.id === id)).filter(Boolean);
+  // ── Agent row renderer ─────────────────────────────────────
+  function _agentRow(ag) {
+    const agPks    = ag.team.map(id => state.pokemons.find(p => p.id === id)).filter(Boolean);
     const zoneName = ag.assignedZone ? (ZONE_BY_ID[ag.assignedZone]?.fr || ag.assignedZone) : 'Sans zone';
-    const teamHtml = agPks.slice(0, 6).map(pk => `
-      <div style="display:flex;flex-direction:column;align-items:center;gap:1px">
-        ${sp(pokeSprite(pk.species_en, pk.shiny), 36, speciesName(pk.species_en))}
-        <span style="font-size:7px;color:${pk.shiny ? '#ffcc5a' : '#666'}">${pk.level}</span>
-      </div>`).join('');
+    const miniPks  = agPks.slice(0, 6).map(pk =>
+      `<div style="display:flex;flex-direction:column;align-items:center">
+        ${img(_pkSprite(pk.species_en, pk.shiny), 30, 30)}
+        <span style="font-size:6px;color:${pk.shiny ? '#ffcc5a' : '#555'}">${pk.level}</span>
+      </div>`
+    ).join('');
     return `
-      <div style="display:flex;align-items:center;gap:10px;padding:8px 16px;border-bottom:1px solid rgba(255,255,255,0.06)">
-        ${sp(ag.sprite || trainerSprite('acetrainer'), 48, ag.name)}
-        <div style="display:flex;flex-direction:column;gap:3px;min-width:130px">
-          <span style="font-size:11px;color:#e0e0e0;font-weight:bold">${ag.name} <span style="color:#888">Lv.${ag.level}</span></span>
-          <span style="font-size:9px;color:#888">${zoneName}</span>
-          <span style="font-size:8px;color:#555">ATK:${ag.stats?.combat||0} &nbsp;CAP:${ag.stats?.capture||0} &nbsp;LCK:${ag.stats?.luck||0}</span>
+      <div style="display:flex;align-items:center;gap:8px;padding:5px 10px;border-bottom:1px solid rgba(255,255,255,.06)">
+        ${img(ag.sprite || trainerSprite('acetrainer'), 38, 38)}
+        <div style="flex:0 0 105px;overflow:hidden">
+          <div style="font-size:9px;color:#e0e0e0;font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${ag.name}</div>
+          <div style="font-size:7px;color:#888">Lv.${ag.level} · ${zoneName.slice(0, 14)}</div>
+          <div style="font-size:6px;color:#555">ATK:${ag.stats?.combat||0} CAP:${ag.stats?.capture||0} LCK:${ag.stats?.luck||0}</div>
         </div>
-        <div style="display:flex;gap:4px;flex-wrap:wrap;flex:1">${teamHtml}</div>
+        <div style="display:flex;gap:2px;flex-wrap:wrap;flex:1">${miniPks}</div>
       </div>`;
-  }).join('');
+  }
 
-  // ── Stats ─────────────────────────────────────────────────
-  const row = (l, lv, r, rv) => `
-    <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:10px">
-      <span style="color:#ccc">${l} : <strong style="color:#e0e0e0">${lv}</strong></span>
-      ${r ? `<span style="color:#ccc">${r} : <strong style="color:#e0e0e0">${rv}</strong></span>` : ''}
+  function _agentCol(list) {
+    if (!list.length) return '';
+    return `<div style="flex:1;min-width:0;border:1px solid rgba(255,255,255,.1);border-radius:4px;overflow:hidden">${list.map(_agentRow).join('')}</div>`;
+  }
+
+  // ── Build sections ─────────────────────────────────────────
+  let sections = '';
+
+  // ▸ Logo top
+  sections += `
+    <div style="text-align:center;padding:18px 0 12px;background:rgba(0,0,0,.45)">
+      <img src="${LOGO_FULL}" style="height:44px;width:auto;max-width:320px"
+        onerror="this.style.display='none'" alt="PokéGang">
+    </div>
+    ${hr()}`;
+
+  // ▸ Boss header
+  const titlesBlock = opts.showTitres ? `
+    <div style="font-family:'Press Start 2P',monospace;font-size:9px;color:#ffcc5a;margin-top:2px">${mainTitle}</div>
+    ${(tC || tD) ? `
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:3px">
+        ${tC ? `<span style="font-size:7px;padding:2px 8px;border-radius:10px;border:1px solid #4fc3f7;color:#4fc3f7">${tC}</span>` : ''}
+        ${tD ? `<span style="font-size:7px;padding:2px 8px;border-radius:10px;border:1px solid #ce93d8;color:#ce93d8">${tD}</span>` : ''}
+      </div>` : ''}` : '';
+
+  sections += `
+    <div style="display:flex;align-items:flex-start;gap:16px;padding:16px 20px 14px">
+      ${g.bossSprite
+        ? img(trainerSprite(g.bossSprite), 96, 96)
+        : '<div style="width:96px;height:96px;flex-shrink:0"></div>'}
+      <div style="flex:1;display:flex;flex-direction:column;gap:5px">
+        <div style="font-family:'Press Start 2P',monospace;font-size:18px;color:#cc3333;line-height:1.2">${g.name}</div>
+        <div style="font-size:10px;color:#aaa">Boss : <strong style="color:#e0e0e0">${g.bossName}</strong></div>
+        ${titlesBlock}
+        <div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:4px">
+          <span style="font-size:9px;color:#ffcc5a">⭐ ${g.reputation.toLocaleString()} rep</span>
+          <span style="font-size:9px;color:#e0e0e0">₽ ${g.money.toLocaleString()}</span>
+          <span style="font-size:9px;color:#888">🐾 ${state.pokemons.length} Pokémon</span>
+        </div>
+      </div>
+    </div>
+    ${hr()}`;
+
+  // ▸ Vitrine / Showcase
+  if (opts.showVitrine) {
+    const showcaseHtml = showcasePks.map((pk, i) => {
+      if (!pk) return `
+        <div style="width:130px;text-align:center;opacity:.3">
+          <div style="width:80px;height:80px;border:2px dashed rgba(255,255,255,.2);border-radius:6px;
+            margin:0 auto;display:flex;align-items:center;justify-content:center;font-size:24px">?</div>
+          <div style="font-size:8px;color:#555;margin-top:6px">Slot ${i + 1}</div>
+        </div>`;
+      return `
+        <div style="width:130px;text-align:center">
+          <div style="display:flex;justify-content:center">${img(_pkSprite(pk.species_en, pk.shiny), 80, 80)}</div>
+          <div style="font-size:9px;color:${pk.shiny ? '#ffcc5a' : '#e0e0e0'};margin-top:6px">
+            ${pokemonDisplayName(pk)}${pk.shiny ? ' ✨' : ''}
+          </div>
+          <div style="font-size:7px;color:#888">Lv.${pk.level} · ${'★'.repeat(pk.potential)}</div>
+          <div style="font-size:8px;color:#ffcc5a">${calculatePrice(pk).toLocaleString()}₽</div>
+        </div>`;
+    }).join('');
+    sections += `
+      ${sec('VITRINE')}
+      <div style="display:flex;justify-content:center;gap:24px;padding:10px 20px 16px;flex-wrap:wrap">${showcaseHtml}</div>
+      ${hr()}`;
+  }
+
+  // ▸ Équipe Boss
+  if (opts.showBossTeam) {
+    const teamHtml = teamPks.map(pk => `
+      <div style="display:flex;flex-direction:column;align-items:center;gap:3px">
+        <div style="display:flex;justify-content:center">${img(_pkSprite(pk.species_en, pk.shiny), 72, 72)}</div>
+        <span style="font-size:8px;color:${pk.shiny ? '#ffcc5a' : '#aaa'}">${speciesName(pk.species_en)}</span>
+        <span style="font-size:7px;color:#666">${'★'.repeat(pk.potential)} Lv.${pk.level}</span>
+      </div>`).join('');
+    const mvpHtml = mvp ? `
+      <div style="border:2px solid #ffcc5a;border-radius:6px;padding:10px 14px;
+        background:rgba(255,204,90,.08);text-align:center;flex-shrink:0;min-width:110px">
+        <div style="font-size:7px;color:#ffcc5a;margin-bottom:6px;font-family:'Press Start 2P',monospace">💰 POKÉMON MVP</div>
+        <div style="display:flex;justify-content:center">${img(_pkSprite(mvp.species_en, mvp.shiny), 72, 72)}</div>
+        <div style="font-size:9px;color:#e0e0e0;margin-top:6px">${speciesName(mvp.species_en)}${mvp.shiny ? ' ✨' : ''}</div>
+        <div style="font-size:10px;color:#ffcc5a;font-weight:bold">${calculatePrice(mvp).toLocaleString()}₽</div>
+      </div>` : '';
+    sections += `
+      ${sec('ÉQUIPE BOSS')}
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:10px 20px 16px;flex-wrap:wrap">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;flex:1">${teamHtml}</div>
+        ${mvpHtml}
+      </div>
+      ${hr()}`;
+  }
+
+  // ▸ Stats + Badges
+  if (opts.showStats || opts.showBadges) {
+    const statRows = [
+      ['⚔ Victoires',    s.totalFightsWon||0,                '🎯 Captures',      s.totalCaught||0],
+      ['✨ Chromas cap.', s.shinyCaught||0,                   '🌈 Espèces shiny',  shinySpecies],
+      ['📦 Coffres',      s.chestsOpened||0,                  '👥 Agents',         state.agents.length],
+      ['₽ Actuels',       `${g.money.toLocaleString()}₽`,     '₽ Gagné',           `${(s.totalMoneyEarned||0).toLocaleString()}₽`],
+      ['📖 Kanto',        `${kantoCaught}/${kantoTotal}`,     '🌐 National',        `${natCaught}/${natTotal}`],
+    ].map(([l1, v1, l2, v2]) => `
+      <div style="display:flex;gap:6px;padding:3px 0;font-size:9px">
+        <span style="flex:1;color:#aaa">${l1} : <strong style="color:#e0e0e0">${v1}</strong></span>
+        <span style="flex:1;color:#aaa">${l2} : <strong style="color:#e0e0e0">${v2}</strong></span>
+      </div>`).join('');
+
+    const badgesHtml = badges.map(b => `
+      <div style="display:flex;align-items:center;gap:6px;padding:5px 10px;
+        border:1px solid ${b.color};border-radius:4px;background:rgba(0,0,0,.35)">
+        <span style="font-size:14px">${b.icon}</span>
+        <span style="font-size:7px;color:${b.color};font-family:'Press Start 2P',monospace">${b.label}</span>
+      </div>`).join('');
+
+    sections += `
+      ${sec('STATISTIQUES & BADGES')}
+      <div style="display:flex;gap:20px;padding:10px 20px 16px;align-items:flex-start">
+        ${opts.showStats ? `<div style="flex:1">${statRows}</div>` : ''}
+        ${opts.showBadges && badges.length > 0
+          ? `<div style="flex:0 0 210px;display:flex;flex-direction:column;gap:6px">${badgesHtml}</div>`
+          : ''}
+      </div>
+      ${hr()}`;
+  }
+
+  // ▸ Agents (2 columns, max 8 each)
+  if (opts.showAgents && agents.length > 0) {
+    sections += `
+      ${sec('AGENTS')}
+      <div style="display:flex;gap:10px;padding:10px 16px 16px">
+        ${_agentCol(col1)}
+        ${col2.length ? _agentCol(col2) : (col1.length ? '<div style="flex:1"></div>' : '')}
+      </div>
+      ${hr()}`;
+  }
+
+  // ▸ Footer
+  sections += `
+    <div style="display:flex;align-items:center;justify-content:center;padding:14px 0 16px;background:rgba(0,0,0,.45)">
+      <img src="${LOGO_SMALL}" style="height:22px;width:auto;opacity:.35"
+        onerror="this.style.display='none'" alt="PokéGang">
     </div>`;
 
-  const richest = mvp; // same calc
-  const statsHtml = [
-    row('✨ Shiny', s.shinyCaught||0, '⚔ Victoires', s.totalFightsWon||0),
-    row('🎯 Captures', s.totalCaught||0, '📦 Coffres', s.chestsOpened||0),
-    row('₽ Actuels', `${g.money.toLocaleString()}₽`, '₽ Gagné', `${(s.totalMoneyEarned||0).toLocaleString()}₽`),
-    row('⭐ Réputation', g.reputation, topSp ? '🏆 Top' : '', topSp ? `${speciesName(topSp[0])} ×${topSp[1].count||1}` : ''),
-    richest ? `<div style="padding:3px 0;font-size:10px;color:#ccc">💰 Pokémon le + cher : <strong style="color:#ffcc5a">${speciesName(richest.species_en)}${richest.shiny ? ' ★' : ''} — ${calculatePrice(richest).toLocaleString()}₽</strong></div>` : '',
-    s.mostExpensiveSold ? `<div style="padding:3px 0;font-size:10px;color:#ccc">💎 Vente record : <strong>${s.mostExpensiveSold.name} — ${(s.mostExpensiveSold.price||0).toLocaleString()}₽</strong></div>` : '',
-    s.mostExpensiveObtained ? `<div style="padding:3px 0;font-size:10px;color:#ccc">🌟 Capture record : <strong>${s.mostExpensiveObtained.name} — ${(s.mostExpensiveObtained.price||0).toLocaleString()}₽</strong></div>` : '',
-  ].join('');
+  // ── Assemble card element ─────────────────────────────────
+  const card = document.createElement('div');
+  card.id = 'export-card-root';
+  card.style.cssText = [
+    'width:794px;min-width:794px',
+    'font-family:Courier New,monospace;color:#e0e0e0',
+    'border:2px solid #cc3333;border-radius:6px;overflow:hidden',
+    'box-shadow:0 0 48px rgba(204,51,51,.28)',
+    bgStyle,
+    'position:relative',
+  ].join(';');
 
-  // ── HTML document ─────────────────────────────────────────
+  // dark overlay layer behind content
+  const darkLayer = document.createElement('div');
+  darkLayer.style.cssText = 'position:absolute;inset:0;background:rgba(10,4,4,.84);pointer-events:none;z-index:0';
+  card.appendChild(darkLayer);
+
+  const content = document.createElement('div');
+  content.style.cssText = 'position:relative;z-index:1';
+  content.innerHTML = sections;
+  card.appendChild(content);
+
+  return card;
+}
+
+// ── Gang Export — New window (print/screenshot) ───────────────
+function _exportAsPDF(opts) {
+  const g    = state.gang;
+  const card = buildExportCard(opts);
+
+  const spriteLabel = { game: 'Jeu', gen5: 'Gen 5', gen1: 'Gen 1' }[opts.spriteGen] || 'Jeu';
+
+  // Inline the card into a standalone printable HTML page
   const html = `<!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -5510,92 +5771,59 @@ function exportGangImage(mode = 'portrait') {
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'Courier New',monospace;background:#0a0404;color:#e0e0e0;min-height:100vh}
-    .toolbar{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,4,4,.97);border-bottom:2px solid #cc3333;display:flex;align-items:center;justify-content:space-between;padding:10px 20px;gap:10px}
+    body{background:#0a0404;display:flex;flex-direction:column;align-items:center;padding:54px 16px 40px;min-height:100vh}
+    .toolbar{
+      position:fixed;top:0;left:0;right:0;z-index:100;
+      background:rgba(14,4,4,.97);border-bottom:2px solid #cc3333;
+      display:flex;align-items:center;justify-content:space-between;
+      padding:10px 20px;gap:12px;flex-wrap:wrap
+    }
     .toolbar-title{font-family:'Press Start 2P',monospace;font-size:9px;color:#cc3333;white-space:nowrap}
-    .toolbar-hint{font-size:9px;color:#555}
-    .toolbar-btns{display:flex;gap:8px;flex-shrink:0}
-    .btn{font-family:'Press Start 2P',monospace;font-size:8px;padding:8px 14px;border-radius:4px;cursor:pointer;border:1px solid;transition:all .2s;background:transparent}
-    .btn-print{border-color:#aaa;color:#aaa}.btn-print:hover{background:rgba(255,255,255,.1)}
-    .card{max-width:700px;margin:64px auto 40px;border:2px solid #cc3333;border-radius:4px;overflow:hidden;box-shadow:0 0 40px rgba(204,51,51,.2)}
-    ${mode === 'landscape' ? `.card{max-width:900px;} .card-content{display:grid;grid-template-columns:1fr 1fr;} hr{display:none}` : ''}
-    .card-bg{${bgStyle};position:relative}
-    .card-bg::after{content:'';position:absolute;inset:0;background:rgba(0,0,0,.72);pointer-events:none}
-    .card-content{position:relative;z-index:1}
-    .sec-header{text-align:center;font-family:'Press Start 2P',monospace;font-size:8px;color:#666;padding:8px 0;letter-spacing:.1em}
-    hr{border:none;border-top:1px solid rgba(204,51,51,.35);margin:0 16px}
+    .toolbar-hint{font-size:9px;color:#555;flex:1;text-align:center}
+    .btns{display:flex;gap:8px;flex-shrink:0}
+    .btn{
+      font-family:'Press Start 2P',monospace;font-size:8px;padding:8px 12px;
+      border-radius:4px;cursor:pointer;border:1px solid;background:transparent;transition:all .15s
+    }
+    .btn-pdf{border-color:#aaa;color:#aaa}
+    .btn-pdf:hover{background:rgba(255,255,255,.1)}
+    .btn-png{border-color:#4fc3f7;color:#4fc3f7}
+    .btn-png:hover{background:rgba(79,195,247,.1)}
     @media print{
       .toolbar{display:none!important}
-      body{background:#0a0404!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-      .card{margin:0 auto;max-width:100%;border:none;box-shadow:none}
-      @page{margin:8mm;background:#0a0404}
+      body{padding:0;background:#0a0404!important;
+        -webkit-print-color-adjust:exact;print-color-adjust:exact}
+      @page{margin:5mm;size:A4 portrait;background:#0a0404}
     }
   </style>
 </head>
 <body>
   <div class="toolbar">
-    <span class="toolbar-title">📋 ${g.name}</span>
-    <span class="toolbar-hint">Ctrl+P pour PDF &nbsp;·&nbsp; clic droit → Enregistrer pour PNG</span>
-    <div class="toolbar-btns">
-      <button class="btn btn-print" onclick="window.print()">🖨 Imprimer / PDF</button>
+    <span class="toolbar-title">PokéGang — ${g.name}</span>
+    <span class="toolbar-hint">Sprites : ${spriteLabel}</span>
+    <div class="btns">
+      <button class="btn btn-pdf" onclick="window.print()">🖨 Imprimer / PDF</button>
+      <button class="btn btn-png" onclick="
+        const el = document.querySelector('#export-card-root');
+        if(el){ el.style.outline='3px solid #4fc3f7'; setTimeout(()=>el.style.outline='',2000); }
+        alert('Clic droit sur la carte → Enregistrer l\\'image');
+      ">🖼 Aide PNG</button>
     </div>
   </div>
-
-  <div class="card">
-    <div class="card-bg"><div class="card-content">
-
-      <!-- ── Header ── -->
-      <div style="display:flex;align-items:flex-start;gap:14px;padding:16px 16px 12px">
-        ${g.bossSprite ? sp(trainerSprite(g.bossSprite), 88, g.bossName) : '<div style="width:88px;height:88px"></div>'}
-        <div style="display:flex;flex-direction:column;gap:5px;flex:1">
-          <div style="font-family:'Press Start 2P',monospace;font-size:18px;color:#cc3333;line-height:1.3">${g.name}</div>
-          <div style="font-size:10px;color:#aaa">Boss : ${g.bossName}</div>
-          <div style="display:flex;gap:20px;flex-wrap:wrap">
-            <span style="font-size:9px;color:#ffcc5a">⭐ Réputation : ${g.reputation.toLocaleString()}</span>
-            <span style="font-size:9px;color:#e0e0e0">₽ ${g.money.toLocaleString()}</span>
-          </div>
-          <div style="font-size:8px;color:#aaa">Pokémon : ${state.pokemons.length} &nbsp;&nbsp; ✨ Espèces chromas : ${getShinySpeciesCount()} (${s.shinyCaught||0} capturés)</div>
-          <div style="font-size:8px;color:#aaa">Victoires : ${s.totalFightsWon||0} &nbsp;&nbsp; Captures : ${s.totalCaught||0}</div>
-          <div style="font-size:8px;color:${dexCaught >= dexTotal ? '#ffcc5a' : '#aaa'}">📖 Kanto : ${dexCaught}/${dexTotal}${dexCaught >= dexTotal ? ' ✓ COMPLET !' : ''} &nbsp;&nbsp; National : ${dexNatCaught}/${NATIONAL_DEX_SIZE}</div>
-        </div>
-      </div>
-
-      <!-- ── Équipe Boss ── -->
-      <hr><div class="sec-header">— ÉQUIPE BOSS —</div>
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:8px 16px 14px;flex-wrap:wrap">
-        <div style="display:flex;gap:8px;flex-wrap:wrap;flex:1">${bossTeamHtml}</div>
-        ${mvpHtml}
-      </div>
-
-      ${state.agents.length > 0 ? `
-      <!-- ── Agents ── -->
-      <hr><div class="sec-header">— AGENTS —</div>
-      <div>${agentsHtml}</div>
-      ` : ''}
-
-      <!-- ── Stats ── -->
-      <hr><div class="sec-header">— STATISTIQUES —</div>
-      <div style="padding:10px 20px 14px">${statsHtml}</div>
-
-      <!-- ── Footer ── -->
-      <div style="display:flex;align-items:center;justify-content:center;padding:10px 0 14px">
-        <img src="https://lab.sterenna.fr/PG/pokegang_logo/pokegang_logo_medium.png"
-          style="height:28px;width:auto;opacity:.5" alt="PokéGang"
-          onerror="this.style.display='none'">
-      </div>
-
-    </div></div>
-  </div>
+  ${card.outerHTML}
 </body>
 </html>`;
 
   const win = window.open('', '_blank');
-  if (!win) { notify('Autorise les popups pour l\'export', 'error'); return; }
+  if (!win) { notify('Autorise les popups pour l\'export PDF', 'error'); return; }
   win.document.open();
   win.document.write(html);
   win.document.close();
-  notify('📋 Fiche ouverte dans un nouvel onglet', 'success');
+  notify('📄 PDF prêt dans un nouvel onglet', 'success');
 }
+
+// ── (legacy stub — kept so old call-sites don't break) ────────
+function exportGangImage() { openExportModal(); }
 
 // ── Team Picker Modal ────────────────────────────────────────
 // type: 'boss' | 'agent', targetId: agentId or null for boss

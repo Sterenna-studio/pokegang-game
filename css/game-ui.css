@@ -684,6 +684,13 @@
     #zoneSelector { width: 100%; min-width: 0; }
     #zoneWindows { max-height: none !important; }
 
+    /* ── Export overlay ─────────────────────────────────────────── */
+    #exportOverlay button:hover { filter: brightness(1.15); }
+
+    #xpPNG:hover { border-color: #ffcc5a !important; color: #ffcc5a !important; background: rgba(255,204,90,.08) !important; }
+    #xpJPG:hover,
+    #xpPDF:hover { border-color: var(--border-light) !important; color: var(--text) !important; background: var(--bg-hover) !important; }
+
     /* ── Fog-map layout (grid + fav sidebar) ────────────────────── */
     .fog-map-layout {
       display: flex;
