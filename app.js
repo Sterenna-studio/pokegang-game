@@ -10934,6 +10934,9 @@ function startGameLoop() {
   // Auto-save every 10 seconds
   autoSaveInterval = setInterval(saveState, 10000);
 
+  // Cloud snapshot every 5 minutes (rolling history, max 6 kept)
+  setInterval(() => supaWriteSnapshot(), 5 * 60 * 1000);
+
   // Cooldown tick removed — cooldowns no longer exist in gameplay
 
   // Training room tick every 60 seconds
@@ -11114,6 +11117,73 @@ async function supaForceCloudLoad() {
   );
 }
 
+// ── Rolling snapshots ─────────────────────────────────────────────
+const MAX_SNAPSHOTS = 6;
+
+async function supaWriteSnapshot() {
+  if (!_supabase || !supaSession) return;
+  try {
+    // 1. Insert new snapshot
+    await _supabase.from('save_snapshots').insert({
+      user_id:   supaSession.user.id,
+      slot:      activeSaveSlot,
+      state:     state,
+      gang_name: state.gang?.name || 'Team ???',
+      rep:       state.gang?.reputation || 0,
+      saved_at:  new Date().toISOString(),
+    });
+
+    // 2. Prune: keep only the MAX_SNAPSHOTS most recent rows
+    const { data: rows } = await _supabase
+      .from('save_snapshots')
+      .select('id, saved_at')
+      .eq('user_id', supaSession.user.id)
+      .eq('slot', activeSaveSlot)
+      .order('saved_at', { ascending: false });
+
+    if (rows && rows.length > MAX_SNAPSHOTS) {
+      const toDelete = rows.slice(MAX_SNAPSHOTS).map(r => r.id);
+      await _supabase.from('save_snapshots').delete().in('id', toDelete);
+    }
+  } catch { /* silencieux */ }
+}
+
+async function supaFetchSnapshots() {
+  if (!_supabase || !supaSession) return [];
+  const { data, error } = await _supabase
+    .from('save_snapshots')
+    .select('id, gang_name, rep, saved_at')
+    .eq('user_id', supaSession.user.id)
+    .eq('slot', activeSaveSlot)
+    .order('saved_at', { ascending: false })
+    .limit(MAX_SNAPSHOTS);
+  return (error || !data) ? [] : data;
+}
+
+async function supaRestoreSnapshot(snapshotId) {
+  if (!_supabase || !supaSession) return;
+  const { data, error } = await _supabase
+    .from('save_snapshots')
+    .select('state, saved_at')
+    .eq('id', snapshotId)
+    .eq('user_id', supaSession.user.id)
+    .single();
+  if (error || !data) { notify('Snapshot introuvable.', 'error'); return; }
+
+  const fmt = new Date(data.saved_at).toLocaleString('fr-FR');
+  showConfirm(
+    `Restaurer le snapshot du <b>${fmt}</b> ?<br><span style="color:var(--text-dim);font-size:11px">La save actuelle sera écrasée — exporte-la d'abord si nécessaire.</span>`,
+    () => {
+      state = migrate(data.state);
+      saveState();
+      renderAll();
+      notify(`⏪ Snapshot du ${fmt} restauré !`, 'success');
+    },
+    null,
+    { confirmLabel: 'Restaurer', cancelLabel: 'Annuler', danger: true }
+  );
+}
+
 async function supaUpdateLeaderboard() {
   if (!_supabase || !supaSession) return;
   await _supabase.from('players').upsert({
@@ -11270,6 +11340,14 @@ async function renderCompteTab() {
           </div>
         </div>
 
+        <!-- Historique des snapshots -->
+        <div style="background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:16px">
+          <div style="font-family:var(--font-pixel);font-size:10px;color:var(--blue);margin-bottom:12px">📸 HISTORIQUE CLOUD <span style="font-size:7px;opacity:.6">(toutes les 5 min · 6 max)</span></div>
+          <div id="supaSnapshots" style="min-height:40px">
+            <div style="color:var(--text-dim);font-size:10px;padding:4px">Chargement…</div>
+          </div>
+        </div>
+
         <!-- Classement -->
         <div style="background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);padding:16px">
           <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold);margin-bottom:12px">🏆 CLASSEMENT — TOP GANGS</div>
@@ -11288,6 +11366,37 @@ async function renderCompteTab() {
     });
     tab.querySelector('#btnSupaLogout')?.addEventListener('click', () => {
       showConfirm('Se déconnecter du compte cloud ?', async () => { await supaSignOut(); }, null, { danger: true, confirmLabel: 'Déconnecter', cancelLabel: 'Annuler' });
+    });
+
+    // Charger les snapshots en async
+    supaFetchSnapshots().then(snapshots => {
+      const el = document.getElementById('supaSnapshots');
+      if (!el) return;
+      if (!snapshots.length) {
+        el.innerHTML = `<div style="color:var(--text-dim);font-size:9px;font-style:italic">Aucun snapshot disponible — le premier sera créé dans 5 minutes.</div>`;
+        return;
+      }
+      const now = Date.now();
+      el.innerHTML = snapshots.map(s => {
+        const ts      = new Date(s.saved_at);
+        const diffMs  = now - ts.getTime();
+        const diffMin = Math.round(diffMs / 60000);
+        const ago     = diffMin < 1 ? 'à l\'instant'
+                      : diffMin < 60 ? `il y a ${diffMin} min`
+                      : `il y a ${Math.round(diffMin / 60)}h`;
+        const label   = ts.toLocaleString('fr-FR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+        return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border)">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:9px;color:var(--text)">${s.gang_name}</div>
+            <div style="font-size:8px;color:var(--text-dim)">⭐ ${(s.rep||0).toLocaleString('fr-FR')} rép · ${label} <span style="opacity:.6">(${ago})</span></div>
+          </div>
+          <button data-snapshot-id="${s.id}" style="flex-shrink:0;font-family:var(--font-pixel);font-size:7px;padding:4px 8px;background:var(--bg);border:1px solid var(--blue);border-radius:var(--radius-sm);color:var(--blue);cursor:pointer;white-space:nowrap">⏪ Restaurer</button>
+        </div>`;
+      }).join('');
+
+      el.querySelectorAll('[data-snapshot-id]').forEach(btn => {
+        btn.addEventListener('click', () => supaRestoreSnapshot(Number(btn.dataset.snapshotId)));
+      });
     });
 
     // Charger le classement en async
