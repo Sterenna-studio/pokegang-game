@@ -141,6 +141,12 @@ export const DEFAULT_STATE = {
     eggAt: null,
   },
   eggs: [],
+  playerStats: {
+    baseStats:      { combat: 10, capture: 10, luck: 5 },
+    allocatedStats: { combat: 0,  capture: 0,  luck: 0  },
+    statPoints: 0,
+    pointsGrantedCount: 0, // floor(totalCaught / PLAYER_STAT_POINT_EVERY) at last grant
+  },
   playtime: 0,
   sessionStart: 0,
   openZoneOrder: [],

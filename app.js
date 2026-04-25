@@ -2553,6 +2553,7 @@ function tryCapture(zoneId, speciesEN, bonusPotential = 0) {
   if (bonusPotential > 0) pokemon.potential = Math.min(5, pokemon.potential + bonusPotential);
   state.pokemons.push(pokemon);
   state.stats.totalCaught++;
+  checkPlayerStatPoints();
   // Behavioural log — première capture
   if (!state.behaviourLogs) state.behaviourLogs = {};
   if (!state.behaviourLogs.firstCaptureAt) state.behaviourLogs.firstCaptureAt = Date.now();
@@ -8773,6 +8774,89 @@ function renderDexDetail(species_en) {
   document.getElementById('dexAssistantBtn')?.addEventListener('click', () => openDexAssistant(species_en));
 }
 
+// ── Player stat modal ────────────────────────────────────────────
+const PLAYER_STAT_POINT_EVERY = 25; // 1 pt par tranche de 25 captures
+
+function checkPlayerStatPoints() {
+  const ps  = state.playerStats || {};
+  const total = Math.floor((state.stats?.totalCaught || 0) / PLAYER_STAT_POINT_EVERY);
+  const granted = ps.pointsGrantedCount || 0;
+  if (total > granted) {
+    const newPts = total - granted;
+    ps.statPoints = (ps.statPoints || 0) + newPts;
+    ps.pointsGrantedCount = total;
+    state.playerStats = ps;
+    if (newPts > 0) notify(`📊 +${newPts} pt${newPts > 1 ? 's' : ''} de stat joueur disponible${newPts > 1 ? 's' : ''} !`, 'gold');
+  }
+}
+
+function openPlayerStatModal() {
+  checkPlayerStatPoints();
+  const ps = state.playerStats;
+  if (!ps) return;
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:10000;display:flex;align-items:center;justify-content:center';
+
+  function render() {
+    const alloc = ps.allocatedStats || { combat: 0, capture: 0, luck: 0 };
+    const base  = ps.baseStats      || { combat: 10, capture: 10, luck: 5 };
+    const pts   = ps.statPoints || 0;
+    const stats = [
+      { key:'combat',  label:'⚔️ ATK (combat)',  color:'#e05c5c' },
+      { key:'capture', label:'🎯 CAP (capture)',  color:'#7eb8f7' },
+      { key:'luck',    label:'🍀 LCK (chance)',   color:'#6ecf8a' },
+    ];
+    overlay.innerHTML = `
+      <div style="background:var(--bg-panel);border:2px solid var(--gold);border-radius:var(--radius);padding:24px;width:320px;max-width:96vw">
+        <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold);margin-bottom:4px">📊 FICHE JOUEUR</div>
+        <div style="font-size:9px;color:var(--text-dim);margin-bottom:12px">${state.gang.bossName || 'Boss'} · 1 pt tous les ${PLAYER_STAT_POINT_EVERY} captures</div>
+        <div style="font-family:var(--font-pixel);font-size:9px;margin-bottom:14px;color:${pts > 0 ? 'var(--gold)' : 'var(--text-dim)'}">
+          Points disponibles : <b style="font-size:12px">${pts}</b>
+        </div>
+        ${stats.map(s => {
+          const tot  = (base[s.key] || 0) + (alloc[s.key] || 0);
+          const add  = alloc[s.key] || 0;
+          return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+            <div style="flex:1;font-size:9px;color:${s.color}">${s.label}</div>
+            <button data-ps="${s.key}" data-dir="-1" style="width:22px;height:22px;border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:4px;cursor:pointer;font-size:13px;line-height:1" ${add <= 0 ? 'disabled' : ''}>−</button>
+            <div style="min-width:52px;text-align:center;font-family:var(--font-pixel);font-size:10px">
+              <span style="color:${s.color};font-size:12px">${tot}</span>
+              ${add > 0 ? `<span style="font-size:7px;color:var(--gold)"> (+${add})</span>` : ''}
+            </div>
+            <button data-ps="${s.key}" data-dir="1" style="width:22px;height:22px;border:1px solid var(--gold);background:rgba(255,204,90,.08);color:var(--gold);border-radius:4px;cursor:pointer;font-size:13px;line-height:1" ${pts <= 0 ? 'disabled' : ''}>+</button>
+          </div>`;
+        }).join('')}
+        <div style="display:flex;gap:8px;margin-top:18px">
+          <button id="psConfirm" style="flex:1;padding:9px;background:var(--gold);color:#000;border:none;border-radius:var(--radius-sm);font-family:var(--font-pixel);font-size:8px;cursor:pointer">CONFIRMER</button>
+          <button id="psCancel" style="flex:1;padding:9px;background:var(--bg);border:1px solid var(--border);color:var(--text-dim);border-radius:var(--radius-sm);font-family:var(--font-pixel);font-size:8px;cursor:pointer">FERMER</button>
+        </div>
+      </div>`;
+
+    overlay.querySelectorAll('[data-ps][data-dir]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const s   = btn.dataset.ps;
+        const dir = parseInt(btn.dataset.dir);
+        const alloc = ps.allocatedStats || { combat: 0, capture: 0, luck: 0 };
+        if (dir > 0 && ps.statPoints > 0) { alloc[s]++; ps.statPoints--; }
+        else if (dir < 0 && alloc[s] > 0) { alloc[s]--; ps.statPoints++; }
+        ps.allocatedStats = alloc;
+        render();
+      });
+    });
+    overlay.querySelector('#psConfirm')?.addEventListener('click', () => {
+      saveState();
+      overlay.remove();
+      if (activeTab === 'tabAgents') renderAgentsTab();
+    });
+    overlay.querySelector('#psCancel')?.addEventListener('click', () => overlay.remove());
+  }
+
+  render();
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+}
+
 // ── Pokédex integrity check ───────────────────────────────────────
 // Rebuilds state.pokedex caught/shiny/count from the actual pokemon list.
 // "seen" flags are preserved (they can't be reconstructed from ownership).
@@ -9007,33 +9091,98 @@ function renderAgentPerkModal(agentId) {
   });
 }
 
+const AGENT_BALLS = ['pokeball','greatball','ultraball','duskball','masterball'];
+const AGENT_BALL_LABELS = { pokeball:'Poké Ball', greatball:'Super Ball', ultraball:'Hyper Ball', duskball:'Sombre Ball', masterball:'Master Ball' };
+const BEHAVIOR_CFG = [
+  { key:'all',     icon:'⚡', label:'Tout' },
+  { key:'capture', icon:'🎯', label:'Capture' },
+  { key:'combat',  icon:'⚔️',  label:'Combat' },
+];
+
 function renderAgentsTab() {
   const grid = document.getElementById('agentsGrid');
   if (!grid) return;
 
   const unlockedZones = ZONES.filter(z => isZoneUnlocked(z.id));
-  const RECRUIT_COST = getAgentRecruitCost();
+  const RECRUIT_COST  = getAgentRecruitCost();
 
-  let html = '';
-  // Existing agents
+  // ── Player stat card ────────────────────────────────────────────
+  const ps      = state.playerStats || {};
+  const psBase  = ps.baseStats  || { combat: 10, capture: 10, luck: 5 };
+  const psAlloc = ps.allocatedStats || { combat: 0, capture: 0, luck: 0 };
+  const psPts   = ps.statPoints || 0;
+  const psAtk   = (psBase.combat  || 0) + (psAlloc.combat  || 0);
+  const psCap   = (psBase.capture || 0) + (psAlloc.capture || 0);
+  const psLck   = (psBase.luck    || 0) + (psAlloc.luck    || 0);
+  const PLAYER_STAT_POINT_EVERY = 25;
+  const playerTotalPoints = Math.floor((state.stats?.totalCaught || 0) / PLAYER_STAT_POINT_EVERY);
+
+  let html = `
+    <div class="agent-card-full" style="border-color:var(--gold)" id="playerStatCard">
+      <div class="agent-header">
+        ${state.gang.bossSprite ? `<img src="https://play.pokemonshowdown.com/sprites/gen5/${state.gang.bossSprite}.png" alt="Boss" style="width:44px;height:44px;image-rendering:pixelated">` : '<div style="width:44px;height:44px;background:var(--bg-card);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:20px">👤</div>'}
+        <div class="agent-meta">
+          <div class="agent-name" style="color:var(--gold)">${state.gang.bossName || 'Boss'}</div>
+          <div class="agent-title" style="color:var(--gold)">Chef de gang</div>
+          <div style="font-size:8px;color:var(--text-dim)">Pts gagnés : ${playerTotalPoints} · Distribués : ${playerTotalPoints - psPts} · Disponibles : <b style="color:var(--gold)">${psPts}</b></div>
+        </div>
+      </div>
+      <div class="agent-stats-row">
+        <span title="Base: ${psBase.combat}">ATK ${psAtk}${psAlloc.combat > 0 ? ` <small style="color:var(--gold)">(+${psAlloc.combat})</small>` : ''}</span>
+        <span title="Base: ${psBase.capture}">CAP ${psCap}${psAlloc.capture > 0 ? ` <small style="color:var(--gold)">(+${psAlloc.capture})</small>` : ''}</span>
+        <span title="Base: ${psBase.luck}">LCK ${psLck}${psAlloc.luck > 0 ? ` <small style="color:var(--gold)">(+${psAlloc.luck})</small>` : ''}</span>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:6px">
+        <button id="btnPlayerStatModal" style="flex:1;font-family:var(--font-pixel);font-size:7px;padding:4px;background:rgba(255,204,90,.1);border:1px solid var(--gold);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">📊 Attribuer les stats${psPts > 0 ? ` (${psPts} pts)` : ''}</button>
+      </div>
+    </div>`;
+
+  // ── Global ball setters ─────────────────────────────────────────
+  const availBalls = AGENT_BALLS.filter(b => (state.inventory[b] || 0) > 0 || b === 'pokeball');
+  html += `<div id="agentGlobalControls" style="grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);margin-bottom:4px">
+    <span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">TOUT :</span>
+    ${availBalls.map(b => `<button data-setallball="${b}" title="Définir ${AGENT_BALL_LABELS[b]} pour tous" style="display:flex;align-items:center;gap:3px;padding:3px 7px;font-size:8px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;color:var(--text)">
+      <img src="${BALL_SPRITES[b] || ''}" style="width:14px;height:14px;image-rendering:pixelated"> ${AGENT_BALL_LABELS[b]}
+    </button>`).join('')}
+    <span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);margin-left:8px">MODE :</span>
+    ${BEHAVIOR_CFG.map(b => `<button data-setallbehavior="${b.key}" title="Mode ${b.label} pour tous" style="padding:3px 7px;font-size:8px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;color:var(--text)">${b.icon} ${b.label}</button>`).join('')}
+  </div>`;
+
+  // ── Agent cards ─────────────────────────────────────────────────
   for (const a of state.agents) {
     const xpNeeded = a.level * 30;
-    const xpPct = Math.min(100, (a.xp / xpNeeded) * 100);
+    const xpPct    = Math.min(100, (a.xp / xpNeeded) * 100);
+    const alloc    = a.allocatedStats || { capture: 0, combat: 0, luck: 0 };
     const zoneOptions = unlockedZones.map(z =>
       `<option value="${z.id}" ${a.assignedZone === z.id ? 'selected' : ''}>${state.lang === 'fr' ? z.fr : z.en}</option>`
     ).join('');
 
-    // Team slots
     const teamSlots = [0, 1, 2].map(i => {
       const pkId = a.team[i];
-      const pk = pkId ? state.pokemons.find(p => p.id === pkId) : null;
-      if (pk) {
-        return `<div class="agent-team-slot filled" data-agent-team="${a.id}" data-slot="${i}" title="${speciesName(pk.species_en)} Lv.${pk.level}">
-          <img src="${pokeSprite(pk.species_en, pk.shiny)}">
-        </div>`;
-      }
-      return `<div class="agent-team-slot" data-agent-team="${a.id}" data-slot="${i}" title="${state.lang === 'fr' ? 'Assigner' : 'Assign'}">+</div>`;
+      const pk   = pkId ? state.pokemons.find(p => p.id === pkId) : null;
+      if (pk) return `<div class="agent-team-slot filled" data-agent-team="${a.id}" data-slot="${i}" title="${speciesName(pk.species_en)} Lv.${pk.level}"><img src="${pokeSprite(pk.species_en, pk.shiny)}"></div>`;
+      return `<div class="agent-team-slot" data-agent-team="${a.id}" data-slot="${i}">+</div>`;
     }).join('');
+
+    // Ball selector
+    const curBall   = a.preferredBall || 'pokeball';
+    const curBallSp = BALL_SPRITES[curBall] || '';
+    const ballBtns  = AGENT_BALLS.map(b => {
+      const qty = state.inventory[b] || 0;
+      const active = b === curBall;
+      return `<button data-agent-ball="${a.id}" data-ball="${b}" title="${AGENT_BALL_LABELS[b]} (×${qty})" style="padding:2px 4px;border:1px solid ${active ? 'var(--gold)' : 'var(--border)'};background:${active ? 'rgba(255,204,90,.15)' : 'var(--bg)'};border-radius:3px;cursor:pointer;opacity:${qty > 0 || active ? '1' : '.4'}">
+        <img src="${BALL_SPRITES[b] || ''}" style="width:16px;height:16px;image-rendering:pixelated">
+      </button>`;
+    }).join('');
+
+    // Behavior toggle
+    const bh = a.behavior || 'all';
+    const bhCfg = BEHAVIOR_CFG.find(x => x.key === bh) || BEHAVIOR_CFG[0];
+    const bhBtns = BEHAVIOR_CFG.map(b =>
+      `<button data-agent-behavior="${a.id}" data-bh="${b.key}" style="padding:2px 7px;font-size:8px;border:1px solid ${bh === b.key ? 'var(--gold)' : 'var(--border)'};background:${bh === b.key ? 'rgba(255,204,90,.15)' : 'var(--bg)'};border-radius:3px;cursor:pointer;color:${bh === b.key ? 'var(--gold)' : 'var(--text-dim)'}">${b.icon} ${b.label}</button>`
+    ).join('');
+
+    const statPts = a.statPoints || 0;
 
     html += `<div class="agent-card-full" data-agent-id="${a.id}">
       <div class="agent-header">
@@ -9045,19 +9194,40 @@ function renderAgentsTab() {
         </div>
       </div>
       <div class="agent-stats-row">
-        <span>ATK ${a.stats.combat}</span>
-        <span>CAP ${a.stats.capture}</span>
-        <span>LCK ${a.stats.luck}</span>
+        <span title="Base: ${a.baseStats?.combat ?? a.stats.combat}">ATK ${a.stats.combat}${alloc.combat > 0 ? ` <small style="color:var(--gold)">(+${alloc.combat})</small>` : ''}</span>
+        <span title="Base: ${a.baseStats?.capture ?? a.stats.capture}">CAP ${a.stats.capture}${alloc.capture > 0 ? ` <small style="color:var(--gold)">(+${alloc.capture})</small>` : ''}</span>
+        <span title="Base: ${a.baseStats?.luck ?? a.stats.luck}">LCK ${a.stats.luck}${alloc.luck > 0 ? ` <small style="color:var(--gold)">(+${alloc.luck})</small>` : ''}</span>
       </div>
+
+      <!-- Ball selector -->
+      <div style="display:flex;align-items:center;gap:4px;margin:4px 0;flex-wrap:wrap">
+        <span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">BALL :</span>
+        ${ballBtns}
+      </div>
+
+      <!-- Behavior toggle -->
+      <div style="display:flex;align-items:center;gap:4px;margin-bottom:6px;flex-wrap:wrap">
+        <span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">MODE :</span>
+        ${bhBtns}
+      </div>
+
       <div style="font-size:9px">
         <select class="agents-zone-select" data-agent-id="${a.id}" style="background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:4px;font-size:9px;padding:2px 4px;width:100%">
-          <option value="">— ${state.lang === 'fr' ? 'Aucune zone' : 'No zone'} —</option>
+          <option value="">— Aucune zone —</option>
           ${zoneOptions}
         </select>
       </div>
       <div class="agent-team-slots">${teamSlots}</div>
       <div class="agent-personality">${a.personality.join(', ')}</div>
-      ${a.pendingPerk ? `<button class="perk-available-btn" data-perk-agent="${a.id}">[PERK DISPONIBLE]</button>` : ''}
+
+      <!-- Stat points & respec -->
+      <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
+        <button data-agent-statmodal="${a.id}" style="flex:1;font-family:var(--font-pixel);font-size:7px;padding:4px;background:${statPts > 0 ? 'rgba(255,204,90,.12)' : 'var(--bg)'};border:1px solid ${statPts > 0 ? 'var(--gold)' : 'var(--border)'};border-radius:var(--radius-sm);color:${statPts > 0 ? 'var(--gold)' : 'var(--text-dim)'};cursor:pointer">
+          📊 Stats${statPts > 0 ? ` (${statPts} pts !)` : ''}
+        </button>
+        <button data-agent-respec="${a.id}" title="Réattribuer les stats (1 000 000₽)" style="font-family:var(--font-pixel);font-size:7px;padding:4px 8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">🔄 Respec</button>
+      </div>
+
       <label class="agent-notify-toggle">
         <input type="checkbox" class="agent-notify-cb" data-agent-id="${a.id}" ${a.notifyCaptures !== false ? 'checked' : ''}>
         ${a.notifyCaptures !== false ? '🔔' : '🔕'} Notifications
@@ -9065,11 +9235,11 @@ function renderAgentsTab() {
     </div>`;
   }
 
-  // Recruit button at end
+  // Recruit button
   html += `<div class="agent-card-full" style="display:flex;align-items:center;justify-content:center;cursor:pointer;border:2px dashed var(--border-light);min-height:120px" id="btnRecruitAgentFull">
     <div style="text-align:center">
       <div style="font-size:28px">➕</div>
-      <div style="font-family:var(--font-pixel);font-size:9px;color:var(--text);margin-top:6px">${state.lang === 'fr' ? 'Recruter' : 'Recruit'}</div>
+      <div style="font-family:var(--font-pixel);font-size:9px;color:var(--text);margin-top:6px">Recruter</div>
       <div style="font-size:10px;color:var(--gold)">₽ ${RECRUIT_COST.toLocaleString()}</div>
     </div>
   </div>`;
@@ -9134,12 +9304,63 @@ function renderAgentsTab() {
     });
   });
 
-  // Perk buttons
-  grid.querySelectorAll('[data-perk-agent]').forEach(btn => {
+  // Ball selector per agent
+  grid.querySelectorAll('[data-agent-ball]').forEach(btn => {
     btn.addEventListener('click', () => {
-      renderAgentPerkModal(btn.dataset.perkAgent);
+      const agent = state.agents.find(a => a.id === btn.dataset.agentBall);
+      if (!agent) return;
+      agent.preferredBall = btn.dataset.ball;
+      saveState();
+      renderAgentsTab();
     });
   });
+
+  // Behavior per agent
+  grid.querySelectorAll('[data-agent-behavior]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const agent = state.agents.find(a => a.id === btn.dataset.agentBehavior);
+      if (!agent) return;
+      agent.behavior = btn.dataset.bh;
+      saveState();
+      renderAgentsTab();
+    });
+  });
+
+  // Global ball setters
+  grid.querySelectorAll('[data-setallball]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const ball = btn.dataset.setallball;
+      state.agents.forEach(a => { a.preferredBall = ball; });
+      saveState();
+      renderAgentsTab();
+      notify(`Tous les agents → ${AGENT_BALL_LABELS[ball]}`, 'success');
+    });
+  });
+
+  // Global behavior setters
+  grid.querySelectorAll('[data-setallbehavior]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const bh = btn.dataset.setallbehavior;
+      state.agents.forEach(a => { a.behavior = bh; });
+      saveState();
+      renderAgentsTab();
+      const cfg = BEHAVIOR_CFG.find(x => x.key === bh);
+      notify(`Tous les agents → mode ${cfg?.label || bh}`, 'success');
+    });
+  });
+
+  // Stat modal per agent
+  grid.querySelectorAll('[data-agent-statmodal]').forEach(btn => {
+    btn.addEventListener('click', () => openAgentStatModal(btn.dataset.agentStatmodal));
+  });
+
+  // Respec per agent
+  grid.querySelectorAll('[data-agent-respec]').forEach(btn => {
+    btn.addEventListener('click', () => respecAgentStats(btn.dataset.agentRespec));
+  });
+
+  // Player stat modal
+  document.getElementById('btnPlayerStatModal')?.addEventListener('click', openPlayerStatModal);
 
   // Right-click context menu on agent cards
   grid.querySelectorAll('.agent-card-full[data-agent-id]').forEach(card => {

@@ -85,6 +85,20 @@ export function migrateSave(saved, deps) {
     if (!Array.isArray(agent.perkLevels)) agent.perkLevels = [];
     if (agent.pendingPerk === undefined) agent.pendingPerk = false;
 
+    // ── Nouveau système stat points ──────────────────────────────
+    // baseStats = snapshot des stats actuelles (inclut anciens perks baked in)
+    if (!agent.baseStats) {
+      agent.baseStats = { capture: agent.stats.capture, combat: agent.stats.combat, luck: agent.stats.luck };
+    }
+    if (!agent.allocatedStats) agent.allocatedStats = { capture: 0, combat: 0, luck: 0 };
+    if (agent.statPoints === undefined) {
+      // Convertir un éventuel pendingPerk en 1 pt
+      agent.statPoints = agent.pendingPerk ? 1 : 0;
+      agent.pendingPerk = false;
+    }
+    if (!agent.preferredBall) agent.preferredBall = 'pokeball';
+    if (!agent.behavior)      agent.behavior      = 'all';
+
     // Convertir l'ancien grade 'captain' → 'commandant'
     if (agent.title === 'captain') agent.title = 'commandant';
 
@@ -133,6 +147,20 @@ export function migrateSave(saved, deps) {
   }
 
   if (!merged.inventory.incubator) merged.inventory.incubator = 0;
+  // ── playerStats ───────────────────────────────────────────────
+  if (!merged.playerStats) {
+    merged.playerStats = {
+      baseStats:      { combat: 10, capture: 10, luck: 5 },
+      allocatedStats: { combat: 0,  capture: 0,  luck: 0  },
+      statPoints: 0,
+      pointsGrantedCount: 0,
+    };
+  }
+  if (!merged.playerStats.baseStats)      merged.playerStats.baseStats      = { combat: 10, capture: 10, luck: 5 };
+  if (!merged.playerStats.allocatedStats) merged.playerStats.allocatedStats = { combat: 0, capture: 0, luck: 0 };
+  if (merged.playerStats.statPoints      === undefined) merged.playerStats.statPoints      = 0;
+  if (merged.playerStats.pointsGrantedCount === undefined) merged.playerStats.pointsGrantedCount = 0;
+
   if (merged.purchases.cosmeticsPanel === undefined) merged.purchases.cosmeticsPanel = false;
   if (merged.purchases.autoIncubator === undefined) merged.purchases.autoIncubator = false;
   if (merged.purchases.chromaCharm === undefined) merged.purchases.chromaCharm = false;

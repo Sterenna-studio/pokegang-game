@@ -26,6 +26,9 @@ function rollNewAgent() {
     const idx = Math.floor(Math.random() * pool.length);
     personality.push(pool.splice(idx, 1)[0]);
   }
+  const baseCapture = globalThis.randInt(3, 18);
+  const baseCombat  = globalThis.randInt(3, 18);
+  const baseLuck    = globalThis.randInt(1, 12);
   return {
     id: `ag-${globalThis.uid()}`,
     name,
@@ -35,11 +38,12 @@ function rollNewAgent() {
     level: 1,
     xp: 0,
     combatsWon: 0,
-    stats: {
-      capture: globalThis.randInt(3, 18),
-      combat: globalThis.randInt(3, 18),
-      luck: globalThis.randInt(1, 12),
-    },
+    stats:          { capture: baseCapture, combat: baseCombat, luck: baseLuck },
+    baseStats:      { capture: baseCapture, combat: baseCombat, luck: baseLuck },
+    allocatedStats: { capture: 0, combat: 0, luck: 0 },
+    statPoints: 0,
+    preferredBall: 'pokeball',
+    behavior: 'all', // 'all' | 'capture' | 'combat'
     personality,
     team: [],
     assignedZone: null,
@@ -179,18 +183,130 @@ function assignAgentToZone(agentId, zoneId) {
   globalThis.saveState();
 }
 
+// XP variable selon la rareté du Pokémon capturé
+const RARITY_XP = { common: 3, uncommon: 5, rare: 8, epic: 12, legendary: 20 };
+function captureXP(species_en, potential, shiny) {
+  const sp = globalThis.SPECIES_BY_EN?.[species_en];
+  const base = RARITY_XP[sp?.rarity] ?? 3;
+  return base + Math.max(0, (potential || 1) - 1) * 2 + (shiny ? 10 : 0);
+}
+
 function grantAgentXP(agent, amount) {
   agent.xp += amount;
   const needed = agent.level * 30;
   while (agent.xp >= needed && agent.level < 100) {
     agent.xp -= needed;
     agent.level++;
-    if (agent.level % 5 === 0) {
-      agent.pendingPerk = true;
-      globalThis.notify(`${agent.name} a gagne un perk ! (Lv.${agent.level})`, 'gold');
-    }
+    agent.statPoints = (agent.statPoints || 0) + 1;
+    globalThis.notify(`📈 ${agent.name} Lv.${agent.level} — 1 pt de stat disponible !`, 'gold');
   }
   checkPromotion(agent);
+}
+
+// Respec stats : rend tous les pts distribués, coûte 1 000 000₽
+function respecAgentStats(agentId) {
+  const state = globalThis.state;
+  const agent = state.agents.find(a => a.id === agentId);
+  if (!agent) return;
+  const RESPEC_COST = 1_000_000;
+  if (state.gang.money < RESPEC_COST) {
+    globalThis.notify('Pas assez de PokéDollars ! (1 000 000₽ requis)', 'error');
+    return;
+  }
+  globalThis.showConfirm(
+    `Réattribuer les stats de <b>${agent.name}</b> pour <b>1 000 000₽</b> ?<br><span style="color:var(--text-dim);font-size:11px">Tous les pts distribués seront récupérés. Les stats de base restent inchangées.</span>`,
+    () => {
+      state.gang.money -= RESPEC_COST;
+      // Count already-allocated points to return them
+      const spent = (agent.allocatedStats?.capture || 0) + (agent.allocatedStats?.combat || 0) + (agent.allocatedStats?.luck || 0);
+      agent.statPoints = (agent.statPoints || 0) + spent;
+      agent.allocatedStats = { capture: 0, combat: 0, luck: 0 };
+      // Restore stats to base
+      agent.stats = { ...agent.baseStats };
+      globalThis.saveState();
+      globalThis.notify(`✅ Stats de ${agent.name} réinitialisées — ${agent.statPoints} pts à distribuer`, 'success');
+      globalThis.renderAgentsTab?.();
+      // Open stat modal immediately
+      openAgentStatModal(agentId);
+    },
+    null,
+    { confirmLabel: 'Réattribuer', cancelLabel: 'Annuler', danger: true }
+  );
+}
+
+// Modal d'attribution des pts de stat
+function openAgentStatModal(agentId) {
+  const state  = globalThis.state;
+  const agent  = state.agents.find(a => a.id === agentId);
+  if (!agent) return;
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:10000;display:flex;align-items:center;justify-content:center';
+
+  function render() {
+    const alloc   = agent.allocatedStats || { capture: 0, combat: 0, luck: 0 };
+    const pts     = agent.statPoints || 0;
+    const stats   = [
+      { key: 'combat',  label: '⚔️ ATK (combat)',   color: '#e05c5c' },
+      { key: 'capture', label: '🎯 CAP (capture)',   color: '#7eb8f7' },
+      { key: 'luck',    label: '🍀 LCK (chance)',    color: '#6ecf8a' },
+    ];
+    overlay.innerHTML = `
+      <div style="background:var(--bg-panel);border:2px solid var(--gold);border-radius:var(--radius);padding:24px;width:320px;max-width:96vw">
+        <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold);margin-bottom:4px">📊 STAT POINTS</div>
+        <div style="font-size:9px;color:var(--text-dim);margin-bottom:16px">${agent.name} — Lv.${agent.level}</div>
+        <div style="font-family:var(--font-pixel);font-size:9px;margin-bottom:14px;color:${pts > 0 ? 'var(--gold)' : 'var(--text-dim)'}">
+          Points disponibles : <b style="font-size:12px">${pts}</b>
+        </div>
+        ${stats.map(s => {
+          const base  = (agent.baseStats?.[s.key] || 0);
+          const added = (alloc[s.key] || 0);
+          const total = base + added;
+          return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+            <div style="flex:1;font-size:9px;color:${s.color}">${s.label}</div>
+            <button data-stat="${s.key}" data-dir="-1" style="width:22px;height:22px;border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:4px;cursor:pointer;font-size:13px;line-height:1" ${added <= 0 ? 'disabled style="opacity:.35;cursor:not-allowed"' : ''}>−</button>
+            <div style="min-width:52px;text-align:center;font-family:var(--font-pixel);font-size:10px">
+              <span style="color:${s.color};font-size:12px">${total}</span>
+              ${added > 0 ? `<span style="font-size:7px;color:var(--gold)"> (+${added})</span>` : ''}
+            </div>
+            <button data-stat="${s.key}" data-dir="1" style="width:22px;height:22px;border:1px solid var(--gold);background:rgba(255,204,90,.08);color:var(--gold);border-radius:4px;cursor:pointer;font-size:13px;line-height:1" ${pts <= 0 ? 'disabled style="opacity:.35;cursor:not-allowed"' : ''}>+</button>
+          </div>`;
+        }).join('')}
+        <div style="display:flex;gap:8px;margin-top:18px">
+          <button id="statModalConfirm" style="flex:1;padding:9px;background:var(--gold);color:#000;border:none;border-radius:var(--radius-sm);font-family:var(--font-pixel);font-size:8px;cursor:pointer">CONFIRMER</button>
+          <button id="statModalCancel" style="flex:1;padding:9px;background:var(--bg);border:1px solid var(--border);color:var(--text-dim);border-radius:var(--radius-sm);font-family:var(--font-pixel);font-size:8px;cursor:pointer">FERMER</button>
+        </div>
+      </div>`;
+
+    overlay.querySelectorAll('[data-stat][data-dir]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const s   = btn.dataset.stat;
+        const dir = parseInt(btn.dataset.dir);
+        const alloc = agent.allocatedStats || { capture: 0, combat: 0, luck: 0 };
+        if (dir > 0 && agent.statPoints > 0) {
+          alloc[s]++;
+          agent.statPoints--;
+          agent.stats[s] = (agent.baseStats?.[s] || 0) + alloc[s];
+        } else if (dir < 0 && alloc[s] > 0) {
+          alloc[s]--;
+          agent.statPoints++;
+          agent.stats[s] = (agent.baseStats?.[s] || 0) + alloc[s];
+        }
+        agent.allocatedStats = alloc;
+        render();
+      });
+    });
+    overlay.querySelector('#statModalConfirm')?.addEventListener('click', () => {
+      globalThis.saveState();
+      overlay.remove();
+      globalThis.renderAgentsTab?.();
+    });
+    overlay.querySelector('#statModalCancel')?.addEventListener('click', () => overlay.remove());
+  }
+
+  render();
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
 }
 
 // Retourne le label d'affichage du grade d'un agent (avec nom de gang pour élite/général)
@@ -299,10 +415,15 @@ function passiveAgentTick() {
     const entry = globalThis.spawnInZone(zoneId);
     if (!entry) continue;
 
-    if (entry.type === 'pokemon') {
-      // Agent captures silently
-      const ball = 'pokeball';
-      if ((state.inventory[ball] || 0) <= 0) continue;
+    const behavior = agent.behavior || 'all';
+
+    if (entry.type === 'pokemon' && (behavior === 'all' || behavior === 'capture')) {
+      // Agent captures silently — use preferred ball, fall back to pokeball
+      const preferred = agent.preferredBall || 'pokeball';
+      const ball = (state.inventory[preferred] || 0) > 0 ? preferred
+                 : (state.inventory['pokeball'] || 0)  > 0 ? 'pokeball'
+                 : null;
+      if (!ball) continue;
       const pokemon = globalThis.makePokemon(entry.species_en, zoneId, ball);
       if (!pokemon) continue;
       // Crit de capture : basé sur la stat CAP de l'agent
@@ -323,7 +444,7 @@ function passiveAgentTick() {
         if (pokemon.shiny) state.pokedex[pokemon.species_en].shiny = true;
       }
       if (pokemon.shiny) state.stats.shinyCaught++;
-      grantAgentXP(agent, 5);
+      grantAgentXP(agent, captureXP(pokemon.species_en, pokemon.potential, pokemon.shiny));
       const name = globalThis.speciesName(pokemon.species_en);
       const stars = '★'.repeat(pokemon.potential);
       if (agent.notifyCaptures) {
@@ -332,7 +453,7 @@ function passiveAgentTick() {
       globalThis.addLog(globalThis.t('agent_catch', { agent: agent.name, pokemon: name }));
       changed = true;
 
-    } else if (entry.type === 'trainer' || entry.type === 'raid') {
+    } else if ((entry.type === 'trainer' || entry.type === 'raid') && (behavior === 'all' || behavior === 'combat')) {
       // Agent auto-fights (raids are tougher — need zone group power)
       const agentPower = entry.type === 'raid'
         ? state.agents.filter(a => a.assignedZone === zoneId).reduce((s, a) => s + getAgentCombatPower(a), 0)
@@ -609,6 +730,7 @@ Object.assign(globalThis, {
   openAgentRecruitModal,
   assignAgentToZone,
   grantAgentXP,
+  captureXP,
   checkPromotion,
   getAgentRankLabel,
   getAgentCombatPower,
@@ -617,6 +739,8 @@ Object.assign(globalThis, {
   agentCaptureVisibleSpawn,
   agentAutoCombat,
   agentOpenChest,
+  respecAgentStats,
+  openAgentStatModal,
 });
 
 export {};
