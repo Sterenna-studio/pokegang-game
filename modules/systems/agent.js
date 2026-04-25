@@ -262,14 +262,16 @@ function openAgentStatModal(agentId) {
           const base  = (agent.baseStats?.[s.key] || 0);
           const added = (alloc[s.key] || 0);
           const total = base + added;
-          return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
             <div style="flex:1;font-size:9px;color:${s.color}">${s.label}</div>
-            <button data-stat="${s.key}" data-dir="-1" style="width:22px;height:22px;border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:4px;cursor:pointer;font-size:13px;line-height:1" ${added <= 0 ? 'disabled style="opacity:.35;cursor:not-allowed"' : ''}>−</button>
-            <div style="min-width:52px;text-align:center;font-family:var(--font-pixel);font-size:10px">
+            <button data-stat="${s.key}" data-dir="-10" title="-10" style="padding:0 5px;height:22px;border:1px solid var(--border);background:var(--bg);color:var(--text-dim);border-radius:4px;cursor:pointer;font-size:8px;line-height:1" ${added < 10 ? 'disabled' : ''}>−10</button>
+            <button data-stat="${s.key}" data-dir="-1"  title="-1"  style="width:22px;height:22px;border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:4px;cursor:pointer;font-size:13px;line-height:1" ${added <= 0 ? 'disabled' : ''}>−</button>
+            <div style="min-width:48px;text-align:center;font-family:var(--font-pixel);font-size:10px">
               <span style="color:${s.color};font-size:12px">${total}</span>
               ${added > 0 ? `<span style="font-size:7px;color:var(--gold)"> (+${added})</span>` : ''}
             </div>
-            <button data-stat="${s.key}" data-dir="1" style="width:22px;height:22px;border:1px solid var(--gold);background:rgba(255,204,90,.08);color:var(--gold);border-radius:4px;cursor:pointer;font-size:13px;line-height:1" ${pts <= 0 ? 'disabled style="opacity:.35;cursor:not-allowed"' : ''}>+</button>
+            <button data-stat="${s.key}" data-dir="1"  title="+1"  style="width:22px;height:22px;border:1px solid var(--gold);background:rgba(255,204,90,.08);color:var(--gold);border-radius:4px;cursor:pointer;font-size:13px;line-height:1" ${pts <= 0 ? 'disabled' : ''}>+</button>
+            <button data-stat="${s.key}" data-dir="10" title="+10" style="padding:0 5px;height:22px;border:1px solid var(--gold);background:rgba(255,204,90,.08);color:var(--gold);border-radius:4px;cursor:pointer;font-size:8px;line-height:1" ${pts < 10 ? 'disabled' : ''}>+10</button>
           </div>`;
         }).join('')}
         <div style="display:flex;gap:8px;margin-top:18px">
@@ -280,18 +282,20 @@ function openAgentStatModal(agentId) {
 
     overlay.querySelectorAll('[data-stat][data-dir]').forEach(btn => {
       btn.addEventListener('click', () => {
-        const s   = btn.dataset.stat;
-        const dir = parseInt(btn.dataset.dir);
+        const s    = btn.dataset.stat;
+        const dir  = parseInt(btn.dataset.dir);
+        const step = Math.abs(dir);
         const alloc = agent.allocatedStats || { capture: 0, combat: 0, luck: 0 };
-        if (dir > 0 && agent.statPoints > 0) {
-          alloc[s]++;
-          agent.statPoints--;
-          agent.stats[s] = (agent.baseStats?.[s] || 0) + alloc[s];
-        } else if (dir < 0 && alloc[s] > 0) {
-          alloc[s]--;
-          agent.statPoints++;
-          agent.stats[s] = (agent.baseStats?.[s] || 0) + alloc[s];
+        if (dir > 0) {
+          const canAdd = Math.min(step, agent.statPoints);
+          alloc[s]        += canAdd;
+          agent.statPoints -= canAdd;
+        } else {
+          const canSub = Math.min(step, alloc[s]);
+          alloc[s]        -= canSub;
+          agent.statPoints += canSub;
         }
+        agent.stats[s]   = (agent.baseStats?.[s] || 0) + alloc[s];
         agent.allocatedStats = alloc;
         render();
       });

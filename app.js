@@ -8817,14 +8817,16 @@ function openPlayerStatModal() {
         ${stats.map(s => {
           const tot  = (base[s.key] || 0) + (alloc[s.key] || 0);
           const add  = alloc[s.key] || 0;
-          return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
             <div style="flex:1;font-size:9px;color:${s.color}">${s.label}</div>
-            <button data-ps="${s.key}" data-dir="-1" style="width:22px;height:22px;border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:4px;cursor:pointer;font-size:13px;line-height:1" ${add <= 0 ? 'disabled' : ''}>−</button>
-            <div style="min-width:52px;text-align:center;font-family:var(--font-pixel);font-size:10px">
+            <button data-ps="${s.key}" data-dir="-10" title="-10" style="padding:0 5px;height:22px;border:1px solid var(--border);background:var(--bg);color:var(--text-dim);border-radius:4px;cursor:pointer;font-size:8px" ${add < 10 ? 'disabled' : ''}>−10</button>
+            <button data-ps="${s.key}" data-dir="-1"  title="-1"  style="width:22px;height:22px;border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:4px;cursor:pointer;font-size:13px;line-height:1" ${add <= 0 ? 'disabled' : ''}>−</button>
+            <div style="min-width:48px;text-align:center;font-family:var(--font-pixel);font-size:10px">
               <span style="color:${s.color};font-size:12px">${tot}</span>
               ${add > 0 ? `<span style="font-size:7px;color:var(--gold)"> (+${add})</span>` : ''}
             </div>
-            <button data-ps="${s.key}" data-dir="1" style="width:22px;height:22px;border:1px solid var(--gold);background:rgba(255,204,90,.08);color:var(--gold);border-radius:4px;cursor:pointer;font-size:13px;line-height:1" ${pts <= 0 ? 'disabled' : ''}>+</button>
+            <button data-ps="${s.key}" data-dir="1"  title="+1"  style="width:22px;height:22px;border:1px solid var(--gold);background:rgba(255,204,90,.08);color:var(--gold);border-radius:4px;cursor:pointer;font-size:13px;line-height:1" ${pts <= 0 ? 'disabled' : ''}>+</button>
+            <button data-ps="${s.key}" data-dir="10" title="+10" style="padding:0 5px;height:22px;border:1px solid var(--gold);background:rgba(255,204,90,.08);color:var(--gold);border-radius:4px;cursor:pointer;font-size:8px" ${pts < 10 ? 'disabled' : ''}>+10</button>
           </div>`;
         }).join('')}
         <div style="display:flex;gap:8px;margin-top:18px">
@@ -8835,11 +8837,12 @@ function openPlayerStatModal() {
 
     overlay.querySelectorAll('[data-ps][data-dir]').forEach(btn => {
       btn.addEventListener('click', () => {
-        const s   = btn.dataset.ps;
-        const dir = parseInt(btn.dataset.dir);
+        const s    = btn.dataset.ps;
+        const dir  = parseInt(btn.dataset.dir);
+        const step = Math.abs(dir);
         const alloc = ps.allocatedStats || { combat: 0, capture: 0, luck: 0 };
-        if (dir > 0 && ps.statPoints > 0) { alloc[s]++; ps.statPoints--; }
-        else if (dir < 0 && alloc[s] > 0) { alloc[s]--; ps.statPoints++; }
+        if (dir > 0) { const n = Math.min(step, ps.statPoints); alloc[s] += n; ps.statPoints -= n; }
+        else         { const n = Math.min(step, alloc[s]);      alloc[s] -= n; ps.statPoints += n; }
         ps.allocatedStats = alloc;
         render();
       });
@@ -9120,7 +9123,7 @@ function renderAgentsTab() {
   let html = `
     <div class="agent-card-full" style="border-color:var(--gold)" id="playerStatCard">
       <div class="agent-header">
-        ${state.gang.bossSprite ? `<img src="https://play.pokemonshowdown.com/sprites/gen5/${state.gang.bossSprite}.png" alt="Boss" style="width:44px;height:44px;image-rendering:pixelated">` : '<div style="width:44px;height:44px;background:var(--bg-card);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:20px">👤</div>'}
+        ${state.gang.bossSprite ? `<img src="${trainerSprite(state.gang.bossSprite)}" alt="Boss" style="width:44px;height:44px;image-rendering:pixelated">` : '<div style="width:44px;height:44px;background:var(--bg-card);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:20px">👤</div>'}
         <div class="agent-meta">
           <div class="agent-name" style="color:var(--gold)">${state.gang.bossName || 'Boss'}</div>
           <div class="agent-title" style="color:var(--gold)">Chef de gang</div>
