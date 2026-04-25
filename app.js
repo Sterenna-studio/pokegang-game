@@ -8537,7 +8537,8 @@ function renderPokemonHistory(pokemon) {
 // 18.  UI — POKEDEX TAB
 // ════════════════════════════════════════════════════════════════
 
-let dexSelectedEn = null;
+let dexSelectedEn  = null;
+let dexViewFilter  = 'kanto'; // 'kanto' | 'national' | 'shiny' | 'missing'
 
 function getSpawnZones(species_en) {
   return ZONES
@@ -8772,12 +8773,142 @@ function renderDexDetail(species_en) {
   document.getElementById('dexAssistantBtn')?.addEventListener('click', () => openDexAssistant(species_en));
 }
 
+// ── Pokédex integrity check ───────────────────────────────────────
+// Rebuilds state.pokedex caught/shiny/count from the actual pokemon list.
+// "seen" flags are preserved (they can't be reconstructed from ownership).
+function rebuildPokedex() {
+  // Step 1 — preserve existing seen flags
+  const next = {};
+  for (const [en, entry] of Object.entries(state.pokedex)) {
+    next[en] = { seen: !!entry.seen, caught: false, shiny: false, count: 0 };
+  }
+
+  // Step 2 — rebuild from owned pokemons (ground truth)
+  for (const pk of state.pokemons) {
+    const en = pk.species_en;
+    if (!next[en]) next[en] = { seen: true, caught: false, shiny: false, count: 0 };
+    next[en].caught = true;
+    next[en].seen   = true;
+    next[en].count  = (next[en].count || 0) + 1;
+    if (pk.shiny) next[en].shiny = true;
+  }
+
+  // Step 3 — eggs: mark species as seen
+  for (const egg of state.eggs || []) {
+    if (!egg.species_en) continue;
+    if (!next[egg.species_en]) next[egg.species_en] = { seen: false, caught: false, shiny: false, count: 0 };
+    next[egg.species_en].seen = true;
+  }
+
+  // Step 4 — detect discrepancies before committing
+  let fixedCaught = 0, fixedShiny = 0, fixedCount = 0;
+  for (const en of Object.keys(next)) {
+    const old = state.pokedex[en] || {};
+    if (!!old.caught !== next[en].caught) fixedCaught++;
+    if (!!old.shiny  !== next[en].shiny)  fixedShiny++;
+    if ((old.count || 0) !== next[en].count) fixedCount++;
+  }
+
+  // Step 5 — commit
+  state.pokedex = next;
+
+  // Step 6 — rebuild derived stats
+  state.stats.dexCaught = POKEMON_GEN1.filter(s => !s.hidden && next[s.en]?.caught).length;
+  // shinyCaught is cumulative (includes sold shinies) — only correct upward
+  const ownedShinyNow = state.pokemons.filter(p => p.shiny).length;
+  if ((state.stats.shinyCaught || 0) < ownedShinyNow) {
+    state.stats.shinyCaught = ownedShinyNow;
+  }
+
+  saveState();
+
+  const kanto    = getDexKantoCaught();
+  const shinyEsp = getShinySpeciesCount();
+  const parts = [];
+  if (fixedCaught) parts.push(`${fixedCaught} capturés corrigés`);
+  if (fixedShiny)  parts.push(`${fixedShiny} chromas corrigés`);
+  if (fixedCount)  parts.push(`${fixedCount} compteurs corrigés`);
+  const detail = parts.length ? ` (${parts.join(', ')})` : ' — tout était déjà cohérent';
+  notify(`✅ Pokédex recalibré${detail} · Kanto ${kanto}/${KANTO_DEX_SIZE} · ${shinyEsp} esp. chroma`, 'success');
+
+  renderPokedexTab();
+  renderGangTab();
+}
+
 function renderPokedexTab() {
   const grid = document.getElementById('pokedexGrid');
   if (!grid) return;
 
+  // ── Counter bar (Kanto / National / Chromas) ─────────────────
+  const kantoCaught    = getDexKantoCaught();
+  const nationalCaught = getDexNationalCaught();
+  const shinySpecies   = getShinySpeciesCount();
+
+  let dexCounter = document.getElementById('dexCounter');
+  if (!dexCounter) {
+    dexCounter = document.createElement('div');
+    dexCounter.id = 'dexCounter';
+    dexCounter.style.cssText = 'font-family:var(--font-pixel);font-size:9px;color:var(--text-dim);margin-bottom:6px;display:flex;gap:12px;flex-wrap:wrap;align-items:center';
+    grid.parentNode.insertBefore(dexCounter, grid);
+  }
+  dexCounter.innerHTML = `
+    <span title="Pokédex Kanto (151 espèces originales)">📖 Kanto&nbsp;<b style="color:var(--text)">${kantoCaught}/${KANTO_DEX_SIZE}</b></span>
+    <span title="Pokédex National (toutes espèces disponibles)" style="opacity:.7">🌐 National&nbsp;<b style="color:var(--text)">${nationalCaught}/${NATIONAL_DEX_SIZE}</b></span>
+    <span title="Espèces uniques dont au moins un exemplaire chromatique">✨&nbsp;<b style="color:var(--gold)">${shinySpecies}</b></span>
+    <button id="dexRebuildBtn" title="Reconstruire le Pokédex depuis tes Pokémon réels" style="margin-left:auto;font-family:var(--font-pixel);font-size:7px;padding:3px 7px;background:rgba(255,204,90,.08);border:1px solid rgba(255,204,90,.35);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer;white-space:nowrap">🔄 Recalibrer</button>
+  `;
+  document.getElementById('dexRebuildBtn')?.addEventListener('click', rebuildPokedex);
+
+  // ── Filter tabs ────────────────────────────────────────────────
+  const DEX_FILTERS = [
+    { id: 'kanto',    label: 'Kanto',       title: 'Pokémon #001–151' },
+    { id: 'national', label: 'National',    title: 'Toutes les espèces disponibles' },
+    { id: 'shiny',    label: '✨ Chromas',  title: 'Espèces dont tu possèdes un chromatique' },
+    { id: 'missing',  label: '❓ Manquants',title: 'Espèces non encore capturées' },
+  ];
+  let dexFilterBar = document.getElementById('dexFilterBar');
+  if (!dexFilterBar) {
+    dexFilterBar = document.createElement('div');
+    dexFilterBar.id = 'dexFilterBar';
+    dexFilterBar.style.cssText = 'display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap';
+    grid.parentNode.insertBefore(dexFilterBar, grid);
+  }
+  dexFilterBar.innerHTML = DEX_FILTERS.map(f => `
+    <button data-dexfilter="${f.id}" title="${f.title}" style="
+      font-family:var(--font-pixel);font-size:7px;padding:3px 8px;border-radius:var(--radius-sm);cursor:pointer;
+      background:${dexViewFilter === f.id ? 'var(--gold)' : 'var(--bg-card)'};
+      color:${dexViewFilter === f.id ? '#000' : 'var(--text-dim)'};
+      border:1px solid ${dexViewFilter === f.id ? 'var(--gold)' : 'var(--border)'};
+      font-weight:${dexViewFilter === f.id ? 'bold' : 'normal'};
+      transition:background .15s,color .15s">${f.label}</button>
+  `).join('');
+  dexFilterBar.querySelectorAll('[data-dexfilter]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      dexViewFilter = btn.dataset.dexfilter;
+      renderPokedexTab();
+    });
+  });
+
+  // ── Build species list based on active filter + search ─────────
   const search = document.getElementById('dexSearchInput')?.value?.toLowerCase() || '';
+
   let list = POKEMON_GEN1;
+  // Apply view filter first
+  switch (dexViewFilter) {
+    case 'kanto':
+      list = list.filter(sp => !sp.hidden && sp.dex >= 1 && sp.dex <= 151);
+      break;
+    case 'national':
+      list = list.filter(sp => !sp.hidden);
+      break;
+    case 'shiny':
+      list = list.filter(sp => !sp.hidden && state.pokedex[sp.en]?.shiny);
+      break;
+    case 'missing':
+      list = list.filter(sp => !sp.hidden && !state.pokedex[sp.en]?.caught);
+      break;
+  }
+  // Then apply text search
   if (search) {
     list = list.filter(sp =>
       sp.en.includes(search) || sp.fr.toLowerCase().includes(search) ||
@@ -8785,11 +8916,12 @@ function renderPokedexTab() {
     );
   }
 
-  grid.innerHTML = list.map(sp => {
-    const entry = state.pokedex[sp.en];
-    const caught = entry?.caught;
-    const seen = entry?.seen;
-    const sel = dexSelectedEn === sp.en ? 'selected' : '';
+  // ── Render grid ────────────────────────────────────────────────
+  grid.innerHTML = list.length ? list.map(sp => {
+    const entry   = state.pokedex[sp.en];
+    const caught  = entry?.caught;
+    const seen    = entry?.seen;
+    const sel     = dexSelectedEn === sp.en ? 'selected' : '';
     const hasShiny = !!entry?.shiny;
     return `<div class="dex-entry ${caught ? 'caught' : ''} ${!seen && !caught ? 'unseen' : ''} ${sel}" data-dex-en="${sp.en}" style="position:relative">
       ${caught || seen
@@ -8799,23 +8931,7 @@ function renderPokedexTab() {
       ${hasShiny ? `<span style="position:absolute;top:-3px;right:-3px;font-size:9px;line-height:1;pointer-events:none" title="Chromatique obtenu">✨</span>` : ''}
       <div class="dex-number">#${String(sp.dex).padStart(3, '0')}</div>
     </div>`;
-  }).join('');
-
-  const kantoCaught    = getDexKantoCaught();
-  const nationalCaught = getDexNationalCaught();
-  const shinySpecies   = getShinySpeciesCount();
-  let dexCounter = document.getElementById('dexCounter');
-  if (!dexCounter) {
-    dexCounter = document.createElement('div');
-    dexCounter.id = 'dexCounter';
-    dexCounter.style.cssText = 'font-family:var(--font-pixel);font-size:9px;color:var(--text-dim);margin-bottom:8px;display:flex;gap:12px;flex-wrap:wrap';
-    grid.parentNode.insertBefore(dexCounter, grid);
-  }
-  dexCounter.innerHTML = `
-    <span title="Pokédex Kanto (151 espèces originales)">📖 Kanto&nbsp;<b style="color:var(--text)">${kantoCaught}/${KANTO_DEX_SIZE}</b></span>
-    <span title="Pokédex National (toutes espèces disponibles)" style="opacity:.7">🌐 National&nbsp;<b style="color:var(--text)">${nationalCaught}/${NATIONAL_DEX_SIZE}</b></span>
-    <span title="Espèces uniques dont au moins un exemplaire chromatique">✨ Chromas&nbsp;<b style="color:var(--gold)">${shinySpecies}</b></span>
-  `;
+  }).join('') : `<div style="color:var(--text-dim);font-size:9px;padding:16px;font-family:var(--font-pixel)">Aucun Pokémon dans ce filtre.</div>`;
 
   grid.querySelectorAll('.dex-entry[data-dex-en]').forEach(el => {
     el.addEventListener('click', () => {
