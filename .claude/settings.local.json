@@ -6,7 +6,9 @@
       "Bash(gh pr create --base main --head feat/grades-wings-difficulty --title 'feat: grades agents v2, spawn ailes légendaires, difficulté par mastery' --body ' *)",
       "Bash(awk -F'dex:' '{print $2}')",
       "Bash(awk -F',' '{print $1}')",
-      "Bash(awk '$1 >= 1 && $1 <= 151')"
+      "Bash(awk '$1 >= 1 && $1 <= 151')",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }
