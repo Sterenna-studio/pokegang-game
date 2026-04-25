@@ -8777,20 +8777,26 @@ function renderDexDetail(species_en) {
 // Rebuilds state.pokedex caught/shiny/count from the actual pokemon list.
 // "seen" flags are preserved (they can't be reconstructed from ownership).
 function rebuildPokedex() {
-  // Step 1 — preserve existing seen flags
+  // Step 1 — preserve existing seen AND shiny flags (both are historical — never reset)
+  // "shiny" = has ever obtained a chroma of this species (includes sold ones)
   const next = {};
   for (const [en, entry] of Object.entries(state.pokedex)) {
-    next[en] = { seen: !!entry.seen, caught: false, shiny: false, count: 0 };
+    next[en] = {
+      seen:   !!entry.seen,
+      caught: false,          // rebuilt from owned pokemons below
+      shiny:  !!entry.shiny,  // preserved — historical flag, never goes down
+      count:  0,              // rebuilt from owned pokemons below
+    };
   }
 
-  // Step 2 — rebuild from owned pokemons (ground truth)
+  // Step 2 — rebuild caught/count from owned pokemons; shiny can only be added, not removed
   for (const pk of state.pokemons) {
     const en = pk.species_en;
     if (!next[en]) next[en] = { seen: true, caught: false, shiny: false, count: 0 };
     next[en].caught = true;
     next[en].seen   = true;
     next[en].count  = (next[en].count || 0) + 1;
-    if (pk.shiny) next[en].shiny = true;
+    if (pk.shiny) next[en].shiny = true; // add only — never clears an existing true
   }
 
   // Step 3 — eggs: mark species as seen
@@ -8814,11 +8820,15 @@ function rebuildPokedex() {
 
   // Step 6 — rebuild derived stats
   state.stats.dexCaught = POKEMON_GEN1.filter(s => !s.hidden && next[s.en]?.caught).length;
-  // shinyCaught is cumulative (includes sold shinies) — only correct upward
+  // shinyCaught = cumulative total captures ever (includes sold).
+  // Only correct upward: if currently owned shinies exceed the stored counter
+  // (e.g. counter was never saved), bring it up — but never reduce it.
   const ownedShinyNow = state.pokemons.filter(p => p.shiny).length;
   if ((state.stats.shinyCaught || 0) < ownedShinyNow) {
     state.stats.shinyCaught = ownedShinyNow;
   }
+  // shinySpeciesCount is derived on-the-fly from pokedex[en].shiny (getShinySpeciesCount())
+  // — no separate stat to store; the dex flags are the source of truth.
 
   saveState();
 
