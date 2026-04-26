@@ -60,7 +60,7 @@ function pensionTick() {
         state.eggs.push(egg);
         tryAutoIncubate();
         p.eggAt = now + EGG_GEN_MS;
-        notify(`Un oeuf de ${speciesName(baseSpeciesEn)} a ete depose !${state.purchases?.autoIncubator ? ' (auto-incubé)' : ' Placez-le dans un incubateur.'}`, 'gold');
+        notify(`Un oeuf mystérieux est apparu à la pension !${state.purchases?.autoIncubator ? ' (auto-incubé)' : ' Placez-le dans un incubateur.'}`, 'gold');
         saveState();
         if (activeTab === 'tabPC') renderPCTab();
       }
@@ -152,9 +152,9 @@ function renderPensionView(container) {
       const remStr = rem <= 0 ? 'Pret !' : rem < 60000 ? `${Math.ceil(rem / 1000)}s` : `${Math.ceil(rem / 60000)}min`;
       html += `<div style="display:flex;align-items:center;gap:8px;padding:8px;border:1px solid var(--gold-dim);border-radius:var(--radius-sm);margin-bottom:6px;background:var(--bg)">
         <img src="${ITEM_SPRITE_URLS.incubator}" style="width:24px;height:24px">
-        <img src="${pokeSprite(egg.species_en)}" style="width:36px;height:36px">
+        <div style="width:36px;height:36px;display:flex;align-items:center;justify-content:center;font-size:22px;background:var(--bg-card);border:1px solid var(--border);border-radius:4px">🥚</div>
         <div style="flex:1">
-          <div style="font-size:9px">${speciesName(egg.species_en)}${egg.shiny ? ' [S]' : ''} ${'*'.repeat(egg.potential)}</div>
+          <div style="font-size:9px">Oeuf ${rarity} ${'*'.repeat(egg.potential)}</div>
           <div style="background:var(--border);border-radius:2px;height:4px;margin-top:4px">
             <div style="background:var(--gold-dim);height:4px;border-radius:2px;width:${pct}%"></div>
           </div>
@@ -172,36 +172,8 @@ function renderPensionView(container) {
     return html;
   })();
 
-  // ── Waiting eggs (not incubating) ──
+  // ── Waiting eggs count (managed from the eggs page, not shown here) ──
   const waitingEggs = state.eggs.filter(e => !e.incubating);
-  const waitingHtml = waitingEggs.length
-    ? waitingEggs.map(egg => {
-        const rarity = egg.rarity || SPECIES_BY_EN[egg.species_en]?.rarity || 'common';
-        const hatchTime = EGG_HATCH_MS[rarity] || EGG_HATCH_MS.common;
-        const hatchStr = hatchTime < 60000 ? `${hatchTime/1000}s` : `${hatchTime/60000}min`;
-        // Prix de vente : valeur marchande × 50 %
-        const sellPrice = Math.round((BASE_PRICE[rarity] || 100) * (POTENTIAL_MULT[(egg.potential || 1) - 1] || 1) * 0.5);
-        // Afficher parents sans révéler le Pokémon intérieur
-        const parentsStr = egg.mystery
-          ? 'Oeuf Mystère'
-          : (egg.parentA && egg.parentB)
-            ? `${speciesName(egg.parentA)} × ${speciesName(egg.parentB)}`
-            : '? × ?';
-        return `<div style="display:flex;align-items:center;gap:8px;padding:6px;border-bottom:1px solid var(--border)">
-          <img src="${ITEM_SPRITE_URLS.incubator}" style="width:36px;height:36px;opacity:.85;image-rendering:pixelated">
-          <div style="flex:1">
-            <div style="font-size:9px;color:var(--gold)">Oeuf ${rarity} ${'*'.repeat(egg.potential || 1)}</div>
-            <div style="font-size:8px;color:var(--text-dim)">${parentsStr} — éclosion : ${hatchStr}</div>
-          </div>
-          <div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end">
-            ${freeSlots > 0
-              ? `<button class="pension-incubate-btn" data-egg-id="${egg.id}" style="font-size:8px;padding:3px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">Incuber</button>`
-              : ''}
-            <button class="pension-sell-egg-btn" data-egg-id="${egg.id}" data-sell-price="${sellPrice}" style="font-size:8px;padding:3px 8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">Vendre ${sellPrice.toLocaleString()}₽</button>
-          </div>
-        </div>`;
-      }).join('')
-    : `<div style="color:var(--text-dim);font-size:9px;padding:8px">Aucun oeuf en attente</div>`;
 
   // Pokemon picker (not in pension, not in team, not in training room, not legendary)
   const usedIds = new Set([p.slotA, p.slotB].filter(Boolean));
@@ -246,8 +218,7 @@ function renderPensionView(container) {
         <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold);margin-bottom:6px">INCUBATEURS (${incubatingEggs.length}/${incubatorCount})</div>
         <div style="margin-bottom:12px">${incubatorHtml}</div>
 
-        <div style="font-family:var(--font-pixel);font-size:9px;color:var(--text-dim);margin-bottom:6px">OEUFS EN ATTENTE (${waitingEggs.length})</div>
-        <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);max-height:180px;overflow-y:auto">${waitingHtml}</div>
+        ${waitingEggs.length > 0 ? `<button id="btnGoToEggs" style="font-family:var(--font-pixel);font-size:8px;padding:5px 10px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">🥚 Gérer les oeufs (${waitingEggs.length} en attente) →</button>` : ''}
       </div>
       <div>
         <div style="font-family:var(--font-pixel);font-size:9px;color:var(--text-dim);margin-bottom:8px">CHOISIR UN POKEMON</div>
@@ -257,6 +228,12 @@ function renderPensionView(container) {
         <div id="pensionPicker" style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);max-height:460px;overflow-y:auto">${pickerHtml}</div>
       </div>
     </div>`;
+
+  // Go to eggs page
+  container.querySelector('#btnGoToEggs')?.addEventListener('click', () => {
+    globalThis.pcView = 'eggs';
+    globalThis.switchTab?.('tabPC');
+  });
 
   // Clear all pension slots
   container.querySelector('#btnPensionClearAll')?.addEventListener('click', () => {
@@ -281,48 +258,6 @@ function renderPensionView(container) {
       state.pension.eggAt = null;
       saveState();
       renderPensionView(container);
-    });
-  });
-
-  // Place egg in incubator
-  container.querySelectorAll('.pension-incubate-btn').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      if (freeSlots <= 0) { notify('Pas d\'incubateur libre.'); return; }
-      const egg = state.eggs.find(eg => eg.id === btn.dataset.eggId);
-      if (!egg || egg.incubating) return;
-      const rarity = egg.rarity || SPECIES_BY_EN[egg.species_en]?.rarity || 'common';
-      egg.incubating = true;
-      egg.hatchAt = Date.now() + (EGG_HATCH_MS[rarity] || EGG_HATCH_MS.common);
-      saveState();
-      notify(`Oeuf de ${speciesName(egg.species_en)} place en incubateur !`, 'gold');
-      renderPensionView(container);
-    });
-  });
-
-  // Sell waiting egg
-  container.querySelectorAll('.pension-sell-egg-btn').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      const egg = state.eggs.find(eg => eg.id === btn.dataset.eggId);
-      if (!egg || egg.incubating) return;
-      const price = parseInt(btn.dataset.sellPrice) || 0;
-      const rarity = egg.rarity || 'common';
-      const parentsStr = egg.mystery ? 'Oeuf Mystère' : (egg.parentA && egg.parentB) ? `${speciesName(egg.parentA)} × ${speciesName(egg.parentB)}` : 'oeuf';
-      showConfirm(
-        `Vendre cet oeuf (${parentsStr}) pour ${price.toLocaleString()}₽ ?<br><span style="color:var(--text-dim);font-size:11px">Vous ne saurez jamais quel Pokémon était dedans.</span>`,
-        () => {
-          state.eggs = state.eggs.filter(eg => eg.id !== egg.id);
-          state.gang.money += price;
-          state.stats.totalMoneyEarned = (state.stats.totalMoneyEarned || 0) + price;
-          saveState();
-          updateTopBar();
-          notify(`Oeuf vendu pour ${price.toLocaleString()}₽`, 'success');
-          renderPensionView(container);
-        },
-        null,
-        { danger: true, confirmLabel: 'Vendre', cancelLabel: 'Garder' }
-      );
     });
   });
 

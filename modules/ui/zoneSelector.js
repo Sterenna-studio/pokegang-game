@@ -418,14 +418,60 @@ export function renderZoneSelector() {
 export function refreshZoneTile(zoneId) {
   const tile = document.querySelector(`#zoneSelector [data-zone="${zoneId}"]`);
   if (!tile) return;
-  const isOpen = globalThis.openZones?.has(zoneId);
-  tile.classList.toggle('fog-open', isOpen);
+  const state     = globalThis.state;
+  const openZones = globalThis.openZones;
+  const zone      = ZONE_BY_ID?.[zoneId];
+  if (!zone) return;
+  const zState   = state?.zones?.[zoneId] || {};
+  const isOpen   = openZones?.has(zoneId);
+  const degraded = globalThis.isZoneDegraded?.(zoneId);
+  const mastery  = globalThis.getZoneMastery?.(zoneId) || 0;
+  const combats  = zState.combatsWon || 0;
+  const name     = state?.lang === 'fr' ? zone.fr : zone.en;
+
+  tile.classList.toggle('fog-open', !!isOpen);
+  tile.classList.toggle('fog-degraded', !!degraded);
+
   const statusEl = tile.querySelector('.fog-tile-status');
-  if (statusEl) {
-    const degraded = globalThis.isZoneDegraded?.(zoneId);
-    statusEl.textContent = isOpen ? '[OUVERT]' : degraded ? '[COMBAT]' : '[ENTRER]';
+  if (statusEl) statusEl.textContent = isOpen ? '[OUVERT]' : degraded ? '[COMBAT]' : '[ENTRER]';
+
+  const statsEl = tile.querySelector('.fog-tile-stats');
+  if (statsEl) statsEl.textContent = `${'★'.repeat(mastery)}${mastery ? ' ' : ''}${combats}W${zone.music ? ' 🎵' : ''}`;
+
+  const nameEl = tile.querySelector('.fog-tile-name');
+  if (nameEl && zone.type === 'city') {
+    const raidReady = combats >= 10 && zone.gymLeader;
+    nameEl.innerHTML = zState.gymDefeated
+      ? `<span style="color:var(--gold)">${name} ⚔</span>`
+      : raidReady
+        ? `<span style="color:var(--red)">${name} !</span>`
+        : `<span style="color:var(--text-dim)">${name}</span>`;
   }
+
   refreshZoneIncomeTile(zoneId);
+}
+
+// Refresh every tile currently in the fog-map without a full re-render.
+// Falls back to full re-render if a previously-locked tile is now unlocked.
+export function refreshAllFogTiles() {
+  const el = document.getElementById('zoneSelector');
+  if (!el) return;
+
+  // If any locked tile became unlocked, do a full re-render
+  const lockedTiles = el.querySelectorAll('.fog-tile.locked[data-zone]');
+  for (const tile of lockedTiles) {
+    if (globalThis.isZoneUnlocked?.(tile.dataset.zone)) {
+      renderZoneSelector();
+      return;
+    }
+  }
+
+  // Targeted refresh for each unlocked tile
+  el.querySelectorAll('.fog-tile.unlocked[data-zone]').forEach(tile => {
+    refreshZoneTile(tile.dataset.zone);
+  });
+
+  updateZoneButtons();
 }
 
 export function refreshZoneIncomeTile(zoneId) {

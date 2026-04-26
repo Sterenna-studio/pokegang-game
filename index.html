@@ -71,7 +71,8 @@
       <button class="tab-btn" data-tab="tabCosmetics">🎨</button>
       <button class="tab-btn" data-tab="tabBattleLog">📋 Évts</button>
       <button class="tab-btn" data-tab="tabMissions" id="tabBtnMissions" style="display:none">Missions</button>
-      <button class="tab-btn" data-tab="tabCompte" id="tabBtnCompte" style="margin-left:auto">☁ Compte</button>
+      <button class="tab-btn" data-tab="tabLeaderboard" id="tabBtnLeaderboard" style="margin-left:auto">🏆</button>
+      <button class="tab-btn" data-tab="tabCompte" id="tabBtnCompte">☁ Compte</button>
       <button class="tab-btn" id="btnSaveSlots" style="border-color:var(--gold-dim);color:var(--gold-dim)">Saves</button>
     </nav>
 
@@ -201,7 +202,10 @@
       <!-- ── Missions ── -->
       <section id="tabMissions" class="tab-pane"></section>
 
-      <!-- ── Compte (Supabase auth + cloud save + leaderboard) ── -->
+      <!-- ── Classement global ── -->
+      <section id="tabLeaderboard" class="tab-pane"></section>
+
+      <!-- ── Compte (Supabase auth + cloud save) ── -->
       <section id="tabCompte" class="tab-pane"></section>
 
       <!-- ── Pokédex ── -->

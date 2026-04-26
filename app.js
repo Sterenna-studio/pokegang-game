@@ -13,12 +13,13 @@ import './modules/systems/sessionObjectives.js';
 import './modules/systems/trainingRoom.js';
 import './modules/systems/pension.js';
 import {
-  renderZoneSelector   as _zsRenderSelector,
-  refreshZoneTile      as _zsRefreshTile,
+  renderZoneSelector    as _zsRenderSelector,
+  refreshZoneTile       as _zsRefreshTile,
   refreshZoneIncomeTile as _zsRefreshIncome,
-  updateZoneButtons    as _zsUpdateButtons,
+  refreshAllFogTiles    as _zsRefreshAllTiles,
+  updateZoneButtons     as _zsUpdateButtons,
   bindZoneActionButtons as _zsBindActions,
-  showZoneContextMenu  as _zsShowCtxMenu,
+  showZoneContextMenu   as _zsShowCtxMenu,
 } from './modules/ui/zoneSelector.js';
 
 import { POKEDEX_DESC } from './data/pokedex-desc.js';
@@ -209,6 +210,7 @@ const DEFAULT_STATE = {
     discoveryMode: true,
     autoBuyBall: null,  // null | 'pokeball' | 'greatball' | 'ultraball'
     classicSprites: false, // true = Showdown Gen 5 animés, false = sprites JSON (FireRed/LeafGreen)
+    autoEvoChoice: false,  // true = évolution multi choisie automatiquement (aléatoire, sans popup)
   },
   log: [],
   marketSales: {}, // { [species_en]: { count, lastSale } } — supply/demand
@@ -266,8 +268,6 @@ const DEFAULT_STATE = {
 let state = structuredClone(DEFAULT_STATE);
 globalThis.state = state;
 
-let _supaLastSaveAt = 0;
-const SUPA_SAVE_THROTTLE_MS = 30_000; // max 1 cloud save / 30s
 
 const MAX_HISTORY = 30; // cap des entrées d'historique par Pokémon (anti-QuotaExceeded)
 
@@ -320,14 +320,7 @@ function saveState() {
       try { localStorage.setItem(SAVE_KEY, JSON.stringify(emergency)); } catch {}
     }
   }
-  // Cloud sync : throttlé, non-bloquant
-  if (_supabase && supaSession) {
-    const now = Date.now();
-    if (now - _supaLastSaveAt >= SUPA_SAVE_THROTTLE_MS) {
-      _supaLastSaveAt = now;
-      supaCloudSave();
-    }
-  }
+  // Cloud sync : géré par le tick 5 min dans startGameLoop (pas ici)
 }
 
 function formatPlaytime(seconds) {
@@ -405,6 +398,7 @@ function migrate(saved) {
   if (merged.settings.discoveryMode === undefined) merged.settings.discoveryMode = false;
   if (merged.settings.autoBuyBall === undefined) merged.settings.autoBuyBall = null;
   if (merged.settings.classicSprites === undefined) merged.settings.classicSprites = false;
+  if (merged.settings.autoEvoChoice  === undefined) merged.settings.autoEvoChoice  = false;
   merged.activeBoosts = { ...structuredClone(DEFAULT_STATE.activeBoosts), ...(saved.activeBoosts || {}) };
   merged.activeEvents = saved.activeEvents || {};
   // Migration: bossTeam
@@ -495,23 +489,8 @@ function migrate(saved) {
     const resolvedPension = new Set([merged.pension.slotA, merged.pension.slotB].filter(Boolean));
     merged.trainingRoom.pokemon = (merged.trainingRoom.pokemon || []).filter(id => !teamSet.has(id) && !resolvedPension.has(id));
   }
-  // ── Migration Gen 2 : convertir les Pokémon Gen 2 en ailes ────
-  // Lugia et Ho-Oh ne spawnent plus dans les zones normales (zones dédiées désormais).
-  // Si un joueur en a dans son PC, on les convertit en ailes.
-  // Les évolutions Gen 2 (crobat, steelix, scizor, espeon, etc.) sont conservées :
-  // elles restent obtenables par évolution et ne doivent PAS être effacées.
-  const LEGENDARY_CONVERT = new Set(['lugia', 'ho-oh']);
-  const legendaryFound = (merged.pokemons || []).filter(pk => LEGENDARY_CONVERT.has(pk.species_en));
-  if (legendaryFound.length > 0) {
-    merged.pokemons = merged.pokemons.filter(pk => !LEGENDARY_CONVERT.has(pk.species_en));
-    merged.gang.bossTeam = (merged.gang.bossTeam || []).filter(id => !legendaryFound.some(p => p.id === id));
-    merged.inventory = merged.inventory || {};
-    for (const pk of legendaryFound) {
-      if (pk.species_en === 'lugia') merged.inventory.silver_wing  = (merged.inventory.silver_wing  || 0) + 2;
-      else                           merged.inventory.rainbow_wing = (merged.inventory.rainbow_wing || 0) + 2;
-    }
-    merged._gen2MigrationCount = legendaryFound.length;
-  }
+  // Migration Gen 2 retirée : Lugia et Ho-Oh sont des Pokémon légitimes capturables
+  // via leurs zones dédiées (Îles Tourbillon / Victory Road) — conversion en ailes supprimée.
 
   // ── Migration limites : valeurs hors-limites → MissingNo reward ─
   // Limite incubateur = 10 (cohérent avec le shop qui bloque à owned >= 10)
@@ -1675,12 +1654,24 @@ function evolvePokemon(pokemon, targetEN) {
 }
 
 function tryAutoEvolution(pokemon) {
-  const evo = checkEvolution(pokemon);
-  if (evo) {
-    evolvePokemon(pokemon, evo.to);
+  const evos = EVO_BY_SPECIES[pokemon.species_en];
+  if (!evos) return false;
+  const valid = evos.filter(e => e.req !== 'item' && typeof e.req === 'number' && pokemon.level >= e.req);
+  if (valid.length === 0) return false;
+
+  if (valid.length === 1 || state.settings?.autoEvoChoice) {
+    // Single choice or auto mode: pick immediately
+    evolvePokemon(pokemon, valid[Math.floor(Math.random() * valid.length)].to);
     return true;
   }
-  return false;
+
+  // Multiple choices + manual mode: show card popup
+  showEvolutionChoicePopup(pokemon, valid, targetEN => {
+    evolvePokemon(pokemon, targetEN);
+    _pcLastRenderKey = '';
+    if (activeTab === 'tabPC') renderPCTab();
+  });
+  return false; // evolution pending user choice
 }
 
 function showPokemonLevelPopup(pokemon, newLevel) {
@@ -3233,7 +3224,8 @@ function renderActiveTab() {
     case 'tabBattleLog':   renderEventsTab(); break;
     case 'tabTraining': pcView = 'training'; switchTab('tabPC'); break;
     case 'tabLab':      pcView = 'lab'; switchTab('tabPC'); break;
-    case 'tabCompte':   renderCompteTab(); break;
+    case 'tabLeaderboard': renderLeaderboardTab(); break;
+    case 'tabCompte':      renderCompteTab(); break;
   }
 }
 
@@ -4840,6 +4832,7 @@ function buildZoneWindowEl(zoneId) {
   const win = document.createElement('div');
   win.className = `zone-window zone-type-${zone.type || 'field'}`;
   win.id = `zw-${zoneId}`;
+  win.setAttribute('style', bgStyle); // background image covers the whole window (headbar + viewport + slots-bar)
   const masteryClass = mastery >= 3 ? 'zone-mastery-3' : mastery === 2 ? 'zone-mastery-2' : mastery === 1 ? 'zone-mastery-1' : '';
   if (masteryClass) win.classList.add(masteryClass);
 
@@ -4857,7 +4850,7 @@ function buildZoneWindowEl(zoneId) {
       <button class="headbar-collect-btn" data-headbar-collect="${zoneId}" style="display:${(zState.pendingIncome||0) > 0 ? 'flex' : 'none'};font-family:var(--font-pixel);font-size:7px;padding:1px 6px;background:rgba(200,160,40,.25);border:1px solid var(--gold-dim);border-radius:2px;color:var(--gold);cursor:pointer;align-items:center;gap:2px">₽ ${(zState.pendingIncome||0) > 0 ? (zState.pendingIncome).toLocaleString() : ''}</button>
       <button class="headbar-close" data-close-zone="${zoneId}" title="Fermer">✕</button>
     </div>
-    <div class="zone-viewport" style="${bgStyle}">
+    <div class="zone-viewport">
       ${degraded ? `<div class="zone-degraded-banner">⚠ ${state.lang === 'fr' ? 'MODE COMBAT — Réputation insuffisante' : 'COMBAT MODE — Reputation too low'}</div>` : ''}
       ${boosts.length ? `<div class="zone-boosts">${boosts.map(b => `<span class="boost-badge">${b}</span>`).join('')}</div>` : ''}
       ${eventActive && eventDef ? `<div class="zone-event-banner">${state.lang === 'fr' ? eventDef.fr : eventDef.en}</div>` : ''}
@@ -4878,6 +4871,10 @@ function buildZoneWindowEl(zoneId) {
           ⚔ RAID ${gymDefeated ? '(re)' : ''}${raidReady ? '' : ` ${cdSec}s`}
         </button>`;
       })() : ''}
+      ${state.gang.bossSprite && state.gang.bossZone === zoneId && assignedAgents.length === 0 ? `<div class="zone-boss" data-boss-cd>
+        <img src="${trainerSprite(state.gang.bossSprite)}" alt="Boss" onerror="this.src='${trainerSprite('acetrainer')}'">
+        <span class="boss-cd-label" style="display:none;font-family:var(--font-pixel);font-size:7px;color:var(--red);background:rgba(0,0,0,.8);border-radius:2px;padding:1px 3px;white-space:nowrap;position:absolute;top:-14px;left:50%;transform:translateX(-50%)"></span>
+      </div>` : ''}
     </div>
     <div class="zone-slots-bar">
       ${assignedAgents.map(a => `
@@ -4888,7 +4885,7 @@ function buildZoneWindowEl(zoneId) {
         </div>
       `).join('')}
       <div class="zone-footer-right">
-        ${state.gang.bossSprite && state.gang.bossZone === zoneId ? `<div class="zone-boss" data-boss-cd>
+        ${state.gang.bossSprite && state.gang.bossZone === zoneId && assignedAgents.length > 0 ? `<div class="zone-boss" data-boss-cd>
           <img src="${trainerSprite(state.gang.bossSprite)}" alt="Boss" onerror="this.src='${trainerSprite('acetrainer')}'">
           <span class="boss-cd-label" style="display:none;font-family:var(--font-pixel);font-size:7px;color:var(--red);background:rgba(0,0,0,.8);border-radius:2px;padding:1px 3px;white-space:nowrap;position:absolute;top:-14px;left:50%;transform:translateX(-50%)"></span>
         </div>` : ''}
@@ -5020,17 +5017,24 @@ function patchZoneWindow(zoneId, win) {
     else slotsBar?.appendChild(agEl);
   });
 
-  // Boss element — in zone-footer-right, before zone-slot-info
+  // Boss element — in viewport when no agents, in footer-right when agents present
   win.querySelectorAll('.zone-boss').forEach(el => el.remove());
   if (state.gang.bossSprite && state.gang.bossZone === zoneId) {
+    const freshAssignedForBoss = state.agents.filter(a => a.assignedZone === zoneId);
     const bossEl = document.createElement('div');
     bossEl.className = 'zone-boss';
     bossEl.dataset.bossCd = '';
     bossEl.innerHTML = `<img src="${trainerSprite(state.gang.bossSprite)}" alt="Boss" onerror="this.src='${trainerSprite('acetrainer')}'">`
       + `<span class="boss-cd-label" style="display:none;font-family:var(--font-pixel);font-size:7px;color:var(--red);background:rgba(0,0,0,.8);border-radius:2px;padding:1px 3px;white-space:nowrap;position:absolute;top:-14px;left:50%;transform:translateX(-50%)"></span>`;
-    const _bossSlotInfo = footerRight?.querySelector('.zone-slot-info');
-    if (footerRight && _bossSlotInfo) footerRight.insertBefore(bossEl, _bossSlotInfo);
-    else footerRight?.appendChild(bossEl);
+    if (freshAssignedForBoss.length === 0) {
+      // No agents — boss stands in the viewport
+      viewport.appendChild(bossEl);
+    } else {
+      // Agents present — boss stays in the footer bar
+      const _bossSlotInfo = footerRight?.querySelector('.zone-slot-info');
+      if (footerRight && _bossSlotInfo) footerRight.insertBefore(bossEl, _bossSlotInfo);
+      else footerRight?.appendChild(bossEl);
+    }
   }
 
   // Refresh slot-info section inside zone-footer-right
@@ -6221,7 +6225,9 @@ function renderSpawnInWindow(zoneId, spawnObj) {
     const raidLeaderKey = spawnObj.raidTrainers?.[0]?.key || spawnObj.trainerKey || 'gymleader';
     el.innerHTML = `<img src="${trainerSprite(raidLeaderKey)}" style="width:52px;height:52px;image-rendering:pixelated;filter:drop-shadow(0 0 8px #f44)">
       <div style="font-family:var(--font-pixel);font-size:6px;color:#f66;background:rgba(0,0,0,.75);border-radius:2px;padding:1px 4px;margin-top:2px;text-align:center">⚔ RAID</div>`;
-    el.title = state.lang === 'fr' ? spawnObj.trainer.fr : spawnObj.trainer.en;
+    el.title = state.lang === 'fr'
+      ? (spawnObj.trainer?.fr ?? spawnObj.trainerKey ?? 'Raid')
+      : (spawnObj.trainer?.en ?? spawnObj.trainerKey ?? 'Raid');
     el.style.animation = 'glow 1s ease-in-out infinite, float 2s ease-in-out infinite';
     el.addEventListener('click', () => {
       if (el.dataset.challenged) return;
@@ -6231,8 +6237,8 @@ function renderSpawnInWindow(zoneId, spawnObj) {
     });
   } else if (spawnObj.type === 'trainer') {
     const eliteTag = spawnObj.elite ? ' style="filter:drop-shadow(0 0 6px gold)"' : '';
-    el.innerHTML = `<img src="${trainerSprite(spawnObj.trainer.sprite)}"${eliteTag} style="width:56px;height:56px${spawnObj.elite ? ';filter:drop-shadow(0 0 6px gold)' : ''}" alt="${spawnObj.trainer.fr}">`;
-    el.title = (state.lang === 'fr' ? spawnObj.trainer.fr : spawnObj.trainer.en) + (spawnObj.elite ? ' ⭐' : '');
+    el.innerHTML = `<img src="${trainerSprite(spawnObj.trainer?.sprite ?? spawnObj.trainerKey)}"${eliteTag} style="width:56px;height:56px${spawnObj.elite ? ';filter:drop-shadow(0 0 6px gold)' : ''}" alt="${spawnObj.trainer?.fr ?? ''}">`;
+    el.title = ((state.lang === 'fr' ? (spawnObj.trainer?.fr ?? spawnObj.trainerKey ?? '???') : (spawnObj.trainer?.en ?? spawnObj.trainerKey ?? '???'))) + (spawnObj.elite ? ' ⭐' : '');
     if (spawnObj.elite) el.style.animation = 'glow 1.5s ease-in-out infinite, float 3s ease-in-out infinite';
     el.addEventListener('click', () => {
       if (el.dataset.challenged) return;
@@ -6377,7 +6383,7 @@ function animateCapture(zoneId, spawnObj, spawnEl) {
   if (!win) return;
   const viewport = win.querySelector('.zone-viewport') || win;
 
-  // Find thrower position (boss or agent are now in footer bar, below viewport)
+  // Find thrower position (boss in viewport when solo, or in footer bar; agents always in footer)
   const bossEl = win.querySelector('.zone-boss');
   const agentEl = win.querySelector('.zone-agent');
   const thrower = bossEl || agentEl;
@@ -6580,7 +6586,9 @@ function openCombatPopup(zoneId, spawnObj) {
   if (!viewport) return; // zone window not open
 
   const isRaid = spawnObj.isRaid;
-  const trainerName = state.lang === 'fr' ? spawnObj.trainer.fr : spawnObj.trainer.en;
+  const trainerName = state.lang === 'fr'
+    ? (spawnObj.trainer?.fr ?? spawnObj.trainerKey ?? '???')
+    : (spawnObj.trainer?.en ?? spawnObj.trainerKey ?? '???');
   const dialogue = getTrainerDialogue();
 
   // ── Build gang trainers ──────────────────────────────────────
@@ -6617,7 +6625,7 @@ function openCombatPopup(zoneId, spawnObj) {
   let enemyTrainers;
   if (isRaid) {
     enemyTrainers = spawnObj.raidTrainers
-      .map(rt => ({ id: rt.key, name: rt.trainer.fr || rt.key,
+      .map(rt => ({ id: rt.key, name: rt.trainer?.fr || rt.key,
         pkList: (rt.team || []).map(mkEnemySlot), activeIdx: 0 }))
       .filter(t => t.pkList.length > 0);
   } else {
@@ -8178,32 +8186,55 @@ function renderPotentialUpgradePanel(p) {
 function renderEvolutionPanel(p) {
   const evos = EVO_BY_SPECIES[p.species_en];
   if (!evos || evos.length === 0) return '';
+
+  const hasStone      = (state.inventory.evostone || 0) > 0;
+  const itemEvos      = evos.filter(e => e.req === 'item');
+  const levelEvos     = evos.filter(e => e.req !== 'item' && typeof e.req === 'number');
+  const readyLvlEvos  = levelEvos.filter(e => p.level >= e.req);
+  const multiItem     = itemEvos.length > 1;
+  const multiLevel    = readyLvlEvos.length > 1;
+
   let html = '<div style="margin-top:12px;padding-top:8px;border-top:1px solid var(--border)">';
   html += '<div style="font-size:10px;color:var(--text-dim);margin-bottom:6px">' + (state.lang === 'fr' ? 'Évolution' : 'Evolution') + '</div>';
+
   for (const evo of evos) {
     const targetSp = SPECIES_BY_EN[evo.to];
     if (!targetSp) continue;
     const targetName = state.lang === 'fr' ? targetSp.fr : evo.to;
+
     if (evo.req === 'item') {
-      const hasStone = (state.inventory.evostone || 0) > 0;
       html += '<div style="display:flex;align-items:center;gap:8px;margin-top:6px">'
         + '<img src="' + pokeSprite(evo.to) + '" style="width:32px;height:32px;opacity:' + (hasStone ? 1 : 0.4) + '">'
-        + '<div style="flex:1;font-size:10px">' + targetName + '</div>'
-        + '<button class="btn-evolve-item" data-evo-target="' + evo.to + '" style="font-size:9px;padding:4px 10px;background:' + (hasStone ? 'var(--gold-dim)' : 'var(--bg)') + ';border:1px solid ' + (hasStone ? 'var(--gold)' : 'var(--border)') + ';border-radius:var(--radius-sm);color:' + (hasStone ? 'var(--bg)' : 'var(--text-dim)') + ';cursor:' + (hasStone ? 'pointer' : 'default') + '"' + (hasStone ? '' : ' disabled') + '>💎 ' + (state.lang === 'fr' ? 'Évoluer' : 'Evolve') + '</button>'
-        + '</div>';
+        + '<div style="flex:1;font-size:10px">' + targetName + '</div>';
+      if (!multiItem) {
+        // Single item evo → direct button
+        html += '<button class="btn-evolve-item" data-evo-target="' + evo.to + '" style="font-size:9px;padding:4px 10px;background:' + (hasStone ? 'var(--gold-dim)' : 'var(--bg)') + ';border:1px solid ' + (hasStone ? 'var(--gold)' : 'var(--border)') + ';border-radius:var(--radius-sm);color:' + (hasStone ? 'var(--bg)' : 'var(--text-dim)') + ';cursor:' + (hasStone ? 'pointer' : 'default') + '"' + (hasStone ? '' : ' disabled') + '>💎 Évoluer</button>';
+      }
+      html += '</div>';
     } else {
       const ready = p.level >= evo.req;
       html += '<div style="display:flex;align-items:center;gap:8px;margin-top:6px">'
         + '<img src="' + pokeSprite(evo.to) + '" style="width:32px;height:32px;opacity:' + (ready ? 1 : 0.4) + '">'
         + '<div style="flex:1;font-size:10px">' + targetName + ' (Lv.' + evo.req + ')</div>';
-      if (ready) {
-        html += '<button class="btn-evolve-level" data-evo-target="' + evo.to + '" style="font-size:9px;padding:4px 10px;background:var(--green);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--bg);cursor:pointer">' + (state.lang === 'fr' ? 'Évoluer!' : 'Evolve!') + '</button>';
-      } else {
+      if (ready && !multiLevel) {
+        // Single ready level evo → direct button
+        html += '<button class="btn-evolve-level" data-evo-target="' + evo.to + '" style="font-size:9px;padding:4px 10px;background:var(--green);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--bg);cursor:pointer">Évoluer!</button>';
+      } else if (!ready) {
         html += '<span style="font-size:9px;color:var(--text-dim)">Lv.' + p.level + '/' + evo.req + '</span>';
       }
+      // If ready && multiLevel: individual button omitted — group button below
       html += '</div>';
     }
   }
+
+  // Multi-choice group buttons (card popup)
+  if (multiLevel) {
+    html += '<button class="btn-evolve-level-multi" style="margin-top:10px;width:100%;font-family:var(--font-pixel);font-size:8px;padding:6px;background:var(--green);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--bg);cursor:pointer">🎴 Choisir l\'évolution (' + readyLvlEvos.length + ' options)</button>';
+  }
+  if (multiItem) {
+    html += '<button class="btn-evolve-item-multi"' + (hasStone ? '' : ' disabled') + ' style="margin-top:6px;width:100%;font-family:var(--font-pixel);font-size:8px;padding:6px;background:' + (hasStone ? 'var(--gold-dim)' : 'var(--bg)') + ';border:1px solid ' + (hasStone ? 'var(--gold)' : 'var(--border)') + ';border-radius:var(--radius-sm);color:' + (hasStone ? 'var(--bg)' : 'var(--text-dim)') + ';cursor:' + (hasStone ? 'pointer' : 'default') + '">🎴 Choisir l\'évolution 💎 (' + itemEvos.length + ' options)</button>';
+  }
+
   html += '</div>';
   return html;
 }
@@ -8586,72 +8617,92 @@ function renderPokemonDetail() {
   });
 
   // Evolution buttons
+  // Single level evo
   panel.querySelectorAll('.btn-evolve-level').forEach(btn => {
     btn.addEventListener('click', () => {
       evolvePokemon(p, btn.dataset.evoTarget);
       _pcLastRenderKey = ''; renderPCTab();
     });
   });
+  // Multi level evo → card popup
+  panel.querySelector('.btn-evolve-level-multi')?.addEventListener('click', () => {
+    const readyEvos = (EVO_BY_SPECIES[p.species_en] || []).filter(e => e.req !== 'item' && typeof e.req === 'number' && p.level >= e.req);
+    if (!readyEvos.length) return;
+    showEvolutionChoicePopup(p, readyEvos, targetEN => {
+      evolvePokemon(p, targetEN);
+      _pcLastRenderKey = ''; renderPCTab();
+    });
+  });
+  // Single item evo
   panel.querySelectorAll('.btn-evolve-item').forEach(btn => {
     btn.addEventListener('click', () => {
       if ((state.inventory.evostone || 0) <= 0) return;
-      if (p.species_en === 'eevee') {
-        openEeveeEvoPopup(p);
-      } else {
-        state.inventory.evostone--;
-        evolvePokemon(p, btn.dataset.evoTarget);
-        _pcLastRenderKey = ''; renderPCTab();
-      }
+      state.inventory.evostone--;
+      evolvePokemon(p, btn.dataset.evoTarget);
+      _pcLastRenderKey = ''; renderPCTab();
+    });
+  });
+  // Multi item evo → card popup
+  panel.querySelector('.btn-evolve-item-multi')?.addEventListener('click', () => {
+    if ((state.inventory.evostone || 0) <= 0) return;
+    const itemEvos = (EVO_BY_SPECIES[p.species_en] || []).filter(e => e.req === 'item');
+    if (!itemEvos.length) return;
+    showEvolutionChoicePopup(p, itemEvos, targetEN => {
+      state.inventory.evostone--;
+      evolvePokemon(p, targetEN);
+      _pcLastRenderKey = ''; renderPCTab();
     });
   });
 }
 
-// ── Eevee evolution popup ─────────────────────────────────────
-function openEeveeEvoPopup(p) {
-  const EEVEE_CHOICES = [
-    { en: 'vaporeon', fr: 'Aquali',  type: 'Eau',      color: '#6ab4e8' },
-    { en: 'jolteon',  fr: 'Voltali', type: 'Électrik', color: '#f0d050' },
-    { en: 'flareon',  fr: 'Pyroli',  type: 'Feu',       color: '#f08030' },
-  ];
-  // Mélange aléatoire — le joueur ne sait pas quelle position correspond à quoi avant de regarder
-  const shuffled = [...EEVEE_CHOICES].sort(() => Math.random() - 0.5);
+// ── Multi-evolution choice popup (face-down cards, random order) ──
+// evos: array of { to, req } — the valid evolutions to choose from
+// onChoose(targetEN): called after card flip animation with the chosen species_en
+function showEvolutionChoicePopup(pokemon, evos, onChoose) {
+  // Auto mode: skip popup, pick randomly
+  if (state.settings?.autoEvoChoice) {
+    onChoose(evos[Math.floor(Math.random() * evos.length)].to);
+    return;
+  }
 
-  const modal = document.createElement('div');
-  modal.className = 'eevee-evo-modal';
-  modal.innerHTML = `
-    <div class="eevee-evo-box">
-      <div class="eevee-evo-header">
-        <img src="${pokeSprite('eevee')}" style="width:40px;height:40px;image-rendering:pixelated">
-        <div>
-          <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">ÉVOLUTION D'ÉVOLI</div>
-          <div style="font-size:9px;color:var(--text-dim)">Utilise la Pierre Évolution</div>
-        </div>
-      </div>
-      <div class="eevee-evo-choices">
-        ${shuffled.map(c => `
-          <div class="eevee-choice-card" data-target="${c.en}" style="--evo-color:${c.color}">
-            <img src="${pokeSprite(c.en)}" class="eevee-choice-sprite">
-            <div class="eevee-choice-name">${c.fr}</div>
-            <div class="eevee-choice-type">${c.type}</div>
+  const shuffled = [...evos].sort(() => Math.random() - 0.5);
+  const pkName = speciesName(pokemon.species_en);
+
+  const overlay = document.createElement('div');
+  overlay.className = 'evo-choice-overlay';
+  overlay.innerHTML = `
+    <div class="evo-choice-box">
+      <div class="evo-choice-title">ÉVOLUTION — ${pkName.toUpperCase()}</div>
+      <div class="evo-choice-sub">${shuffled.length} possibilités • Choisissez une carte</div>
+      <div class="evo-choice-cards">
+        ${shuffled.map((evo, i) => `
+          <div class="evo-card-wrap" data-evo-idx="${i}">
+            <div class="evo-card-inner">
+              <div class="evo-card-face evo-card-back-face">🎴</div>
+              <div class="evo-card-face evo-card-front-face">
+                <img src="${pokeSprite(evo.to)}">
+                <span>${speciesName(evo.to)}</span>
+              </div>
+            </div>
           </div>`).join('')}
       </div>
-      <div style="font-size:8px;color:var(--text-dim);text-align:center;margin-top:8px">Cliquez pour choisir • Échap pour annuler</div>
+      <div class="evo-choice-hint">Cliquez une carte pour révéler • Échap pour annuler</div>
     </div>`;
-  document.body.appendChild(modal);
+  document.body.appendChild(overlay);
 
-  modal.querySelectorAll('.eevee-choice-card').forEach(card => {
+  let chosen = false;
+  overlay.querySelectorAll('.evo-card-wrap').forEach((card, i) => {
     card.addEventListener('click', () => {
-      const target = card.dataset.target;
-      state.inventory.evostone--;
-      evolvePokemon(p, target);
-      modal.remove();
-      _pcLastRenderKey = ''; renderPCTab();
+      if (chosen) return;
+      chosen = true;
+      overlay.querySelectorAll('.evo-card-wrap').forEach(c => c.classList.add('selected'));
+      card.classList.add('flipped');
+      setTimeout(() => { overlay.remove(); onChoose(shuffled[i].to); }, 650);
     });
   });
-  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
-  document.addEventListener('keydown', function esc(e) {
-    if (e.key === 'Escape') { modal.remove(); document.removeEventListener('keydown', esc); }
-  });
+  overlay.addEventListener('click', e => { if (e.target === overlay && !chosen) overlay.remove(); });
+  const escFn = e => { if (e.key === 'Escape' && !chosen) { overlay.remove(); document.removeEventListener('keydown', escFn); } };
+  document.addEventListener('keydown', escFn);
 }
 
 function openRenameModal(pokemonId) {
@@ -10910,6 +10961,10 @@ function renderSettingsPanel() {
         <label>Sprites classiques <span style="font-size:.75em;opacity:.6">(Gen 5 Showdown)</span></label>
         ${tog('classicSprites', S.classicSprites === true)}
       </div>
+      <div class="settings-row">
+        <label>Évolution auto <span style="font-size:.75em;opacity:.6">(choix aléatoire, sans cartes)</span></label>
+        ${tog('autoEvoChoice', S.autoEvoChoice === true)}
+      </div>
     </div>
 
     <!-- Audio -->
@@ -11155,6 +11210,7 @@ function initSettings() {
     state.settings.autoCombat     = readToggle('autoCombat',    true);
     state.settings.discoveryMode  = readToggle('discoveryMode', true);
     state.settings.classicSprites = readToggle('classicSprites',false);
+    state.settings.autoEvoChoice  = readToggle('autoEvoChoice', false);
     state.settings.musicEnabled   = readToggle('music',         false);
     state.settings.sfxEnabled     = readToggle('sfx',           true);
     state.settings.lightTheme     = readToggle('lightTheme',    false);
@@ -11471,8 +11527,12 @@ function startGameLoop() {
   // Auto-save every 10 seconds
   autoSaveInterval = setInterval(saveState, 10000);
 
-  // Cloud snapshot every 5 minutes (rolling history, max 6 kept)
-  setInterval(() => supaWriteSnapshot(), 5 * 60 * 1000);
+  // Cloud save + snapshot + leaderboard push every 5 minutes (single batch)
+  setInterval(() => {
+    supaCloudSave();          // upsert current state → player_saves
+    supaWriteSnapshot();      // rolling backup → save_snapshots
+    supaUpdateLeaderboardAnon(); // rankings → leaderboard (dirty-skipped internally)
+  }, 5 * 60 * 1000);
 
   // Cooldown tick removed — cooldowns no longer exist in gameplay
 
@@ -11495,12 +11555,13 @@ function startGameLoop() {
     if (leveled) saveState();
   }, 30000);
 
-  // Zone timers refresh every second (for boost countdowns + stats)
+  // Zone timers + raid button + fogmap refresh every second
   setInterval(() => {
-    if (openZones.size === 0) return;
     for (const zoneId of openZones) {
       updateZoneTimers(zoneId);
+      _refreshRaidBtn(zoneId);
     }
+    if (activeTab === 'tabZones') _zsRefreshAllTiles();
   }, 1000);
 
 }
@@ -11513,6 +11574,19 @@ let _supabase    = null;
 let supaSession = null;
 let supaLastSync = null;   // timestamp dernier cloud save réussi
 let supaSyncing  = false;
+
+// ── Session token — identifies a player row in the leaderboard, even if anonymous
+// Persisted in localStorage so it survives page reloads.
+const _LB_TOKEN_KEY = 'pg.lbToken';
+let _lbToken = localStorage.getItem(_LB_TOKEN_KEY);
+if (!_lbToken) {
+  _lbToken = 'anon_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+  localStorage.setItem(_LB_TOKEN_KEY, _lbToken);
+}
+
+let _lbLastPushAt = 0;
+const LB_PUSH_THROTTLE_MS = 60 * 60 * 1000; // push at most once every hour
+let _lbLastFingerprint = ''; // dirty check — skip push if nothing changed
 
 // ── Helpers ───────────────────────────────────────────────────────
 function supaConfigured() {
@@ -11628,8 +11702,10 @@ async function supaSignUp(email, password) {
 async function supaSignOut() {
   if (!_supabase) return;
   await _supabase.auth.signOut();
-  supaLastSync = null;
-  supaSession  = null;
+  supaLastSync    = null;
+  supaSession     = null;
+  _snapshotCount  = -1;   // reset so next login re-fetches real count
+  _lbLastFingerprint = ''; // force leaderboard push on next login
   updateSupaIndicator();
   updateSupaTabLabel();
   if (activeTab === 'tabCompte') renderCompteTab();
@@ -11652,7 +11728,6 @@ async function supaCloudSave() {
       });
     if (!error) {
       supaLastSync = Date.now();
-      await supaUpdateLeaderboard();
     }
   } catch { /* silencieux — la save locale est toujours là */ }
   supaSyncing = false;
@@ -11720,12 +11795,13 @@ async function supaForceCloudLoad() {
 
 // ── Rolling snapshots ─────────────────────────────────────────────
 const MAX_SNAPSHOTS = 6;
+let _snapshotCount = -1; // -1 = unknown (fetched lazily); avoids SELECT on every write
 
 async function supaWriteSnapshot() {
   if (!_supabase || !supaSession) return;
   try {
     // 1. Insert new snapshot
-    await _supabase.from('save_snapshots').insert({
+    const { error } = await _supabase.from('save_snapshots').insert({
       user_id:   supaSession.user.id,
       slot:      activeSaveSlot,
       state:     state,
@@ -11733,18 +11809,35 @@ async function supaWriteSnapshot() {
       rep:       state.gang?.reputation || 0,
       saved_at:  new Date().toISOString(),
     });
+    if (error) return;
 
-    // 2. Prune: keep only the MAX_SNAPSHOTS most recent rows
-    const { data: rows } = await _supabase
-      .from('save_snapshots')
-      .select('id, saved_at')
-      .eq('user_id', supaSession.user.id)
-      .eq('slot', activeSaveSlot)
-      .order('saved_at', { ascending: false });
+    // Track count client-side to avoid a SELECT on every write
+    if (_snapshotCount < 0) {
+      // First write since page load — fetch real count once
+      const { count } = await _supabase
+        .from('save_snapshots')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', supaSession.user.id)
+        .eq('slot', activeSaveSlot);
+      _snapshotCount = count ?? MAX_SNAPSHOTS;
+    } else {
+      _snapshotCount++;
+    }
 
-    if (rows && rows.length > MAX_SNAPSHOTS) {
-      const toDelete = rows.slice(MAX_SNAPSHOTS).map(r => r.id);
-      await _supabase.from('save_snapshots').delete().in('id', toDelete);
+    // 2. Prune only when over limit (avoids SELECT+DELETE every 5 min)
+    if (_snapshotCount > MAX_SNAPSHOTS) {
+      const { data: rows } = await _supabase
+        .from('save_snapshots')
+        .select('id, saved_at')
+        .eq('user_id', supaSession.user.id)
+        .eq('slot', activeSaveSlot)
+        .order('saved_at', { ascending: false });
+
+      if (rows && rows.length > MAX_SNAPSHOTS) {
+        const toDelete = rows.slice(MAX_SNAPSHOTS).map(r => r.id);
+        await _supabase.from('save_snapshots').delete().in('id', toDelete);
+        _snapshotCount = MAX_SNAPSHOTS;
+      }
     }
   } catch { /* silencieux */ }
 }
@@ -11804,6 +11897,61 @@ async function supaUpdateLeaderboard() {
   });
 }
 
+// ── Anonymous leaderboard push (works with or without auth) ──────
+// Uses _lbToken as primary key; links user_id when authenticated.
+// SQL schema for the 'leaderboard' table (run once in Supabase SQL editor):
+//
+//   CREATE TABLE leaderboard (
+//     token                TEXT PRIMARY KEY,
+//     user_id              UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+//     gang_name            TEXT,
+//     boss_name            TEXT,
+//     boss_sprite          TEXT,
+//     reputation           BIGINT  DEFAULT 0,
+//     total_caught         INT     DEFAULT 0,
+//     shiny_count          INT     DEFAULT 0,
+//     shiny_species_count  INT     DEFAULT 0,
+//     dex_kanto_count      INT     DEFAULT 0,
+//     dex_national_count   INT     DEFAULT 0,
+//     agents_count         INT     DEFAULT 0,
+//     is_anonymous         BOOLEAN DEFAULT TRUE,
+//     updated_at           TIMESTAMPTZ DEFAULT NOW()
+//   );
+//   ALTER TABLE leaderboard ENABLE ROW LEVEL SECURITY;
+//   CREATE POLICY "lb_read"   ON leaderboard FOR SELECT USING (true);
+//   CREATE POLICY "lb_insert" ON leaderboard FOR INSERT WITH CHECK (true);
+//   CREATE POLICY "lb_update" ON leaderboard FOR UPDATE USING (true) WITH CHECK (true);
+async function supaUpdateLeaderboardAnon() {
+  if (!_supabase) return;
+  const now = Date.now();
+  if (now - _lbLastPushAt < LB_PUSH_THROTTLE_MS) return;
+
+  // Dirty check — skip if key stats haven't changed since last push
+  const fp = `${state.gang.reputation}|${state.stats?.totalCaught}|${state.stats?.shinyCaught}|${state.gang.name}`;
+  if (fp === _lbLastFingerprint) return;
+  _lbLastFingerprint = fp;
+  _lbLastPushAt = now;
+
+  try {
+    await _supabase.from('leaderboard').upsert({
+      token:               _lbToken,
+      user_id:             supaSession?.user?.id ?? null,
+      gang_name:           state.gang.name        || 'Team ???',
+      boss_name:           state.gang.bossName    || 'Boss',
+      boss_sprite:         state.gang.bossSprite  || null,
+      reputation:          state.gang.reputation  || 0,
+      total_caught:        state.stats?.totalCaught        || 0,
+      shiny_count:         state.stats?.shinyCaught        || 0,
+      shiny_species_count: getShinySpeciesCount(),
+      dex_kanto_count:     getDexKantoCaught(),
+      dex_national_count:  getDexNationalCaught(),
+      agents_count:        (state.agents || []).length,
+      is_anonymous:        !supaSession,
+      updated_at:          new Date().toISOString(),
+    }, { onConflict: 'token' });
+  } catch { /* silencieux */ }
+}
+
 // ── Top-bar indicator ─────────────────────────────────────────────
 function updateSupaIndicator() {
   const el = document.getElementById('supaIndicator');
@@ -11840,6 +11988,176 @@ function updateSupaTabLabel() {
   if (!btn) return;
   btn.textContent = supaSession ? '☁ Compte ●' : '☁ Compte';
   btn.style.color = supaSession ? 'var(--green)' : '';
+}
+
+// ── Leaderboard Tab ───────────────────────────────────────────────
+let _lbSortBy = 'reputation'; // 'reputation' | 'dex_kanto' | 'shiny_species' | 'total_caught'
+
+async function renderLeaderboardTab() {
+  const tab = document.getElementById('tabLeaderboard');
+  if (!tab) return;
+
+  if (!supaConfigured()) {
+    tab.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-dim);font-family:var(--font-pixel);font-size:10px">
+      🏆 CLASSEMENT<br><br><span style="font-size:9px;font-family:inherit">Supabase non configuré — le classement n'est pas disponible en mode hors-ligne.</span>
+    </div>`;
+    return;
+  }
+
+  const SORTS = [
+    { key: 'reputation',        label: '⭐ Réputation' },
+    { key: 'dex_kanto_count',   label: '📖 Dex Kanto' },
+    { key: 'shiny_species_count', label: '✨ Chromatiques' },
+    { key: 'total_caught',      label: '🎯 Capturés' },
+  ];
+
+  tab.innerHTML = `
+    <div style="padding:16px;max-width:780px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+        <div style="font-family:var(--font-pixel);font-size:12px;color:var(--gold)">🏆 CLASSEMENT MONDIAL</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-left:auto">
+          ${SORTS.map(s => `<button class="lb-sort-btn${_lbSortBy === s.key ? ' active' : ''}" data-sort="${s.key}"
+            style="font-family:var(--font-pixel);font-size:7px;padding:4px 9px;border-radius:var(--radius-sm);cursor:pointer;
+            background:${_lbSortBy === s.key ? 'var(--red)' : 'var(--bg)'};
+            border:1px solid ${_lbSortBy === s.key ? 'var(--red)' : 'var(--border)'};
+            color:${_lbSortBy === s.key ? '#fff' : 'var(--text-dim)'}">${s.label}</button>`).join('')}
+          <button id="btnLbRefresh" style="font-family:var(--font-pixel);font-size:7px;padding:4px 9px;border-radius:var(--radius-sm);cursor:pointer;background:var(--bg);border:1px solid var(--border);color:var(--text-dim)">⟳</button>
+        </div>
+      </div>
+
+      <!-- Ma position -->
+      <div id="lbMyEntry" style="margin-bottom:10px;padding:10px 12px;background:rgba(255,204,90,.07);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);font-size:9px;color:var(--text-dim)">
+        Chargement de votre position…
+      </div>
+
+      <!-- Tableau -->
+      <div id="lbTable" style="background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;min-height:120px">
+        <div style="padding:16px;color:var(--text-dim);font-size:10px;text-align:center">Chargement…</div>
+      </div>
+
+      <div style="margin-top:8px;font-size:8px;color:var(--text-dim);text-align:right">
+        Top 50 · Mis à jour toutes les 5 min ·
+        ${supaSession ? `<span style="color:var(--green)">Connecté ✓</span>` : `<span style="color:var(--text-dim)">Anonyme — <a href="#" id="lbGoLogin" style="color:var(--gold);text-decoration:none">Connecte-toi</a> pour afficher ton nom</span>`}
+      </div>
+    </div>`;
+
+  // Bind sort buttons
+  tab.querySelectorAll('.lb-sort-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      _lbSortBy = btn.dataset.sort;
+      renderLeaderboardTab();
+    });
+  });
+  tab.querySelector('#btnLbRefresh')?.addEventListener('click', () => renderLeaderboardTab());
+  tab.querySelector('#lbGoLogin')?.addEventListener('click', e => { e.preventDefault(); switchTab('tabCompte'); });
+
+  // Push own entry first (throttled) then load
+  await supaUpdateLeaderboardAnon();
+  _loadLeaderboardTable();
+}
+
+async function _loadLeaderboardTable() {
+  if (!_supabase) return;
+
+  const SORT_COLS = {
+    reputation:          'reputation',
+    dex_kanto_count:     'dex_kanto_count',
+    shiny_species_count: 'shiny_species_count',
+    total_caught:        'total_caught',
+  };
+  const col = SORT_COLS[_lbSortBy] || 'reputation';
+
+  // Fetch top 50
+  const { data: rows, error } = await _supabase
+    .from('leaderboard')
+    .select('token, user_id, gang_name, boss_name, boss_sprite, reputation, total_caught, shiny_count, shiny_species_count, dex_kanto_count, dex_national_count, agents_count, is_anonymous, updated_at')
+    .order(col, { ascending: false })
+    .limit(50);
+
+  // Fetch own rank
+  const { data: myRow } = await _supabase
+    .from('leaderboard')
+    .select('gang_name, reputation, total_caught, shiny_species_count, dex_kanto_count, updated_at')
+    .eq('token', _lbToken)
+    .maybeSingle();
+
+  // My rank position
+  let myRank = '—';
+  if (myRow) {
+    const { count } = await _supabase
+      .from('leaderboard')
+      .select('token', { count: 'exact', head: true })
+      .gt(col, myRow[col] || 0);
+    if (count !== null) myRank = `#${count + 1}`;
+  }
+
+  // Render my entry banner
+  const myEntryEl = document.getElementById('lbMyEntry');
+  if (myEntryEl) {
+    if (myRow) {
+      const updAgo = myRow.updated_at ? _lbAgo(new Date(myRow.updated_at)) : '?';
+      myEntryEl.innerHTML = `<span style="color:var(--gold);font-family:var(--font-pixel);font-size:9px">${myRow.gang_name}</span>
+        <span style="margin-left:12px">Rang <b style="color:var(--gold)">${myRank}</b></span>
+        <span style="margin-left:12px;color:var(--text-dim)">⭐ ${(myRow.reputation||0).toLocaleString('fr-FR')}</span>
+        <span style="margin-left:12px;color:var(--text-dim)">✨ ${myRow.shiny_species_count||0} esp.</span>
+        <span style="margin-left:12px;color:var(--text-dim)">📖 ${myRow.dex_kanto_count||0}/151</span>
+        <span style="margin-left:auto;font-size:8px;opacity:.6">mis à jour ${updAgo}</span>`;
+      myEntryEl.style.display = 'flex';
+      myEntryEl.style.alignItems = 'center';
+      myEntryEl.style.gap = '0';
+    } else {
+      myEntryEl.textContent = 'Votre entrée n\'est pas encore dans le classement — elle apparaîtra dans les prochaines minutes.';
+    }
+  }
+
+  // Render table
+  const tableEl = document.getElementById('lbTable');
+  if (!tableEl) return;
+
+  if (error || !rows?.length) {
+    tableEl.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text-dim);font-size:10px">Aucune entrée pour l'instant — sois le premier !</div>`;
+    return;
+  }
+
+  const MEDALS = ['🥇','🥈','🥉'];
+  const SORT_LABELS = { reputation: '⭐ Rép.', dex_kanto_count: '📖 Dex', shiny_species_count: '✨ Chroma', total_caught: '🎯 Cap.' };
+
+  tableEl.innerHTML = `
+    <div style="display:grid;grid-template-columns:36px 1fr auto;border-bottom:1px solid var(--border);padding:6px 10px;font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">
+      <span>#</span><span>Gang</span><span style="text-align:right">${SORT_LABELS[_lbSortBy] || '⭐ Rép.'} &nbsp; ✨ &nbsp; 📖</span>
+    </div>
+    ${rows.map((p, i) => {
+      const isMe    = p.token === _lbToken;
+      const medal   = MEDALS[i] || `<span style="font-family:var(--font-pixel);font-size:9px;color:var(--text-dim)">${i+1}</span>`;
+      const nameTag = p.is_anonymous
+        ? `<span style="font-size:8px;color:var(--text-dim)">Joueur anonyme <span style="opacity:.5">#${p.token.slice(-5)}</span></span>`
+        : `<span style="font-size:9px">${p.gang_name}</span>`;
+      const sprite  = p.boss_sprite
+        ? `<img src="https://play.pokemonshowdown.com/sprites/gen5/${p.boss_sprite}.png" style="width:32px;height:32px;image-rendering:pixelated" onerror="this.style.display='none'">`
+        : `<div style="width:32px;height:32px;background:var(--bg);border-radius:4px"></div>`;
+      const val = p[col] ?? 0;
+      const ago = p.updated_at ? _lbAgo(new Date(p.updated_at)) : '';
+      return `<div style="display:grid;grid-template-columns:36px auto 1fr auto;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid var(--border);background:${isMe ? 'rgba(255,204,90,.07)' : ''};border-left:3px solid ${isMe ? 'var(--gold)' : 'transparent'}">
+        <span style="text-align:center;font-size:14px">${medal}</span>
+        ${sprite}
+        <div style="min-width:0">
+          ${isMe ? `<div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">${p.gang_name} <span style="font-size:7px;opacity:.7">◀ toi</span></div>` : nameTag}
+          <div style="font-size:8px;color:var(--text-dim);margin-top:1px">${p.boss_name || ''}${ago ? ` · ${ago}` : ''}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">${val.toLocaleString('fr-FR')}</div>
+          <div style="font-size:8px;color:var(--text-dim);margin-top:2px">✨ ${p.shiny_species_count||0} &nbsp; 📖 ${p.dex_kanto_count||0}/151</div>
+        </div>
+      </div>`;
+    }).join('')}`;
+}
+
+function _lbAgo(date) {
+  const ms = Date.now() - date.getTime();
+  if (ms < 60_000)   return 'à l\'instant';
+  if (ms < 3600_000) return `il y a ${Math.round(ms/60_000)}min`;
+  if (ms < 86400_000) return `il y a ${Math.round(ms/3600_000)}h`;
+  return `il y a ${Math.round(ms/86400_000)}j`;
 }
 
 // ── Compte Tab UI ─────────────────────────────────────────────────
@@ -11949,18 +12267,21 @@ async function renderCompteTab() {
           </div>
         </div>
 
-        <!-- Classement -->
-        <div style="background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);padding:16px">
-          <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold);margin-bottom:12px">🏆 CLASSEMENT — TOP GANGS</div>
-          <div id="supaLeaderboard" style="min-height:60px">
-            <div style="color:var(--text-dim);font-size:10px;padding:8px">Chargement…</div>
+        <!-- Lien classement -->
+        <div style="background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);padding:14px;display:flex;align-items:center;gap:12px">
+          <div style="flex:1">
+            <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold);margin-bottom:4px">🏆 CLASSEMENT MONDIAL</div>
+            <div style="font-size:9px;color:var(--text-dim)">Visible depuis l'onglet dédié — disponible pour tous, même sans compte.</div>
           </div>
+          <button id="btnGoLeaderboard" style="font-family:var(--font-pixel);font-size:8px;padding:8px 14px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer;white-space:nowrap">Voir 🏆</button>
         </div>
       </div>`;
 
     tab.querySelector('#btnSupaForceSave')?.addEventListener('click', async () => {
-      _supaLastSaveAt = 0; // forcer le throttle
+      _lbLastPushAt      = 0;   // forcer le throttle leaderboard
+      _lbLastFingerprint = '';   // forcer le dirty check
       await supaCloudSave();
+      await supaUpdateLeaderboardAnon();
     });
     tab.querySelector('#btnSupaLoadCloud')?.addEventListener('click', async () => {
       await supaForceCloudLoad();
@@ -11968,6 +12289,7 @@ async function renderCompteTab() {
     tab.querySelector('#btnSupaLogout')?.addEventListener('click', () => {
       showConfirm('Se déconnecter du compte cloud ?', async () => { await supaSignOut(); }, null, { danger: true, confirmLabel: 'Déconnecter', cancelLabel: 'Annuler' });
     });
+    tab.querySelector('#btnGoLeaderboard')?.addEventListener('click', () => switchTab('tabLeaderboard'));
 
     // Charger les snapshots en async
     supaFetchSnapshots().then(snapshots => {
@@ -12000,43 +12322,7 @@ async function renderCompteTab() {
       });
     });
 
-    // Charger le classement en async
-    supaFetchLeaderboard().then(html => {
-      const el = document.getElementById('supaLeaderboard');
-      if (el) el.innerHTML = html;
-    });
   }
-}
-
-async function supaFetchLeaderboard() {
-  if (!_supabase) return '<div style="color:var(--text-dim);font-size:10px">Non disponible.</div>';
-  const { data, error } = await _supabase
-    .from('players')
-    .select('user_id, gang_name, boss_name, reputation, shiny_count, shiny_species_count, dex_kanto_count, dex_national_count')
-    .order('reputation', { ascending: false })
-    .limit(10);
-
-  if (error || !data?.length) {
-    return '<div style="color:var(--text-dim);font-size:10px;padding:8px">Aucun joueur classé pour l\'instant — sois le premier !</div>';
-  }
-
-  const myId = supaSession?.user?.id;
-  return data.map((p, i) => {
-    const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `<span style="font-family:var(--font-pixel);font-size:9px">${i + 1}.</span>`;
-    const isMe  = p.user_id === myId;
-    return `
-      <div style="display:flex;align-items:center;gap:10px;padding:9px 6px;border-bottom:1px solid var(--border);background:${isMe ? 'rgba(255,204,90,.06)' : ''};border-left:${isMe ? '2px solid var(--gold)' : '2px solid transparent'}">
-        <span style="width:28px;text-align:center;font-size:14px">${medal}</span>
-        <div style="flex:1">
-          <div style="font-family:var(--font-pixel);font-size:9px;color:${isMe ? 'var(--gold)' : 'var(--text)'}">${p.gang_name}${isMe ? ' ◀ toi' : ''}</div>
-          <div style="font-size:9px;color:var(--text-dim)">${p.boss_name}</div>
-        </div>
-        <div style="text-align:right">
-          <div style="color:var(--gold);font-size:10px;font-weight:bold">${p.reputation.toLocaleString('fr-FR')} rép</div>
-          <div style="color:var(--text-dim);font-size:8px;margin-top:2px">✨ ${p.shiny_species_count ?? p.shiny_count ?? 0} esp. chroma &nbsp;·&nbsp; 📖 ${p.dex_kanto_count ?? 0}/151 <span style="opacity:.6">(Nat. ${p.dex_national_count ?? 0})</span></div>
-        </div>
-      </div>`;
-  }).join('');
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -12259,7 +12545,7 @@ Object.assign(globalThis, {
   // trainingRoom module
   pokeSprite, tryAutoEvolution,
   // pension module
-  showConfirm, renderPCTab,
+  showConfirm, renderPCTab, switchTab,
   // zoneSelector module — zone helpers + data it reads from globalThis
   isZoneDegraded, getZoneMastery, openCollectionModal,
   getZoneSlotCost, ZONE_SLOT_COSTS, ZONE_BGS, SHOP_ITEMS,
@@ -12298,15 +12584,6 @@ function boot() {
     setTimeout(() => showMigrationBanner(_migrationResult), 1200);
   }
 
-  // ── Notification migration Gen 2 ─────────────────────────────
-  if (state._gen2MigrationCount) {
-    const n = state._gen2MigrationCount;
-    setTimeout(() => notify(
-      `🌟 ${n} légendaire${n > 1 ? 's' : ''} (Lugia / Ho-Oh) converti${n > 1 ? 's' : ''} en ailes — débloque les nouvelles zones dédiées !`
-    , 'gold'), 1500);
-    delete state._gen2MigrationCount;
-    saveState();
-  }
   // ── Notification limite dépassée → MissingNo reward ──────────
   if (state._limitViolationReward) {
     setTimeout(() => notify(

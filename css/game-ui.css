@@ -161,6 +161,7 @@
       min-height: 220px;
       flex: 1;
       overflow: hidden;
+      background: transparent;
     }
     .zone-window:hover { border-color: var(--border-light); }
 
@@ -201,6 +202,15 @@
     }
     .zone-boss img { width: 48px !important; height: 48px !important; image-rendering: pixelated; filter: drop-shadow(0 0 3px rgba(255,204,90,.5)); }
 
+    /* ── Boss in viewport (no agents — solo) ── */
+    .zone-viewport .zone-boss {
+      position: absolute;
+      bottom: 6px;
+      right: 10px;
+      z-index: 2;
+    }
+    .zone-viewport .zone-boss img { width: 72px !important; height: 72px !important; filter: drop-shadow(0 0 6px rgba(255,204,90,.7)); }
+
     /* ── Footer bar layout ── */
     .zone-footer-right {
       margin-left: auto;
@@ -215,6 +225,7 @@
       gap: 3px;
       font-family: var(--font-pixel);
       font-size: 8px;
+      text-shadow: 0 1px 3px rgba(0,0,0,.9);
     }
 
     /* ── Ball throw animation ── */
@@ -411,42 +422,61 @@
     .cosm-lock-balance { font-size: 9px; color: var(--text-dim); }
     .cosm-tab-content { padding: 12px; }
 
-    /* ── Eevee Evolution Popup ───────────────────────────────────── */
-    .eevee-evo-modal {
+    /* ── Evolution Choice Popup (face-down cards) ───────────────── */
+    .evo-choice-overlay {
       position: fixed; inset: 0; z-index: 9200;
-      background: rgba(0,0,0,.85);
+      background: rgba(0,0,0,.88);
       display: flex; align-items: center; justify-content: center;
     }
-    .eevee-evo-box {
+    .evo-choice-box {
       background: var(--bg-panel); border: 2px solid var(--gold-dim);
-      border-radius: var(--radius); padding: 20px;
-      max-width: 420px; width: 95%;
-      display: flex; flex-direction: column; gap: 16px;
+      border-radius: var(--radius); padding: 28px 36px;
+      display: flex; flex-direction: column; align-items: center; gap: 20px;
+      max-width: 480px; width: 95%;
     }
-    .eevee-evo-header {
-      display: flex; align-items: center; gap: 12px;
+    .evo-choice-title {
+      font-family: var(--font-pixel); font-size: 10px;
+      color: var(--gold); letter-spacing: 2px; text-align: center;
     }
-    .eevee-evo-choices {
-      display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+    .evo-choice-sub { font-size: 8px; color: var(--text-dim); text-align: center; margin-top: -12px; }
+    .evo-choice-cards { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; }
+
+    /* Card container (perspective wrapper) */
+    .evo-card-wrap { width: 90px; height: 120px; perspective: 700px; cursor: pointer; flex-shrink: 0; }
+    .evo-card-inner {
+      position: relative; width: 100%; height: 100%;
+      transform-style: preserve-3d;
+      transition: transform .55s cubic-bezier(.4,0,.2,1);
     }
-    .eevee-choice-card {
-      display: flex; flex-direction: column; align-items: center; gap: 6px;
-      padding: 12px 8px;
-      background: var(--bg-card);
-      border: 2px solid var(--border);
-      border-radius: var(--radius-sm);
-      cursor: pointer; transition: border-color .15s, background .15s;
+    .evo-card-wrap.flipped .evo-card-inner { transform: rotateY(180deg); }
+    .evo-card-wrap.selected { cursor: default; }
+
+    /* Shared face style */
+    .evo-card-face {
+      position: absolute; inset: 0; backface-visibility: hidden;
+      border-radius: 10px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+      border: 2px solid; user-select: none;
     }
-    .eevee-choice-card:hover {
-      border-color: var(--evo-color, var(--gold));
-      background: rgba(255,255,255,.04);
+
+    /* Back (face-down) */
+    .evo-card-back-face {
+      background: linear-gradient(135deg, #1a0505 0%, #2d0f0f 50%, #1a0505 100%);
+      border-color: var(--gold-dim); font-size: 36px;
+      transition: border-color .15s, box-shadow .15s;
     }
-    .eevee-choice-sprite { width: 56px; height: 56px; image-rendering: pixelated; }
-    .eevee-choice-name {
-      font-family: var(--font-pixel); font-size: 8px;
-      color: var(--evo-color, var(--text));
+    .evo-card-wrap:not(.selected):hover .evo-card-back-face {
+      border-color: var(--gold); box-shadow: 0 0 16px rgba(255,204,90,.45);
     }
-    .eevee-choice-type { font-size: 8px; color: var(--text-dim); }
+
+    /* Front (revealed) */
+    .evo-card-front-face {
+      background: var(--bg-card); border-color: var(--gold);
+      transform: rotateY(180deg);
+      font-family: var(--font-pixel); font-size: 8px; color: var(--gold); text-align: center; padding: 6px 4px;
+    }
+    .evo-card-front-face img { width: 54px; height: 54px; image-rendering: pixelated; filter: drop-shadow(0 2px 4px rgba(0,0,0,.6)); }
+    .evo-choice-hint { font-size: 8px; color: var(--text-dim); text-align: center; }
 
     /* ── Market Tab ───────────────────────────────────────────────── */
     #tabMarket .market-layout {
@@ -1844,7 +1874,7 @@
     }
     /* headbar-toggle and headbar-content removed (collapsible section eliminated) */
 
-    /* ── Zone slots bar (footer with trainers + slot info) ── */
+    /* ── Zone slots bar (footer transparent over zone background) ── */
     .zone-slots-bar {
       display: flex;
       align-items: flex-end;
@@ -1852,10 +1882,9 @@
       padding: 4px 6px;
       font-family: var(--font-pixel);
       font-size: 8px;
-      background: rgba(0,0,0,.55);
-      border-top: 1px solid var(--border);
       min-height: 58px;
       flex-shrink: 0;
+      background: transparent;
     }
 
     /* ── Gang Base Zone ──────────────────────────────────────────── */
