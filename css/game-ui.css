@@ -177,29 +177,45 @@
       filter: drop-shadow(0 3px 4px rgba(0,0,0,.8));
     }
 
-    /* ── Agent in zone ── */
+    /* ── Agent in footer bar ── */
     .zone-agent {
-      position: absolute;
-      bottom: 28px;
-      left: 8px;
-      z-index: 5;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1px;
+      pointer-events: none;
+      flex-shrink: 0;
+    }
+    .zone-agent img { width: 48px !important; height: 48px !important; image-rendering: pixelated; filter: drop-shadow(0 0 3px rgba(204,51,51,.5)); }
+    .zone-agent .agent-label { font-family: var(--font-pixel); font-size: 7px; color: var(--gold); text-shadow: 0 0 4px #000; white-space: nowrap; max-width: 52px; overflow: hidden; text-overflow: ellipsis; text-align: center; }
+
+    /* ── Boss in footer bar ── */
+    .zone-boss {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      pointer-events: none;
+      flex-shrink: 0;
+    }
+    .zone-boss img { width: 48px !important; height: 48px !important; image-rendering: pixelated; filter: drop-shadow(0 0 3px rgba(255,204,90,.5)); }
+
+    /* ── Footer bar layout ── */
+    .zone-footer-right {
+      margin-left: auto;
       display: flex;
       align-items: flex-end;
-      gap: 4px;
-      pointer-events: none;
+      gap: 6px;
     }
-    .zone-agent img { width: 52px !important; height: 52px !important; image-rendering: pixelated; filter: drop-shadow(0 0 3px rgba(204,51,51,.5)); }
-    .zone-agent .agent-label { font-family: var(--font-pixel); font-size: 7px; color: var(--gold); text-shadow: 0 0 4px #000; }
-
-    /* ── Boss in zone ── */
-    .zone-boss {
-      position: absolute;
-      bottom: 28px;
-      right: 8px;
-      z-index: 5;
-      pointer-events: none;
+    .zone-slot-info {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 3px;
+      font-family: var(--font-pixel);
+      font-size: 8px;
     }
-    .zone-boss img { width: 40px; height: 40px; image-rendering: pixelated; filter: drop-shadow(0 0 3px rgba(255,204,90,.5)); }
 
     /* ── Ball throw animation ── */
     .ball-projectile {
@@ -1566,9 +1582,9 @@
     .zone-mastery-2 { border-color: #8855cc !important; }
     .zone-mastery-3 { border-color: var(--gold) !important; box-shadow: 0 0 8px rgba(255,204,90,.25); }
 
-    /* ── Focus Visuel: boss boss panel bigger ───────────────────── */
-    .zone-boss img { width: 64px !important; height: 64px !important; }
-    .zone-agent img { width: 52px !important; height: 52px !important; }
+    /* ── Focus Visuel: boss/agent sprites in footer ─────────────── */
+    .zone-boss img { width: 52px !important; height: 52px !important; }
+    .zone-agent img { width: 48px !important; height: 48px !important; }
     .base-boss-sprite { width: 80px !important; height: 80px !important; }
 
     /* Zone window hover: soft glow instead of just border-color */
@@ -1826,39 +1842,21 @@
       font-size: 8px;
       color: var(--gold);
     }
-    .zone-headbar .headbar-toggle {
-      color: var(--text-dim);
-      font-size: 10px;
-      margin-left: 4px;
-    }
-    .zone-headbar-content {
-      position: absolute;
-      top: 100%;
-      left: 0;
-      right: 0;
-      z-index: 10;
-      background: rgba(0,0,0,.85);
-      padding: 4px 6px;
-      font-size: 9px;
-      max-height: 0;
-      overflow: hidden;
-      transition: max-height .25s ease, padding .25s ease;
-    }
-    .zone-headbar-content.expanded {
-      max-height: 200px;
-      padding: 4px 6px;
-    }
-    .zone-headbar-content .timer-row {
+    /* headbar-toggle and headbar-content removed (collapsible section eliminated) */
+
+    /* ── Zone slots bar (footer with trainers + slot info) ── */
+    .zone-slots-bar {
       display: flex;
-      justify-content: space-between;
-      gap: 6px;
-      padding: 1px 0;
-      color: var(--text-dim);
+      align-items: flex-end;
+      gap: 4px;
+      padding: 4px 6px;
+      font-family: var(--font-pixel);
+      font-size: 8px;
+      background: rgba(0,0,0,.55);
+      border-top: 1px solid var(--border);
+      min-height: 58px;
+      flex-shrink: 0;
     }
-    .zone-headbar-content .timer-row .timer-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .zone-headbar-content .timer-row .timer-val { font-family: var(--font-pixel); font-size: 8px; color: var(--text); }
-    .zone-headbar-content .timer-row.event-now { animation: timerGlow 1s ease-in-out 3; }
-    .zone-headbar-content .timer-row .timer-chance { font-size: 7px; color: var(--gold-dim); }
 
     /* ── Gang Base Zone ──────────────────────────────────────────── */
     /* ── Gang Base Window — rework ──────────────────────────────── */

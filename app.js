@@ -2583,6 +2583,17 @@ function tryCapture(zoneId, speciesEN, bonusPotential = 0) {
     notify(`${name} ${stars}`, pokemon.potential >= 4 ? 'gold' : 'success');
   }
   addLog(t('catch_success', { name }) + ` [${stars}]`);
+  // Feed event
+  pushFeedEvent({
+    category: 'capture',
+    title: `${name}${shinyTag} — ${stars}`,
+    detail: `Zone: ${zoneId || '?'} · ${BALLS[ball]?.fr || ball}`,
+    win: true,
+    species_en: pokemon.species_en,
+    potential: pokemon.potential,
+    shiny: pokemon.shiny,
+    byAgent: null,
+  });
   // SFX
   SFX.play('capture', pokemon.potential, pokemon.shiny);
   saveState();
@@ -4706,7 +4717,7 @@ function closeZoneWindow(zoneId) {
 }
 
 // Track headbar expanded state per zone
-const headbarExpanded = {};
+// headbarExpanded removed — collapsible headbar-content section eliminated
 
 function renderGangBasePanel() {
   const gangContainer = document.getElementById('gangBaseContainer');
@@ -4812,7 +4823,6 @@ function buildZoneWindowEl(zoneId) {
   const eventDef = eventActive ? SPECIAL_EVENTS.find(e => e.id === activeEvt.eventId) : null;
 
   const assignedAgents = state.agents.filter(a => a.assignedZone === zoneId);
-  const isExpanded = headbarExpanded[zoneId] || false;
   const gymDefeated = zState.gymDefeated;
   const combats = zState.combatsWon || 0;
   const captures = zState.captures || 0;
@@ -4832,26 +4842,24 @@ function buildZoneWindowEl(zoneId) {
   const masteryClass = mastery >= 3 ? 'zone-mastery-3' : mastery === 2 ? 'zone-mastery-2' : mastery === 1 ? 'zone-mastery-1' : '';
   if (masteryClass) win.classList.add(masteryClass);
 
+  const _slotCost = (() => {
+    const nextSlot = (zState.slots || 1);
+    const cost = getZoneSlotCost(zoneId, nextSlot - 1);
+    const canAfford = state.gang.money >= cost;
+    return { nextSlot, cost, canAfford };
+  })();
+
   win.innerHTML = `
     <div class="zone-headbar${degraded ? ' zone-headbar-degraded' : ''}" data-zone-hb="${zoneId}">
       <span class="headbar-name">${name}${gymDefeated ? ' [V]' : ''}${degraded ? ' ⚠' : ''}</span>
       <span class="headbar-stats">${'*'.repeat(mastery)} ${boosts.map(b => `<span class="boost-tag">${b}</span>`).join('')}</span>
       <button class="headbar-collect-btn" data-headbar-collect="${zoneId}" style="display:${(zState.pendingIncome||0) > 0 ? 'flex' : 'none'};font-family:var(--font-pixel);font-size:7px;padding:1px 6px;background:rgba(200,160,40,.25);border:1px solid var(--gold-dim);border-radius:2px;color:var(--gold);cursor:pointer;align-items:center;gap:2px">₽ ${(zState.pendingIncome||0) > 0 ? (zState.pendingIncome).toLocaleString() : ''}</button>
-      <span class="headbar-toggle">${isExpanded ? '▲' : '▼'}</span>
       <button class="headbar-close" data-close-zone="${zoneId}" title="Fermer">✕</button>
     </div>
-    <div class="zone-headbar-content ${isExpanded ? 'expanded' : ''}" id="zt-${zoneId}"></div>
     <div class="zone-viewport" style="${bgStyle}">
       ${degraded ? `<div class="zone-degraded-banner">⚠ ${state.lang === 'fr' ? 'MODE COMBAT — Réputation insuffisante' : 'COMBAT MODE — Reputation too low'}</div>` : ''}
       ${boosts.length ? `<div class="zone-boosts">${boosts.map(b => `<span class="boost-badge">${b}</span>`).join('')}</div>` : ''}
       ${eventActive && eventDef ? `<div class="zone-event-banner">${state.lang === 'fr' ? eventDef.fr : eventDef.en}</div>` : ''}
-      ${assignedAgents.map((a, i) => `
-        <div class="zone-agent" data-agent-id="${a.id}" style="left:${8 + i * 44}px">
-          <img src="${a.sprite}" alt="${a.name}" onerror="this.src='${trainerSprite('acetrainer')}'">
-          <span class="agent-label">${a.name}</span>
-          <span class="agent-cd-label" style="display:none;font-family:var(--font-pixel);font-size:7px;color:var(--red);background:rgba(0,0,0,.8);border-radius:2px;padding:1px 3px;white-space:nowrap;position:absolute;top:-16px;left:50%;transform:translateX(-50%)"></span>
-        </div>
-      `).join('')}
       <div id="zpb-${zoneId}" style="position:absolute;top:4px;left:50%;transform:translateX(-50%);font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);background:rgba(0,0,0,.55);border-radius:2px;padding:1px 5px;white-space:nowrap;z-index:2;pointer-events:none">${progressText}${zone.type === 'city' ? ` — XP×${zone.xpBonus}` : ''}</div>
       ${zone.type === 'city' && zone.gymLeader && combats >= 10 ? (() => {
         const lastRaid = zState.gymRaidLastFight || 0;
@@ -4859,7 +4867,7 @@ function buildZoneWindowEl(zoneId) {
         const raidReady = Date.now() - lastRaid >= raidCooldownMs;
         const cdSec = raidReady ? 0 : Math.ceil((raidCooldownMs - (Date.now() - lastRaid)) / 1000);
         return `<button class="zone-gym-raid-btn" data-gym-raid="${zoneId}"
-          style="position:absolute;bottom:38px;left:50%;transform:translateX(-50%);
+          style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);
           font-family:var(--font-pixel);font-size:7px;padding:3px 10px;
           background:${raidReady ? 'rgba(180,20,20,.8)' : 'rgba(60,60,60,.8)'};
           border:1px solid ${raidReady ? 'var(--red)' : 'var(--border)'};
@@ -4869,23 +4877,29 @@ function buildZoneWindowEl(zoneId) {
           ⚔ RAID ${gymDefeated ? '(re)' : ''}${raidReady ? '' : ` ${cdSec}s`}
         </button>`;
       })() : ''}
-      ${state.gang.bossSprite && state.gang.bossZone === zoneId ? `<div class="zone-boss" data-boss-cd>
-        <img src="${trainerSprite(state.gang.bossSprite)}" alt="Boss" onerror="this.src='${trainerSprite('acetrainer')}'">
-        <span class="boss-cd-label" style="display:none;font-family:var(--font-pixel);font-size:7px;color:var(--red);background:rgba(0,0,0,.8);border-radius:2px;padding:1px 3px;white-space:nowrap;position:absolute;top:-16px;left:50%;transform:translateX(-50%)"></span>
-      </div>` : ''}
     </div>
-    <div class="zone-slots-bar" style="display:flex;align-items:center;gap:6px;padding:3px 8px;font-family:var(--font-pixel);font-size:8px;background:rgba(0,0,0,.55);border-top:1px solid var(--border)">
-      <span class="slot-count" style="color:var(--text-dim)">Agents: ${assignedAgents.length}/${zState.slots || 1}</span>
-      ${(zState.slots || 1) < ZONE_SLOT_COSTS.length + 1 ? (() => {
-        const nextSlot = (zState.slots || 1);
-        const cost = getZoneSlotCost(zoneId, nextSlot - 1);
-        const canAfford = state.gang.money >= cost;
-        return `<button class="zone-slot-upgrade" data-zone-upgrade="${zoneId}" data-cost="${cost}"
-          style="font-family:var(--font-pixel);font-size:7px;padding:2px 6px;background:var(--bg);
-          border:1px solid ${canAfford ? 'var(--gold-dim)' : 'var(--border)'};border-radius:2px;
-          color:${canAfford ? 'var(--gold)' : 'var(--text-dim)'};cursor:${canAfford ? 'pointer' : 'default'}"
-          ${canAfford ? '' : 'disabled'}>+slot ${cost.toLocaleString()}₽</button>`;
-      })() : `<span style="color:var(--gold)">FULL</span>`}
+    <div class="zone-slots-bar">
+      ${assignedAgents.map(a => `
+        <div class="zone-agent" data-agent-id="${a.id}">
+          <span class="agent-label">${a.name}</span>
+          <img src="${a.sprite}" alt="${a.name}" onerror="this.src='${trainerSprite('acetrainer')}'">
+          <span class="agent-cd-label" style="display:none;font-family:var(--font-pixel);font-size:7px;color:var(--red);background:rgba(0,0,0,.8);border-radius:2px;padding:1px 3px;white-space:nowrap;position:absolute;top:-14px;left:50%;transform:translateX(-50%)"></span>
+        </div>
+      `).join('')}
+      <div class="zone-footer-right">
+        ${state.gang.bossSprite && state.gang.bossZone === zoneId ? `<div class="zone-boss" data-boss-cd>
+          <img src="${trainerSprite(state.gang.bossSprite)}" alt="Boss" onerror="this.src='${trainerSprite('acetrainer')}'">
+          <span class="boss-cd-label" style="display:none;font-family:var(--font-pixel);font-size:7px;color:var(--red);background:rgba(0,0,0,.8);border-radius:2px;padding:1px 3px;white-space:nowrap;position:absolute;top:-14px;left:50%;transform:translateX(-50%)"></span>
+        </div>` : ''}
+        <div class="zone-slot-info">
+          <span class="slot-count" style="color:var(--text-dim)">Agents: ${assignedAgents.length}/${zState.slots || 1}</span>
+          ${(zState.slots || 1) < ZONE_SLOT_COSTS.length + 1 ? `<button class="zone-slot-upgrade" data-zone-upgrade="${zoneId}" data-cost="${_slotCost.cost}"
+            style="font-family:var(--font-pixel);font-size:7px;padding:2px 6px;background:var(--bg);
+            border:1px solid ${_slotCost.canAfford ? 'var(--gold-dim)' : 'var(--border)'};border-radius:2px;
+            color:${_slotCost.canAfford ? 'var(--gold)' : 'var(--text-dim)'};cursor:${_slotCost.canAfford ? 'pointer' : 'default'}"
+            ${_slotCost.canAfford ? '' : 'disabled'}>+slot ${_slotCost.cost.toLocaleString()}₽</button>` : `<span style="color:var(--gold)">FULL</span>`}
+        </div>
+      </div>
     </div>
   `;
 
@@ -4897,13 +4911,6 @@ function buildZoneWindowEl(zoneId) {
   win.querySelector(`[data-headbar-collect="${zoneId}"]`)?.addEventListener('click', (e) => {
     e.stopPropagation();
     openCollectionModal(zoneId);
-  });
-
-  win.querySelector(`[data-zone-hb="${zoneId}"]`)?.addEventListener('click', () => {
-    headbarExpanded[zoneId] = !headbarExpanded[zoneId];
-    document.getElementById(`zt-${zoneId}`)?.classList.toggle('expanded', headbarExpanded[zoneId]);
-    const toggle = win.querySelector('.headbar-toggle');
-    if (toggle) toggle.textContent = headbarExpanded[zoneId] ? '▲' : '▼';
   });
 
   win.querySelector('.zone-viewport')?.addEventListener('dblclick', (e) => {
@@ -4997,41 +5004,44 @@ function patchZoneWindow(zoneId, win) {
   const progressBar = win.querySelector(`#zpb-${zoneId}`);
   if (progressBar) progressBar.textContent = `${progressText}${zone.type === 'city' ? ` — XP×${zone.xpBonus}` : ''}`;
 
-  // Agent overlays — remove + re-add (they're static overlays, not live spawns)
-  viewport.querySelectorAll('.zone-agent').forEach(el => el.remove());
-  state.agents.filter(a => a.assignedZone === zoneId).forEach((a, i) => {
+  // Agent elements — remove + re-add in footer bar (left of zone-footer-right)
+  const slotsBar = win.querySelector('.zone-slots-bar');
+  const footerRight = slotsBar?.querySelector('.zone-footer-right');
+  win.querySelectorAll('.zone-agent').forEach(el => el.remove());
+  state.agents.filter(a => a.assignedZone === zoneId).forEach(a => {
     const agEl = document.createElement('div');
     agEl.className = 'zone-agent';
     agEl.dataset.agentId = a.id;
-    agEl.style.left = `${8 + i * 44}px`;
-    agEl.innerHTML = `<img src="${a.sprite}" alt="${a.name}" onerror="this.src='${trainerSprite('acetrainer')}'">`
-      + `<span class="agent-label">${a.name}</span>`
-      + `<span class="agent-cd-label" style="display:none;font-family:var(--font-pixel);font-size:7px;color:var(--red);background:rgba(0,0,0,.8);border-radius:2px;padding:1px 3px;white-space:nowrap;position:absolute;top:-16px;left:50%;transform:translateX(-50%)"></span>`;
-    viewport.appendChild(agEl);
+    agEl.innerHTML = `<span class="agent-label">${a.name}</span>`
+      + `<img src="${a.sprite}" alt="${a.name}" onerror="this.src='${trainerSprite('acetrainer')}'">`
+      + `<span class="agent-cd-label" style="display:none;font-family:var(--font-pixel);font-size:7px;color:var(--red);background:rgba(0,0,0,.8);border-radius:2px;padding:1px 3px;white-space:nowrap;position:absolute;top:-14px;left:50%;transform:translateX(-50%)"></span>`;
+    if (slotsBar && footerRight) slotsBar.insertBefore(agEl, footerRight);
+    else slotsBar?.appendChild(agEl);
   });
 
-  // Boss overlay
-  viewport.querySelectorAll('.zone-boss').forEach(el => el.remove());
+  // Boss element — in zone-footer-right, before zone-slot-info
+  win.querySelectorAll('.zone-boss').forEach(el => el.remove());
   if (state.gang.bossSprite && state.gang.bossZone === zoneId) {
     const bossEl = document.createElement('div');
     bossEl.className = 'zone-boss';
     bossEl.dataset.bossCd = '';
     bossEl.innerHTML = `<img src="${trainerSprite(state.gang.bossSprite)}" alt="Boss" onerror="this.src='${trainerSprite('acetrainer')}'">`
-      + `<span class="boss-cd-label" style="display:none;font-family:var(--font-pixel);font-size:7px;color:var(--red);background:rgba(0,0,0,.8);border-radius:2px;padding:1px 3px;white-space:nowrap;position:absolute;top:-16px;left:50%;transform:translateX(-50%)"></span>`;
-    viewport.appendChild(bossEl);
+      + `<span class="boss-cd-label" style="display:none;font-family:var(--font-pixel);font-size:7px;color:var(--red);background:rgba(0,0,0,.8);border-radius:2px;padding:1px 3px;white-space:nowrap;position:absolute;top:-14px;left:50%;transform:translateX(-50%)"></span>`;
+    const _bossSlotInfo = footerRight?.querySelector('.zone-slot-info');
+    if (footerRight && _bossSlotInfo) footerRight.insertBefore(bossEl, _bossSlotInfo);
+    else footerRight?.appendChild(bossEl);
   }
 
-  // Refresh slots bar (now a footer sibling of .zone-viewport, not inside it)
-  const viewport2 = win.querySelector('.zone-viewport');
-  const slotsBar = win.querySelector('.zone-slots-bar');
-  if (slotsBar) {
-    const freshAssigned = state.agents.filter(a => a.assignedZone === zoneId);
-    const freshZState = state.zones[zoneId] || {};
-    const freshMaxSlots = freshZState.slots || 1;
-    const freshCanUpgrade = freshMaxSlots < ZONE_SLOT_COSTS.length + 1;
-    const freshCost = freshCanUpgrade ? getZoneSlotCost(zoneId, freshMaxSlots - 1) : null;
-    const freshCanAfford = freshCost && state.gang.money >= freshCost;
-    slotsBar.innerHTML = `
+  // Refresh slot-info section inside zone-footer-right
+  const freshAssigned = state.agents.filter(a => a.assignedZone === zoneId);
+  const freshZState2 = state.zones[zoneId] || {};
+  const freshMaxSlots = freshZState2.slots || 1;
+  const freshCanUpgrade = freshMaxSlots < ZONE_SLOT_COSTS.length + 1;
+  const freshCost = freshCanUpgrade ? getZoneSlotCost(zoneId, freshMaxSlots - 1) : null;
+  const freshCanAfford = freshCost && state.gang.money >= freshCost;
+  const slotInfo = win.querySelector('.zone-slot-info');
+  if (slotInfo) {
+    slotInfo.innerHTML = `
       <span class="slot-count" style="color:var(--text-dim)">Agents: ${freshAssigned.length}/${freshMaxSlots}</span>
       ${freshCanUpgrade
         ? `<button class="zone-slot-upgrade" data-zone-upgrade="${zoneId}" data-cost="${freshCost}"
@@ -5042,7 +5052,7 @@ function patchZoneWindow(zoneId, win) {
         : '<span style="color:var(--gold)">FULL</span>'}
     `;
     // Rebind dblclick upgrade
-    slotsBar.querySelector(`[data-zone-upgrade="${zoneId}"]`)?.addEventListener('dblclick', (e) => {
+    slotInfo.querySelector(`[data-zone-upgrade="${zoneId}"]`)?.addEventListener('dblclick', (e) => {
       e.stopPropagation();
       const zs2 = initZone(zoneId);
       const ns = zs2.slots || 1;
@@ -6017,74 +6027,35 @@ const zoneNextSpawn = {}; // zoneId -> { countdown, lastSpawnType }
 const zoneSpawnHistory = {}; // zoneId -> { pokemon:N, trainer:N, total:N }
 
 function updateZoneTimers(zoneId) {
-  const el = document.getElementById(`zt-${zoneId}`);
-  if (!el || !el.classList.contains('expanded')) return;
+  const win = document.getElementById(`zw-${zoneId}`);
+  if (!win) return;
   const zone = ZONE_BY_ID[zoneId];
   if (!zone) return;
 
   const zState = initZone(zoneId);
+  const mastery = getZoneMastery(zoneId);
   const combats = zState.combatsWon || 0;
   const captures = zState.captures || 0;
-  const mastery = getZoneMastery(zoneId);
-  const nextMastery = mastery < 2 ? 10 : mastery < 3 ? 50 : null;
-  const pct = nextMastery ? Math.min(100, Math.round((combats / nextMastery) * 100)) : 100;
+  const nextMastery = mastery < 3 ? (mastery < 2 ? 10 : 50) : null;
 
-  let html = `
-    <div style="padding:6px 8px;font-size:9px;font-family:var(--font-pixel)">
-      <div style="color:var(--text-dim);margin-bottom:4px">${zone.type === 'city' ? 'VILLE / ARÈNE' : 'PROGRESSION'}</div>
-      <div style="margin-bottom:4px">Combats: ${combats}${nextMastery ? `/${nextMastery}` : ' [MAX]'}
-        ${zone.type !== 'city' ? ` | Captures: ${captures}` : ''}
-        ${zState.gymDefeated ? ' <span style="color:var(--gold)">[V]</span>' : ''}
-      </div>
-      ${nextMastery ? `<div style="background:var(--border);border-radius:2px;height:4px;margin-bottom:6px">
-        <div style="background:var(--gold-dim);height:4px;border-radius:2px;width:${pct}%"></div>
-      </div>` : ''}`;
-
-  // Active boosts remaining
-  for (const bid of ['incense', 'rarescope', 'aura', 'chestBoost', 'lure', 'superlure']) {
-    if (isBoostActive(bid)) {
-      const rem = boostRemaining(bid);
-      const labels = { incense:'INC', rarescope:'SCO', aura:'AUR', chestBoost:'CHT', lure:'LR', superlure:'SLR' };
-      html += `<div style="color:var(--gold);margin-bottom:2px">${labels[bid]}: ${rem}s</div>`;
-    }
+  // Refresh progress bar in viewport
+  const progressBar = win.querySelector(`#zpb-${zoneId}`);
+  if (progressBar) {
+    const progressText = zone.type === 'city'
+      ? `Combats: ${combats}${zState.gymDefeated ? ' ✓GYM' : combats >= 10 && zone.gymLeader ? ' — RAID!' : ''}`
+      : `Combats: ${combats}${nextMastery ? `/${nextMastery}` : ''} | Cap: ${captures}`;
+    progressBar.textContent = `${progressText}${zone.type === 'city' ? ` — XP×${zone.xpBonus}` : ''}`;
   }
 
-  // Active event countdown
-  const activeEvt = state.activeEvents[zoneId];
-  if (activeEvt && activeEvt.expiresAt > Date.now()) {
-    const evtDef = SPECIAL_EVENTS.find(e => e.id === activeEvt.eventId);
-    const rem = Math.ceil((activeEvt.expiresAt - Date.now()) / 1000);
-    if (evtDef) html += `<div style="color:var(--red)">${state.lang === 'fr' ? evtDef.fr : evtDef.en}: ${rem}s</div>`;
-  }
-
-  html += '</div>';
-  el.innerHTML = html;
-
-  // Also refresh the zone-level inline display in viewport
-  const zWin = document.getElementById(`zw-${zoneId}`);
-  const levelEl = zWin?.querySelector('.zone-level');
-  if (levelEl) {
-    const freshCombats = zState.combatsWon || 0;
-    const freshCaptures = zState.captures || 0;
-    const freshNextMastery = mastery < 3 ? (mastery < 2 ? 10 : 50) : null;
-    const freshProgressText = zone.type === 'city'
-      ? `Combats: ${freshCombats}${zState.gymDefeated ? ' ✓GYM' : freshCombats >= 10 && zone.gymLeader ? ' — RAID!' : ''}`
-      : `Combats: ${freshCombats}${freshNextMastery ? `/${freshNextMastery}` : ''} | Cap: ${freshCaptures}`;
-    levelEl.innerHTML = freshProgressText + (zone.type === 'city' ? ` <span style="color:var(--gold);font-size:8px">XP*${zone.xpBonus}</span>` : '');
-  }
-
-  // Also refresh slots bar
-  const slotsBarEl = zWin?.querySelector('.zone-slots-bar');
-  if (slotsBarEl) {
+  // Refresh slot count
+  const countSpan = win.querySelector('.slot-count');
+  if (countSpan) {
     const assignedCount = state.agents.filter(a => a.assignedZone === zoneId).length;
     const maxSlots = (state.zones[zoneId]?.slots) || 1;
-    const countSpan = slotsBarEl.querySelector('.slot-count');
-    if (countSpan) countSpan.textContent = `Agents: ${assignedCount}/${maxSlots}`;
+    countSpan.textContent = `Agents: ${assignedCount}/${maxSlots}`;
   }
 
-  // Cooldown display on agents and boss in viewport
-  const win = document.getElementById(`zw-${zoneId}`);
-  if (!win) return;
+  // Cooldown display on agents in footer bar
   for (const agent of state.agents.filter(a => a.assignedZone === zoneId)) {
     const agentEl = win.querySelector(`[data-agent-id="${agent.id}"] .agent-cd-label`);
     if (!agentEl) continue;
@@ -6410,20 +6381,20 @@ function animateCapture(zoneId, spawnObj, spawnEl) {
   if (!win) return;
   const viewport = win.querySelector('.zone-viewport') || win;
 
-  // Find thrower position (boss or agent sprite in zone)
-  const bossEl = viewport.querySelector('.zone-boss');
-  const agentEl = viewport.querySelector('.zone-agent');
+  // Find thrower position (boss or agent are now in footer bar, below viewport)
+  const bossEl = win.querySelector('.zone-boss');
+  const agentEl = win.querySelector('.zone-agent');
   const thrower = bossEl || agentEl;
   let startX, startY;
   if (thrower) {
     const r = thrower.getBoundingClientRect();
     const wr = viewport.getBoundingClientRect();
     startX = r.left - wr.left + r.width / 2;
-    startY = r.top - wr.top;
+    startY = Math.min(viewport.clientHeight - 8, r.top - wr.top); // clamp to viewport bottom
   } else {
-    // Default: bottom-right corner
-    startX = 340;
-    startY = 190;
+    // Default: bottom-center
+    startX = viewport.clientWidth / 2;
+    startY = viewport.clientHeight - 8;
   }
   const targetX = parseInt(spawnEl.style.left) + 28;
   const targetY = parseInt(spawnEl.style.top) + 28;
@@ -6622,20 +6593,20 @@ function openCombatPopup(zoneId, spawnObj) {
 
   const bossPokemons = state.gang.bossTeam.map(id => state.pokemons.find(p => p.id === id)).filter(Boolean);
   if (bossPokemons.length) {
-    const domEl = viewport.querySelector('.zone-boss');
+    const domEl = win.querySelector('.zone-boss'); // boss is now in footer bar
     gangTrainers.push({ id: 'boss', name: state.gang.bossName || 'Boss',
       pkList: bossPokemons.map(mkPkSlot), activeIdx: 0, domEl });
   }
   for (const agent of state.agents.filter(a => a.assignedZone === zoneId)) {
     const agentPks = agent.team.map(id => state.pokemons.find(p => p.id === id)).filter(Boolean);
     if (agentPks.length) {
-      const domEl = viewport.querySelector(`[data-agent-id="${agent.id}"]`);
+      const domEl = win.querySelector(`[data-agent-id="${agent.id}"]`); // agents in footer bar
       gangTrainers.push({ id: agent.id, name: agent.name,
         pkList: agentPks.map(mkPkSlot), activeIdx: 0, domEl });
     }
   }
   if (!gangTrainers.length) {
-    const domEl = viewport.querySelector('.zone-boss') || viewport.querySelector('.zone-agent');
+    const domEl = win.querySelector('.zone-boss') || win.querySelector('.zone-agent');
     gangTrainers.push({ id: 'gang', name: state.gang.bossName || 'Gang',
       pkList: available.slice(0, 6).map(mkPkSlot), activeIdx: 0, domEl });
   }
@@ -6728,10 +6699,12 @@ function executeCombat() {
 
   let enemyActiveIdx = 0;
   let turn = 0;
+  const combatLogLines = []; // stored for feed event replay
 
   // ── DOM helpers ────────────────────────────────────────────────
   const MAX_LOG_LINES = 5;
   function logMsg(html, color = 'var(--text-dim)') {
+    combatLogLines.push(html); // always record
     if (!logEl) return;
     const d = document.createElement('div');
     d.className = 'zchud-line';
@@ -6827,6 +6800,7 @@ function executeCombat() {
         : `Défaite — ${spawnWithZone.trainer?.fr || spawnWithZone.trainerKey}`,
       detail: `Zone: ${zName} · ${turn} tour${turn > 1 ? 's' : ''} · ${enemyPool.length} Pok. adverses`,
       win,
+      combatLog: combatLogLines.slice(),
     });
 
     logMsg(win
@@ -6937,19 +6911,42 @@ function executeCombat() {
 function closeCombatPopup() {
   if (currentCombat) {
     const { zoneId, viewport, spawnEl } = currentCombat;
+    const win = document.getElementById(`zw-${zoneId}`);
     // Remove HUD
     document.getElementById(`zchud-${zoneId}`)?.remove();
-    // Remove HP overlays from all elements
+    // Remove HP overlays from all elements in viewport and footer
     viewport?.querySelectorAll('.combat-hp-overlay').forEach(el => el.remove());
+    win?.querySelectorAll('.combat-hp-overlay').forEach(el => el.remove());
+    // Remove combat pokemon sprites (combat-sent-pk) from agents/boss in footer
+    win?.querySelectorAll('.combat-sent-pk').forEach(el => el.remove());
     // Restore spawn animation
     if (spawnEl) spawnEl.style.animation = '';
     // Restore gang element opacity
     for (const t of currentCombat.gangTrainers) {
       if (t.domEl) t.domEl.style.opacity = '';
     }
+    // Refresh raid button state if applicable
+    _refreshRaidBtn(zoneId);
   }
   currentCombat = null;
   globalThis.currentCombat = null;
+}
+
+function _refreshRaidBtn(zoneId) {
+  const win = document.getElementById(`zw-${zoneId}`);
+  const btn = win?.querySelector('.zone-gym-raid-btn');
+  if (!btn) return;
+  const zState = state.zones[zoneId] || {};
+  const lastRaid = zState.gymRaidLastFight || 0;
+  const raidCooldownMs = 5 * 60 * 1000;
+  const raidReady = Date.now() - lastRaid >= raidCooldownMs;
+  const cdSec = raidReady ? 0 : Math.ceil((raidCooldownMs - (Date.now() - lastRaid)) / 1000);
+  btn.style.background = raidReady ? 'rgba(180,20,20,.8)' : 'rgba(60,60,60,.8)';
+  btn.style.borderColor = raidReady ? 'var(--red)' : 'var(--border)';
+  btn.style.color = raidReady ? 'var(--text)' : 'var(--text-dim)';
+  btn.style.cursor = raidReady ? 'pointer' : 'default';
+  btn.disabled = !raidReady;
+  btn.textContent = `⚔ RAID ${zState.gymDefeated ? '(re)' : ''}${raidReady ? '' : ` ${cdSec}s`}`;
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -7435,12 +7432,14 @@ const FEED_CAT = {
   system:  { icon: '⚙', label: 'Système' },
 };
 
-function pushFeedEvent({ category = 'system', title = '', detail = '', win = null } = {}) {
+function pushFeedEvent({ category = 'system', title = '', detail = '', win = null, ...extra } = {}) {
   const cat = FEED_CAT[category] || FEED_CAT.system;
-  gameFeed.unshift({ ts: Date.now(), category, icon: cat.icon, title, detail, win });
+  gameFeed.unshift({ ts: Date.now(), category, icon: cat.icon, title, detail, win, ...extra });
   if (gameFeed.length > FEED_MAX) gameFeed.pop();
   if (activeTab === 'tabBattleLog') renderEventsTab();
 }
+
+let feedWinFilter = 'all'; // 'all' | 'win' | 'loss'
 
 function renderEventsTab() {
   const filtersEl = document.getElementById('feedFilters');
@@ -7450,20 +7449,35 @@ function renderEventsTab() {
   if (filtersEl && !filtersEl.dataset.wired) {
     filtersEl.dataset.wired = '1';
     const cats = ['all', ...Object.keys(FEED_CAT)];
+    const winFilterHtml = `
+      <div class="feed-win-filters" style="display:flex;gap:4px;margin-left:auto">
+        <button class="feed-filter-btn" data-wf="all">Tous</button>
+        <button class="feed-filter-btn" data-wf="win" style="color:var(--green)">✓ Vic.</button>
+        <button class="feed-filter-btn" data-wf="loss" style="color:var(--red)">✗ Déf.</button>
+      </div>`;
     filtersEl.innerHTML = cats.map(c => {
       const label = c === 'all' ? 'Tout' : (FEED_CAT[c].icon + ' ' + FEED_CAT[c].label);
       return `<button class="feed-filter-btn" data-ff="${c}">${label}</button>`;
-    }).join('');
-    filtersEl.querySelectorAll('.feed-filter-btn').forEach(btn => {
+    }).join('') + winFilterHtml;
+    filtersEl.querySelectorAll('[data-ff]').forEach(btn => {
       btn.addEventListener('click', () => { feedFilter = btn.dataset.ff; renderEventsTab(); });
     });
+    filtersEl.querySelectorAll('[data-wf]').forEach(btn => {
+      btn.addEventListener('click', () => { feedWinFilter = btn.dataset.wf; renderEventsTab(); });
+    });
   }
-  // Highlight active filter
-  filtersEl?.querySelectorAll('.feed-filter-btn').forEach(btn => {
+  // Highlight active filters
+  filtersEl?.querySelectorAll('[data-ff]').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.ff === feedFilter);
   });
+  filtersEl?.querySelectorAll('[data-wf]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.wf === feedWinFilter);
+  });
 
-  const filtered = feedFilter === 'all' ? gameFeed : gameFeed.filter(e => e.category === feedFilter);
+  let filtered = feedFilter === 'all' ? gameFeed : gameFeed.filter(e => e.category === feedFilter);
+  if (feedWinFilter === 'win')  filtered = filtered.filter(e => e.win === true);
+  if (feedWinFilter === 'loss') filtered = filtered.filter(e => e.win === false);
+
   if (filtered.length === 0) {
     listEl.innerHTML = `<div style="color:var(--text-dim);text-align:center;padding:24px;font-size:9px">Aucun événement</div>`;
     return;
@@ -7472,18 +7486,56 @@ function renderEventsTab() {
   listEl.innerHTML = filtered.map((e, i) => {
     const time  = new Date(e.ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
     const color = e.win === true ? 'var(--green)' : e.win === false ? 'var(--red)' : 'var(--text)';
-    return `<div class="feed-entry${e.detail ? ' feed-has-detail' : ''}" data-fi="${i}">
+    const hasExpandable = e.detail || e.combatLog?.length || e.species_en;
+
+    // Capture entry: show sprite + stars
+    let captureHtml = '';
+    if (e.category === 'capture' && e.species_en) {
+      const stars = '★'.repeat(e.potential || 0) + '☆'.repeat(5 - (e.potential || 0));
+      const shinyGlow = e.shiny ? 'filter:drop-shadow(0 0 4px var(--gold))' : '';
+      captureHtml = `<div class="feed-capture-preview" style="display:flex;align-items:center;gap:6px;margin-top:4px">
+        <img src="${pokeSprite(e.species_en, e.shiny)}" style="width:32px;height:32px;image-rendering:pixelated;${shinyGlow}" alt="${e.species_en}">
+        <span style="font-family:var(--font-pixel);font-size:9px;color:${e.shiny ? 'var(--gold)' : 'var(--text-dim)'}">${stars}${e.byAgent ? ` · ${e.byAgent}` : ''}</span>
+      </div>`;
+    }
+
+    // Combat log for replay
+    let combatLogHtml = '';
+    if (e.combatLog?.length) {
+      combatLogHtml = `<div class="feed-combat-log" style="display:none;margin-top:6px;border-top:1px solid var(--border);padding-top:4px;max-height:120px;overflow-y:auto">
+        ${e.combatLog.map(line => `<div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);margin-bottom:1px">${line}</div>`).join('')}
+      </div>
+      <button class="feed-replay-btn" style="font-family:var(--font-pixel);font-size:7px;margin-top:4px;padding:1px 6px;background:rgba(255,255,255,.07);border:1px solid var(--border);border-radius:2px;cursor:pointer;color:var(--text-dim)">📋 Log combat</button>`;
+    }
+
+    return `<div class="feed-entry${hasExpandable ? ' feed-has-detail' : ''}" data-fi="${i}">
       <span class="feed-icon">${e.icon}</span>
       <div class="feed-body">
         <div class="feed-title" style="color:${color}">${e.title}</div>
         ${e.detail ? `<div class="feed-detail">${e.detail}</div>` : ''}
+        ${captureHtml}
+        ${combatLogHtml}
       </div>
       <span class="feed-time">${time}</span>
     </div>`;
   }).join('');
 
+  // Toggle detail on click + replay log toggle
   listEl.querySelectorAll('.feed-entry.feed-has-detail').forEach(el => {
-    el.addEventListener('click', () => el.classList.toggle('feed-open'));
+    el.addEventListener('click', (ev) => {
+      if (ev.target.closest('.feed-replay-btn')) return; // handled separately
+      el.classList.toggle('feed-open');
+    });
+  });
+  listEl.querySelectorAll('.feed-replay-btn').forEach(btn => {
+    btn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      const logEl = btn.previousElementSibling;
+      if (!logEl) return;
+      const isOpen = logEl.style.display !== 'none';
+      logEl.style.display = isOpen ? 'none' : 'block';
+      btn.textContent = isOpen ? '📋 Log combat' : '▲ Fermer log';
+    });
   });
 }
 

@@ -624,19 +624,21 @@ function agentCaptureVisibleSpawn(agent, zoneId, spawnObj) {
   // Mark as catching to prevent player clicks
   spawnEl.classList.add('catching');
 
-  // Find agent sprite position in zone
-  const agentEls = viewport.querySelectorAll('.zone-agent');
+  // Find agent sprite position (agents are now in footer bar)
+  const agentEls = win.querySelectorAll('.zone-agent');
   let agentEl = null;
   for (const el of agentEls) {
     const label = el.querySelector('.agent-label');
     if (label && label.textContent === agent.name) { agentEl = el; break; }
   }
-  let startX = 40, startY = 150;
+  // Ball starts from bottom of viewport (agent is in footer below viewport)
+  let startX = viewport.clientWidth / 2;
+  let startY  = viewport.clientHeight - 8;
   if (agentEl) {
-    const r = agentEl.getBoundingClientRect();
+    const r  = agentEl.getBoundingClientRect();
     const wr = viewport.getBoundingClientRect();
     startX = r.left - wr.left + r.width / 2;
-    startY = r.top - wr.top;
+    startY = Math.min(viewport.clientHeight - 8, r.top - wr.top); // clamp to viewport
   }
   const targetX = parseInt(spawnEl.style.left) + 28;
   const targetY = parseInt(spawnEl.style.top) + 28;
@@ -672,6 +674,21 @@ function agentCaptureVisibleSpawn(agent, zoneId, spawnObj) {
         globalThis.notify(globalThis.t('agent_catch', { agent: agent.name, pokemon: globalThis.speciesName(spawnObj.species_en) }), 'success');
       }
       globalThis.addLog(globalThis.t('agent_catch', { agent: agent.name, pokemon: globalThis.speciesName(spawnObj.species_en) }));
+      // Feed event for agent capture
+      {
+        const stars = '★'.repeat(caught.potential || 0) + '☆'.repeat(5 - (caught.potential || 0));
+        const shinyTag = caught.shiny ? ' ✨' : '';
+        globalThis.pushFeedEvent({
+          category: 'capture',
+          title: `${globalThis.speciesName(caught.species_en)}${shinyTag} — ${stars}`,
+          detail: `Zone: ${zoneId} · Agent: ${agent.name}`,
+          win: true,
+          species_en: caught.species_en,
+          potential: caught.potential,
+          shiny: caught.shiny,
+          byAgent: agent.name,
+        });
+      }
       globalThis.removeSpawn(zoneId, spawnObj.id);
       globalThis.updateTopBar();
       globalThis.updateZoneTimers(zoneId);
