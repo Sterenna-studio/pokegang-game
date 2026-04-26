@@ -4533,7 +4533,8 @@ function autoCollectZone(zoneId) {
 
 // ── Tout récolter ────────────────────────────────────────────────
 function collectAllZones() {
-  const zones = [...openZones].filter(zid => (state.zones[zid]?.pendingIncome || 0) > 0);
+  // Include ALL zones (open or closed) that have pending income from agents
+  const zones = Object.keys(state.zones).filter(zid => (state.zones[zid]?.pendingIncome || 0) > 0);
   if (zones.length === 0) { notify('Aucune récolte en attente.', ''); return; }
 
   // Si auto-collect débloqué → récolte silencieuse instantanée
@@ -5118,17 +5119,12 @@ function renderGangBaseWindow() {
     const isBoosted= isBoost && isBoostActive(id);
     const owned    = qty > 0;
     const remStr   = isBoosted ? `<span class="base-item-rem">${Math.ceil(boostRemaining(id))}s</span>` : '';
-    const isAuto   = isBall && state.settings.autoBuyBall === id;
-    const autoBtn  = isBall
-      ? `<button class="ball-auto-btn${isAuto ? ' active' : ''}" data-auto-ball="${id}" title="Achat auto"
-           style="font-size:6px;padding:0 3px;background:${isAuto ? 'rgba(204,51,51,.5)' : 'transparent'};border:1px solid ${isAuto ? 'var(--red)' : 'rgba(255,255,255,.15)'};border-radius:2px;color:${isAuto ? 'var(--gold)' : 'var(--text-dim)'};cursor:pointer;line-height:1.6">🔄</button>`
-      : '';
     const qtyBadge = owned
       ? `<span class="base-item-qty">${qty > 99 ? '99+' : '×'+qty}</span>`
       : `<span class="base-item-qty" style="color:var(--text-dim);opacity:.4">0</span>`;
     return `<div class="base-item-tile${isActive ? ' active' : ''}${isBoosted ? ' boosted' : ''}" data-bag-item="${id}" title="${id} ×${qty}">
       <div class="base-item-sprite${owned ? '' : ' locked'}">${itemSprite(id)}</div>
-      ${qtyBadge}${remStr}${autoBtn}
+      ${qtyBadge}${remStr}
     </div>`;
   }
 

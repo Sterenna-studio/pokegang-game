@@ -583,9 +583,12 @@ function agentTick() {
     const actChance = 0.5 + agent.stats.capture / 60;
     if (Math.random() > actChance) continue;
 
-    // Priority: raids > trainers > pokemon > chests
-    const trainerSpawn = spawns.find(s => (s.type === 'trainer' || s.type === 'raid') && !s._agentClaimed);
-    const pokemonSpawn = spawns.find(s => s.type === 'pokemon' && !s._agentClaimed && !s.playerCatching);
+    // Priority: raids > trainers > pokemon > chests — filtered by agent behavior
+    const behavior = agent.behavior || 'all';
+    const canCombat  = behavior === 'all' || behavior === 'combat';
+    const canCapture = behavior === 'all' || behavior === 'capture';
+    const trainerSpawn = canCombat  ? spawns.find(s => (s.type === 'trainer' || s.type === 'raid') && !s._agentClaimed) : null;
+    const pokemonSpawn = canCapture ? spawns.find(s => s.type === 'pokemon' && !s._agentClaimed && !s.playerCatching) : null;
     const chestSpawn = spawns.find(s => s.type === 'chest' && !s._agentClaimed);
 
     if (trainerSpawn) {
@@ -660,8 +663,14 @@ function agentCaptureVisibleSpawn(agent, zoneId, spawnObj) {
 
   setTimeout(() => {
     ball.remove();
-    // Try capture using tryCapture (uses balls from inventory)
+    // Use agent's preferred ball (temporarily override activeBall)
+    const state = globalThis.state;
+    const preferred = agent.preferredBall || 'pokeball';
+    const hasPref = (state.inventory[preferred] || 0) > 0;
+    const prevBall = state.activeBall;
+    state.activeBall = hasPref ? preferred : ((state.inventory['pokeball'] || 0) > 0 ? 'pokeball' : prevBall);
     const caught = globalThis.tryCapture(zoneId, spawnObj.species_en);
+    state.activeBall = prevBall; // restore player's ball choice
     if (caught) {
       // Luck reroll for agents
       if (agent.stats.luck > 8 && caught.potential < 3 && Math.random() < 0.3) {

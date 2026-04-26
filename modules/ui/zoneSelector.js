@@ -460,7 +460,8 @@ export function updateZoneButtons() {
   const hasOpen   = (openZones?.size || 0) > 0;
   if (btnClose)   btnClose.style.display   = hasOpen ? '' : 'none';
   if (btnCollect) {
-    const hasPending = hasOpen && [...openZones].some(zid => (state.zones[zid]?.pendingIncome || 0) > 0);
+    // Show collect button if ANY zone (open OR closed) has pending income from agents
+    const hasPending = Object.values(state.zones || {}).some(zs => (zs.pendingIncome || 0) > 0);
     btnCollect.style.display = hasPending ? '' : 'none';
   }
 }
