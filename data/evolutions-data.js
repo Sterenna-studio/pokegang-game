@@ -68,6 +68,8 @@ const EVOLUTIONS = [
   ['elekid','electabuzz',30],
   ['magby','magmar',30],
   ['tyrogue','hitmonlee',20],
+  ['tyrogue','hitmonchan',20],
+  ['tyrogue','hitmontop',20],
 
   // ── Gen 2 : évolutions supplémentaires de Gen 1 ─────────────────
   ['golbat','crobat',35],

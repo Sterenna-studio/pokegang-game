@@ -1641,13 +1641,10 @@ function getPokemonPower(pokemon) {
 function checkEvolution(pokemon) {
   const evos = EVO_BY_SPECIES[pokemon.species_en];
   if (!evos) return null;
-  for (const evo of evos) {
-    if (evo.req === 'item') continue; // item evolutions handled separately
-    if (typeof evo.req === 'number' && pokemon.level >= evo.req) {
-      return evo;
-    }
-  }
-  return null;
+  // Collect all valid level-based evolutions (multi-evo = random pick)
+  const valid = evos.filter(e => e.req !== 'item' && typeof e.req === 'number' && pokemon.level >= e.req);
+  if (valid.length === 0) return null;
+  return valid[Math.floor(Math.random() * valid.length)];
 }
 
 function evolvePokemon(pokemon, targetEN) {
@@ -6668,17 +6665,25 @@ function openCombatPopup(zoneId, spawnObj) {
   currentCombat = { zoneId, spawnObj, viewport, spawnEl, playerTeam: available, gangTrainers, enemyTrainers, enemyPool };
   globalThis.currentCombat = currentCombat;
 
-  // ── HP overlays on existing zone sprites ──────────────────────
+  // ── HP overlays + Pokémon sprites on existing zone sprites ─────
   // Gang trainers (boss / agents already in viewport)
   for (const t of gangTrainers) {
     if (!t.domEl) continue;
     const slot = t.pkList[0];
+    // HP overlay above trainer
     const ov = document.createElement('div');
     ov.className = 'combat-hp-overlay combat-hp-gang';
     ov.innerHTML = `<div class="chp-name" id="chpname-gang-${t.id}">${speciesName(slot.pk.species_en)} Lv.${slot.pk.level}</div>
       <div class="chp-bar"><div class="chp-fill" id="chp-gang-${t.id}" style="width:100%"></div></div>
       <div class="chp-txt" id="chptxt-gang-${t.id}">${slot.maxHp}/${slot.maxHp}</div>`;
     t.domEl.appendChild(ov);
+    // Pokémon sprite beside the trainer sprite
+    const pkEl = document.createElement('div');
+    pkEl.className = 'combat-sent-pk';
+    pkEl.id = `cspk-${t.id}`;
+    pkEl.innerHTML = `<img src="${pokeSpriteBack(slot.pk.species_en, slot.pk.shiny)}" style="width:40px;height:40px;${slot.pk.shiny ? 'filter:drop-shadow(0 0 4px var(--gold))' : ''}">`;
+    t.domEl.appendChild(pkEl);
+    t.pkEl = pkEl; // store ref for updates
   }
   // Enemy spawn element
   if (spawnEl) {
@@ -6771,6 +6776,16 @@ function executeCombat() {
       if (txt)  txt.textContent = `${Math.max(0, slot.hp)}/${slot.maxHp}`;
       if (name && t.pkList[t.activeIdx]) name.textContent = `${speciesName(t.pkList[t.activeIdx].pk.species_en)} Lv.${t.pkList[t.activeIdx].pk.level}`;
       if (t.domEl) t.domEl.style.opacity = slot.hp <= 0 ? '0.35' : '1';
+      // Update sent Pokémon sprite when active slot changes
+      if (t.pkEl) {
+        const activeSlot = t.pkList[t.activeIdx];
+        if (activeSlot) {
+          const img = t.pkEl.querySelector('img');
+          if (img) { img.src = pokeSpriteBack(activeSlot.pk.species_en, activeSlot.pk.shiny); img.style.opacity = '1'; }
+        } else {
+          const img = t.pkEl.querySelector('img'); if (img) img.style.opacity = '0.2';
+        }
+      }
     }
   }
 
@@ -6824,7 +6839,7 @@ function executeCombat() {
       const fleeBtn = hudEl.querySelector('.zchud-flee');
       if (fleeBtn) { fleeBtn.textContent = 'Fermer'; fleeBtn.onclick = doClose; }
     }
-    const autoCloseTimer = setTimeout(doClose, 6000);
+    const autoCloseTimer = setTimeout(doClose, 2000);
 
     function doClose() {
       clearTimeout(autoCloseTimer);
@@ -8049,6 +8064,7 @@ function renderPokemonGrid(forceRebuild = false) {
       grid.querySelectorAll('.pc-group-card').forEach(el => {
         el.addEventListener('click', () => {
           pcGroupSpecies = el.dataset.groupSpecies;
+          _grpPotFilter = 0; // reset potential filter on species change
           renderPokemonGrid(true);
           renderPokemonDetailGroup(pcGroupSpecies);
         });
@@ -8144,6 +8160,72 @@ function renderEvolutionPanel(p) {
   return html;
 }
 
+// ── Évoluer un Pokémon jusqu'au stade maximum (level + item) ──
+function _evolveToMax(pk) {
+  let evolved = false;
+  let sanity = 10;
+  while (sanity-- > 0) {
+    const evos = EVO_BY_SPECIES[pk.species_en];
+    if (!evos || evos.length === 0) break;
+    // Try level evolution first
+    const levelEvo = evos.find(e => e.req !== 'item' && typeof e.req === 'number' && pk.level >= e.req);
+    if (levelEvo) { evolvePokemon(pk, levelEvo.to); evolved = true; continue; }
+    // Item evolution: consume a stone
+    const itemEvo = evos.find(e => e.req === 'item');
+    if (itemEvo && (state.inventory.evostone || 0) > 0) {
+      state.inventory.evostone--;
+      evolvePokemon(pk, itemEvo.to);
+      evolved = true; continue;
+    }
+    break;
+  }
+  return evolved;
+}
+
+// ── Vente groupée: évoluer plusieurs Pokémon avec gestion des pierres ──
+function _bulkEvolve(evolvable, stoneNeeded, stoneHave) {
+  const doEvolve = () => {
+    let count = 0;
+    for (const pk of evolvable) { if (_evolveToMax(pk)) count++; }
+    saveState();
+    _pcLastRenderKey = ''; renderPCTab();
+    notify(`${count} Pokémon évolué${count > 1 ? 's' : ''} !`, 'gold');
+  };
+
+  if (stoneNeeded === 0 || stoneHave >= stoneNeeded) {
+    doEvolve();
+    return;
+  }
+
+  // Not enough stones — show popup
+  const shortage = stoneNeeded - stoneHave;
+  const stoneCost = 5000; // price per stone from shop
+  const buyCost = shortage * stoneCost;
+  const canAfford = state.gang.money >= buyCost;
+
+  showConfirm(
+    `<b>Évoluer nécessite ${stoneNeeded} Pierre${stoneNeeded > 1 ? 's' : ''} Évolution</b><br>
+     Vous en avez : <span style="color:var(--gold)">${stoneHave}</span> — il en manque <span style="color:var(--red)">${shortage}</span><br>
+     ${canAfford
+       ? `Acheter ${shortage} pierre${shortage > 1 ? 's' : ''} pour <span style="color:var(--gold)">${buyCost.toLocaleString()}₽</span> et évoluer ?`
+       : `<span style="color:var(--text-dim)">Fonds insuffisants pour acheter ${shortage} pierre${shortage > 1 ? 's' : ''} (${buyCost.toLocaleString()}₽)</span>`}`,
+    () => {
+      if (canAfford) {
+        state.gang.money -= buyCost;
+        state.inventory.evostone = (state.inventory.evostone || 0) + shortage;
+        updateTopBar();
+      }
+      doEvolve();
+    },
+    null,
+    {
+      confirmLabel: canAfford ? `Acheter (${buyCost.toLocaleString()}₽) + Évoluer` : 'Évoluer avec stock actuel',
+      cancelLabel: 'Annuler',
+      danger: !canAfford,
+    }
+  );
+}
+
 function renderPokemonDetail() {
   const panel = document.getElementById('pokemonDetail');
   if (!panel) return;
@@ -8160,25 +8242,77 @@ function renderPokemonDetail() {
     const pks = [...pcSelectedIds].map(id => state.pokemons.find(p => p.id === id)).filter(Boolean);
     const tIds = new Set([...state.gang.bossTeam]);
     for (const a of state.agents) a.team.forEach(id => tIds.add(id));
-    const sellable = pks.filter(pk => !pk.favorite && !tIds.has(pk.id));
+    // Shinies excluded from group sell by default — must sell from individual sheet
+    const sellable = pks.filter(pk => !pk.favorite && !pk.shiny && !tIds.has(pk.id));
     const totalValue = sellable.reduce((s, pk) => s + calculatePrice(pk), 0);
+    const shinyCount = pks.filter(pk => pk.shiny).length;
+    const favCount   = pks.filter(pk => pk.favorite).length;
+    const allFav     = pks.every(pk => pk.favorite);
+
+    // Evolvable Pokémon analysis
+    const evolvable = pks.filter(pk => {
+      const evos = EVO_BY_SPECIES[pk.species_en];
+      return evos && evos.length > 0;
+    });
+    const itemEvolvable = evolvable.filter(pk =>
+      (EVO_BY_SPECIES[pk.species_en] || []).some(e => e.req === 'item')
+    );
+    const stoneNeeded = itemEvolvable.length;
+    const stoneHave   = state.inventory.evostone || 0;
+
     panel.innerHTML = `
-      <div style="text-align:center;padding:14px;font-family:var(--font-pixel)">
-        <div style="font-size:12px;color:var(--gold);margin-bottom:8px">${pks.length} sélectionnés</div>
-        <div style="font-size:8px;color:var(--text-dim);margin-bottom:12px">Ctrl+Clic pour ajouter/retirer</div>
-        <div style="display:flex;flex-wrap:wrap;gap:3px;justify-content:center;margin-bottom:12px">
-          ${pks.slice(0, 15).map(pk => `<img src="${pokeSprite(pk.species_en, pk.shiny)}" style="width:30px;height:30px;${pk.shiny ? 'filter:drop-shadow(0 0 4px gold)' : ''}">`).join('')}
+      <div style="padding:10px;font-family:var(--font-pixel)">
+        <div style="font-size:11px;color:var(--gold);margin-bottom:4px">${pks.length} sélectionnés</div>
+        <div style="font-size:8px;color:var(--text-dim);margin-bottom:8px">Ctrl+Clic pour ajouter/retirer</div>
+        <div style="display:flex;flex-wrap:wrap;gap:3px;justify-content:center;margin-bottom:10px">
+          ${pks.slice(0, 15).map(pk => `<img src="${pokeSprite(pk.species_en, pk.shiny)}" style="width:28px;height:28px;${pk.shiny ? 'filter:drop-shadow(0 0 3px gold)' : ''}">`).join('')}
           ${pks.length > 15 ? `<div style="font-size:9px;color:var(--text-dim);align-self:center">+${pks.length - 15}</div>` : ''}
         </div>
-        ${sellable.length > 0 ? `
-          <div style="font-size:9px;color:var(--text-dim);margin-bottom:10px">${sellable.length} vendables — <span style="color:var(--gold)">${totalValue.toLocaleString()}₽</span></div>
-          <button id="btnSellMulti" style="width:100%;font-family:var(--font-pixel);font-size:9px;padding:8px;background:var(--red-dark);border:1px solid var(--red);border-radius:var(--radius-sm);color:var(--text);cursor:pointer;margin-bottom:6px">
-            Vendre ${sellable.length} Pokémon (${totalValue.toLocaleString()}₽)
+
+        <div style="display:flex;flex-direction:column;gap:5px">
+
+          <!-- Favoris -->
+          <button id="btnMultiFav" style="width:100%;font-size:9px;padding:6px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">
+            ${allFav ? '☆ Retirer favori (tous)' : `⭐ Marquer favori (${pks.length - favCount} sans fav)`}
+          </button>
+
+          <!-- Évoluer -->
+          ${evolvable.length > 0 ? `
+          <button id="btnMultiEvolve" style="width:100%;font-size:9px;padding:6px;background:var(--bg);border:1px solid var(--green,#4caf50);border-radius:var(--radius-sm);color:var(--green,#4caf50);cursor:pointer">
+            ✦ Évoluer (${evolvable.length}) ${stoneNeeded > 0 ? `— 💎×${stoneNeeded}` : ''}
           </button>` : ''}
-        <button id="btnClearMulti" style="width:100%;font-family:var(--font-pixel);font-size:9px;padding:6px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">
-          Annuler la sélection
-        </button>
+
+          <!-- Vente groupée -->
+          ${sellable.length > 0 ? `
+          <div style="font-size:8px;color:var(--text-dim);margin-top:4px">
+            ${sellable.length} vendables — <span style="color:var(--gold)">${totalValue.toLocaleString()}₽</span>
+            ${shinyCount > 0 ? `<br><span style="color:var(--gold)">✨×${shinyCount} exclu${shinyCount > 1 ? 's' : ''}</span>` : ''}
+          </div>
+          <button id="btnSellMulti" style="width:100%;font-size:9px;padding:6px;background:var(--red-dark);border:1px solid var(--red);border-radius:var(--radius-sm);color:var(--text);cursor:pointer">
+            Vendre ${sellable.length} Pokémon (${totalValue.toLocaleString()}₽)
+          </button>` : (shinyCount > 0 ? `<div style="font-size:8px;color:var(--text-dim);margin-top:4px">✨ Chromatiques non vendables ici</div>` : '')}
+
+          <!-- Annuler -->
+          <button id="btnClearMulti" style="width:100%;font-size:9px;padding:5px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">
+            Annuler la sélection
+          </button>
+        </div>
       </div>`;
+
+    // Favourite toggle
+    document.getElementById('btnMultiFav')?.addEventListener('click', () => {
+      const newFav = !allFav;
+      pks.forEach(pk => { pk.favorite = newFav; });
+      saveState();
+      _pcLastRenderKey = ''; renderPCTab();
+    });
+
+    // Bulk evolve
+    document.getElementById('btnMultiEvolve')?.addEventListener('click', () => {
+      _bulkEvolve(evolvable, stoneNeeded, stoneHave);
+    });
+
+    // Sell
     document.getElementById('btnSellMulti')?.addEventListener('click', () => {
       const ids = sellable.map(pk => pk.id);
       showConfirm(`Vendre <b>${ids.length}</b> Pokémon pour <b style="color:var(--gold)">${totalValue.toLocaleString()}₽</b> ?`, () => {
@@ -8188,6 +8322,7 @@ function renderPokemonDetail() {
         updateTopBar(); renderPCTab();
       }, null, { confirmLabel: 'Vendre', cancelLabel: 'Annuler', danger: true });
     });
+
     document.getElementById('btnClearMulti')?.addEventListener('click', () => {
       pcSelectedIds.clear();
       document.querySelectorAll('.pc-pokemon.multi-selected').forEach(c => c.classList.remove('multi-selected'));
@@ -8520,36 +8655,66 @@ function openRenameModal(pokemonId) {
 }
 
 // ── Vue détail en mode "Grouper" ─────────────────────────────
+let _grpPotFilter = 0; // 0 = tous, 1-5 = filtre par potentiel
+
 function renderPokemonDetailGroup(species) {
   const panel = document.getElementById('pokemonDetail');
   if (!panel) return;
-  const pks = state.pokemons.filter(p => p.species_en === species);
-  if (!pks.length) { panel.classList.add('hidden'); return; }
+  const allPks = state.pokemons.filter(p => p.species_en === species);
+  if (!allPks.length) { panel.classList.add('hidden'); return; }
   panel.classList.remove('hidden');
   const sp = SPECIES_BY_EN[species];
   const tIds = new Set([...state.gang.bossTeam]);
   for (const a of state.agents) a.team.forEach(id => tIds.add(id));
-  const sellable = pks.filter(p => !p.favorite && !tIds.has(p.id));
+
+  // Potential filter
+  const pks = _grpPotFilter ? allPks.filter(p => p.potential === _grpPotFilter) : allPks;
+  // Shinies excluded from group sell — must go through individual sheet
+  const sellable = pks.filter(p => !p.favorite && !p.shiny && !tIds.has(p.id));
   const totalValue = sellable.reduce((s, p) => s + calculatePrice(p), 0);
-  const maxPot = Math.max(...pks.map(p => p.potential));
-  const maxLvl = Math.max(...pks.map(p => p.level));
+  const shinyCount = allPks.filter(p => p.shiny).length;
+  const maxPot = Math.max(...allPks.map(p => p.potential));
+  const maxLvl = Math.max(...allPks.map(p => p.level));
+  const allFav  = pks.length > 0 && pks.every(p => p.favorite);
+  const potsPresent = [...new Set(allPks.map(p => p.potential))].sort();
 
   panel.innerHTML = `
-    <div style="text-align:center;margin-bottom:10px">
-      <img src="${pokeSprite(species)}" style="width:72px;height:72px">
+    <div style="text-align:center;margin-bottom:8px">
+      <img src="${pokeSprite(species)}" style="width:64px;height:64px">
       <div style="font-family:var(--font-pixel);font-size:11px;margin-top:4px">${speciesName(species)}</div>
       <div style="font-size:9px;color:var(--text-dim)">#${String(sp?.dex||0).padStart(3,'0')} — ${(sp?.types||[]).join('/')}</div>
-      <div style="font-size:9px;margin-top:2px">×${pks.length} · Max Lv.${maxLvl} · ${'★'.repeat(maxPot)}</div>
+      <div style="font-size:9px;margin-top:2px">×${allPks.length} · Max Lv.${maxLvl} · ${'★'.repeat(maxPot)}</div>
     </div>
-    ${sellable.length > 0 ? `
-      <div style="font-size:9px;color:var(--text-dim);margin-bottom:6px;text-align:center">${sellable.length} vendables — <span style="color:var(--gold)">${totalValue.toLocaleString()}₽</span></div>
-      <button id="btnGroupSellAll" style="width:100%;font-family:var(--font-pixel);font-size:9px;padding:6px;background:var(--red-dark);border:1px solid var(--red);border-radius:var(--radius-sm);color:var(--text);cursor:pointer;margin-bottom:8px">
-        Vendre tous (${totalValue.toLocaleString()}₽)
-      </button>` : ''}
-    <div style="display:flex;flex-direction:column;gap:3px;max-height:320px;overflow-y:auto">
-      ${pks.map(p => {
+
+    <!-- Filtre potentiel -->
+    ${potsPresent.length > 1 ? `
+    <div style="display:flex;gap:3px;justify-content:center;margin-bottom:8px">
+      <button class="grp-pot-btn${_grpPotFilter === 0 ? ' grp-pot-active' : ''}" data-pot="0"
+        style="font-size:8px;padding:2px 6px;background:var(--bg);border:1px solid ${_grpPotFilter===0?'var(--gold)':'var(--border)'};border-radius:2px;color:${_grpPotFilter===0?'var(--gold)':'var(--text-dim)'};cursor:pointer">Tous</button>
+      ${potsPresent.map(pot => `
+        <button class="grp-pot-btn${_grpPotFilter === pot ? ' grp-pot-active' : ''}" data-pot="${pot}"
+          style="font-size:8px;padding:2px 6px;background:var(--bg);border:1px solid ${_grpPotFilter===pot?'var(--gold)':'var(--border)'};border-radius:2px;color:${_grpPotFilter===pot?'var(--gold)':'var(--text-dim)'};cursor:pointer">
+          ${'★'.repeat(pot)}</button>`).join('')}
+    </div>` : ''}
+
+    <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px">
+      <!-- Favoris groupés -->
+      <button id="btnGroupFav" style="width:100%;font-family:var(--font-pixel);font-size:8px;padding:5px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">
+        ${allFav ? `☆ Retirer favori (${pks.length})` : `⭐ Marquer favori (${pks.length - pks.filter(p=>p.favorite).length})`}
+      </button>
+
+      <!-- Vente groupée (shinies exclus) -->
+      ${sellable.length > 0 ? `
+      <div style="font-size:8px;color:var(--text-dim);text-align:center">${sellable.length} vendables — <span style="color:var(--gold)">${totalValue.toLocaleString()}₽</span>${shinyCount > 0 ? ` <span style="color:var(--gold)">· ✨×${shinyCount} exclu</span>` : ''}</div>
+      <button id="btnGroupSellAll" style="width:100%;font-family:var(--font-pixel);font-size:8px;padding:5px;background:var(--red-dark);border:1px solid var(--red);border-radius:var(--radius-sm);color:var(--text);cursor:pointer">
+        Vendre ${sellable.length} (${totalValue.toLocaleString()}₽)
+      </button>` : (shinyCount > 0 ? `<div style="font-size:8px;color:var(--text-dim);text-align:center">✨ Chromatiques non vendables ici</div>` : '')}
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:3px;max-height:280px;overflow-y:auto">
+      ${pks.sort((a,b) => b.potential - a.potential || b.level - a.level).map(p => {
         const inTeam = tIds.has(p.id);
-        return `<div style="display:flex;align-items:center;gap:6px;padding:4px 6px;border:1px solid ${p.shiny ? 'var(--gold-dim)' : inTeam ? 'var(--green)' : 'var(--border)'};border-radius:3px;background:var(--bg);font-size:9px">
+        return `<div style="display:flex;align-items:center;gap:6px;padding:4px 6px;border:1px solid ${p.shiny ? 'var(--gold-dim)' : inTeam ? 'rgba(76,175,80,.4)' : 'var(--border)'};border-radius:3px;background:var(--bg);font-size:9px">
           <img src="${pokeSprite(p.species_en, p.shiny)}" style="width:24px;height:24px">
           <span style="flex:1">${p.shiny ? '✨ ' : ''}Lv.${p.level} ${'★'.repeat(p.potential)}</span>
           <span style="color:var(--text-dim);font-size:8px">${inTeam ? '👥' : p.favorite ? '⭐' : ''}</span>
@@ -8558,16 +8723,32 @@ function renderPokemonDetailGroup(species) {
       }).join('')}
     </div>`;
 
+  // Potential filter buttons
+  panel.querySelectorAll('.grp-pot-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      _grpPotFilter = parseInt(btn.dataset.pot);
+      renderPokemonDetailGroup(species);
+    });
+  });
+
+  // Favourite group toggle
+  document.getElementById('btnGroupFav')?.addEventListener('click', () => {
+    const newFav = !allFav;
+    pks.forEach(p => { p.favorite = newFav; });
+    saveState(); _pcLastRenderKey = ''; renderPCTab();
+  });
+
   document.getElementById('btnGroupSellAll')?.addEventListener('click', () => {
     const ids = sellable.map(p => p.id);
     showConfirm(`Vendre <b>${ids.length}</b> ${speciesName(species)} pour <b style="color:var(--gold)">${totalValue.toLocaleString()}₽</b> ?`, () => {
-      sellPokemon(ids); pcGroupSpecies = null;
+      sellPokemon(ids); pcGroupSpecies = null; _grpPotFilter = 0;
       _pcLastRenderKey = ''; updateTopBar(); renderPCTab();
     }, null, { confirmLabel: 'Vendre', cancelLabel: 'Annuler', danger: true });
   });
+
   panel.querySelectorAll('.grp-detail-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      pcGroupMode = false; pcGroupSpecies = null;
+      pcGroupMode = false; pcGroupSpecies = null; _grpPotFilter = 0;
       const chk = document.getElementById('pcGroupChk');
       if (chk) chk.checked = false;
       pcSelectedId = btn.dataset.pkId;

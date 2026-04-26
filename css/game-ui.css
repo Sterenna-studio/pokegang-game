@@ -1181,9 +1181,23 @@
     }
     .combat-dmg-float.combat-dmg-gang { color: #ff9800; }
 
+    /* Pokémon envoyé au combat — à côté du sprite dresseur */
+    .combat-sent-pk {
+      position: absolute;
+      bottom: 0;
+      left: calc(100% + 2px);
+      pointer-events: none;
+      animation: combatPkAppear .25s ease-out;
+    }
+    .zone-boss .combat-sent-pk { left: auto; right: calc(100% + 2px); }
+
     /* Shake animation for hit sprites */
     .combat-shake { animation: combatShake .35s ease-out; }
 
+    @keyframes combatPkAppear {
+      from { opacity: 0; transform: scaleX(0.5); }
+      to   { opacity: 1; transform: scaleX(1); }
+    }
     @keyframes combatDmgFloat {
       0%   { opacity: 1; transform: translateX(-50%) translateY(0); }
       100% { opacity: 0; transform: translateX(-50%) translateY(-28px); }
