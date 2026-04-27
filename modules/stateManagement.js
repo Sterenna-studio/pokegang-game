@@ -18,7 +18,7 @@
 // Example of exposing the current app version.  Uncomment and
 // assign the real values when porting the code.
 // export const APP_VERSION = '2.2.0';
-// export const GAME_VERSION = 'v0.0 — pre-alpha';
+// export const GAME_VERSION = 'v0.1 — pre-alpha';
 
 // When the full implementation is moved here, remember to call
 // `window.saveState = saveState` (and similar) to expose APIs to

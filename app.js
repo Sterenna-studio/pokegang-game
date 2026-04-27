@@ -104,7 +104,7 @@ function t(key, vars = {}) {
 
 // ── App version — bump on every deploy to force client reload ──
 const APP_VERSION = '2.2.0';
-const GAME_VERSION = 'v0.0 — pre-alpha';
+const GAME_VERSION = 'v0.1 — pre-alpha';
 
 const SAVE_KEYS = ['pokeforge.v6', 'pokeforge.v6.s2', 'pokeforge.v6.s3'];
 let activeSaveSlot = Math.min(2, parseInt(localStorage.getItem('pokeforge.activeSlot') || '0'));
