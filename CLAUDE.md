@@ -82,15 +82,16 @@ Cloud backup via Supabase (optional). Throttled to 1 save/30s. Uses a custom ree
 
 | Interval | What |
 |---|---|
-| 2s | `agentTick()` — agents act on visible zone spawns |
-| 10s | `passiveAgentTick()` — agents in closed zones earn passively |
+| 2s | `agentTick()` — agents act on visible zone spawns (open zones only) |
+| 10s | `passiveAgentTick()` — gym-raids automatiques uniquement |
 | 10s | Auto-save |
 | 30s | Passive XP for pokémon in teams |
 | 30s | Pension/egg tick |
 | 60s | Training room tick |
 | 60s | Hourly quest reset check |
-| 5min | Cloud snapshot |
+| 5min | Cloud snapshot + leaderboard |
 | 1s | Zone timer UI refresh (only if zones are open) |
+| _per-zone_ | `backgroundZoneTimers[zoneId]` — simulation background au vrai `spawnRate` |
 
 ### Tab system
 
@@ -107,13 +108,50 @@ Tabs: `tabZones`, `tabPC`, `tabAgents`, `tabMarket`, `tabGang`, `tabPokedex`, `t
 - Zone windows rendered by `buildZoneWindowEl()`, patched live by `patchZoneWindow()`
 - Zone selector (fogmap) extracted to `modules/ui/zoneSelector.js`
 
+#### Les trois états d'une zone
+
+| État | Condition | Comportement |
+|---|---|---|
+| **Open** | `openZones.has(zoneId)` | Fenêtre visible, spawns visuels, combat interactif, timer `zoneSpawnTimers[zoneId]` actif |
+| **Closed + agent** | `!openZones.has(zoneId)` + `≥1 agent assigné` | Simulation silencieuse via `backgroundZoneTimers[zoneId]` au vrai `spawnRate` |
+| **Inactive** | `!openZones.has(zoneId)` + `0 agent` | Rien ne tourne |
+
+**Cycle de vie des timers background** (dans `app.js`) :
+
+```js
+startBackgroundZone(zoneId)   // démarre setInterval au spawnRate de la zone
+stopBackgroundZone(zoneId)    // clearInterval + supprime l'entrée
+syncBackgroundZones()         // recalcule tous les timers selon l'état courant
+```
+
+`syncBackgroundZones()` est appelé au boot (`startGameLoop`), à chaque `openZoneWindow`/`closeZoneWindow`, et à chaque assign/unassign d'agent.
+
+**Résolution background** (`modules/systems/agent.js`) :
+
+```js
+resolveBackgroundSpawnForZone(zoneId)
+// Appelé par backgroundZoneTimers à chaque tick.
+// 1. spawnInZone(zoneId) → génère un spawn
+// 2. Pour pokémon   → premier agent CAP avec une pokéball capture silencieusement
+// 3. Pour dresseur  → puissance combinée de tous les agents combat, résolution immédiate
+// 4. Pour coffre    → loot silencieux via rollChestLoot()
+// 5. saveState() + updateTopBar() si changement
+```
+
+`passiveAgentTick` (toutes les 10 s) ne gère plus que les **gym-raids automatiques** (logique de spawn déléguée aux `backgroundZoneTimers`).
+
 ### Combat
 
-`openCombatPopup(zoneId, spawnObj)` → builds the combat UI in `#battleArena` → `executeCombat()` simulates turn-by-turn matchups and animates them sequentially. Global `currentCombat` prevents multiple concurrent combats. Results applied via `applyCombatResult()`.
+`openCombatPopup(zoneId, spawnObj)` → construit le combat dans le viewport de la zone → `executeCombat()` simule les échanges tour-par-tour avec animations. `currentCombat` global empêche les combats simultanés.
+
+- **Viewport** : sprites Pokémon + HP overlays uniquement. Le log de combat texte n'est **pas** affiché dans la zone (HUD minimal `zone-combat-hud-minimal`). Les lignes de combat sont enregistrées dans `combatLogLines[]` pour l'onglet BattleLog.
+- **Raid** : plusieurs dresseurs ennemis (`raidTrainers[]`). Le boss + les agents assignés participent côté joueur via `gangTrainers[]`.
+- **Agents en zone ouverte** : `agentAutoCombat()` déclenche le combat automatique sur les spawns dresseurs visibles.
 
 ### Sprites
 
-- **Pokémon**: `pokeSprite(species_en, shiny)` → respects `state.settings.classicSprites`. Default mode uses `data/pokemon-sprites-kanto.json` (FireRed/LeafGreen). Classic mode falls back to Showdown gen5 URLs.
+- **Pokémon**: `pokeSprite(species_en, shiny)` → lit `state.settings.spriteMode` (string enum). Mode `'local'` utilise `data/pokemon-sprites-kanto.json` (FireRed/LeafGreen HD). Tous les autres modes utilisent Showdown via `_showdownSpriteUrl()`.
+- **Modes disponibles** : `'local'` | `'gen1'` | `'gen2'` | `'gen3'` | `'gen4'` | `'gen5'` | `'ani'` (GIF) | `'dex'` | `'home'`
 - **Trainers**: `trainerSprite(name)` → Showdown trainer sprites with local JSON mapping
 - **All Showdown URLs**: `https://play.pokemonshowdown.com/sprites/{set}/{name}.png`
 - ⚠️ Showdown and `lab.sterenna.fr` do not send CORS headers — never add `crossorigin="anonymous"` to these `<img>` tags (breaks display; canvas export not possible with these domains)
