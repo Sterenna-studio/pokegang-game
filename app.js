@@ -233,8 +233,10 @@ const DEFAULT_STATE = {
   purchases: {
     translator: false,
     cosmeticsPanel: false, // 50 000₽ — débloque l'onglet Cosmétiques
-    autoIncubator: false,  // 50 000₽ — Infirmière Joëlle corrompue (auto-incubation)
-    chromaCharm: false,    // Gagné à 10 000 000₽ — taux shiny ×2
+    autoIncubator: false,      // 300 000₽ — Infirmière Joëlle corrompue (auto-incubation)
+    autoCollect: false,        // 100 000₽ — Récolte automatique (skip combat animation)
+    autoCollectEnabled: true,  // toggle on/off après achat
+    chromaCharm: false,        // Gagné à 10 000 000₽ — taux shiny ×2
   },
   pension: {
     slotA: null,    // pokemon ID
@@ -449,6 +451,8 @@ function migrate(saved) {
   if (merged.purchases.mysteryEggCount === undefined) merged.purchases.mysteryEggCount = 0;
   if (merged.purchases.cosmeticsPanel === undefined) merged.purchases.cosmeticsPanel = false;
   if (merged.purchases.autoIncubator === undefined) merged.purchases.autoIncubator = false;
+  if (merged.purchases.autoCollect === undefined) merged.purchases.autoCollect = false;
+  if (merged.purchases.autoCollectEnabled === undefined) merged.purchases.autoCollectEnabled = true;
   if (merged.purchases.chromaCharm === undefined) merged.purchases.chromaCharm = false;
   if (!merged.favoriteZones) merged.favoriteZones = [];
   if (merged.settings.uiScale === undefined) merged.settings.uiScale = 100;
@@ -3708,7 +3712,50 @@ function renderCosmeticsPanel(container) {
     renderCosmeticsPanel(container);
   });
 
-  // ── Achats spéciaux (Titres, Charme Chroma, Auto-récolte) ──────
+  // ── Récolte automatique ────────────────────────────────────────
+  const acOwned   = !!state.purchases?.autoCollect;
+  const acEnabled = state.purchases?.autoCollectEnabled !== false;
+  const acDiv = document.createElement('div');
+  acDiv.style.cssText = 'margin-top:10px';
+  acDiv.innerHTML = `
+    <div style="background:var(--bg-card);border:1px solid ${acOwned ? (acEnabled ? 'var(--green)' : 'var(--border)') : 'var(--border)'};border-radius:var(--radius-sm);padding:10px;display:flex;gap:12px;align-items:flex-start">
+      <div style="font-size:24px;flex-shrink:0;${acOwned && !acEnabled ? 'opacity:.4;filter:grayscale(1)' : ''}">🪙</div>
+      <div style="flex:1">
+        <div style="font-family:var(--font-pixel);font-size:9px;color:${acOwned ? (acEnabled ? 'var(--green)' : 'var(--text-dim)') : 'var(--text)'};margin-bottom:4px">Récolte automatique</div>
+        <div style="font-size:8px;color:var(--text-dim);margin-bottom:8px">Collecte les revenus de zone sans animation de combat. Le combat reste calculé en arrière-plan.</div>
+        ${acOwned
+          ? `<div style="display:flex;align-items:center;gap:8px">
+               <span style="font-family:var(--font-pixel);font-size:8px;color:${acEnabled ? 'var(--green)' : 'var(--text-dim)'}">
+                 ${acEnabled ? '✓ ACTIVE' : '✗ INACTIVE'}
+               </span>
+               <button id="btnToggleAutoCollect" style="font-family:var(--font-pixel);font-size:8px;padding:4px 10px;background:var(--bg);border:1px solid ${acEnabled ? 'var(--red)' : 'var(--green)'};border-radius:var(--radius-sm);color:${acEnabled ? 'var(--red)' : 'var(--green)'};cursor:pointer">
+                 ${acEnabled ? 'Désactiver' : 'Activer'}
+               </button>
+             </div>`
+          : `<button id="btnBuyAutoCollect" style="font-family:var(--font-pixel);font-size:8px;padding:6px 12px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">Acheter — 100 000₽</button>`}
+      </div>
+    </div>`;
+  container.appendChild(acDiv);
+  acDiv.querySelector('#btnBuyAutoCollect')?.addEventListener('click', () => {
+    if (state.gang.money < 100_000) { notify('Fonds insuffisants.', 'error'); SFX.play('error'); return; }
+    showConfirm('Acheter la Récolte automatique pour 100 000₽ ?', () => {
+      state.gang.money -= 100_000;
+      state.purchases.autoCollect = true;
+      state.purchases.autoCollectEnabled = true;
+      saveState(); updateTopBar();
+      SFX.play('unlock');
+      notify('🪙 Récolte automatique activée !', 'gold');
+      renderCosmeticsPanel(container);
+    }, null, { confirmLabel: 'Acheter', cancelLabel: 'Annuler' });
+  });
+  acDiv.querySelector('#btnToggleAutoCollect')?.addEventListener('click', () => {
+    state.purchases.autoCollectEnabled = !acEnabled;
+    saveState();
+    notify(state.purchases.autoCollectEnabled ? '🪙 Récolte automatique activée !' : '⏸ Récolte automatique désactivée.', 'success');
+    renderCosmeticsPanel(container);
+  });
+
+  // ── Achats spéciaux (Titres, Charme Chroma) ───────────────────
   const SPECIAL_PURCHASES = [
     {
       id: 'title_richissime',
@@ -3745,18 +3792,6 @@ function renderCosmeticsPanel(container) {
       buy: () => {
         state.purchases.chromaCharm = true;
         notify('✨ Charme Chroma obtenu ! Taux shiny ×2', 'gold');
-      },
-    },
-    {
-      id: 'autoCollect',
-      icon: `<img src="${ITEM_SPRITE_URLS.pokecoin}" style="width:28px;height:28px;image-rendering:pixelated" onerror="this.replaceWith(document.createTextNode('🪙'))">`,
-      label: 'Récolte automatique',
-      desc: 'Les collectes de zone se font sans combat. Permanent.',
-      cost: 100_000,
-      owned: () => !!state.purchases?.autoCollect,
-      buy: () => {
-        state.purchases.autoCollect = true;
-        notify('🪙 Récolte automatique activée !', 'gold');
       },
     },
   ];
@@ -4240,8 +4275,8 @@ function openCollectionModal(zoneId) {
   const items  = { ...zs.pendingItems };
   if (income === 0 && Object.keys(items).length === 0) return;
 
-  // Récolte automatique débloquée : pas de combat
-  if (state.purchases?.autoCollect) {
+  // Récolte automatique débloquée et activée : skip animation, collecte instantanée
+  if (state.purchases?.autoCollect && state.purchases?.autoCollectEnabled !== false) {
     autoCollectZone(zoneId);
     saveState(); updateTopBar();
     notify(`🤖 +${income.toLocaleString()}₽ (auto-récolte)`, 'gold');
@@ -4529,8 +4564,8 @@ function collectAllZones() {
   const zones = Object.keys(state.zones).filter(zid => (state.zones[zid]?.pendingIncome || 0) > 0);
   if (zones.length === 0) { notify('Aucune récolte en attente.', ''); return; }
 
-  // Si auto-collect débloqué → récolte silencieuse instantanée
-  if (state.purchases?.autoCollect) {
+  // Si auto-collect débloqué et activé → récolte silencieuse instantanée
+  if (state.purchases?.autoCollect && state.purchases?.autoCollectEnabled !== false) {
     let total = 0;
     for (const zid of zones) total += autoCollectZone(zid);
     saveState(); updateTopBar();
@@ -6629,10 +6664,14 @@ function openCombatPopup(zoneId, spawnObj) {
         pkList: (rt.team || []).map(mkEnemySlot), activeIdx: 0 }))
       .filter(t => t.pkList.length > 0);
   } else {
+    const rawTeam = (spawnObj.team || []).filter(Boolean);
     enemyTrainers = [{ id: spawnObj.trainerKey || 'trainer', name: trainerName,
-      pkList: spawnObj.team.map(mkEnemySlot), activeIdx: 0 }];
+      pkList: rawTeam.map(mkEnemySlot), activeIdx: 0 }];
   }
   const enemyPool = enemyTrainers.flatMap(t => t.pkList);
+
+  // Impossible de combattre sans équipe ennemie (spawn expiré ou mal formé)
+  if (enemyPool.length === 0) { currentCombat = null; globalThis.currentCombat = null; return; }
 
   // ── Find spawn element (enemy's existing DOM element) ─────────
   const spawnEl = viewport.querySelector(`[data-spawn-id="${spawnObj.id}"]`);
@@ -6645,6 +6684,7 @@ function openCombatPopup(zoneId, spawnObj) {
   for (const t of gangTrainers) {
     if (!t.domEl) continue;
     const slot = t.pkList[0];
+    if (!slot) continue;
     // HP overlay above trainer
     const ov = document.createElement('div');
     ov.className = 'combat-hp-overlay combat-hp-gang';
