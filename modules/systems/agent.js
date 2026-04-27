@@ -391,148 +391,176 @@ function getAgentCombatPower(agent) {
   return Math.round((agent.stats.combat * 10 + teamPower) * bonus);
 }
 
-// ── Passive agent tick (background, no open window needed) ───────
-// Runs every ~10s and simulates agent activity for closed zones
-function passiveAgentTick() {
+// ── Résolution background d'un spawn pour une zone fermée ────────
+// Appelé par backgroundZoneTimers (app.js) au vrai spawnRate de la zone.
+// Génère un spawn et le résout silencieusement via les agents assignés.
+function resolveBackgroundSpawnForZone(zoneId) {
   const state = globalThis.state;
-  if (!state.settings.autoCombat) return;
-  let changed = false;
-  const now = Date.now();
-  const openZones = globalThis.openZones;
+  if (!state.settings.autoCombat) return false;
+
   const ZONE_BY_ID = globalThis.ZONE_BY_ID;
-  if (!openZones || !ZONE_BY_ID) return; // pas encore initialisé
+  const zone = ZONE_BY_ID?.[zoneId];
+  if (!zone || zone.spawnRate === 0) return false;
 
-  for (const agent of state.agents) {
-    if (!agent.assignedZone) continue;
-    const zoneId = agent.assignedZone;
-    // Skip zones already handled by the visual tick this frame
-    if (openZones.has(zoneId)) continue;
+  const agents = state.agents.filter(a => a.assignedZone === zoneId);
+  if (agents.length === 0) return false;
 
-    const zone = ZONE_BY_ID[zoneId];
-    if (!zone || zone.spawnRate === 0) continue;
+  const entry = globalThis.spawnInZone(zoneId);
+  if (!entry) return false;
 
-    // Chance to act this tick (proportional to agent capture stat)
-    const actChance = 0.4 + agent.stats.capture / 100;
-    if (Math.random() > actChance) continue;
+  let changed = false;
 
-    // Roll what would spawn
-    const entry = globalThis.spawnInZone(zoneId);
-    if (!entry) continue;
+  // ── Pokémon ──────────────────────────────────────────────────
+  if (entry.type === 'pokemon') {
+    // Premier agent avec capture autorisé + pokeball disponible
+    const capAgents = agents.filter(a => { const b = a.behavior || 'all'; return b === 'all' || b === 'capture'; });
+    let capturer = null; let ball = null;
+    for (const a of capAgents) {
+      const preferred = a.preferredBall || 'pokeball';
+      if ((state.inventory[preferred] || 0) > 0)   { capturer = a; ball = preferred; break; }
+      if ((state.inventory['pokeball'] || 0) > 0)  { capturer = a; ball = 'pokeball'; break; }
+    }
+    if (!capturer || !ball) return false;
 
-    const behavior = agent.behavior || 'all';
+    const pokemon = globalThis.makePokemon(entry.species_en, zoneId, ball);
+    if (!pokemon) return false;
 
-    if (entry.type === 'pokemon' && (behavior === 'all' || behavior === 'capture')) {
-      // Agent captures silently — use preferred ball, fall back to pokeball
-      const preferred = agent.preferredBall || 'pokeball';
-      const ball = (state.inventory[preferred] || 0) > 0 ? preferred
-                 : (state.inventory['pokeball'] || 0)  > 0 ? 'pokeball'
-                 : null;
-      if (!ball) continue;
-      const pokemon = globalThis.makePokemon(entry.species_en, zoneId, ball);
-      if (!pokemon) continue;
-      // Crit de capture : basé sur la stat CAP de l'agent
-      const agentCritChance = (agent.stats.capture || 0) / 100;
-      if (Math.random() < agentCritChance) {
-        pokemon.potential = Math.min(5, (pokemon.potential || 1) + 1);
-        if (agent.notifyCaptures) globalThis.notify(`★ ${agent.name} — Capture critique ! ★`, 'gold');
-      }
-      state.inventory[ball]--;
-      state.pokemons.push(pokemon);
-      state.stats.totalCaught++;
-      if (!state.pokedex[pokemon.species_en]) {
-        state.pokedex[pokemon.species_en] = { seen: true, caught: true, shiny: pokemon.shiny, count: 1 };
-        state.stats.dexCaught = (state.stats.dexCaught || 0) + 1;
-      } else {
-        state.pokedex[pokemon.species_en].caught = true;
-        state.pokedex[pokemon.species_en].count++;
-        if (pokemon.shiny) state.pokedex[pokemon.species_en].shiny = true;
-      }
-      if (pokemon.shiny) state.stats.shinyCaught++;
-      grantAgentXP(agent, captureXP(pokemon.species_en, pokemon.potential, pokemon.shiny));
-      const name = globalThis.speciesName(pokemon.species_en);
-      const stars = '★'.repeat(pokemon.potential);
-      if (agent.notifyCaptures) {
-        globalThis.notify(`👤 ${agent.name} → ${name} ${stars}${pokemon.shiny ? ' ✨' : ''}`, pokemon.shiny ? 'gold' : 'success');
-      }
-      globalThis.addLog(globalThis.t('agent_catch', { agent: agent.name, pokemon: name }));
-      changed = true;
+    // Crit de capture basé sur la stat CAP
+    if (Math.random() < (capturer.stats.capture || 0) / 100) {
+      pokemon.potential = Math.min(5, (pokemon.potential || 1) + 1);
+      if (capturer.notifyCaptures) globalThis.notify(`★ ${capturer.name} — Capture critique ! ★`, 'gold');
+    }
+    state.inventory[ball]--;
+    state.pokemons.push(pokemon);
+    state.stats.totalCaught++;
+    if (!state.pokedex[pokemon.species_en]) {
+      state.pokedex[pokemon.species_en] = { seen: true, caught: true, shiny: pokemon.shiny, count: 1 };
+      state.stats.dexCaught = (state.stats.dexCaught || 0) + 1;
+    } else {
+      state.pokedex[pokemon.species_en].caught = true;
+      state.pokedex[pokemon.species_en].count++;
+      if (pokemon.shiny) state.pokedex[pokemon.species_en].shiny = true;
+    }
+    if (pokemon.shiny) state.stats.shinyCaught++;
+    grantAgentXP(capturer, captureXP(entry.species_en, pokemon.potential, pokemon.shiny));
+    const name = globalThis.speciesName(pokemon.species_en);
+    const stars = '★'.repeat(pokemon.potential);
+    if (capturer.notifyCaptures) {
+      globalThis.notify(`👤 ${capturer.name} → ${name} ${stars}${pokemon.shiny ? ' ✨' : ''}`, pokemon.shiny ? 'gold' : 'success');
+    }
+    globalThis.addLog(globalThis.t('agent_catch', { agent: capturer.name, pokemon: name }));
+    changed = true;
 
-    } else if ((entry.type === 'trainer' || entry.type === 'raid') && (behavior === 'all' || behavior === 'combat')) {
-      // Agent auto-fights (raids are tougher — need zone group power)
-      const agentPower = entry.type === 'raid'
-        ? state.agents.filter(a => a.assignedZone === zoneId).reduce((s, a) => s + getAgentCombatPower(a), 0)
-        : getAgentCombatPower(agent);
-      let enemyPower = 0;
-      for (const t of entry.team) enemyPower += (t.stats.atk + t.stats.def + t.stats.spd);
-      const pRoll = agentPower * (0.8 + Math.random() * 0.4);
-      const eRoll = enemyPower * (0.8 + Math.random() * 0.4);
-      const win = pRoll >= eRoll;
-      if (win) {
-        const reward = Math.min(globalThis.MAX_COMBAT_REWARD, globalThis.randInt(entry.trainer.reward[0], entry.trainer.reward[1]));
-        const repGain = globalThis.getCombatRepGain(entry.trainerKey || entry.trainer?.sprite, true);
-        // Accumulate in zone instead of direct payment
-        const zs = globalThis.initZone(zoneId);
-        zs.pendingIncome = (zs.pendingIncome || 0) + reward;
-        state.stats.totalMoneyEarned += reward;
-        state.gang.reputation += repGain;
-        state.stats.totalFights++;
-        state.stats.totalFightsWon++;
-        agent.combatsWon = (agent.combatsWon || 0) + 1;
-        if (entry.trainerKey === 'rocketgrunt' || entry.trainerKey === 'rocketgruntf' || entry.trainerKey === 'giovanni') {
-          state.stats.rocketDefeated++;
-        }
-        if (entry.trainerKey === 'blue') {
-          state.stats.blueDefeated = (state.stats.blueDefeated || 0) + 1;
-        }
-        const xpEach = Math.round((10 + entry.trainer.diff * 5) * 0.75);
-        grantAgentXP(agent, xpEach);
-        for (const pkId of agent.team) {
+  // ── Dresseur / Raid ──────────────────────────────────────────
+  } else if (entry.type === 'trainer' || entry.type === 'raid') {
+    const combatAgents = agents.filter(a => { const b = a.behavior || 'all'; return b === 'all' || b === 'combat'; });
+    if (combatAgents.length === 0) return false;
+
+    // Puissance combinée de tous les agents de combat dans la zone
+    const agentPower = combatAgents.reduce((s, a) => s + getAgentCombatPower(a), 0);
+    // Puissance ennemie (raid = tous les trainers, normal = team directe)
+    const enemyTeam = entry.type === 'raid'
+      ? (entry.raidTrainers || []).flatMap(rt => rt.team || [])
+      : (entry.team || []);
+    let enemyPower = 0;
+    for (const t of enemyTeam) enemyPower += (t.stats?.atk || 0) + (t.stats?.def || 0) + (t.stats?.spd || 0);
+
+    const pRoll = agentPower * (0.8 + Math.random() * 0.4);
+    const eRoll = enemyPower * (0.8 + Math.random() * 0.4);
+    const win = pRoll >= eRoll;
+
+    // Extraire trainer + trainerKey selon type (trainer direct ou premier dresseur du raid)
+    const trainerEntry = entry.type === 'raid' ? (entry.raidTrainers?.[0] || {}) : entry;
+    const trainer    = trainerEntry.trainer || entry.trainer;
+    const trainerKey = trainerEntry.key    || entry.trainerKey;
+    const mainAgent  = combatAgents[0];
+
+    if (win) {
+      const reward  = Math.min(globalThis.MAX_COMBAT_REWARD, globalThis.randInt(trainer?.reward?.[0] || 10, trainer?.reward?.[1] || 50));
+      const repGain = globalThis.getCombatRepGain(trainerKey, true);
+      const zs      = globalThis.initZone(zoneId);
+      zs.pendingIncome = (zs.pendingIncome || 0) + reward;
+      state.stats.totalMoneyEarned += reward;
+      state.gang.reputation += repGain;
+      state.stats.totalFights++;
+      state.stats.totalFightsWon++;
+      zs.combatsWon = (zs.combatsWon || 0) + 1;
+      const xpEach = Math.round((10 + (trainer?.diff || 1) * 5) * 0.75);
+      for (const a of combatAgents) {
+        a.combatsWon = (a.combatsWon || 0) + 1;
+        grantAgentXP(a, xpEach);
+        for (const pkId of a.team) {
           const p = state.pokemons.find(pk => pk.id === pkId);
           if (p) globalThis.levelUpPokemon(p, xpEach);
         }
-        // Zone combats counter
-        zs.combatsWon = (zs.combatsWon || 0) + 1;
-        if (agent.notifyCaptures) {
-          globalThis.notify(`[WIN] ${agent.name} +${reward}P`, 'success');
-        }
-        globalThis.addLog(globalThis.t('agent_win', { agent: agent.name }));
-        globalThis.addBattleLogEntry({
-          ts: Date.now(),
-          zoneName: `[Agent] ${agent.name} — ${ZONE_BY_ID[zoneId]?.fr || zoneId}`,
-          win: true,
-          reward: reward,
-          repGain: repGain,
-          lines: [`${agent.name} a battu un dresseur. +${reward}₽ +${repGain}rep`],
-          trainerKey: entry.trainerKey,
-          isAgent: true,
-        });
-      } else {
-        state.stats.totalFights++;
-        state.gang.reputation = Math.max(0, state.gang.reputation - 5);
-        if (agent.notifyCaptures) globalThis.notify(`[KO] ${agent.name} defaite...`);
-        globalThis.addLog(globalThis.t('agent_lose', { agent: agent.name }));
-        globalThis.addBattleLogEntry({
-          ts: Date.now(),
-          zoneName: `[Agent] ${agent.name} — ${ZONE_BY_ID[zoneId]?.fr || zoneId}`,
-          win: false,
-          reward: 0,
-          repGain: 0,
-          lines: [`${agent.name} a perdu un combat.`],
-          trainerKey: entry.trainerKey,
-          isAgent: true,
-        });
       }
-      changed = true;
-
-    } else if (entry.type === 'chest') {
-      state.stats.chestsOpened = (state.stats.chestsOpened || 0) + 1;
-      const loot = globalThis.rollChestLoot(zoneId, true);
-      if (agent.notifyCaptures) globalThis.notify(`📦 ${agent.name} — ${loot.msg}`, loot.type);
-      changed = true;
+      if (trainerKey === 'rocketgrunt' || trainerKey === 'rocketgruntf' || trainerKey === 'giovanni') state.stats.rocketDefeated++;
+      if (trainerKey === 'blue') state.stats.blueDefeated = (state.stats.blueDefeated || 0) + 1;
+      if (mainAgent.notifyCaptures) globalThis.notify(`[WIN] ${mainAgent.name} +${reward}P`, 'success');
+      globalThis.addLog(globalThis.t('agent_win', { agent: mainAgent.name }));
+      globalThis.addBattleLogEntry({
+        ts: Date.now(),
+        zoneName: `[BG] ${mainAgent.name} — ${ZONE_BY_ID[zoneId]?.fr || zoneId}`,
+        win: true, reward, repGain,
+        lines: [`${mainAgent.name} a battu un dresseur. +${reward}₽ +${repGain}rep`],
+        trainerKey, isAgent: true,
+      });
+    } else {
+      state.stats.totalFights++;
+      state.gang.reputation = Math.max(0, state.gang.reputation - 5);
+      if (mainAgent.notifyCaptures) globalThis.notify(`[KO] ${mainAgent.name} defaite...`);
+      globalThis.addLog(globalThis.t('agent_lose', { agent: mainAgent.name }));
+      globalThis.addBattleLogEntry({
+        ts: Date.now(),
+        zoneName: `[BG] ${mainAgent.name} — ${ZONE_BY_ID[zoneId]?.fr || zoneId}`,
+        win: false, reward: 0, repGain: 0,
+        lines: [`${mainAgent.name} a perdu un combat.`],
+        trainerKey, isAgent: true,
+      });
     }
+    changed = true;
+
+  // ── Coffre ───────────────────────────────────────────────────
+  } else if (entry.type === 'chest') {
+    state.stats.chestsOpened = (state.stats.chestsOpened || 0) + 1;
+    const loot = globalThis.rollChestLoot(zoneId, true);
+    const mainAgent = agents[0];
+    if (mainAgent?.notifyCaptures) globalThis.notify(`📦 ${mainAgent.name} — ${loot.msg}`, loot.type);
+    changed = true;
   }
 
-  // Auto gym raid: for each city zone with gymLeader, if cooldown passed + agent assigned + 1 manual win
+  if (changed) {
+    globalThis.saveState();
+    globalThis.updateTopBar();
+    if (globalThis.activeTab === 'tabPC') {
+      if (globalThis.pcView === 'grid') globalThis.renderPokemonGrid();
+      else if (globalThis.pcView === 'eggs') {
+        const el = document.getElementById('eggsInPC');
+        if (el) globalThis.renderEggsView(el);
+      }
+      const eggsBtn = document.getElementById('pcBtnEggs');
+      if (eggsBtn) eggsBtn.textContent = `[OEUFS${state.eggs.length ? ` (${state.eggs.length})` : ''}]`;
+    }
+    if (globalThis.activeTab === 'tabGang') globalThis.renderGangTab();
+  }
+
+  return changed;
+}
+
+// ── Passive agent tick (toutes les 10s) ──────────────────────────
+// Rôle réduit : gère uniquement les gym raids automatiques.
+// La simulation des spawns de zones fermées est maintenant dans
+// resolveBackgroundSpawnForZone (appelé par backgroundZoneTimers à taux réel).
+function passiveAgentTick() {
+  const state = globalThis.state;
+  if (!state.settings.autoCombat) return;
+  const openZones = globalThis.openZones;
+  const ZONE_BY_ID = globalThis.ZONE_BY_ID;
+  if (!openZones || !ZONE_BY_ID) return;
+
+  let changed = false;
+
+  // Auto gym raid : zone city avec gymLeader, cooldown passé, 1 victoire manuelle
   const raidCooldownMs = 5 * 60 * 1000;
   const checkedRaidZones = new Set();
   for (const agent of state.agents) {
@@ -543,7 +571,7 @@ function passiveAgentTick() {
     const raidZone = ZONE_BY_ID[zid];
     if (!raidZone || raidZone.type !== 'city' || !raidZone.gymLeader) continue;
     const rzs = state.zones[zid];
-    if (!rzs || !rzs.gymDefeated) continue; // need at least 1 manual win
+    if (!rzs || !rzs.gymDefeated) continue;
     if ((rzs.combatsWon || 0) < 10) continue;
     if (Date.now() - (rzs.gymRaidLastFight || 0) < raidCooldownMs) continue;
     checkedRaidZones.add(zid);
@@ -553,14 +581,6 @@ function passiveAgentTick() {
   if (changed) {
     globalThis.saveState();
     globalThis.updateTopBar();
-    // Agent capture: only refresh grid (not full rebuild) to avoid resetting pcSelectedId / view state
-    if (globalThis.activeTab === 'tabPC') {
-      if (globalThis.pcView === 'grid') globalThis.renderPokemonGrid();
-      else if (globalThis.pcView === 'eggs') { const el = document.getElementById('eggsInPC'); if (el) globalThis.renderEggsView(el); }
-      // Update eggs button count
-      const eggsBtn = document.getElementById('pcBtnEggs');
-      if (eggsBtn) eggsBtn.textContent = `[OEUFS${state.eggs.length ? ` (${state.eggs.length})` : ''}]`;
-    }
     if (globalThis.activeTab === 'tabGang') globalThis.renderGangTab();
   }
 }
@@ -856,6 +876,7 @@ Object.assign(globalThis, {
   checkPromotion,
   getAgentRankLabel,
   getAgentCombatPower,
+  resolveBackgroundSpawnForZone,
   passiveAgentTick,
   agentTick,
   agentCaptureVisibleSpawn,

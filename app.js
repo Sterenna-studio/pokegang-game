@@ -209,7 +209,7 @@ const DEFAULT_STATE = {
     autoCombat: true,
     discoveryMode: true,
     autoBuyBall: null,  // null | 'pokeball' | 'greatball' | 'ultraball'
-    classicSprites: false, // true = Showdown Gen 5 animés, false = sprites JSON (FireRed/LeafGreen)
+    spriteMode: 'local',   // 'local'|'gen1'|'gen2'|'gen3'|'gen4'|'gen5'|'ani'|'dex'|'home'
     autoEvoChoice: false,  // true = évolution multi choisie automatiquement (aléatoire, sans popup)
   },
   log: [],
@@ -357,7 +357,7 @@ function loadState() {
       if (!saved.behaviourLogs)       addedFields.push('Logs comportementaux');
       if (saved.discoveryProgress?.agentsUnlocked === undefined)
                                        addedFields.push('Progression découverte étendue');
-      if (saved.settings?.classicSprites === undefined) addedFields.push('Option sprites');
+      if (saved.settings?.spriteMode === undefined && saved.settings?.classicSprites === undefined) addedFields.push('Option sprites');
       if (!saved.eggs)                addedFields.push('Système d\'œufs');
       if (!saved.pension)             addedFields.push('Pension');
       if (!saved.trainingRoom)        addedFields.push('Salle d\'entraînement');
@@ -399,7 +399,11 @@ function migrate(saved) {
   // Nouveau joueur → découverte ON ; joueur existant sans ce champ → OFF (déjà habitué)
   if (merged.settings.discoveryMode === undefined) merged.settings.discoveryMode = false;
   if (merged.settings.autoBuyBall === undefined) merged.settings.autoBuyBall = null;
-  if (merged.settings.classicSprites === undefined) merged.settings.classicSprites = false;
+  // Migration classicSprites (bool) → spriteMode (string)
+  if (merged.settings.spriteMode === undefined) {
+    merged.settings.spriteMode = merged.settings.classicSprites ? 'gen5' : 'local';
+  }
+  delete merged.settings.classicSprites;
   if (merged.settings.autoEvoChoice  === undefined) merged.settings.autoEvoChoice  = false;
   merged.activeBoosts = { ...structuredClone(DEFAULT_STATE.activeBoosts), ...(saved.activeBoosts || {}) };
   merged.activeEvents = saved.activeEvents || {};
@@ -844,10 +848,34 @@ function sanitizeSpriteName(en) {
 //   'backShiny'    → Dos brillant
 //   'retroRedBlue' → Sprite Rogue/Bleu
 //   'retroYellow'  → Sprite Jaune
+// ── Showdown sprite folder resolver ──────────────────────────────
+// mode: 'gen1'|'gen2'|'gen3'|'gen4'|'gen5'|'ani'|'dex'|'home'
+// back: true = dos, shiny: true = brillant
+function _showdownSpriteUrl(en, mode, { shiny = false, back = false } = {}) {
+  const name = sanitizeSpriteName(en);
+  const sh   = shiny ? '-shiny' : '';
+  const bk   = back  ? '-back'  : '';
+  // ani & gen5ani → .gif ; tout le reste → .png
+  const isGif = mode === 'ani';
+  const ext   = isGif ? 'gif' : 'png';
+  let folder;
+  switch (mode) {
+    case 'gen1': folder = back ? `gen1${sh}` : `gen1${sh}`; break; // gen1 has no back-shiny; use gen1
+    case 'gen2': folder = `gen2${bk}${sh}`; break;
+    case 'gen3': folder = `gen3${bk}${sh}`; break;
+    case 'gen4': folder = `gen4${bk}${sh}`; break;
+    case 'ani':  folder = `ani${bk}${sh}`;  break;
+    case 'dex':  folder = back ? `gen5${bk}${sh}` : `dex${sh}`; break;   // dex has no back → fallback gen5
+    case 'home': folder = back ? `gen5${bk}${sh}` : `home-centered${sh}`; break; // home has no back
+    default:     folder = `gen5${bk}${sh}`; break; // 'gen5' or unknown
+  }
+  return `https://play.pokemonshowdown.com/sprites/${folder}/${name}.${ext}`;
+}
+
 function pokeSpriteVariant(en, variant = 'main', shiny = false) {
-  // Mode classique (Showdown Gen 5 animés) ou variante explicitement Showdown → bypass JSON
-  const classic = state?.settings?.classicSprites || variant === 'showdown';
-  if (!classic) {
+  const mode = state?.settings?.spriteMode ?? 'local';
+  // Mode local (JSON FireRed/LeafGreen) — sauf si variante explicitement Showdown
+  if (mode === 'local' && variant !== 'showdown') {
     const sp = SPECIES_BY_EN[en];
     const dexId = sp?.dex;
     if (dexId && typeof getPokemonSprite === 'function') {
@@ -858,9 +886,9 @@ function pokeSpriteVariant(en, variant = 'main', shiny = false) {
       if (url) return url;
     }
   }
-  // Fallback / mode classique : Showdown Gen 5
-  const base = shiny ? 'gen5-shiny' : 'gen5';
-  return `https://play.pokemonshowdown.com/sprites/${base}/${sanitizeSpriteName(en)}.png`;
+  // Mode Showdown (gen1→home) ou fallback local
+  const sdMode = mode === 'local' ? 'gen5' : mode;
+  return _showdownSpriteUrl(en, sdMode, { shiny });
 }
 
 function pokeSprite(en, shiny = false) {
@@ -868,7 +896,8 @@ function pokeSprite(en, shiny = false) {
 }
 
 function pokeSpriteBack(en, shiny = false) {
-  if (!state?.settings?.classicSprites) {
+  const mode = state?.settings?.spriteMode ?? 'local';
+  if (mode === 'local') {
     const sp = SPECIES_BY_EN[en];
     const dexId = sp?.dex;
     if (dexId && typeof getPokemonSprite === 'function') {
@@ -876,8 +905,8 @@ function pokeSpriteBack(en, shiny = false) {
       if (url) return url;
     }
   }
-  const base = shiny ? 'gen5-back-shiny' : 'gen5-back';
-  return `https://play.pokemonshowdown.com/sprites/${base}/${sanitizeSpriteName(en)}.png`;
+  const sdMode = mode === 'local' ? 'gen5' : mode;
+  return _showdownSpriteUrl(en, sdMode, { shiny, back: true });
 }
 
 const SPRITE_FIX = {
@@ -2129,6 +2158,11 @@ const zoneSpawns = {}; // zoneId -> [{ type, data, el, timeout }]
 globalThis.openZones = openZones;
 globalThis.zoneSpawns = zoneSpawns;
 globalThis.zoneSpawnTimers = zoneSpawnTimers;
+
+// Background zone timers (closed zones with ≥1 agent assigned)
+// Tick at real spawn rate — agent module resolves spawns silently
+const backgroundZoneTimers = {};
+globalThis.backgroundZoneTimers = backgroundZoneTimers;
 
 // masteryLevel (1-3) permet de renforcer les équipes ennemies selon la progression de zone.
 function makeTrainerTeam(zone, trainerKey, forcedSize, masteryLevel = 1) {
@@ -4690,10 +4724,52 @@ function _refreshZoneTile(zoneId)       { _zsRefreshTile(zoneId); }
 function _refreshZoneIncomeTile(zoneId) { _zsRefreshIncome(zoneId); }
 function _updateZoneButtons()           { _zsUpdateButtons(); }
 
+// ── Background zone simulation ─────────────────────────────────
+// Zones fermées avec ≥1 agent : tick au vrai spawnRate, résolution silencieuse.
+// État zone : Open (fenêtre visible) | Closed+agent (background) | Inactive (rien)
+
+function startBackgroundZone(zoneId) {
+  if (backgroundZoneTimers[zoneId]) return; // déjà actif
+  const zone = ZONE_BY_ID[zoneId];
+  if (!zone || !zone.spawnRate) return;
+  const interval = Math.round(1000 / zone.spawnRate);
+  backgroundZoneTimers[zoneId] = setInterval(() => {
+    globalThis.resolveBackgroundSpawnForZone?.(zoneId);
+  }, interval);
+}
+
+function stopBackgroundZone(zoneId) {
+  if (backgroundZoneTimers[zoneId]) {
+    clearInterval(backgroundZoneTimers[zoneId]);
+    delete backgroundZoneTimers[zoneId];
+  }
+}
+
+// Recalcule quels timers background sont nécessaires selon l'état actuel
+function syncBackgroundZones() {
+  const activeZones = new Set(
+    state.agents.filter(a => a.assignedZone).map(a => a.assignedZone)
+  );
+  // Démarrer les timers manquants
+  for (const zoneId of activeZones) {
+    if (!openZones.has(zoneId) && !backgroundZoneTimers[zoneId]) {
+      startBackgroundZone(zoneId);
+    }
+  }
+  // Arrêter les timers orphelins (zone ouverte ou plus d'agent)
+  for (const zoneId of Object.keys(backgroundZoneTimers)) {
+    if (!activeZones.has(zoneId) || openZones.has(zoneId)) {
+      stopBackgroundZone(zoneId);
+    }
+  }
+}
+
 function openZoneWindow(zoneId) {
   // Guard : si déjà ouverte, ne rien faire (évite les timers orphelins)
   if (openZones.has(zoneId)) { _refreshZoneTile(zoneId); return; }
   openZones.add(zoneId);
+  // Zone passe en mode visuel → arrêter le timer background si actif
+  stopBackgroundZone(zoneId);
   // Persister l'ordre pour la musique et le rechargement
   if (!state.openZoneOrder) state.openZoneOrder = [];
   if (!state.openZoneOrder.includes(zoneId)) state.openZoneOrder.push(zoneId);
@@ -4736,6 +4812,9 @@ function closeZoneWindow(zoneId) {
     }
     delete zoneSpawns[zoneId];
   }
+  // Zone fermée → démarrer timer background si agents présents
+  const hasAgents = state.agents.some(a => a.assignedZone === zoneId);
+  if (hasAgents) startBackgroundZone(zoneId);
   MusicPlayer.updateFromContext();
   // Mise à jour ciblée : tuile + fenêtres + base — sans reconstruire tout le sélecteur
   _refreshZoneTile(zoneId);
@@ -5557,7 +5636,7 @@ function buildExportCard(opts = {}) {
       const base = shiny ? 'gen2-shiny' : 'gen1';
       return `https://play.pokemonshowdown.com/sprites/${base}/${sanitizeSpriteName(species_en)}.png`;
     }
-    // 'game': respect the in-game setting (already has classicSprites logic)
+    // 'game': utilise le mode sprite actif (spriteMode)
     return pokeSprite(species_en, shiny);
   }
 
@@ -6163,7 +6242,7 @@ const SPECIAL_WING_EVENTS = {
     item:            'silver_wing',
     itemName:        "Argent'Aile",
     minDrop:         1,
-    maxDrop:         3,
+    maxDrop:         5,
     legendaryShadow: 'lugia',       // espèce dont le sprite est utilisé en ombre
     shadowLabel:     'Ombre de Lugia',
     spawnChance:     0.06,          // 6% par tick de spawn (mastery ≥ 2)
@@ -6173,7 +6252,7 @@ const SPECIAL_WING_EVENTS = {
     item:            'rainbow_wing',
     itemName:        "Arcenci'Aile",
     minDrop:         1,
-    maxDrop:         3,
+    maxDrop:         5,
     legendaryShadow: 'ho-oh',
     shadowLabel:     'Ombre de Ho-Oh',
     spawnChance:     0.06,
@@ -6330,7 +6409,7 @@ function renderSpawnInWindow(zoneId, spawnObj) {
       SFX.play('chest');
 
       setTimeout(() => {
-        // Drop 1 à 3 ailes
+        // Drop 1 à 5 ailes
         const qty = randInt(cfg.minDrop, cfg.maxDrop);
         state.inventory[cfg.item] = (state.inventory[cfg.item] || 0) + qty;
 
@@ -6712,18 +6791,13 @@ function openCombatPopup(zoneId, spawnObj) {
     spawnEl.appendChild(ov);
   }
 
-  // ── Compact combat HUD at bottom of viewport ──────────────────
+  // ── HUD minimal en bas du viewport (pas de log texte, sprites only) ─
   const hud = document.createElement('div');
-  hud.className = 'zone-combat-hud';
+  hud.className = 'zone-combat-hud zone-combat-hud-minimal';
   hud.id = `zchud-${zoneId}`;
   hud.innerHTML = `
-    <div class="zchud-log" id="zchud-log-${zoneId}">
-      <div class="zchud-line" style="font-style:italic">"${dialogue}"</div>
-    </div>
-    <div class="zchud-meta">
-      <span class="zchud-vs">⚔ ${trainerName} <span style="color:var(--text-dim);font-size:7px">${enemyPool.length} Pok.</span></span>
-      <button class="zchud-flee" id="zchud-flee-${zoneId}">Fuir</button>
-    </div>`;
+    <span class="zchud-vs">⚔ ${trainerName} <span style="color:var(--text-dim);font-size:7px">${enemyPool.length} Pok.</span></span>
+    <button class="zchud-flee" id="zchud-flee-${zoneId}">Fuir</button>`;
   viewport.appendChild(hud);
 
   // ── Auto-start + flee ─────────────────────────────────────────
@@ -7112,6 +7186,26 @@ function renderBarterPanel() {
     </div>`;
   }).join('');
 
+  // ── Échange d'ailes (bidirectionnel) ──────────────────────────
+  const WING_EXCHANGES = [
+    { giveId:'silver_wing',  giveQty:2, getId:'rainbow_wing', getQty:1, label:"2 Argent'Ailes → 1 Arcenci'Aile" },
+    { giveId:'rainbow_wing', giveQty:2, getId:'silver_wing',  getQty:1, label:"2 Arcenci'Ailes → 1 Argent'Aile" },
+  ];
+  const wingExchangeHtml = `
+    <div style="padding:8px 4px 4px;border-top:2px solid var(--border);margin-top:2px">
+      <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold);margin-bottom:6px;letter-spacing:1px">— ÉCHANGE D'AILES —</div>
+      ${WING_EXCHANGES.map((wx, i) => {
+        const owned = state.inventory?.[wx.giveId] || 0;
+        const canAfford = owned >= wx.giveQty;
+        return `<div style="display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--border);opacity:${canAfford ? 1 : 0.5}">
+          ${itemSprite(wx.giveId)}
+          <div style="flex:1;font-size:9px;color:var(--text)">${wx.label}</div>
+          <div style="font-size:8px;color:${canAfford ? 'var(--gold-dim)' : 'var(--text-dim)'}">×${owned}</div>
+          <button data-wing-barter="${i}" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:${canAfford ? 'var(--bg-hover)' : 'var(--bg)'};border:1px solid ${canAfford ? 'var(--gold-dim)' : 'var(--border)'};border-radius:var(--radius-sm);color:${canAfford ? 'var(--gold)' : 'var(--text-dim)'};cursor:${canAfford ? 'pointer' : 'default'}" ${canAfford ? '' : 'disabled'}>Troquer</button>
+        </div>`;
+      }).join('')}
+    </div>`;
+
   // ── Section déblocage zones via ailes ──────────────────────────
   const WING_PERMITS = [
     { permitId:'tourbillon_permit', wingId:'silver_wing', wingName:"Argent'Aile",  wingQty:50,
@@ -7143,7 +7237,7 @@ function renderBarterPanel() {
       }).join('')}
     </div>`;
 
-  panel.innerHTML = toggleBtn + recipesHtml + wingZonesHtml;
+  panel.innerHTML = toggleBtn + recipesHtml + wingExchangeHtml + wingZonesHtml;
 
   document.getElementById('btnBarterMbToggle')?.addEventListener('click', () => {
     _barterMbReverse = !_barterMbReverse;
@@ -7158,6 +7252,19 @@ function renderBarterPanel() {
       state.inventory[getId] = (state.inventory[getId] || 0) + getQty;
       saveState(); updateTopBar(); SFX.play('buy');
       notify(`Troc effectué !`, 'success');
+      renderBarterPanel();
+    });
+  });
+
+  panel.querySelectorAll('[data-wing-barter]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const wx = WING_EXCHANGES[parseInt(btn.dataset.wingBarter)];
+      if (!wx) return;
+      if ((state.inventory?.[wx.giveId] || 0) < wx.giveQty) { SFX.play('error'); return; }
+      state.inventory[wx.giveId] -= wx.giveQty;
+      state.inventory[wx.getId] = (state.inventory[wx.getId] || 0) + wx.getQty;
+      saveState(); updateTopBar(); SFX.play('buy');
+      notify(`🪶 Échange effectué !`, 'success');
       renderBarterPanel();
     });
   });
@@ -9780,7 +9887,7 @@ function renderAgentsTab() {
       const zoneItems = unlockedZones.slice(0, 8).map(z => ({
         action: 'zone_' + z.id,
         label: (state.lang === 'fr' ? z.fr : z.en),
-        fn: () => { agent.assignedZone = z.id; saveState(); renderAgentsTab(); notify(agent.name + ' -> ' + (state.lang === 'fr' ? z.fr : z.en), 'success'); }
+        fn: () => { agent.assignedZone = z.id; saveState(); renderAgentsTab(); notify(agent.name + ' -> ' + (state.lang === 'fr' ? z.fr : z.en), 'success'); syncBackgroundZones(); }
       }));
       showContextMenu(e.clientX, e.clientY, [
         { action:'clearteam', label:'Vider l\'equipe', fn: () => { agent.team = []; saveState(); renderAgentsTab(); } },
@@ -9793,7 +9900,7 @@ function renderAgentsTab() {
           saveState(); renderAgentsTab(); notify('Equipe auto assignee', 'success');
         }},
         ...zoneItems.length ? [{ action:'envoyer', label:'Envoyer en zone', fn: () => {} }, ...zoneItems] : [],
-        { action:'unassign', label:'Retirer de la zone', fn: () => { agent.assignedZone = null; saveState(); renderAgentsTab(); } },
+        { action:'unassign', label:'Retirer de la zone', fn: () => { agent.assignedZone = null; saveState(); renderAgentsTab(); syncBackgroundZones(); } },
       ]);
     });
   });
@@ -10855,6 +10962,7 @@ function _applySettingsLive() {
   }
 
   // Écriture dans state (working copy — pas encore sauvegardé)
+  // spriteMode est écrit directement au clic de la carte (pas besoin de le lire ici)
   Object.assign(state.settings, {
     lightTheme, lowSpec, sfxEnabled: sfxOn, sfxVol,
     musicEnabled: musicOn, musicVol, uiScale, zoneScale,
@@ -10944,6 +11052,15 @@ function _bindSettingsLive() {
     }
   });
 
+  // Sélecteur sprite mode
+  document.getElementById('spriteModeGrid')?.querySelectorAll('.sprite-mode-card').forEach(card => {
+    card.addEventListener('click', () => {
+      document.querySelectorAll('.sprite-mode-card').forEach(c => c.classList.remove('active'));
+      card.classList.add('active');
+      state.settings.spriteMode = card.dataset.spriteMode;
+    });
+  });
+
   // Boutons d'action (export / import / purge / reset / code)
   _bindSettingsActionButtons();
 
@@ -10997,9 +11114,30 @@ function renderSettingsPanel() {
         <label>Mode Découverte <span style="font-size:.75em;opacity:.6">(tutoriel progressif)</span></label>
         ${tog('discoveryMode', S.discoveryMode !== false)}
       </div>
-      <div class="settings-row">
-        <label>Sprites classiques <span style="font-size:.75em;opacity:.6">(Gen 5 Showdown)</span></label>
-        ${tog('classicSprites', S.classicSprites === true)}
+      <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:8px">
+        <label style="margin-bottom:2px">🖼 Mode sprites Pokémon</label>
+        ${(() => {
+          const SPRITE_MODES = [
+            { id:'local', label:'FireRed', sub:'Local HD', img: (() => { const sp = SPECIES_BY_EN['pikachu']; const id = sp?.dex; return (id && typeof getPokemonSprite==='function') ? getPokemonSprite(id,'main') : null; })() },
+            { id:'gen1',  label:'Gen 1',  sub:'Rogue/Bleu',     img:`https://play.pokemonshowdown.com/sprites/gen1/pikachu.png` },
+            { id:'gen2',  label:'Gen 2',  sub:'Or/Argent',      img:`https://play.pokemonshowdown.com/sprites/gen2/pikachu.png` },
+            { id:'gen3',  label:'Gen 3',  sub:'RS/FRLG',        img:`https://play.pokemonshowdown.com/sprites/gen3/pikachu.png` },
+            { id:'gen4',  label:'Gen 4',  sub:'DP/Platine',     img:`https://play.pokemonshowdown.com/sprites/gen4/pikachu.png` },
+            { id:'gen5',  label:'Gen 5',  sub:'Noir/Blanc',     img:`https://play.pokemonshowdown.com/sprites/gen5/pikachu.png` },
+            { id:'ani',   label:'Animé',  sub:'GIF Gen 6+',     img:`https://play.pokemonshowdown.com/sprites/ani/pikachu.gif` },
+            { id:'dex',   label:'Dex',    sub:'XY/ORAS HD',     img:`https://play.pokemonshowdown.com/sprites/dex/pikachu.png` },
+            { id:'home',  label:'HOME',   sub:'Switch HD',      img:`https://play.pokemonshowdown.com/sprites/home-centered/pikachu.png` },
+          ];
+          const cur = S.spriteMode || 'local';
+          return `<div class="sprite-mode-grid" id="spriteModeGrid">${
+            SPRITE_MODES.map(m => `
+              <div class="sprite-mode-card${m.id===cur?' active':''}" data-sprite-mode="${m.id}" title="${m.sub}">
+                <img src="${m.img||''}" style="width:40px;height:40px;image-rendering:pixelated;object-fit:contain" onerror="this.style.opacity='.3'">
+                <span class="smc-label">${m.label}</span>
+                <span class="smc-sub">${m.sub}</span>
+              </div>`).join('')
+          }</div>`;
+        })()}
       </div>
       <div class="settings-row">
         <label>Évolution auto <span style="font-size:.75em;opacity:.6">(choix aléatoire, sans cartes)</span></label>
@@ -11249,7 +11387,7 @@ function initSettings() {
     // Toggles (lecture complète — _applySettingsLive a déjà écrit la plupart, mais on consolide)
     state.settings.autoCombat     = readToggle('autoCombat',    true);
     state.settings.discoveryMode  = readToggle('discoveryMode', true);
-    state.settings.classicSprites = readToggle('classicSprites',false);
+    // spriteMode est écrit directement au clic — pas de toggle à relire ici
     state.settings.autoEvoChoice  = readToggle('autoEvoChoice', false);
     state.settings.musicEnabled   = readToggle('music',         false);
     state.settings.sfxEnabled     = readToggle('sfx',           true);
@@ -11281,9 +11419,9 @@ function initSettings() {
     SFX.play('menuClose');
     document.getElementById('settingsModal')?.classList.remove('active');
 
-    // Rechargement auto si sprites classiques ou thème changé (modifications visuelles globales)
-    const needsReload = (_settingsSnap?.classicSprites !== state.settings.classicSprites)
-                     || (_settingsLangSnap             !== state.lang);
+    // Rechargement auto si mode sprite ou thème/langue changé (modifications visuelles globales)
+    const needsReload = (_settingsSnap?.spriteMode !== state.settings.spriteMode)
+                     || (_settingsLangSnap         !== state.lang);
     if (needsReload) {
       setTimeout(() => location.reload(true), 150);
     } else {
@@ -11533,6 +11671,9 @@ function startGameLoop() {
   // Guard: only start once — prevents interval accumulation on hot-reload
   if (_gameLoopStarted) return;
   _gameLoopStarted = true;
+
+  // Initialiser les timers background pour les zones fermées avec agents
+  syncBackgroundZones();
 
   // Agent automation every 2 seconds (agents interact with visible spawns)
   agentTickInterval = setInterval(agentTick, 2000);
@@ -12590,6 +12731,7 @@ Object.assign(globalThis, {
   isZoneDegraded, getZoneMastery, openCollectionModal,
   getZoneSlotCost, ZONE_SLOT_COSTS, ZONE_BGS, SHOP_ITEMS,
   collectAllZones, openZoneWindow, closeZoneWindow,
+  syncBackgroundZones,
 });
 
 // ── Intercepteur global des rejets non gérés GoTrue ──────────────────

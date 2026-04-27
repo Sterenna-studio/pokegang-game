@@ -8,7 +8,28 @@
       "Bash(awk -F',' '{print $1}')",
       "Bash(awk '$1 >= 1 && $1 <= 151')",
       "Bash(git add *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(node --input-type=module --eval \"import '/c/Users/pierr/Documents/GitHub/pokegang-game/modules/ui/zoneSelector.js'\")",
+      "Bash(node --check \"C:/Users/pierr/Documents/GitHub/pokegang-game/modules/ui/zoneSelector.js\")",
+      "Bash(node --input-type=module)",
+      "Bash(node -e ' *)",
+      "Bash(git commit -m 'fix\\(boot\\): supprime bloc if\\(false\\) mal fermé causant SyntaxError *)",
+      "Bash(node --input-type=module --check)",
+      "Bash(node --check app.js)",
+      "Skill(commit-commands:commit-push-pr)",
+      "Skill(commit-commands:commit-push-pr:*)",
+      "Bash(git checkout *)",
+      "Bash(git pull *)",
+      "WebFetch(domain:play.pokemonshowdown.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:github.com)",
+      "Bash(gh api *)",
+      "Bash(python -c \"import sys,json,base64; d=json.load\\(sys.stdin\\); print\\(base64.b64decode\\(d['content']\\).decode\\(\\)\\)\")",
+      "Bash(python3 -c ' *)",
+      "Bash(git stash *)",
+      "Bash(node --check \"C:/Users/pierr/Documents/GitHub/pokegang-game/app.js\")",
+      "Bash(git push *)",
+      "Bash(gh pr create --title 'feat\\(zones\\): système à trois états + simulation background à taux réel' --body ' *)"
     ]
   }
 }
