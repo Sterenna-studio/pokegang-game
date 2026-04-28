@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Zone Editor — Dev Tool</title>
+<style>
+  :root {
+    --bg: #0d0d14; --panel: #16161e; --border: #2a2a3a;
+    --gold: #f5c842; --red: #e84040; --blue: #4a8fff;
+    --green: #4fc04f; --text: #d0d0e0; --dim: #6a6a8a;
+    --font: 'Courier New', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 13px; }
+  header { background: var(--panel); border-bottom: 1px solid var(--border); padding: 12px 20px; display: flex; align-items: center; gap: 16px; }
+  header h1 { font-size: 14px; color: var(--gold); letter-spacing: 2px; }
+  header .badge { font-size: 10px; background: var(--red); color: #fff; padding: 2px 8px; border-radius: 3px; }
+
+  .layout { display: grid; grid-template-columns: 260px 1fr; height: calc(100vh - 44px); }
+
+  /* ── Sidebar ── */
+  aside { background: var(--panel); border-right: 1px solid var(--border); overflow-y: auto; }
+  .filter-bar { padding: 10px; border-bottom: 1px solid var(--border); display: flex; gap: 6px; flex-wrap: wrap; }
+  .filter-bar input { flex: 1; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 4px 8px; border-radius: 3px; font-family: var(--font); font-size: 12px; }
+  .filter-btn { background: none; border: 1px solid var(--border); color: var(--dim); padding: 2px 8px; border-radius: 3px; cursor: pointer; font-size: 11px; }
+  .filter-btn.active { border-color: var(--gold); color: var(--gold); }
+  .zone-list { list-style: none; }
+  .zone-list li { padding: 8px 14px; border-bottom: 1px solid rgba(255,255,255,.04); cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+  .zone-list li:hover { background: rgba(255,255,255,.04); }
+  .zone-list li.active { background: rgba(245,200,66,.08); border-left: 2px solid var(--gold); }
+  .zone-list .z-name { font-size: 12px; }
+  .zone-list .z-meta { font-size: 10px; color: var(--dim); }
+  .type-badge { font-size: 9px; padding: 1px 5px; border-radius: 2px; }
+  .type-route   { background: rgba(74,143,255,.2); color: var(--blue); }
+  .type-city    { background: rgba(232,64,64,.2);  color: var(--red); }
+  .type-special { background: rgba(245,200,66,.2); color: var(--gold); }
+
+  /* ── Editor ── */
+  main { overflow-y: auto; padding: 20px; }
+  .placeholder { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--dim); font-size: 12px; }
+
+  .editor-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
+  .editor-header h2 { font-size: 16px; color: var(--gold); }
+  .editor-header .z-id { font-size: 10px; color: var(--dim); margin-top: 2px; }
+  .btn { background: var(--panel); border: 1px solid var(--border); color: var(--text); padding: 6px 14px; border-radius: 3px; cursor: pointer; font-family: var(--font); font-size: 12px; }
+  .btn:hover { border-color: var(--gold); color: var(--gold); }
+  .btn-copy { border-color: var(--blue); color: var(--blue); }
+  .btn-copy:hover { background: rgba(74,143,255,.1); }
+
+  .section { background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: 16px; margin-bottom: 16px; }
+  .section h3 { font-size: 11px; color: var(--dim); letter-spacing: 1px; margin-bottom: 12px; text-transform: uppercase; }
+  .field-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 10px; color: var(--dim); }
+  .field input, .field select, .field textarea {
+    background: var(--bg); border: 1px solid var(--border); color: var(--text);
+    padding: 5px 8px; border-radius: 3px; font-family: var(--font); font-size: 12px;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus {
+    outline: none; border-color: var(--gold);
+  }
+  .field textarea { resize: vertical; min-height: 60px; }
+  .field input[type="number"] { width: 100%; }
+
+  .pool-editor { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 3px; min-height: 40px; }
+  .pool-tag { background: rgba(255,255,255,.06); border: 1px solid var(--border); border-radius: 3px; padding: 2px 8px; font-size: 11px; display: flex; align-items: center; gap: 6px; }
+  .pool-tag button { background: none; border: none; color: var(--red); cursor: pointer; font-size: 11px; padding: 0; line-height: 1; }
+  .pool-add { display: flex; gap: 6px; margin-top: 8px; }
+  .pool-add input { flex: 1; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 4px 8px; border-radius: 3px; font-family: var(--font); font-size: 12px; }
+  .pool-add button { background: none; border: 1px solid var(--green); color: var(--green); padding: 4px 10px; border-radius: 3px; cursor: pointer; }
+
+  .output-block { background: var(--bg); border: 1px solid var(--border); border-radius: 3px; padding: 12px; font-size: 11px; line-height: 1.7; overflow-x: auto; white-space: pre; color: #b0c0e0; margin-top: 8px; max-height: 320px; overflow-y: auto; }
+  .key   { color: #79b8ff; }
+  .str   { color: #85e89d; }
+  .num   { color: #f97583; }
+  .bool  { color: #ffab70; }
+  .arr   { color: #e1e4e8; }
+
+  .diff-block { background: var(--bg); border: 1px solid var(--border); border-radius: 3px; padding: 10px; font-size: 11px; margin-top: 8px; }
+  .diff-add { color: var(--green); }
+  .diff-del { color: var(--red); }
+
+  .toast { position: fixed; bottom: 20px; right: 20px; background: var(--panel); border: 1px solid var(--green); color: var(--green); padding: 8px 16px; border-radius: 4px; font-size: 12px; opacity: 0; transition: opacity .3s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⚙ ZONE EDITOR</h1>
+  <span class="badge">DEV ONLY</span>
+  <span style="color:var(--dim);font-size:11px;margin-left:auto">Édite zones-data.js · Copie le patch JS à appliquer manuellement</span>
+</header>
+
+<div class="layout">
+  <aside>
+    <div class="filter-bar">
+      <input type="text" id="search" placeholder="Rechercher…" oninput="filterList()">
+      <button class="filter-btn active" data-type="all"    onclick="setTypeFilter('all',this)">Tout</button>
+      <button class="filter-btn"        data-type="route"  onclick="setTypeFilter('route',this)">Route</button>
+      <button class="filter-btn"        data-type="city"   onclick="setTypeFilter('city',this)">Ville</button>
+      <button class="filter-btn"        data-type="special"onclick="setTypeFilter('special',this)">Spécial</button>
+    </div>
+    <ul class="zone-list" id="zoneList"></ul>
+  </aside>
+
+  <main id="main">
+    <div class="placeholder">← Sélectionne une zone</div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Chargement des données de jeu -->
+<script src="../data/loaders.js?v=3"></script>
+<script src="../data/zones-data.js?v=1"></script>
+
+<script>
+// ── State ──────────────────────────────────────────────────────
+let currentZone = null;
+let editedData  = {};
+let typeFilter  = 'all';
+
+// ── Init ───────────────────────────────────────────────────────
+function init() {
+  renderList();
+}
+
+function renderList() {
+  const search = document.getElementById('search').value.toLowerCase();
+  const list   = document.getElementById('zoneList');
+  list.innerHTML = '';
+  ZONES
+    .filter(z => typeFilter === 'all' || z.type === typeFilter)
+    .filter(z => !search || z.id.includes(search) || z.fr.toLowerCase().includes(search) || z.en.toLowerCase().includes(search))
+    .forEach(z => {
+      const li = document.createElement('li');
+      if (currentZone?.id === z.id) li.classList.add('active');
+      li.innerHTML = `
+        <div>
+          <div class="z-name">${z.fr}</div>
+          <div class="z-meta">${z.id} · rep ${z.rep}</div>
+        </div>
+        <span class="type-badge type-${z.type}">${z.type}</span>`;
+      li.onclick = () => selectZone(z);
+      list.appendChild(li);
+    });
+}
+
+function filterList() { renderList(); }
+function setTypeFilter(type, btn) {
+  typeFilter = type;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderList();
+}
+
+// ── Zone selection ─────────────────────────────────────────────
+function selectZone(zone) {
+  currentZone = zone;
+  editedData  = JSON.parse(JSON.stringify(zone)); // deep clone
+  renderList();
+  renderEditor();
+}
+
+// ── Editor rendering ───────────────────────────────────────────
+function renderEditor() {
+  const z = editedData;
+  document.getElementById('main').innerHTML = `
+    <div class="editor-header">
+      <div>
+        <h2>${z.fr} <span style="color:var(--dim);font-size:13px">/ ${z.en}</span></h2>
+        <div class="z-id">${z.id}</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-copy" onclick="copyPatch()">📋 Copier le patch JS</button>
+        <button class="btn" onclick="copyFullEntry()">📄 Copier l'entrée complète</button>
+      </div>
+    </div>
+
+    <!-- Identité -->
+    <div class="section">
+      <h3>Identité</h3>
+      <div class="field-grid">
+        <div class="field"><label>ID (lecture seule)</label><input value="${z.id}" readonly style="color:var(--dim)"></div>
+        <div class="field"><label>Nom FR</label><input id="f_fr" value="${z.fr}" oninput="update('fr',this.value)"></div>
+        <div class="field"><label>Nom EN</label><input id="f_en" value="${z.en}" oninput="update('en',this.value)"></div>
+        <div class="field">
+          <label>Type</label>
+          <select id="f_type" onchange="update('type',this.value)">
+            <option value="route"   ${z.type==='route'  ?'selected':''}>route</option>
+            <option value="city"    ${z.type==='city'   ?'selected':''}>city</option>
+            <option value="special" ${z.type==='special'?'selected':''}>special</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="section">
+      <h3>Stats & Spawn</h3>
+      <div class="field-grid">
+        <div class="field"><label>Réputation requise</label><input type="number" id="f_rep" value="${z.rep}" oninput="update('rep',+this.value)"></div>
+        <div class="field"><label>SpawnRate (spawns/s)</label><input type="number" step="0.01" id="f_spawnRate" value="${z.spawnRate}" oninput="update('spawnRate',+this.value)"></div>
+        <div class="field"><label>Invest Cost (₽)</label><input type="number" id="f_investCost" value="${z.investCost||''}" oninput="update('investCost',+this.value||undefined)"></div>
+        <div class="field"><label>Unlock Item</label><input id="f_unlockItem" value="${z.unlockItem||''}" oninput="update('unlockItem',this.value||undefined)"></div>
+        <div class="field"><label>XP Bonus (×, city)</label><input type="number" id="f_xpBonus" value="${z.xpBonus||''}" oninput="update('xpBonus',+this.value||undefined)"></div>
+        <div class="field"><label>Music key</label><input id="f_music" value="${z.music||''}" oninput="update('music',this.value||undefined)"></div>
+      </div>
+    </div>
+
+    <!-- Trainers -->
+    <div class="section">
+      <h3>Dresseurs</h3>
+      <div class="field-grid">
+        <div class="field">
+          <label>Trainers (virgule-séparé)</label>
+          <input id="f_trainers" value="${(z.trainers||[]).join(',')}" oninput="update('trainers',this.value.split(',').map(s=>s.trim()).filter(Boolean))">
+        </div>
+        <div class="field"><label>Elite Trainer</label><input id="f_eliteTrainer" value="${z.eliteTrainer||''}" oninput="update('eliteTrainer',this.value||undefined)"></div>
+        <div class="field"><label>Gym Leader (city)</label><input id="f_gymLeader" value="${z.gymLeader||''}" oninput="update('gymLeader',this.value||undefined)"></div>
+      </div>
+    </div>
+
+    <!-- Pool -->
+    <div class="section">
+      <h3>Pool Pokémon</h3>
+      <div class="pool-editor" id="poolMain">${renderPoolTags(z.pool||[], 'pool')}</div>
+      <div class="pool-add">
+        <input id="addMain" placeholder="espèce en (ex: bulbasaur)" onkeydown="if(event.key==='Enter')addToPool('pool','addMain')">
+        <button onclick="addToPool('pool','addMain')">+ Ajouter</button>
+      </div>
+    </div>
+
+    <!-- Rare Pool -->
+    <div class="section">
+      <h3>Pool Rare (rarescope)</h3>
+      <div class="pool-editor" id="poolRare">${renderPoolTags(z.rarePool||[], 'rarePool')}</div>
+      <div class="pool-add">
+        <input id="addRare" placeholder="espèce en" onkeydown="if(event.key==='Enter')addToPool('rarePool','addRare')">
+        <button onclick="addToPool('rarePool','addRare')">+ Ajouter</button>
+      </div>
+    </div>
+
+    <!-- Output -->
+    <div class="section">
+      <h3>Diff vs original</h3>
+      <div class="diff-block" id="diffBlock"></div>
+      <h3 style="margin-top:14px">Patch JS généré</h3>
+      <div class="output-block" id="outputBlock"></div>
+    </div>
+  `;
+  refreshOutput();
+}
+
+function renderPoolTags(arr, field) {
+  return arr.map((en,i) => `
+    <span class="pool-tag">
+      ${en}
+      <button onclick="removeFromPool('${field}',${i})">✕</button>
+    </span>`).join('');
+}
+
+function update(key, value) {
+  if (value === undefined || value === '') {
+    delete editedData[key];
+  } else {
+    editedData[key] = value;
+  }
+  refreshOutput();
+}
+
+function addToPool(field, inputId) {
+  const input = document.getElementById(inputId);
+  const val = input.value.trim().toLowerCase();
+  if (!val) return;
+  if (!editedData[field]) editedData[field] = [];
+  if (!editedData[field].includes(val)) {
+    editedData[field].push(val);
+    document.getElementById(field === 'pool' ? 'poolMain' : 'poolRare').innerHTML = renderPoolTags(editedData[field], field);
+    refreshOutput();
+  }
+  input.value = '';
+}
+
+function removeFromPool(field, idx) {
+  editedData[field].splice(idx, 1);
+  document.getElementById(field === 'pool' ? 'poolMain' : 'poolRare').innerHTML = renderPoolTags(editedData[field], field);
+  refreshOutput();
+}
+
+// ── Output ─────────────────────────────────────────────────────
+function refreshOutput() {
+  const orig = currentZone;
+  const edit = editedData;
+
+  // Diff
+  const diffEl = document.getElementById('diffBlock');
+  if (diffEl) {
+    const lines = [];
+    const allKeys = new Set([...Object.keys(orig), ...Object.keys(edit)]);
+    allKeys.forEach(k => {
+      const ov = JSON.stringify(orig[k]);
+      const nv = JSON.stringify(edit[k]);
+      if (ov !== nv) {
+        lines.push(`<span class="diff-del">- ${k}: ${ov}</span>`);
+        lines.push(`<span class="diff-add">+ ${k}: ${nv}</span>`);
+      }
+    });
+    diffEl.innerHTML = lines.length ? lines.join('\n') : '<span style="color:var(--dim)">Aucune modification</span>';
+  }
+
+  // JS output
+  const outEl = document.getElementById('outputBlock');
+  if (outEl) outEl.innerHTML = syntaxHL(formatEntry(edit));
+}
+
+function formatEntry(z) {
+  const lines = ['  { '];
+  const keys = Object.keys(z);
+  keys.forEach((k, i) => {
+    const v = z[k];
+    const comma = i < keys.length - 1 ? ',' : '';
+    if (Array.isArray(v)) {
+      lines.push(`    ${k}:[${v.map(s => `'${s}'`).join(',')}]${comma}`);
+    } else if (typeof v === 'string') {
+      lines.push(`    ${k}:'${v}'${comma}`);
+    } else {
+      lines.push(`    ${k}:${v}${comma}`);
+    }
+  });
+  lines.push('  },');
+  return lines.join('\n');
+}
+
+function syntaxHL(code) {
+  return code
+    .replace(/([a-zA-Z_]\w*)(?=:)/g, '<span class="key">$1</span>')
+    .replace(/'([^']*)'/g, '<span class="str">\'$1\'</span>')
+    .replace(/\b(\d+\.?\d*)\b/g, '<span class="num">$1</span>');
+}
+
+// ── Copy helpers ───────────────────────────────────────────────
+function copyPatch() {
+  const orig = currentZone;
+  const edit = editedData;
+  const changes = {};
+  Object.keys(edit).forEach(k => {
+    if (JSON.stringify(orig[k]) !== JSON.stringify(edit[k])) changes[k] = edit[k];
+  });
+  const patch = `// Patch zone '${edit.id}'\nObject.assign(ZONE_BY_ID['${edit.id}'], ${JSON.stringify(changes, null, 2)});`;
+  navigator.clipboard.writeText(patch).then(() => toast('Patch copié dans le presse-papiers !'));
+}
+
+function copyFullEntry() {
+  navigator.clipboard.writeText(formatEntry(editedData)).then(() => toast('Entrée complète copiée !'));
+}
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// ── Boot ───────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
