@@ -734,7 +734,11 @@ function buildZoneWindowEl(zoneId) {
     <div class="zone-viewport">
       ${degraded ? `<div class="zone-degraded-banner">⚠ ${state.lang === 'fr' ? 'MODE COMBAT — Réputation insuffisante' : 'COMBAT MODE — Reputation too low'}</div>` : ''}
       ${boosts.length ? `<div class="zone-boosts">${boosts.map(b => `<span class="boost-badge">${b}</span>`).join('')}</div>` : ''}
-      ${eventActive && eventDef ? `<div class="zone-event-banner">${state.lang === 'fr' ? eventDef.fr : eventDef.en}</div>` : ''}
+      ${eventActive && eventDef ? (() => {
+        const secsLeft = activeEvt?.expiresAt ? Math.max(0, Math.ceil((activeEvt.expiresAt - Date.now()) / 1000)) : '?';
+        const label = state.lang === 'fr' ? eventDef.fr : eventDef.en;
+        return `<div class="zone-event-banner" data-event-zone="${zoneId}">${eventDef.icon} ${label} <span class="event-ttl">${secsLeft}s</span></div>`;
+      })() : ''}
       <div id="zpb-${zoneId}" style="position:absolute;top:4px;left:50%;transform:translateX(-50%);font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);background:rgba(0,0,0,.55);border-radius:2px;padding:1px 5px;white-space:nowrap;z-index:2;pointer-events:none">${progressText}${zone.type === 'city' ? ` — XP×${zone.xpBonus}` : ''}</div>
       ${zone.type === 'city' && zone.gymLeader && combats >= 10 ? (() => {
         const lastRaid = zState.gymRaidLastFight || 0;
@@ -1008,6 +1012,16 @@ function updateZoneTimers(zoneId) {
       agentEl.style.display = 'none';
     }
   }
+  // Event TTL countdown
+  const evtBanner = win.querySelector(`[data-event-zone="${zoneId}"] .event-ttl`);
+  if (evtBanner) {
+    const activity = globalThis.zoneActivity[zoneId];
+    if (activity?.expiresAt) {
+      const secsLeft = Math.max(0, Math.ceil((activity.expiresAt - Date.now()) / 1000));
+      evtBanner.textContent = `${secsLeft}s`;
+    }
+  }
+
   // Boss cooldown
   const bossCdLabel = win.querySelector('.boss-cd-label');
   if (bossCdLabel) {
@@ -1671,7 +1685,11 @@ function executeCombat() {
     const reward  = win ? Math.min(globalThis.MAX_COMBAT_REWARD, globalThis.randInt(spawnWithZone.trainer.reward[0], spawnWithZone.trainer.reward[1])) : 0;
     const repGain = globalThis.getCombatRepGain(spawnWithZone.trainerKey || spawnWithZone.trainer?.sprite, win);
     globalThis.applyCombatResult({ win, reward, repGain }, teamIds, spawnWithZone);
-    if (win) { const z = state.zones[zoneId]; if (z) z.combatsWon = (z.combatsWon || 0) + 1; }
+    if (win) {
+      const z = state.zones[zoneId]; if (z) z.combatsWon = (z.combatsWon || 0) + 1;
+      // Si c'était un event combat, la zone repasse idle dès la victoire
+      if (spawnWithZone.isSpecial) globalThis.clearZoneActivity(zoneId);
+    }
 
     const zoneDef = ZONE_BY_ID[zoneId];
     const zName   = zoneDef ? (state.lang === 'fr' ? zoneDef.fr : zoneDef.en) : zoneId;

@@ -527,6 +527,21 @@ function resolveBackgroundSpawnForZone(zoneId) {
     const mainAgent = agents[0];
     if (mainAgent?.notifyCaptures) globalThis.notify(`📦 ${mainAgent.name} — ${loot.msg}`, loot.type);
     changed = true;
+
+  // ── Événement spécial ─────────────────────────────────────────
+  } else if (entry.type === 'event') {
+    // Les agents résolvent les events non-combat silencieusement
+    // Les events combat sont ignorés en background (trop complexes à simuler équitablement)
+    const evt = entry.event;
+    if (evt && !evt.trainerKey) {
+      globalThis.activateEvent(zoneId, evt); // gère reward + clearZoneActivity
+      const mainAgent = agents[0];
+      if (mainAgent?.notifyCaptures) {
+        globalThis.notify(`🎯 ${mainAgent.name} — ${state.lang === 'fr' ? evt.fr : evt.en}`, 'gold');
+      }
+      changed = true;
+    }
+    // Event combat en background : on laisse expirer le TTL naturellement
   }
 
   if (changed) {
