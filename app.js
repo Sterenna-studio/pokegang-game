@@ -10288,6 +10288,7 @@ Object.assign(globalThis, {
   // Finance / combat / UI helpers (zoneWindows module)
   checkMoneyMilestone, applyCombatResult, showRarePopup, checkPlayerStatPoints,
   activateEvent, isBallAssistActive, clamp, getTeamPower,
+  SPECIAL_TRAINER_KEYS,
 });
 
 // ── Intercepteur global des rejets non gérés GoTrue ──────────────────

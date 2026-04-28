@@ -32,6 +32,7 @@ import {
   refreshZoneIncomeTile as _zsRefreshIncome,
   updateZoneButtons     as _zsUpdateButtons,
 } from './zoneSelector.js';
+import { TRAINER_TYPES } from '../../data/trainers-data.js';
 
 // ── Module-level state ────────────────────────────────────────
 const zoneNextSpawn = {}; // zoneId -> { countdown, lastSpawnType }
