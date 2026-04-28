@@ -8864,22 +8864,35 @@ async function supaSignOut() {
 }
 
 // ── Cloud Save ────────────────────────────────────────────────────
+// Dirty-check fingerprint for cloud save — avoids upsert when nothing changed
+let _cloudSaveFingerprint = '';
+
 async function supaCloudSave() {
   if (!_supabase || !supaSession) return;
   if (supaSyncing) return;
+
+  // Skip the upsert if key stats haven't changed since the last successful cloud write.
+  // Uses the same fields as the leaderboard fingerprint + pokémon count + money.
+  const fp = `${state.gang.reputation}|${state.stats?.totalCaught}|${state.pokemons?.length}|${state.gang.money}|${state._savedAt}`;
+  if (fp === _cloudSaveFingerprint) return;
+
   supaSyncing = true;
   updateSupaIndicator();
   try {
+    // Slim the payload the same way saveState() does for localStorage — avoids
+    // writing derivable/default fields and keeps the JSONB blob as small as possible.
+    const payload = { ...state, pokemons: state.pokemons.map(slimPokemon) };
     const { error } = await _supabase
       .from('player_saves')
       .upsert({
         user_id:  supaSession.user.id,
         slot:     activeSaveSlot,
-        state:    state,
+        state:    payload,
         saved_at: new Date().toISOString(),
       });
     if (!error) {
       supaLastSync = Date.now();
+      _cloudSaveFingerprint = fp;
     }
   } catch { /* silencieux — la save locale est toujours là */ }
   supaSyncing = false;
@@ -8949,19 +8962,34 @@ async function supaForceCloudLoad() {
 const MAX_SNAPSHOTS = 2;
 let _snapshotCount = -1; // -1 = unknown (fetched lazily); avoids SELECT on every write
 
+// Snapshot throttle — one snapshot per session at most every 30 minutes.
+// The 5-min game loop calls this but the guard prevents actual DB writes more often.
+let _lastSnapshotAt = 0;
+const SNAPSHOT_THROTTLE_MS = 30 * 60 * 1000; // 30 min minimum between snapshots
+
 async function supaWriteSnapshot() {
   if (!_supabase || !supaSession) return;
+
+  // Rate-limit to one snapshot per 30 minutes (previously fired every 5 min)
+  const now = Date.now();
+  if (now - _lastSnapshotAt < SNAPSHOT_THROTTLE_MS) return;
+
   try {
+    // Slim the payload — same as cloud save and localStorage
+    const payload = { ...state, pokemons: state.pokemons.map(slimPokemon) };
+
     // 1. Insert new snapshot
     const { error } = await _supabase.from('save_snapshots').insert({
       user_id:   supaSession.user.id,
       slot:      activeSaveSlot,
-      state:     state,
+      state:     payload,
       gang_name: state.gang?.name || 'Team ???',
       rep:       state.gang?.reputation || 0,
       saved_at:  new Date().toISOString(),
     });
     if (error) return;
+
+    _lastSnapshotAt = now;
 
     // Track count client-side to avoid a SELECT on every write
     if (_snapshotCount < 0) {
@@ -8976,7 +9004,7 @@ async function supaWriteSnapshot() {
       _snapshotCount++;
     }
 
-    // 2. Prune only when over limit (avoids SELECT+DELETE every 5 min)
+    // 2. Prune only when over limit (avoids SELECT+DELETE every write)
     if (_snapshotCount > MAX_SNAPSHOTS) {
       const { data: rows } = await _supabase
         .from('save_snapshots')
@@ -9471,8 +9499,9 @@ async function renderCompteTab() {
       </div>`;
 
     tab.querySelector('#btnSupaForceSave')?.addEventListener('click', async () => {
-      _lbLastPushAt      = 0;   // forcer le throttle leaderboard
-      _lbLastFingerprint = '';   // forcer le dirty check
+      _lbLastPushAt        = 0;   // forcer le throttle leaderboard
+      _lbLastFingerprint   = '';   // forcer le dirty check leaderboard
+      _cloudSaveFingerprint = '';  // forcer le dirty check cloud save
       await supaCloudSave();
       await supaUpdateLeaderboardAnon();
     });
