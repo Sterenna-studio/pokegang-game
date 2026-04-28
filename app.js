@@ -10255,7 +10255,7 @@ Object.assign(globalThis, {
   // UI / state helpers
   notify, saveState,
   checkForNewlyUnlockedZones, updateTopBar, tryAutoIncubate,
-  renderZonesTab, renderGangTab, renderAgentsTab, renderPokemonGrid, renderEggsView,
+  renderZonesTab, renderGangTab, renderAgentsTab, renderPokemonGrid, renderEggsView, renderGangBasePanel,
   // Audio
   SFX,
   // Zone / spawn functions (agent module)
