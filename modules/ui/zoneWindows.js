@@ -25,6 +25,14 @@
 //    ZONE_BY_ID, SPECIES_BY_EN, TRAINER_TYPES, SPECIAL_EVENTS
 // ════════════════════════════════════════════════════════════════
 
+import {
+  renderZoneSelector    as _zsRenderSelector,
+  bindZoneActionButtons as _zsBindActions,
+  refreshZoneTile       as _zsRefreshTile,
+  refreshZoneIncomeTile as _zsRefreshIncome,
+  updateZoneButtons     as _zsUpdateButtons,
+} from './zoneSelector.js';
+
 // ── Module-level state ────────────────────────────────────────
 const zoneNextSpawn = {}; // zoneId -> { countdown, lastSpawnType }
 const zoneSpawnHistory = {}; // zoneId -> { pokemon:N, trainer:N, total:N }
@@ -106,8 +114,8 @@ function openCollectionModal(zoneId) {
     globalThis.saveState();
     globalThis.updateTopBar();
     globalThis.notify(`🤖 +${income.toLocaleString()}₽ (auto-récolte)`, 'gold');
-    globalThis._zsRefreshIncome?.(zoneId);
-    globalThis._zsUpdateButtons?.();
+    _zsRefreshIncome(zoneId);
+      _zsUpdateButtons();
     return;
   }
 
@@ -407,8 +415,8 @@ function collectAllZones() {
     globalThis.saveState();
     globalThis.updateTopBar();
     globalThis.notify(`🤖 Récolte auto : +${total.toLocaleString()}₽`, 'gold');
-    zones.forEach(zid => globalThis._zsRefreshIncome?.(zid));
-    globalThis._zsUpdateButtons?.();
+    zones.forEach(zid => _zsRefreshIncome(zid));
+      _zsUpdateButtons();
     return;
   }
 
@@ -498,14 +506,14 @@ function collectAllZones() {
 
   document.getElementById('collectAllClose')?.addEventListener('click', () => {
     modal.remove();
-    zoneRows.forEach(r => globalThis._zsRefreshIncome?.(r.zid));
-    globalThis._zsUpdateButtons?.();
+    zoneRows.forEach(r => _zsRefreshIncome(r.zid));
+      _zsUpdateButtons();
   });
   modal.addEventListener('click', e => {
     if (e.target === modal) {
       modal.remove();
-      zoneRows.forEach(r => globalThis._zsRefreshIncome?.(r.zid));
-      globalThis._zsUpdateButtons?.();
+      zoneRows.forEach(r => _zsRefreshIncome(r.zid));
+        _zsUpdateButtons();
     }
   });
 }
@@ -515,9 +523,9 @@ function collectAllZones() {
 // ════════════════════════════════════════════════════════════════
 
 function renderZonesTab() {
-  globalThis._zsRenderSelector?.();
+  _zsRenderSelector();
   renderZoneWindows();
-  globalThis._zsBindActions?.();
+  _zsBindActions();
   globalThis.renderGangBasePanel();
 }
 
@@ -528,7 +536,7 @@ function openZoneWindow(zoneId) {
   const zoneSpawnTimers = globalThis.zoneSpawnTimers;
 
   // Guard : si déjà ouverte, ne rien faire (évite les timers orphelins)
-  if (openZones.has(zoneId)) { globalThis._zsRefreshTile?.(zoneId); return; }
+  if (openZones.has(zoneId)) { _zsRefreshTile(zoneId); return; }
   openZones.add(zoneId);
   // Zone passe en mode visuel → arrêter le timer background si actif
   globalThis.stopBackgroundZone(zoneId);
@@ -552,10 +560,10 @@ function openZoneWindow(zoneId) {
   }
   globalThis.MusicPlayer?.updateFromContext();
   // Mise à jour ciblée : tuile + fenêtres + base — sans reconstruire tout le sélecteur
-  globalThis._zsRefreshTile?.(zoneId);
+  _zsRefreshTile(zoneId);
   globalThis.renderGangBasePanel();
   renderZoneWindows();
-  globalThis._zsUpdateButtons?.();
+    _zsUpdateButtons();
 }
 
 function closeZoneWindow(zoneId) {
@@ -584,10 +592,10 @@ function closeZoneWindow(zoneId) {
   if (hasAgents) globalThis.startBackgroundZone(zoneId);
   globalThis.MusicPlayer?.updateFromContext();
   // Mise à jour ciblée : tuile + fenêtres + base — sans reconstruire tout le sélecteur
-  globalThis._zsRefreshTile?.(zoneId);
+  _zsRefreshTile(zoneId);
   globalThis.renderGangBasePanel();
   renderZoneWindows();
-  globalThis._zsUpdateButtons?.();
+    _zsUpdateButtons();
 }
 
 function renderZoneWindows() {
