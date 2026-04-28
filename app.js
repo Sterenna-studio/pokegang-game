@@ -10287,6 +10287,7 @@ Object.assign(globalThis, {
   syncBackgroundZones, startBackgroundZone, stopBackgroundZone,
   // Finance / combat / UI helpers (zoneWindows module)
   checkMoneyMilestone, applyCombatResult, showRarePopup, checkPlayerStatPoints,
+  activateEvent, isBallAssistActive, clamp, getTeamPower,
 });
 
 // ── Intercepteur global des rejets non gérés GoTrue ──────────────────

@@ -16,10 +16,14 @@
 //    SFX
 //
 //  Classic-script globals accessed by bare name:
-//    ZONE_BY_ID, ZONES, SPECIES_BY_EN, TRAINER_TYPES, SPECIAL_EVENTS, CHEST_LOOT
+//    ZONE_BY_ID, ZONES, SPECIES_BY_EN, SPECIAL_EVENTS, CHEST_LOOT
+//  ES module imports:
+//    TRAINER_TYPES (from data/trainers-data.js)
 //  ES module globals (exposed on globalThis by app.js):
 //    GYM_ORDER
 // ════════════════════════════════════════════════════════════════
+
+import { TRAINER_TYPES } from '../../data/trainers-data.js';
 
 // État exclusif par zone : une seule activité à la fois
 // zoneActivity[zoneId] = { mode: 'idle' | 'event', eventId?, expiresAt? }
