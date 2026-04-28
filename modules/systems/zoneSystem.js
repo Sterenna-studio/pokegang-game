@@ -49,6 +49,17 @@ function clearZoneActivity(zoneId) {
   delete zoneActivity[zoneId];
 }
 
+// Purge les entrées expirées — appelé à chaque tick de spawn
+function cleanExpiredZoneActivities() {
+  const now = Date.now();
+  for (const zoneId of Object.keys(zoneActivity)) {
+    const a = zoneActivity[zoneId];
+    if (a?.expiresAt && now > a.expiresAt) {
+      delete zoneActivity[zoneId];
+    }
+  }
+}
+
 function getZoneSlotCost(zoneId, slotIndex) {
   const base = globalThis.ZONE_SLOT_COSTS[slotIndex] ?? 9999;
   const zone = ZONE_BY_ID[zoneId];
@@ -220,6 +231,7 @@ function makeRaidSpawn(zone, zoneId, masteryLevel = 1) {
 }
 
 function spawnInZone(zoneId) {
+  cleanExpiredZoneActivities(); // purge les événements expirés avant de spawner
   const state = globalThis.state;
   const zone = ZONE_BY_ID[zoneId];
   if (!zone) return null;
@@ -505,10 +517,8 @@ function activateEvent(zoneId, event) {
     }
   }
 
-  // Track active event on zone
+  // Track active event via zoneActivity (source de vérité unique)
   setZoneActivity(zoneId, 'event', { eventId: event.id, expiresAt: Date.now() + 60000 });
-  // Garder aussi state.activeEvents pour compatibilité UI
-  state.activeEvents[zoneId] = { eventId: event.id, expiresAt: Date.now() + 60000 };
   globalThis.saveState();
 }
 
@@ -869,6 +879,7 @@ Object.assign(globalThis, {
   getZoneActivityMode,
   setZoneActivity,
   clearZoneActivity,
+  cleanExpiredZoneActivities,
   // Zone system pure logic
   _zsys_getZoneSlotCost:              getZoneSlotCost,
   _zsys_initZone:                     initZone,

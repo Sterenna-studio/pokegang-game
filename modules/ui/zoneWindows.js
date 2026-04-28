@@ -692,9 +692,9 @@ function buildZoneWindowEl(zoneId) {
   if (globalThis.isBoostActive('aura'))       boosts.push('AUR');
   if (globalThis.isBoostActive('chestBoost')) boosts.push('CHT');
 
-  const activeEvt = state.activeEvents[zoneId];
-  const eventActive = activeEvt && activeEvt.expiresAt > Date.now();
-  const eventDef = eventActive ? SPECIAL_EVENTS.find(e => e.id === activeEvt.eventId) : null;
+  const activeEvt = globalThis.zoneActivity[zoneId];
+  const eventActive = globalThis.getZoneActivityMode(zoneId) === 'event';
+  const eventDef = eventActive ? SPECIAL_EVENTS.find(e => e.id === activeEvt?.eventId) : null;
 
   const assignedAgents = state.agents.filter(a => a.assignedZone === zoneId);
   const gymDefeated = zState.gymDefeated;
