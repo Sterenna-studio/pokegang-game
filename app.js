@@ -10277,14 +10277,16 @@ Object.assign(globalThis, {
   isZoneUnlocked,
   BOOST_DURATIONS, ITEM_SPRITE_URLS,
   // trainingRoom module
-  pokeSprite, tryAutoEvolution,
+  pokeSprite, pokeSpriteBack, tryAutoEvolution,
   // pension module
   showConfirm, renderPCTab, switchTab,
   // zoneSelector module — zone helpers + data it reads from globalThis
   isZoneDegraded, getZoneMastery, openCollectionModal,
   getZoneSlotCost, ZONE_SLOT_COSTS, ZONE_BGS, SHOP_ITEMS,
   collectAllZones, openZoneWindow, closeZoneWindow,
-  syncBackgroundZones,
+  syncBackgroundZones, startBackgroundZone, stopBackgroundZone,
+  // Finance / combat / UI helpers (zoneWindows module)
+  checkMoneyMilestone, applyCombatResult, showRarePopup, checkPlayerStatPoints,
 });
 
 // ── Intercepteur global des rejets non gérés GoTrue ──────────────────
