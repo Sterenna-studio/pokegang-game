@@ -891,9 +891,13 @@
     }
     .fog-tile.locked { cursor: default; }
     .fog-tile.unlocked:hover { border-color: var(--gold-dim); }
-    .fog-tile.fog-open { border-color: var(--red); border-width: 2px; }
+    .fog-tile.fog-open     { border-color: var(--red);              border-width: 2px; }
     .fog-tile.fog-degraded { border-color: rgba(204,51,51,.4); }
     .fog-tile.fog-degraded .fog-tile-name { color: #cc7777; }
+    .fog-tile.fog-event    { border-color: var(--gold);             border-width: 2px; }
+    .fog-tile.fog-event .fog-tile-status { color: var(--gold); }
+    .fog-tile.fog-auto     { border-color: rgba(100,180,255,.5); }
+    .fog-tile.fog-auto .fog-tile-status  { color: rgba(100,180,255,.9); }
     .fog-tile-overlay {
       position: absolute; inset: 0;
       background: rgba(0,0,0,0.45);

@@ -282,6 +282,9 @@ function _buildTile(zone) {
     const isFav        = (state.favoriteZones || []).includes(zone.id);
     const isCity       = zone.type === 'city';
     const musicIcon    = zone.music ? ' 🎵' : '';
+    const hasAgent     = state.agents.some(a => a.assignedZone === zone.id);
+    const activityMode = globalThis.getZoneActivityMode?.(zone.id) || 'idle';
+    const hasEvent     = activityMode === 'event';
 
     let displayName = name;
     if (isCity) {
@@ -299,14 +302,33 @@ function _buildTile(zone) {
         title="${SPECIES_BY_EN?.[en]?.fr || en}">`
     ).join('');
 
-    return `<div class="fog-tile unlocked ${isOpen ? 'fog-open' : ''} zone-type-${zone.type}${degraded ? ' fog-degraded' : ''}"
+    // Calcul du statut affiché sur la tuile
+    const statusText = isOpen
+      ? '[OUVERT]'
+      : hasEvent
+        ? '[ÉVÉNEMENT]'
+        : degraded
+          ? '[COMBAT]'
+          : hasAgent
+            ? '[AUTO]'
+            : '[ENTRER]';
+
+    const tileClass = [
+      'fog-tile unlocked',
+      isOpen    ? 'fog-open'    : '',
+      degraded  ? 'fog-degraded': '',
+      hasEvent  ? 'fog-event'   : '',
+      hasAgent && !isOpen ? 'fog-auto' : '',
+    ].filter(Boolean).join(' ');
+
+    return `<div class="${tileClass} zone-type-${zone.type}"
       data-zone="${zone.id}" style="${bgStyle}">
       <div class="fog-tile-overlay"></div>
       <div class="fog-tile-pool-preview">${poolPreview}</div>
       <div class="fog-tile-content">
         <div class="fog-tile-name">${displayName}${degradedTag}</div>
         <div class="fog-tile-stats">${'★'.repeat(mastery)}${mastery ? ' ' : ''}${combats}W${musicIcon}</div>
-        <div class="fog-tile-status">${isOpen ? '[OUVERT]' : (degraded ? '[COMBAT]' : '[ENTRER]')}</div>
+        <div class="fog-tile-status">${statusText}</div>
       </div>
       ${incomeHtml}
       <button class="zone-fav-btn${isFav ? ' active' : ''}" data-fav-zone="${zone.id}"
@@ -429,11 +451,22 @@ export function refreshZoneTile(zoneId) {
   const combats  = zState.combatsWon || 0;
   const name     = state?.lang === 'fr' ? zone.fr : zone.en;
 
-  tile.classList.toggle('fog-open', !!isOpen);
-  tile.classList.toggle('fog-degraded', !!degraded);
+  const hasAgent     = state?.agents?.some(a => a.assignedZone === zoneId);
+  const activityMode = globalThis.getZoneActivityMode?.(zoneId) || 'idle';
+  const hasEvent     = activityMode === 'event';
+
+  tile.classList.toggle('fog-open',    !!isOpen);
+  tile.classList.toggle('fog-degraded',!!degraded);
+  tile.classList.toggle('fog-event',   !!hasEvent && !isOpen);
+  tile.classList.toggle('fog-auto',    !!hasAgent && !isOpen);
 
   const statusEl = tile.querySelector('.fog-tile-status');
-  if (statusEl) statusEl.textContent = isOpen ? '[OUVERT]' : degraded ? '[COMBAT]' : '[ENTRER]';
+  if (statusEl) statusEl.textContent = isOpen
+    ? '[OUVERT]'
+    : hasEvent   ? '[ÉVÉNEMENT]'
+    : degraded   ? '[COMBAT]'
+    : hasAgent   ? '[AUTO]'
+    : '[ENTRER]';
 
   const statsEl = tile.querySelector('.fog-tile-stats');
   if (statsEl) statsEl.textContent = `${'★'.repeat(mastery)}${mastery ? ' ' : ''}${combats}W${zone.music ? ' 🎵' : ''}`;
