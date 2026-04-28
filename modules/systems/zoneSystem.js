@@ -469,6 +469,14 @@ function activateEvent(zoneId, event) {
   const reward = event.reward;
   state.stats.eventsCompleted++;
 
+  if (reward.shinyBoost) {
+    state.activeBoosts.aura = Math.max(state.activeBoosts.aura || 0, Date.now() + reward.shinyBoost);
+    globalThis.notify(`${event.icon} ${state.lang === 'fr' ? event.fr : event.en}`, 'gold');
+  }
+  if (reward.chestBoost) {
+    state.activeBoosts.chestBoost = Math.max(state.activeBoosts.chestBoost || 0, Date.now() + reward.chestBoost);
+    globalThis.notify(`${event.icon} ${state.lang === 'fr' ? event.fr : event.en}`, 'gold');
+  }
   if (reward.rareBoost) {
     state.activeBoosts.rarescope = Math.max(state.activeBoosts.rarescope || 0, Date.now() + reward.rareBoost);
     globalThis.notify(`${event.icon} ${state.lang === 'fr' ? event.fr : event.en}`, 'gold');
@@ -517,8 +525,12 @@ function activateEvent(zoneId, event) {
     }
   }
 
-  // Track active event via zoneActivity (source de vérité unique)
-  setZoneActivity(zoneId, 'event', { eventId: event.id, expiresAt: Date.now() + 60000 });
+  // Événements sans combat : résolus instantanément → zone repasse idle
+  // Événements avec combat : setZoneActivity déjà fait dans spawnInZone au moment du spawn,
+  // la zone reste 'event' jusqu'à la victoire ou l'expiration TTL
+  if (!event.trainerKey) {
+    clearZoneActivity(zoneId);
+  }
   globalThis.saveState();
 }
 

@@ -144,7 +144,7 @@ const ZONES = [
     ghostZone: true },
 
   // ══ ZONES GEN 2 — Légendaires (débloquables avec ailes) ══
-  { id:'tourbillon',    fr:'Îles Tourbillon',   en:'Whirl Islands',     rep:900, spawnRate:0.04, type:'route',
+  { id:'tourbillon',    fr:'Îles Tourbillon',   en:'Whirl Islands',     rep:900, spawnRate:0.04, type:'special',
     pool:['lugia','politoed','slowking','kingdra','tentacruel','dewgong','lapras','seadra','starmie','tentacool','golduck','psyduck'],
     trainers:['swimmer','acetrainer'], eliteTrainer:'lorelei', investCost:45000,
     unlockItem:'tourbillon_permit' },
