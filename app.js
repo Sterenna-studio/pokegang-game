@@ -10258,15 +10258,30 @@ Object.assign(globalThis, {
   renderZonesTab, renderGangTab, renderAgentsTab, renderPokemonGrid, renderEggsView, renderGangBasePanel,
   // Audio
   SFX,
-  // Zone / spawn functions (agent module)
-  initZone, spawnInZone, makePokemon, makeTrainerTeam, getPokemonPower, levelUpPokemon,
-  getCombatRepGain, addBattleLogEntry, pushFeedEvent, rollChestLoot, triggerGymRaid,
+  // Zone system — logique pure (zoneSystem.js)
+  initZone, spawnInZone, makePokemon, makeTrainerTeam, makeRaidSpawn,
+  getPokemonPower, levelUpPokemon, getZoneAgentSlots,
+  getCombatRepGain, resolveCombat, applyCombatResult,
+  addBattleLogEntry, pushFeedEvent, rollChestLoot,
+  triggerGymRaid, investInZone,
   tryCapture, calculateStats, showCaptureBurst,
-  removeSpawn, updateZoneTimers,
-  // Combat (agent module)
+  checkForNewlyUnlockedZones, showZoneUnlockPopup, _processZoneUnlockQueue,
+  startBackgroundZone, stopBackgroundZone, syncBackgroundZones,
+  activateEvent, isBallAssistActive, clamp, getTeamPower,
+  SPECIAL_TRAINER_KEYS,
+  // Zone UI — fenêtres (zoneWindows.js)
+  openZoneWindow, closeZoneWindow,
+  renderZoneWindows, buildZoneWindowEl, patchZoneWindow,
+  removeSpawn, updateZoneTimers, tickZoneSpawn,
+  renderSpawnInWindow, animateCapture, buildPlayerTeamForZone,
+  _tryWingDrop, _addVSBadge, _refreshRaidBtn,
+  openCollectionModal, showCollectionEncounter, startZoneCollection,
+  showCollectionResult, spawnCoinRain, autoCollectZone, collectAllZones,
   openCombatPopup, executeCombat, closeCombatPopup,
-  _addVSBadge,
-  // Data constants (imported at top of app.js, need to be on globalThis for modules)
+  // Finance / combat / UI helpers
+  checkMoneyMilestone, showRarePopup, checkPlayerStatPoints,
+  pokeSpriteBack,
+  // Data constants
   GYM_ORDER,
   MISSIONS, HOURLY_QUEST_POOL, HOURLY_QUEST_REROLL_COST,
   BASE_PRICE, POTENTIAL_MULT, NATURES, BALLS, MYSTERY_EGG_POOL,
@@ -10277,18 +10292,12 @@ Object.assign(globalThis, {
   isZoneUnlocked,
   BOOST_DURATIONS, ITEM_SPRITE_URLS,
   // trainingRoom module
-  pokeSprite, pokeSpriteBack, tryAutoEvolution,
+  pokeSprite, tryAutoEvolution,
   // pension module
   showConfirm, renderPCTab, switchTab,
   // zoneSelector module — zone helpers + data it reads from globalThis
-  isZoneDegraded, getZoneMastery, openCollectionModal,
+  isZoneDegraded, getZoneMastery,
   getZoneSlotCost, ZONE_SLOT_COSTS, ZONE_BGS, SHOP_ITEMS,
-  collectAllZones, openZoneWindow, closeZoneWindow,
-  syncBackgroundZones, startBackgroundZone, stopBackgroundZone,
-  // Finance / combat / UI helpers (zoneWindows module)
-  checkMoneyMilestone, applyCombatResult, showRarePopup, checkPlayerStatPoints,
-  activateEvent, isBallAssistActive, clamp, getTeamPower,
-  SPECIAL_TRAINER_KEYS,
 });
 
 // ── Intercepteur global des rejets non gérés GoTrue ──────────────────
