@@ -21,6 +21,30 @@
 //    GYM_ORDER
 // ════════════════════════════════════════════════════════════════
 
+// État exclusif par zone : une seule activité à la fois
+// zoneActivity[zoneId] = { mode: 'idle' | 'event', eventId?, expiresAt? }
+const zoneActivity = {};
+globalThis.zoneActivity = zoneActivity;
+
+function getZoneActivityMode(zoneId) {
+  const a = zoneActivity[zoneId];
+  if (!a) return 'idle';
+  if (a.mode === 'event' && a.expiresAt && Date.now() > a.expiresAt) {
+    // Event expiré → retour idle
+    delete zoneActivity[zoneId];
+    return 'idle';
+  }
+  return a.mode || 'idle';
+}
+
+function setZoneActivity(zoneId, mode, opts = {}) {
+  zoneActivity[zoneId] = { mode, ...opts };
+}
+
+function clearZoneActivity(zoneId) {
+  delete zoneActivity[zoneId];
+}
+
 function getZoneSlotCost(zoneId, slotIndex) {
   const base = globalThis.ZONE_SLOT_COSTS[slotIndex] ?? 9999;
   const zone = ZONE_BY_ID[zoneId];
@@ -220,22 +244,26 @@ function spawnInZone(zoneId) {
     return { type: 'chest' };
   }
 
-  // 2. Special event (mastery >= 1, i.e. always possible in active zones)
+  // Si un event est actif → spawn limité (pokemon/trainer simple seulement, pas d'elite ni raid)
+  const eventLocked = getZoneActivityMode(zoneId) === 'event';
+
+  // 2. Special event — exclusif : ne peut spawner que si la zone est idle
   const canEvent = mastery >= 1;
-  if (canEvent && r < chestChance + 0.08) {
+  if (canEvent && r < chestChance + 0.08 && getZoneActivityMode(zoneId) === 'idle') {
     const eligible = SPECIAL_EVENTS.filter(ev =>
       state.gang.reputation >= ev.minRep &&
-      !state.activeEvents[zoneId] && // no stacking
       (!ev.zoneIds || ev.zoneIds.includes(zoneId)) // zone-specific filter
     );
     if (eligible.length > 0) {
       const event = globalThis.pick(eligible);
+      // Marquer la zone comme en événement AVANT de retourner
+      setZoneActivity(zoneId, 'event', { eventId: event.id, expiresAt: Date.now() + 60000 });
       return { type: 'event', event };
     }
   }
 
   // 3. Elite trainer (mastery >= 2, i.e. 10+ wins in zone)
-  if (mastery >= 2 && zone.eliteTrainer && r < chestChance + 0.13) {
+  if (!eventLocked && mastery >= 2 && zone.eliteTrainer && r < chestChance + 0.13) {
     const trainerKey = zone.eliteTrainer;
     const trainer = TRAINER_TYPES[trainerKey];
     if (trainer) {
@@ -276,7 +304,7 @@ function spawnInZone(zoneId) {
   const canRaid = (zoneAgentCount >= 2 || (zoneAgentCount >= 1 && bossHere)) && zone.trainers.length > 0;
   // Mastery augmente la probabilité de raid : base 10%, +6% mastery 2, +15% mastery 3
   const raidThreshold = 0.30 + 0.10 + diffScaling.raidChanceBonus;
-  if (canRaid && r < raidThreshold) {
+  if (!eventLocked && canRaid && r < raidThreshold) {
     return makeRaidSpawn(zone, zoneId, mastery);
   }
 
@@ -425,17 +453,8 @@ function activateEvent(zoneId, event) {
   const reward = event.reward;
   state.stats.eventsCompleted++;
 
-  if (reward.shinyBoost) {
-    state.activeBoosts.aura = Math.max(state.activeBoosts.aura || 0, Date.now() + reward.shinyBoost);
-    globalThis.notify(`${event.icon} ${state.lang === 'fr' ? event.fr : event.en}`, 'gold');
-  }
   if (reward.rareBoost) {
     state.activeBoosts.rarescope = Math.max(state.activeBoosts.rarescope || 0, Date.now() + reward.rareBoost);
-    globalThis.notify(`${event.icon} ${state.lang === 'fr' ? event.fr : event.en}`, 'gold');
-  }
-  if (reward.chestBoost) {
-    if (!state.activeBoosts.chestBoost) state.activeBoosts.chestBoost = 0;
-    state.activeBoosts.chestBoost = Math.max(state.activeBoosts.chestBoost, Date.now() + reward.chestBoost);
     globalThis.notify(`${event.icon} ${state.lang === 'fr' ? event.fr : event.en}`, 'gold');
   }
   if (reward.money) {
@@ -483,6 +502,8 @@ function activateEvent(zoneId, event) {
   }
 
   // Track active event on zone
+  setZoneActivity(zoneId, 'event', { eventId: event.id, expiresAt: Date.now() + 60000 });
+  // Garder aussi state.activeEvents pour compatibilité UI
   state.activeEvents[zoneId] = { eventId: event.id, expiresAt: Date.now() + 60000 };
   globalThis.saveState();
 }
@@ -839,6 +860,11 @@ function syncBackgroundZones() {
 }
 
 Object.assign(globalThis, {
+  // Zone activity (état exclusif par zone)
+  zoneActivity,
+  getZoneActivityMode,
+  setZoneActivity,
+  clearZoneActivity,
   // Zone system pure logic
   _zsys_getZoneSlotCost:              getZoneSlotCost,
   _zsys_initZone:                     initZone,
