@@ -10259,7 +10259,7 @@ Object.assign(globalThis, {
   // Audio
   SFX,
   // Zone / spawn functions (agent module)
-  initZone, spawnInZone, makePokemon, getPokemonPower, levelUpPokemon,
+  initZone, spawnInZone, makePokemon, makeTrainerTeam, getPokemonPower, levelUpPokemon,
   getCombatRepGain, addBattleLogEntry, pushFeedEvent, rollChestLoot, triggerGymRaid,
   tryCapture, calculateStats, showCaptureBurst,
   removeSpawn, updateZoneTimers,
