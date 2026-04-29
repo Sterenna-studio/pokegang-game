@@ -132,8 +132,11 @@ const DEFAULT_STATE = {
     bossName: 'Boss',
     bossSprite: '',
     bossZone: null, // the zone the boss is currently in
-    bossTeam: [], // array of up to 3 pokemon IDs for boss combat
-    showcase: [null, null, null],
+    bossTeam: [], // array of up to 3 pokemon IDs for boss combat (mirrors activeBossTeamSlot)
+    bossTeamSlots: [[], [], []], // 3 saved team configurations
+    activeBossTeamSlot: 0,       // which slot is currently active (0/1/2)
+    bossTeamSlotsPurchased: [true, false, false], // slot 2 costs 500k, slot 3 costs 1M
+    showcase: [null, null, null, null, null, null],
     reputation: 0,
     money: 5000,
     initialized: false,
@@ -411,9 +414,15 @@ function migrate(saved) {
   if (merged.settings.autoEvoChoice  === undefined) merged.settings.autoEvoChoice  = false;
   merged.activeBoosts = { ...structuredClone(DEFAULT_STATE.activeBoosts), ...(saved.activeBoosts || {}) };
   merged.activeEvents = saved.activeEvents || {};
-  // Migration: bossTeam
+  // Migration: bossTeam + save slots
   if (!merged.gang.bossTeam) merged.gang.bossTeam = [];
-  if (!merged.gang.showcase) merged.gang.showcase = [null, null, null];
+  if (!merged.gang.showcase) merged.gang.showcase = [];
+  while (merged.gang.showcase.length < 6) merged.gang.showcase.push(null);
+  if (!merged.gang.bossTeamSlots) merged.gang.bossTeamSlots = [[...(merged.gang.bossTeam || [])], [], []];
+  if (merged.gang.activeBossTeamSlot === undefined) merged.gang.activeBossTeamSlot = 0;
+  if (!merged.gang.bossTeamSlotsPurchased) merged.gang.bossTeamSlotsPurchased = [true, false, false];
+  // Keep bossTeam in sync with active slot
+  merged.gang.bossTeam = [...(merged.gang.bossTeamSlots[merged.gang.activeBossTeamSlot] || [])];
   // Migration: titles
   if (!merged.unlockedTitles) merged.unlockedTitles = ['recrue', 'fondateur'];
   if (!merged.gang.titleA) merged.gang.titleA = 'recrue';
@@ -3271,42 +3280,57 @@ function renderCosmeticsPanel(container) {
 // 13.  UI — GANG TAB
 // ════════════════════════════════════════════════════════════════
 
+// Persists collapsed state across renders (does not survive page reload — intentional)
+const _gangCollapsed = { cosmetics: false, stats: false };
+
 function renderGangTab() {
   const tab = document.getElementById('tabGang');
   if (!tab) return;
 
   const g = state.gang;
   const s = state.stats;
+  const activeSlot = g.activeBossTeamSlot || 0;
   const teamPks = (g.bossTeam || []).map(id => state.pokemons.find(p => p.id === id)).filter(Boolean);
-  const mvp = state.pokemons.length > 0
-    ? state.pokemons.reduce((best, p) => calculatePrice(p) > calculatePrice(best) ? p : best)
-    : null;
 
-  // ── Vitrine (showcase) ──
-  const showcaseSlots = (g.showcase || [null, null, null]).slice(0, 3);
-  const showcaseHtml = showcaseSlots.map((pkId, i) => {
+  // ── Vitrine (showcase — 6 slots) ──
+  const showcaseArr = (g.showcase || []);
+  while (showcaseArr.length < 6) showcaseArr.push(null);
+  const showcaseHtml = showcaseArr.slice(0, 6).map((pkId, i) => {
     const pk = pkId ? state.pokemons.find(p => p.id === pkId) : null;
     if (pk) {
       const evos = EVO_BY_SPECIES[pk.species_en];
       const evoHint = evos && evos.length > 0 ? `<button class="gang-evo-hint" data-pk-id="${pk.id}" title="Voir évolution">❓</button>` : '';
       return `<div class="gang-showcase-slot filled" data-showcase-idx="${i}">
-        <img src="${pokeSprite(pk.species_en, pk.shiny)}" style="width:56px;height:56px;image-rendering:pixelated;${pk.shiny ? 'filter:drop-shadow(0 0 4px var(--gold))' : ''}">
-        <div style="font-size:8px;margin-top:2px;color:var(--text)">${pokemonDisplayName(pk)}${pk.shiny ? ' ✨' : ''}</div>
+        <img src="${pokeSprite(pk.species_en, pk.shiny)}" style="width:48px;height:48px;image-rendering:pixelated;${pk.shiny ? 'filter:drop-shadow(0 0 4px var(--gold))' : ''}">
+        <div style="font-size:7px;margin-top:2px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%">${pokemonDisplayName(pk)}${pk.shiny ? ' ✨' : ''}</div>
         <div style="font-size:7px;color:var(--text-dim)">Lv.${pk.level} ${'★'.repeat(pk.potential)}</div>
-        <div style="display:flex;gap:4px;margin-top:4px;align-items:center">
+        <div style="display:flex;gap:3px;margin-top:3px;align-items:center;justify-content:center">
           ${evoHint}
-          <button class="gang-showcase-remove" data-idx="${i}" style="font-size:7px;padding:1px 5px;background:var(--bg);border:1px solid var(--red);border-radius:2px;color:var(--red);cursor:pointer">✕</button>
+          <button class="gang-showcase-remove" data-idx="${i}" style="font-size:7px;padding:1px 4px;background:var(--bg);border:1px solid var(--red);border-radius:2px;color:var(--red);cursor:pointer">✕</button>
         </div>
       </div>`;
     }
     return `<div class="gang-showcase-slot empty" data-showcase-idx="${i}">
-      <div style="font-size:18px;opacity:.3">🏆</div>
-      <div style="font-size:7px;color:var(--text-dim);margin-top:4px">Slot vitrine</div>
-      <button class="gang-showcase-add" data-idx="${i}" style="margin-top:6px;font-size:7px;padding:2px 6px;background:var(--bg);border:1px solid var(--border-light);border-radius:2px;color:var(--text-dim);cursor:pointer">+ Ajouter</button>
+      <div style="font-size:16px;opacity:.3">🏆</div>
+      <div style="font-size:7px;color:var(--text-dim);margin-top:3px">Slot ${i+1}</div>
+      <button class="gang-showcase-add" data-idx="${i}" style="margin-top:5px;font-size:7px;padding:2px 5px;background:var(--bg);border:1px solid var(--border-light);border-radius:2px;color:var(--text-dim);cursor:pointer">+</button>
     </div>`;
   }).join('');
 
-  // ── Boss team ──
+  // ── Boss team save slots tabs ──
+  const SLOT_COSTS = [0, 500_000, 1_000_000];
+  const purchased = g.bossTeamSlotsPurchased || [true, false, false];
+  const teamTabsHtml = [0, 1, 2].map(i => {
+    const isActive = i === activeSlot;
+    const isPurchased = purchased[i];
+    const label = i === 0 ? 'Slot 1' : isPurchased ? `Slot ${i+1}` : `Slot ${i+1} — ${SLOT_COSTS[i].toLocaleString()}₽`;
+    return `<button class="gang-team-slot-tab${isActive ? ' active' : ''}${!isPurchased ? ' locked' : ''}" data-team-slot="${i}"
+      style="font-family:var(--font-pixel);font-size:7px;padding:4px 8px;border-radius:var(--radius-sm) var(--radius-sm) 0 0;border:1px solid ${isActive ? 'var(--gold-dim)' : 'var(--border)'};border-bottom:${isActive ? '1px solid var(--bg-panel)' : '1px solid var(--border)'};background:${isActive ? 'var(--bg-panel)' : 'var(--bg)'};color:${isActive ? 'var(--gold)' : isPurchased ? 'var(--text-dim)' : 'var(--text-dim)'};cursor:pointer;opacity:${isPurchased || isActive ? '1' : '.7'}">
+      ${!isPurchased ? '🔒 ' : ''}${label}
+    </button>`;
+  }).join('');
+
+  // ── Boss team slots ──
   const teamHtml = [0, 1, 2].map(i => {
     const pk = teamPks[i];
     if (pk) return `<div class="gang-team-slot filled" data-boss-slot="${i}" title="${pokemonDisplayName(pk)} Lv.${pk.level}">
@@ -3316,53 +3340,6 @@ function renderGangTab() {
     </div>`;
     return `<div class="gang-team-slot empty" data-boss-slot="${i}"><span style="font-size:7px;color:var(--text-dim)">Slot ${i+1}</span></div>`;
   }).join('');
-
-  // ── Mini pension ──
-  const pensionSlotA = state.pension?.slotA ? state.pokemons.find(p => p.id === state.pension.slotA) : null;
-  const pensionSlotB = state.pension?.slotB ? state.pokemons.find(p => p.id === state.pension.slotB) : null;
-  const incubatorCount = state.inventory?.incubator || 0;
-  const incubatingEggs = (state.eggs || []).filter(e => e.incubating);
-  const nextIncubatorCost = incubatorCount >= 10 ? null : Math.round(15000 * Math.pow(2, incubatorCount));
-
-  const pensionSlotHtml = (pk, label) => pk
-    ? `<div style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm)">
-        <img src="${pokeSprite(pk.species_en, pk.shiny)}" style="width:28px;height:28px;image-rendering:pixelated">
-        <div><div style="font-size:8px">${pokemonDisplayName(pk)}</div><div style="font-size:7px;color:var(--text-dim)">Lv.${pk.level}</div></div>
-      </div>`
-    : `<div style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--bg);border:1px dashed var(--border-light);border-radius:var(--radius-sm);opacity:.4">
-        <img src="${EGG_SPRITES.default}" style="width:24px;height:24px;object-fit:contain;image-rendering:pixelated;filter:grayscale(1)"><span style="font-size:8px;color:var(--text-dim)">${label} vide</span>
-      </div>`;
-
-  const incubSlotRows = Array.from({ length: Math.max(1, incubatorCount) }).map((_, i) => {
-    const egg = incubatingEggs[i];
-    if (egg) {
-      const pct = Math.min(100, Math.round(((Date.now() - egg.startedAt) / egg.hatchMs) * 100));
-      return `<div style="display:flex;align-items:center;gap:6px;padding:4px 8px;background:var(--bg);border:1px solid var(--green);border-radius:var(--radius-sm)">
-        ${eggImgTag(egg, false, `width:28px;height:28px;${pct >= 90 ? 'filter:drop-shadow(0 0 4px var(--green))' : ''}`)}
-        <div style="flex:1"><div style="height:3px;background:var(--border);border-radius:2px"><div style="width:${pct}%;height:3px;background:var(--green);border-radius:2px"></div></div></div>
-        <span style="font-size:7px;color:var(--green)">${pct}%</span>
-      </div>`;
-    }
-    if (i < incubatorCount) return `<div style="padding:4px 8px;background:var(--bg);border:1px dashed var(--border-light);border-radius:var(--radius-sm);font-size:7px;color:var(--text-dim)">Slot libre</div>`;
-    return '';
-  }).join('');
-
-  const miniPensionHtml = `
-    <div style="display:flex;flex-direction:column;gap:6px">
-      <div style="display:flex;gap:6px;flex-wrap:wrap">
-        ${pensionSlotHtml(pensionSlotA, 'Slot A')}
-        ${pensionSlotHtml(pensionSlotB, 'Slot B')}
-      </div>
-      ${incubatorCount === 0
-        ? `<div style="font-size:8px;color:var(--text-dim);padding:4px 0">Aucun incubateur — achetez-en un pour incuber des oeufs.</div>`
-        : `<div style="display:flex;flex-direction:column;gap:4px">${incubSlotRows}</div>`}
-      <div style="display:flex;gap:6px;align-items:center;margin-top:2px;flex-wrap:wrap">
-        ${nextIncubatorCost
-          ? `<button id="btnBuyIncubatorGang" style="font-family:var(--font-pixel);font-size:7px;padding:4px 10px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">+ Incubateur — ${nextIncubatorCost.toLocaleString()}₽</button>`
-          : `<span style="font-family:var(--font-pixel);font-size:7px;color:var(--red)">MAX incubateurs</span>`}
-        <button id="btnGoPension" style="font-family:var(--font-pixel);font-size:7px;padding:4px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">Gérer →</button>
-      </div>
-    </div>`;
 
   // ── Stats ──
   const statsHtml = [
@@ -3379,77 +3356,120 @@ function renderGangTab() {
 
   tab.innerHTML = `
   <div class="gang-card-layout">
-    <!-- ── Header ── -->
-    <div class="gang-card-header">
-      <div class="gang-boss-sprite">
-        ${g.bossSprite ? `<img src="${trainerSprite(g.bossSprite)}" style="width:80px;height:80px;image-rendering:pixelated">` : '<div style="width:80px;height:80px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm)"></div>'}
-      </div>
-      <div style="flex:1;min-width:0">
-        <div style="font-family:var(--font-pixel);font-size:16px;color:var(--red);line-height:1.3">${g.name}</div>
-        <div style="font-size:11px;color:var(--text-dim);margin-top:2px">Boss : <span style="color:var(--text)">${g.bossName}</span></div>
-<div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold-dim);margin-top:2px;letter-spacing:.5px">${getBossFullTitle()}</div>
-${(() => {
-  const tC = getTitleLabel(g.titleC);
-  const tD = getTitleLabel(g.titleD);
-  const badges = [tC, tD].filter(Boolean);
-  if (!badges.length) return '';
-  const colors = ['#4fc3f7','#ce93d8'];
-  return `<div style="display:flex;gap:5px;margin-top:3px;flex-wrap:wrap">${badges.map((b,i)=>`<span style="font-family:var(--font-pixel);font-size:6px;padding:2px 6px;border-radius:10px;border:1px solid ${colors[i]};color:${colors[i]}">${b}</span>`).join('')}</div>`;
-})()}
-<button id="btnOpenTitles" style="margin-top:4px;font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">🏆 Titres</button>
-        <div style="display:flex;gap:16px;margin-top:6px;flex-wrap:wrap">
-          <span style="font-size:10px;color:var(--gold)">⭐ ${g.reputation.toLocaleString()}</span>
-          <span style="font-size:10px;color:var(--text)">₽ ${g.money.toLocaleString()}</span>
-          <span style="font-size:10px;color:var(--text-dim)" title="Pokédex Kanto (151) / National (${NATIONAL_DEX_SIZE})">📖 ${getDexKantoCaught()}/${KANTO_DEX_SIZE} <span style="font-size:8px;opacity:.6">[${getDexNationalCaught()}/${NATIONAL_DEX_SIZE}]</span></span>
+    <!-- ── Header: Boss info + Vitrine + Équipe ── -->
+    <div class="gang-card-header" style="flex-direction:column;gap:0;padding:0">
+
+      <!-- Boss info row -->
+      <div style="display:flex;align-items:flex-start;gap:14px;padding:14px">
+        <div class="gang-boss-sprite">
+          ${g.bossSprite ? `<img src="${trainerSprite(g.bossSprite)}" style="width:72px;height:72px;image-rendering:pixelated">` : '<div style="width:72px;height:72px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm)"></div>'}
         </div>
-        <div style="margin-top:8px;background:var(--border);border-radius:2px;height:4px;max-width:220px">
-          <div style="background:var(--gold-dim);height:4px;border-radius:2px;width:${repPct}%;transition:width .5s"></div>
+        <div style="flex:1;min-width:0">
+          <div style="font-family:var(--font-pixel);font-size:15px;color:var(--red);line-height:1.3">${g.name}</div>
+          <div style="font-size:11px;color:var(--text-dim);margin-top:2px">Boss : <span style="color:var(--text)">${g.bossName}</span></div>
+          <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold-dim);margin-top:2px;letter-spacing:.5px">${getBossFullTitle()}</div>
+          ${(() => {
+            const tC = getTitleLabel(g.titleC);
+            const tD = getTitleLabel(g.titleD);
+            const badges = [tC, tD].filter(Boolean);
+            if (!badges.length) return '';
+            const colors = ['#4fc3f7','#ce93d8'];
+            return `<div style="display:flex;gap:5px;margin-top:3px;flex-wrap:wrap">${badges.map((b,bi)=>`<span style="font-family:var(--font-pixel);font-size:6px;padding:2px 6px;border-radius:10px;border:1px solid ${colors[bi]};color:${colors[bi]}">${b}</span>`).join('')}</div>`;
+          })()}
+          <button id="btnOpenTitles" style="margin-top:4px;font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">🏆 Titres</button>
+          <div style="display:flex;gap:14px;margin-top:6px;flex-wrap:wrap">
+            <span style="font-size:10px;color:var(--gold)">⭐ ${g.reputation.toLocaleString()}</span>
+            <span style="font-size:10px;color:var(--text)">₽ ${g.money.toLocaleString()}</span>
+            <span style="font-size:10px;color:var(--text-dim)" title="Pokédex Kanto (151) / National (${NATIONAL_DEX_SIZE})">📖 ${getDexKantoCaught()}/${KANTO_DEX_SIZE} <span style="font-size:8px;opacity:.6">[${getDexNationalCaught()}/${NATIONAL_DEX_SIZE}]</span></span>
+          </div>
+          <div style="margin-top:8px;background:var(--border);border-radius:2px;height:4px;max-width:200px">
+            <div style="background:var(--gold-dim);height:4px;border-radius:2px;width:${repPct}%;transition:width .5s"></div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end;flex-shrink:0">
+          <button id="btnExportGang" style="font-family:var(--font-pixel);font-size:7px;padding:5px 8px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">📋 Exporter</button>
+          <button id="btnEditBoss" style="font-family:var(--font-pixel);font-size:7px;padding:5px 8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">✏ Modifier</button>
         </div>
       </div>
-      <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
-        <button id="btnExportGang" style="font-family:var(--font-pixel);font-size:7px;padding:6px 10px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">📋 Exporter</button>
-        <button id="btnEditBoss" style="font-family:var(--font-pixel);font-size:7px;padding:6px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">✏ Modifier</button>
+
+      <!-- Vitrine 6 slots -->
+      <div style="border-top:1px solid var(--border);padding:10px 14px">
+        <div style="font-family:var(--font-pixel);font-size:7px;color:var(--gold-dim);letter-spacing:1px;margin-bottom:7px">— VITRINE —</div>
+        <div class="gang-showcase-row">${showcaseHtml}</div>
+      </div>
+
+      <!-- Équipe Boss + save slots -->
+      <div style="border-top:1px solid var(--border);padding:10px 14px 14px">
+        <div style="font-family:var(--font-pixel);font-size:7px;color:var(--gold-dim);letter-spacing:1px;margin-bottom:6px">— ÉQUIPE BOSS —</div>
+        <div style="display:flex;gap:0;margin-bottom:-1px">${teamTabsHtml}</div>
+        <div style="border:1px solid var(--border);border-radius:0 var(--radius-sm) var(--radius-sm) var(--radius-sm);padding:8px;background:var(--bg-panel)">
+          <div class="gang-team-row" style="margin-bottom:0">${teamHtml}</div>
+        </div>
       </div>
     </div>
 
-    <!-- ── Vitrine ── -->
-    <div class="gang-section-label">— VITRINE —</div>
-    <div class="gang-showcase-row">${showcaseHtml}</div>
+    <!-- ── Collapsible: APPARENCE & MUSIQUE ── -->
+    <div class="gang-section-label gang-collapsible-header" data-section="cosmetics" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none">
+      <span>— APPARENCE & MUSIQUE —</span>
+      <span style="font-size:9px;color:var(--text-dim)">${_gangCollapsed.cosmetics ? '▶' : '▼'}</span>
+    </div>
+    <div class="gang-collapsible-body" data-section-body="cosmetics" style="${_gangCollapsed.cosmetics ? 'display:none' : ''}">
+      <div id="gangCosmContainer" style="padding:0 2px 8px"></div>
+    </div>
 
-    <!-- ── Équipe Boss ── -->
-    <div class="gang-section-label">— ÉQUIPE BOSS —</div>
-    <div class="gang-team-row">${teamHtml}</div>
-
-    <!-- ── Pension mini ── -->
-    <div class="gang-section-label">— PENSION & INCUBATEURS —</div>
-    <div style="padding:0 2px">${miniPensionHtml}</div>
-
-    <!-- ── Cosmétiques ── -->
-    <div class="gang-section-label">— APPARENCE & MUSIQUE —</div>
-    <div id="gangCosmContainer" style="padding:0 2px"></div>
-
-    <!-- ── Stats ── -->
-    <div class="gang-section-label">— STATISTIQUES —</div>
-    <div class="gang-stats-row">${statsHtml}</div>
+    <!-- ── Collapsible: STATISTIQUES ── -->
+    <div class="gang-section-label gang-collapsible-header" data-section="stats" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none">
+      <span>— STATISTIQUES —</span>
+      <span style="font-size:9px;color:var(--text-dim)">${_gangCollapsed.stats ? '▶' : '▼'}</span>
+    </div>
+    <div class="gang-collapsible-body" data-section-body="stats" style="${_gangCollapsed.stats ? 'display:none' : ''}">
+      <div class="gang-stats-row">${statsHtml}</div>
+    </div>
 
     <!-- ── Version ── -->
     <div style="margin-top:16px;text-align:center;font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);letter-spacing:1px;opacity:.5">${GAME_VERSION}</div>
   </div>`;
 
+  // ── Collapsible toggles ──
+  tab.querySelectorAll('.gang-collapsible-header').forEach(header => {
+    header.addEventListener('click', () => {
+      const section = header.dataset.section;
+      _gangCollapsed[section] = !_gangCollapsed[section];
+      const body = tab.querySelector(`[data-section-body="${section}"]`);
+      if (body) body.style.display = _gangCollapsed[section] ? 'none' : '';
+      const arrow = header.querySelector('span:last-child');
+      if (arrow) arrow.textContent = _gangCollapsed[section] ? '▶' : '▼';
+    });
+  });
+
   // ── Handlers ──
   tab.querySelector('#btnOpenTitles')?.addEventListener('click', openTitleModal);
-
-  tab.querySelector('#btnRecruitAgent')?.addEventListener('click', () => openAgentRecruitModal(() => renderGangTab()));
-
   tab.querySelector('#btnExportGang')?.addEventListener('click', () => openExportModal());
-
   tab.querySelector('#btnEditBoss')?.addEventListener('click', () => openBossEditModal(() => renderGangTab()));
 
-  tab.querySelectorAll('.agent-zone-select').forEach(sel => {
-    sel.addEventListener('change', e => {
-      const agentId = e.target.dataset.agentId;
-      assignAgentToZone(agentId, e.target.value || null);
-      if (activeTab === 'tabZones') renderZoneWindows();
+  // Boss team save slot tabs
+  tab.querySelectorAll('.gang-team-slot-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const slotIdx = parseInt(btn.dataset.teamSlot);
+      const isPurchased = (g.bossTeamSlotsPurchased || [true, false, false])[slotIdx];
+      if (!isPurchased) {
+        const cost = SLOT_COSTS[slotIdx];
+        showConfirm(`Débloquer le Slot ${slotIdx + 1} pour ${cost.toLocaleString()}₽ ?`, () => {
+          if (state.gang.money < cost) { notify('Fonds insuffisants.', 'error'); SFX.play('error'); return; }
+          state.gang.money -= cost;
+          state.gang.bossTeamSlotsPurchased[slotIdx] = true;
+          state.gang.activeBossTeamSlot = slotIdx;
+          state.gang.bossTeam = [...(state.gang.bossTeamSlots[slotIdx] || [])];
+          saveState(); updateTopBar(); SFX.play('unlock');
+          renderGangTab();
+        }, null, { confirmLabel: 'Acheter', cancelLabel: 'Annuler' });
+        return;
+      }
+      // Switch to this slot
+      state.gang.activeBossTeamSlot = slotIdx;
+      state.gang.bossTeam = [...(state.gang.bossTeamSlots[slotIdx] || [])];
+      saveState();
+      renderGangTab();
     });
   });
 
@@ -3467,7 +3487,7 @@ ${(() => {
     btn.addEventListener('click', e => {
       e.stopPropagation();
       const idx = parseInt(btn.dataset.idx);
-      if (!state.gang.showcase) state.gang.showcase = [null, null, null];
+      while (state.gang.showcase.length < 6) state.gang.showcase.push(null);
       state.gang.showcase[idx] = null;
       saveState();
       renderGangTab();
@@ -3483,40 +3503,19 @@ ${(() => {
     });
   });
 
-  // Boss team slots — click to open team picker
+  // Boss team slots — click filled to remove, empty to add
   tab.querySelectorAll('.gang-team-slot').forEach(el => {
     el.addEventListener('click', () => {
       const i = parseInt(el.dataset.bossSlot);
       if (el.classList.contains('filled')) {
         state.gang.bossTeam.splice(i, 1);
+        state.gang.bossTeamSlots[state.gang.activeBossTeamSlot || 0] = [...state.gang.bossTeam];
         saveState();
         renderGangTab();
       } else {
         openTeamPickerModal(i, () => renderGangTab());
       }
     });
-  });
-
-  // ── Mini pension handlers ──
-  tab.querySelector('#btnBuyIncubatorGang')?.addEventListener('click', () => {
-    const owned = state.inventory?.incubator || 0;
-    if (owned >= 10) { notify('Vous avez déjà le maximum d\'incubateurs (10).', 'error'); return; }
-    const cost = Math.round(15000 * Math.pow(2, owned));
-    if (state.gang.money < cost) { notify(`Fonds insuffisants (${cost.toLocaleString()}₽)`, 'error'); return; }
-    showConfirm(`Acheter un incubateur pour ${cost.toLocaleString()}₽ ?`, () => {
-      state.gang.money -= cost;
-      state.inventory.incubator = owned + 1;
-      saveState(); updateTopBar();
-      SFX.play('unlock');
-      notify(`Incubateur obtenu ! Total: ${state.inventory.incubator}`, 'gold');
-      renderGangTab();
-    }, null, { confirmLabel: 'Acheter', cancelLabel: 'Annuler' });
-  });
-  tab.querySelector('#btnGoPension')?.addEventListener('click', () => {
-    switchTab('tabPC');
-    // Open pension view in PC tab
-    const pensionBtn = document.querySelector('#pcBtnPension');
-    pensionBtn?.click();
   });
 
   // ── Cosmetics panel (embedded) ──
@@ -3552,7 +3551,8 @@ function openShowcasePicker(slotIdx) {
 
   modal.querySelectorAll('.showcase-pick-item').forEach(el => {
     el.addEventListener('click', () => {
-      if (!state.gang.showcase) state.gang.showcase = [null, null, null];
+      if (!state.gang.showcase) state.gang.showcase = [];
+      while (state.gang.showcase.length < 6) state.gang.showcase.push(null);
       state.gang.showcase[slotIdx] = el.dataset.pkId;
       saveState();
       modal.remove();
@@ -3775,6 +3775,7 @@ function openTeamPicker(type, targetId, onDone) {
         if (state.gang.bossTeam.length < 3) {
           removePokemonFromAllAssignments(pkId);
           state.gang.bossTeam.push(pkId);
+          if (state.gang.bossTeamSlots) state.gang.bossTeamSlots[state.gang.activeBossTeamSlot || 0] = [...state.gang.bossTeam];
         }
       } else {
         const agent = state.agents.find(a => a.id === targetId);
@@ -3800,7 +3801,11 @@ function openTeamPicker(type, targetId, onDone) {
           const pk = state.pokemons.find(p => p.id === pkId);
           if (!pk) return;
           if (type === 'boss') {
-            if (state.gang.bossTeam.length < 3) { removePokemonFromAllAssignments(pkId); state.gang.bossTeam.push(pkId); }
+            if (state.gang.bossTeam.length < 3) {
+              removePokemonFromAllAssignments(pkId);
+              state.gang.bossTeam.push(pkId);
+              if (state.gang.bossTeamSlots) state.gang.bossTeamSlots[state.gang.activeBossTeamSlot || 0] = [...state.gang.bossTeam];
+            }
           } else {
             const agent = state.agents.find(a => a.id === targetId);
             if (agent && agent.team.length < 3) agent.team.push(pkId);

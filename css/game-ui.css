@@ -2688,17 +2688,21 @@
 
     /* ── Gang Card Layout ── */
     .gang-card-layout { padding: 12px; display: flex; flex-direction: column; gap: 0; }
-    .gang-card-header { display: flex; align-items: flex-start; gap: 14px; padding: 14px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 12px; }
+    .gang-card-header { display: flex; flex-direction: column; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 12px; overflow: hidden; }
     .gang-section-label { font-family: var(--font-pixel); font-size: 8px; color: var(--gold); letter-spacing: 1px; padding: 8px 4px 4px; border-bottom: 1px solid var(--border); margin-bottom: 8px; }
-    .gang-showcase-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
-    .gang-showcase-slot { background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 6px; display: flex; flex-direction: column; align-items: center; text-align: center; min-height: 110px; justify-content: center; transition: border-color .2s; }
+    .gang-section-label.gang-collapsible-header:hover { color: var(--text); }
+    /* Showcase: 6 slots in 2 rows of 3, compact */
+    .gang-showcase-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 0; }
+    .gang-showcase-slot { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 7px 4px; display: flex; flex-direction: column; align-items: center; text-align: center; min-height: 90px; justify-content: center; transition: border-color .2s; }
     .gang-showcase-slot.empty { border-style: dashed; cursor: pointer; }
     .gang-showcase-slot.filled { border-color: var(--border-light); cursor: pointer; }
     .gang-showcase-slot:hover { border-color: var(--gold-dim); }
-    .gang-team-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
-    .gang-team-slot { background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 4px; display: flex; flex-direction: column; align-items: center; text-align: center; min-height: 80px; justify-content: center; cursor: pointer; transition: border-color .2s; }
+    /* Boss team */
+    .gang-team-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 0; }
+    .gang-team-slot { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 4px; display: flex; flex-direction: column; align-items: center; text-align: center; min-height: 74px; justify-content: center; cursor: pointer; transition: border-color .2s; }
     .gang-team-slot.filled { border-color: var(--border-light); }
     .gang-team-slot:hover { border-color: var(--red); }
+    .gang-team-slot-tab.active { position: relative; z-index: 1; }
     .gang-agents-grid { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
     .gang-agent-card { display: flex; align-items: center; gap: 10px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 10px; }
     .gang-stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 12px; }
