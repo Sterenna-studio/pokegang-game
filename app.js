@@ -5539,11 +5539,25 @@ function renderPokemonDetail() {
       <div>PC: <b>${power}</b></div>
     </div>
     <div style="font-size:11px;margin-bottom:8px">
-      <div style="color:var(--text-dim);margin-bottom:4px">${t('moves')}:</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <span style="color:var(--text-dim)">${t('moves')}:</span>
+        <button id="btnChangeMoves" style="font-size:8px;padding:2px 7px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer" title="Changer les attaques (10 000₽)">🔄 10k₽</button>
+      </div>
       ${p.moves.map(m => `<div style="padding:2px 0">▸ ${m}</div>`).join('')}
     </div>
     <div style="font-size:11px;margin-bottom:8px">
-      <div>ATK: <b>${p.stats.atk}</b> — DEF: <b>${p.stats.def}</b> — SPD: <b>${p.stats.spd}</b></div>
+      ${(() => {
+        const ref = { species_en: p.species_en, potential: 5, nature: 'hardy', level: p.level };
+        ref.stats = calculateStats(ref);
+        const pct = v => Math.min(100, Math.round(v / ref.stats[Object.keys(ref.stats)[0]] * 100));
+        const bar = (val, max, color) => `<div style="flex:1;background:var(--border);border-radius:2px;height:5px"><div style="background:${color};width:${Math.min(100,Math.round(val/max*100))}%;height:5px;border-radius:2px"></div></div>`;
+        return `<div style="display:flex;flex-direction:column;gap:3px">
+          <div style="display:flex;align-items:center;gap:6px"><span style="font-size:9px;width:30px">ATK</span>${bar(p.stats.atk, ref.stats.atk,'#e57373')}<span style="font-size:9px;color:var(--text-dim)">${p.stats.atk}<span style="color:var(--border-light)">/${ref.stats.atk}</span></span></div>
+          <div style="display:flex;align-items:center;gap:6px"><span style="font-size:9px;width:30px">DEF</span>${bar(p.stats.def, ref.stats.def,'#64b5f6')}<span style="font-size:9px;color:var(--text-dim)">${p.stats.def}<span style="color:var(--border-light)">/${ref.stats.def}</span></span></div>
+          <div style="display:flex;align-items:center;gap:6px"><span style="font-size:9px;width:30px">SPD</span>${bar(p.stats.spd, ref.stats.spd,'#81c784')}<span style="font-size:9px;color:var(--text-dim)">${p.stats.spd}<span style="color:var(--border-light)">/${ref.stats.spd}</span></span></div>
+          <div style="font-size:7px;color:var(--text-dim);margin-top:1px">/ ref ★★★★★ Hardy Lv.${p.level}</div>
+        </div>`;
+      })()}
     </div>
     <div style="font-size:10px;color:var(--text-dim);margin-bottom:8px">${t('zone_caught')}: ${zoneName}</div>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
@@ -5607,6 +5621,25 @@ function renderPokemonDetail() {
     p.favorite = !p.favorite;
     saveState();
     renderPCTab();
+  });
+
+  document.getElementById('btnChangeMoves')?.addEventListener('click', () => {
+    const cost = 10000;
+    if (state.gang.money < cost) { notify('Fonds insuffisants (10 000₽).', 'error'); return; }
+    const sp2 = SPECIES_BY_EN[p.species_en];
+    if (!sp2 || !sp2.moves?.length) { notify('Aucune attaque disponible pour cette espèce.', 'error'); return; }
+    showConfirm(`Changer les attaques de <b>${speciesName(p.species_en)}</b> pour <b>10 000₽</b> ?<br><span style="color:var(--text-dim);font-size:10px">Les nouvelles attaques seront tirées aléatoirement dans le pool de l'espèce.</span>`,
+      () => {
+        state.gang.money -= cost;
+        state.stats.totalMoneySpent = (state.stats.totalMoneySpent || 0) + cost;
+        p.moves = rollMoves(p.species_en);
+        saveState();
+        notify(`Attaques changées → ${p.moves.join(', ')}`, 'gold');
+        renderPCTab();
+        updateTopBar();
+      },
+      null, { confirmLabel: 'Changer', cancelLabel: 'Annuler' }
+    );
   });
 
   document.getElementById('btnRareCandy')?.addEventListener('click', () => {
