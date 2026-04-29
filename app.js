@@ -115,7 +115,7 @@ let SAVE_KEY = SAVE_KEYS[activeSaveSlot];
 
 // ── Versionnage du schéma de save ────────────────────────────────────────────
 // Incrémenter à chaque ajout de champ majeur pour déclencher le banner migration.
-const SAVE_SCHEMA_VERSION = 7;
+const SAVE_SCHEMA_VERSION = 8;
 
 // Anciennes clés localStorage (versions antérieures à v6)
 const LEGACY_SAVE_KEYS = ['pokeforge.v5', 'pokeforge.v4', 'pokeforge.v3', 'pokeforge.v2', 'pokeforge.v1', 'pokeforge'];
@@ -217,6 +217,15 @@ const DEFAULT_STATE = {
     autoBuyBall: null,  // null | 'pokeball' | 'greatball' | 'ultraball'
     spriteMode: 'local',   // 'local'|'gen1'|'gen2'|'gen3'|'gen4'|'gen5'|'ani'|'dex'|'home'
     autoEvoChoice: false,  // true = évolution multi choisie automatiquement (aléatoire, sans popup)
+    autoSellAgent: {       // vente auto à la capture agent (après achat purchases.autoSellAgent)
+      mode: 'all',         // 'all' | 'by_potential'
+      potentials: [],      // potentials ciblés si mode === 'by_potential'
+    },
+    autoSellEggs: {        // vente auto des œufs éclots (après achat purchases.autoSellEggs)
+      mode: 'all',         // 'all' | 'by_potential'
+      potentials: [],
+      allowShiny: false,   // autoriser la vente de chromatiques
+    },
   },
   log: [],
   marketSales: {}, // { [species_en]: { count, lastSale } } — supply/demand
@@ -238,16 +247,19 @@ const DEFAULT_STATE = {
   },
   purchases: {
     translator: false,
-    cosmeticsPanel: false, // 50 000₽ — débloque l'onglet Cosmétiques
-    autoIncubator: false,      // 300 000₽ — Infirmière Joëlle corrompue (auto-incubation)
-    autoCollect: false,        // 100 000₽ — Récolte automatique (skip combat animation)
-    autoCollectEnabled: true,  // toggle on/off après achat
-    chromaCharm: false,        // Gagné à 10 000 000₽ — taux shiny ×2
+    cosmeticsPanel: false,    // 50 000₽ — débloque l'onglet Cosmétiques
+    autoIncubator: false,     // 300 000₽ — Infirmière Joëlle corrompue (auto-incubation)
+    autoCollectEnabled: true, // toggle on/off après achat
+    autoCollect: false,       // 100 000₽ — Récolte automatique (skip combat animation)
+    chromaCharm: false,       // Gagné à 10 000 000₽ — taux shiny ×2
+    scientist: false,         // 5 000 000₽ — Scientifique peu scrupuleux
+    autoSellAgent: false,     // 10 000 000₽ — Vente auto à la capture agent
+    autoSellEggs: false,      // 5 000 000₽ — Vente auto des œufs éclots
   },
   pension: {
-    slotA: null,    // pokemon ID
-    slotB: null,    // pokemon ID
-    eggAt: null,    // timestamp when next egg generates
+    slots: [],              // array of pokemon IDs (2 base + up to 4 extra purchased)
+    extraSlotsPurchased: 0, // 0–4 extra slots (each costs progressively more)
+    eggAt: null,            // timestamp when next egg generates
   },
   eggs: [],         // [{ id, species_en, hatchAt, potential, shiny }]
   playtime: 0,      // secondes de jeu total
@@ -471,6 +483,15 @@ function migrate(saved) {
   if (merged.purchases.autoCollect === undefined) merged.purchases.autoCollect = false;
   if (merged.purchases.autoCollectEnabled === undefined) merged.purchases.autoCollectEnabled = true;
   if (merged.purchases.chromaCharm === undefined) merged.purchases.chromaCharm = false;
+  if (merged.purchases.scientist === undefined) merged.purchases.scientist = false;
+  if (merged.purchases.autoSellAgent === undefined) merged.purchases.autoSellAgent = false;
+  if (merged.purchases.autoSellEggs === undefined) merged.purchases.autoSellEggs = false;
+  // Auto-sell config — nested under settings (consistent with sfxIndividual, etc.)
+  if (!merged.settings.autoSellAgent) merged.settings.autoSellAgent = { mode: 'all', potentials: [] };
+  if (!merged.settings.autoSellEggs) merged.settings.autoSellEggs = { mode: 'all', potentials: [], allowShiny: false };
+  // Migrate legacy top-level keys if present (from a brief wrong placement)
+  if (merged.autoSellAgentSettings) { Object.assign(merged.settings.autoSellAgent, merged.autoSellAgentSettings); delete merged.autoSellAgentSettings; }
+  if (merged.autoSellEggsSettings)  { Object.assign(merged.settings.autoSellEggs,  merged.autoSellEggsSettings);  delete merged.autoSellEggsSettings; }
   if (!merged.favoriteZones) merged.favoriteZones = [];
   if (merged.settings.uiScale === undefined) merged.settings.uiScale = 100;
   if (merged.settings.musicVol === undefined) merged.settings.musicVol = 50;
@@ -479,7 +500,16 @@ function migrate(saved) {
   if (merged.settings.lightTheme === undefined) merged.settings.lightTheme = false;
   if (merged.settings.lowSpec === undefined)   merged.settings.lowSpec  = false;
   if (!merged.settings.sfxIndividual)          merged.settings.sfxIndividual = {};
-  if (!merged.pension) merged.pension = { slotA: null, slotB: null, eggAt: null };
+  // Migration pension slotA/slotB → slots[]
+  if (!merged.pension) merged.pension = { slots: [], extraSlotsPurchased: 0, eggAt: null };
+  if (merged.pension.slotA !== undefined || merged.pension.slotB !== undefined) {
+    // Convert legacy fields to array
+    merged.pension.slots = [merged.pension.slotA, merged.pension.slotB].filter(Boolean);
+    delete merged.pension.slotA;
+    delete merged.pension.slotB;
+  }
+
+  if (merged.pension.extraSlotsPurchased === undefined) merged.pension.extraSlotsPurchased = 0;
   if (!merged.eggs) merged.eggs = [];
   // Migration: eggs need incubating flag; auto-hatching eggs get paused
   for (const egg of merged.eggs) {
@@ -504,10 +534,9 @@ function migrate(saved) {
   {
     const teamSet = new Set(merged.gang.bossTeam || []);
     // Pension : retirer si aussi en équipe
-    if (merged.pension.slotA && teamSet.has(merged.pension.slotA)) merged.pension.slotA = null;
-    if (merged.pension.slotB && teamSet.has(merged.pension.slotB)) merged.pension.slotB = null;
+    merged.pension.slots = (merged.pension.slots || []).filter(id => !teamSet.has(id));
     // Formation : retirer si en équipe ou en pension
-    const resolvedPension = new Set([merged.pension.slotA, merged.pension.slotB].filter(Boolean));
+    const resolvedPension = new Set(merged.pension.slots || []);
     merged.trainingRoom.pokemon = (merged.trainingRoom.pokemon || []).filter(id => !teamSet.has(id) && !resolvedPension.has(id));
   }
   // Migration Gen 2 retirée : Lugia et Ho-Oh sont des Pokémon légitimes capturables
@@ -804,8 +833,7 @@ function openLegacyImportModal(legacyData) {
     const chosenPokes = pokeIds.map(id => pokemons.find(p => p.id === id)).filter(Boolean);
     chosenPokes.forEach(p => { p.homesick = true; });
     fresh.pokemons = chosenPokes;
-    if (chosenPokes[0]) fresh.pension.slotA = chosenPokes[0].id;
-    if (chosenPokes[1]) fresh.pension.slotB = chosenPokes[1].id;
+    fresh.pension.slots = chosenPokes.slice(0, 2).map(p => p.id);
     fresh.pension.eggAt = Date.now() + 60000; // first egg in 1 minute
 
     state = migrate(fresh);
@@ -837,6 +865,12 @@ function weightedPick(arr) {
 function randInt(a, b) { return Math.floor(Math.random() * (b - a + 1)) + a; }
 function uid() { return `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`; }
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+// ── Pension helpers ──────────────────────────────────────────────
+/** Max pension slots (2 base + purchased extras). */
+function getMaxPensionSlots() { return 2 + (state.pension?.extraSlotsPurchased || 0); }
+/** Set of pokemon IDs currently in pension. */
+function getPensionSlotIds() { return new Set(state.pension?.slots || []); }
 
 function addLog(msg) {
   state.log.unshift({ msg, ts: Date.now() });
@@ -4665,7 +4699,7 @@ function tryAutoIncubate() {
   let changed = false;
   for (const egg of eggs) {
     if (egg.incubating) continue;
-    const incubatingNow = eggs.filter(e => e.incubating).length;
+    const incubatingNow = eggs.filter(e => e.incubating && e.status !== 'ready').length;
     if (incubatingNow >= incubatorCount) break;
     egg.incubating = true;
     egg.incubatedAt = Date.now();
@@ -4781,7 +4815,7 @@ function hatchEgg(eggId) {
 function renderEggsView(container) {
   const eggs = state.eggs || [];
   const incubatorCount = state.inventory?.incubator || 0;
-  const incubatingCount = eggs.filter(e => e.incubating).length;
+  const incubatingCount = eggs.filter(e => e.incubating && e.status !== 'ready').length;
   const freeIncubators = incubatorCount - incubatingCount;
 
   if (eggs.length === 0) {
@@ -4793,8 +4827,8 @@ function renderEggsView(container) {
   container.innerHTML = `
     <div style="display:flex;flex-wrap:wrap;gap:12px;padding:8px">
       ${eggs.map(egg => {
-        const isIncubating = egg.incubating;
-        const isReady = isIncubating && egg.hatchAt && egg.hatchAt <= now;
+        const isReady = egg.status === 'ready' || (egg.incubating && egg.hatchAt && egg.hatchAt <= now);
+        const isIncubating = egg.incubating && !isReady;
         const timeLeft = isIncubating && egg.hatchAt ? Math.max(0, Math.ceil((egg.hatchAt - now) / 60000)) : null;
         const progress = isIncubating && egg.hatchAt && egg.incubatedAt
           ? Math.min(100, Math.round((now - egg.incubatedAt) / (egg.hatchAt - egg.incubatedAt) * 100))
@@ -5014,7 +5048,7 @@ function renderPokemonGrid(forceRebuild = false) {
   }
   else if (filter.startsWith('pot')) list = list.filter(p => p.potential === parseInt(filter.replace('pot', '')));
   else if (filter === 'pension') {
-    const psIds = new Set([state.pension?.slotA, state.pension?.slotB].filter(Boolean));
+    const psIds = getPensionSlotIds();
     list = list.filter(p => psIds.has(p.id));
   }
   else if (filter === 'training') list = list.filter(p => state.trainingRoom?.pokemon?.includes(p.id));
@@ -5042,7 +5076,7 @@ function renderPokemonGrid(forceRebuild = false) {
   const teamIds = new Set([...state.gang.bossTeam]);
   for (const a of state.agents) a.team.forEach(id => teamIds.add(id));
   const trainingIds = new Set(state.trainingRoom.pokemon);
-  const pensionIds = new Set([state.pension?.slotA, state.pension?.slotB].filter(Boolean));
+  const pensionIds = getPensionSlotIds();
 
   // Render key: rebuild on any change (list length catches sells/releases, species catches evolutions)
   const speciesHash = list.slice(pcPage * pageSize, (pcPage + 1) * pageSize).map(p => p.species_en + p.level).join(',').length;
@@ -5448,11 +5482,13 @@ function renderPokemonDetail() {
       return '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px"><button style="flex:1;font-size:10px;padding:6px;background:var(--bg);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--green);cursor:pointer" id="btnAssignTo">📋 ' + (state.lang === 'fr' ? 'Attribuer à...' : 'Assign to...') + '</button></div>';
     })()}
     ${(() => {
-      const inPension = p.id === state.pension.slotA || p.id === state.pension.slotB;
+      const pensionSlots = state.pension?.slots || [];
+      const maxPensionSlots = 2 + (state.pension?.extraSlotsPurchased || 0);
+      const inPension = pensionSlots.includes(p.id);
       const inTraining = state.trainingRoom?.pokemon?.includes(p.id);
       const inTeam = state.gang.bossTeam.includes(p.id) || state.agents.some(a => a.team.includes(p.id));
       if (inTeam) return '';
-      const pensionFull = state.pension.slotA && state.pension.slotB;
+      const pensionFull = pensionSlots.length >= maxPensionSlots;
       const trainingFull = (state.trainingRoom?.pokemon?.length || 0) >= 6;
       let btns = '';
       if (!inPension && !inTraining) {
@@ -5531,9 +5567,9 @@ function renderPokemonDetail() {
 
   document.getElementById('btnSendPension')?.addEventListener('click', () => {
     removePokemonFromAllAssignments(p.id);
-    if (!state.pension.slotA) state.pension.slotA = p.id;
-    else if (!state.pension.slotB && state.pension.slotA !== p.id) state.pension.slotB = p.id;
-    else { notify('Pension pleine'); return; }
+    const maxSlots = 2 + (state.pension?.extraSlotsPurchased || 0);
+    if ((state.pension.slots || []).length >= maxSlots) { notify('Pension pleine'); return; }
+    if (!state.pension.slots.includes(p.id)) state.pension.slots.push(p.id);
     saveState();
     notify(`${speciesName(p.species_en)} → Pension`, 'success');
     renderPCTab();
@@ -5548,8 +5584,7 @@ function renderPokemonDetail() {
     renderPCTab();
   });
   document.getElementById('btnRemovePension')?.addEventListener('click', () => {
-    if (state.pension.slotA === p.id) state.pension.slotA = null;
-    if (state.pension.slotB === p.id) state.pension.slotB = null;
+    state.pension.slots = (state.pension.slots || []).filter(id => id !== p.id);
     saveState();
     notify(`${speciesName(p.species_en)} retiré de la pension`, 'success');
     renderPCTab();
@@ -7243,8 +7278,7 @@ function openHubSlotRepairModal() {
         // Ghost IDs
         const allIds = new Set((fixed.pokemons || []).map(p => p.id));
         fixed.gang.bossTeam = (fixed.gang.bossTeam || []).filter(id => allIds.has(id));
-        if (fixed.pension?.slotA && !allIds.has(fixed.pension.slotA)) fixed.pension.slotA = null;
-        if (fixed.pension?.slotB && !allIds.has(fixed.pension.slotB)) fixed.pension.slotB = null;
+        if (fixed.pension?.slots) fixed.pension.slots = fixed.pension.slots.filter(id => allIds.has(id));
         if (fixed.trainingRoom?.pokemon) fixed.trainingRoom.pokemon = fixed.trainingRoom.pokemon.filter(id => allIds.has(id));
         // Invalid title slots
         const allTitleIds = new Set((TITLES || []).map(t => t.id));
@@ -8232,8 +8266,7 @@ function repairSave() {
         const teamBefore = state.gang.bossTeam.length;
         state.gang.bossTeam = state.gang.bossTeam.filter(id => allIds.has(id));
         // 3. IDs fantômes en pension
-        if (state.pension.slotA && !allIds.has(state.pension.slotA)) state.pension.slotA = null;
-        if (state.pension.slotB && !allIds.has(state.pension.slotB)) state.pension.slotB = null;
+        if (state.pension.slots) state.pension.slots = state.pension.slots.filter(id => allIds.has(id));
         // 4. IDs fantômes en salle d'entraînement
         const trainBefore = state.trainingRoom.pokemon.length;
         state.trainingRoom.pokemon = state.trainingRoom.pokemon.filter(id => allIds.has(id));
@@ -8411,7 +8444,7 @@ function renderLabTabInEl(tab) {
 
   const teamIds = new Set([...state.gang.bossTeam]);
   for (const a of state.agents) a.team.forEach(id => teamIds.add(id));
-  const pensionSet = new Set([state.pension?.slotA, state.pension?.slotB].filter(Boolean));
+  const pensionSet = getPensionSlotIds();
 
   const allUpgradeable = state.pokemons
     .filter(p => p.potential < 5)
@@ -8577,12 +8610,11 @@ function renderLabTabInEl(tab) {
   tab.querySelector('#btnLabUpgrade')?.addEventListener('click', () => {
     if (!selected) return;
     const cost = POT_UPGRADE_COSTS[selected.potential - 1];
-    const pensionSet2 = new Set([state.pension?.slotA, state.pension?.slotB].filter(Boolean));
     const donors = state.pokemons.filter(d =>
       d.species_en === selected.species_en && d.id !== selected.id &&
       !d.shiny && d.potential <= selected.potential &&
       !teamIds.has(d.id) && !state.trainingRoom.pokemon?.includes(d.id) &&
-      !pensionSet2.has(d.id)
+      !pensionSet.has(d.id)
     );
     if (donors.length < cost) return;
     const toSacrifice = donors.slice(0, cost).map(p => p.id);
@@ -9784,6 +9816,7 @@ Object.assign(globalThis, {
   pokeSprite, tryAutoEvolution,
   // pension module
   showConfirm, renderPCTab, switchTab,
+  getMaxPensionSlots, getPensionSlotIds,
   eggSprite, eggImgTag, EGG_SPRITES,
   // zoneSelector module — zone helpers + data it reads from globalThis
   isZoneDegraded, getZoneMastery,

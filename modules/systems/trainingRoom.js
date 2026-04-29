@@ -160,7 +160,7 @@ function _refreshTrPicker(tab) {
   const inRoom = new Set(tr.pokemon);
   const teamIds = new Set([...state.gang.bossTeam]);
   for (const a of state.agents) a.team.forEach(id => teamIds.add(id));
-  const pensionIds = new Set([state.pension?.slotA, state.pension?.slotB].filter(Boolean));
+  const pensionIds = globalThis.getPensionSlotIds();
   const freeSlots = slots - tr.pokemon.length;
 
   const q = _trSearch.toLowerCase();

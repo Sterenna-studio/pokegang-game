@@ -56,9 +56,10 @@ function removePokemonFromAllAssignments(pkId) {
   // Formation
   if (state.trainingRoom) state.trainingRoom.pokemon = (state.trainingRoom.pokemon || []).filter(id => id !== pkId);
   // Pension
-  if (state.pension) {
-    if (state.pension.slotA === pkId) { state.pension.slotA = null; state.pension.eggAt = null; }
-    if (state.pension.slotB === pkId) { state.pension.slotB = null; state.pension.eggAt = null; }
+  if (state.pension?.slots) {
+    const before = state.pension.slots.length;
+    state.pension.slots = state.pension.slots.filter(id => id !== pkId);
+    if (state.pension.slots.length < before) state.pension.eggAt = null;
   }
 }
 
@@ -87,7 +88,7 @@ function sellPokemon(pokemonIds, _shinyConfirmed = false) {
     if (pokemonIds.length === 0) return;
   }
   // Block pension pokémon
-  const pensionSet = new Set([state.pension?.slotA, state.pension?.slotB].filter(Boolean));
+  const pensionSet = globalThis.getPensionSlotIds();
   const pensionBlocked = pokemonIds.filter(id => pensionSet.has(id));
   if (pensionBlocked.length > 0) {
     globalThis.notify('Les Pokémon en pension ne peuvent pas être vendus.', 'error');
