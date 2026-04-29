@@ -2526,7 +2526,7 @@ function initKeyboardShortcuts() {
       case 'p': case 'P':
         pcView = 'grid'; switchTab('tabPC'); break;
       case 'e': case 'E':
-        pcView = 'eggs'; switchTab('tabPC'); break;
+        pcView = 'pension'; switchTab('tabPC'); break;
       case 't': case 'T':
         pcView = 'training'; switchTab('tabPC'); break;
       case 'l': case 'L':
@@ -4738,8 +4738,7 @@ function renderPCTab() {
         <button class="pc-view-btn" id="pcBtnGrid" data-pcview="grid">[PC]</button>
         <button class="pc-view-btn" id="pcBtnTraining" data-pcview="training">[FORMATION]</button>
         <button class="pc-view-btn" id="pcBtnLab" data-pcview="lab">[LABO]</button>
-        <button class="pc-view-btn" id="pcBtnPension" data-pcview="pension">[PENSION]</button>
-        <button class="pc-view-btn" id="pcBtnEggs" data-pcview="eggs">[OEUFS${state.eggs.length ? ` (${state.eggs.length})` : ''}]</button>`;
+        <button class="pc-view-btn" id="pcBtnPension" data-pcview="pension">[PENSION${state.eggs.length ? ` & ${state.eggs.length} 🥚` : ''}]</button>`;
       pcLayout.parentNode.insertBefore(switcher, pcLayout);
       switcher.querySelectorAll('.pc-view-btn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -4749,14 +4748,17 @@ function renderPCTab() {
         });
       });
     }
+    // Redirect legacy 'eggs' pcView to 'pension' (merged)
+    if (pcView === 'eggs') { pcView = 'pension'; globalThis.pcView = pcView; }
+
     // Update active state + eggs count (always refresh)
     switcher.querySelectorAll('.pc-view-btn').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.pcview === pcView);
     });
-    const eggsBtn = switcher.querySelector('#pcBtnEggs');
-    if (eggsBtn) eggsBtn.textContent = `[OEUFS${state.eggs.length ? ` (${state.eggs.length})` : ''}]`;
+    const pensionBtn = switcher.querySelector('#pcBtnPension');
+    if (pensionBtn) pensionBtn.textContent = `[PENSION${state.eggs.length ? ` & ${state.eggs.length} 🥚` : ''}]`;
 
-    const subViews = ['trainingInPC', 'labInPC', 'pensionInPC', 'eggsInPC'];
+    const subViews = ['trainingInPC', 'labInPC', 'pensionInPC'];
     if (pcView === 'training') {
       pcLayout.style.display = 'none';
       subViews.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = id === 'trainingInPC' ? '' : 'none'; });
@@ -4792,18 +4794,6 @@ function renderPCTab() {
       }
       pensionInPC.style.display = '';
       renderPensionView(pensionInPC);
-      return;
-    } else if (pcView === 'eggs') {
-      pcLayout.style.display = 'none';
-      subViews.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = id === 'eggsInPC' ? '' : 'none'; });
-      let eggsInPC = document.getElementById('eggsInPC');
-      if (!eggsInPC) {
-        eggsInPC = document.createElement('div');
-        eggsInPC.id = 'eggsInPC';
-        pcLayout.parentNode.appendChild(eggsInPC);
-      }
-      eggsInPC.style.display = '';
-      renderEggsView(eggsInPC);
       return;
     } else {
       pcLayout.style.display = '';
