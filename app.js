@@ -6239,6 +6239,13 @@ function renderDexDetail(species_en) {
         🔍 Voir dans le PC (×${ownedCount})
       </button>
     </div>` : ''}
+    ${state.purchases.autoSellAgent && entry.shiny ? `
+    <div style="margin-top:10px;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm)">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:9px">
+        <input type="checkbox" id="dexShinyUnprotect" ${entry.shinyUnprotected ? 'checked' : ''} style="width:14px;height:14px">
+        <span>✨ Autoriser la vente auto du Shiny<br><span style="color:var(--text-dim);font-size:8px">Les shinies de cette espèce pourront être auto-vendus</span></span>
+      </label>
+    </div>` : ''}
     <div style="margin-top:8px">
       ${_getDexAssistantCostHtml(sp)}
     </div>
@@ -6251,6 +6258,12 @@ function renderDexDetail(species_en) {
 
   document.getElementById('dexFilterPCBtn')?.addEventListener('click', () => filterPCBySpecies(sp.en));
   document.getElementById('dexAssistantBtn')?.addEventListener('click', () => openDexAssistant(species_en));
+  document.getElementById('dexShinyUnprotect')?.addEventListener('change', (e) => {
+    if (!state.pokedex[sp.en]) state.pokedex[sp.en] = {};
+    state.pokedex[sp.en].shinyUnprotected = e.target.checked;
+    saveState();
+    notify(e.target.checked ? `⚠ Shinies de ${speciesName(sp.en)} déprotégés.` : `✅ Shinies de ${speciesName(sp.en)} à nouveau protégés.`, e.target.checked ? '' : 'success');
+  });
 }
 
 // ── Player stat modal ────────────────────────────────────────────

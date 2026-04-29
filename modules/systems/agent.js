@@ -190,7 +190,8 @@ function assignAgentToZone(agentId, zoneId) {
 function _autoSellCaptured(pokemon) {
   const state = globalThis.state;
   if (!state.purchases?.autoSellAgent) return false;
-  if (pokemon.shiny) return false;
+  // Shinies always protected unless explicitly unprotected per-species in Pokédex
+  if (pokemon.shiny && !state.pokedex?.[pokemon.species_en]?.shinyUnprotected) return false;
   const cfg = state.settings?.autoSellAgent;
   if (!cfg) return false;
   if (cfg.mode === 'by_potential') {
