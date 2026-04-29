@@ -9,6 +9,13 @@
 let _trSearch = '';           // persisté entre re-renders
 let _trSelected = new Set(); // IDs cochés pour ajout groupé
 
+// Costs for extra slots 7..12 (index 0 = slot 7)
+const TRAINING_EXTRA_SLOT_COSTS = [100_000, 250_000, 500_000, 1_000_000, 2_000_000, 3_000_000];
+
+function getMaxTrainingSlots(tr) {
+  return 6 + (tr.extraSlots || 0);
+}
+
 function renderTrainingTab() {
   const state = globalThis.state;
   const tab = (activeTab === 'tabPC' && pcView === 'training')
@@ -17,13 +24,19 @@ function renderTrainingTab() {
   if (!tab) return;
 
   const tr = state.trainingRoom;
-  const slots = 6;
+  const maxSlots = getMaxTrainingSlots(tr);
   const inRoom = new Set(tr.pokemon);
   const teamIds = new Set([...state.gang.bossTeam]);
   for (const a of state.agents) a.team.forEach(id => teamIds.add(id));
 
+  // ── Buy extra slot button ──
+  const nextExtraCost = TRAINING_EXTRA_SLOT_COSTS[tr.extraSlots || 0];
+  const buySlotBtn = (maxSlots < 12 && nextExtraCost !== undefined)
+    ? `<button id="btnBuyTrainingSlot" style="font-family:var(--font-pixel);font-size:8px;padding:4px 10px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">+ Slot (${nextExtraCost.toLocaleString()}₽)</button>`
+    : '';
+
   let slotsHtml = '';
-  for (let i = 0; i < slots; i++) {
+  for (let i = 0; i < maxSlots; i++) {
     const pkId = tr.pokemon[i];
     const p = pkId ? state.pokemons.find(pk => pk.id === pkId) : null;
     if (p) {
@@ -76,7 +89,8 @@ function renderTrainingTab() {
       <div>
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
           <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold)">SALLE D\'ENTRAINEMENT</div>
-          <div style="font-size:9px;color:var(--text-dim)">Niv.${roomLevel} — XP x${mult}%</div>
+          <div style="font-size:9px;color:var(--text-dim)">Niv.${roomLevel} — XP x${mult}% — ${tr.pokemon.length}/${maxSlots} slots</div>
+          ${buySlotBtn}
           ${tr.pokemon.length > 0 ? `<button id="btnTrClearAll" style="margin-left:auto;font-family:var(--font-pixel);font-size:8px;padding:4px 8px;background:var(--bg);border:1px solid var(--red);border-radius:var(--radius-sm);color:var(--red);cursor:pointer">Tout retirer</button>` : ''}
         </div>
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px">
@@ -112,6 +126,23 @@ function renderTrainingTab() {
     state.trainingRoom.pokemon = [];
     saveState();
     notify('Salle d\'entrainement vidée.', 'success');
+    renderTrainingTab();
+  });
+
+  // Buy extra slot button
+  document.getElementById('btnBuyTrainingSlot')?.addEventListener('click', () => {
+    const state = globalThis.state;
+    const tr = state.trainingRoom;
+    const extra = tr.extraSlots || 0;
+    const cost = TRAINING_EXTRA_SLOT_COSTS[extra];
+    if (cost === undefined) return;
+    if (state.gang.money < cost) { notify('Fonds insuffisants.'); return; }
+    state.gang.money -= cost;
+    state.stats.totalMoneySpent = (state.stats.totalMoneySpent || 0) + cost;
+    tr.extraSlots = extra + 1;
+    saveState();
+    updateTopBar();
+    notify(`Slot ${6 + tr.extraSlots} débloqué !`, 'gold');
     renderTrainingTab();
   });
 
@@ -156,12 +187,12 @@ function _refreshTrPicker(tab) {
   if (!pickerArea) return;
 
   const tr = state.trainingRoom;
-  const slots = 6;
+  const maxSlotsForPicker = getMaxTrainingSlots(tr);
   const inRoom = new Set(tr.pokemon);
   const teamIds = new Set([...state.gang.bossTeam]);
   for (const a of state.agents) a.team.forEach(id => teamIds.add(id));
   const pensionIds = globalThis.getPensionSlotIds();
-  const freeSlots = slots - tr.pokemon.length;
+  const freeSlots = maxSlotsForPicker - tr.pokemon.length;
 
   const q = _trSearch.toLowerCase();
   const allCandidates = state.pokemons

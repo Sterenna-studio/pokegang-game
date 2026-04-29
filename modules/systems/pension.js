@@ -260,10 +260,11 @@ function renderPensionView(container) {
 
   // ── Eggs inventory ──────────────────────────────────────────
   const incubatorCount = state.inventory.incubator || 0;
-  const incubatingEggs = state.eggs.filter(e => e.incubating && e.status !== 'ready');
+  const allIncubated   = state.eggs.filter(e => e.incubating);   // ready + in-progress
   const readyEggs      = state.eggs.filter(e => e.status === 'ready');
   const waitingEggs    = state.eggs.filter(e => !e.incubating && e.status !== 'ready');
-  const freeIncubators = Math.max(0, incubatorCount - incubatingEggs.length);
+  const incubatingEggs = allIncubated.filter(e => e.status !== 'ready'); // for legacy compat
+  const freeIncubators = Math.max(0, incubatorCount - allIncubated.length);
 
   // Egg display helper — hides species/potential until revealed
   function _eggLabel(egg) {
@@ -277,37 +278,40 @@ function renderPensionView(container) {
     return `<button class="egg-reveal-btn" data-egg-id="${egg.id}" style="font-family:var(--font-pixel);font-size:7px;padding:2px 6px;background:var(--bg);border:1px solid #c05be0;border-radius:var(--radius-sm);color:#c05be0;cursor:pointer">🧬 10k₽</button>`;
   }
 
+  // ── Incubator grid cells ────────────────────────────────────
   let incubatorHtml = '';
   if (incubatorCount === 0) {
     incubatorHtml = `<div style="font-size:9px;color:var(--text-dim);padding:8px;text-align:center;border:1px dashed var(--border);border-radius:var(--radius-sm)">Aucun incubateur — achetez-en un au Marché (15 000₽)</div>`;
   } else {
-    for (const egg of incubatingEggs) {
-      const rarity = egg.rarity || SPECIES_BY_EN[egg.species_en]?.rarity || 'common';
-      const total = EGG_HATCH_MS[rarity] || EGG_HATCH_MS.common;
-      const rem   = Math.max(0, (egg.hatchAt || 0) - now);
-      const pct   = total > 0 ? Math.round((1 - rem / total) * 100) : 100;
-      const remStr = rem <= 0 ? 'Prêt !' : rem < 60000 ? `${Math.ceil(rem / 1000)}s` : `${Math.ceil(rem / 60000)}min`;
-      const imgTag = globalThis.eggImgTag?.(egg, false, 'width:32px;height:32px;image-rendering:pixelated') || '🥚';
-      const lbl = _eggLabel(egg);
-      incubatorHtml += `<div style="display:flex;align-items:center;gap:8px;padding:8px;border:1px solid var(--gold-dim);border-radius:var(--radius-sm);background:var(--bg)">
-        <img src="${globalThis.ITEM_SPRITE_URLS?.incubator || ''}" style="width:20px;height:20px;object-fit:contain;image-rendering:pixelated" onerror="this.style.display='none'">
-        ${imgTag}
-        <div style="flex:1">
-          <div style="font-size:9px">${lbl.name} ${lbl.pot}${lbl.shiny}</div>
-          <div style="background:var(--border);border-radius:2px;height:4px;margin-top:3px">
-            <div style="background:var(--gold-dim);height:4px;border-radius:2px;width:${pct}%;transition:width .3s"></div>
-          </div>
-          <div style="font-size:8px;color:var(--gold);margin-top:2px">${remStr}</div>
-        </div>
-        ${_revealBtn(egg)}
-      </div>`;
+    const _incubSlots = [];
+    for (const egg of allIncubated) {
+      const isReady = egg.status === 'ready';
+      const rarity  = egg.rarity || SPECIES_BY_EN[egg.species_en]?.rarity || 'common';
+      const total   = EGG_HATCH_MS[rarity] || EGG_HATCH_MS.common;
+      const rem     = isReady ? 0 : Math.max(0, (egg.hatchAt || 0) - now);
+      const pct     = isReady ? 100 : (total > 0 ? Math.round((1 - rem / total) * 100) : 0);
+      const remStr  = isReady ? '✓ Prêt !' : rem < 60000 ? `${Math.ceil(rem / 1000)}s` : `${Math.ceil(rem / 60000)}min`;
+      const imgTag  = globalThis.eggImgTag?.(egg, false, 'width:44px;height:44px;image-rendering:pixelated') || '🥚';
+      const lbl     = _eggLabel(egg);
+      _incubSlots.push(`
+        <div style="position:relative;display:flex;flex-direction:column;align-items:center;padding:10px 6px 8px;gap:5px;border:2px solid ${isReady ? 'var(--green)' : 'var(--gold-dim)'};border-radius:var(--radius-sm);background:var(--bg);${isReady ? 'animation:eggReadyGlow .8s ease-in-out infinite alternate;' : ''}">
+          ${isReady ? `<div style="position:absolute;top:-9px;right:-9px;font-family:var(--font-pixel);font-size:8px;color:var(--bg);background:var(--green);border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;z-index:2;animation:eggReadyBadge .4s ease-in-out infinite alternate">!</div>` : ''}
+          ${imgTag}
+          <div style="font-size:8px;text-align:center;line-height:1.2;max-width:72px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${lbl.name}${lbl.shiny}</div>
+          <div style="font-size:7px;color:var(--text-dim)">${lbl.pot}</div>
+          ${!isReady ? `<div style="background:var(--border);border-radius:2px;height:3px;width:100%;min-width:60px"><div style="background:var(--gold-dim);height:3px;border-radius:2px;width:${pct}%;transition:width .3s"></div></div>` : ''}
+          <div style="font-size:8px;color:${isReady ? 'var(--green)' : 'var(--gold)'};font-family:var(--font-pixel)">${remStr}</div>
+          ${_revealBtn(egg)}
+        </div>`);
     }
-    for (let i = 0; i < freeIncubators; i++) {
-      incubatorHtml += `<div style="display:flex;align-items:center;gap:8px;padding:8px;border:1px dashed var(--border);border-radius:var(--radius-sm);color:var(--text-dim);font-size:9px">
-        <img src="${globalThis.ITEM_SPRITE_URLS?.incubator || ''}" style="width:20px;height:20px;opacity:.35;image-rendering:pixelated" onerror="this.style.display='none'">
-        <span>Incubateur libre</span>
-      </div>`;
+    for (let i = allIncubated.length; i < incubatorCount; i++) {
+      _incubSlots.push(`
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 8px;gap:5px;border:1px dashed var(--border);border-radius:var(--radius-sm);background:var(--bg);min-height:110px">
+          <img src="${globalThis.ITEM_SPRITE_URLS?.incubator || ''}" style="width:28px;height:28px;opacity:.3;image-rendering:pixelated" onerror="this.style.display='none'">
+          <div style="font-size:8px;color:var(--text-dim)">Libre</div>
+        </div>`);
     }
+    incubatorHtml = _incubSlots.join('');
   }
 
   const waitingEggsHtml = waitingEggs.map(egg => {
@@ -451,8 +455,9 @@ function renderPensionView(container) {
 
         <!-- Incubators -->
         <div>
-          <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold);margin-bottom:8px">INCUBATEURS (${incubatingEggs.length}/${incubatorCount})</div>
-          <div style="display:flex;flex-direction:column;gap:6px">${incubatorHtml || `<div style="font-size:9px;color:var(--text-dim);text-align:center;padding:8px">Aucun incubateur — achetez-en un au Marché</div>`}</div>
+          <style>@keyframes eggReadyGlow{from{box-shadow:0 0 0 rgba(110,207,138,0)}to{box-shadow:0 0 12px rgba(110,207,138,.7)}}@keyframes eggReadyBadge{from{transform:scale(1)}to{transform:scale(1.35)}}</style>
+          <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold);margin-bottom:8px">INCUBATEURS (${allIncubated.length}/${incubatorCount})</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:8px">${incubatorHtml || `<div style="font-size:9px;color:var(--text-dim);text-align:center;padding:8px">Aucun incubateur — achetez-en un au Marché</div>`}</div>
         </div>
 
         <!-- Waiting eggs -->

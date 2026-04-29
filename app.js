@@ -231,10 +231,11 @@ const DEFAULT_STATE = {
   marketSales: {}, // { [species_en]: { count, lastSale } } — supply/demand
   favorites: [],   // array of pokemon IDs marked as favorite
   trainingRoom: {
-    pokemon: [],      // up to 6 pokemon IDs training here
+    pokemon: [],      // up to 6+extraSlots pokemon IDs training here
     log: [],          // recent training events
     level: 1,         // room upgrade level
     lastFight: null,  // timestamp du dernier combat d'entraînement
+    extraSlots: 0,    // purchasable extra slots (0–6, making max 12 total)
   },
   _savedAt: 0,       // timestamp de la dernière sauvegarde
   cosmetics: {
@@ -1098,6 +1099,8 @@ function pokemonDisplayName(p) {
 // ── SESSION TRACKING … itemSprite extracted → modules/systems/sessionObjectives.js ──
 
 let pcView = 'grid'; // 'grid' | 'lab'
+let _statsViewMode = 'session';   // 'session' | 'global'
+let _sessionStatsBase = null;     // snapshot of state.stats at session start
 let _pcLastRenderKey = ''; // tracks last filter/sort/page combo to avoid unnecessary rebuilds
 let labSelectedId = null;
 let labShowAll    = false;
@@ -3377,16 +3380,19 @@ function renderGangTab() {
     return `<div class="gang-team-slot empty" data-boss-slot="${i}"><span style="font-size:7px;color:var(--text-dim)">Slot ${i+1}</span></div>`;
   }).join('');
 
-  // ── Stats ──
+  // ── Stats (session vs global toggle) ──
+  const _sb = _sessionStatsBase || {};
+  const _isSession = _statsViewMode === 'session';
+  const _sv = k => _isSession ? Math.max(0, (s[k] || 0) - (_sb[k] || 0)) : (s[k] || 0);
   const statsHtml = [
-    [state.pokemons.length,                  'Possédés'],
-    [s.totalCaught,                          'Capturés'],
-    [s.totalSold,                            'Vendus'],
-    [getShinySpeciesCount(),                  '✨ Espèces chroma'],
-    [s.shinyCaught,                          '✨ Chromas (total)'],
-    [`${s.totalFightsWon}/${s.totalFights}`, 'Combats'],
-    [`${s.totalMoneyEarned.toLocaleString()}₽`, 'Gains'],
-  ].map(([val, label]) => `<div class="gang-stat-card"><div class="stat-value">${val}</div><div class="stat-label">${label}</div></div>`).join('');
+    [state.pokemons.length,                                        'Possédés'],
+    [_sv('totalCaught'),                                           'Capturés'],
+    [_sv('totalSold'),                                             'Vendus'],
+    [_isSession ? _sv('shinyCaught') : getShinySpeciesCount(),     _isSession ? '✨ Chromas' : '✨ Espèces chroma'],
+    [_isSession ? '' : s.shinyCaught,                              _isSession ? '' : '✨ Chromas (total)'],
+    [`${_sv('totalFightsWon')}/${_sv('totalFights')}`,             'Combats'],
+    [`${_sv('totalMoneyEarned').toLocaleString()}₽`,               'Gains'],
+  ].filter(([val]) => val !== '').map(([val, label]) => `<div class="gang-stat-card"><div class="stat-value">${val}</div><div class="stat-label">${label}</div></div>`).join('');
 
   const repPct = Math.min(100, g.reputation);
 
@@ -3513,7 +3519,10 @@ function renderGangTab() {
     <!-- ── Collapsible: STATISTIQUES ── -->
     <div class="gang-section-label gang-collapsible-header" data-section="stats" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none">
       <span>— STATISTIQUES —</span>
-      <span style="font-size:9px;color:var(--text-dim)">${_gangCollapsed.stats ? '▶' : '▼'}</span>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button id="btnToggleStatsView" onclick="event.stopPropagation()" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:${_isSession ? 'var(--gold)' : 'var(--text-dim)'};cursor:pointer">${_isSession ? '⏱ SESSION' : '🌐 GLOBAL'}</button>
+        <span style="font-size:9px;color:var(--text-dim)">${_gangCollapsed.stats ? '▶' : '▼'}</span>
+      </div>
     </div>
     <div class="gang-collapsible-body" data-section-body="stats" style="${_gangCollapsed.stats ? 'display:none' : ''}">
       <div class="gang-stats-row">${statsHtml}</div>
@@ -3533,6 +3542,13 @@ function renderGangTab() {
       const arrow = header.querySelector('span:last-child');
       if (arrow) arrow.textContent = _gangCollapsed[section] ? '▶' : '▼';
     });
+  });
+
+  // ── Stats view toggle (session ↔ global) ──
+  tab.querySelector('#btnToggleStatsView')?.addEventListener('click', e => {
+    e.stopPropagation();
+    _statsViewMode = _statsViewMode === 'session' ? 'global' : 'session';
+    renderGangTab();
   });
 
   // ── Auto-sell mode toggle ──
@@ -5743,7 +5759,7 @@ function renderPokemonDetail() {
       const inTeam = state.gang.bossTeam.includes(p.id) || state.agents.some(a => a.team.includes(p.id));
       if (inTeam) return '';
       const pensionFull = pensionSlots.length >= maxPensionSlots;
-      const trainingFull = (state.trainingRoom?.pokemon?.length || 0) >= 6;
+      const trainingFull = (state.trainingRoom?.pokemon?.length || 0) >= 6 + (state.trainingRoom?.extraSlots || 0);
       let btns = '';
       if (!inPension && !inTraining) {
         btns += `<button style="flex:1;font-size:10px;padding:6px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:${pensionFull ? 'var(--text-dim)' : 'var(--text)'};cursor:${pensionFull ? 'default' : 'pointer'}" id="btnSendPension"${pensionFull ? ' disabled' : ''}>Pension ${pensionFull ? '(pleine)' : ''}</button>`;
@@ -5850,7 +5866,7 @@ function renderPokemonDetail() {
   document.getElementById('btnSendTraining')?.addEventListener('click', () => {
     removePokemonFromAllAssignments(p.id);
     if (!state.trainingRoom.pokemon) state.trainingRoom.pokemon = [];
-    if (state.trainingRoom.pokemon.length >= 6) { notify('Salle pleine (max 6)'); return; }
+    if (state.trainingRoom.pokemon.length >= 6 + (state.trainingRoom.extraSlots || 0)) { notify(`Salle pleine (max ${6 + (state.trainingRoom.extraSlots || 0)})`); return; }
     if (!state.trainingRoom.pokemon.includes(p.id)) state.trainingRoom.pokemon.push(p.id);
     saveState();
     notify(`${speciesName(p.species_en)} → Formation`, 'success');
@@ -6839,9 +6855,11 @@ function renderAgentsTab() {
       <div class="agent-header">
         <img src="${a.sprite}" alt="${a.name}" onerror="this.src='${FALLBACK_TRAINER_SVG}';this.onerror=null">
         <div class="agent-meta">
-          <div class="agent-title agent-rank-${a.title}">${getAgentRankLabel(a)}</div>
-          <div class="agent-name">${a.name}</div>
-          <div class="agent-level" style="font-size:8px;color:var(--text-dim)">Lv.${a.level}</div>
+          <div class="agent-title agent-rank-${a.title}" style="display:flex;align-items:baseline;gap:5px;flex-wrap:nowrap;overflow:hidden">
+            <span style="font-size:7px;opacity:.75;flex-shrink:0">[${getAgentRankLabel(a)}]</span>
+            <span style="font-family:var(--font-pixel);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.name}</span>
+            <span style="font-size:8px;opacity:.7;flex-shrink:0">Lv.${a.level}</span>
+          </div>
           <div class="agent-xp-bar"><div class="agent-xp-fill" style="width:${xpPct}%"></div></div>
         </div>
         ${cosmUnlockedAgent ? `<div style="display:flex;flex-direction:column;gap:3px;margin-left:auto;padding-left:6px">
@@ -10181,6 +10199,7 @@ function boot() {
     globalThis.state = state;
   }
   state.sessionStart = Date.now();
+  _sessionStatsBase = { ...state.stats };
 
   // ── Banner de migration si save convertie ────────────────────────────────
   if (_migrationResult) {
