@@ -137,16 +137,17 @@ function renderGangBaseWindow() {
     for (let i = 0; i < incCount; i++) {
       const egg = incubatingEggs[i];
       if (egg) {
-        const isReady   = egg.hatchAt && egg.hatchAt <= now;
+        const isReady   = egg.status === 'ready';
         const progress  = (egg.hatchAt && egg.incubatedAt)
           ? Math.min(100, Math.round((now - egg.incubatedAt) / (egg.hatchAt - egg.incubatedAt) * 100))
           : 0;
-        const timeLeftMin = egg.hatchAt ? Math.max(0, Math.ceil((egg.hatchAt - now) / 60000)) : null;
+        const timeLeftMin = (!isReady && egg.hatchAt) ? Math.max(0, Math.ceil((egg.hatchAt - now) / 60000)) : null;
+        const eggSrc = globalThis.eggSprite?.(egg, isReady) || '';
         incSlotsHtml += `
           <div class="base-inc-slot ${isReady ? 'ready' : 'active'}" data-egg-id="${egg.id}"
-            title="${egg.species_en}${isReady ? ' — PRÊT!' : timeLeftMin !== null ? ' — '+timeLeftMin+'min' : ''}">
-            <img src="${pokeSprite(egg.species_en)}" class="base-inc-egg" alt=""
-              style="${isReady ? '' : 'filter:brightness(0.18) saturate(0)'}">
+            title="${egg.species_en}${isReady ? ' — PRÊT !' : timeLeftMin !== null ? ' — '+timeLeftMin+'min' : ''}"
+            style="${isReady ? 'cursor:pointer;' : ''}">
+            <img src="${eggSrc}" class="base-inc-egg" alt="">
             <div class="base-inc-bar">
               <div class="base-inc-fill" style="width:${isReady ? 100 : progress}%;background:${isReady ? 'var(--green)' : 'var(--gold)'}"></div>
             </div>
@@ -240,10 +241,25 @@ function bindGangBase(container) {
     });
   });
 
-  // Incubator section → PC eggs tab
-  container.querySelector('[data-base-action="pension"]')?.addEventListener('click', () => {
-    globalThis.pcView = 'eggs';
+  // Incubator section background → pension tab
+  container.querySelector('[data-base-action="pension"]')?.addEventListener('click', e => {
+    // Don't navigate if clicked directly on a ready egg slot
+    if (e.target.closest('[data-egg-id]')) return;
+    globalThis.pcView = 'pension';
     globalThis.switchTab('tabPC');
+  });
+
+  // Ready egg slots in gang base → hatch animation directly
+  container.querySelectorAll('.base-inc-slot.ready[data-egg-id]').forEach(slot => {
+    slot.addEventListener('click', e => {
+      e.stopPropagation();
+      const eggId = slot.dataset.eggId;
+      const egg = state.eggs.find(egg => egg.id === eggId);
+      if (!egg) return;
+      globalThis.openHatchAnimation?.(egg, () => {
+        renderGangBasePanel();
+      });
+    });
   });
 
   // Item tiles

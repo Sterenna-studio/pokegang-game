@@ -3152,7 +3152,7 @@ function renderCosmeticsPanel(container) {
   const nurseOwned   = !!state.purchases?.autoIncubator;
   const nurseEnabled = state.purchases?.autoIncubatorEnabled !== false; // true par défaut
   nurseDiv.innerHTML = `
-    <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold);margin-bottom:10px">SERVICES SPÉCIAUX</div>
+    <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold);margin-bottom:10px">SERVICES</div>
     <div style="background:var(--bg-card);border:1px solid ${nurseOwned ? (nurseEnabled ? 'var(--green)' : 'var(--border)') : 'var(--border)'};border-radius:var(--radius-sm);padding:10px;display:flex;gap:12px;align-items:flex-start">
       <img src="${trainerSprite('nurse')}" style="width:48px;height:48px;image-rendering:pixelated;flex-shrink:0;${nurseOwned && !nurseEnabled ? 'opacity:.4;filter:grayscale(1)' : ''}" onerror="this.style.display='none'">
       <div style="flex:1">
