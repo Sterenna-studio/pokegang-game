@@ -175,7 +175,7 @@ function buyItem(itemDef) {
   if (!state.behaviourLogs.firstPurchaseAt) state.behaviourLogs.firstPurchaseAt = Date.now();
 
   // ── One-time gang upgrades ────────────────────────────────────
-  const GANG_UPGRADES = new Set(['translator', 'autoSellAgent', 'scientist']);
+  const GANG_UPGRADES = new Set(['translator', 'autoSellAgent']);
   if (GANG_UPGRADES.has(itemDef.id)) {
     if (state.purchases[itemDef.id]) {
       globalThis.notify(state.lang === 'fr' ? 'Déjà possédé !' : 'Already owned!');

@@ -253,6 +253,7 @@ const DEFAULT_STATE = {
     autoCollect: false,       // 100 000₽ — Récolte automatique (skip combat animation)
     chromaCharm: false,       // Gagné à 10 000 000₽ — taux shiny ×2
     scientist: false,         // 5 000 000₽ — Scientifique peu scrupuleux
+    scientistEnabled: true,   // toggle actif/inactif après achat
     autoSellAgent: false,     // 10 000 000₽ — Vente auto à la capture agent
     autoSellEggs: false,      // 5 000 000₽ — Vente auto des œufs éclots
   },
@@ -484,6 +485,7 @@ function migrate(saved) {
   if (merged.purchases.autoCollectEnabled === undefined) merged.purchases.autoCollectEnabled = true;
   if (merged.purchases.chromaCharm === undefined) merged.purchases.chromaCharm = false;
   if (merged.purchases.scientist === undefined) merged.purchases.scientist = false;
+  if (merged.purchases.scientistEnabled === undefined) merged.purchases.scientistEnabled = true;
   if (merged.purchases.autoSellAgent === undefined) merged.purchases.autoSellAgent = false;
   if (merged.purchases.autoSellEggs === undefined) merged.purchases.autoSellEggs = false;
   // Auto-sell config — nested under settings (consistent with sfxIndividual, etc.)
@@ -3471,6 +3473,34 @@ function renderGangTab() {
       </div>
     </div>` : ''}
 
+    <!-- ── Collapsible: SERVICES ── -->
+    <div class="gang-section-label gang-collapsible-header" data-section="services" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none">
+      <span>— SERVICES —</span>
+      <span style="font-size:9px;color:var(--text-dim)">${_gangCollapsed.services ? '▶' : '▼'}</span>
+    </div>
+    <div class="gang-collapsible-body" data-section-body="services" style="${_gangCollapsed.services ? 'display:none' : ''}">
+      <div style="padding:0 2px 8px">
+        ${(() => {
+          const owned   = !!state.purchases.scientist;
+          const enabled = state.purchases.scientistEnabled !== false;
+          const color   = owned ? (enabled ? 'var(--green)' : 'var(--border)') : 'var(--border)';
+          return `<div style="background:var(--bg);border:1px solid ${color};border-radius:var(--radius-sm);padding:10px;display:flex;gap:10px;align-items:flex-start">
+            <img src="${trainerSprite('scientist')}" style="width:40px;height:40px;image-rendering:pixelated;flex-shrink:0;${owned && !enabled ? 'opacity:.4;filter:grayscale(1)' : ''}" onerror="this.style.display='none'">
+            <div style="flex:1">
+              <div style="font-family:var(--font-pixel);font-size:8px;color:${owned ? (enabled ? 'var(--green)' : 'var(--text-dim)') : 'var(--text)'};margin-bottom:3px">Scientifique peu scrupuleux</div>
+              <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">Permet la mutation artificielle : sacrifice d'un ★★★★★ même espèce pour porter un Pokémon au potentiel max.</div>
+              ${owned
+                ? `<div style="display:flex;align-items:center;gap:8px">
+                     <span style="font-family:var(--font-pixel);font-size:7px;color:${enabled ? 'var(--green)' : 'var(--text-dim)'}">${enabled ? '✓ EN POSTE' : '✗ RENVOYÉ'}</span>
+                     <button id="btnToggleScientist" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid ${enabled ? 'var(--red)' : 'var(--green)'};border-radius:var(--radius-sm);color:${enabled ? 'var(--red)' : 'var(--green)'};cursor:pointer">${enabled ? 'Renvoyer' : 'Rappeler'}</button>
+                   </div>`
+                : `<button id="btnBuyScientist" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">Engager — 5 000 000₽</button>`}
+            </div>
+          </div>`;
+        })()}
+      </div>
+    </div>
+
     <!-- ── Collapsible: APPARENCE & MUSIQUE ── -->
     <div class="gang-section-label gang-collapsible-header" data-section="cosmetics" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none">
       <span>— APPARENCE & MUSIQUE —</span>
@@ -3524,6 +3554,25 @@ function renderGangTab() {
         : pots.filter(p => p !== pot);
       saveState();
     });
+  });
+
+  // ── Scientist service handlers ──
+  tab.querySelector('#btnBuyScientist')?.addEventListener('click', () => {
+    if (state.gang.money < 5_000_000) { notify('Fonds insuffisants.', 'error'); return; }
+    showConfirm('Engager le Scientifique peu scrupuleux pour <b>5 000 000₽</b> ?<br><span style="font-size:10px;color:var(--text-dim)">Permet la mutation artificielle depuis le menu contextuel du PC et du Labo.</span>', () => {
+      state.gang.money -= 5_000_000;
+      state.purchases.scientist = true;
+      state.purchases.scientistEnabled = true;
+      saveState(); updateTopBar(); SFX.play('unlock');
+      notify('🧬 Le scientifique est en poste !', 'gold');
+      renderGangTab();
+    }, null, { confirmLabel: 'Engager', cancelLabel: 'Annuler' });
+  });
+  tab.querySelector('#btnToggleScientist')?.addEventListener('click', () => {
+    state.purchases.scientistEnabled = state.purchases.scientistEnabled === false;
+    saveState();
+    notify(state.purchases.scientistEnabled !== false ? '🧬 Scientifique rappelé !' : '🚫 Scientifique renvoyé.', 'success');
+    renderGangTab();
   });
 
   // ── Handlers ──
@@ -5192,7 +5241,7 @@ function _bindPCCardListeners(el) {
           () => { sellPokemon(toSell.map(p => p.id)); renderPCTab(); updateTopBar(); },
           null, { confirmLabel: 'Vendre', cancelLabel: 'Annuler', danger: true });
       }} : null,
-      state.purchases.scientist && pk.potential < 5 && has5StarDonor ? { action:'scientist', label:`🧬 Mutation (sacrifice 1× ★★★★★ ${speciesName(pk.species_en)})`, fn: () => {
+      state.purchases.scientist && state.purchases.scientistEnabled !== false && pk.potential < 5 && has5StarDonor ? { action:'scientist', label:`🧬 Mutation (sacrifice 1× ★★★★★ ${speciesName(pk.species_en)})`, fn: () => {
         const donor = state.pokemons.find(p =>
           p.species_en === pk.species_en && p.id !== pk.id && p.potential === 5 && !p.shiny
           && !state.gang.bossTeam.includes(p.id) && !state.agents.some(a => a.team.includes(p.id))
@@ -8827,10 +8876,47 @@ function renderLabTabInEl(tab) {
         <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);flex:1;overflow-y:auto;max-height:520px">${listHtml}</div>
       </div>
       <div style="display:flex;flex-direction:column;gap:10px;overflow-y:auto;max-height:600px">
+        ${(() => {
+          const owned   = !!state.purchases.scientist;
+          const enabled = state.purchases.scientistEnabled !== false;
+          const color   = owned ? (enabled ? 'var(--green)' : 'var(--border)') : 'var(--border)';
+          return `<div style="background:var(--bg-panel);border:1px solid ${color};border-radius:var(--radius);padding:10px;display:flex;gap:10px;align-items:flex-start">
+            <img src="${trainerSprite('scientist')}" style="width:36px;height:36px;image-rendering:pixelated;flex-shrink:0;${owned && !enabled ? 'opacity:.4;filter:grayscale(1)' : ''}" onerror="this.style.display='none'">
+            <div style="flex:1">
+              <div style="font-family:var(--font-pixel);font-size:8px;color:${owned ? (enabled ? 'var(--green)' : 'var(--text-dim)') : 'var(--text)'};margin-bottom:3px">Scientifique peu scrupuleux</div>
+              <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">Mutation artificielle : sacrifice d'un ★★★★★ même espèce → potentiel max.</div>
+              ${owned
+                ? `<div style="display:flex;align-items:center;gap:8px">
+                     <span style="font-family:var(--font-pixel);font-size:7px;color:${enabled ? 'var(--green)' : 'var(--text-dim)'}">${enabled ? '✓ EN POSTE' : '✗ RENVOYÉ'}</span>
+                     <button id="btnLabToggleScientist" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid ${enabled ? 'var(--red)' : 'var(--green)'};border-radius:var(--radius-sm);color:${enabled ? 'var(--red)' : 'var(--green)'};cursor:pointer">${enabled ? 'Renvoyer' : 'Rappeler'}</button>
+                   </div>`
+                : `<button id="btnLabBuyScientist" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">Engager — 5 000 000₽</button>`}
+            </div>
+          </div>`;
+        })()}
         <div style="background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);padding:12px">${mutationHtml}</div>
         <div style="background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);padding:12px">${trackerHtml}</div>
       </div>
     </div>`;
+
+  // ── Scientist card handlers (Lab) ──
+  tab.querySelector('#btnLabBuyScientist')?.addEventListener('click', () => {
+    if (state.gang.money < 5_000_000) { notify('Fonds insuffisants.', 'error'); return; }
+    showConfirm('Engager le Scientifique peu scrupuleux pour <b>5 000 000₽</b> ?<br><span style="font-size:10px;color:var(--text-dim)">Permet la mutation artificielle depuis ce Labo et le menu contextuel du PC.</span>', () => {
+      state.gang.money -= 5_000_000;
+      state.purchases.scientist = true;
+      state.purchases.scientistEnabled = true;
+      saveState(); updateTopBar(); SFX.play('unlock');
+      notify('🧬 Le scientifique est en poste !', 'gold');
+      if (pcView === 'lab') renderPCTab(); else renderLabTab();
+    }, null, { confirmLabel: 'Engager', cancelLabel: 'Annuler' });
+  });
+  tab.querySelector('#btnLabToggleScientist')?.addEventListener('click', () => {
+    state.purchases.scientistEnabled = state.purchases.scientistEnabled === false;
+    saveState();
+    notify(state.purchases.scientistEnabled !== false ? '🧬 Scientifique rappelé !' : '🚫 Scientifique renvoyé.', 'success');
+    if (pcView === 'lab') renderPCTab(); else renderLabTab();
+  });
 
   tab.querySelectorAll('.lab-candidate').forEach(el => {
     el.addEventListener('click', () => {

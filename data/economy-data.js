@@ -43,11 +43,8 @@ const SHOP_ITEMS = [
     fr:'Vente Automatique', en:'Auto-Sell',
     desc_fr:'Les agents vendent automatiquement les captures selon le filtre configuré (Shinies toujours protégés)',
     desc_en:'Agents automatically sell captures based on your filter (Shinies always protected)' },
-  { id:'scientist', qty:1, cost:5_000_000, icon:'🧬',
-    fr:'Scientifique peu scrupuleux', en:'Unscrupulous Scientist',
-    desc_fr:'Élève le potentiel d\'un Pokémon en sacrifiant des congénères ★★★★★',
-    desc_en:'Raise a Pokémon\'s potential by sacrificing same-species ★★★★★ donors' },
 ];
+// Note: 'scientist' s'achète depuis l'onglet Gang ou Labo (carte avec sprite), pas au Marché.
 
 // ── Mystery Egg ───────────────────────────────────────────────
 const MYSTERY_EGG_BASE_COST = 50000;
