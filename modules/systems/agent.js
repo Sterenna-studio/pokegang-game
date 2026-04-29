@@ -568,14 +568,17 @@ function resolveBackgroundSpawnForZone(zoneId) {
   if (changed) {
     globalThis.saveState();
     globalThis.updateTopBar();
+    // Refresh fogmap income tile (₽ icon) immediately
+    globalThis.refreshZoneIncomeTile?.(zoneId);
+    globalThis.updateZoneButtons?.();
+    // Refresh stats view if open
+    globalThis._refreshZoneStatsView?.();
     if (globalThis.activeTab === 'tabPC') {
       if (globalThis.pcView === 'grid') globalThis.renderPokemonGrid();
-      else if (globalThis.pcView === 'eggs') {
-        const el = document.getElementById('eggsInPC');
-        if (el) globalThis.renderEggsView(el);
+      else if (globalThis.pcView === 'pension') {
+        const el = document.getElementById('pensionInPC');
+        if (el) globalThis.renderPensionView?.(el);
       }
-      const eggsBtn = document.getElementById('pcBtnEggs');
-      if (eggsBtn) eggsBtn.textContent = `[OEUFS${state.eggs.length ? ` (${state.eggs.length})` : ''}]`;
     }
     if (globalThis.activeTab === 'tabGang') globalThis.renderGangTab();
   }

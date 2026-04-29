@@ -10098,7 +10098,7 @@ Object.assign(globalThis, {
   getMysteryEggCost, trainerSprite, safeTrainerImg, safePokeImg,
   // UI / state helpers
   notify, saveState,
-  checkForNewlyUnlockedZones, updateTopBar, tryAutoIncubate,
+  updateTopBar, tryAutoIncubate,
   renderZonesTab, renderGangTab, renderAgentsTab, renderPokemonGrid, renderEggsView, renderGangBasePanel,
   // Audio
   SFX,
@@ -10144,6 +10144,9 @@ Object.assign(globalThis, {
   // zoneSelector module — zone helpers + data it reads from globalThis
   isZoneDegraded, getZoneMastery,
   getZoneSlotCost, ZONE_SLOT_COSTS, ZONE_BGS, SHOP_ITEMS,
+  // Zone UI helpers — called by agent.js background ticks
+  refreshZoneIncomeTile: _refreshZoneIncomeTile,
+  updateZoneButtons: _updateZoneButtons,
   // gangBase module — helpers needed by modules/ui/gangBase.js
   openTeamPicker, openRareCandyPicker,
   pokemonDisplayName, sanitizeSpriteName,

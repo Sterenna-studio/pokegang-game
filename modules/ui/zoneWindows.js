@@ -523,12 +523,151 @@ function collectAllZones() {
 // Zone Tab + Windows
 // ════════════════════════════════════════════════════════════════
 
+// ── Zone view mode (fog | stats) ────────────────────────────────
+let _zonesViewMode = 'fog';
+
 function renderZonesTab() {
   _zsRenderSelector();
   renderZoneWindows();
   _zsBindActions();
   globalThis.renderGangBasePanel();
+  // Bind stats toggle (idempotent via _bound flag)
+  const btnStats = document.getElementById('btnToggleZoneStats');
+  if (btnStats && !btnStats._bound) {
+    btnStats._bound = true;
+    btnStats.addEventListener('click', () => {
+      _zonesViewMode = _zonesViewMode === 'fog' ? 'stats' : 'fog';
+      _applyZoneViewMode();
+    });
+  }
+  _applyZoneViewMode();
 }
+
+function _applyZoneViewMode() {
+  const btn = document.getElementById('btnToggleZoneStats');
+  if (_zonesViewMode === 'stats') {
+    if (btn) { btn.textContent = '🗺'; btn.title = 'Vue carte'; btn.style.background = 'rgba(255,204,90,.2)'; btn.style.borderColor = 'var(--gold-dim)'; }
+    _renderZoneStatsView();
+  } else {
+    if (btn) { btn.textContent = '📊'; btn.title = 'Vue statistiques'; btn.style.background = ''; btn.style.borderColor = ''; }
+    // Restore normal fogmap — hide stats overlay if present
+    const overlay = document.getElementById('zoneStatsOverlay');
+    if (overlay) overlay.remove();
+    document.getElementById('zoneSelector')?.style.removeProperty('display');
+    document.querySelector('.fog-fav-sidebar')?.style.removeProperty('display');
+  }
+}
+
+function _renderZoneStatsView() {
+  const state       = globalThis.state;
+  const openZones   = globalThis.openZones;
+  const bgTimers    = globalThis.backgroundZoneTimers || {};
+
+  // Hide fogmap, show stats overlay in same container
+  document.getElementById('zoneSelector')?.style.setProperty('display', 'none');
+  document.querySelector('.fog-fav-sidebar')?.style.setProperty('display', 'none');
+
+  const fogLayout = document.querySelector('.fog-map-layout');
+  if (!fogLayout) return;
+
+  // Only include zones that are either unlocked or have activity
+  const allZones = ZONES.filter(z => z.type !== 'gang_park' && (
+    globalThis.isZoneUnlocked?.(z.id) ||
+    (state.zones?.[z.id]?.combatsWon || 0) > 0
+  ));
+
+  const rows = allZones.map(zone => {
+    const zs      = state.zones?.[zone.id] || {};
+    const isOpen  = openZones?.has(zone.id);
+    const hasBg   = !!bgTimers[zone.id];
+    const agents  = state.agents.filter(a => a.assignedZone === zone.id);
+    const income  = zs.pendingIncome || 0;
+    const combats = zs.combatsWon   || 0;
+    const caps    = zs.captures     || 0;
+
+    let statusText, statusColor;
+    if (isOpen)           { statusText = 'OUVERTE';  statusColor = 'var(--green)'; }
+    else if (hasBg)       { statusText = 'AGENT';    statusColor = 'var(--gold)'; }
+    else if (agents.length) { statusText = 'INACTIF'; statusColor = 'var(--red)'; }
+    else                  { statusText = '—';         statusColor = 'var(--text-dim)'; }
+
+    const agentNames = agents.map(a => a.name).join(', ') || '—';
+    const incomeFmt  = income > 0 ? `<b style="color:var(--gold)">${income.toLocaleString()}₽</b>` : '<span style="color:var(--text-dim)">0₽</span>';
+
+    const collectBtn = income > 0
+      ? `<button class="zstat-collect" data-zone="${zone.id}" style="font-family:var(--font-pixel);font-size:7px;padding:2px 7px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer;white-space:nowrap">₽ Récolter</button>`
+      : '';
+    const openBtn = !isOpen
+      ? `<button class="zstat-open" data-zone="${zone.id}" style="font-family:var(--font-pixel);font-size:7px;padding:2px 7px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer;white-space:nowrap">▶ Ouvrir</button>`
+      : `<button class="zstat-close" data-zone="${zone.id}" style="font-family:var(--font-pixel);font-size:7px;padding:2px 7px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer;white-space:nowrap">✕ Fermer</button>`;
+
+    return `<tr style="border-bottom:1px solid var(--border);${income > 0 ? 'background:rgba(255,204,90,.04)' : ''}">
+      <td style="padding:5px 8px;font-size:9px;white-space:nowrap">
+        <span style="font-family:var(--font-pixel);font-size:8px;color:var(--text)">${state.lang === 'fr' ? zone.fr : zone.en}</span>
+        <span style="font-size:7px;color:var(--text-dim);margin-left:4px">${zone.type}</span>
+      </td>
+      <td style="padding:5px 8px;text-align:center"><span style="font-family:var(--font-pixel);font-size:7px;color:${statusColor}">${statusText}</span></td>
+      <td style="padding:5px 8px;font-size:8px;color:var(--text-dim);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${agentNames}">${agentNames}</td>
+      <td style="padding:5px 8px;font-size:8px;text-align:right">${incomeFmt}</td>
+      <td style="padding:5px 8px;font-size:8px;color:var(--text-dim);text-align:center">${combats > 0 ? `⚔ ${combats}` : '—'}</td>
+      <td style="padding:5px 8px;font-size:8px;color:var(--text-dim);text-align:center">${caps > 0 ? `🎯 ${caps}` : '—'}</td>
+      <td style="padding:5px 8px;text-align:right;white-space:nowrap;display:flex;gap:4px;justify-content:flex-end">${collectBtn}${openBtn}</td>
+    </tr>`;
+  }).join('');
+
+  const totalIncome = Object.values(state.zones || {}).reduce((s, zs) => s + (zs.pendingIncome || 0), 0);
+
+  let overlay = document.getElementById('zoneStatsOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'zoneStatsOverlay';
+    overlay.style.cssText = 'width:100%;overflow-x:auto';
+    fogLayout.appendChild(overlay);
+  }
+
+  overlay.innerHTML = `
+    <div style="padding:8px 4px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+      <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">📊 STATISTIQUES DES ZONES</div>
+      ${totalIncome > 0 ? `<button id="zstatCollectAll" style="font-family:var(--font-pixel);font-size:8px;padding:4px 10px;background:rgba(255,204,90,.12);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">₽ Tout récolter (${totalIncome.toLocaleString()}₽)</button>` : ''}
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:9px">
+      <thead>
+        <tr style="border-bottom:2px solid var(--border)">
+          <th style="padding:4px 8px;text-align:left;font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);font-weight:normal">ZONE</th>
+          <th style="padding:4px 8px;font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);font-weight:normal">ÉTAT</th>
+          <th style="padding:4px 8px;text-align:left;font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);font-weight:normal">AGENTS</th>
+          <th style="padding:4px 8px;text-align:right;font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);font-weight:normal">À RÉCOLTER</th>
+          <th style="padding:4px 8px;font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);font-weight:normal">COMBATS</th>
+          <th style="padding:4px 8px;font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);font-weight:normal">CAPTURES</th>
+          <th style="padding:4px 8px;font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);font-weight:normal"></th>
+        </tr>
+      </thead>
+      <tbody>${rows || '<tr><td colspan="7" style="padding:16px;text-align:center;color:var(--text-dim);font-size:9px">Aucune zone accessible</td></tr>'}</tbody>
+    </table>`;
+
+  // Bind buttons
+  overlay.querySelectorAll('.zstat-collect').forEach(btn => {
+    btn.addEventListener('click', () => globalThis.openCollectionModal?.(btn.dataset.zone));
+  });
+  overlay.querySelectorAll('.zstat-open').forEach(btn => {
+    btn.addEventListener('click', () => { globalThis.openZoneWindow?.(btn.dataset.zone); _renderZoneStatsView(); });
+  });
+  overlay.querySelectorAll('.zstat-close').forEach(btn => {
+    btn.addEventListener('click', () => { globalThis.closeZoneWindow?.(btn.dataset.zone); _renderZoneStatsView(); });
+  });
+  overlay.querySelector('#zstatCollectAll')?.addEventListener('click', () => globalThis.collectAllZones?.());
+}
+
+// Expose for live refresh from background ticks
+globalThis._refreshZoneStatsView = () => {
+  if (_zonesViewMode === 'stats') _renderZoneStatsView();
+  // Always refresh income tiles in fog mode
+  if (_zonesViewMode === 'fog') {
+    const state = globalThis.state;
+    Object.keys(state.zones || {}).forEach(zid => _zsRefreshIncome(zid));
+    _zsUpdateButtons();
+  }
+};
 
 function openZoneWindow(zoneId) {
   const state = globalThis.state;
