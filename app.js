@@ -905,6 +905,21 @@ function pokeIcon(en) {
   return `https://play.pokemonshowdown.com/sprites/bwicons/${name}.png`;
 }
 
+// ── Egg sprites (Pokepedia) ──────────────────────────────────────────────────
+const EGG_SPRITES = {
+  common:    'https://www.pokepedia.fr/images/b/b1/Miniature_%C5%92uf_EV.png',
+  uncommon:  'https://www.pokepedia.fr/images/a/ab/Sprite_%C5%92uf_5_km_GO.png',
+  rare:      'https://www.pokepedia.fr/images/7/70/Sprite_%C5%92uf_10_km_GO.png',
+  very_rare: 'https://www.pokepedia.fr/images/a/a8/Sprite_%C5%92uf_12_km_GO.png',
+  legendary: 'https://www.pokepedia.fr/images/a/a8/Sprite_%C5%92uf_12_km_GO.png',
+  ready:     'https://www.pokepedia.fr/images/d/d9/Sprite_%C5%92uf_HOME.png',
+};
+function eggSprite(egg, ready = false) {
+  if (ready) return EGG_SPRITES.ready;
+  const rarity = egg?.rarity || 'common';
+  return EGG_SPRITES[rarity] || EGG_SPRITES.common;
+}
+
 function pokeSpriteBack(en, shiny = false) {
   const mode = state?.settings?.spriteMode ?? 'local';
   if (mode === 'local') {
@@ -3283,8 +3298,8 @@ function renderGangTab() {
         <img src="${pokeSprite(pk.species_en, pk.shiny)}" style="width:28px;height:28px;image-rendering:pixelated">
         <div><div style="font-size:8px">${pokemonDisplayName(pk)}</div><div style="font-size:7px;color:var(--text-dim)">Lv.${pk.level}</div></div>
       </div>`
-    : `<div style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--bg);border:1px dashed var(--border-light);border-radius:var(--radius-sm);opacity:.5">
-        <span style="font-size:18px">🥚</span><span style="font-size:8px;color:var(--text-dim)">${label} vide</span>
+    : `<div style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--bg);border:1px dashed var(--border-light);border-radius:var(--radius-sm);opacity:.4">
+        <img src="${EGG_SPRITES.common}" style="width:24px;height:24px;object-fit:contain;image-rendering:pixelated;filter:grayscale(1)"><span style="font-size:8px;color:var(--text-dim)">${label} vide</span>
       </div>`;
 
   const incubSlotRows = Array.from({ length: Math.max(1, incubatorCount) }).map((_, i) => {
@@ -3292,7 +3307,7 @@ function renderGangTab() {
     if (egg) {
       const pct = Math.min(100, Math.round(((Date.now() - egg.startedAt) / egg.hatchMs) * 100));
       return `<div style="display:flex;align-items:center;gap:6px;padding:4px 8px;background:var(--bg);border:1px solid var(--green);border-radius:var(--radius-sm)">
-        <span style="font-size:14px">🥚</span>
+        <img src="${eggSprite(egg)}" style="width:28px;height:28px;object-fit:contain;image-rendering:pixelated;${pct >= 90 ? 'filter:drop-shadow(0 0 4px var(--green))' : ''}">
         <div style="flex:1"><div style="height:3px;background:var(--border);border-radius:2px"><div style="width:${pct}%;height:3px;background:var(--green);border-radius:2px"></div></div></div>
         <span style="font-size:7px;color:var(--green)">${pct}%</span>
       </div>`;
@@ -4653,7 +4668,7 @@ function hatchEgg(eggId) {
   saveState();
 
   // ── Animation popup ─────────────────────────────────────────────
-  const eggUrl = ITEM_SPRITE_URLS.mysteryegg;
+  const eggUrl = eggSprite(egg);
   const pkUrl  = pokeSprite(baseEn, egg.shiny);
   const name   = speciesName(baseEn);
   const stars  = '★'.repeat(hatched.potential || 0);
@@ -4680,7 +4695,7 @@ function hatchEgg(eggId) {
         65%{transform:scale(1.15) translateY(-4px);opacity:1}
         100%{transform:scale(1) translateY(0);opacity:1}
       }
-      #_hatchEgg { animation:_eggWobble .55s ease-in-out infinite; image-rendering:pixelated; }
+      #_hatchEgg { animation:_eggWobble .55s ease-in-out infinite; }
       #_hatchEgg.cracking { animation:_eggCrack .45s ease-in forwards; }
       #_hatchPk { display:none; animation:_pkReveal .5s cubic-bezier(.17,.67,.37,1.3) forwards; image-rendering:pixelated; }
       #_hatchPk.visible { display:block; }
@@ -4774,7 +4789,7 @@ function renderEggsView(container) {
           : '⏳ En attente d\'incubateur';
 
         return `<div style="background:var(--bg-card);border:1px solid ${isReady ? 'var(--green)' : 'var(--border)'};border-radius:var(--radius);padding:10px;min-width:130px;max-width:150px;display:flex;flex-direction:column;align-items:center;gap:6px;${isReady ? 'box-shadow:0 0 8px rgba(68,187,85,.3)' : ''}">
-          <div style="font-size:28px">${isReady ? '🐣' : '🥚'}</div>
+          <img src="${eggSprite(egg, isReady)}" style="width:64px;height:64px;object-fit:contain;image-rendering:pixelated;${isReady ? 'filter:drop-shadow(0 0 6px var(--green))' : ''}" onerror="this.style.fontSize='32px';this.outerHTML='<span style=&quot;font-size:32px&quot;>${isReady ? '🐣' : '🥚'}</span>'">
           ${parentHtml}
           <div style="font-size:8px;color:${statusColor};text-align:center;font-family:var(--font-pixel);line-height:1.4">${statusText}</div>
           ${isIncubating && !isReady ? `
@@ -9697,6 +9712,7 @@ Object.assign(globalThis, {
   pokeSprite, tryAutoEvolution,
   // pension module
   showConfirm, renderPCTab, switchTab,
+  eggSprite, EGG_SPRITES,
   // zoneSelector module — zone helpers + data it reads from globalThis
   isZoneDegraded, getZoneMastery,
   getZoneSlotCost, ZONE_SLOT_COSTS, ZONE_BGS, SHOP_ITEMS,
