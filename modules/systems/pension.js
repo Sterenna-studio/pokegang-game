@@ -1,7 +1,7 @@
 // ════════════════════════════════════════════════════════════════
 // pension.js — Pension & Eggs system
 // Dependencies (globalThis): state, saveState, notify, speciesName,
-//   pokeSprite, tryAutoIncubate, makePokemon, calculateStats,
+//   pokeSprite, eggSprite, EGG_SPRITES, tryAutoIncubate, makePokemon, calculateStats,
 //   getBaseSpecies, getPokemonPower, removePokemonFromAllAssignments,
 //   showConfirm, updateTopBar, activeTab, renderPCTab,
 //   SPECIES_BY_EN, EGG_HATCH_MS (re-exported below), BASE_PRICE,
@@ -152,7 +152,7 @@ function renderPensionView(container) {
       const remStr = rem <= 0 ? 'Pret !' : rem < 60000 ? `${Math.ceil(rem / 1000)}s` : `${Math.ceil(rem / 60000)}min`;
       html += `<div style="display:flex;align-items:center;gap:8px;padding:8px;border:1px solid var(--gold-dim);border-radius:var(--radius-sm);margin-bottom:6px;background:var(--bg)">
         <img src="${ITEM_SPRITE_URLS.incubator}" style="width:24px;height:24px">
-        <div style="width:36px;height:36px;display:flex;align-items:center;justify-content:center;font-size:22px;background:var(--bg-card);border:1px solid var(--border);border-radius:4px">🥚</div>
+        ${globalThis.eggImgTag?.(egg, false, 'width:36px;height:36px;background:var(--bg-card);border:1px solid var(--border);border-radius:4px;padding:2px') || '<span style="font-size:22px">🥚</span>'}
         <div style="flex:1">
           <div style="font-size:9px">Oeuf ${rarity} ${'*'.repeat(egg.potential)}</div>
           <div style="background:var(--border);border-radius:2px;height:4px;margin-top:4px">
@@ -218,7 +218,7 @@ function renderPensionView(container) {
         <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold);margin-bottom:6px">INCUBATEURS (${incubatingEggs.length}/${incubatorCount})</div>
         <div style="margin-bottom:12px">${incubatorHtml}</div>
 
-        ${waitingEggs.length > 0 ? `<button id="btnGoToEggs" style="font-family:var(--font-pixel);font-size:8px;padding:5px 10px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">🥚 Gérer les oeufs (${waitingEggs.length} en attente) →</button>` : ''}
+        ${waitingEggs.length > 0 ? `<button id="btnGoToEggs" style="font-family:var(--font-pixel);font-size:8px;padding:5px 10px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer;display:flex;align-items:center;gap:6px"><img src="${globalThis.EGG_SPRITES?.common || ''}" style="width:18px;height:18px;object-fit:contain;image-rendering:pixelated"> Gérer les oeufs (${waitingEggs.length} en attente) →</button>` : ''}
       </div>
       <div>
         <div style="font-family:var(--font-pixel);font-size:9px;color:var(--text-dim);margin-bottom:8px">CHOISIR UN POKEMON</div>
