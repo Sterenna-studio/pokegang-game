@@ -152,7 +152,7 @@ function renderPensionView(container) {
       const remStr = rem <= 0 ? 'Pret !' : rem < 60000 ? `${Math.ceil(rem / 1000)}s` : `${Math.ceil(rem / 60000)}min`;
       html += `<div style="display:flex;align-items:center;gap:8px;padding:8px;border:1px solid var(--gold-dim);border-radius:var(--radius-sm);margin-bottom:6px;background:var(--bg)">
         <img src="${ITEM_SPRITE_URLS.incubator}" style="width:24px;height:24px">
-        <img src="${(globalThis.eggSprite?.(egg) || globalThis.EGG_SPRITES?.common || '🥚')}" style="width:36px;height:36px;object-fit:contain;image-rendering:pixelated;background:var(--bg-card);border:1px solid var(--border);border-radius:4px;padding:2px" onerror="this.outerHTML='<span style=&quot;font-size:22px&quot;>🥚</span>'">
+        ${globalThis.eggImgTag?.(egg, false, 'width:36px;height:36px;background:var(--bg-card);border:1px solid var(--border);border-radius:4px;padding:2px') || '<span style="font-size:22px">🥚</span>'}
         <div style="flex:1">
           <div style="font-size:9px">Oeuf ${rarity} ${'*'.repeat(egg.potential)}</div>
           <div style="background:var(--border);border-radius:2px;height:4px;margin-top:4px">

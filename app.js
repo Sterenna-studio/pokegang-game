@@ -905,19 +905,50 @@ function pokeIcon(en) {
   return `https://play.pokemonshowdown.com/sprites/bwicons/${name}.png`;
 }
 
-// ── Egg sprites (Pokepedia) ──────────────────────────────────────────────────
+// ── Egg sprites ──────────────────────────────────────────────────────────────
+// Pokémon-specific anime eggs (PokéOS) : {dex}-egg-anime.png
+// Rarity-coded GO eggs (Pokepedia)     : mystery / unknown species
 const EGG_SPRITES = {
-  common:    'https://www.pokepedia.fr/images/b/b1/Miniature_%C5%92uf_EV.png',
+  // Generic rarity-based (mystery eggs)
+  common:    'https://archives.bulbagarden.net/media/upload/e/ed/Spr_5b_Egg.png',
   uncommon:  'https://www.pokepedia.fr/images/a/ab/Sprite_%C5%92uf_5_km_GO.png',
   rare:      'https://www.pokepedia.fr/images/7/70/Sprite_%C5%92uf_10_km_GO.png',
   very_rare: 'https://www.pokepedia.fr/images/a/a8/Sprite_%C5%92uf_12_km_GO.png',
   legendary: 'https://www.pokepedia.fr/images/a/a8/Sprite_%C5%92uf_12_km_GO.png',
-  ready:     'https://www.pokepedia.fr/images/d/d9/Sprite_%C5%92uf_HOME.png',
+  // Special states
+  ready:     'https://archives.bulbagarden.net/media/upload/0/06/HOMEEgg.png',
+  // Default fallback
+  default:   'https://archives.bulbagarden.net/media/upload/e/ed/Spr_5b_Egg.png',
 };
+
+// Returns the generic fallback egg sprite URL (rarity-coded).
 function eggSprite(egg, ready = false) {
   if (ready) return EGG_SPRITES.ready;
   const rarity = egg?.rarity || 'common';
-  return EGG_SPRITES[rarity] || EGG_SPRITES.common;
+  return EGG_SPRITES[rarity] || EGG_SPRITES.default;
+}
+
+// Returns a full <img> HTML string with PokéOS species egg (if pension/revealed)
+// and automatic onerror fallback chain to rarity sprite → BW generic.
+// style: optional inline CSS string to add to the img.
+function eggImgTag(egg, ready = false, style = '') {
+  const fallback = eggSprite(egg, ready);
+  const bwFallback = EGG_SPRITES.default;
+  const baseStyle = `object-fit:contain;image-rendering:pixelated;${style}`;
+
+  // Pension egg (parents known) or scanned (species revealed) → try PokéOS first
+  const isRevealed = (egg?.parentA && egg?.parentB) || (egg?.scanned && egg?.revealedSpecies);
+  if (!ready && isRevealed && egg?.species_en) {
+    const sp = SPECIES_BY_EN[egg.species_en];
+    const dex = sp?.dex;
+    if (dex) {
+      const pokeos = `https://s3.pokeos.com/pokeos-uploads/forgotten-dex/eggs/${dex}-animegg.png`;
+      // onerror chain: PokéOS → rarity fallback → BW generic
+      return `<img src="${pokeos}" style="${baseStyle}" onerror="if(!this._f1){this._f1=1;this.src='${fallback}'}else if(!this._f2){this._f2=1;this.src='${bwFallback}'}">`;
+    }
+  }
+  // Generic / mystery egg — single fallback to BW generic
+  return `<img src="${fallback}" style="${baseStyle}" onerror="if(!this._f1){this._f1=1;this.src='${bwFallback}'}">`;
 }
 
 function pokeSpriteBack(en, shiny = false) {
@@ -3299,7 +3330,7 @@ function renderGangTab() {
         <div><div style="font-size:8px">${pokemonDisplayName(pk)}</div><div style="font-size:7px;color:var(--text-dim)">Lv.${pk.level}</div></div>
       </div>`
     : `<div style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--bg);border:1px dashed var(--border-light);border-radius:var(--radius-sm);opacity:.4">
-        <img src="${EGG_SPRITES.common}" style="width:24px;height:24px;object-fit:contain;image-rendering:pixelated;filter:grayscale(1)"><span style="font-size:8px;color:var(--text-dim)">${label} vide</span>
+        <img src="${EGG_SPRITES.default}" style="width:24px;height:24px;object-fit:contain;image-rendering:pixelated;filter:grayscale(1)"><span style="font-size:8px;color:var(--text-dim)">${label} vide</span>
       </div>`;
 
   const incubSlotRows = Array.from({ length: Math.max(1, incubatorCount) }).map((_, i) => {
@@ -3307,7 +3338,7 @@ function renderGangTab() {
     if (egg) {
       const pct = Math.min(100, Math.round(((Date.now() - egg.startedAt) / egg.hatchMs) * 100));
       return `<div style="display:flex;align-items:center;gap:6px;padding:4px 8px;background:var(--bg);border:1px solid var(--green);border-radius:var(--radius-sm)">
-        <img src="${eggSprite(egg)}" style="width:28px;height:28px;object-fit:contain;image-rendering:pixelated;${pct >= 90 ? 'filter:drop-shadow(0 0 4px var(--green))' : ''}">
+        ${eggImgTag(egg, false, `width:28px;height:28px;${pct >= 90 ? 'filter:drop-shadow(0 0 4px var(--green))' : ''}`)}
         <div style="flex:1"><div style="height:3px;background:var(--border);border-radius:2px"><div style="width:${pct}%;height:3px;background:var(--green);border-radius:2px"></div></div></div>
         <span style="font-size:7px;color:var(--green)">${pct}%</span>
       </div>`;
@@ -4668,7 +4699,14 @@ function hatchEgg(eggId) {
   saveState();
 
   // ── Animation popup ─────────────────────────────────────────────
-  const eggUrl = eggSprite(egg);
+  // Try PokéOS species egg for pension eggs, fallback to rarity sprite
+  const _sp = SPECIES_BY_EN[egg.species_en];
+  const _dex = _sp?.dex;
+  const _hasPokeos = _dex && (egg.parentA || egg.scanned);
+  const eggUrl = _hasPokeos
+    ? `https://s3.pokeos.com/pokeos-uploads/forgotten-dex/eggs/${_dex}-animegg.png`
+    : eggSprite(egg);
+  const eggFallback = eggSprite(egg);
   const pkUrl  = pokeSprite(baseEn, egg.shiny);
   const name   = speciesName(baseEn);
   const stars  = '★'.repeat(hatched.potential || 0);
@@ -4703,7 +4741,7 @@ function hatchEgg(eggId) {
     <div style="background:var(--bg-panel);border:2px solid var(--gold);border-radius:var(--radius);padding:32px 28px;max-width:300px;width:90%;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center">
       <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold);letter-spacing:.1em">✦ ÉCLOSION ✦</div>
       <div style="position:relative;width:88px;height:88px;display:flex;align-items:center;justify-content:center">
-        <img id="_hatchEgg" src="${eggUrl}" style="width:64px;height:64px">
+        <img id="_hatchEgg" src="${eggUrl}" style="width:64px;height:64px;object-fit:contain" onerror="if(!this._f){this._f=1;this.src='${eggFallback}'}">
         <img id="_hatchPk"  src="${pkUrl}"  style="width:88px;height:88px;position:absolute;inset:0;${egg.shiny ? 'filter:drop-shadow(0 0 8px gold)' : ''}">
       </div>
       <div id="_hatchInfo" style="opacity:0;transition:opacity .4s;display:flex;flex-direction:column;gap:6px">
@@ -4789,7 +4827,7 @@ function renderEggsView(container) {
           : '⏳ En attente d\'incubateur';
 
         return `<div style="background:var(--bg-card);border:1px solid ${isReady ? 'var(--green)' : 'var(--border)'};border-radius:var(--radius);padding:10px;min-width:130px;max-width:150px;display:flex;flex-direction:column;align-items:center;gap:6px;${isReady ? 'box-shadow:0 0 8px rgba(68,187,85,.3)' : ''}">
-          <img src="${eggSprite(egg, isReady)}" style="width:64px;height:64px;object-fit:contain;image-rendering:pixelated;${isReady ? 'filter:drop-shadow(0 0 6px var(--green))' : ''}" onerror="this.style.fontSize='32px';this.outerHTML='<span style=&quot;font-size:32px&quot;>${isReady ? '🐣' : '🥚'}</span>'">
+          ${eggImgTag(egg, isReady, `width:64px;height:64px;${isReady ? 'filter:drop-shadow(0 0 6px var(--green))' : ''}`)}
           ${parentHtml}
           <div style="font-size:8px;color:${statusColor};text-align:center;font-family:var(--font-pixel);line-height:1.4">${statusText}</div>
           ${isIncubating && !isReady ? `
@@ -9712,7 +9750,7 @@ Object.assign(globalThis, {
   pokeSprite, tryAutoEvolution,
   // pension module
   showConfirm, renderPCTab, switchTab,
-  eggSprite, EGG_SPRITES,
+  eggSprite, eggImgTag, EGG_SPRITES,
   // zoneSelector module — zone helpers + data it reads from globalThis
   isZoneDegraded, getZoneMastery,
   getZoneSlotCost, ZONE_SLOT_COSTS, ZONE_BGS, SHOP_ITEMS,
