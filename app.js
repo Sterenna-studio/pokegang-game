@@ -2419,9 +2419,9 @@ function getTabHint(tabId) {
 
 // ── First-visit contextual hint (non-bloquant, disparaît en 6s ou au clic) ──
 const _FIRST_VISIT_HINTS = {
-  tabGang:     { icon: '👑', title: 'Ton Gang', body: 'C\'est ta base. Gère ton équipe Boss, place des Pokémon en vitrine et exporte ta fiche.' },
-  tabAgents:   { icon: '👥', title: 'Les Agents', body: 'Assigne-leur une zone → ils récoltent de l\'argent automatiquement, même quand tu ne joues pas.' },
-  tabZones:    { icon: '🗺', title: 'Zones', body: 'Explore des zones avec ton Boss pour capturer des Pokémon et battre des dresseurs. Plus tu progresses, plus tu débloques de zones.' },
+  tabGang:     { icon: '👑', title: 'Ton Gang', body: 'Ta base d\'opérations. Gère l\'équipe Boss (3 slots sauvegardables), place tes meilleurs Pokémon en vitrine, et débloque des upgrades spéciaux au Marché.' },
+  tabAgents:   { icon: '👥', title: 'Les Agents', body: 'Assigne-leur une zone → ils capturent et combattent automatiquement, même zones fermées. Chaque agent a un comportement (tout / capture / combat) et une stat de chance qui augmente les potentiels.' },
+  tabZones:    { icon: '🗺', title: 'Zones', body: 'Ouvre jusqu\'à 6 zones simultanément pour capturer des Pokémon et battre des dresseurs. Les zones fermées avec agent continuent de se jouer en arrière-plan. Ton Boss participe aux combats de toutes les zones ouvertes.' },
   tabMarket:   { icon: '🛒', title: 'Marché', body: 'Achète des Pokéballs pour capturer, des incubateurs pour faire éclore des œufs, et plus encore.' },
   tabPC:       { icon: '💾', title: 'Le PC', body: 'Tous tes Pokémon sont ici. Assigne-les à ton équipe, à un agent, à la pension ou à la salle d\'entraînement.' },
   tabTraining: { icon: '🏋', title: 'Salle d\'entraînement', body: 'Tes Pokémon s\'entraînent automatiquement. Parfait pour monter en niveau des Pokémon que tu n\'utilises pas.' },
@@ -3779,6 +3779,122 @@ function closeZoneWindow(zoneId) { return globalThis._zwin_closeZoneWindow(zoneI
 function renderGangBasePanel() { return globalThis._gbase_renderGangBasePanel(); }
 
 function renderZoneWindows() { return globalThis._zwin_renderZoneWindows(); }
+
+// ── Gang Park Window ─────────────────────────────────────────────
+// Panneau persistant du QG, affiché parmi les fenêtres de zone
+let _gangParkOpen = false;
+
+function toggleGangParkWindow() {
+  _gangParkOpen = !_gangParkOpen;
+  openZones[_gangParkOpen ? 'add' : 'delete']('gang_park');
+  const container = document.getElementById('zoneWindowsContainer');
+  if (!container) return;
+  const existing = document.getElementById('zw-gang_park');
+  if (_gangParkOpen) {
+    if (!existing) {
+      const el = document.createElement('div');
+      el.id = 'zw-gang_park';
+      el.className = 'zone-window gang-park-window';
+      el.style.cssText = 'min-width:340px;max-width:420px;flex-shrink:0;border:2px solid var(--gold-dim);border-radius:var(--radius);background:linear-gradient(160deg,#1a1a2e,#16213e);overflow:hidden;display:flex;flex-direction:column';
+      container.prepend(el);
+      renderGangParkWindow(el);
+    }
+  } else if (existing) {
+    existing.remove();
+  }
+  renderZoneSelector?.();
+  _zsRefreshTile?.('gang_park');
+}
+
+function renderGangParkWindow(el) {
+  const agentRows = state.agents.map(agent => {
+    const teamHtml = agent.team.map(id => {
+      const pk = state.pokemons.find(p => p.id === id);
+      return pk ? `<img src="${pokeSprite(pk.species_en, pk.shiny)}" title="${speciesName(pk.species_en)} Lv.${pk.level}" style="width:28px;height:28px;image-rendering:pixelated${pk.shiny ? ';filter:drop-shadow(0 0 3px gold)' : ''}">` : '';
+    }).join('');
+    const zoneName = agent.assignedZone ? (ZONE_BY_ID[agent.assignedZone]?.fr || agent.assignedZone) : '—';
+    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.07)">
+      ${safeTrainerImg(agent.sprite || 'acetrainer', { style: 'width:32px;height:32px;image-rendering:pixelated' })}
+      <div style="flex:1;min-width:0">
+        <div style="font-size:9px;color:var(--text)">${agent.name}</div>
+        <div style="font-size:7px;color:var(--text-dim)">${zoneName}</div>
+      </div>
+      <div style="display:flex;gap:2px;flex-wrap:wrap;max-width:100px;justify-content:flex-end">${teamHtml || '<span style="font-size:8px;color:var(--text-dim)">—</span>'}</div>
+    </div>`;
+  }).join('') || '<div style="font-size:9px;color:var(--text-dim);padding:10px;text-align:center">Aucun agent recruté</div>';
+
+  const trainingIds = state.trainingRoom?.pokemon || [];
+  const trainingHtml = trainingIds.map(id => {
+    const pk = state.pokemons.find(p => p.id === id);
+    return pk ? `<div style="display:flex;align-items:center;gap:6px;padding:4px 8px">
+      <img src="${pokeSprite(pk.species_en)}" style="width:28px;height:28px;image-rendering:pixelated">
+      <div style="font-size:9px">${speciesName(pk.species_en)} Lv.${pk.level} ${'★'.repeat(pk.potential)}</div>
+    </div>` : '';
+  }).join('') || '<div style="font-size:9px;color:var(--text-dim);padding:8px">Salle vide</div>';
+
+  const pensionIds = state.pension?.slots || [];
+  const pensionHtml = pensionIds.map(id => {
+    const pk = state.pokemons.find(p => p.id === id);
+    return pk ? `<div style="display:flex;align-items:center;gap:6px;padding:4px 8px">
+      <img src="${pokeSprite(pk.species_en, pk.shiny)}" style="width:28px;height:28px;image-rendering:pixelated">
+      <div style="font-size:9px">${speciesName(pk.species_en)} Lv.${pk.level}${pk.shiny ? ' ✨' : ''}</div>
+    </div>` : '';
+  }).join('') || '<div style="font-size:9px;color:var(--text-dim);padding:8px">Pension vide</div>';
+
+  // Random ambient event (purely cosmetic)
+  const AMBIENT_EVENTS = [
+    '🌿 Un Pikachu se promène dans la cour.',
+    '🥚 Un Pokémon dépose un œuf devant la porte.',
+    '☁️ Deux Pokémon jouent sous la pluie.',
+    '🌙 Les Pokémon en formation s\'entraînent à la lueur de la lune.',
+    '🎵 Un Meloetta chante pour booster le moral.',
+    '🌸 Des pétales de Cerisaies tombent sur la cour.',
+    '🍖 Ton agent prépare un festin pour les Pokémon.',
+    '⚡ Un Raichu génère de l\'électricité pour la base.',
+    '💤 Snorlax bloque l\'entrée principale... encore.',
+    '🏋️ Les Pokémon en formation se motivent entre eux.',
+  ];
+  const ambient = AMBIENT_EVENTS[Math.floor(Date.now() / 30000) % AMBIENT_EVENTS.length];
+
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:rgba(0,0,0,.3);border-bottom:1px solid rgba(255,255,255,.1)">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:16px">🏛️</span>
+        <div>
+          <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">${state.gang.name}</div>
+          <div style="font-size:8px;color:var(--text-dim)">Quartier Général</div>
+        </div>
+      </div>
+      <button class="gp-close" style="font-size:11px;background:none;border:none;color:var(--text-dim);cursor:pointer">✕</button>
+    </div>
+
+    <div style="padding:6px 8px;background:rgba(255,204,90,.06);border-bottom:1px solid rgba(255,255,255,.07);font-size:8px;color:var(--text-dim)">
+      ${ambient}
+    </div>
+
+    <div style="overflow-y:auto;flex:1">
+      <div style="padding:8px 12px">
+        <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold-dim);margin-bottom:6px;letter-spacing:1px">AGENTS (${state.agents.length})</div>
+        ${agentRows}
+      </div>
+
+      ${trainingIds.length > 0 ? `
+      <div style="padding:8px 12px;border-top:1px solid rgba(255,255,255,.07)">
+        <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold-dim);margin-bottom:4px;letter-spacing:1px">FORMATION (${trainingIds.length})</div>
+        ${trainingHtml}
+      </div>` : ''}
+
+      ${pensionIds.length > 0 ? `
+      <div style="padding:8px 12px;border-top:1px solid rgba(255,255,255,.07)">
+        <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold-dim);margin-bottom:4px;letter-spacing:1px">PENSION (${pensionIds.length})</div>
+        ${pensionHtml}
+      </div>` : ''}
+    </div>`;
+
+  el.querySelector('.gp-close')?.addEventListener('click', () => toggleGangParkWindow());
+}
+
+Object.assign(globalThis, { toggleGangParkWindow, renderGangParkWindow });
 
 // Build a fresh zone window element (used on first open)
 // Build a fresh zone window element (used on first open)
@@ -9903,7 +10019,7 @@ function showMigrationBanner({ from, toLegacyKey, fields }) {
 Object.assign(globalThis, {
   // Utility functions
   t, pick, weightedPick, uid, randInt, addLog, speciesName, playSE,
-  getMysteryEggCost, trainerSprite,
+  getMysteryEggCost, trainerSprite, safeTrainerImg, safePokeImg,
   // UI / state helpers
   notify, saveState,
   checkForNewlyUnlockedZones, updateTopBar, tryAutoIncubate,

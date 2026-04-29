@@ -538,6 +538,13 @@ function openZoneWindow(zoneId) {
 
   // Guard : si déjà ouverte, ne rien faire (évite les timers orphelins)
   if (openZones.has(zoneId)) { _zsRefreshTile(zoneId); return; }
+  // Limit to 6 simultaneously open zones (gang_park excluded)
+  const MAX_OPEN_ZONES = 6;
+  const regularOpen = [...openZones].filter(z => z !== 'gang_park').length;
+  if (zoneId !== 'gang_park' && regularOpen >= MAX_OPEN_ZONES) {
+    globalThis.notify(`Maximum ${MAX_OPEN_ZONES} zones ouvertes simultanément. Ferme une zone pour en ouvrir une autre.`, 'error');
+    return;
+  }
   openZones.add(zoneId);
   // Zone passe en mode visuel → arrêter le timer background si actif
   globalThis.stopBackgroundZone(zoneId);
@@ -636,6 +643,7 @@ function renderZoneWindows() {
 
   // ── Update or create each open zone window ────────────────────
   for (const zoneId of ordered) {
+    if (zoneId === 'gang_park') continue; // managed by toggleGangParkWindow
     const existing = document.getElementById(`zw-${zoneId}`);
     if (existing) {
       patchZoneWindow(zoneId, existing);
@@ -1157,8 +1165,8 @@ function renderSpawnInWindow(zoneId, spawnObj) {
   } else if (spawnObj.type === 'raid') {
     // Raid: show the lead trainer sprite (no more Pokéball)
     const raidLeaderKey = spawnObj.raidTrainers?.[0]?.key || spawnObj.trainerKey || 'gymleader';
-    el.innerHTML = `<img src="${globalThis.trainerSprite(raidLeaderKey)}" style="width:52px;height:52px;image-rendering:pixelated;filter:drop-shadow(0 0 8px #f44)">
-      <div style="font-family:var(--font-pixel);font-size:6px;color:#f66;background:rgba(0,0,0,.75);border-radius:2px;padding:1px 4px;margin-top:2px;text-align:center">⚔ RAID</div>`;
+    el.innerHTML = globalThis.safeTrainerImg(raidLeaderKey, { style: 'width:52px;height:52px;image-rendering:pixelated;filter:drop-shadow(0 0 8px #f44)' }) +
+      `<div style="font-family:var(--font-pixel);font-size:6px;color:#f66;background:rgba(0,0,0,.75);border-radius:2px;padding:1px 4px;margin-top:2px;text-align:center">⚔ RAID</div>`;
     el.title = state.lang === 'fr'
       ? (spawnObj.trainer?.fr ?? spawnObj.trainerKey ?? 'Raid')
       : (spawnObj.trainer?.en ?? spawnObj.trainerKey ?? 'Raid');
@@ -1170,8 +1178,8 @@ function renderSpawnInWindow(zoneId, spawnObj) {
       openCombatPopup(zoneId, spawnObj);
     });
   } else if (spawnObj.type === 'trainer') {
-    const eliteTag = spawnObj.elite ? ' style="filter:drop-shadow(0 0 6px gold)"' : '';
-    el.innerHTML = `<img src="${globalThis.trainerSprite(spawnObj.trainer?.sprite ?? spawnObj.trainerKey)}"${eliteTag} style="width:56px;height:56px${spawnObj.elite ? ';filter:drop-shadow(0 0 6px gold)' : ''}" alt="${spawnObj.trainer?.fr ?? ''}">`;
+    const extraStyle = spawnObj.elite ? 'filter:drop-shadow(0 0 6px gold)' : '';
+    el.innerHTML = globalThis.safeTrainerImg(spawnObj.trainer?.sprite ?? spawnObj.trainerKey, { style: `width:56px;height:56px;${extraStyle}` });
     el.title = ((state.lang === 'fr' ? (spawnObj.trainer?.fr ?? spawnObj.trainerKey ?? '???') : (spawnObj.trainer?.en ?? spawnObj.trainerKey ?? '???'))) + (spawnObj.elite ? ' ⭐' : '');
     if (spawnObj.elite) el.style.animation = 'glow 1.5s ease-in-out infinite, float 3s ease-in-out infinite';
     el.addEventListener('click', () => {

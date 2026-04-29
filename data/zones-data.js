@@ -8,12 +8,19 @@ const POT_UPGRADE_COSTS = [3, 6, 12, 24]; // index = current potential-1 (1->2, 
 
 // Zone categories for UI grouping
 // type: 'route' (captures + investissement) | 'city' (ville avec arène) | 'special' (hybride)
+// type: 'gang_park' — zone exclusive du joueur (toujours accessible, non comptée dans la limite)
 const ZONES = [
+  // ══ QUARTIER GÉNÉRAL (zone joueur — toujours ouverte) ══
+  { id:'gang_park', fr:'Quartier Général', en:'Gang HQ', rep:0, spawnRate:0, type:'gang_park',
+    pool:[], trainers:[], investCost:0,
+    desc_fr:'Votre base. Vos agents, vos équipes, votre pension — tout ici.',
+    desc_en:'Your base. Your agents, their teams, your pension — everything here.' },
+
   // ══ ROUTES & NATURE (captures + investissement) ══
   { id:'route1',        fr:'Route 1',           en:'Route 1',           rep:0,   spawnRate:0.07, type:'route',
     pool:['rattata','pidgey','caterpie','weedle','spearow','nidoran-f','nidoran-m'],
     trainers:['youngster','lass'], eliteTrainer:'acetrainer', investCost:0 },
-  { id:'viridian_forest',fr:'Forêt de Jade',    en:'Viridian Forest',   rep:100, spawnRate:0.08, type:'route',
+  { id:'viridian_forest',fr:'Forêt de Jade',    en:'Viridian Forest',   rep:15,  spawnRate:0.08, type:'route',
     pool:['pikachu','caterpie','metapod','butterfree','weedle','kakuna','beedrill','oddish','bellsprout','gloom'],
     trainers:['bugcatcher','youngster'], eliteTrainer:'acetrainer', investCost:3000 },
   { id:'mt_moon',       fr:'Mont Sélénite',     en:'Mt. Moon',          rep:200, spawnRate:0.04, type:'route',
@@ -110,11 +117,11 @@ const ZONES = [
     trainers:['rocketgrunt','rocketgruntf','scientist','archer','proton','policeman'], eliteTrainer:'giovanni', investCost:30000 },
 
   // ══ NOUVELLES ZONES ══
-  { id:'pallet_garden', fr:'Jardin de Pallet',  en:'Pallet Garden',     rep:30,  spawnRate:0.07, type:'route',
+  { id:'pallet_garden', fr:'Jardin de Pallet',  en:'Pallet Garden',     rep:30,  spawnRate:0.07, type:'city',
     unlockItem:'map_pallet',
     pool:['pidgey','rattata','caterpie','nidoran-f','nidoran-m','oddish'],
     trainers:['youngster','lass'], eliteTrainer:'acetrainer', investCost:0 },
-  { id:'route22',       fr:'Chenal 22',          en:'Route 22',          rep:80,  spawnRate:0.07, type:'route',
+  { id:'route22',       fr:'Chenal 22',          en:'Route 22',          rep:50,  spawnRate:0.07, type:'route',
     pool:['spearow','ekans','nidoran-m','nidoran-f','mankey','rattata'],
     trainers:['youngster','lass','camper'], eliteTrainer:'blue', investCost:2000 },
   { id:'ss_anne',       fr:'Bateau St. Anne',    en:'S.S. Anne',         rep:350, spawnRate:0.06, type:'special',
@@ -133,7 +140,7 @@ const ZONES = [
     trainers:['acetrainer','blackbelt'], eliteTrainer:'red', investCost:0 },
 
   // ══ LAVANVILLE ══
-  { id:'lavender_town', fr:'Lavanville',          en:'Lavender Town',     rep:480, spawnRate:0.05, type:'special',
+  { id:'lavender_town', fr:'Lavanville',          en:'Lavender Town',     rep:480, spawnRate:0.05, type:'city',
     pool:['gastly','haunter','gengar','cubone','marowak','jigglypuff','clefairy','zubat'],
     rarePool:[
       {en:'gengar',w:2}, {en:'haunter',w:3}, {en:'marowak',w:2},
@@ -406,6 +413,7 @@ ZONE_BY_ID[GANG_BASE.id] = GANG_BASE;
 // ── Musiques par zone (référence les clés de MUSIC_TRACKS) ────
 // Ajoutez un fichier .mp3 dans game/music/ puis référencez-le ici.
 const ZONE_MUSIC_MAP = {
+  gang_park:        'city',
   // Routes & nature
   route1:           'forest',
   viridian_forest:  'forest',
