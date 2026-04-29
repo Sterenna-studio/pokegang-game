@@ -99,9 +99,12 @@
 
       <!-- ── Agents ── -->
       <section id="tabAgents" class="tab-pane">
-        <div style="padding:6px 12px;border-bottom:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end">
-          <button id="btnUnequipAll" style="font-size:9px;padding:4px 10px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">Tout déséquiper</button>
+        <div style="padding:6px 12px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center">
+          <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim)">ORGANIGRAMME</div>
+          <button id="btnToggleAgentTree" style="font-size:9px;padding:3px 9px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">🌳 Afficher l'arbre</button>
+          <button id="btnUnequipAll" style="font-size:9px;padding:4px 10px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer;margin-left:auto">Tout déséquiper</button>
         </div>
+        <div id="agentTreeContainer" style="display:none;padding:12px;border-bottom:1px solid var(--border);overflow-x:auto"></div>
         <div class="agents-grid" id="agentsGrid"></div>
       </section>
 
