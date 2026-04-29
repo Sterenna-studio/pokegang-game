@@ -2717,6 +2717,58 @@ function applyCosmetics() {
   }
 }
 
+// ── In-game text input modal — replaces all browser prompt() calls ────────
+// opts: { title, placeholder, current, maxLength, cost, confirmLabel, onConfirm }
+function openNameModal(opts = {}) {
+  const {
+    title        = 'Entrer un nom',
+    placeholder  = '',
+    current      = '',
+    maxLength    = 16,
+    cost         = 0,
+    confirmLabel = 'Confirmer',
+    onConfirm    = () => {},
+  } = opts;
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:9600;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;';
+  overlay.innerHTML = `
+    <div style="background:var(--bg-panel);border:2px solid var(--gold-dim);border-radius:var(--radius);padding:20px;max-width:340px;width:92%;display:flex;flex-direction:column;gap:12px">
+      <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold)">${title}</div>
+      <input id="nameModalInput" type="text" maxlength="${maxLength}" placeholder="${placeholder}"
+        value="${current.replace(/"/g,'&quot;')}"
+        style="padding:9px 12px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text);font-size:12px;outline:none;width:100%;box-sizing:border-box">
+      ${cost ? `<div style="font-size:8px;color:var(--text-dim);font-family:var(--font-pixel)">Coût : <span style="color:var(--gold)">${cost.toLocaleString()}₽</span> &nbsp;·&nbsp; Solde : ${(state.gang.money||0).toLocaleString()}₽</div>` : ''}
+      <div style="display:flex;gap:8px">
+        <button id="nameModalConfirm" style="flex:1;font-family:var(--font-pixel);font-size:9px;padding:9px;background:var(--red);border:none;border-radius:var(--radius-sm);color:#fff;cursor:pointer">${confirmLabel}</button>
+        <button id="nameModalCancel" style="font-family:var(--font-pixel);font-size:9px;padding:9px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">Annuler</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  const input   = overlay.querySelector('#nameModalInput');
+  const confirm = overlay.querySelector('#nameModalConfirm');
+  const cancel  = overlay.querySelector('#nameModalCancel');
+
+  input.focus();
+  input.select();
+
+  const submit = () => {
+    const val = input.value.trim().slice(0, maxLength);
+    if (!val) { input.style.borderColor = 'var(--red)'; return; }
+    overlay.remove();
+    onConfirm(val);
+  };
+
+  confirm.addEventListener('click', submit);
+  cancel.addEventListener('click',  () => overlay.remove());
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') submit();
+    if (e.key === 'Escape') overlay.remove();
+  });
+}
+
 function openSpritePicker(currentSprite, callback) {
   const overlay = document.createElement('div');
   overlay.style.cssText = 'position:fixed;inset:0;z-index:5000;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;';
@@ -2928,22 +2980,22 @@ function renderCosmeticsPanel(container) {
 
       if (action === 'rename-boss') {
         if (state.gang.money < 2000) { notify('Pokédollars insuffisants (2000₽)', 'error'); return; }
-        const newName = prompt(`Nouveau nom du Boss (max 16 car.) :`);
-        if (!newName || !newName.trim()) return;
-        state.gang.money -= 2000;
-        state.gang.bossName = newName.trim().slice(0, 16);
-        saveState(); updateTopBar(); renderCosmeticsPanel(container);
-        notify(`Boss renommé : ${state.gang.bossName}`, 'gold');
+        openNameModal({ title: 'Renommer le Boss', current: state.gang.bossName, cost: 2000, onConfirm: (val) => {
+          state.gang.money -= 2000;
+          state.gang.bossName = val;
+          saveState(); updateTopBar(); renderCosmeticsPanel(container);
+          notify(`Boss renommé : ${val}`, 'gold');
+        }});
       } else if (action === 'rename-agent') {
         if (state.gang.money < 2000) { notify('Pokédollars insuffisants (2000₽)', 'error'); return; }
         const agent = state.agents.find(a => a.id === agentId);
         if (!agent) return;
-        const newName = prompt(`Nouveau nom de ${agent.name} (max 16 car.) :`);
-        if (!newName || !newName.trim()) return;
-        state.gang.money -= 2000;
-        agent.name = newName.trim().slice(0, 16);
-        saveState(); updateTopBar(); renderCosmeticsPanel(container);
-        notify(`Agent renommé : ${agent.name}`, 'gold');
+        openNameModal({ title: `Renommer ${agent.name}`, current: agent.name, cost: 2000, onConfirm: (val) => {
+          state.gang.money -= 2000;
+          agent.name = val;
+          saveState(); updateTopBar(); renderCosmeticsPanel(container);
+          notify(`Agent renommé : ${val}`, 'gold');
+        }});
       } else if (action === 'sprite-boss') {
         if (state.gang.money < 5000) { notify('Pokédollars insuffisants (5000₽)', 'error'); return; }
         openSpritePicker(state.gang.bossSprite, (newSprite) => {
@@ -3213,37 +3265,52 @@ function renderGangTab() {
     return `<div class="gang-team-slot empty" data-boss-slot="${i}"><span style="font-size:7px;color:var(--text-dim)">Slot ${i+1}</span></div>`;
   }).join('');
 
-  // ── Cosmétiques (résumé rapide) ──
-  const cosmUnlocked = state.purchases?.cosmeticsPanel;
-  const cosmHtml = cosmUnlocked
-    ? `<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
-        <div style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;background:var(--bg-card);display:flex;align-items:center;gap:8px">
-          ${g.bossSprite ? `<img src="${trainerSprite(g.bossSprite)}" style="width:28px;height:28px;image-rendering:pixelated">` : '<span style="font-size:20px">👤</span>'}
-          <div>
-            <div style="font-size:9px;font-family:var(--font-pixel)">${g.bossName}</div>
-            <div style="font-size:8px;color:var(--text-dim)">Boss</div>
-          </div>
-          <button class="gang-cosm-rename" data-target="boss" style="font-family:var(--font-pixel);font-size:7px;padding:3px 7px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">✏</button>
-          <button class="gang-cosm-sprite" data-target="boss" style="font-family:var(--font-pixel);font-size:7px;padding:3px 7px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">🎨</button>
-        </div>
-        ${state.agents.map(a => `
-        <div style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;background:var(--bg-card);display:flex;align-items:center;gap:8px">
-          <img src="${a.sprite}" style="width:28px;height:28px;image-rendering:pixelated" onerror="this.src='${trainerSprite('acetrainer')}'">
-          <div>
-            <div style="font-size:9px;font-family:var(--font-pixel)">${a.name}</div>
-            <div style="font-size:8px;color:var(--text-dim)">${getAgentRankLabel(a)}</div>
-          </div>
-          <button class="gang-cosm-rename" data-target="agent" data-agent-id="${a.id}" style="font-family:var(--font-pixel);font-size:7px;padding:3px 7px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">✏</button>
-          <button class="gang-cosm-sprite" data-target="agent" data-agent-id="${a.id}" style="font-family:var(--font-pixel);font-size:7px;padding:3px 7px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">🎨</button>
-        </div>`).join('')}
+  // ── Mini pension ──
+  const pensionSlotA = state.pension?.slotA ? state.pokemons.find(p => p.id === state.pension.slotA) : null;
+  const pensionSlotB = state.pension?.slotB ? state.pokemons.find(p => p.id === state.pension.slotB) : null;
+  const incubatorCount = state.inventory?.incubator || 0;
+  const incubatingEggs = (state.eggs || []).filter(e => e.incubating);
+  const nextIncubatorCost = incubatorCount >= 10 ? null : Math.round(15000 * Math.pow(2, incubatorCount));
+
+  const pensionSlotHtml = (pk, label) => pk
+    ? `<div style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm)">
+        <img src="${pokeSprite(pk.species_en, pk.shiny)}" style="width:28px;height:28px;image-rendering:pixelated">
+        <div><div style="font-size:8px">${pokemonDisplayName(pk)}</div><div style="font-size:7px;color:var(--text-dim)">Lv.${pk.level}</div></div>
       </div>`
-    : `<div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--bg-card);border:1px dashed var(--border-light);border-radius:var(--radius-sm)">
-        <span style="font-size:22px">🎨</span>
-        <div>
-          <div style="font-size:9px;color:var(--text-dim)">Atelier Cosmétiques verrouillé</div>
-          <button id="btnGoCosmetics" style="margin-top:4px;font-family:var(--font-pixel);font-size:7px;padding:4px 9px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">🔓 Débloquer — ${COSMETICS_UNLOCK_COST.toLocaleString()}₽</button>
-        </div>
+    : `<div style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--bg);border:1px dashed var(--border-light);border-radius:var(--radius-sm);opacity:.5">
+        <span style="font-size:18px">🥚</span><span style="font-size:8px;color:var(--text-dim)">${label} vide</span>
       </div>`;
+
+  const incubSlotRows = Array.from({ length: Math.max(1, incubatorCount) }).map((_, i) => {
+    const egg = incubatingEggs[i];
+    if (egg) {
+      const pct = Math.min(100, Math.round(((Date.now() - egg.startedAt) / egg.hatchMs) * 100));
+      return `<div style="display:flex;align-items:center;gap:6px;padding:4px 8px;background:var(--bg);border:1px solid var(--green);border-radius:var(--radius-sm)">
+        <span style="font-size:14px">🥚</span>
+        <div style="flex:1"><div style="height:3px;background:var(--border);border-radius:2px"><div style="width:${pct}%;height:3px;background:var(--green);border-radius:2px"></div></div></div>
+        <span style="font-size:7px;color:var(--green)">${pct}%</span>
+      </div>`;
+    }
+    if (i < incubatorCount) return `<div style="padding:4px 8px;background:var(--bg);border:1px dashed var(--border-light);border-radius:var(--radius-sm);font-size:7px;color:var(--text-dim)">Slot libre</div>`;
+    return '';
+  }).join('');
+
+  const miniPensionHtml = `
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        ${pensionSlotHtml(pensionSlotA, 'Slot A')}
+        ${pensionSlotHtml(pensionSlotB, 'Slot B')}
+      </div>
+      ${incubatorCount === 0
+        ? `<div style="font-size:8px;color:var(--text-dim);padding:4px 0">Aucun incubateur — achetez-en un pour incuber des oeufs.</div>`
+        : `<div style="display:flex;flex-direction:column;gap:4px">${incubSlotRows}</div>`}
+      <div style="display:flex;gap:6px;align-items:center;margin-top:2px;flex-wrap:wrap">
+        ${nextIncubatorCost
+          ? `<button id="btnBuyIncubatorGang" style="font-family:var(--font-pixel);font-size:7px;padding:4px 10px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">+ Incubateur — ${nextIncubatorCost.toLocaleString()}₽</button>`
+          : `<span style="font-family:var(--font-pixel);font-size:7px;color:var(--red)">MAX incubateurs</span>`}
+        <button id="btnGoPension" style="font-family:var(--font-pixel);font-size:7px;padding:4px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">Gérer →</button>
+      </div>
+    </div>`;
 
   // ── Stats ──
   const statsHtml = [
@@ -3301,9 +3368,13 @@ ${(() => {
     <div class="gang-section-label">— ÉQUIPE BOSS —</div>
     <div class="gang-team-row">${teamHtml}</div>
 
+    <!-- ── Pension mini ── -->
+    <div class="gang-section-label">— PENSION & INCUBATEURS —</div>
+    <div style="padding:0 2px">${miniPensionHtml}</div>
+
     <!-- ── Cosmétiques ── -->
-    <div class="gang-section-label">— APPARENCE —</div>
-    <div style="padding:0 2px">${cosmHtml}</div>
+    <div class="gang-section-label">— APPARENCE & MUSIQUE —</div>
+    <div id="gangCosmContainer" style="padding:0 2px"></div>
 
     <!-- ── Stats ── -->
     <div class="gang-section-label">— STATISTIQUES —</div>
@@ -3374,46 +3445,31 @@ ${(() => {
     });
   });
 
-  // Cosmétiques rapides (section "Apparence" du gang tab)
-  tab.querySelector('#btnGoCosmetics')?.addEventListener('click', () => {
-    if (state.gang.money < COSMETICS_UNLOCK_COST) { notify('Fonds insuffisants.', 'error'); return; }
-    showConfirm(`Débloquer l'Atelier Cosmétiques pour ${COSMETICS_UNLOCK_COST.toLocaleString()}₽ ?`, () => {
-      state.gang.money -= COSMETICS_UNLOCK_COST;
-      state.purchases.cosmeticsPanel = true;
-      saveState(); updateTopBar(); SFX.play('unlock');
-      notify('🎨 Atelier Cosmétiques débloqué !', 'gold');
+  // ── Mini pension handlers ──
+  tab.querySelector('#btnBuyIncubatorGang')?.addEventListener('click', () => {
+    const owned = state.inventory?.incubator || 0;
+    if (owned >= 10) { notify('Vous avez déjà le maximum d\'incubateurs (10).', 'error'); return; }
+    const cost = Math.round(15000 * Math.pow(2, owned));
+    if (state.gang.money < cost) { notify(`Fonds insuffisants (${cost.toLocaleString()}₽)`, 'error'); return; }
+    showConfirm(`Acheter un incubateur pour ${cost.toLocaleString()}₽ ?`, () => {
+      state.gang.money -= cost;
+      state.inventory.incubator = owned + 1;
+      saveState(); updateTopBar();
+      SFX.play('unlock');
+      notify(`Incubateur obtenu ! Total: ${state.inventory.incubator}`, 'gold');
       renderGangTab();
-    });
+    }, null, { confirmLabel: 'Acheter', cancelLabel: 'Annuler' });
   });
-  tab.querySelectorAll('.gang-cosm-rename').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const isAgent = btn.dataset.target === 'agent';
-      const agent   = isAgent ? state.agents.find(a => a.id === btn.dataset.agentId) : null;
-      if (state.gang.money < 2000) { notify('Fonds insuffisants (2 000₽)', 'error'); return; }
-      const cur     = isAgent ? agent?.name : state.gang.bossName;
-      const newName = prompt(`Nouveau nom (max 16 car.) :`, cur || '');
-      if (!newName || !newName.trim()) return;
-      state.gang.money -= 2000;
-      if (isAgent && agent) agent.name = newName.trim().slice(0, 16);
-      else state.gang.bossName = newName.trim().slice(0, 16);
-      saveState(); updateTopBar(); renderGangTab();
-      notify(`Renommé : ${newName.trim().slice(0,16)}`, 'gold');
-    });
+  tab.querySelector('#btnGoPension')?.addEventListener('click', () => {
+    switchTab('tabPC');
+    // Open pension view in PC tab
+    const pensionBtn = document.querySelector('#pcBtnPension');
+    pensionBtn?.click();
   });
-  tab.querySelectorAll('.gang-cosm-sprite').forEach(btn => {
-    btn.addEventListener('click', () => {
-      if (state.gang.money < 5000) { notify('Fonds insuffisants (5 000₽)', 'error'); return; }
-      const isAgent = btn.dataset.target === 'agent';
-      const agent   = isAgent ? state.agents.find(a => a.id === btn.dataset.agentId) : null;
-      openSpritePicker(isAgent ? null : state.gang.bossSprite, (newSprite) => {
-        state.gang.money -= 5000;
-        if (isAgent && agent) agent.sprite = trainerSprite(newSprite);
-        else { state.gang.bossSprite = newSprite; updateTopBar(); renderZonesTab(); }
-        saveState(); renderGangTab();
-        notify('Sprite mis à jour !', 'gold');
-      });
-    });
-  });
+
+  // ── Cosmetics panel (embedded) ──
+  const cosmContainer = tab.querySelector('#gangCosmContainer');
+  if (cosmContainer) renderCosmeticsPanel(cosmContainer);
 }
 
 function openExportModal()  { return globalThis._gbase_openExportModal(); }
@@ -3822,55 +3878,18 @@ function renderCosmeticsTab() {
   const tab = document.getElementById('tabCosmetics');
   if (!tab) return;
 
-  const unlocked = state.purchases?.cosmeticsPanel;
+  // L'atelier cosmétique est maintenant intégré dans l'onglet Gang
+  tab.innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;gap:16px;text-align:center">
+      <div style="font-size:36px">👑</div>
+      <div style="font-family:var(--font-pixel);font-size:12px;color:var(--gold)">ATELIER COSMÉTIQUES</div>
+      <div style="font-size:11px;color:var(--text-dim);max-width:260px">L'atelier est maintenant intégré dans l'onglet Gang.</div>
+      <button id="btnGoGangTab" style="font-family:var(--font-pixel);font-size:9px;padding:8px 18px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">
+        → Aller à l'onglet Gang
+      </button>
+    </div>`;
 
-  if (!unlocked) {
-    // ── Panneau verrouillé — visible avec bouton d'achat ─────────
-    tab.innerHTML = `
-      <div class="cosm-tab-locked">
-        <div class="cosm-tab-locked-inner">
-          <div class="cosm-lock-icon">🎨</div>
-          <div class="cosm-lock-title">ATELIER COSMÉTIQUES</div>
-          <div class="cosm-lock-desc">Personnalise le fond d'écran, renomme ton Boss et tes Agents, change leurs sprites.</div>
-          <div class="cosm-lock-preview">
-            ${Object.entries(COSMETIC_BGS).slice(0,4).map(([,c]) =>
-              `<div class="cosm-lock-preview-tile" style="background-image:url('${c.url}');background-size:cover;background-position:center"></div>`
-            ).join('')}
-          </div>
-          <button id="btnUnlockCosmetics" class="cosm-unlock-btn">
-            🔓 Débloquer — ${COSMETICS_UNLOCK_COST.toLocaleString()}₽
-          </button>
-          <div class="cosm-lock-balance" id="cosmLockBalance">
-            Solde : ${(state.gang.money || 0).toLocaleString()}₽
-          </div>
-        </div>
-      </div>`;
-
-    tab.querySelector('#btnUnlockCosmetics')?.addEventListener('click', () => {
-      if (state.gang.money < COSMETICS_UNLOCK_COST) {
-        notify('Fonds insuffisants.', 'error');
-        SFX.play('error')
-        return;
-      }
-      showConfirm(`Débloquer l'Atelier Cosmétiques pour ${COSMETICS_UNLOCK_COST.toLocaleString()}₽ ?`, () => {
-        state.gang.money -= COSMETICS_UNLOCK_COST;
-        state.purchases.cosmeticsPanel = true;
-        saveState();
-        updateTopBar();
-        SFX.play('unlock');
-        notify('🎨 Atelier Cosmétiques débloqué !', 'gold');
-        renderCosmeticsTab();
-      });
-    });
-    return;
-  }
-
-  // ── Panneau débloqué ─────────────────────────────────────────
-  const container = document.createElement('div');
-  container.className = 'cosm-tab-content';
-  tab.innerHTML = '';
-  tab.appendChild(container);
-  renderCosmeticsPanel(container);
+  tab.querySelector('#btnGoGangTab')?.addEventListener('click', () => switchTab('tabGang'));
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -6675,12 +6694,12 @@ function renderAgentsTab() {
       if (state.gang.money < 2000) { notify('Fonds insuffisants (2 000₽)', 'error'); return; }
       const agent = state.agents.find(a => a.id === btn.dataset.agentId);
       if (!agent) return;
-      const newName = prompt(`Nouveau nom de ${agent.name} (max 16 car.) :`, agent.name);
-      if (!newName || !newName.trim()) return;
-      state.gang.money -= 2000;
-      agent.name = newName.trim().slice(0, 16);
-      saveState(); renderAgentsTab();
-      notify(`Agent renommé : ${agent.name}`, 'gold');
+      openNameModal({ title: `Renommer ${agent.name}`, current: agent.name, cost: 2000, onConfirm: (val) => {
+        state.gang.money -= 2000;
+        agent.name = val;
+        saveState(); renderAgentsTab();
+        notify(`Agent renommé : ${val}`, 'gold');
+      }});
     });
   });
   grid.querySelectorAll('.agent-card-sprite').forEach(btn => {
