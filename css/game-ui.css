@@ -2286,8 +2286,8 @@
       gap: 4px;
     }
     .agent-card-full .agent-team-slot {
-      width: 44px;
-      height: 44px;
+      width: 48px;
+      height: 40px;
       background: var(--bg);
       border: 1px dashed var(--border-light);
       border-radius: var(--radius-sm);
@@ -2299,7 +2299,7 @@
     }
     .agent-card-full .agent-team-slot:hover { border-color: var(--gold); }
     .agent-card-full .agent-team-slot.filled { border-style: solid; border-color: var(--red); }
-    .agent-card-full .agent-team-slot img { width: 36px; height: 36px; image-rendering: pixelated; }
+    .agent-card-full .agent-team-slot img { width: 40px; height: 30px; image-rendering: pixelated; object-fit: contain; }
     .agent-card-full .agent-personality {
       font-size: 9px;
       color: var(--text-dim);

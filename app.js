@@ -899,6 +899,12 @@ function pokeSprite(en, shiny = false) {
   return pokeSpriteVariant(en, 'main', shiny);
 }
 
+// Icône miniature BW (~40×30px) — pour les slots d'équipe
+function pokeIcon(en) {
+  const name = sanitizeSpriteName(en);
+  return `https://play.pokemonshowdown.com/sprites/bwicons/${name}.png`;
+}
+
 function pokeSpriteBack(en, shiny = false) {
   const mode = state?.settings?.spriteMode ?? 'local';
   if (mode === 'local') {
@@ -3258,7 +3264,7 @@ function renderGangTab() {
   const teamHtml = [0, 1, 2].map(i => {
     const pk = teamPks[i];
     if (pk) return `<div class="gang-team-slot filled" data-boss-slot="${i}" title="${pokemonDisplayName(pk)} Lv.${pk.level}">
-      <img src="${pokeSprite(pk.species_en, pk.shiny)}" style="width:52px;height:52px;image-rendering:pixelated">
+      <img src="${pokeIcon(pk.species_en)}" style="width:40px;height:30px;image-rendering:pixelated;${pk.shiny ? 'filter:drop-shadow(0 0 3px var(--gold))' : ''}" onerror="this.src='${pokeSprite(pk.species_en, pk.shiny)}';this.style.width='40px';this.style.height='40px'">
       <div style="font-size:7px;margin-top:2px;color:${pk.shiny ? 'var(--gold)' : 'var(--text)'}">${pokemonDisplayName(pk)}</div>
       <div style="font-size:7px;color:var(--text-dim)">Lv.${pk.level}</div>
     </div>`;
@@ -6425,7 +6431,7 @@ function renderAgentsTab() {
     const teamSlots = [0, 1, 2].map(i => {
       const pkId = a.team[i];
       const pk   = pkId ? state.pokemons.find(p => p.id === pkId) : null;
-      if (pk) return `<div class="agent-team-slot filled" data-agent-team="${a.id}" data-slot="${i}" title="${speciesName(pk.species_en)} Lv.${pk.level}"><img src="${pokeSprite(pk.species_en, pk.shiny)}"></div>`;
+      if (pk) return `<div class="agent-team-slot filled" data-agent-team="${a.id}" data-slot="${i}" title="${speciesName(pk.species_en)} Lv.${pk.level}"><img src="${pokeIcon(pk.species_en)}" style="${pk.shiny ? 'filter:drop-shadow(0 0 2px var(--gold))' : ''}" onerror="this.src='${pokeSprite(pk.species_en, pk.shiny)}'"></div>`;
       return `<div class="agent-team-slot" data-agent-team="${a.id}" data-slot="${i}">+</div>`;
     }).join('');
 
