@@ -184,6 +184,34 @@ function assignAgentToZone(agentId, zoneId) {
   globalThis.saveState();
 }
 
+// ── Auto-sell on agent capture ────────────────────────────────────
+// Returns true and sells if the auto-sell purchase is active and the
+// Pokémon matches the configured filter. Shinies are always excluded.
+function _autoSellCaptured(pokemon) {
+  const state = globalThis.state;
+  if (!state.purchases?.autoSellAgent) return false;
+  if (pokemon.shiny) return false;
+  const cfg = state.settings?.autoSellAgent;
+  if (!cfg) return false;
+  if (cfg.mode === 'by_potential') {
+    const targets = cfg.potentials || [];
+    if (!targets.includes(pokemon.potential)) return false;
+  }
+  // Sell: directly mutate state (mirrors sellPokemon but silent, no confirm)
+  const idx = state.pokemons.findIndex(p => p.id === pokemon.id);
+  if (idx === -1) return false;
+  const price = globalThis.calculatePrice(pokemon);
+  state.pokemons.splice(idx, 1);
+  state.gang.money += price;
+  state.stats.totalSold++;
+  state.stats.totalMoneyEarned += price;
+  if (!state.stats.mostExpensiveSold || price > (state.stats.mostExpensiveSold.price || 0)) {
+    state.stats.mostExpensiveSold = { name: globalThis.speciesName(pokemon.species_en), price };
+  }
+  globalThis.addLog(`[Auto-vente] ${globalThis.speciesName(pokemon.species_en)} → ${price}₽`);
+  return true;
+}
+
 // XP variable selon la rareté du Pokémon capturé
 const RARITY_XP = { common: 3, uncommon: 5, rare: 8, epic: 12, legendary: 20 };
 function captureXP(species_en, potential, shiny) {
@@ -433,6 +461,7 @@ function resolveBackgroundSpawnForZone(zoneId) {
     state.inventory[ball]--;
     state.pokemons.push(pokemon);
     state.stats.totalCaught++;
+    _autoSellCaptured(pokemon);
     if (!state.pokedex[pokemon.species_en]) {
       state.pokedex[pokemon.species_en] = { seen: true, caught: true, shiny: pokemon.shiny, count: 1 };
       state.stats.dexCaught = (state.stats.dexCaught || 0) + 1;
@@ -712,6 +741,7 @@ function agentCaptureVisibleSpawn(agent, zoneId, spawnObj) {
         caught.potential = globalThis.randInt(3, 5);
         caught.stats = globalThis.calculateStats(caught);
       }
+      _autoSellCaptured(caught);
       globalThis.showCaptureBurst(viewport, targetX, targetY, caught.potential, caught.shiny);
       grantAgentXP(agent, 2);
       if (agent.notifyCaptures !== false) {

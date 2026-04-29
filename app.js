@@ -3442,6 +3442,35 @@ function renderGangTab() {
       </div>
     </div>
 
+    <!-- ── Collapsible: AUTOMATISATION ── -->
+    ${state.purchases.autoSellAgent ? `
+    <div class="gang-section-label gang-collapsible-header" data-section="automation" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none">
+      <span>— AUTOMATISATION —</span>
+      <span style="font-size:9px;color:var(--text-dim)">${_gangCollapsed.automation ? '▶' : '▼'}</span>
+    </div>
+    <div class="gang-collapsible-body" data-section-body="automation" style="${_gangCollapsed.automation ? 'display:none' : ''}">
+      <div style="padding:10px 14px">
+        <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold);margin-bottom:8px">🤖 VENTE AUTO — CAPTURES AGENT</div>
+        <div style="font-size:9px;color:var(--text-dim);margin-bottom:8px">Les Shinies sont toujours protégés.</div>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+          <label style="font-size:9px;color:var(--text)">Mode :</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:9px;cursor:pointer">
+            <input type="radio" name="autoSellMode" value="all" ${(state.settings.autoSellAgent?.mode || 'all') === 'all' ? 'checked' : ''}> Tout vendre
+          </label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:9px;cursor:pointer">
+            <input type="radio" name="autoSellMode" value="by_potential" ${state.settings.autoSellAgent?.mode === 'by_potential' ? 'checked' : ''}> Par potentiel
+          </label>
+        </div>
+        ${state.settings.autoSellAgent?.mode === 'by_potential' ? `
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+          <span style="font-size:9px;color:var(--text-dim)">Vendre si :</span>
+          ${[1,2,3,4,5].map(p => `<label style="display:flex;align-items:center;gap:3px;font-size:9px;cursor:pointer">
+            <input type="checkbox" class="autoSellPot" value="${p}" ${(state.settings.autoSellAgent?.potentials || []).includes(p) ? 'checked' : ''}> ${'★'.repeat(p)}
+          </label>`).join('')}
+        </div>` : ''}
+      </div>
+    </div>` : ''}
+
     <!-- ── Collapsible: APPARENCE & MUSIQUE ── -->
     <div class="gang-section-label gang-collapsible-header" data-section="cosmetics" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none">
       <span>— APPARENCE & MUSIQUE —</span>
@@ -3473,6 +3502,27 @@ function renderGangTab() {
       if (body) body.style.display = _gangCollapsed[section] ? 'none' : '';
       const arrow = header.querySelector('span:last-child');
       if (arrow) arrow.textContent = _gangCollapsed[section] ? '▶' : '▼';
+    });
+  });
+
+  // ── Auto-sell mode toggle ──
+  tab.querySelectorAll('input[name="autoSellMode"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      if (!state.settings.autoSellAgent) state.settings.autoSellAgent = { mode: 'all', potentials: [] };
+      state.settings.autoSellAgent.mode = radio.value;
+      saveState();
+      renderGangTab();
+    });
+  });
+  tab.querySelectorAll('.autoSellPot').forEach(cb => {
+    cb.addEventListener('change', () => {
+      if (!state.settings.autoSellAgent) state.settings.autoSellAgent = { mode: 'by_potential', potentials: [] };
+      const pot = parseInt(cb.value);
+      const pots = state.settings.autoSellAgent.potentials || [];
+      state.settings.autoSellAgent.potentials = cb.checked
+        ? [...new Set([...pots, pot])]
+        : pots.filter(p => p !== pot);
+      saveState();
     });
   });
 
@@ -5010,7 +5060,13 @@ function _bindPCCardListeners(el) {
     const price = calculatePrice(pk);
     const inTeam = state.gang.bossTeam.includes(pk.id) || state.agents.some(a => a.team.includes(pk.id));
     const hasCandy = (state.inventory.rarecandy || 0) > 0;
-    showContextMenu(e.clientX, e.clientY, [
+    const sameSpecies = state.pokemons.filter(p => p.species_en === pk.species_en && p.id !== pk.id && !p.shiny);
+    const sameSpeciesTotal = calculatePrice(pk) * sameSpecies.length;
+    const has5StarDonor = state.pokemons.some(p =>
+      p.species_en === pk.species_en && p.id !== pk.id && p.potential === 5 && !p.shiny
+      && !state.gang.bossTeam.includes(p.id) && !state.agents.some(a => a.team.includes(p.id))
+    );
+    const items = [
       { action:'sell', label:`Vendre (${price}₽)${pk.shiny ? ' ✨' : ''}`, fn: () => {
         if (pk.shiny) {
           showConfirm(`<span style="color:gold">✨ CHROMATIQUE !</span><br>Vendre <b>${speciesName(pk.species_en)}</b> pour <b>${price.toLocaleString()}₽</b> ?<br><span style="color:var(--text-dim);font-size:11px">Cette action est irréversible.</span>`,
@@ -5018,12 +5074,41 @@ function _bindPCCardListeners(el) {
             null, { confirmLabel: 'Vendre', cancelLabel: 'Garder', danger: true });
         } else { sellPokemon([pk.id]); renderPCTab(); updateTopBar(); }
       }},
+      sameSpecies.length > 0 ? { action:'sellSpecies', label:`Vendre tout (${speciesName(pk.species_en)}) ×${sameSpecies.length} — ${sameSpeciesTotal.toLocaleString()}₽`, fn: () => {
+        showConfirm(`Vendre <b>${sameSpecies.length}× ${speciesName(pk.species_en)}</b> pour <b>${sameSpeciesTotal.toLocaleString()}₽</b> ?<br><span style="color:var(--text-dim);font-size:11px">Shinies exclus.</span>`,
+          () => { sellPokemon(sameSpecies.map(p => p.id)); renderPCTab(); updateTopBar(); },
+          null, { confirmLabel: 'Vendre tout', cancelLabel: 'Annuler', danger: true });
+      }} : null,
+      sameSpecies.filter(p => p.potential < 5).length > 0 ? { action:'sellSpeciesNon5', label:`Vendre ${speciesName(pk.species_en)} (sauf ★★★★★)`, fn: () => {
+        const toSell = sameSpecies.filter(p => p.potential < 5);
+        const total = toSell.reduce((s, p) => s + calculatePrice(p), 0);
+        showConfirm(`Vendre <b>${toSell.length}× ${speciesName(pk.species_en)}</b> (hors ★★★★★) pour <b>${total.toLocaleString()}₽</b> ?`,
+          () => { sellPokemon(toSell.map(p => p.id)); renderPCTab(); updateTopBar(); },
+          null, { confirmLabel: 'Vendre', cancelLabel: 'Annuler', danger: true });
+      }} : null,
+      state.purchases.scientist && pk.potential < 5 && has5StarDonor ? { action:'scientist', label:`🧬 Mutation (sacrifice 1× ★★★★★ ${speciesName(pk.species_en)})`, fn: () => {
+        const donor = state.pokemons.find(p =>
+          p.species_en === pk.species_en && p.id !== pk.id && p.potential === 5 && !p.shiny
+          && !state.gang.bossTeam.includes(p.id) && !state.agents.some(a => a.team.includes(p.id))
+        );
+        if (!donor) { notify('Aucun donneur ★★★★★ disponible.', 'error'); return; }
+        showConfirm(`Sacrifier <b>${speciesName(donor.species_en)} ★★★★★</b> pour élever <b>${speciesName(pk.species_en)}</b> de ★${pk.potential} à ★${pk.potential + 1} ?<br><span style="color:var(--red);font-size:11px">Le donneur sera détruit.</span>`,
+          () => {
+            state.pokemons = state.pokemons.filter(p => p.id !== donor.id);
+            pk.potential = Math.min(5, pk.potential + 1);
+            pk.stats = calculateStats(pk);
+            saveState(); notify(`🧬 ${speciesName(pk.species_en)} est maintenant ${'★'.repeat(pk.potential)} !`, 'gold');
+            renderPCTab(); updateTopBar();
+          },
+          null, { confirmLabel: 'Confirmer', cancelLabel: 'Annuler', danger: true });
+      }} : null,
       inTeam
         ? { action:'unteam', label:'Retirer de l\'equipe', fn: () => { state.gang.bossTeam = state.gang.bossTeam.filter(id => id !== pk.id); state.agents.forEach(a => { a.team = a.team.filter(id => id !== pk.id); }); saveState(); renderPCTab(); } }
         : { action:'team', label:'Attribuer a...', fn: () => { openAssignToPicker(pk.id); } },
       { action:'candy', label:`Super Bonbon${hasCandy ? '' : ' (aucun)'}`, fn: () => { if (!hasCandy) return; state.inventory.rarecandy--; if (pk.level < 100) { pk.level++; pk.xp = 0; pk.stats = calculateStats(pk); tryAutoEvolution(pk); } saveState(); notify(`🍬 ${speciesName(pk.species_en)} → Lv.${pk.level}`, 'gold'); renderPCTab(); updateTopBar(); } },
       { action:'fav', label: pk.favorite ? 'Retirer favori' : 'Ajouter favori', fn: () => { pk.favorite = !pk.favorite; saveState(); renderPCTab(); } },
-    ]);
+    ].filter(Boolean);
+    showContextMenu(e.clientX, e.clientY, items);
   });
 }
 

@@ -174,9 +174,18 @@ function buyItem(itemDef) {
   if (!state.behaviourLogs) state.behaviourLogs = {};
   if (!state.behaviourLogs.firstPurchaseAt) state.behaviourLogs.firstPurchaseAt = Date.now();
 
-  if (itemDef.id === 'translator') {
-    state.purchases.translator = true;
-    globalThis.notify('Traducteur Pokemon obtenu !', 'gold');
+  // ── One-time gang upgrades ────────────────────────────────────
+  const GANG_UPGRADES = new Set(['translator', 'autoSellAgent', 'scientist']);
+  if (GANG_UPGRADES.has(itemDef.id)) {
+    if (state.purchases[itemDef.id]) {
+      globalThis.notify(state.lang === 'fr' ? 'Déjà possédé !' : 'Already owned!');
+      state.gang.money += actualCost;
+      state.stats.totalMoneySpent -= actualCost;
+      return false;
+    }
+    state.purchases[itemDef.id] = true;
+    const name = state.lang === 'fr' ? (itemDef.fr || itemDef.id) : (itemDef.en || itemDef.id);
+    globalThis.notify(`${name} débloqué !`, 'gold');
     globalThis.saveState();
     return true;
   }
