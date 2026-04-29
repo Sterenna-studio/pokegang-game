@@ -2247,14 +2247,6 @@
       flex-shrink: 0;
     }
     .agent-card-full .agent-meta { flex: 1; min-width: 0; }
-    .agent-card-full .agent-name { font-family: var(--font-pixel); font-size: 11px; color: var(--text); }
-    .agent-card-full .agent-title {
-      font-size: 10px;
-      font-family: var(--font-pixel);
-      text-transform: uppercase;
-      letter-spacing: .5px;
-      color: var(--gold); /* fallback */
-    }
     /* Couleur par grade */
     .agent-card-full .agent-rank-grunt      { color: var(--text-dim); }
     .agent-card-full .agent-rank-sergent    { color: #7eb8f7; }        /* bleu clair */
@@ -2320,6 +2312,45 @@
       font-size: 9px;
       color: var(--text-dim);
       cursor: pointer;
+    }
+
+    /* ── Agent title → name formatting ──────────────────────────── */
+    .agent-card-full .agent-title {
+      font-family: var(--font-pixel);
+      font-size: 8px;
+      letter-spacing: .04em;
+      line-height: 1.2;
+    }
+    .agent-card-full .agent-name {
+      font-family: var(--font-pixel);
+      font-size: 11px;
+      color: var(--text);
+      margin-top: 1px;
+    }
+    .agent-card-full .agent-level {
+      font-size: 8px;
+      color: var(--text-dim);
+    }
+
+    /* ── Agent org-chart tree (proto) ────────────────────────────── */
+    .agent-tree-node {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 8px 10px;
+      min-width: 150px;
+      max-width: 200px;
+    }
+    .agent-tree-connector {
+      position: absolute;
+      right: -20px;
+      top: 50%;
+      width: 20px;
+      height: 1px;
+      background: var(--border-light);
+      z-index: 1;
     }
 
     /* ── Bag/Inventory Tab ───────────────────────────────────────── */

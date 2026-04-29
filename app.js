@@ -301,6 +301,7 @@ function slimPokemon(p) {
 function saveState() {
   globalThis.state = state; // keep modules in sync
   if (!state.marketSales) state.marketSales = {}; // guard: toujours initialisé
+  _playerWasActive = true; // signal leaderboard timer that the player is active
 
   // Playtime accumulation
   if (state.sessionStart) {
@@ -3212,29 +3213,37 @@ function renderGangTab() {
     return `<div class="gang-team-slot empty" data-boss-slot="${i}"><span style="font-size:7px;color:var(--text-dim)">Slot ${i+1}</span></div>`;
   }).join('');
 
-  // ── Agents ──
-  const RECRUIT_COST = getAgentRecruitCost();
-  const unlockedZones = ZONES.filter(z => isZoneUnlocked(z.id));
-  let agentsHtml = `<div class="gang-agent-card" id="btnRecruitAgent" style="cursor:pointer;border:2px dashed var(--border-light);text-align:center;flex-direction:column;gap:4px">
-    <div style="font-size:22px">➕</div>
-    <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text)">Recruter</div>
-    <div style="font-size:9px;color:var(--gold)">${RECRUIT_COST.toLocaleString()}₽</div>
-  </div>`;
-  agentsHtml += state.agents.map(a => {
-    const zoneName = a.assignedZone ? (ZONE_BY_ID[a.assignedZone]?.fr || a.assignedZone) : '—';
-    const zoneOptions = unlockedZones.map(z => `<option value="${z.id}" ${a.assignedZone === z.id ? 'selected' : ''}>${z.fr}</option>`).join('');
-    return `<div class="gang-agent-card" data-agent-id="${a.id}">
-      <img src="${a.sprite}" style="width:44px;height:44px;image-rendering:pixelated" onerror="this.src='${trainerSprite('acetrainer')}'">
-      <div style="flex:1;min-width:0">
-        <div style="font-family:var(--font-pixel);font-size:9px;color:var(--text)">${a.name}</div>
-        <div style="font-size:9px;color:var(--gold)">${getAgentRankLabel(a)} — Lv.${a.level}</div>
-        <div style="font-size:8px;color:var(--text-dim)">ATK ${a.stats.combat} CAP ${a.stats.capture} LCK ${a.stats.luck}</div>
-        <select class="agent-zone-select" data-agent-id="${a.id}" style="width:100%;margin-top:3px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:3px;font-size:8px;padding:2px 4px">
-          <option value="">— Aucune zone —</option>${zoneOptions}
-        </select>
-      </div>
-    </div>`;
-  }).join('');
+  // ── Cosmétiques (résumé rapide) ──
+  const cosmUnlocked = state.purchases?.cosmeticsPanel;
+  const cosmHtml = cosmUnlocked
+    ? `<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+        <div style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;background:var(--bg-card);display:flex;align-items:center;gap:8px">
+          ${g.bossSprite ? `<img src="${trainerSprite(g.bossSprite)}" style="width:28px;height:28px;image-rendering:pixelated">` : '<span style="font-size:20px">👤</span>'}
+          <div>
+            <div style="font-size:9px;font-family:var(--font-pixel)">${g.bossName}</div>
+            <div style="font-size:8px;color:var(--text-dim)">Boss</div>
+          </div>
+          <button class="gang-cosm-rename" data-target="boss" style="font-family:var(--font-pixel);font-size:7px;padding:3px 7px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">✏</button>
+          <button class="gang-cosm-sprite" data-target="boss" style="font-family:var(--font-pixel);font-size:7px;padding:3px 7px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">🎨</button>
+        </div>
+        ${state.agents.map(a => `
+        <div style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;background:var(--bg-card);display:flex;align-items:center;gap:8px">
+          <img src="${a.sprite}" style="width:28px;height:28px;image-rendering:pixelated" onerror="this.src='${trainerSprite('acetrainer')}'">
+          <div>
+            <div style="font-size:9px;font-family:var(--font-pixel)">${a.name}</div>
+            <div style="font-size:8px;color:var(--text-dim)">${getAgentRankLabel(a)}</div>
+          </div>
+          <button class="gang-cosm-rename" data-target="agent" data-agent-id="${a.id}" style="font-family:var(--font-pixel);font-size:7px;padding:3px 7px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">✏</button>
+          <button class="gang-cosm-sprite" data-target="agent" data-agent-id="${a.id}" style="font-family:var(--font-pixel);font-size:7px;padding:3px 7px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">🎨</button>
+        </div>`).join('')}
+      </div>`
+    : `<div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--bg-card);border:1px dashed var(--border-light);border-radius:var(--radius-sm)">
+        <span style="font-size:22px">🎨</span>
+        <div>
+          <div style="font-size:9px;color:var(--text-dim)">Atelier Cosmétiques verrouillé</div>
+          <button id="btnGoCosmetics" style="margin-top:4px;font-family:var(--font-pixel);font-size:7px;padding:4px 9px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">🔓 Débloquer — ${COSMETICS_UNLOCK_COST.toLocaleString()}₽</button>
+        </div>
+      </div>`;
 
   // ── Stats ──
   const statsHtml = [
@@ -3292,9 +3301,9 @@ ${(() => {
     <div class="gang-section-label">— ÉQUIPE BOSS —</div>
     <div class="gang-team-row">${teamHtml}</div>
 
-    <!-- ── Agents ── -->
-    <div class="gang-section-label">— AGENTS —</div>
-    <div class="gang-agents-grid" id="gangAgentGrid">${agentsHtml}</div>
+    <!-- ── Cosmétiques ── -->
+    <div class="gang-section-label">— APPARENCE —</div>
+    <div style="padding:0 2px">${cosmHtml}</div>
 
     <!-- ── Stats ── -->
     <div class="gang-section-label">— STATISTIQUES —</div>
@@ -3362,6 +3371,47 @@ ${(() => {
       } else {
         openTeamPickerModal(i, () => renderGangTab());
       }
+    });
+  });
+
+  // Cosmétiques rapides (section "Apparence" du gang tab)
+  tab.querySelector('#btnGoCosmetics')?.addEventListener('click', () => {
+    if (state.gang.money < COSMETICS_UNLOCK_COST) { notify('Fonds insuffisants.', 'error'); return; }
+    showConfirm(`Débloquer l'Atelier Cosmétiques pour ${COSMETICS_UNLOCK_COST.toLocaleString()}₽ ?`, () => {
+      state.gang.money -= COSMETICS_UNLOCK_COST;
+      state.purchases.cosmeticsPanel = true;
+      saveState(); updateTopBar(); SFX.play('unlock');
+      notify('🎨 Atelier Cosmétiques débloqué !', 'gold');
+      renderGangTab();
+    });
+  });
+  tab.querySelectorAll('.gang-cosm-rename').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const isAgent = btn.dataset.target === 'agent';
+      const agent   = isAgent ? state.agents.find(a => a.id === btn.dataset.agentId) : null;
+      if (state.gang.money < 2000) { notify('Fonds insuffisants (2 000₽)', 'error'); return; }
+      const cur     = isAgent ? agent?.name : state.gang.bossName;
+      const newName = prompt(`Nouveau nom (max 16 car.) :`, cur || '');
+      if (!newName || !newName.trim()) return;
+      state.gang.money -= 2000;
+      if (isAgent && agent) agent.name = newName.trim().slice(0, 16);
+      else state.gang.bossName = newName.trim().slice(0, 16);
+      saveState(); updateTopBar(); renderGangTab();
+      notify(`Renommé : ${newName.trim().slice(0,16)}`, 'gold');
+    });
+  });
+  tab.querySelectorAll('.gang-cosm-sprite').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (state.gang.money < 5000) { notify('Fonds insuffisants (5 000₽)', 'error'); return; }
+      const isAgent = btn.dataset.target === 'agent';
+      const agent   = isAgent ? state.agents.find(a => a.id === btn.dataset.agentId) : null;
+      openSpritePicker(isAgent ? null : state.gang.bossSprite, (newSprite) => {
+        state.gang.money -= 5000;
+        if (isAgent && agent) agent.sprite = trainerSprite(newSprite);
+        else { state.gang.bossSprite = newSprite; updateTopBar(); renderZonesTab(); }
+        saveState(); renderGangTab();
+        notify('Sprite mis à jour !', 'gold');
+      });
     });
   });
 }
@@ -6380,14 +6430,20 @@ function renderAgentsTab() {
 
     const statPts = a.statPoints || 0;
 
+    const cosmUnlockedAgent = state.purchases?.cosmeticsPanel;
     html += `<div class="agent-card-full" data-agent-id="${a.id}">
       <div class="agent-header">
         <img src="${a.sprite}" alt="${a.name}" onerror="this.src='${FALLBACK_TRAINER_SVG}';this.onerror=null">
         <div class="agent-meta">
+          <div class="agent-title agent-rank-${a.title}">${getAgentRankLabel(a)}</div>
           <div class="agent-name">${a.name}</div>
-          <div class="agent-title agent-rank-${a.title}">${getAgentRankLabel(a)} — Lv.${a.level}</div>
+          <div class="agent-level" style="font-size:8px;color:var(--text-dim)">Lv.${a.level}</div>
           <div class="agent-xp-bar"><div class="agent-xp-fill" style="width:${xpPct}%"></div></div>
         </div>
+        ${cosmUnlockedAgent ? `<div style="display:flex;flex-direction:column;gap:3px;margin-left:auto;padding-left:6px">
+          <button class="agent-card-rename" data-agent-id="${a.id}" title="Renommer (2 000₽)" style="font-size:10px;padding:2px 5px;background:var(--bg);border:1px solid var(--border);border-radius:3px;cursor:pointer;color:var(--text-dim)">✏</button>
+          <button class="agent-card-sprite" data-agent-id="${a.id}" title="Changer sprite (5 000₽)" style="font-size:10px;padding:2px 5px;background:var(--bg);border:1px solid var(--border);border-radius:3px;cursor:pointer;color:var(--text-dim)">🎨</button>
+        </div>` : ''}
       </div>
       <div class="agent-stats-row">
         <span title="Base: ${a.baseStats?.combat ?? a.stats.combat}">ATK ${a.stats.combat}${alloc.combat > 0 ? ` <small style="color:var(--gold)">(+${alloc.combat})</small>` : ''}</span>
@@ -6448,6 +6504,18 @@ function renderAgentsTab() {
   </div>`;
 
   grid.innerHTML = html;
+
+  // Agent tree toggle
+  const treeBtn = document.getElementById('btnToggleAgentTree');
+  const treeCon = document.getElementById('agentTreeContainer');
+  if (treeBtn && treeCon) {
+    treeBtn.addEventListener('click', () => {
+      const open = treeCon.style.display === 'none';
+      treeCon.style.display = open ? 'block' : 'none';
+      treeBtn.textContent  = open ? '🌳 Masquer l\'arbre' : '🌳 Afficher l\'arbre';
+      if (open) renderAgentTree(treeCon);
+    });
+  }
 
   // Wire unequip-all button (once, guarded)
   const unequipBtn = document.getElementById('btnUnequipAll');
@@ -6600,6 +6668,123 @@ function renderAgentsTab() {
     });
   });
 
+  // Rename / sprite buttons (cosmétiques dans agents tab)
+  grid.querySelectorAll('.agent-card-rename').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (state.gang.money < 2000) { notify('Fonds insuffisants (2 000₽)', 'error'); return; }
+      const agent = state.agents.find(a => a.id === btn.dataset.agentId);
+      if (!agent) return;
+      const newName = prompt(`Nouveau nom de ${agent.name} (max 16 car.) :`, agent.name);
+      if (!newName || !newName.trim()) return;
+      state.gang.money -= 2000;
+      agent.name = newName.trim().slice(0, 16);
+      saveState(); renderAgentsTab();
+      notify(`Agent renommé : ${agent.name}`, 'gold');
+    });
+  });
+  grid.querySelectorAll('.agent-card-sprite').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (state.gang.money < 5000) { notify('Fonds insuffisants (5 000₽)', 'error'); return; }
+      const agent = state.agents.find(a => a.id === btn.dataset.agentId);
+      if (!agent) return;
+      openSpritePicker(null, (newSprite) => {
+        state.gang.money -= 5000;
+        agent.sprite = trainerSprite(newSprite);
+        saveState(); renderAgentsTab();
+        notify(`Sprite de ${agent.name} mis à jour !`, 'gold');
+      });
+    });
+  });
+
+}
+
+// ── Agent org-chart (proto — visual only, no mechanical assignment yet) ──
+// Ranks: grunt → sergent → lieutenant → commandant → elite/général
+// Capacity per rank (how many direct reports they can have):
+const RANK_CAPACITY = { grunt: 0, sergent: 2, lieutenant: 3, commandant: 4, elite: 5, general: 6 };
+// Rank level (higher = more senior)
+const RANK_LEVEL = { grunt: 0, sergent: 1, lieutenant: 2, commandant: 3, elite: 4, general: 5 };
+
+function renderAgentTree(container) {
+  const RANK_COLOR = {
+    grunt:      'var(--text-dim)',
+    sergent:    '#7ecfff',
+    lieutenant: '#b07cff',
+    commandant: 'var(--gold)',
+    elite:      '#ff8c5a',
+    general:    'var(--red)',
+  };
+  const RANK_FR = { grunt:'Grunt', sergent:'Sergent', lieutenant:'Lieutenant', commandant:'Commandant', elite:'Élite', general:'Général' };
+
+  // Sort agents by rank level desc
+  const sorted = [...state.agents].sort((a, b) => (RANK_LEVEL[b.title] ?? 0) - (RANK_LEVEL[a.title] ?? 0));
+
+  // Group by rank
+  const byRank = {};
+  for (const a of sorted) {
+    (byRank[a.title] = byRank[a.title] || []).push(a);
+  }
+
+  // Build level columns (boss + each rank level)
+  const rankOrder = ['general','elite','commandant','lieutenant','sergent','grunt'];
+  const usedRanks = rankOrder.filter(r => byRank[r]?.length);
+
+  const agentNode = (a) => {
+    const cap  = RANK_CAPACITY[a.title] || 0;
+    const col  = RANK_COLOR[a.title]   || 'var(--text-dim)';
+    const zone = a.assignedZone ? (ZONE_BY_ID[a.assignedZone]?.fr || a.assignedZone) : '—';
+    return `<div class="agent-tree-node" style="border-color:${col};background:var(--bg-panel)">
+      <img src="${a.sprite}" style="width:32px;height:32px;image-rendering:pixelated" onerror="this.style.display='none'">
+      <div>
+        <div style="font-family:var(--font-pixel);font-size:7px;color:${col}">${RANK_FR[a.title] || a.title}</div>
+        <div style="font-size:9px;margin-top:1px">${a.name}</div>
+        <div style="font-size:8px;color:var(--text-dim);margin-top:1px">Lv.${a.level} · ${zone}</div>
+        ${cap > 0 ? `<div style="font-size:7px;color:var(--text-dim);margin-top:2px;font-family:var(--font-pixel)">⬇ ${cap} max</div>` : ''}
+      </div>
+    </div>`;
+  };
+
+  const bossNode = `<div class="agent-tree-node" style="border-color:var(--gold);background:rgba(255,204,90,.06)">
+    ${state.gang.bossSprite ? `<img src="${trainerSprite(state.gang.bossSprite)}" style="width:36px;height:36px;image-rendering:pixelated">` : '<span style="font-size:26px">👤</span>'}
+    <div>
+      <div style="font-family:var(--font-pixel);font-size:7px;color:var(--gold)">BOSS</div>
+      <div style="font-size:9px;margin-top:1px">${state.gang.bossName || 'Boss'}</div>
+      <div style="font-size:8px;color:var(--text-dim);margin-top:1px">${getBossFullTitle()}</div>
+    </div>
+  </div>`;
+
+  const columns = [
+    { label: 'Boss', nodes: [bossNode] },
+    ...usedRanks.map(r => ({
+      label: RANK_FR[r] + (byRank[r].length > 1 ? ` ×${byRank[r].length}` : ''),
+      color: RANK_COLOR[r],
+      nodes: byRank[r].map(agentNode),
+    })),
+  ];
+
+  if (!state.agents.length) {
+    container.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text-dim);font-size:10px;font-family:var(--font-pixel)">Recrutez des agents pour construire votre organisation.</div>`;
+    return;
+  }
+
+  container.innerHTML = `
+    <div style="display:flex;gap:0;align-items:flex-start;min-width:max-content">
+      ${columns.map((col, ci) => `
+        <div style="display:flex;flex-direction:column;align-items:center;position:relative">
+          <!-- connector line to next column -->
+          ${ci < columns.length - 1 ? '<div class="agent-tree-connector"></div>' : ''}
+          <div style="font-family:var(--font-pixel);font-size:7px;color:${col.color || 'var(--gold)'};margin-bottom:8px;white-space:nowrap">${col.label}</div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            ${col.nodes.join('')}
+          </div>
+        </div>
+      `).join('')}
+    </div>
+    <div style="margin-top:12px;font-size:8px;color:var(--text-dim);font-family:var(--font-pixel);opacity:.6">
+      ⚠ PROTO — L'assignation hiérarchique n'est pas encore implémentée.
+    </div>`;
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -8403,12 +8588,19 @@ function startGameLoop() {
   // Auto-save every 10 seconds
   autoSaveInterval = setInterval(saveState, 10000);
 
-  // Cloud save + snapshot + leaderboard push every 5 minutes (single batch)
+  // Cloud save every hour (dirty-checked — skipped if nothing changed)
+  setInterval(supaCloudSave, 60 * 60 * 1000);
+
+  // Snapshot check every hour — supaWriteSnapshot() throttles itself to 30 min internally
+  setInterval(supaWriteSnapshot, 60 * 60 * 1000);
+
+  // Leaderboard push every 2h, only if player was active since last push
   setInterval(() => {
-    supaCloudSave();          // upsert current state → player_saves
-    supaWriteSnapshot();      // rolling backup → save_snapshots
-    supaUpdateLeaderboardAnon(); // rankings → leaderboard (dirty-skipped internally)
-  }, 5 * 60 * 1000);
+    if (_playerWasActive) {
+      _playerWasActive = false;
+      supaUpdateLeaderboardAnon();
+    }
+  }, 2 * 60 * 60 * 1000);
 
   // Cooldown tick removed — cooldowns no longer exist in gameplay
 
@@ -8461,6 +8653,7 @@ if (!_lbToken) {
 }
 
 let _lbLastPushAt = 0;
+let _playerWasActive = false; // set to true on any saveState() call; consumed by 2h lb timer
 const LB_PUSH_THROTTLE_MS = 60 * 60 * 1000; // push at most once every hour
 let _lbLastFingerprint = ''; // dirty check — skip push if nothing changed
 
@@ -8670,7 +8863,7 @@ async function supaForceCloudLoad() {
 }
 
 // ── Rolling snapshots ─────────────────────────────────────────────
-const MAX_SNAPSHOTS = 6;
+const MAX_SNAPSHOTS = 2;
 let _snapshotCount = -1; // -1 = unknown (fetched lazily); avoids SELECT on every write
 
 async function supaWriteSnapshot() {
@@ -8821,6 +9014,8 @@ async function supaUpdateLeaderboardAnon() {
       shiny_species_count: getShinySpeciesCount(),
       dex_kanto_count:     getDexKantoCaught(),
       dex_national_count:  getDexNationalCaught(),
+      total_sold:          state.stats?.totalSold          || 0,
+      total_money_earned:  state.stats?.totalMoneyEarned   || 0,
       agents_count:        (state.agents || []).length,
       is_anonymous:        !supaSession,
       updated_at:          new Date().toISOString(),
@@ -8867,38 +9062,58 @@ function updateSupaTabLabel() {
 }
 
 // ── Leaderboard Tab ───────────────────────────────────────────────
-let _lbSortBy = 'reputation'; // 'reputation' | 'dex_kanto' | 'shiny_species' | 'total_caught'
+let _lbSortBy   = 'reputation';  // sort column key
+let _lbPeriod   = 'alltime';    // 'alltime' | 'weekly' | 'daily'
 
+// ── Leaderboard Tab ─────────────────────────────────────────────────
 async function renderLeaderboardTab() {
   const tab = document.getElementById('tabLeaderboard');
   if (!tab) return;
 
   if (!supaConfigured()) {
     tab.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-dim);font-family:var(--font-pixel);font-size:10px">
-      🏆 CLASSEMENT<br><br><span style="font-size:9px;font-family:inherit">Supabase non configuré — le classement n'est pas disponible en mode hors-ligne.</span>
+      \u{1F3C6} CLASSEMENT<br><br><span style="font-size:9px;font-family:inherit">Supabase non configuré — le classement n'est pas disponible en mode hors-ligne.</span>
     </div>`;
     return;
   }
 
   const SORTS = [
-    { key: 'reputation',        label: '⭐ Réputation' },
-    { key: 'dex_kanto_count',   label: '📖 Dex Kanto' },
-    { key: 'shiny_species_count', label: '✨ Chromatiques' },
-    { key: 'total_caught',      label: '🎯 Capturés' },
+    { key: 'reputation',          label: '⭐ Réputation'   },
+    { key: 'dex_kanto_count',     label: '\u{1F4D6} Dex Kanto'   },
+    { key: 'dex_national_count',  label: '\u{1F4D7} Dex National' },
+    { key: 'shiny_species_count', label: '✨ Chromas'       },
+    { key: 'total_caught',        label: '\u{1F3AF} Capturés'    },
+    { key: 'total_sold',          label: '\u{1F4B0} Ventes'      },
+    { key: 'total_money_earned',  label: '\u{1F4B5} Gains total'  },
   ];
 
+  const PERIODS = [
+    { key: 'alltime', label: 'All time' },
+    { key: 'weekly',  label: 'Cette semaine' },
+    { key: 'daily',   label: "Aujourd'hui" },
+  ];
+
+  const btnStyle = (active) =>
+    `font-family:var(--font-pixel);font-size:7px;padding:4px 9px;border-radius:var(--radius-sm);cursor:pointer;` +
+    `background:${active ? 'var(--red)' : 'var(--bg)'};` +
+    `border:1px solid ${active ? 'var(--red)' : 'var(--border)'};` +
+    `color:${active ? '#fff' : 'var(--text-dim)'}`;
+
   tab.innerHTML = `
-    <div style="padding:16px;max-width:780px">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
-        <div style="font-family:var(--font-pixel);font-size:12px;color:var(--gold)">🏆 CLASSEMENT MONDIAL</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-left:auto">
-          ${SORTS.map(s => `<button class="lb-sort-btn${_lbSortBy === s.key ? ' active' : ''}" data-sort="${s.key}"
-            style="font-family:var(--font-pixel);font-size:7px;padding:4px 9px;border-radius:var(--radius-sm);cursor:pointer;
-            background:${_lbSortBy === s.key ? 'var(--red)' : 'var(--bg)'};
-            border:1px solid ${_lbSortBy === s.key ? 'var(--red)' : 'var(--border)'};
-            color:${_lbSortBy === s.key ? '#fff' : 'var(--text-dim)'}">${s.label}</button>`).join('')}
-          <button id="btnLbRefresh" style="font-family:var(--font-pixel);font-size:7px;padding:4px 9px;border-radius:var(--radius-sm);cursor:pointer;background:var(--bg);border:1px solid var(--border);color:var(--text-dim)">⟳</button>
-        </div>
+    <div style="padding:16px;max-width:820px">
+      <div style="font-family:var(--font-pixel);font-size:12px;color:var(--gold);margin-bottom:12px">\u{1F3C6} CLASSEMENT MONDIAL</div>
+
+      <!-- Période -->
+      <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;align-items:center">
+        <span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">PÉRIODE :</span>
+        ${PERIODS.map(p => `<button class="lb-period-btn" data-period="${p.key}" style="${btnStyle(_lbPeriod === p.key)}">${p.label}</button>`).join('')}
+        <button id="btnLbRefresh" style="${btnStyle(false)};margin-left:auto">⟳</button>
+      </div>
+
+      <!-- Catégorie -->
+      <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+        <span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">CATÉGORIE :</span>
+        ${SORTS.map(s => `<button class="lb-sort-btn" data-sort="${s.key}" style="${btnStyle(_lbSortBy === s.key)}">${s.label}</button>`).join('')}
       </div>
 
       <!-- Ma position -->
@@ -8912,22 +9127,20 @@ async function renderLeaderboardTab() {
       </div>
 
       <div style="margin-top:8px;font-size:8px;color:var(--text-dim);text-align:right">
-        Top 50 · Mis à jour toutes les 5 min ·
-        ${supaSession ? `<span style="color:var(--green)">Connecté ✓</span>` : `<span style="color:var(--text-dim)">Anonyme — <a href="#" id="lbGoLogin" style="color:var(--gold);text-decoration:none">Connecte-toi</a> pour afficher ton nom</span>`}
+        Top 50 · Mis à jour toutes les 2h si actif ·
+        ${supaSession ? `<span style="color:var(--green)">Connecté ✓</span>` : `<span>Anonyme — <a href="#" id="lbGoLogin" style="color:var(--gold);text-decoration:none">Connecte-toi</a></span>`}
       </div>
     </div>`;
 
-  // Bind sort buttons
   tab.querySelectorAll('.lb-sort-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      _lbSortBy = btn.dataset.sort;
-      renderLeaderboardTab();
-    });
+    btn.addEventListener('click', () => { _lbSortBy = btn.dataset.sort; renderLeaderboardTab(); });
+  });
+  tab.querySelectorAll('.lb-period-btn').forEach(btn => {
+    btn.addEventListener('click', () => { _lbPeriod = btn.dataset.period; renderLeaderboardTab(); });
   });
   tab.querySelector('#btnLbRefresh')?.addEventListener('click', () => renderLeaderboardTab());
   tab.querySelector('#lbGoLogin')?.addEventListener('click', e => { e.preventDefault(); switchTab('tabCompte'); });
 
-  // Push own entry first (throttled) then load
   await supaUpdateLeaderboardAnon();
   _loadLeaderboardTable();
 }
@@ -8938,91 +9151,112 @@ async function _loadLeaderboardTable() {
   const SORT_COLS = {
     reputation:          'reputation',
     dex_kanto_count:     'dex_kanto_count',
+    dex_national_count:  'dex_national_count',
     shiny_species_count: 'shiny_species_count',
     total_caught:        'total_caught',
+    total_sold:          'total_sold',
+    total_money_earned:  'total_money_earned',
   };
+  const SORT_LABELS = {
+    reputation:          '⭐ Rép.',
+    dex_kanto_count:     '\u{1F4D6} Kanto',
+    dex_national_count:  '\u{1F4D7} National',
+    shiny_species_count: '✨ Chroma',
+    total_caught:        '\u{1F3AF} Cap.',
+    total_sold:          '\u{1F4B0} Ventes',
+    total_money_earned:  '\u{1F4B5} Gains',
+  };
+
   const col = SORT_COLS[_lbSortBy] || 'reputation';
 
-  // Fetch top 50
-  const { data: rows, error } = await _supabase
+  // Period filter via updated_at
+  const PERIOD_MS = { daily: 86400_000, weekly: 604800_000 };
+  const cutoff = PERIOD_MS[_lbPeriod]
+    ? new Date(Date.now() - PERIOD_MS[_lbPeriod]).toISOString()
+    : null;
+
+  let query = _supabase
     .from('leaderboard')
-    .select('token, user_id, gang_name, boss_name, boss_sprite, reputation, total_caught, shiny_count, shiny_species_count, dex_kanto_count, dex_national_count, agents_count, is_anonymous, updated_at')
+    .select('token, user_id, gang_name, boss_name, boss_sprite, reputation, total_caught, shiny_count, shiny_species_count, dex_kanto_count, dex_national_count, total_sold, total_money_earned, agents_count, is_anonymous, updated_at')
     .order(col, { ascending: false })
     .limit(50);
 
-  // Fetch own rank
+  if (cutoff) query = query.gte('updated_at', cutoff);
+
+  const { data: rows, error } = await query;
+
+  // Own entry (always alltime for "my rank" banner)
   const { data: myRow } = await _supabase
     .from('leaderboard')
-    .select('gang_name, reputation, total_caught, shiny_species_count, dex_kanto_count, updated_at')
+    .select('gang_name, reputation, total_caught, shiny_species_count, dex_kanto_count, dex_national_count, total_sold, total_money_earned, updated_at')
     .eq('token', _lbToken)
     .maybeSingle();
 
-  // My rank position
+  // Own rank in current period+sort
   let myRank = '—';
   if (myRow) {
-    const { count } = await _supabase
-      .from('leaderboard')
-      .select('token', { count: 'exact', head: true })
-      .gt(col, myRow[col] || 0);
+    let rankQ = _supabase.from('leaderboard').select('token', { count: 'exact', head: true }).gt(col, myRow[col] || 0);
+    if (cutoff) rankQ = rankQ.gte('updated_at', cutoff);
+    const { count } = await rankQ;
     if (count !== null) myRank = `#${count + 1}`;
   }
 
-  // Render my entry banner
+  // My entry banner
   const myEntryEl = document.getElementById('lbMyEntry');
   if (myEntryEl) {
     if (myRow) {
       const updAgo = myRow.updated_at ? _lbAgo(new Date(myRow.updated_at)) : '?';
-      myEntryEl.innerHTML = `<span style="color:var(--gold);font-family:var(--font-pixel);font-size:9px">${myRow.gang_name}</span>
+      myEntryEl.innerHTML = `
+        <span style="color:var(--gold);font-family:var(--font-pixel);font-size:9px">${myRow.gang_name}</span>
         <span style="margin-left:12px">Rang <b style="color:var(--gold)">${myRank}</b></span>
         <span style="margin-left:12px;color:var(--text-dim)">⭐ ${(myRow.reputation||0).toLocaleString('fr-FR')}</span>
-        <span style="margin-left:12px;color:var(--text-dim)">✨ ${myRow.shiny_species_count||0} esp.</span>
-        <span style="margin-left:12px;color:var(--text-dim)">📖 ${myRow.dex_kanto_count||0}/151</span>
+        <span style="margin-left:12px;color:var(--text-dim)">✨ ${myRow.shiny_species_count||0}</span>
+        <span style="margin-left:12px;color:var(--text-dim)">\u{1F4D6} ${myRow.dex_kanto_count||0}/151</span>
         <span style="margin-left:auto;font-size:8px;opacity:.6">mis à jour ${updAgo}</span>`;
-      myEntryEl.style.display = 'flex';
-      myEntryEl.style.alignItems = 'center';
-      myEntryEl.style.gap = '0';
+      myEntryEl.style.cssText += ';display:flex;align-items:center;gap:0';
     } else {
-      myEntryEl.textContent = 'Votre entrée n\'est pas encore dans le classement — elle apparaîtra dans les prochaines minutes.';
+      myEntryEl.textContent = "Votre entrée n'est pas encore dans le classement.";
     }
   }
 
-  // Render table
   const tableEl = document.getElementById('lbTable');
   if (!tableEl) return;
 
   if (error || !rows?.length) {
-    tableEl.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text-dim);font-size:10px">Aucune entrée pour l'instant — sois le premier !</div>`;
+    const periodLabel = { alltime: 'all time', weekly: 'cette semaine', daily: "aujourd'hui" }[_lbPeriod] || '';
+    tableEl.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text-dim);font-size:10px">Aucune entrée ${periodLabel} — sois le premier !</div>`;
     return;
   }
 
-  const MEDALS = ['🥇','🥈','🥉'];
-  const SORT_LABELS = { reputation: '⭐ Rép.', dex_kanto_count: '📖 Dex', shiny_species_count: '✨ Chroma', total_caught: '🎯 Cap.' };
+  const MEDALS = ['\u{1F947}','\u{1F948}','\u{1F949}'];
+  const sortLabel = SORT_LABELS[_lbSortBy] || '⭐ Rép.';
 
   tableEl.innerHTML = `
     <div style="display:grid;grid-template-columns:36px 1fr auto;border-bottom:1px solid var(--border);padding:6px 10px;font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">
-      <span>#</span><span>Gang</span><span style="text-align:right">${SORT_LABELS[_lbSortBy] || '⭐ Rép.'} &nbsp; ✨ &nbsp; 📖</span>
+      <span>#</span><span>Gang</span><span style="text-align:right">${sortLabel}   ✨   \u{1F4D6}</span>
     </div>
     ${rows.map((p, i) => {
-      const isMe    = p.token === _lbToken;
-      const medal   = MEDALS[i] || `<span style="font-family:var(--font-pixel);font-size:9px;color:var(--text-dim)">${i+1}</span>`;
+      const isMe  = p.token === _lbToken;
+      const medal = MEDALS[i] || `<span style="font-family:var(--font-pixel);font-size:9px;color:var(--text-dim)">${i+1}</span>`;
       const nameTag = p.is_anonymous
         ? `<span style="font-size:8px;color:var(--text-dim)">Joueur anonyme <span style="opacity:.5">#${p.token.slice(-5)}</span></span>`
         : `<span style="font-size:9px">${p.gang_name}</span>`;
-      const sprite  = p.boss_sprite
+      const sprite = p.boss_sprite
         ? `<img src="https://play.pokemonshowdown.com/sprites/gen5/${p.boss_sprite}.png" style="width:32px;height:32px;image-rendering:pixelated" onerror="this.style.display='none'">`
         : `<div style="width:32px;height:32px;background:var(--bg);border-radius:4px"></div>`;
       const val = p[col] ?? 0;
+      const valStr = typeof val === 'number' ? val.toLocaleString('fr-FR') : val;
       const ago = p.updated_at ? _lbAgo(new Date(p.updated_at)) : '';
       return `<div style="display:grid;grid-template-columns:36px auto 1fr auto;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid var(--border);background:${isMe ? 'rgba(255,204,90,.07)' : ''};border-left:3px solid ${isMe ? 'var(--gold)' : 'transparent'}">
         <span style="text-align:center;font-size:14px">${medal}</span>
         ${sprite}
         <div style="min-width:0">
-          ${isMe ? `<div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">${p.gang_name} <span style="font-size:7px;opacity:.7">◀ toi</span></div>` : nameTag}
+          ${isMe ? `<div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">${p.gang_name} <span style="font-size:7px;opacity:.7">◄ toi</span></div>` : nameTag}
           <div style="font-size:8px;color:var(--text-dim);margin-top:1px">${p.boss_name || ''}${ago ? ` · ${ago}` : ''}</div>
         </div>
         <div style="text-align:right;flex-shrink:0">
-          <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">${val.toLocaleString('fr-FR')}</div>
-          <div style="font-size:8px;color:var(--text-dim);margin-top:2px">✨ ${p.shiny_species_count||0} &nbsp; 📖 ${p.dex_kanto_count||0}/151</div>
+          <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">${valStr}</div>
+          <div style="font-size:8px;color:var(--text-dim);margin-top:2px">✨ ${p.shiny_species_count||0}   \u{1F4D6} ${p.dex_kanto_count||0}/151</div>
         </div>
       </div>`;
     }).join('')}`;
@@ -9030,8 +9264,8 @@ async function _loadLeaderboardTable() {
 
 function _lbAgo(date) {
   const ms = Date.now() - date.getTime();
-  if (ms < 60_000)   return 'à l\'instant';
-  if (ms < 3600_000) return `il y a ${Math.round(ms/60_000)}min`;
+  if (ms < 60_000)    return "à l'instant";
+  if (ms < 3600_000)  return `il y a ${Math.round(ms/60_000)}min`;
   if (ms < 86400_000) return `il y a ${Math.round(ms/3600_000)}h`;
   return `il y a ${Math.round(ms/86400_000)}j`;
 }
