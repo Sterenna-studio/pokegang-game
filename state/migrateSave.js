@@ -158,6 +158,7 @@ export function migrateSave(saved, deps) {
   if (merged.purchases.autoSellAgent     === undefined) merged.purchases.autoSellAgent     = false;
   if (merged.purchases.autoSellAgentEnabled === undefined) merged.purchases.autoSellAgentEnabled = true;
   if (merged.purchases.autoSellEggs      === undefined) merged.purchases.autoSellEggs      = false;
+  if (merged.purchases.mysteryEggCount  === undefined) merged.purchases.mysteryEggCount  = 0;
 
   // trainingRoom extraSlots
   if (merged.trainingRoom.extraSlots === undefined) merged.trainingRoom.extraSlots = 0;
@@ -227,6 +228,7 @@ export function getMigrationSummary(saved, deps) {
   if (!saved.purchases?.scientist) fields.push('Scientifique peu scrupuleux');
   if (!saved.purchases?.autoSellAgent) fields.push('Vente auto agents');
   if (!saved.gang?.bossTeamSlots) fields.push('Slots d\'\u00e9quipe boss (×3)');
+  if (!saved.purchases?.mysteryEggCount) fields.push('Compteur œufs mystère');
 
   return { from: `schéma v${fromVersion}`, fields };
 }

@@ -106,187 +106,26 @@ function t(key, vars = {}) {
 // ════════════════════════════════════════════════════════════════
 
 // ── App version — bump on every deploy to force client reload ──
-const APP_VERSION = '2.2.0';
-const GAME_VERSION = 'v0.1 — pre-alpha';
+// ── State modules — source de vérité unique ──────────────────────────────────
+import {
+  APP_VERSION,
+  GAME_VERSION,
+  SAVE_SCHEMA_VERSION,
+  SAVE_KEYS,
+  LEGACY_SAVE_KEYS,
+  DEFAULT_STATE,
+  createDefaultState,
+} from './state/defaultState.js';
 
-const SAVE_KEYS = ['pokeforge.v6', 'pokeforge.v6.s2', 'pokeforge.v6.s3'];
+import { slimPokemon, buildSavePayload, MAX_HISTORY } from './state/serialization.js';
+import { migrateSave, getMigrationSummary } from './state/migrateSave.js';
+
+// ── Save slot (runtime mutable) ───────────────────────────────────────────────
 let activeSaveSlot = Math.min(2, parseInt(localStorage.getItem('pokeforge.activeSlot') || '0'));
 let SAVE_KEY = SAVE_KEYS[activeSaveSlot];
 
-// ── Versionnage du schéma de save ────────────────────────────────────────────
-// Incrémenter à chaque ajout de champ majeur pour déclencher le banner migration.
-const SAVE_SCHEMA_VERSION = 8;
-
-// Anciennes clés localStorage (versions antérieures à v6)
-const LEGACY_SAVE_KEYS = ['pokeforge.v5', 'pokeforge.v4', 'pokeforge.v3', 'pokeforge.v2', 'pokeforge.v1', 'pokeforge'];
-
 // Résultat de migration exposé au boot pour afficher le banner
 let _migrationResult = null; // null | { from: string, fields: string[] }
-
-const DEFAULT_STATE = {
-  version: '6.0.0',
-  _schemaVersion: SAVE_SCHEMA_VERSION,
-  lang: 'fr',
-  gang: {
-    name: 'Team ???',
-    bossName: 'Boss',
-    bossSprite: '',
-    bossZone: null, // the zone the boss is currently in
-    bossTeam: [], // array of up to 3 pokemon IDs for boss combat (mirrors activeBossTeamSlot)
-    bossTeamSlots: [[], [], []], // 3 saved team configurations
-    activeBossTeamSlot: 0,       // which slot is currently active (0/1/2)
-    bossTeamSlotsPurchased: [true, false, false], // slot 2 costs 500k, slot 3 costs 1M
-    showcase: [null, null, null, null, null, null],
-    reputation: 0,
-    money: 5000,
-    initialized: false,
-    titleA: 'recrue',
-    titleB: null,
-    titleLiaison: '',
-    titleC: null,
-    titleD: null,
-  },
-  inventory: {
-    pokeball: 50,
-    greatball: 0,
-    ultraball: 0,
-    duskball: 0,
-    lure: 0,
-    superlure: 0,
-    potion: 0,
-    incense: 2,
-    rarescope: 1,
-    aura: 0,
-    evostone: 0,
-    rarecandy: 0,
-    masterball: 0,
-    incubator: 0,
-    egg_scanner: 0,
-  },
-  activeBall: 'pokeball',
-  activeBoosts: {
-    incense:   0, // timestamp when expires (0 = inactive)
-    rarescope: 0,
-    aura:      0,
-    lure:      0,
-    superlure: 0,
-    chestBoost:0,
-  },
-  pokemons: [],
-  agents: [],
-  zones: {},
-  pokedex: {},
-  activeEvents: {}, // zoneId -> { eventId, expiresAt, data }
-  missions: {
-    completed: [],
-    daily:  { reset: 0, progress: {}, claimed: [] },
-    weekly: { reset: 0, progress: {}, claimed: [] },
-    hourly: { reset: 0, slots: [], baseline: {}, claimed: [] },
-  },
-  stats: {
-    totalCaught: 0,
-    totalSold: 0,
-    totalFights: 0,
-    totalFightsWon: 0,
-    totalMoneyEarned: 0,
-    totalMoneySpent: 0,
-    shinyCaught: 0,
-    rocketDefeated: 0,
-    chestsOpened: 0,
-    eventsCompleted: 0,
-    eggsHatched: 0,
-    blueDefeated: 0,
-  },
-  settings: {
-    llmEnabled: false,
-    llmProvider: 'none',
-    llmUrl: 'http://localhost:11434',
-    llmModel: 'llama3',
-    llmApiKey: '',
-    sfxEnabled: true,
-    musicVol: 50,
-    uiScale: 100,
-    musicEnabled: false,
-    sfxVol: 80,
-    zoneScale: 100,
-    lightTheme: false,
-    lowSpec: false,
-    sfxIndividual: {},
-    autoCombat: true,
-    discoveryMode: true,
-    autoBuyBall: null,  // null | 'pokeball' | 'greatball' | 'ultraball'
-    spriteMode: 'local',   // 'local'|'gen1'|'gen2'|'gen3'|'gen4'|'gen5'|'ani'|'dex'|'home'
-    autoEvoChoice: false,  // true = évolution multi choisie automatiquement (aléatoire, sans popup)
-    autoSellAgent: {       // vente auto à la capture agent (après achat purchases.autoSellAgent)
-      mode: 'all',         // 'all' | 'by_potential'
-      potentials: [],      // potentials ciblés si mode === 'by_potential'
-    },
-    autoSellEggs: {        // vente auto des œufs éclots (après achat purchases.autoSellEggs)
-      mode: 'all',         // 'all' | 'by_potential'
-      potentials: [],
-      allowShiny: false,   // autoriser la vente de chromatiques
-    },
-  },
-  log: [],
-  marketSales: {}, // { [species_en]: { count, lastSale } } — supply/demand
-  favorites: [],   // array of pokemon IDs marked as favorite
-  trainingRoom: {
-    pokemon: [],      // up to 6+extraSlots pokemon IDs training here
-    log: [],          // recent training events
-    level: 1,         // room upgrade level
-    lastFight: null,  // timestamp du dernier combat d'entraînement
-    extraSlots: 0,    // purchasable extra slots (0–6, making max 12 total)
-  },
-  _savedAt: 0,       // timestamp de la dernière sauvegarde
-  cosmetics: {
-    gameBg: null,       // CSS gradient/color for game background
-    bossBg: null,       // CSS for boss panel background
-    unlockedBgs: [],    // IDs of unlocked cosmetic backgrounds
-  },
-  lab: {
-    trackedSpecies: [], // espèces suivies dans le tracker du labo
-  },
-  purchases: {
-    translator: false,
-    cosmeticsPanel: false,    // 50 000₽ — débloque l'onglet Cosmétiques
-    autoIncubator: false,     // 300 000₽ — Infirmière Joëlle corrompue (auto-incubation)
-    autoCollectEnabled: true, // toggle on/off après achat
-    autoCollect: false,       // 100 000₽ — Récolte automatique (skip combat animation)
-    chromaCharm: false,       // Gagné à 10 000 000₽ — taux shiny ×2
-    scientist: false,         // 5 000 000₽ — Scientifique peu scrupuleux
-    scientistEnabled: true,   // toggle actif/inactif après achat
-    autoSellAgent: false,         // 10 000 000₽ — Vente auto à la capture agent
-    autoSellAgentEnabled: true,   // toggle on/off après achat
-    autoSellEggs: false,      // 5 000 000₽ — Vente auto des œufs éclots
-  },
-  pension: {
-    slots: [],              // array of pokemon IDs (2 base + up to 4 extra purchased)
-    extraSlotsPurchased: 0, // 0–4 extra slots (each costs progressively more)
-    eggAt: null,            // timestamp when next egg generates
-  },
-  eggs: [],         // [{ id, species_en, hatchAt, potential, shiny }]
-  playtime: 0,      // secondes de jeu total
-  sessionStart: 0,  // timestamp début session
-  openZoneOrder: [],
-  favoriteZones: [], // zones ouvertes automatiquement au chargement
-  claimedCodes: {},
-  discoveryProgress: {
-    marketUnlocked: false,
-    pokedexUnlocked: false,
-    missionsUnlocked: false,
-    agentsUnlocked: false,
-    battleLogUnlocked: false,
-    cosmeticsUnlocked: false,
-  },
-  behaviourLogs: {
-    firstCombatAt: 0,
-    firstCaptureAt: 0,
-    firstPurchaseAt: 0,
-    firstAgentAt: 0,
-    firstMissionAt: 0,
-    tabViewCounts: {},
-  },
-};
 
 let state = structuredClone(DEFAULT_STATE);
 globalThis.state = state;
@@ -299,22 +138,7 @@ const MAX_HISTORY = 30; // cap des entrées d'historique par Pokémon (anti-Quot
 // Champs supprimés : dérivables au runtime (species_fr, dex) + valeurs par défaut
 // (assignedTo=null, cooldown=0, homesick=false, favorite=false, xp=0).
 // Gain moyen : ~35% sur la section pokemons soit ~20-25% sur la save totale.
-function slimPokemon(p) {
-  const s = { ...p };
-  // Dérivable depuis species_en via SPECIES_BY_EN
-  delete s.species_fr;
-  delete s.dex;
-  // Valeurs par défaut — omises pour gagner de la place
-  if (s.assignedTo === null)  delete s.assignedTo;
-  if (s.cooldown   === 0)     delete s.cooldown;
-  if (s.homesick   === false) delete s.homesick;
-  if (s.favorite   === false) delete s.favorite;
-  if (s.xp         === 0)     delete s.xp;
-  // History : cap + suppression si vide
-  if (s.history && s.history.length > MAX_HISTORY) s.history = s.history.slice(-MAX_HISTORY);
-  if (!s.history || s.history.length === 0) delete s.history;
-  return s;
-}
+// slimPokemon — importée depuis state/serialization.js
 
 function saveState() {
   globalThis.state = state; // keep modules in sync
@@ -329,8 +153,9 @@ function saveState() {
 
   state._savedAt = Date.now();
 
-  // Sérialisation slim : les objets en mémoire restent intacts
-  const payload = { ...state, pokemons: state.pokemons.map(slimPokemon) };
+  // Sérialisation slim via state/serialization.js
+  const payload = buildSavePayload(state);
+  payload._savedAt = state._savedAt;
   const data = JSON.stringify(payload);
 
   try {
@@ -338,7 +163,6 @@ function saveState() {
   } catch (e) {
     if (e.name === 'QuotaExceededError') {
       notify('⚠ Save trop volumineuse — historiques supprimés', 'error');
-      // Fallback : retirer tous les historiques
       const emergency = JSON.parse(data);
       for (const p of emergency.pokemons) delete p.history;
       try { localStorage.setItem(SAVE_KEY, JSON.stringify(emergency)); } catch {}
@@ -346,6 +170,7 @@ function saveState() {
   }
   // Cloud sync : géré par le tick 5 min dans startGameLoop (pas ici)
 }
+
 
 function formatPlaytime(seconds) {
   const h = Math.floor(seconds / 3600);
@@ -407,174 +232,17 @@ function loadState() {
   }
 }
 
+// ── migrate() — délègue à state/migrateSave.js ───────────────────────────────
 function migrate(saved) {
-  if (!saved.version) saved.version = '6.0.0';
-  const merged = { ...structuredClone(DEFAULT_STATE), ...saved };
-  merged.gang = { ...structuredClone(DEFAULT_STATE.gang), ...saved.gang };
-  merged.inventory = { ...structuredClone(DEFAULT_STATE.inventory), ...saved.inventory };
-  merged.stats = { ...structuredClone(DEFAULT_STATE.stats), ...saved.stats };
-  merged.settings = { ...structuredClone(DEFAULT_STATE.settings), ...saved.settings };
-  // Migration: discoveryProgress — merge avec valeurs par défaut complètes
-  merged.discoveryProgress = { ...structuredClone(DEFAULT_STATE.discoveryProgress), ...(saved.discoveryProgress || {}) };
-  if (!merged.behaviourLogs) merged.behaviourLogs = { firstCombatAt:0, firstCaptureAt:0, firstPurchaseAt:0, firstAgentAt:0, firstMissionAt:0, tabViewCounts:{} };
-  if (!merged.behaviourLogs.tabViewCounts) merged.behaviourLogs.tabViewCounts = {};
-  // Nouveau joueur → découverte ON ; joueur existant sans ce champ → OFF (déjà habitué)
-  if (merged.settings.discoveryMode === undefined) merged.settings.discoveryMode = false;
-  if (merged.settings.autoBuyBall === undefined) merged.settings.autoBuyBall = null;
-  // Migration classicSprites (bool) → spriteMode (string)
-  if (merged.settings.spriteMode === undefined) {
-    merged.settings.spriteMode = merged.settings.classicSprites ? 'gen5' : 'local';
-  }
-  delete merged.settings.classicSprites;
-  if (merged.settings.autoEvoChoice  === undefined) merged.settings.autoEvoChoice  = false;
-  merged.activeBoosts = { ...structuredClone(DEFAULT_STATE.activeBoosts), ...(saved.activeBoosts || {}) };
-  merged.activeEvents = saved.activeEvents || {};
-  // Migration: bossTeam + save slots
-  if (!merged.gang.bossTeam) merged.gang.bossTeam = [];
-  if (!merged.gang.showcase) merged.gang.showcase = [];
-  while (merged.gang.showcase.length < 6) merged.gang.showcase.push(null);
-  if (!merged.gang.bossTeamSlots) merged.gang.bossTeamSlots = [[...(merged.gang.bossTeam || [])], [], []];
-  if (merged.gang.activeBossTeamSlot === undefined) merged.gang.activeBossTeamSlot = 0;
-  if (!merged.gang.bossTeamSlotsPurchased) merged.gang.bossTeamSlotsPurchased = [true, false, false];
-  // Keep bossTeam in sync with active slot
-  merged.gang.bossTeam = [...(merged.gang.bossTeamSlots[merged.gang.activeBossTeamSlot] || [])];
-  // Migration: titles
-  if (!merged.unlockedTitles) merged.unlockedTitles = ['recrue', 'fondateur'];
-  if (!merged.gang.titleA) merged.gang.titleA = 'recrue';
-  if (merged.gang.titleB === undefined) merged.gang.titleB = null;
-  if (merged.gang.titleLiaison === undefined) merged.gang.titleLiaison = '';
-  if (merged.gang.titleC === undefined) merged.gang.titleC = null;
-  if (merged.gang.titleD === undefined) merged.gang.titleD = null;
-  // Migration: marketSales + favorites
-  if (!merged.marketSales) merged.marketSales = {};
-  if (!merged.favorites) merged.favorites = [];
-  // Migration: agent notifyCaptures
-  for (const agent of (merged.agents || [])) {
-    if (agent.notifyCaptures === undefined) agent.notifyCaptures = true;
-  }
-  // Migration: pokemon history + favorite
-  for (const p of (merged.pokemons || [])) {
-    // Restituer les champs omis par slimPokemon()
-    const sp = SPECIES_BY_EN[p.species_en];
-    if (!p.species_fr)             p.species_fr  = sp?.fr  || p.species_en;
-    if (p.dex === undefined)       p.dex         = sp?.dex ?? 0;
-    if (p.assignedTo === undefined) p.assignedTo = null;
-    if (p.cooldown   === undefined) p.cooldown   = 0;
-    if (p.homesick   === undefined) p.homesick   = false;
-    if (p.favorite   === undefined) p.favorite   = false;
-    if (p.xp         === undefined) p.xp         = 0;
-    if (!p.history)                p.history     = [];
-  }
-  // Migration: missions
-  if (!merged.missions) {
-    merged.missions = structuredClone(DEFAULT_STATE.missions);
-  }
-  if (!merged.missions.daily) merged.missions.daily = { reset: 0, progress: {}, claimed: [] };
-  if (!merged.missions.weekly) merged.missions.weekly = { reset: 0, progress: {}, claimed: [] };
-  if (!merged.missions.completed) merged.missions.completed = [];
-  if (!merged.missions.hourly) merged.missions.hourly = { reset: 0, slots: [], baseline: {}, claimed: [] };
-  // Migration: trainingRoom + cosmetics + purchases
-  if (!merged.trainingRoom) merged.trainingRoom = structuredClone(DEFAULT_STATE.trainingRoom);
-  merged.trainingRoom = { ...structuredClone(DEFAULT_STATE.trainingRoom), ...merged.trainingRoom };
-  if (!merged.cosmetics) merged.cosmetics = { gameBg: null, bossBg: null, unlockedBgs: [] };
-  if (!merged.lab) merged.lab = { trackedSpecies: [] };
-  if (!merged.lab.trackedSpecies) merged.lab.trackedSpecies = [];
-  if (!merged.purchases) merged.purchases = { translator: false, mysteryEggCount: 0 };
-  if (merged.purchases.mysteryEggCount === undefined) merged.purchases.mysteryEggCount = 0;
-  if (merged.purchases.cosmeticsPanel === undefined) merged.purchases.cosmeticsPanel = false;
-  if (merged.purchases.autoIncubator === undefined) merged.purchases.autoIncubator = false;
-  if (merged.purchases.autoCollect === undefined) merged.purchases.autoCollect = false;
-  if (merged.purchases.autoCollectEnabled === undefined) merged.purchases.autoCollectEnabled = true;
-  if (merged.purchases.autoSellAgentEnabled === undefined) merged.purchases.autoSellAgentEnabled = true;
-  if (merged.purchases.chromaCharm === undefined) merged.purchases.chromaCharm = false;
-  if (merged.purchases.scientist === undefined) merged.purchases.scientist = false;
-  if (merged.purchases.scientistEnabled === undefined) merged.purchases.scientistEnabled = true;
-  if (merged.purchases.autoSellAgent === undefined) merged.purchases.autoSellAgent = false;
-  if (merged.purchases.autoSellEggs === undefined) merged.purchases.autoSellEggs = false;
-  // Auto-sell config — nested under settings (consistent with sfxIndividual, etc.)
-  if (!merged.settings.autoSellAgent) merged.settings.autoSellAgent = { mode: 'all', potentials: [] };
-  if (!merged.settings.autoSellEggs) merged.settings.autoSellEggs = { mode: 'all', potentials: [], allowShiny: false };
-  // Migrate legacy top-level keys if present (from a brief wrong placement)
-  if (merged.autoSellAgentSettings) { Object.assign(merged.settings.autoSellAgent, merged.autoSellAgentSettings); delete merged.autoSellAgentSettings; }
-  if (merged.autoSellEggsSettings)  { Object.assign(merged.settings.autoSellEggs,  merged.autoSellEggsSettings);  delete merged.autoSellEggsSettings; }
-  if (!merged.favoriteZones) merged.favoriteZones = [];
-  if (merged.settings.uiScale === undefined) merged.settings.uiScale = 100;
-  if (merged.settings.musicVol === undefined) merged.settings.musicVol = 50;
-  if (merged.settings.sfxVol === undefined)   merged.settings.sfxVol   = 80;
-  if (merged.settings.zoneScale === undefined) merged.settings.zoneScale = 100;
-  if (merged.settings.lightTheme === undefined) merged.settings.lightTheme = false;
-  if (merged.settings.lowSpec === undefined)   merged.settings.lowSpec  = false;
-  if (!merged.settings.sfxIndividual)          merged.settings.sfxIndividual = {};
-  // Migration pension slotA/slotB → slots[]
-  if (!merged.pension) merged.pension = { slots: [], extraSlotsPurchased: 0, eggAt: null };
-  if (merged.pension.slotA !== undefined || merged.pension.slotB !== undefined) {
-    // Convert legacy fields to array
-    merged.pension.slots = [merged.pension.slotA, merged.pension.slotB].filter(Boolean);
-    delete merged.pension.slotA;
-    delete merged.pension.slotB;
-  }
-
-  if (merged.pension.extraSlotsPurchased === undefined) merged.pension.extraSlotsPurchased = 0;
-  if (!merged.eggs) merged.eggs = [];
-  // Migration: eggs need incubating flag; auto-hatching eggs get paused
-  for (const egg of merged.eggs) {
-    if (egg.incubating === undefined) {
-      egg.incubating = false;
-      egg.hatchAt = null; // require manual incubation
-    }
-    if (!egg.rarity) egg.rarity = SPECIES_BY_EN[egg.species_en]?.rarity || 'common';
-  }
-  if (!merged.inventory.incubator) merged.inventory.incubator = 0;
-  // Migration: agent perkLevels / pendingPerk
-  for (const agent of (merged.agents || [])) {
-    if (!agent.perkLevels) agent.perkLevels = [];
-    if (agent.pendingPerk === undefined) agent.pendingPerk = false;
-  }
-  // Migration: homesick flag for imported pokemon
-  merged.pokemons.forEach(p => { if (p.homesick === undefined) p.homesick = false; });
-  // Clean up stale training room IDs (deleted pokemon)
-  const allIds = new Set((merged.pokemons || []).map(p => p.id));
-  merged.trainingRoom.pokemon = (merged.trainingRoom.pokemon || []).filter(id => allIds.has(id));
-  // Résoudre les conflits d'affectation : priorité équipe > pension > formation
-  {
-    const teamSet = new Set(merged.gang.bossTeam || []);
-    // Pension : retirer si aussi en équipe
-    merged.pension.slots = (merged.pension.slots || []).filter(id => !teamSet.has(id));
-    // Formation : retirer si en équipe ou en pension
-    const resolvedPension = new Set(merged.pension.slots || []);
-    merged.trainingRoom.pokemon = (merged.trainingRoom.pokemon || []).filter(id => !teamSet.has(id) && !resolvedPension.has(id));
-  }
-  // Migration Gen 2 retirée : Lugia et Ho-Oh sont des Pokémon légitimes capturables
-  // via leurs zones dédiées (Îles Tourbillon / Victory Road) — conversion en ailes supprimée.
-
-  // ── Migration limites : valeurs hors-limites → MissingNo reward ─
-  // Limite incubateur = 10 (cohérent avec le shop qui bloque à owned >= 10)
-  const LIMITS = { incubator: 10 };
-  let limitViolation = false;
-  for (const [item, max] of Object.entries(LIMITS)) {
-    if ((merged.inventory[item] || 0) > max) {
-      merged.inventory[item] = max;
-      limitViolation = true;
-    }
-  }
-  // Pokémon avec potential > 5 ou level > 100
-  for (const pk of merged.pokemons || []) {
-    if ((pk.potential || 1) > 5) { pk.potential = 5; limitViolation = true; }
-    if ((pk.level || 1) > 100)   { pk.level = 100; limitViolation = true; }
-  }
-  if (limitViolation && !(merged.pokemons || []).some(p => p.species_en === 'missingno')) {
-    const reward = { id: uid(), species_en:'missingno', species_fr:'MissingNo', dex:0,
-      level:1, xp:0, potential:1, shiny:false, history:[{ type:'migration_reward', ts:Date.now() }],
-      moves:['Morphing','Psyko','Métronome','Surf'] };
-    merged.pokemons = merged.pokemons || [];
-    merged.pokemons.push(reward);
-    merged._limitViolationReward = true;
-  }
-
-  // Toujours stamper la version schéma courante
-  merged._schemaVersion = SAVE_SCHEMA_VERSION;
-  return merged;
+  return migrateSave(saved, {
+    DEFAULT_STATE,
+    SAVE_SCHEMA_VERSION,
+    SPECIES_BY_EN,
+    uid,
+    now: () => Date.now(),
+  });
 }
+
 
 function exportSave() {
   const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
@@ -9472,7 +9140,7 @@ async function supaCloudSave() {
   try {
     // Slim the payload the same way saveState() does for localStorage — avoids
     // writing derivable/default fields and keeps the JSONB blob as small as possible.
-    const payload = { ...state, pokemons: state.pokemons.map(slimPokemon) };
+    const payload = buildSavePayload(state);
     const { error } = await _supabase
       .from('player_saves')
       .upsert({
@@ -9567,7 +9235,7 @@ async function supaWriteSnapshot() {
 
   try {
     // Slim the payload — same as cloud save and localStorage
-    const payload = { ...state, pokemons: state.pokemons.map(slimPokemon) };
+    const payload = buildSavePayload(state);
 
     // 1. Insert new snapshot
     const { error } = await _supabase.from('save_snapshots').insert({
