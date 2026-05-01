@@ -1,16 +1,15 @@
 'use strict';
 
-export const APP_VERSION = '2.3.0';
+// ── Version identique à app.js ────────────────────────────────────────────────
+export const APP_VERSION = '2.2.0';
 export const GAME_VERSION = 'v0.1 — pre-alpha';
 
+// Incrémenter à chaque ajout de champ majeur pour déclencher le banner migration.
 export const SAVE_SCHEMA_VERSION = 8;
 
-export const SAVE_KEYS = ['pokeforge.v7', 'pokeforge.v7.s2', 'pokeforge.v7.s3'];
+export const SAVE_KEYS = ['pokeforge.v6', 'pokeforge.v6.s2', 'pokeforge.v6.s3'];
 
 export const LEGACY_SAVE_KEYS = [
-  'pokeforge.v6',
-  'pokeforge.v6.s2',
-  'pokeforge.v6.s3',
   'pokeforge.v5',
   'pokeforge.v4',
   'pokeforge.v3',
@@ -20,7 +19,7 @@ export const LEGACY_SAVE_KEYS = [
 ];
 
 export const DEFAULT_STATE = {
-  version: '7.0.0',
+  version: '6.0.0',
   _schemaVersion: SAVE_SCHEMA_VERSION,
   lang: 'fr',
   gang: {
@@ -29,7 +28,10 @@ export const DEFAULT_STATE = {
     bossSprite: '',
     bossZone: null,
     bossTeam: [],
-    showcase: [null, null, null],
+    bossTeamSlots: [[], [], []],
+    activeBossTeamSlot: 0,
+    bossTeamSlotsPurchased: [true, false, false],
+    showcase: [null, null, null, null, null, null],
     reputation: 0,
     money: 5000,
     initialized: false,
@@ -58,11 +60,11 @@ export const DEFAULT_STATE = {
   },
   activeBall: 'pokeball',
   activeBoosts: {
-    incense: 0,
-    rarescope: 0,
-    aura: 0,
-    lure: 0,
-    superlure: 0,
+    incense:    0,
+    rarescope:  0,
+    aura:       0,
+    lure:       0,
+    superlure:  0,
     chestBoost: 0,
   },
   pokemons: [],
@@ -72,7 +74,7 @@ export const DEFAULT_STATE = {
   activeEvents: {},
   missions: {
     completed: [],
-    daily: { reset: 0, progress: {}, claimed: [] },
+    daily:  { reset: 0, progress: {}, claimed: [] },
     weekly: { reset: 0, progress: {}, claimed: [] },
     hourly: { reset: 0, slots: [], baseline: {}, claimed: [] },
   },
@@ -89,7 +91,6 @@ export const DEFAULT_STATE = {
     eventsCompleted: 0,
     eggsHatched: 0,
     blueDefeated: 0,
-    agentsEliteCount: 0,   // nombre d'agents ayant déjà obtenu le grade Élite (max 4)
   },
   settings: {
     llmEnabled: false,
@@ -109,7 +110,17 @@ export const DEFAULT_STATE = {
     autoCombat: true,
     discoveryMode: true,
     autoBuyBall: null,
-    classicSprites: false,
+    spriteMode: 'local',   // 'local'|'gen1'|'gen2'|'gen3'|'gen4'|'gen5'|'ani'|'dex'|'home'
+    autoEvoChoice: false,
+    autoSellAgent: {
+      mode: 'all',         // 'all' | 'by_potential'
+      potentials: [],
+    },
+    autoSellEggs: {
+      mode: 'all',         // 'all' | 'by_potential'
+      potentials: [],
+      allowShiny: false,
+    },
   },
   log: [],
   marketSales: {},
@@ -119,6 +130,7 @@ export const DEFAULT_STATE = {
     log: [],
     level: 1,
     lastFight: null,
+    extraSlots: 0,         // 0–6 extra slots achetables
   },
   _savedAt: 0,
   cosmetics: {
@@ -133,20 +145,21 @@ export const DEFAULT_STATE = {
     translator: false,
     cosmeticsPanel: false,
     autoIncubator: false,
+    autoCollectEnabled: true,
+    autoCollect: false,
     chromaCharm: false,
+    scientist: false,
+    scientistEnabled: true,
+    autoSellAgent: false,
+    autoSellAgentEnabled: true,
+    autoSellEggs: false,
   },
   pension: {
-    slotA: null,
-    slotB: null,
+    slots: [],              // array de pokemon IDs (2 base + extra achetés)
+    extraSlotsPurchased: 0, // 0–4 extra slots
     eggAt: null,
   },
   eggs: [],
-  playerStats: {
-    baseStats:      { combat: 10, capture: 10, luck: 5 },
-    allocatedStats: { combat: 0,  capture: 0,  luck: 0  },
-    statPoints: 0,
-    pointsGrantedCount: 0, // floor(totalCaught / PLAYER_STAT_POINT_EVERY) at last grant
-  },
   playtime: 0,
   sessionStart: 0,
   openZoneOrder: [],
