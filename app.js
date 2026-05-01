@@ -1,1 +1,1 @@
-__APP_JS__
+__APP_JS_CONTENT__
