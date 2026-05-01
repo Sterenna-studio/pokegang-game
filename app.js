@@ -9255,6 +9255,13 @@ function startGameLoop() {
   // Auto-save every 10 seconds
   autoSaveInterval = setInterval(saveState, 10000);
 
+ 
+
+  // Snapshot every 10 minutes tick, but supaWriteSnapshot() throttles itself to 30 min
+  setInterval(supaWriteSnapshot, 10 * 60 * 1000);
+
+  // Leaderboard push every 10 minutes (has its own 1h dirty-check throttle)
+  setInterval(supaUpdateLeaderboardAnon, 10 * 60 * 1000);
   // Cloud save every hour (dirty-checked — skipped if nothing changed)
   setInterval(supaCloudSave, 60 * 60 * 1000);
 
@@ -9448,17 +9455,16 @@ async function supaSignOut() {
 }
 
 // ── Cloud Save ────────────────────────────────────────────────────
-// Dirty-check fingerprint for cloud save — avoids upsert when nothing changed.
-// Intentionally excludes _savedAt (changes every 10 s even when idle) so the
-// check reflects actual gameplay progress, not just the local-save heartbeat.
+// Dirty-check fingerprint for cloud save — avoids upsert when nothing changed
 let _cloudSaveFingerprint = '';
 
 async function supaCloudSave() {
   if (!_supabase || !supaSession) return;
   if (supaSyncing) return;
 
-  // Skip the upsert if key gameplay values haven't changed since the last cloud write.
-  const fp = `${state.gang.reputation}|${state.stats?.totalCaught}|${state.pokemons?.length}|${state.gang.money}`;
+  // Skip the upsert if key stats haven't changed since the last successful cloud write.
+  // Uses the same fields as the leaderboard fingerprint + pokémon count + money.
+  const fp = `${state.gang.reputation}|${state.stats?.totalCaught}|${state.pokemons?.length}|${state.gang.money}|${state._savedAt}`;
   if (fp === _cloudSaveFingerprint) return;
 
   supaSyncing = true;
@@ -9547,20 +9553,17 @@ async function supaForceCloudLoad() {
 const MAX_SNAPSHOTS = 2;
 let _snapshotCount = -1; // -1 = unknown (fetched lazily); avoids SELECT on every write
 
-// Snapshot throttle — at most one every 6 hours, and only when gameplay has
-// progressed since the previous snapshot (reuses the cloud-save fingerprint).
+// Snapshot throttle — one snapshot per session at most every 30 minutes.
+// The 5-min game loop calls this but the guard prevents actual DB writes more often.
 let _lastSnapshotAt = 0;
-let _lastSnapshotFingerprint = '';
-const SNAPSHOT_THROTTLE_MS = 6 * 60 * 60 * 1000; // 6 h — max 4 snapshots/day
+const SNAPSHOT_THROTTLE_MS = 30 * 60 * 1000; // 30 min minimum between snapshots
 
 async function supaWriteSnapshot() {
   if (!_supabase || !supaSession) return;
 
+  // Rate-limit to one snapshot per 30 minutes (previously fired every 5 min)
   const now = Date.now();
   if (now - _lastSnapshotAt < SNAPSHOT_THROTTLE_MS) return;
-
-  // Skip if no meaningful gameplay progress since the last snapshot.
-  if (!_cloudSaveFingerprint || _cloudSaveFingerprint === _lastSnapshotFingerprint) return;
 
   try {
     // Slim the payload — same as cloud save and localStorage
@@ -9578,7 +9581,6 @@ async function supaWriteSnapshot() {
     if (error) return;
 
     _lastSnapshotAt = now;
-    _lastSnapshotFingerprint = _cloudSaveFingerprint; // mark progress committed
 
     // Track count client-side to avoid a SELECT on every write
     if (_snapshotCount < 0) {
