@@ -467,26 +467,30 @@ function rollChestLoot(zoneId, passive = false) {
 function activateEvent(zoneId, event) {
   const state = globalThis.state;
   const reward = event.reward;
+  const label = state.lang === 'fr' ? event.fr : event.en;
   state.stats.eventsCompleted++;
+
+  // Collect all reward messages before notifying once
+  const parts = [];
 
   if (reward.shinyBoost) {
     state.activeBoosts.aura = Math.max(state.activeBoosts.aura || 0, Date.now() + reward.shinyBoost);
-    globalThis.notify(`${event.icon} ${state.lang === 'fr' ? event.fr : event.en}`, 'gold');
+    parts.push('✨ Aura Shiny');
   }
   if (reward.chestBoost) {
     state.activeBoosts.chestBoost = Math.max(state.activeBoosts.chestBoost || 0, Date.now() + reward.chestBoost);
-    globalThis.notify(`${event.icon} ${state.lang === 'fr' ? event.fr : event.en}`, 'gold');
+    parts.push('📦 Coffres boostés');
   }
   if (reward.rareBoost) {
     state.activeBoosts.rarescope = Math.max(state.activeBoosts.rarescope || 0, Date.now() + reward.rareBoost);
-    globalThis.notify(`${event.icon} ${state.lang === 'fr' ? event.fr : event.en}`, 'gold');
+    parts.push('🔭 Rares boostés');
   }
   if (reward.money) {
     const amount = globalThis.randInt(reward.money[0], reward.money[1]);
     state.gang.money += amount;
     state.stats.totalMoneyEarned += amount;
     if (reward.rep) state.gang.reputation += reward.rep;
-    globalThis.notify(`${event.icon} ${state.lang === 'fr' ? event.fr : event.en} +${amount}₽`, 'gold');
+    parts.push(`+${amount.toLocaleString()}₽`);
   }
   if (reward.xpBonus) {
     // Grant XP to all pokemon in zone agents
@@ -509,7 +513,7 @@ function activateEvent(zoneId, event) {
         p.level = Math.max(p.level, 20);
         p.stats = globalThis.calculateStats(p);
         state.pokemons.push(p);
-        globalThis.notify(`${event.icon} ${globalThis.speciesName(reward.pokemonGift)} rejoint le gang !`, 'gold');
+        parts.push(`${globalThis.speciesName(reward.pokemonGift)} rejoint le gang !`);
       }
     }
   }
@@ -521,9 +525,13 @@ function activateEvent(zoneId, event) {
       const shiny = Math.random() < 0.01;
       state.eggs.push({ id: globalThis.uid(), species_en, hatchAt: null, incubating: false, potential, shiny, gifted: true });
       globalThis.tryAutoIncubate();
-      globalThis.notify(`${event.icon} 🥚 Un œuf mystérieux est apparu… On se demande ce qu'il contient !`, 'gold');
+      parts.push('🥚 Un œuf mystérieux est apparu…');
     }
   }
+
+  // Single notification for the whole event
+  const suffix = parts.length > 0 ? ` — ${parts.join(' · ')}` : '';
+  globalThis.notify(`${event.icon} ${label}${suffix}`, 'gold');
 
   // Événements sans combat : résolus instantanément → zone repasse idle
   // Événements avec combat : setZoneActivity déjà fait dans spawnInZone au moment du spawn,
