@@ -158,7 +158,7 @@ export function migrateSave(saved, deps) {
   if (merged.purchases.autoSellAgent     === undefined) merged.purchases.autoSellAgent     = false;
   if (merged.purchases.autoSellAgentEnabled === undefined) merged.purchases.autoSellAgentEnabled = true;
   if (merged.purchases.autoSellEggs      === undefined) merged.purchases.autoSellEggs      = false;
-  if (merged.purchases.mysteryEggCount   === undefined) merged.purchases.mysteryEggCount   = 0;
+  if (merged.purchases.mysteryEggCount  === undefined) merged.purchases.mysteryEggCount  = 0;
 
   // trainingRoom extraSlots
   if (merged.trainingRoom.extraSlots === undefined) merged.trainingRoom.extraSlots = 0;
@@ -220,14 +220,14 @@ export function getMigrationSummary(saved, deps) {
   if (!saved.behaviourLogs)       fields.push('Logs comportementaux');
   if (saved.discoveryProgress?.agentsUnlocked === undefined) fields.push('Progression découverte étendue');
   if (saved.settings?.spriteMode === undefined && saved.settings?.classicSprites === undefined) fields.push('Option sprites');
-  if (!saved.eggs)                fields.push('Système d\'œufs');
+  if (!saved.eggs)                fields.push('Système d\'\u0153ufs');
   if (!saved.pension)             fields.push('Pension');
   if (!saved.trainingRoom)        fields.push('Salle d\'entraînement');
   if (!saved.missions)            fields.push('Missions');
   if (!saved.cosmetics)           fields.push('Cosmétiques');
   if (!saved.purchases?.scientist) fields.push('Scientifique peu scrupuleux');
   if (!saved.purchases?.autoSellAgent) fields.push('Vente auto agents');
-  if (!saved.gang?.bossTeamSlots) fields.push('Slots d\'équipe boss (×3)');
+  if (!saved.gang?.bossTeamSlots) fields.push('Slots d\'\u00e9quipe boss (×3)');
   if (!saved.purchases?.mysteryEggCount) fields.push('Compteur œufs mystère');
 
   return { from: `schéma v${fromVersion}`, fields };
