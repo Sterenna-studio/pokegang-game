@@ -1,9 +1,13 @@
 'use strict';
 
+// ── Helper ───────────────────────────────────────────────────────────────────
 function ensureObject(value, fallback = {}) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : fallback;
 }
 
+// ── migrateSave ─────────────────────────────────────────────────────────────
+// Parité totale avec migrate() dans app.js.
+// deps = { DEFAULT_STATE, SAVE_SCHEMA_VERSION, SPECIES_BY_EN, uid, now? }
 export function migrateSave(saved, deps) {
   const {
     DEFAULT_STATE,
@@ -21,132 +25,108 @@ export function migrateSave(saved, deps) {
 
   if (!saved.version) saved.version = '6.0.0';
 
-  const merged = {
-    ...structuredClone(DEFAULT_STATE),
-    ...saved,
-  };
+  const merged = { ...structuredClone(DEFAULT_STATE), ...saved };
 
-  merged.gang = { ...structuredClone(DEFAULT_STATE.gang), ...ensureObject(saved.gang) };
-  merged.inventory = { ...structuredClone(DEFAULT_STATE.inventory), ...ensureObject(saved.inventory) };
-  merged.stats = { ...structuredClone(DEFAULT_STATE.stats), ...ensureObject(saved.stats) };
-  merged.settings = { ...structuredClone(DEFAULT_STATE.settings), ...ensureObject(saved.settings) };
+  // ── Merge objets de premier niveau ─────────────────────────────────────────
+  merged.gang         = { ...structuredClone(DEFAULT_STATE.gang),         ...ensureObject(saved.gang) };
+  merged.inventory    = { ...structuredClone(DEFAULT_STATE.inventory),    ...ensureObject(saved.inventory) };
+  merged.stats        = { ...structuredClone(DEFAULT_STATE.stats),        ...ensureObject(saved.stats) };
+  merged.settings     = { ...structuredClone(DEFAULT_STATE.settings),     ...ensureObject(saved.settings) };
   merged.activeBoosts = { ...structuredClone(DEFAULT_STATE.activeBoosts), ...ensureObject(saved.activeBoosts) };
   merged.discoveryProgress = { ...structuredClone(DEFAULT_STATE.discoveryProgress), ...ensureObject(saved.discoveryProgress) };
   merged.trainingRoom = { ...structuredClone(DEFAULT_STATE.trainingRoom), ...ensureObject(saved.trainingRoom) };
-  merged.cosmetics = { ...structuredClone(DEFAULT_STATE.cosmetics), ...ensureObject(saved.cosmetics) };
-  merged.lab = { ...structuredClone(DEFAULT_STATE.lab), ...ensureObject(saved.lab) };
-  merged.pension = { ...structuredClone(DEFAULT_STATE.pension), ...ensureObject(saved.pension) };
-  merged.purchases = { ...structuredClone(DEFAULT_STATE.purchases), ...ensureObject(saved.purchases) };
+  merged.cosmetics    = { ...structuredClone(DEFAULT_STATE.cosmetics),    ...ensureObject(saved.cosmetics) };
+  merged.lab          = { ...structuredClone(DEFAULT_STATE.lab),          ...ensureObject(saved.lab) };
+  merged.purchases    = { ...structuredClone(DEFAULT_STATE.purchases),    ...ensureObject(saved.purchases) };
+  merged.pension      = { ...structuredClone(DEFAULT_STATE.pension),      ...ensureObject(saved.pension) };
+  merged.activeEvents = ensureObject(saved.activeEvents, {});
 
+  // ── behaviourLogs ──────────────────────────────────────────────────────────
   if (!merged.behaviourLogs) merged.behaviourLogs = structuredClone(DEFAULT_STATE.behaviourLogs);
   if (!merged.behaviourLogs.tabViewCounts) merged.behaviourLogs.tabViewCounts = {};
 
+  // ── Settings guards ──────────────────────────────────────────────────────────
+  // Nouveau joueur → discovery ON ; joueur existant sans ce champ → OFF
   if (merged.settings.discoveryMode === undefined) merged.settings.discoveryMode = false;
-  if (merged.settings.autoBuyBall === undefined) merged.settings.autoBuyBall = null;
-  if (merged.settings.classicSprites === undefined) merged.settings.classicSprites = false;
-  if (merged.settings.uiScale === undefined) merged.settings.uiScale = 100;
-  if (merged.settings.musicVol === undefined) merged.settings.musicVol = 50;
-  if (merged.settings.sfxVol === undefined) merged.settings.sfxVol = 80;
-  if (merged.settings.zoneScale === undefined) merged.settings.zoneScale = 100;
-  if (merged.settings.lightTheme === undefined) merged.settings.lightTheme = false;
-  if (merged.settings.lowSpec === undefined) merged.settings.lowSpec = false;
+  if (merged.settings.autoBuyBall   === undefined) merged.settings.autoBuyBall   = null;
+  if (merged.settings.uiScale       === undefined) merged.settings.uiScale       = 100;
+  if (merged.settings.musicVol      === undefined) merged.settings.musicVol      = 50;
+  if (merged.settings.sfxVol        === undefined) merged.settings.sfxVol        = 80;
+  if (merged.settings.zoneScale     === undefined) merged.settings.zoneScale     = 100;
+  if (merged.settings.lightTheme    === undefined) merged.settings.lightTheme    = false;
+  if (merged.settings.lowSpec       === undefined) merged.settings.lowSpec       = false;
   if (!merged.settings.sfxIndividual) merged.settings.sfxIndividual = {};
+  if (merged.settings.autoEvoChoice === undefined) merged.settings.autoEvoChoice = false;
 
-  merged.activeEvents = ensureObject(saved.activeEvents, {});
-  if (!merged.marketSales) merged.marketSales = {};
-  if (!Array.isArray(merged.favorites)) merged.favorites = [];
+  // Migration classicSprites (bool) → spriteMode (string)
+  if (merged.settings.spriteMode === undefined) {
+    merged.settings.spriteMode = merged.settings.classicSprites ? 'gen5' : 'local';
+  }
+  delete merged.settings.classicSprites;
+
+  // autoSellAgent / autoSellEggs — nested sous settings
+  if (!merged.settings.autoSellAgent) merged.settings.autoSellAgent = { mode: 'all', potentials: [] };
+  if (!merged.settings.autoSellEggs)  merged.settings.autoSellEggs  = { mode: 'all', potentials: [], allowShiny: false };
+  // Migration clés legacy top-level si présentes (placement erroné temporaire)
+  if (merged.autoSellAgentSettings) { Object.assign(merged.settings.autoSellAgent, merged.autoSellAgentSettings); delete merged.autoSellAgentSettings; }
+  if (merged.autoSellEggsSettings)  { Object.assign(merged.settings.autoSellEggs,  merged.autoSellEggsSettings);  delete merged.autoSellEggsSettings;  }
+
+  // ── Tableaux de base ─────────────────────────────────────────────────────────────
+  if (!merged.marketSales)              merged.marketSales  = {};
+  if (!Array.isArray(merged.favorites)) merged.favorites    = [];
   if (!Array.isArray(merged.favoriteZones)) merged.favoriteZones = [];
-  if (!Array.isArray(merged.eggs)) merged.eggs = [];
-  if (!Array.isArray(merged.pokemons)) merged.pokemons = [];
-  if (!Array.isArray(merged.agents)) merged.agents = [];
+  if (!Array.isArray(merged.eggs))      merged.eggs         = [];
+  if (!Array.isArray(merged.pokemons))  merged.pokemons     = [];
+  if (!Array.isArray(merged.agents))    merged.agents       = [];
   if (!Array.isArray(merged.unlockedTitles)) merged.unlockedTitles = ['recrue', 'fondateur'];
 
+  // ── Gang ─────────────────────────────────────────────────────────────────────
   if (!merged.gang.bossTeam) merged.gang.bossTeam = [];
-  if (!merged.gang.showcase) merged.gang.showcase = [null, null, null];
+  if (!merged.gang.showcase) merged.gang.showcase = [];
+  while (merged.gang.showcase.length < 6) merged.gang.showcase.push(null);
+  // bossTeamSlots (3 slots d'équipe sauvegardés)
+  if (!merged.gang.bossTeamSlots) {
+    merged.gang.bossTeamSlots = [[...(merged.gang.bossTeam || [])], [], []];
+  }
+  if (merged.gang.activeBossTeamSlot === undefined) merged.gang.activeBossTeamSlot = 0;
+  if (!merged.gang.bossTeamSlotsPurchased) merged.gang.bossTeamSlotsPurchased = [true, false, false];
+  // Garder bossTeam en sync avec le slot actif
+  merged.gang.bossTeam = [...(merged.gang.bossTeamSlots[merged.gang.activeBossTeamSlot] || [])];
+  // Titres
   if (!merged.gang.titleA) merged.gang.titleA = 'recrue';
-  if (merged.gang.titleB === undefined) merged.gang.titleB = null;
+  if (merged.gang.titleB      === undefined) merged.gang.titleB      = null;
   if (merged.gang.titleLiaison === undefined) merged.gang.titleLiaison = '';
-  if (merged.gang.titleC === undefined) merged.gang.titleC = null;
-  if (merged.gang.titleD === undefined) merged.gang.titleD = null;
+  if (merged.gang.titleC      === undefined) merged.gang.titleC      = null;
+  if (merged.gang.titleD      === undefined) merged.gang.titleD      = null;
 
+  // ── Missions ───────────────────────────────────────────────────────────────────
   if (!merged.missions) merged.missions = structuredClone(DEFAULT_STATE.missions);
-  if (!merged.missions.daily) merged.missions.daily = { reset: 0, progress: {}, claimed: [] };
-  if (!merged.missions.weekly) merged.missions.weekly = { reset: 0, progress: {}, claimed: [] };
-  if (!merged.missions.hourly) merged.missions.hourly = { reset: 0, slots: [], baseline: {}, claimed: [] };
+  if (!merged.missions.daily)   merged.missions.daily   = { reset: 0, progress: {}, claimed: [] };
+  if (!merged.missions.weekly)  merged.missions.weekly  = { reset: 0, progress: {}, claimed: [] };
+  if (!merged.missions.hourly)  merged.missions.hourly  = { reset: 0, slots: [], baseline: {}, claimed: [] };
   if (!Array.isArray(merged.missions.completed)) merged.missions.completed = [];
 
-  // ── Migration grades agents (v2) ────────────────────────────
-  // Ancien système : grunt / lieutenant / captain
-  // Nouveau système : grunt / sergent / lieutenant / commandant / elite / general
-  if (!merged.stats.agentsEliteCount) merged.stats.agentsEliteCount = 0;
-
+  // ── Agents ─────────────────────────────────────────────────────────────────────
   for (const agent of merged.agents) {
     if (agent.notifyCaptures === undefined) agent.notifyCaptures = true;
     if (!Array.isArray(agent.perkLevels)) agent.perkLevels = [];
     if (agent.pendingPerk === undefined) agent.pendingPerk = false;
-
-    // ── Nouveau système stat points ──────────────────────────────
-    if (!agent.allocatedStats) agent.allocatedStats = { capture: 0, combat: 0, luck: 0 };
-    if (!agent.preferredBall) agent.preferredBall = 'pokeball';
-    if (!agent.behavior)      agent.behavior      = 'all';
-
-    // natureDefined : true pour les agents créés avec le nouveau système,
-    // false pour les agents d'anciennes saves qui n'ont pas eu le choix de nature.
-    if (agent.natureDefined === undefined) {
-      agent.natureDefined = false;      // ancien agent — devra définir sa nature
-      // baseStats temporaires = stats actuelles (seront remplacées après le choix de nature)
-      if (!agent.baseStats) {
-        agent.baseStats = { capture: agent.stats.capture, combat: agent.stats.combat, luck: agent.stats.luck };
-      }
-      agent.statPoints   = 0;          // accordés après le choix de nature
-      agent.pendingPerk  = false;
-    } else {
-      // Nouvel agent — baseStats déjà définis à la création
-      if (!agent.baseStats) {
-        agent.baseStats = { capture: agent.stats.capture, combat: agent.stats.combat, luck: agent.stats.luck };
-      }
-      if (agent.statPoints === undefined) agent.statPoints = 0;
-    }
-
-    // Convertir l'ancien grade 'captain' → 'commandant'
-    if (agent.title === 'captain') agent.title = 'commandant';
-
-    // Recalcul des promotions manquantes selon le niveau actuel
-    // (ex : un grunt lv.60 doit être promu sergent + lieutenant)
-    const lvl = agent.level || 1;
-    const CHAIN = [
-      { from: 'grunt',      to: 'sergent',    lvl: 25 },
-      { from: 'sergent',    to: 'lieutenant', lvl: 50 },
-      { from: 'lieutenant', to: 'commandant', lvl: 75 },
-    ];
-    for (const step of CHAIN) {
-      if (agent.title === step.from && lvl >= step.lvl) {
-        agent.title = step.to;
-      }
-    }
-    // Palier 100 : si commandant niveau 100 sans grade élite/général encore affecté
-    if (agent.title === 'commandant' && lvl >= 100) {
-      if (merged.stats.agentsEliteCount < 4) {
-        agent.title = 'elite';
-        merged.stats.agentsEliteCount++;
-      } else {
-        agent.title = 'general';
-      }
-    }
   }
 
+  // ── Pokémons ───────────────────────────────────────────────────────────────────
   for (const p of merged.pokemons) {
     const species = SPECIES_BY_EN?.[p.species_en];
-    if (!p.species_fr) p.species_fr = species?.fr || p.species_en;
-    if (p.dex === undefined) p.dex = species?.dex ?? 0;
+    if (!p.species_fr)             p.species_fr  = species?.fr  || p.species_en;
+    if (p.dex       === undefined) p.dex         = species?.dex ?? 0;
     if (p.assignedTo === undefined) p.assignedTo = null;
-    if (p.cooldown === undefined) p.cooldown = 0;
-    if (p.homesick === undefined) p.homesick = false;
-    if (p.favorite === undefined) p.favorite = false;
-    if (p.xp === undefined) p.xp = 0;
-    if (!Array.isArray(p.history)) p.history = [];
+    if (p.cooldown  === undefined) p.cooldown    = 0;
+    if (p.homesick  === undefined) p.homesick    = false;
+    if (p.favorite  === undefined) p.favorite    = false;
+    if (p.xp        === undefined) p.xp          = 0;
+    if (!Array.isArray(p.history)) p.history     = [];
   }
 
+  // ── Œufs ────────────────────────────────────────────────────────────────────────
   for (const egg of merged.eggs) {
     if (egg.incubating === undefined) {
       egg.incubating = false;
@@ -154,50 +134,49 @@ export function migrateSave(saved, deps) {
     }
     if (!egg.rarity) egg.rarity = SPECIES_BY_EN?.[egg.species_en]?.rarity || 'common';
   }
-
   if (!merged.inventory.incubator) merged.inventory.incubator = 0;
-  // ── playerStats ───────────────────────────────────────────────
-  if (!merged.playerStats) {
-    merged.playerStats = {
-      baseStats:      { combat: 10, capture: 10, luck: 5 },
-      allocatedStats: { combat: 0,  capture: 0,  luck: 0  },
-      statPoints: 0,
-      pointsGrantedCount: 0,
-    };
+
+  // ── Pension : migration slotA/slotB → slots[] ──────────────────────────────────────
+  if (!Array.isArray(merged.pension.slots)) {
+    // Convertir l'ancien format slotA/slotB (présents dans la save v5/v6)
+    const a = merged.pension.slotA;
+    const b = merged.pension.slotB;
+    merged.pension.slots = [a, b].filter(id => typeof id === 'string' && id.length > 0);
+    delete merged.pension.slotA;
+    delete merged.pension.slotB;
   }
-  if (!merged.playerStats.baseStats)      merged.playerStats.baseStats      = { combat: 10, capture: 10, luck: 5 };
-  if (!merged.playerStats.allocatedStats) merged.playerStats.allocatedStats = { combat: 0, capture: 0, luck: 0 };
-  if (merged.playerStats.statPoints      === undefined) merged.playerStats.statPoints      = 0;
-  if (merged.playerStats.pointsGrantedCount === undefined) merged.playerStats.pointsGrantedCount = 0;
+  if (merged.pension.extraSlotsPurchased === undefined) merged.pension.extraSlotsPurchased = 0;
 
-  if (merged.purchases.cosmeticsPanel === undefined) merged.purchases.cosmeticsPanel = false;
-  if (merged.purchases.autoIncubator === undefined) merged.purchases.autoIncubator = false;
-  if (merged.purchases.chromaCharm === undefined) merged.purchases.chromaCharm = false;
+  // ── Purchases ───────────────────────────────────────────────────────────────────
+  if (merged.purchases.cosmeticsPanel    === undefined) merged.purchases.cosmeticsPanel    = false;
+  if (merged.purchases.autoIncubator     === undefined) merged.purchases.autoIncubator     = false;
+  if (merged.purchases.autoCollect       === undefined) merged.purchases.autoCollect       = false;
+  if (merged.purchases.autoCollectEnabled === undefined) merged.purchases.autoCollectEnabled = true;
+  if (merged.purchases.chromaCharm       === undefined) merged.purchases.chromaCharm       = false;
+  if (merged.purchases.scientist         === undefined) merged.purchases.scientist         = false;
+  if (merged.purchases.scientistEnabled  === undefined) merged.purchases.scientistEnabled  = true;
+  if (merged.purchases.autoSellAgent     === undefined) merged.purchases.autoSellAgent     = false;
+  if (merged.purchases.autoSellAgentEnabled === undefined) merged.purchases.autoSellAgentEnabled = true;
+  if (merged.purchases.autoSellEggs      === undefined) merged.purchases.autoSellEggs      = false;
 
+  // trainingRoom extraSlots
+  if (merged.trainingRoom.extraSlots === undefined) merged.trainingRoom.extraSlots = 0;
+
+  // ── Intégrité : nettoyer les IDs obsolètes ───────────────────────────────────────
   const allIds = new Set(merged.pokemons.map(p => p.id));
   merged.trainingRoom.pokemon = (merged.trainingRoom.pokemon || []).filter(id => allIds.has(id));
 
+  // Résoudre les conflits d'affectation : priorité équipe > pension > formation
   {
     const teamSet = new Set(merged.gang.bossTeam || []);
-    if (merged.pension.slotA && teamSet.has(merged.pension.slotA)) merged.pension.slotA = null;
-    if (merged.pension.slotB && teamSet.has(merged.pension.slotB)) merged.pension.slotB = null;
-    const pensionSet = new Set([merged.pension.slotA, merged.pension.slotB].filter(Boolean));
-    merged.trainingRoom.pokemon = (merged.trainingRoom.pokemon || []).filter(id => !teamSet.has(id) && !pensionSet.has(id));
+    merged.pension.slots = (merged.pension.slots || []).filter(id => !teamSet.has(id));
+    const resolvedPension = new Set(merged.pension.slots);
+    merged.trainingRoom.pokemon = (merged.trainingRoom.pokemon || []).filter(
+      id => !teamSet.has(id) && !resolvedPension.has(id),
+    );
   }
 
-  const LEGENDARY_CONVERT = new Set(['lugia', 'ho-oh']);
-  const legendaryFound = merged.pokemons.filter(pk => LEGENDARY_CONVERT.has(pk.species_en));
-  if (legendaryFound.length > 0) {
-    merged.pokemons = merged.pokemons.filter(pk => !LEGENDARY_CONVERT.has(pk.species_en));
-    merged.gang.bossTeam = (merged.gang.bossTeam || []).filter(id => !legendaryFound.some(p => p.id === id));
-    merged.inventory = merged.inventory || {};
-    for (const pk of legendaryFound) {
-      if (pk.species_en === 'lugia') merged.inventory.silver_wing = (merged.inventory.silver_wing || 0) + 2;
-      else merged.inventory.rainbow_wing = (merged.inventory.rainbow_wing || 0) + 2;
-    }
-    merged._gen2MigrationCount = legendaryFound.length;
-  }
-
+  // ── Limites : valeurs hors-limites → MissingNo reward ──────────────────────────────
   const LIMITS = { incubator: 10 };
   let limitViolation = false;
   for (const [item, max] of Object.entries(LIMITS)) {
@@ -208,7 +187,7 @@ export function migrateSave(saved, deps) {
   }
   for (const pk of merged.pokemons) {
     if ((pk.potential || 1) > 5) { pk.potential = 5; limitViolation = true; }
-    if ((pk.level || 1) > 100) { pk.level = 100; limitViolation = true; }
+    if ((pk.level     || 1) > 100) { pk.level   = 100; limitViolation = true; }
   }
   if (limitViolation && !merged.pokemons.some(p => p.species_en === 'missingno')) {
     merged.pokemons.push({
@@ -226,54 +205,28 @@ export function migrateSave(saved, deps) {
     merged._limitViolationReward = true;
   }
 
-  // Initialiser dexCaught depuis le pokédex existant si absent ou à 0
-  if (!merged.stats.dexCaught) {
-    merged.stats.dexCaught = Object.values(merged.pokedex || {}).filter(e => e.caught).length;
-  }
-
-  // ── Migration schema v8 : intégrité Pokédex ──────────────────
-  // Pour les anciennes saves, s'assurer que chaque Pokémon possédé
-  // est bien marqué caught/seen dans le Pokédex, et que le flag
-  // shiny n'est jamais rétrogradé (seen/caught/shiny = historiques).
-  if ((saved?._schemaVersion ?? 0) < 8) {
-    for (const pk of merged.pokemons || []) {
-      const en = pk.species_en;
-      if (!en) continue;
-      if (!merged.pokedex[en]) merged.pokedex[en] = { seen: false, caught: false, shiny: false, count: 0 };
-      merged.pokedex[en].caught = true;
-      merged.pokedex[en].seen   = true;
-      merged.pokedex[en].count  = (merged.pokedex[en].count || 0) + 1;
-      if (pk.shiny) merged.pokedex[en].shiny = true;
-    }
-    // Recalcul shinyCaught — only correct upward
-    const ownedShiny = (merged.pokemons || []).filter(p => p.shiny).length;
-    if ((merged.stats.shinyCaught || 0) < ownedShiny) merged.stats.shinyCaught = ownedShiny;
-    // Recalcul dexCaught
-    merged.stats.dexCaught = Object.values(merged.pokedex || {}).filter(e => e.caught).length;
-  }
-
   merged._schemaVersion = SAVE_SCHEMA_VERSION;
   return merged;
 }
 
+// ── getMigrationSummary ──────────────────────────────────────────────────────────
 export function getMigrationSummary(saved, deps) {
   const { SAVE_SCHEMA_VERSION } = deps;
-  const fromVersion = saved?._schemaVersion ?? saved?.version ?? 'inconnue';
-  const needsMigration = saved?._schemaVersion !== SAVE_SCHEMA_VERSION;
-  if (!saved || !needsMigration) return null;
+  if (!saved || saved._schemaVersion === SAVE_SCHEMA_VERSION) return null;
 
+  const fromVersion = saved._schemaVersion ?? saved.version ?? 'inconnue';
   const fields = [];
-  if (!saved.behaviourLogs) fields.push('Logs comportementaux');
+  if (!saved.behaviourLogs)       fields.push('Logs comportementaux');
   if (saved.discoveryProgress?.agentsUnlocked === undefined) fields.push('Progression découverte étendue');
-  if (saved.settings?.classicSprites === undefined) fields.push('Option sprites');
-  if (!saved.eggs) fields.push('Système d\'œufs');
-  if (!saved.pension) fields.push('Pension');
-  if (!saved.trainingRoom) fields.push('Salle d\'entraînement');
-  if (!saved.missions) fields.push('Missions');
-  if (!saved.cosmetics) fields.push('Cosmétiques');
+  if (saved.settings?.spriteMode === undefined && saved.settings?.classicSprites === undefined) fields.push('Option sprites');
+  if (!saved.eggs)                fields.push('Système d\'\u0153ufs');
+  if (!saved.pension)             fields.push('Pension');
+  if (!saved.trainingRoom)        fields.push('Salle d\'entraînement');
+  if (!saved.missions)            fields.push('Missions');
+  if (!saved.cosmetics)           fields.push('Cosmétiques');
+  if (!saved.purchases?.scientist) fields.push('Scientifique peu scrupuleux');
+  if (!saved.purchases?.autoSellAgent) fields.push('Vente auto agents');
+  if (!saved.gang?.bossTeamSlots) fields.push('Slots d\'\u00e9quipe boss (×3)');
 
-  return {
-    from: `schéma v${fromVersion}`,
-    fields,
-  };
+  return { from: `schéma v${fromVersion}`, fields };
 }
