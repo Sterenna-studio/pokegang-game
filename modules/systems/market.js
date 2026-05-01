@@ -56,9 +56,10 @@ function removePokemonFromAllAssignments(pkId) {
   // Formation
   if (state.trainingRoom) state.trainingRoom.pokemon = (state.trainingRoom.pokemon || []).filter(id => id !== pkId);
   // Pension
-  if (state.pension) {
-    if (state.pension.slotA === pkId) { state.pension.slotA = null; state.pension.eggAt = null; }
-    if (state.pension.slotB === pkId) { state.pension.slotB = null; state.pension.eggAt = null; }
+  if (state.pension?.slots) {
+    const before = state.pension.slots.length;
+    state.pension.slots = state.pension.slots.filter(id => id !== pkId);
+    if (state.pension.slots.length < before) state.pension.eggAt = null;
   }
 }
 
@@ -87,7 +88,7 @@ function sellPokemon(pokemonIds, _shinyConfirmed = false) {
     if (pokemonIds.length === 0) return;
   }
   // Block pension pokémon
-  const pensionSet = new Set([state.pension?.slotA, state.pension?.slotB].filter(Boolean));
+  const pensionSet = globalThis.getPensionSlotIds();
   const pensionBlocked = pokemonIds.filter(id => pensionSet.has(id));
   if (pensionBlocked.length > 0) {
     globalThis.notify('Les Pokémon en pension ne peuvent pas être vendus.', 'error');
@@ -173,9 +174,18 @@ function buyItem(itemDef) {
   if (!state.behaviourLogs) state.behaviourLogs = {};
   if (!state.behaviourLogs.firstPurchaseAt) state.behaviourLogs.firstPurchaseAt = Date.now();
 
-  if (itemDef.id === 'translator') {
-    state.purchases.translator = true;
-    globalThis.notify('Traducteur Pokemon obtenu !', 'gold');
+  // ── One-time gang upgrades ────────────────────────────────────
+  const GANG_UPGRADES = new Set(['translator', 'autoSellAgent']);
+  if (GANG_UPGRADES.has(itemDef.id)) {
+    if (state.purchases[itemDef.id]) {
+      globalThis.notify(state.lang === 'fr' ? 'Déjà possédé !' : 'Already owned!');
+      state.gang.money += actualCost;
+      state.stats.totalMoneySpent -= actualCost;
+      return false;
+    }
+    state.purchases[itemDef.id] = true;
+    const name = state.lang === 'fr' ? (itemDef.fr || itemDef.id) : (itemDef.en || itemDef.id);
+    globalThis.notify(`${name} débloqué !`, 'gold');
     globalThis.saveState();
     return true;
   }

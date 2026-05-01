@@ -115,7 +115,7 @@ let SAVE_KEY = SAVE_KEYS[activeSaveSlot];
 
 // ── Versionnage du schéma de save ────────────────────────────────────────────
 // Incrémenter à chaque ajout de champ majeur pour déclencher le banner migration.
-const SAVE_SCHEMA_VERSION = 7;
+const SAVE_SCHEMA_VERSION = 8;
 
 // Anciennes clés localStorage (versions antérieures à v6)
 const LEGACY_SAVE_KEYS = ['pokeforge.v5', 'pokeforge.v4', 'pokeforge.v3', 'pokeforge.v2', 'pokeforge.v1', 'pokeforge'];
@@ -132,8 +132,11 @@ const DEFAULT_STATE = {
     bossName: 'Boss',
     bossSprite: '',
     bossZone: null, // the zone the boss is currently in
-    bossTeam: [], // array of up to 3 pokemon IDs for boss combat
-    showcase: [null, null, null],
+    bossTeam: [], // array of up to 3 pokemon IDs for boss combat (mirrors activeBossTeamSlot)
+    bossTeamSlots: [[], [], []], // 3 saved team configurations
+    activeBossTeamSlot: 0,       // which slot is currently active (0/1/2)
+    bossTeamSlotsPurchased: [true, false, false], // slot 2 costs 500k, slot 3 costs 1M
+    showcase: [null, null, null, null, null, null],
     reputation: 0,
     money: 5000,
     initialized: false,
@@ -214,15 +217,25 @@ const DEFAULT_STATE = {
     autoBuyBall: null,  // null | 'pokeball' | 'greatball' | 'ultraball'
     spriteMode: 'local',   // 'local'|'gen1'|'gen2'|'gen3'|'gen4'|'gen5'|'ani'|'dex'|'home'
     autoEvoChoice: false,  // true = évolution multi choisie automatiquement (aléatoire, sans popup)
+    autoSellAgent: {       // vente auto à la capture agent (après achat purchases.autoSellAgent)
+      mode: 'all',         // 'all' | 'by_potential'
+      potentials: [],      // potentials ciblés si mode === 'by_potential'
+    },
+    autoSellEggs: {        // vente auto des œufs éclots (après achat purchases.autoSellEggs)
+      mode: 'all',         // 'all' | 'by_potential'
+      potentials: [],
+      allowShiny: false,   // autoriser la vente de chromatiques
+    },
   },
   log: [],
   marketSales: {}, // { [species_en]: { count, lastSale } } — supply/demand
   favorites: [],   // array of pokemon IDs marked as favorite
   trainingRoom: {
-    pokemon: [],      // up to 6 pokemon IDs training here
+    pokemon: [],      // up to 6+extraSlots pokemon IDs training here
     log: [],          // recent training events
     level: 1,         // room upgrade level
     lastFight: null,  // timestamp du dernier combat d'entraînement
+    extraSlots: 0,    // purchasable extra slots (0–6, making max 12 total)
   },
   _savedAt: 0,       // timestamp de la dernière sauvegarde
   cosmetics: {
@@ -235,16 +248,21 @@ const DEFAULT_STATE = {
   },
   purchases: {
     translator: false,
-    cosmeticsPanel: false, // 50 000₽ — débloque l'onglet Cosmétiques
-    autoIncubator: false,      // 300 000₽ — Infirmière Joëlle corrompue (auto-incubation)
-    autoCollect: false,        // 100 000₽ — Récolte automatique (skip combat animation)
-    autoCollectEnabled: true,  // toggle on/off après achat
-    chromaCharm: false,        // Gagné à 10 000 000₽ — taux shiny ×2
+    cosmeticsPanel: false,    // 50 000₽ — débloque l'onglet Cosmétiques
+    autoIncubator: false,     // 300 000₽ — Infirmière Joëlle corrompue (auto-incubation)
+    autoCollectEnabled: true, // toggle on/off après achat
+    autoCollect: false,       // 100 000₽ — Récolte automatique (skip combat animation)
+    chromaCharm: false,       // Gagné à 10 000 000₽ — taux shiny ×2
+    scientist: false,         // 5 000 000₽ — Scientifique peu scrupuleux
+    scientistEnabled: true,   // toggle actif/inactif après achat
+    autoSellAgent: false,         // 10 000 000₽ — Vente auto à la capture agent
+    autoSellAgentEnabled: true,   // toggle on/off après achat
+    autoSellEggs: false,      // 5 000 000₽ — Vente auto des œufs éclots
   },
   pension: {
-    slotA: null,    // pokemon ID
-    slotB: null,    // pokemon ID
-    eggAt: null,    // timestamp when next egg generates
+    slots: [],              // array of pokemon IDs (2 base + up to 4 extra purchased)
+    extraSlotsPurchased: 0, // 0–4 extra slots (each costs progressively more)
+    eggAt: null,            // timestamp when next egg generates
   },
   eggs: [],         // [{ id, species_en, hatchAt, potential, shiny }]
   playtime: 0,      // secondes de jeu total
@@ -301,6 +319,7 @@ function slimPokemon(p) {
 function saveState() {
   globalThis.state = state; // keep modules in sync
   if (!state.marketSales) state.marketSales = {}; // guard: toujours initialisé
+  _playerWasActive = true; // signal leaderboard timer that the player is active
 
   // Playtime accumulation
   if (state.sessionStart) {
@@ -410,9 +429,15 @@ function migrate(saved) {
   if (merged.settings.autoEvoChoice  === undefined) merged.settings.autoEvoChoice  = false;
   merged.activeBoosts = { ...structuredClone(DEFAULT_STATE.activeBoosts), ...(saved.activeBoosts || {}) };
   merged.activeEvents = saved.activeEvents || {};
-  // Migration: bossTeam
+  // Migration: bossTeam + save slots
   if (!merged.gang.bossTeam) merged.gang.bossTeam = [];
-  if (!merged.gang.showcase) merged.gang.showcase = [null, null, null];
+  if (!merged.gang.showcase) merged.gang.showcase = [];
+  while (merged.gang.showcase.length < 6) merged.gang.showcase.push(null);
+  if (!merged.gang.bossTeamSlots) merged.gang.bossTeamSlots = [[...(merged.gang.bossTeam || [])], [], []];
+  if (merged.gang.activeBossTeamSlot === undefined) merged.gang.activeBossTeamSlot = 0;
+  if (!merged.gang.bossTeamSlotsPurchased) merged.gang.bossTeamSlotsPurchased = [true, false, false];
+  // Keep bossTeam in sync with active slot
+  merged.gang.bossTeam = [...(merged.gang.bossTeamSlots[merged.gang.activeBossTeamSlot] || [])];
   // Migration: titles
   if (!merged.unlockedTitles) merged.unlockedTitles = ['recrue', 'fondateur'];
   if (!merged.gang.titleA) merged.gang.titleA = 'recrue';
@@ -460,7 +485,18 @@ function migrate(saved) {
   if (merged.purchases.autoIncubator === undefined) merged.purchases.autoIncubator = false;
   if (merged.purchases.autoCollect === undefined) merged.purchases.autoCollect = false;
   if (merged.purchases.autoCollectEnabled === undefined) merged.purchases.autoCollectEnabled = true;
+  if (merged.purchases.autoSellAgentEnabled === undefined) merged.purchases.autoSellAgentEnabled = true;
   if (merged.purchases.chromaCharm === undefined) merged.purchases.chromaCharm = false;
+  if (merged.purchases.scientist === undefined) merged.purchases.scientist = false;
+  if (merged.purchases.scientistEnabled === undefined) merged.purchases.scientistEnabled = true;
+  if (merged.purchases.autoSellAgent === undefined) merged.purchases.autoSellAgent = false;
+  if (merged.purchases.autoSellEggs === undefined) merged.purchases.autoSellEggs = false;
+  // Auto-sell config — nested under settings (consistent with sfxIndividual, etc.)
+  if (!merged.settings.autoSellAgent) merged.settings.autoSellAgent = { mode: 'all', potentials: [] };
+  if (!merged.settings.autoSellEggs) merged.settings.autoSellEggs = { mode: 'all', potentials: [], allowShiny: false };
+  // Migrate legacy top-level keys if present (from a brief wrong placement)
+  if (merged.autoSellAgentSettings) { Object.assign(merged.settings.autoSellAgent, merged.autoSellAgentSettings); delete merged.autoSellAgentSettings; }
+  if (merged.autoSellEggsSettings)  { Object.assign(merged.settings.autoSellEggs,  merged.autoSellEggsSettings);  delete merged.autoSellEggsSettings; }
   if (!merged.favoriteZones) merged.favoriteZones = [];
   if (merged.settings.uiScale === undefined) merged.settings.uiScale = 100;
   if (merged.settings.musicVol === undefined) merged.settings.musicVol = 50;
@@ -469,7 +505,16 @@ function migrate(saved) {
   if (merged.settings.lightTheme === undefined) merged.settings.lightTheme = false;
   if (merged.settings.lowSpec === undefined)   merged.settings.lowSpec  = false;
   if (!merged.settings.sfxIndividual)          merged.settings.sfxIndividual = {};
-  if (!merged.pension) merged.pension = { slotA: null, slotB: null, eggAt: null };
+  // Migration pension slotA/slotB → slots[]
+  if (!merged.pension) merged.pension = { slots: [], extraSlotsPurchased: 0, eggAt: null };
+  if (merged.pension.slotA !== undefined || merged.pension.slotB !== undefined) {
+    // Convert legacy fields to array
+    merged.pension.slots = [merged.pension.slotA, merged.pension.slotB].filter(Boolean);
+    delete merged.pension.slotA;
+    delete merged.pension.slotB;
+  }
+
+  if (merged.pension.extraSlotsPurchased === undefined) merged.pension.extraSlotsPurchased = 0;
   if (!merged.eggs) merged.eggs = [];
   // Migration: eggs need incubating flag; auto-hatching eggs get paused
   for (const egg of merged.eggs) {
@@ -494,10 +539,9 @@ function migrate(saved) {
   {
     const teamSet = new Set(merged.gang.bossTeam || []);
     // Pension : retirer si aussi en équipe
-    if (merged.pension.slotA && teamSet.has(merged.pension.slotA)) merged.pension.slotA = null;
-    if (merged.pension.slotB && teamSet.has(merged.pension.slotB)) merged.pension.slotB = null;
+    merged.pension.slots = (merged.pension.slots || []).filter(id => !teamSet.has(id));
     // Formation : retirer si en équipe ou en pension
-    const resolvedPension = new Set([merged.pension.slotA, merged.pension.slotB].filter(Boolean));
+    const resolvedPension = new Set(merged.pension.slots || []);
     merged.trainingRoom.pokemon = (merged.trainingRoom.pokemon || []).filter(id => !teamSet.has(id) && !resolvedPension.has(id));
   }
   // Migration Gen 2 retirée : Lugia et Ho-Oh sont des Pokémon légitimes capturables
@@ -794,8 +838,7 @@ function openLegacyImportModal(legacyData) {
     const chosenPokes = pokeIds.map(id => pokemons.find(p => p.id === id)).filter(Boolean);
     chosenPokes.forEach(p => { p.homesick = true; });
     fresh.pokemons = chosenPokes;
-    if (chosenPokes[0]) fresh.pension.slotA = chosenPokes[0].id;
-    if (chosenPokes[1]) fresh.pension.slotB = chosenPokes[1].id;
+    fresh.pension.slots = chosenPokes.slice(0, 2).map(p => p.id);
     fresh.pension.eggAt = Date.now() + 60000; // first egg in 1 minute
 
     state = migrate(fresh);
@@ -827,6 +870,12 @@ function weightedPick(arr) {
 function randInt(a, b) { return Math.floor(Math.random() * (b - a + 1)) + a; }
 function uid() { return `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`; }
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+// ── Pension helpers ──────────────────────────────────────────────
+/** Max pension slots (2 base + purchased extras). */
+function getMaxPensionSlots() { return 2 + (state.pension?.extraSlotsPurchased || 0); }
+/** Set of pokemon IDs currently in pension. */
+function getPensionSlotIds() { return new Set(state.pension?.slots || []); }
 
 function addLog(msg) {
   state.log.unshift({ msg, ts: Date.now() });
@@ -896,6 +945,62 @@ function pokeSpriteVariant(en, variant = 'main', shiny = false) {
 
 function pokeSprite(en, shiny = false) {
   return pokeSpriteVariant(en, 'main', shiny);
+}
+
+// Icône miniature BW (~40×30px) — pour les slots d'équipe
+function pokeIcon(en) {
+  const name = sanitizeSpriteName(en);
+  return `https://play.pokemonshowdown.com/sprites/bwicons/${name}.png`;
+}
+
+// ── Egg sprites ──────────────────────────────────────────────────────────────
+// Pokémon-specific anime eggs (PokéOS) : {dex}-egg-anime.png
+// Rarity-coded GO eggs (Pokepedia)     : mystery / unknown species
+// Sprite générique NB (Noir & Blanc) — utilisé comme fallback universel.
+// Les sprites GO (pokepedia) permettent de distinguer visuellement la rareté.
+const _EGG_NB = 'https://www.pokepedia.fr/images/f/f5/Sprite_%C5%92uf_NB.png?20190202195308';
+
+const EGG_SPRITES = {
+  // Generic rarity-based (mystery eggs — GO-style coloring)
+  common:    _EGG_NB,
+  uncommon:  'https://www.pokepedia.fr/images/a/ab/Sprite_%C5%92uf_5_km_GO.png',
+  rare:      'https://www.pokepedia.fr/images/7/70/Sprite_%C5%92uf_10_km_GO.png',
+  very_rare: 'https://www.pokepedia.fr/images/a/a8/Sprite_%C5%92uf_12_km_GO.png',
+  legendary: 'https://www.pokepedia.fr/images/a/a8/Sprite_%C5%92uf_12_km_GO.png',
+  // Special states
+  ready:     'https://www.pokepedia.fr/images/f/f5/Sprite_%C5%92uf_NB.png?20190202195308',
+  // Default fallback (NB générique — toujours accessible)
+  default:   _EGG_NB,
+};
+
+// Returns the generic fallback egg sprite URL (rarity-coded).
+function eggSprite(egg, ready = false) {
+  if (ready) return EGG_SPRITES.ready;
+  const rarity = egg?.rarity || 'common';
+  return EGG_SPRITES[rarity] || EGG_SPRITES.default;
+}
+
+// Returns a full <img> HTML string with PokéOS species egg (if pension/revealed)
+// and automatic onerror fallback chain to rarity sprite → BW generic.
+// style: optional inline CSS string to add to the img.
+function eggImgTag(egg, ready = false, style = '') {
+  const fallback   = eggSprite(egg, ready);
+  const bwFallback = _EGG_NB; // fallback universel NB (pokepedia, toujours dispo)
+  const baseStyle = `object-fit:contain;image-rendering:pixelated;${style}`;
+
+  // Pension egg (parents known) or scanned (species revealed) → try PokéOS first
+  const isRevealed = (egg?.parentA && egg?.parentB) || (egg?.scanned && egg?.revealedSpecies);
+  if (!ready && isRevealed && egg?.species_en) {
+    const sp = SPECIES_BY_EN[egg.species_en];
+    const dex = sp?.dex;
+    if (dex) {
+      const pokeos = `https://s3.pokeos.com/pokeos-uploads/forgotten-dex/eggs/${dex}-animegg.png`;
+      // onerror chain: PokéOS → rarity fallback → BW generic
+      return `<img src="${pokeos}" style="${baseStyle}" onerror="if(!this._f1){this._f1=1;this.src='${fallback}'}else if(!this._f2){this._f2=1;this.src='${bwFallback}'}">`;
+    }
+  }
+  // Generic / mystery egg — single fallback to BW generic
+  return `<img src="${fallback}" style="${baseStyle}" onerror="if(!this._f1){this._f1=1;this.src='${bwFallback}'}">`;
 }
 
 function pokeSpriteBack(en, shiny = false) {
@@ -1000,6 +1105,8 @@ function pokemonDisplayName(p) {
 // ── SESSION TRACKING … itemSprite extracted → modules/systems/sessionObjectives.js ──
 
 let pcView = 'grid'; // 'grid' | 'lab'
+let _statsViewMode = 'session';   // 'session' | 'global'
+let _sessionStatsBase = null;     // snapshot of state.stats at session start
 let _pcLastRenderKey = ''; // tracks last filter/sort/page combo to avoid unnecessary rebuilds
 let labSelectedId = null;
 let labShowAll    = false;
@@ -2081,17 +2188,14 @@ function getZoneAgentSlots(zoneId) { return globalThis._zsys_getZoneAgentSlots(z
 
 // Open zone windows tracking
 const openZones = new Set();
-const zoneSpawnTimers = {};
 const zoneSpawns = {}; // zoneId -> [{ type, data, el, timeout }]
-// Expose for agent module (const objects — mutated in-place, reference stays valid)
-globalThis.openZones = openZones;
+// Unified timer dict: active if zone is open OR has ≥1 agent assigned
+// (replaces former zoneSpawnTimers + backgroundZoneTimers)
+const zoneTimers = {};
+// Expose for modules (const objects — mutated in-place, reference stays valid)
+globalThis.openZones  = openZones;
 globalThis.zoneSpawns = zoneSpawns;
-globalThis.zoneSpawnTimers = zoneSpawnTimers;
-
-// Background zone timers (closed zones with ≥1 agent assigned)
-// Tick at real spawn rate — agent module resolves spawns silently
-const backgroundZoneTimers = {};
-globalThis.backgroundZoneTimers = backgroundZoneTimers;
+globalThis.zoneTimers = zoneTimers;
 
 // masteryLevel (1-3) permet de renforcer les équipes ennemies selon la progression de zone.
 function makeTrainerTeam(zone, trainerKey, forcedSize, masteryLevel = 1) { return globalThis._zsys_makeTrainerTeam(zone, trainerKey, forcedSize, masteryLevel); }
@@ -2323,9 +2427,9 @@ function getTabHint(tabId) {
 
 // ── First-visit contextual hint (non-bloquant, disparaît en 6s ou au clic) ──
 const _FIRST_VISIT_HINTS = {
-  tabGang:     { icon: '👑', title: 'Ton Gang', body: 'C\'est ta base. Gère ton équipe Boss, place des Pokémon en vitrine et exporte ta fiche.' },
-  tabAgents:   { icon: '👥', title: 'Les Agents', body: 'Assigne-leur une zone → ils récoltent de l\'argent automatiquement, même quand tu ne joues pas.' },
-  tabZones:    { icon: '🗺', title: 'Zones', body: 'Explore des zones avec ton Boss pour capturer des Pokémon et battre des dresseurs. Plus tu progresses, plus tu débloques de zones.' },
+  tabGang:     { icon: '👑', title: 'Ton Gang', body: 'Ta base d\'opérations. Gère l\'équipe Boss (3 slots sauvegardables), place tes meilleurs Pokémon en vitrine, et débloque des upgrades spéciaux au Marché.' },
+  tabAgents:   { icon: '👥', title: 'Les Agents', body: 'Assigne-leur une zone → ils capturent et combattent automatiquement, même zones fermées. Chaque agent a un comportement (tout / capture / combat) et une stat de chance qui augmente les potentiels.' },
+  tabZones:    { icon: '🗺', title: 'Zones', body: 'Ouvre jusqu\'à 6 zones simultanément pour capturer des Pokémon et battre des dresseurs. Les zones fermées avec agent continuent de se jouer en arrière-plan. Ton Boss participe aux combats de toutes les zones ouvertes.' },
   tabMarket:   { icon: '🛒', title: 'Marché', body: 'Achète des Pokéballs pour capturer, des incubateurs pour faire éclore des œufs, et plus encore.' },
   tabPC:       { icon: '💾', title: 'Le PC', body: 'Tous tes Pokémon sont ici. Assigne-les à ton équipe, à un agent, à la pension ou à la salle d\'entraînement.' },
   tabTraining: { icon: '🏋', title: 'Salle d\'entraînement', body: 'Tes Pokémon s\'entraînent automatiquement. Parfait pour monter en niveau des Pokémon que tu n\'utilises pas.' },
@@ -2430,7 +2534,7 @@ function initKeyboardShortcuts() {
       case 'p': case 'P':
         pcView = 'grid'; switchTab('tabPC'); break;
       case 'e': case 'E':
-        pcView = 'eggs'; switchTab('tabPC'); break;
+        pcView = 'pension'; switchTab('tabPC'); break;
       case 't': case 'T':
         pcView = 'training'; switchTab('tabPC'); break;
       case 'l': case 'L':
@@ -2716,6 +2820,58 @@ function applyCosmetics() {
   }
 }
 
+// ── In-game text input modal — replaces all browser prompt() calls ────────
+// opts: { title, placeholder, current, maxLength, cost, confirmLabel, onConfirm }
+function openNameModal(opts = {}) {
+  const {
+    title        = 'Entrer un nom',
+    placeholder  = '',
+    current      = '',
+    maxLength    = 16,
+    cost         = 0,
+    confirmLabel = 'Confirmer',
+    onConfirm    = () => {},
+  } = opts;
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:9600;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;';
+  overlay.innerHTML = `
+    <div style="background:var(--bg-panel);border:2px solid var(--gold-dim);border-radius:var(--radius);padding:20px;max-width:340px;width:92%;display:flex;flex-direction:column;gap:12px">
+      <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold)">${title}</div>
+      <input id="nameModalInput" type="text" maxlength="${maxLength}" placeholder="${placeholder}"
+        value="${current.replace(/"/g,'&quot;')}"
+        style="padding:9px 12px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text);font-size:12px;outline:none;width:100%;box-sizing:border-box">
+      ${cost ? `<div style="font-size:8px;color:var(--text-dim);font-family:var(--font-pixel)">Coût : <span style="color:var(--gold)">${cost.toLocaleString()}₽</span> &nbsp;·&nbsp; Solde : ${(state.gang.money||0).toLocaleString()}₽</div>` : ''}
+      <div style="display:flex;gap:8px">
+        <button id="nameModalConfirm" style="flex:1;font-family:var(--font-pixel);font-size:9px;padding:9px;background:var(--red);border:none;border-radius:var(--radius-sm);color:#fff;cursor:pointer">${confirmLabel}</button>
+        <button id="nameModalCancel" style="font-family:var(--font-pixel);font-size:9px;padding:9px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">Annuler</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  const input   = overlay.querySelector('#nameModalInput');
+  const confirm = overlay.querySelector('#nameModalConfirm');
+  const cancel  = overlay.querySelector('#nameModalCancel');
+
+  input.focus();
+  input.select();
+
+  const submit = () => {
+    const val = input.value.trim().slice(0, maxLength);
+    if (!val) { input.style.borderColor = 'var(--red)'; return; }
+    overlay.remove();
+    onConfirm(val);
+  };
+
+  confirm.addEventListener('click', submit);
+  cancel.addEventListener('click',  () => overlay.remove());
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') submit();
+    if (e.key === 'Escape') overlay.remove();
+  });
+}
+
 function openSpritePicker(currentSprite, callback) {
   const overlay = document.createElement('div');
   overlay.style.cssText = 'position:fixed;inset:0;z-index:5000;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;';
@@ -2927,22 +3083,22 @@ function renderCosmeticsPanel(container) {
 
       if (action === 'rename-boss') {
         if (state.gang.money < 2000) { notify('Pokédollars insuffisants (2000₽)', 'error'); return; }
-        const newName = prompt(`Nouveau nom du Boss (max 16 car.) :`);
-        if (!newName || !newName.trim()) return;
-        state.gang.money -= 2000;
-        state.gang.bossName = newName.trim().slice(0, 16);
-        saveState(); updateTopBar(); renderCosmeticsPanel(container);
-        notify(`Boss renommé : ${state.gang.bossName}`, 'gold');
+        openNameModal({ title: 'Renommer le Boss', current: state.gang.bossName, cost: 2000, onConfirm: (val) => {
+          state.gang.money -= 2000;
+          state.gang.bossName = val;
+          saveState(); updateTopBar(); renderCosmeticsPanel(container);
+          notify(`Boss renommé : ${val}`, 'gold');
+        }});
       } else if (action === 'rename-agent') {
         if (state.gang.money < 2000) { notify('Pokédollars insuffisants (2000₽)', 'error'); return; }
         const agent = state.agents.find(a => a.id === agentId);
         if (!agent) return;
-        const newName = prompt(`Nouveau nom de ${agent.name} (max 16 car.) :`);
-        if (!newName || !newName.trim()) return;
-        state.gang.money -= 2000;
-        agent.name = newName.trim().slice(0, 16);
-        saveState(); updateTopBar(); renderCosmeticsPanel(container);
-        notify(`Agent renommé : ${agent.name}`, 'gold');
+        openNameModal({ title: `Renommer ${agent.name}`, current: agent.name, cost: 2000, onConfirm: (val) => {
+          state.gang.money -= 2000;
+          agent.name = val;
+          saveState(); updateTopBar(); renderCosmeticsPanel(container);
+          notify(`Agent renommé : ${val}`, 'gold');
+        }});
       } else if (action === 'sprite-boss') {
         if (state.gang.money < 5000) { notify('Pokédollars insuffisants (5000₽)', 'error'); return; }
         openSpritePicker(state.gang.bossSprite, (newSprite) => {
@@ -2993,178 +3149,14 @@ function renderCosmeticsPanel(container) {
     openTitleModal();
   });
 
-  // ── Infirmière Joëlle corrompue ────────────────────────────────
-  const nurseDiv = document.createElement('div');
-  nurseDiv.style.cssText = 'margin-top:20px';
-  const nurseOwned   = !!state.purchases?.autoIncubator;
-  const nurseEnabled = state.purchases?.autoIncubatorEnabled !== false; // true par défaut
-  nurseDiv.innerHTML = `
-    <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold);margin-bottom:10px">SERVICES SPÉCIAUX</div>
-    <div style="background:var(--bg-card);border:1px solid ${nurseOwned ? (nurseEnabled ? 'var(--green)' : 'var(--border)') : 'var(--border)'};border-radius:var(--radius-sm);padding:10px;display:flex;gap:12px;align-items:flex-start">
-      <img src="${trainerSprite('nurse')}" style="width:48px;height:48px;image-rendering:pixelated;flex-shrink:0;${nurseOwned && !nurseEnabled ? 'opacity:.4;filter:grayscale(1)' : ''}" onerror="this.style.display='none'">
-      <div style="flex:1">
-        <div style="font-family:var(--font-pixel);font-size:9px;color:${nurseOwned ? (nurseEnabled ? 'var(--green)' : 'var(--text-dim)') : 'var(--text)'};margin-bottom:4px">Infirmière Joëlle corrompue</div>
-        <div style="font-size:8px;color:var(--text-dim);margin-bottom:8px">Met automatiquement les oeufs en incubation dès qu'un incubateur est libre.</div>
-        ${nurseOwned
-          ? `<div style="display:flex;align-items:center;gap:8px">
-               <span style="font-family:var(--font-pixel);font-size:8px;color:${nurseEnabled ? 'var(--green)' : 'var(--text-dim)'}">
-                 ${nurseEnabled ? '✓ EN POSTE' : '✗ CONGÉ'}
-               </span>
-               <button id="btnToggleNurse" style="font-family:var(--font-pixel);font-size:8px;padding:4px 10px;background:var(--bg);border:1px solid ${nurseEnabled ? 'var(--red)' : 'var(--green)'};border-radius:var(--radius-sm);color:${nurseEnabled ? 'var(--red)' : 'var(--green)'};cursor:pointer">
-                 ${nurseEnabled ? 'Mettre en congé' : 'Rappeler'}
-               </button>
-             </div>`
-          : `<button id="btnBuyNurse" style="font-family:var(--font-pixel);font-size:8px;padding:6px 12px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">Embaucher — 300 000₽</button>`}
-      </div>
-    </div>`;
-  container.appendChild(nurseDiv);
-  nurseDiv.querySelector('#btnBuyNurse')?.addEventListener('click', () => {
-    if (state.gang.money < 300000) { notify('Fonds insuffisants.', 'error'); SFX.play('error'); return; }
-    showConfirm('Embaucher l\'Infirmière Joëlle corrompue pour 300 000₽ ? (permanent)', () => {
-      state.gang.money -= 300000;
-      state.purchases.autoIncubator = true;
-      state.purchases.autoIncubatorEnabled = true;
-      saveState(); updateTopBar();
-      SFX.play('unlock');
-      notify('💉 Joëlle est en poste ! Les oeufs seront auto-incubés.', 'gold');
-      tryAutoIncubate();
-      renderCosmeticsPanel(container);
-    }, null, { confirmLabel: 'Embaucher', cancelLabel: 'Annuler' });
-  });
-  nurseDiv.querySelector('#btnToggleNurse')?.addEventListener('click', () => {
-    state.purchases.autoIncubatorEnabled = !nurseEnabled;
-    saveState();
-    const msg = state.purchases.autoIncubatorEnabled
-      ? '💉 Joëlle est de retour en poste !'
-      : '😴 Joëlle est en congé.';
-    notify(msg, 'success');
-    renderCosmeticsPanel(container);
-  });
-
-  // ── Récolte automatique ────────────────────────────────────────
-  const acOwned   = !!state.purchases?.autoCollect;
-  const acEnabled = state.purchases?.autoCollectEnabled !== false;
-  const acDiv = document.createElement('div');
-  acDiv.style.cssText = 'margin-top:10px';
-  acDiv.innerHTML = `
-    <div style="background:var(--bg-card);border:1px solid ${acOwned ? (acEnabled ? 'var(--green)' : 'var(--border)') : 'var(--border)'};border-radius:var(--radius-sm);padding:10px;display:flex;gap:12px;align-items:flex-start">
-      <div style="font-size:24px;flex-shrink:0;${acOwned && !acEnabled ? 'opacity:.4;filter:grayscale(1)' : ''}">🪙</div>
-      <div style="flex:1">
-        <div style="font-family:var(--font-pixel);font-size:9px;color:${acOwned ? (acEnabled ? 'var(--green)' : 'var(--text-dim)') : 'var(--text)'};margin-bottom:4px">Récolte automatique</div>
-        <div style="font-size:8px;color:var(--text-dim);margin-bottom:8px">Collecte les revenus de zone sans animation de combat. Le combat reste calculé en arrière-plan.</div>
-        ${acOwned
-          ? `<div style="display:flex;align-items:center;gap:8px">
-               <span style="font-family:var(--font-pixel);font-size:8px;color:${acEnabled ? 'var(--green)' : 'var(--text-dim)'}">
-                 ${acEnabled ? '✓ ACTIVE' : '✗ INACTIVE'}
-               </span>
-               <button id="btnToggleAutoCollect" style="font-family:var(--font-pixel);font-size:8px;padding:4px 10px;background:var(--bg);border:1px solid ${acEnabled ? 'var(--red)' : 'var(--green)'};border-radius:var(--radius-sm);color:${acEnabled ? 'var(--red)' : 'var(--green)'};cursor:pointer">
-                 ${acEnabled ? 'Désactiver' : 'Activer'}
-               </button>
-             </div>`
-          : `<button id="btnBuyAutoCollect" style="font-family:var(--font-pixel);font-size:8px;padding:6px 12px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">Acheter — 100 000₽</button>`}
-      </div>
-    </div>`;
-  container.appendChild(acDiv);
-  acDiv.querySelector('#btnBuyAutoCollect')?.addEventListener('click', () => {
-    if (state.gang.money < 100_000) { notify('Fonds insuffisants.', 'error'); SFX.play('error'); return; }
-    showConfirm('Acheter la Récolte automatique pour 100 000₽ ?', () => {
-      state.gang.money -= 100_000;
-      state.purchases.autoCollect = true;
-      state.purchases.autoCollectEnabled = true;
-      saveState(); updateTopBar();
-      SFX.play('unlock');
-      notify('🪙 Récolte automatique activée !', 'gold');
-      renderCosmeticsPanel(container);
-    }, null, { confirmLabel: 'Acheter', cancelLabel: 'Annuler' });
-  });
-  acDiv.querySelector('#btnToggleAutoCollect')?.addEventListener('click', () => {
-    state.purchases.autoCollectEnabled = !acEnabled;
-    saveState();
-    notify(state.purchases.autoCollectEnabled ? '🪙 Récolte automatique activée !' : '⏸ Récolte automatique désactivée.', 'success');
-    renderCosmeticsPanel(container);
-  });
-
-  // ── Achats spéciaux (Titres, Charme Chroma) ───────────────────
-  const SPECIAL_PURCHASES = [
-    {
-      id: 'title_richissime',
-      icon: '💰', label: 'Titre "Richissime"',
-      desc: 'Débloque le titre légendaire. Ostentation maximale.',
-      cost: 5_000_000,
-      owned: () => !!state.purchases?.title_richissime || (state.unlockedTitles || []).includes('richissime'),
-      buy: () => {
-        state.purchases = state.purchases || {};
-        state.purchases.title_richissime = true;
-        state.unlockedTitles = [...new Set([...(state.unlockedTitles || []), 'richissime'])];
-        notify('💰 Titre "Richissime" débloqué !', 'gold');
-      },
-    },
-    {
-      id: 'title_doublerichissim',
-      icon: '💎', label: 'Titre "Double Richissime"',
-      desc: 'Débloque le titre ultime. Noblesse oblige.',
-      cost: 10_000_000,
-      owned: () => !!state.purchases?.title_doublerichissim || (state.unlockedTitles || []).includes('doublerichissim'),
-      buy: () => {
-        state.purchases = state.purchases || {};
-        state.purchases.title_doublerichissim = true;
-        state.unlockedTitles = [...new Set([...(state.unlockedTitles || []), 'doublerichissim'])];
-        notify('💎 Titre "Double Richissime" débloqué !', 'gold');
-      },
-    },
-    {
-      id: 'chromaCharm',
-      icon: '✨', label: 'Charme Chroma',
-      desc: 'Double le taux de Pokémon chromatiques. Permanent.',
-      cost: 5_000_000,
-      owned: () => !!state.purchases?.chromaCharm,
-      buy: () => {
-        state.purchases.chromaCharm = true;
-        notify('✨ Charme Chroma obtenu ! Taux shiny ×2', 'gold');
-      },
-    },
-  ];
-
-  const specialDiv = document.createElement('div');
-  specialDiv.style.cssText = 'margin-top:24px';
-  specialDiv.innerHTML = `
-    <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold);margin-bottom:12px">🛒 ACHATS SPÉCIAUX</div>
-    <div style="display:flex;flex-direction:column;gap:8px">
-      ${SPECIAL_PURCHASES.map(sp => {
-        const owned = sp.owned();
-        return `<div style="background:var(--bg-card);border:1px solid ${owned ? 'var(--green)' : 'var(--border)'};border-radius:var(--radius-sm);padding:10px;display:flex;gap:12px;align-items:center">
-          <div style="font-size:24px;flex-shrink:0">${sp.icon}</div>
-          <div style="flex:1">
-            <div style="font-family:var(--font-pixel);font-size:9px;color:${owned ? 'var(--green)' : 'var(--text)'};margin-bottom:2px">${sp.label}</div>
-            <div style="font-size:8px;color:var(--text-dim)">${sp.desc}</div>
-          </div>
-          ${owned
-            ? `<div style="font-family:var(--font-pixel);font-size:8px;color:var(--green);white-space:nowrap">✓ ACTIF</div>`
-            : `<button class="btn-special-buy" data-sp-id="${sp.id}" style="font-family:var(--font-pixel);font-size:8px;padding:6px 10px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer;white-space:nowrap">${sp.cost.toLocaleString()}₽</button>`}
-        </div>`;
-      }).join('')}
-    </div>`;
-  container.appendChild(specialDiv);
-
-  specialDiv.querySelectorAll('.btn-special-buy').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const sp = SPECIAL_PURCHASES.find(s => s.id === btn.dataset.spId);
-      if (!sp || sp.owned()) return;
-      if (state.gang.money < sp.cost) { notify('Fonds insuffisants.', 'error'); SFX.play('error'); return; }
-      showConfirm(`Acheter "${sp.label}" pour ${sp.cost.toLocaleString()}₽ ?`, () => {
-        state.gang.money -= sp.cost;
-        sp.buy();
-        saveState(); updateTopBar();
-        SFX.play('unlock');
-        renderCosmeticsPanel(container);
-      }, null, { confirmLabel: 'Acheter', cancelLabel: 'Annuler' });
-    });
-  });
 }
 
 // ════════════════════════════════════════════════════════════════
 // 13.  UI — GANG TAB
 // ════════════════════════════════════════════════════════════════
+
+// Persists collapsed state across renders (does not survive page reload — intentional)
+const _gangCollapsed = { cosmetics: false, stats: false };
 
 function renderGangTab() {
   const tab = document.getElementById('tabGang');
@@ -3172,152 +3164,446 @@ function renderGangTab() {
 
   const g = state.gang;
   const s = state.stats;
+  const activeSlot = g.activeBossTeamSlot || 0;
   const teamPks = (g.bossTeam || []).map(id => state.pokemons.find(p => p.id === id)).filter(Boolean);
-  const mvp = state.pokemons.length > 0
-    ? state.pokemons.reduce((best, p) => calculatePrice(p) > calculatePrice(best) ? p : best)
-    : null;
 
-  // ── Vitrine (showcase) ──
-  const showcaseSlots = (g.showcase || [null, null, null]).slice(0, 3);
-  const showcaseHtml = showcaseSlots.map((pkId, i) => {
+  // ── Vitrine (showcase — 6 slots) ──
+  const showcaseArr = (g.showcase || []);
+  while (showcaseArr.length < 6) showcaseArr.push(null);
+  const showcaseHtml = showcaseArr.slice(0, 6).map((pkId, i) => {
     const pk = pkId ? state.pokemons.find(p => p.id === pkId) : null;
     if (pk) {
       const evos = EVO_BY_SPECIES[pk.species_en];
       const evoHint = evos && evos.length > 0 ? `<button class="gang-evo-hint" data-pk-id="${pk.id}" title="Voir évolution">❓</button>` : '';
       return `<div class="gang-showcase-slot filled" data-showcase-idx="${i}">
-        <img src="${pokeSprite(pk.species_en, pk.shiny)}" style="width:56px;height:56px;image-rendering:pixelated;${pk.shiny ? 'filter:drop-shadow(0 0 4px var(--gold))' : ''}">
-        <div style="font-size:8px;margin-top:2px;color:var(--text)">${pokemonDisplayName(pk)}${pk.shiny ? ' ✨' : ''}</div>
+        <img src="${pokeSprite(pk.species_en, pk.shiny)}" style="width:48px;height:48px;image-rendering:pixelated;${pk.shiny ? 'filter:drop-shadow(0 0 4px var(--gold))' : ''}">
+        <div style="font-size:7px;margin-top:2px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%">${pokemonDisplayName(pk)}${pk.shiny ? ' ✨' : ''}</div>
         <div style="font-size:7px;color:var(--text-dim)">Lv.${pk.level} ${'★'.repeat(pk.potential)}</div>
-        <div style="display:flex;gap:4px;margin-top:4px;align-items:center">
+        <div style="display:flex;gap:3px;margin-top:3px;align-items:center;justify-content:center">
           ${evoHint}
-          <button class="gang-showcase-remove" data-idx="${i}" style="font-size:7px;padding:1px 5px;background:var(--bg);border:1px solid var(--red);border-radius:2px;color:var(--red);cursor:pointer">✕</button>
+          <button class="gang-showcase-remove" data-idx="${i}" style="font-size:7px;padding:1px 4px;background:var(--bg);border:1px solid var(--red);border-radius:2px;color:var(--red);cursor:pointer">✕</button>
         </div>
       </div>`;
     }
     return `<div class="gang-showcase-slot empty" data-showcase-idx="${i}">
-      <div style="font-size:18px;opacity:.3">🏆</div>
-      <div style="font-size:7px;color:var(--text-dim);margin-top:4px">Slot vitrine</div>
-      <button class="gang-showcase-add" data-idx="${i}" style="margin-top:6px;font-size:7px;padding:2px 6px;background:var(--bg);border:1px solid var(--border-light);border-radius:2px;color:var(--text-dim);cursor:pointer">+ Ajouter</button>
+      <div style="font-size:16px;opacity:.3">🏆</div>
+      <div style="font-size:7px;color:var(--text-dim);margin-top:3px">Slot ${i+1}</div>
+      <button class="gang-showcase-add" data-idx="${i}" style="margin-top:5px;font-size:7px;padding:2px 5px;background:var(--bg);border:1px solid var(--border-light);border-radius:2px;color:var(--text-dim);cursor:pointer">+</button>
     </div>`;
   }).join('');
 
-  // ── Boss team ──
+  // ── Boss team save slots tabs ──
+  const SLOT_COSTS = [0, 500_000, 1_000_000];
+  const purchased = g.bossTeamSlotsPurchased || [true, false, false];
+  const teamTabsHtml = [0, 1, 2].map(i => {
+    const isActive = i === activeSlot;
+    const isPurchased = purchased[i];
+    const label = i === 0 ? 'Slot 1' : isPurchased ? `Slot ${i+1}` : `Slot ${i+1} — ${SLOT_COSTS[i].toLocaleString()}₽`;
+    return `<button class="gang-team-slot-tab${isActive ? ' active' : ''}${!isPurchased ? ' locked' : ''}" data-team-slot="${i}"
+      style="font-family:var(--font-pixel);font-size:7px;padding:4px 8px;border-radius:var(--radius-sm) var(--radius-sm) 0 0;border:1px solid ${isActive ? 'var(--gold-dim)' : 'var(--border)'};border-bottom:${isActive ? '1px solid var(--bg-panel)' : '1px solid var(--border)'};background:${isActive ? 'var(--bg-panel)' : 'var(--bg)'};color:${isActive ? 'var(--gold)' : isPurchased ? 'var(--text-dim)' : 'var(--text-dim)'};cursor:pointer;opacity:${isPurchased || isActive ? '1' : '.7'}">
+      ${!isPurchased ? '🔒 ' : ''}${label}
+    </button>`;
+  }).join('');
+
+  // ── Boss team slots ──
   const teamHtml = [0, 1, 2].map(i => {
     const pk = teamPks[i];
     if (pk) return `<div class="gang-team-slot filled" data-boss-slot="${i}" title="${pokemonDisplayName(pk)} Lv.${pk.level}">
-      <img src="${pokeSprite(pk.species_en, pk.shiny)}" style="width:52px;height:52px;image-rendering:pixelated">
+      <img src="${pokeIcon(pk.species_en)}" style="width:40px;height:30px;image-rendering:pixelated;${pk.shiny ? 'filter:drop-shadow(0 0 3px var(--gold))' : ''}" onerror="this.src='${pokeSprite(pk.species_en, pk.shiny)}';this.style.width='40px';this.style.height='40px'">
       <div style="font-size:7px;margin-top:2px;color:${pk.shiny ? 'var(--gold)' : 'var(--text)'}">${pokemonDisplayName(pk)}</div>
       <div style="font-size:7px;color:var(--text-dim)">Lv.${pk.level}</div>
     </div>`;
     return `<div class="gang-team-slot empty" data-boss-slot="${i}"><span style="font-size:7px;color:var(--text-dim)">Slot ${i+1}</span></div>`;
   }).join('');
 
-  // ── Agents ──
-  const RECRUIT_COST = getAgentRecruitCost();
-  const unlockedZones = ZONES.filter(z => isZoneUnlocked(z.id));
-  let agentsHtml = `<div class="gang-agent-card" id="btnRecruitAgent" style="cursor:pointer;border:2px dashed var(--border-light);text-align:center;flex-direction:column;gap:4px">
-    <div style="font-size:22px">➕</div>
-    <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text)">Recruter</div>
-    <div style="font-size:9px;color:var(--gold)">${RECRUIT_COST.toLocaleString()}₽</div>
-  </div>`;
-  agentsHtml += state.agents.map(a => {
-    const zoneName = a.assignedZone ? (ZONE_BY_ID[a.assignedZone]?.fr || a.assignedZone) : '—';
-    const zoneOptions = unlockedZones.map(z => `<option value="${z.id}" ${a.assignedZone === z.id ? 'selected' : ''}>${z.fr}</option>`).join('');
-    return `<div class="gang-agent-card" data-agent-id="${a.id}">
-      <img src="${a.sprite}" style="width:44px;height:44px;image-rendering:pixelated" onerror="this.src='${trainerSprite('acetrainer')}'">
-      <div style="flex:1;min-width:0">
-        <div style="font-family:var(--font-pixel);font-size:9px;color:var(--text)">${a.name}</div>
-        <div style="font-size:9px;color:var(--gold)">${getAgentRankLabel(a)} — Lv.${a.level}</div>
-        <div style="font-size:8px;color:var(--text-dim)">ATK ${a.stats.combat} CAP ${a.stats.capture} LCK ${a.stats.luck}</div>
-        <select class="agent-zone-select" data-agent-id="${a.id}" style="width:100%;margin-top:3px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:3px;font-size:8px;padding:2px 4px">
-          <option value="">— Aucune zone —</option>${zoneOptions}
-        </select>
-      </div>
-    </div>`;
-  }).join('');
-
-  // ── Stats ──
+  // ── Stats (session vs global toggle) ──
+  const _sb = _sessionStatsBase || {};
+  const _isSession = _statsViewMode === 'session';
+  const _sv = k => _isSession ? Math.max(0, (s[k] || 0) - (_sb[k] || 0)) : (s[k] || 0);
   const statsHtml = [
-    [state.pokemons.length,                  'Possédés'],
-    [s.totalCaught,                          'Capturés'],
-    [s.totalSold,                            'Vendus'],
-    [getShinySpeciesCount(),                  '✨ Espèces chroma'],
-    [s.shinyCaught,                          '✨ Chromas (total)'],
-    [`${s.totalFightsWon}/${s.totalFights}`, 'Combats'],
-    [`${s.totalMoneyEarned.toLocaleString()}₽`, 'Gains'],
-  ].map(([val, label]) => `<div class="gang-stat-card"><div class="stat-value">${val}</div><div class="stat-label">${label}</div></div>`).join('');
+    [state.pokemons.length,                                        'Possédés'],
+    [_sv('totalCaught'),                                           'Capturés'],
+    [_sv('totalSold'),                                             'Vendus'],
+    [_isSession ? _sv('shinyCaught') : getShinySpeciesCount(),     _isSession ? '✨ Chromas' : '✨ Espèces chroma'],
+    [_isSession ? '' : s.shinyCaught,                              _isSession ? '' : '✨ Chromas (total)'],
+    [`${_sv('totalFightsWon')}/${_sv('totalFights')}`,             'Combats'],
+    [`${_sv('totalMoneyEarned').toLocaleString()}₽`,               'Gains'],
+  ].filter(([val]) => val !== '').map(([val, label]) => `<div class="gang-stat-card"><div class="stat-value">${val}</div><div class="stat-label">${label}</div></div>`).join('');
 
   const repPct = Math.min(100, g.reputation);
 
   tab.innerHTML = `
   <div class="gang-card-layout">
-    <!-- ── Header ── -->
-    <div class="gang-card-header">
-      <div class="gang-boss-sprite">
-        ${g.bossSprite ? `<img src="${trainerSprite(g.bossSprite)}" style="width:80px;height:80px;image-rendering:pixelated">` : '<div style="width:80px;height:80px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm)"></div>'}
-      </div>
-      <div style="flex:1;min-width:0">
-        <div style="font-family:var(--font-pixel);font-size:16px;color:var(--red);line-height:1.3">${g.name}</div>
-        <div style="font-size:11px;color:var(--text-dim);margin-top:2px">Boss : <span style="color:var(--text)">${g.bossName}</span></div>
-<div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold-dim);margin-top:2px;letter-spacing:.5px">${getBossFullTitle()}</div>
-${(() => {
-  const tC = getTitleLabel(g.titleC);
-  const tD = getTitleLabel(g.titleD);
-  const badges = [tC, tD].filter(Boolean);
-  if (!badges.length) return '';
-  const colors = ['#4fc3f7','#ce93d8'];
-  return `<div style="display:flex;gap:5px;margin-top:3px;flex-wrap:wrap">${badges.map((b,i)=>`<span style="font-family:var(--font-pixel);font-size:6px;padding:2px 6px;border-radius:10px;border:1px solid ${colors[i]};color:${colors[i]}">${b}</span>`).join('')}</div>`;
-})()}
-<button id="btnOpenTitles" style="margin-top:4px;font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">🏆 Titres</button>
-        <div style="display:flex;gap:16px;margin-top:6px;flex-wrap:wrap">
-          <span style="font-size:10px;color:var(--gold)">⭐ ${g.reputation.toLocaleString()}</span>
-          <span style="font-size:10px;color:var(--text)">₽ ${g.money.toLocaleString()}</span>
-          <span style="font-size:10px;color:var(--text-dim)" title="Pokédex Kanto (151) / National (${NATIONAL_DEX_SIZE})">📖 ${getDexKantoCaught()}/${KANTO_DEX_SIZE} <span style="font-size:8px;opacity:.6">[${getDexNationalCaught()}/${NATIONAL_DEX_SIZE}]</span></span>
+    <!-- ── Header: Boss info + Vitrine + Équipe ── -->
+    <div class="gang-card-header" style="flex-direction:column;gap:0;padding:0">
+
+      <!-- Boss info row -->
+      <div style="display:flex;align-items:flex-start;gap:14px;padding:14px">
+        <div class="gang-boss-sprite">
+          ${g.bossSprite ? `<img src="${trainerSprite(g.bossSprite)}" style="width:72px;height:72px;image-rendering:pixelated">` : '<div style="width:72px;height:72px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm)"></div>'}
         </div>
-        <div style="margin-top:8px;background:var(--border);border-radius:2px;height:4px;max-width:220px">
-          <div style="background:var(--gold-dim);height:4px;border-radius:2px;width:${repPct}%;transition:width .5s"></div>
+        <div style="flex:1;min-width:0">
+          <div style="font-family:var(--font-pixel);font-size:15px;color:var(--red);line-height:1.3">${g.name}</div>
+          <div style="font-size:11px;color:var(--text-dim);margin-top:2px">Boss : <span style="color:var(--text)">${g.bossName}</span></div>
+          <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold-dim);margin-top:2px;letter-spacing:.5px">${getBossFullTitle()}</div>
+          ${(() => {
+            const tC = getTitleLabel(g.titleC);
+            const tD = getTitleLabel(g.titleD);
+            const badges = [tC, tD].filter(Boolean);
+            if (!badges.length) return '';
+            const colors = ['#4fc3f7','#ce93d8'];
+            return `<div style="display:flex;gap:5px;margin-top:3px;flex-wrap:wrap">${badges.map((b,bi)=>`<span style="font-family:var(--font-pixel);font-size:6px;padding:2px 6px;border-radius:10px;border:1px solid ${colors[bi]};color:${colors[bi]}">${b}</span>`).join('')}</div>`;
+          })()}
+          <button id="btnOpenTitles" style="margin-top:4px;font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">🏆 Titres</button>
+          <div style="display:flex;gap:14px;margin-top:6px;flex-wrap:wrap">
+            <span style="font-size:10px;color:var(--gold)">⭐ ${g.reputation.toLocaleString()}</span>
+            <span style="font-size:10px;color:var(--text)">₽ ${g.money.toLocaleString()}</span>
+            <span style="font-size:10px;color:var(--text-dim)" title="Pokédex Kanto (151) / National (${NATIONAL_DEX_SIZE})">📖 ${getDexKantoCaught()}/${KANTO_DEX_SIZE} <span style="font-size:8px;opacity:.6">[${getDexNationalCaught()}/${NATIONAL_DEX_SIZE}]</span></span>
+          </div>
+          <div style="margin-top:8px;background:var(--border);border-radius:2px;height:4px;max-width:200px">
+            <div style="background:var(--gold-dim);height:4px;border-radius:2px;width:${repPct}%;transition:width .5s"></div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end;flex-shrink:0">
+          <button id="btnExportGang" style="font-family:var(--font-pixel);font-size:7px;padding:5px 8px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">📋 Exporter</button>
+          <button id="btnEditBoss" style="font-family:var(--font-pixel);font-size:7px;padding:5px 8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">✏ Modifier</button>
         </div>
       </div>
-      <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
-        <button id="btnExportGang" style="font-family:var(--font-pixel);font-size:7px;padding:6px 10px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">📋 Exporter</button>
-        <button id="btnEditBoss" style="font-family:var(--font-pixel);font-size:7px;padding:6px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">✏ Modifier</button>
+
+      <!-- Vitrine 6 slots -->
+      <div style="border-top:1px solid var(--border);padding:10px 14px">
+        <div style="font-family:var(--font-pixel);font-size:7px;color:var(--gold-dim);letter-spacing:1px;margin-bottom:7px">— VITRINE —</div>
+        <div class="gang-showcase-row">${showcaseHtml}</div>
+      </div>
+
+      <!-- Équipe Boss + save slots -->
+      <div style="border-top:1px solid var(--border);padding:10px 14px 14px">
+        <div style="font-family:var(--font-pixel);font-size:7px;color:var(--gold-dim);letter-spacing:1px;margin-bottom:6px">— ÉQUIPE BOSS —</div>
+        <div style="display:flex;gap:0;margin-bottom:-1px">${teamTabsHtml}</div>
+        <div style="border:1px solid var(--border);border-radius:0 var(--radius-sm) var(--radius-sm) var(--radius-sm);padding:8px;background:var(--bg-panel)">
+          <div class="gang-team-row" style="margin-bottom:0">${teamHtml}</div>
+        </div>
       </div>
     </div>
 
-    <!-- ── Vitrine ── -->
-    <div class="gang-section-label">— VITRINE —</div>
-    <div class="gang-showcase-row">${showcaseHtml}</div>
+    <!-- ── Collapsible: SERVICES ── -->
+    <div class="gang-section-label gang-collapsible-header" data-section="services" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none">
+      <span>— SERVICES —</span>
+      <span style="font-size:9px;color:var(--text-dim)">${_gangCollapsed.services ? '▶' : '▼'}</span>
+    </div>
+    <div class="gang-collapsible-body" data-section-body="services" style="${_gangCollapsed.services ? 'display:none' : ''}">
+      <div style="padding:0 2px 8px;display:flex;flex-direction:column;gap:8px">
 
-    <!-- ── Équipe Boss ── -->
-    <div class="gang-section-label">— ÉQUIPE BOSS —</div>
-    <div class="gang-team-row">${teamHtml}</div>
+        ${/* ── Récolte automatique ──────────────────────────────── */(() => {
+          const own = !!state.purchases.autoCollect;
+          const en  = state.purchases.autoCollectEnabled !== false;
+          return `<div style="background:var(--bg);border:1px solid ${own ? (en ? 'var(--green)' : 'var(--border)') : 'var(--border)'};border-radius:var(--radius-sm);padding:10px;display:flex;gap:10px;align-items:flex-start">
+            <div style="font-size:22px;flex-shrink:0;${own && !en ? 'opacity:.4;filter:grayscale(1)' : ''}">🪙</div>
+            <div style="flex:1">
+              <div style="font-family:var(--font-pixel);font-size:8px;color:${own ? (en ? 'var(--green)' : 'var(--text-dim)') : 'var(--text)'};margin-bottom:3px">Récolte automatique</div>
+              <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">Collecte les revenus de zone sans animation. Combat calculé en arrière-plan.</div>
+              ${own
+                ? `<div style="display:flex;align-items:center;gap:8px">
+                     <span style="font-family:var(--font-pixel);font-size:7px;color:${en ? 'var(--green)' : 'var(--text-dim)'}">${en ? '✓ ACTIVE' : '✗ INACTIVE'}</span>
+                     <button id="btnToggleAutoCollect" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid ${en ? 'var(--red)' : 'var(--green)'};border-radius:var(--radius-sm);color:${en ? 'var(--red)' : 'var(--green)'};cursor:pointer">${en ? 'Désactiver' : 'Activer'}</button>
+                   </div>`
+                : `<button id="btnBuyAutoCollect" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">Acheter — 100 000₽</button>`}
+            </div>
+          </div>`;
+        })()}
 
-    <!-- ── Agents ── -->
-    <div class="gang-section-label">— AGENTS —</div>
-    <div class="gang-agents-grid" id="gangAgentGrid">${agentsHtml}</div>
+        ${/* ── Vente automatique (captures agents) ─────────────── */(() => {
+          const own = !!state.purchases.autoSellAgent;
+          const en  = state.purchases.autoSellAgentEnabled !== false;
+          return `<div style="background:var(--bg);border:1px solid ${own ? (en ? 'var(--green)' : 'var(--border)') : 'var(--border)'};border-radius:var(--radius-sm);padding:10px;display:flex;gap:10px;align-items:flex-start">
+            <div style="font-size:22px;flex-shrink:0;${own && !en ? 'opacity:.4;filter:grayscale(1)' : ''}">🤖</div>
+            <div style="flex:1">
+              <div style="font-family:var(--font-pixel);font-size:8px;color:${own ? (en ? 'var(--green)' : 'var(--text-dim)') : 'var(--text)'};margin-bottom:3px">Vente automatique (captures agent)</div>
+              <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">Vend automatiquement les Pokémon capturés par les agents. Shinies toujours protégés.</div>
+              ${own
+                ? `<div style="display:flex;flex-direction:column;gap:6px">
+                     <div style="display:flex;align-items:center;gap:8px">
+                       <span style="font-family:var(--font-pixel);font-size:7px;color:${en ? 'var(--green)' : 'var(--text-dim)'}">${en ? '✓ ACTIVE' : '✗ INACTIVE'}</span>
+                       <button id="btnToggleAutoSellAgent" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid ${en ? 'var(--red)' : 'var(--green)'};border-radius:var(--radius-sm);color:${en ? 'var(--red)' : 'var(--green)'};cursor:pointer">${en ? 'Désactiver' : 'Activer'}</button>
+                     </div>
+                     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                       <label style="display:flex;align-items:center;gap:4px;font-size:8px;cursor:pointer"><input type="radio" name="autoSellMode" value="all" ${(state.settings.autoSellAgent?.mode || 'all') === 'all' ? 'checked' : ''}> Tout vendre</label>
+                       <label style="display:flex;align-items:center;gap:4px;font-size:8px;cursor:pointer"><input type="radio" name="autoSellMode" value="by_potential" ${state.settings.autoSellAgent?.mode === 'by_potential' ? 'checked' : ''}> Par potentiel</label>
+                     </div>
+                     ${state.settings.autoSellAgent?.mode === 'by_potential' ? `<div style="display:flex;gap:6px;flex-wrap:wrap">${[1,2,3,4,5].map(p => `<label style="display:flex;align-items:center;gap:3px;font-size:8px;cursor:pointer"><input type="checkbox" class="autoSellPot" value="${p}" ${(state.settings.autoSellAgent?.potentials || []).includes(p) ? 'checked' : ''}> ${'★'.repeat(p)}</label>`).join('')}</div>` : ''}
+                   </div>`
+                : `<button id="btnBuyAutoSellAgent" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">Acheter — 10 000 000₽</button>`}
+            </div>
+          </div>`;
+        })()}
 
-    <!-- ── Stats ── -->
-    <div class="gang-section-label">— STATISTIQUES —</div>
-    <div class="gang-stats-row">${statsHtml}</div>
+        ${/* ── Infirmière Joëlle corrompue ─────────────────────── */(() => {
+          const own = !!state.purchases.autoIncubator;
+          const en  = state.purchases.autoIncubatorEnabled !== false;
+          return `<div style="background:var(--bg);border:1px solid ${own ? (en ? 'var(--green)' : 'var(--border)') : 'var(--border)'};border-radius:var(--radius-sm);padding:10px;display:flex;gap:10px;align-items:flex-start">
+            <img src="${trainerSprite('nurse')}" style="width:36px;height:36px;image-rendering:pixelated;flex-shrink:0;${own && !en ? 'opacity:.4;filter:grayscale(1)' : ''}" onerror="this.style.display='none'">
+            <div style="flex:1">
+              <div style="font-family:var(--font-pixel);font-size:8px;color:${own ? (en ? 'var(--green)' : 'var(--text-dim)') : 'var(--text)'};margin-bottom:3px">Infirmière Joëlle corrompue</div>
+              <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">Auto-incube les œufs dès qu'un incubateur est libre.</div>
+              ${own
+                ? `<div style="display:flex;align-items:center;gap:8px">
+                     <span style="font-family:var(--font-pixel);font-size:7px;color:${en ? 'var(--green)' : 'var(--text-dim)'}">${en ? '✓ EN POSTE' : '✗ CONGÉ'}</span>
+                     <button id="btnToggleNurse" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid ${en ? 'var(--red)' : 'var(--green)'};border-radius:var(--radius-sm);color:${en ? 'var(--red)' : 'var(--green)'};cursor:pointer">${en ? 'Mettre en congé' : 'Rappeler'}</button>
+                   </div>`
+                : `<button id="btnBuyNurse" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">Embaucher — 300 000₽</button>`}
+            </div>
+          </div>`;
+        })()}
+
+        ${/* ── Scientifique peu scrupuleux ─────────────────────── */(() => {
+          const own = !!state.purchases.scientist;
+          const en  = state.purchases.scientistEnabled !== false;
+          return `<div style="background:var(--bg);border:1px solid ${own ? (en ? 'var(--green)' : 'var(--border)') : 'var(--border)'};border-radius:var(--radius-sm);padding:10px;display:flex;gap:10px;align-items:flex-start">
+            <img src="${trainerSprite('scientist')}" style="width:36px;height:36px;image-rendering:pixelated;flex-shrink:0;${own && !en ? 'opacity:.4;filter:grayscale(1)' : ''}" onerror="this.style.display='none'">
+            <div style="flex:1">
+              <div style="font-family:var(--font-pixel);font-size:8px;color:${own ? (en ? 'var(--green)' : 'var(--text-dim)') : 'var(--text)'};margin-bottom:3px">Scientifique peu scrupuleux</div>
+              <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">Révèle l'espèce des œufs (10k₽) · Mutation artificielle : sacrifice ★★★★★ même espèce pour potentiel max.</div>
+              ${own
+                ? `<div style="display:flex;align-items:center;gap:8px">
+                     <span style="font-family:var(--font-pixel);font-size:7px;color:${en ? 'var(--green)' : 'var(--text-dim)'}">${en ? '✓ EN POSTE' : '✗ RENVOYÉ'}</span>
+                     <button id="btnToggleScientist" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid ${en ? 'var(--red)' : 'var(--green)'};border-radius:var(--radius-sm);color:${en ? 'var(--red)' : 'var(--green)'};cursor:pointer">${en ? 'Renvoyer' : 'Rappeler'}</button>
+                   </div>`
+                : `<button id="btnBuyScientist" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">Engager — 5 000 000₽</button>`}
+            </div>
+          </div>`;
+        })()}
+
+        ${/* ── 🛒 ACHATS SPÉCIAUX ──────────────────────────────── */(() => {
+          const SPECIALS = [
+            { id:'title_richissime',    icon:'💰', label:'Titre "Richissime"',       desc:'Débloque le titre légendaire. Ostentation maximale.',  cost:5_000_000,
+              owned:() => !!state.purchases.title_richissime || (state.unlockedTitles||[]).includes('richissime') },
+            { id:'title_doublerichissim', icon:'💎', label:'Titre "Double Richissime"', desc:'Débloque le titre ultime. Noblesse oblige.',           cost:10_000_000,
+              owned:() => !!state.purchases.title_doublerichissim || (state.unlockedTitles||[]).includes('doublerichissim') },
+            { id:'chromaCharm',         icon:'✨', label:'Charme Chroma',            desc:'Double le taux de Pokémon chromatiques. Permanent.',    cost:5_000_000,
+              owned:() => !!state.purchases.chromaCharm },
+          ];
+          return `<div>
+            <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold-dim);margin:4px 0 6px;letter-spacing:1px">🛒 ACHATS SPÉCIAUX</div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              ${SPECIALS.map(sp => {
+                const own = sp.owned();
+                return `<div style="background:var(--bg);border:1px solid ${own ? 'var(--green)' : 'var(--border)'};border-radius:var(--radius-sm);padding:8px;display:flex;gap:10px;align-items:center">
+                  <div style="font-size:20px;flex-shrink:0">${sp.icon}</div>
+                  <div style="flex:1">
+                    <div style="font-family:var(--font-pixel);font-size:8px;color:${own ? 'var(--green)' : 'var(--text)'};margin-bottom:2px">${sp.label}</div>
+                    <div style="font-size:7px;color:var(--text-dim)">${sp.desc}</div>
+                  </div>
+                  ${own
+                    ? `<div style="font-family:var(--font-pixel);font-size:7px;color:var(--green);white-space:nowrap">✓ ACTIF</div>`
+                    : `<button class="btn-special-buy" data-sp-id="${sp.id}" style="font-family:var(--font-pixel);font-size:7px;padding:4px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer;white-space:nowrap">${sp.cost.toLocaleString()}₽</button>`}
+                </div>`;
+              }).join('')}
+            </div>
+          </div>`;
+        })()}
+
+      </div>
+    </div>
+
+    <!-- ── Collapsible: APPARENCE & MUSIQUE ── -->
+    <div class="gang-section-label gang-collapsible-header" data-section="cosmetics" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none">
+      <span>— APPARENCE & MUSIQUE —</span>
+      <span style="font-size:9px;color:var(--text-dim)">${_gangCollapsed.cosmetics ? '▶' : '▼'}</span>
+    </div>
+    <div class="gang-collapsible-body" data-section-body="cosmetics" style="${_gangCollapsed.cosmetics ? 'display:none' : ''}">
+      <div id="gangCosmContainer" style="padding:0 2px 8px"></div>
+    </div>
+
+    <!-- ── Collapsible: STATISTIQUES ── -->
+    <div class="gang-section-label gang-collapsible-header" data-section="stats" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none">
+      <span>— STATISTIQUES —</span>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button id="btnToggleStatsView" onclick="event.stopPropagation()" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:${_isSession ? 'var(--gold)' : 'var(--text-dim)'};cursor:pointer">${_isSession ? '⏱ SESSION' : '🌐 GLOBAL'}</button>
+        <span style="font-size:9px;color:var(--text-dim)">${_gangCollapsed.stats ? '▶' : '▼'}</span>
+      </div>
+    </div>
+    <div class="gang-collapsible-body" data-section-body="stats" style="${_gangCollapsed.stats ? 'display:none' : ''}">
+      <div class="gang-stats-row">${statsHtml}</div>
+    </div>
 
     <!-- ── Version ── -->
     <div style="margin-top:16px;text-align:center;font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);letter-spacing:1px;opacity:.5">${GAME_VERSION}</div>
   </div>`;
 
+  // ── Collapsible toggles ──
+  tab.querySelectorAll('.gang-collapsible-header').forEach(header => {
+    header.addEventListener('click', () => {
+      const section = header.dataset.section;
+      _gangCollapsed[section] = !_gangCollapsed[section];
+      const body = tab.querySelector(`[data-section-body="${section}"]`);
+      if (body) body.style.display = _gangCollapsed[section] ? 'none' : '';
+      const arrow = header.querySelector('span:last-child');
+      if (arrow) arrow.textContent = _gangCollapsed[section] ? '▶' : '▼';
+    });
+  });
+
+  // ── Stats view toggle (session ↔ global) ──
+  tab.querySelector('#btnToggleStatsView')?.addEventListener('click', e => {
+    e.stopPropagation();
+    _statsViewMode = _statsViewMode === 'session' ? 'global' : 'session';
+    renderGangTab();
+  });
+
+  // ── Auto-sell mode toggle ──
+  tab.querySelectorAll('input[name="autoSellMode"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      if (!state.settings.autoSellAgent) state.settings.autoSellAgent = { mode: 'all', potentials: [] };
+      state.settings.autoSellAgent.mode = radio.value;
+      saveState();
+      renderGangTab();
+    });
+  });
+  tab.querySelectorAll('.autoSellPot').forEach(cb => {
+    cb.addEventListener('change', () => {
+      if (!state.settings.autoSellAgent) state.settings.autoSellAgent = { mode: 'by_potential', potentials: [] };
+      const pot = parseInt(cb.value);
+      const pots = state.settings.autoSellAgent.potentials || [];
+      state.settings.autoSellAgent.potentials = cb.checked
+        ? [...new Set([...pots, pot])]
+        : pots.filter(p => p !== pot);
+      saveState();
+    });
+  });
+
+  // ── Scientist service handlers ──
+  tab.querySelector('#btnBuyScientist')?.addEventListener('click', () => {
+    if (state.gang.money < 5_000_000) { notify('Fonds insuffisants.', 'error'); return; }
+    showConfirm('Engager le Scientifique peu scrupuleux pour <b>5 000 000₽</b> ?<br><span style="font-size:10px;color:var(--text-dim)">Permet la mutation artificielle depuis le menu contextuel du PC et du Labo.</span>', () => {
+      state.gang.money -= 5_000_000;
+      state.purchases.scientist = true;
+      state.purchases.scientistEnabled = true;
+      saveState(); updateTopBar(); SFX.play('unlock');
+      notify('🧬 Le scientifique est en poste !', 'gold');
+      renderGangTab();
+    }, null, { confirmLabel: 'Engager', cancelLabel: 'Annuler' });
+  });
+  tab.querySelector('#btnToggleScientist')?.addEventListener('click', () => {
+    state.purchases.scientistEnabled = state.purchases.scientistEnabled === false;
+    saveState();
+    notify(state.purchases.scientistEnabled !== false ? '🧬 Scientifique rappelé !' : '🚫 Scientifique renvoyé.', 'success');
+    renderGangTab();
+  });
+
+  // ── AutoCollect service handlers ──
+  tab.querySelector('#btnBuyAutoCollect')?.addEventListener('click', () => {
+    if (state.gang.money < 100_000) { notify('Fonds insuffisants.', 'error'); return; }
+    showConfirm('Acheter la <b>Récolte automatique</b> pour <b>100 000₽</b> ?<br><span style="font-size:10px;color:var(--text-dim)">Collecte les revenus de zone sans animation.</span>', () => {
+      state.gang.money -= 100_000;
+      state.purchases.autoCollect = true;
+      state.purchases.autoCollectEnabled = true;
+      saveState(); updateTopBar(); SFX.play('unlock');
+      notify('🪙 Récolte automatique activée !', 'gold');
+      renderGangTab();
+    }, null, { confirmLabel: 'Acheter', cancelLabel: 'Annuler' });
+  });
+  tab.querySelector('#btnToggleAutoCollect')?.addEventListener('click', () => {
+    state.purchases.autoCollectEnabled = state.purchases.autoCollectEnabled === false;
+    saveState();
+    notify(state.purchases.autoCollectEnabled !== false ? '🪙 Récolte automatique activée !' : '🚫 Récolte automatique désactivée.', '');
+    renderGangTab();
+  });
+
+  // ── AutoSellAgent service handlers ──
+  tab.querySelector('#btnBuyAutoSellAgent')?.addEventListener('click', () => {
+    if (state.gang.money < 10_000_000) { notify('Fonds insuffisants.', 'error'); return; }
+    showConfirm('Acheter la <b>Vente automatique</b> pour <b>10 000 000₽</b> ?<br><span style="font-size:10px;color:var(--text-dim)">Vend automatiquement les captures des agents. Shinies toujours protégés.</span>', () => {
+      state.gang.money -= 10_000_000;
+      state.purchases.autoSellAgent = true;
+      state.purchases.autoSellAgentEnabled = true;
+      if (!state.settings.autoSellAgent) state.settings.autoSellAgent = { mode: 'all', potentials: [] };
+      saveState(); updateTopBar(); SFX.play('unlock');
+      notify('🤖 Vente automatique activée !', 'gold');
+      renderGangTab();
+    }, null, { confirmLabel: 'Acheter', cancelLabel: 'Annuler' });
+  });
+  tab.querySelector('#btnToggleAutoSellAgent')?.addEventListener('click', () => {
+    state.purchases.autoSellAgentEnabled = state.purchases.autoSellAgentEnabled === false;
+    saveState();
+    notify(state.purchases.autoSellAgentEnabled !== false ? '🤖 Vente automatique activée !' : '🚫 Vente automatique désactivée.', '');
+    renderGangTab();
+  });
+
+  // ── Nurse (autoIncubator) service handlers ──
+  tab.querySelector('#btnBuyNurse')?.addEventListener('click', () => {
+    if (state.gang.money < 300_000) { notify('Fonds insuffisants.', 'error'); return; }
+    showConfirm('Embaucher l\'<b>Infirmière Joëlle</b> pour <b>300 000₽</b> ?<br><span style="font-size:10px;color:var(--text-dim)">Auto-incube les œufs dès qu\'un incubateur est libre.</span>', () => {
+      state.gang.money -= 300_000;
+      state.purchases.autoIncubator = true;
+      state.purchases.autoIncubatorEnabled = true;
+      saveState(); updateTopBar(); SFX.play('unlock');
+      notify('💉 Joëlle est en poste !', 'gold');
+      renderGangTab();
+    }, null, { confirmLabel: 'Embaucher', cancelLabel: 'Annuler' });
+  });
+  tab.querySelector('#btnToggleNurse')?.addEventListener('click', () => {
+    state.purchases.autoIncubatorEnabled = state.purchases.autoIncubatorEnabled === false;
+    saveState();
+    notify(state.purchases.autoIncubatorEnabled !== false ? '💉 Joëlle est de retour !' : '💤 Joëlle en congé.', '');
+    renderGangTab();
+  });
+
+  // ── Special purchases handlers ──
+  const SPECIAL_DEFS = {
+    title_richissime:     { cost: 5_000_000,  label: 'Titre "Richissime"' },
+    title_doublerichissim:{ cost: 10_000_000, label: 'Titre "Double Richissime"' },
+    chromaCharm:          { cost: 5_000_000,  label: 'Charme Chroma' },
+  };
+  tab.querySelectorAll('.btn-special-buy').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const spId = btn.dataset.spId;
+      const def  = SPECIAL_DEFS[spId];
+      if (!def) return;
+      if (state.gang.money < def.cost) { notify('Fonds insuffisants.', 'error'); return; }
+      showConfirm(`Acheter <b>${def.label}</b> pour <b>${def.cost.toLocaleString()}₽</b> ?`, () => {
+        state.gang.money -= def.cost;
+        state.purchases[spId] = true;
+        if (spId === 'title_richissime') {
+          if (!state.unlockedTitles) state.unlockedTitles = [];
+          if (!state.unlockedTitles.includes('richissime')) state.unlockedTitles.push('richissime');
+        } else if (spId === 'title_doublerichissim') {
+          if (!state.unlockedTitles) state.unlockedTitles = [];
+          if (!state.unlockedTitles.includes('doublerichissim')) state.unlockedTitles.push('doublerichissim');
+        }
+        saveState(); updateTopBar(); SFX.play('unlock');
+        notify(`✨ ${def.label} débloqué !`, 'gold');
+        renderGangTab();
+      }, null, { confirmLabel: 'Acheter', cancelLabel: 'Annuler' });
+    });
+  });
+
   // ── Handlers ──
   tab.querySelector('#btnOpenTitles')?.addEventListener('click', openTitleModal);
-
-  tab.querySelector('#btnRecruitAgent')?.addEventListener('click', () => openAgentRecruitModal(() => renderGangTab()));
-
   tab.querySelector('#btnExportGang')?.addEventListener('click', () => openExportModal());
-
   tab.querySelector('#btnEditBoss')?.addEventListener('click', () => openBossEditModal(() => renderGangTab()));
 
-  tab.querySelectorAll('.agent-zone-select').forEach(sel => {
-    sel.addEventListener('change', e => {
-      const agentId = e.target.dataset.agentId;
-      assignAgentToZone(agentId, e.target.value || null);
-      if (activeTab === 'tabZones') renderZoneWindows();
+  // Boss team save slot tabs
+  tab.querySelectorAll('.gang-team-slot-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const slotIdx = parseInt(btn.dataset.teamSlot);
+      const isPurchased = (g.bossTeamSlotsPurchased || [true, false, false])[slotIdx];
+      if (!isPurchased) {
+        const cost = SLOT_COSTS[slotIdx];
+        showConfirm(`Débloquer le Slot ${slotIdx + 1} pour ${cost.toLocaleString()}₽ ?`, () => {
+          if (state.gang.money < cost) { notify('Fonds insuffisants.', 'error'); SFX.play('error'); return; }
+          state.gang.money -= cost;
+          state.gang.bossTeamSlotsPurchased[slotIdx] = true;
+          state.gang.activeBossTeamSlot = slotIdx;
+          state.gang.bossTeam = [...(state.gang.bossTeamSlots[slotIdx] || [])];
+          saveState(); updateTopBar(); SFX.play('unlock');
+          renderGangTab();
+        }, null, { confirmLabel: 'Acheter', cancelLabel: 'Annuler' });
+        return;
+      }
+      // Switch to this slot
+      state.gang.activeBossTeamSlot = slotIdx;
+      state.gang.bossTeam = [...(state.gang.bossTeamSlots[slotIdx] || [])];
+      saveState();
+      renderGangTab();
     });
   });
 
@@ -3335,7 +3621,7 @@ ${(() => {
     btn.addEventListener('click', e => {
       e.stopPropagation();
       const idx = parseInt(btn.dataset.idx);
-      if (!state.gang.showcase) state.gang.showcase = [null, null, null];
+      while (state.gang.showcase.length < 6) state.gang.showcase.push(null);
       state.gang.showcase[idx] = null;
       saveState();
       renderGangTab();
@@ -3351,12 +3637,13 @@ ${(() => {
     });
   });
 
-  // Boss team slots — click to open team picker
+  // Boss team slots — click filled to remove, empty to add
   tab.querySelectorAll('.gang-team-slot').forEach(el => {
     el.addEventListener('click', () => {
       const i = parseInt(el.dataset.bossSlot);
       if (el.classList.contains('filled')) {
         state.gang.bossTeam.splice(i, 1);
+        state.gang.bossTeamSlots[state.gang.activeBossTeamSlot || 0] = [...state.gang.bossTeam];
         saveState();
         renderGangTab();
       } else {
@@ -3364,6 +3651,10 @@ ${(() => {
       }
     });
   });
+
+  // ── Cosmetics panel (embedded) ──
+  const cosmContainer = tab.querySelector('#gangCosmContainer');
+  if (cosmContainer) renderCosmeticsPanel(cosmContainer);
 }
 
 function openExportModal()  { return globalThis._gbase_openExportModal(); }
@@ -3394,7 +3685,8 @@ function openShowcasePicker(slotIdx) {
 
   modal.querySelectorAll('.showcase-pick-item').forEach(el => {
     el.addEventListener('click', () => {
-      if (!state.gang.showcase) state.gang.showcase = [null, null, null];
+      if (!state.gang.showcase) state.gang.showcase = [];
+      while (state.gang.showcase.length < 6) state.gang.showcase.push(null);
       state.gang.showcase[slotIdx] = el.dataset.pkId;
       saveState();
       modal.remove();
@@ -3521,12 +3813,20 @@ function _refreshZoneTile(zoneId)       { _zsRefreshTile(zoneId); }
 function _refreshZoneIncomeTile(zoneId) { _zsRefreshIncome(zoneId); }
 function _updateZoneButtons()           { _zsUpdateButtons(); }
 
-// ── Background zone simulation ─────────────────────────────────
-// Zones fermées avec ≥1 agent : tick au vrai spawnRate, résolution silencieuse.
-// État zone : Open (fenêtre visible) | Closed+agent (background) | Inactive (rien)
-function startBackgroundZone(zoneId) { return globalThis._zsys_startBackgroundZone(zoneId); }
-function stopBackgroundZone(zoneId)  { return globalThis._zsys_stopBackgroundZone(zoneId); }
-function syncBackgroundZones()       { return globalThis._zsys_syncBackgroundZones(); }
+// ── Zone active/paused model ────────────────────────────────────
+// Active  = zone ouverte OU ≥1 agent assigné → timer unifié dans zoneTimers
+// Pausée  = ni ouverte ni agent → aucun calcul (délai de grâce 5 s à la fermeture)
+// Les wrappers appellent les clés _zsys_* pour éviter la récursion infinie :
+// le grand Object.assign final écrase globalThis.startActiveZone avec ces wrappers,
+// mais _zsys_startActiveZone reste toujours la vraie fonction de zoneSystem.js.
+function startActiveZone(zoneId)  { return globalThis._zsys_startActiveZone(zoneId); }
+function stopActiveZone(zoneId)   { return globalThis._zsys_stopActiveZone(zoneId); }
+function pauseZoneIfIdle(zoneId)  { return globalThis._zsys_pauseZoneIfIdle(zoneId); }
+function syncActiveZones()        { return globalThis._zsys_syncActiveZones(); }
+// Aliases (rétrocompatibilité)
+function startBackgroundZone(zoneId) { return globalThis._zsys_startActiveZone(zoneId); }
+function stopBackgroundZone(zoneId)  { return globalThis._zsys_stopActiveZone(zoneId); }
+function syncBackgroundZones()       { return globalThis._zsys_syncActiveZones(); }
 
 function openZoneWindow(zoneId)  { return globalThis._zwin_openZoneWindow(zoneId); }
 function closeZoneWindow(zoneId) { return globalThis._zwin_closeZoneWindow(zoneId); }
@@ -3537,6 +3837,122 @@ function closeZoneWindow(zoneId) { return globalThis._zwin_closeZoneWindow(zoneI
 function renderGangBasePanel() { return globalThis._gbase_renderGangBasePanel(); }
 
 function renderZoneWindows() { return globalThis._zwin_renderZoneWindows(); }
+
+// ── Gang Park Window ─────────────────────────────────────────────
+// Panneau persistant du QG, affiché parmi les fenêtres de zone
+let _gangParkOpen = false;
+
+function toggleGangParkWindow() {
+  _gangParkOpen = !_gangParkOpen;
+  openZones[_gangParkOpen ? 'add' : 'delete']('gang_park');
+  const container = document.getElementById('zoneWindowsContainer');
+  if (!container) return;
+  const existing = document.getElementById('zw-gang_park');
+  if (_gangParkOpen) {
+    if (!existing) {
+      const el = document.createElement('div');
+      el.id = 'zw-gang_park';
+      el.className = 'zone-window gang-park-window';
+      el.style.cssText = 'min-width:340px;max-width:420px;flex-shrink:0;border:2px solid var(--gold-dim);border-radius:var(--radius);background:linear-gradient(160deg,#1a1a2e,#16213e);overflow:hidden;display:flex;flex-direction:column';
+      container.prepend(el);
+      renderGangParkWindow(el);
+    }
+  } else if (existing) {
+    existing.remove();
+  }
+  renderZoneSelector?.();
+  _zsRefreshTile?.('gang_park');
+}
+
+function renderGangParkWindow(el) {
+  const agentRows = state.agents.map(agent => {
+    const teamHtml = agent.team.map(id => {
+      const pk = state.pokemons.find(p => p.id === id);
+      return pk ? `<img src="${pokeSprite(pk.species_en, pk.shiny)}" title="${speciesName(pk.species_en)} Lv.${pk.level}" style="width:28px;height:28px;image-rendering:pixelated${pk.shiny ? ';filter:drop-shadow(0 0 3px gold)' : ''}">` : '';
+    }).join('');
+    const zoneName = agent.assignedZone ? (ZONE_BY_ID[agent.assignedZone]?.fr || agent.assignedZone) : '—';
+    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.07)">
+      ${safeTrainerImg(agent.sprite || 'acetrainer', { style: 'width:32px;height:32px;image-rendering:pixelated' })}
+      <div style="flex:1;min-width:0">
+        <div style="font-size:9px;color:var(--text)">${agent.name}</div>
+        <div style="font-size:7px;color:var(--text-dim)">${zoneName}</div>
+      </div>
+      <div style="display:flex;gap:2px;flex-wrap:wrap;max-width:100px;justify-content:flex-end">${teamHtml || '<span style="font-size:8px;color:var(--text-dim)">—</span>'}</div>
+    </div>`;
+  }).join('') || '<div style="font-size:9px;color:var(--text-dim);padding:10px;text-align:center">Aucun agent recruté</div>';
+
+  const trainingIds = state.trainingRoom?.pokemon || [];
+  const trainingHtml = trainingIds.map(id => {
+    const pk = state.pokemons.find(p => p.id === id);
+    return pk ? `<div style="display:flex;align-items:center;gap:6px;padding:4px 8px">
+      <img src="${pokeSprite(pk.species_en)}" style="width:28px;height:28px;image-rendering:pixelated">
+      <div style="font-size:9px">${speciesName(pk.species_en)} Lv.${pk.level} ${'★'.repeat(pk.potential)}</div>
+    </div>` : '';
+  }).join('') || '<div style="font-size:9px;color:var(--text-dim);padding:8px">Salle vide</div>';
+
+  const pensionIds = state.pension?.slots || [];
+  const pensionHtml = pensionIds.map(id => {
+    const pk = state.pokemons.find(p => p.id === id);
+    return pk ? `<div style="display:flex;align-items:center;gap:6px;padding:4px 8px">
+      <img src="${pokeSprite(pk.species_en, pk.shiny)}" style="width:28px;height:28px;image-rendering:pixelated">
+      <div style="font-size:9px">${speciesName(pk.species_en)} Lv.${pk.level}${pk.shiny ? ' ✨' : ''}</div>
+    </div>` : '';
+  }).join('') || '<div style="font-size:9px;color:var(--text-dim);padding:8px">Pension vide</div>';
+
+  // Random ambient event (purely cosmetic)
+  const AMBIENT_EVENTS = [
+    '🌿 Un Pikachu se promène dans la cour.',
+    '🥚 Un Pokémon dépose un œuf devant la porte.',
+    '☁️ Deux Pokémon jouent sous la pluie.',
+    '🌙 Les Pokémon en formation s\'entraînent à la lueur de la lune.',
+    '🎵 Un Meloetta chante pour booster le moral.',
+    '🌸 Des pétales de Cerisaies tombent sur la cour.',
+    '🍖 Ton agent prépare un festin pour les Pokémon.',
+    '⚡ Un Raichu génère de l\'électricité pour la base.',
+    '💤 Snorlax bloque l\'entrée principale... encore.',
+    '🏋️ Les Pokémon en formation se motivent entre eux.',
+  ];
+  const ambient = AMBIENT_EVENTS[Math.floor(Date.now() / 30000) % AMBIENT_EVENTS.length];
+
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:rgba(0,0,0,.3);border-bottom:1px solid rgba(255,255,255,.1)">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:16px">🏛️</span>
+        <div>
+          <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">${state.gang.name}</div>
+          <div style="font-size:8px;color:var(--text-dim)">Quartier Général</div>
+        </div>
+      </div>
+      <button class="gp-close" style="font-size:11px;background:none;border:none;color:var(--text-dim);cursor:pointer">✕</button>
+    </div>
+
+    <div style="padding:6px 8px;background:rgba(255,204,90,.06);border-bottom:1px solid rgba(255,255,255,.07);font-size:8px;color:var(--text-dim)">
+      ${ambient}
+    </div>
+
+    <div style="overflow-y:auto;flex:1">
+      <div style="padding:8px 12px">
+        <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold-dim);margin-bottom:6px;letter-spacing:1px">AGENTS (${state.agents.length})</div>
+        ${agentRows}
+      </div>
+
+      ${trainingIds.length > 0 ? `
+      <div style="padding:8px 12px;border-top:1px solid rgba(255,255,255,.07)">
+        <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold-dim);margin-bottom:4px;letter-spacing:1px">FORMATION (${trainingIds.length})</div>
+        ${trainingHtml}
+      </div>` : ''}
+
+      ${pensionIds.length > 0 ? `
+      <div style="padding:8px 12px;border-top:1px solid rgba(255,255,255,.07)">
+        <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold-dim);margin-bottom:4px;letter-spacing:1px">PENSION (${pensionIds.length})</div>
+        ${pensionHtml}
+      </div>` : ''}
+    </div>`;
+
+  el.querySelector('.gp-close')?.addEventListener('click', () => toggleGangParkWindow());
+}
+
+Object.assign(globalThis, { toggleGangParkWindow, renderGangParkWindow });
 
 // Build a fresh zone window element (used on first open)
 // Build a fresh zone window element (used on first open)
@@ -3617,6 +4033,7 @@ function openTeamPicker(type, targetId, onDone) {
         if (state.gang.bossTeam.length < 3) {
           removePokemonFromAllAssignments(pkId);
           state.gang.bossTeam.push(pkId);
+          if (state.gang.bossTeamSlots) state.gang.bossTeamSlots[state.gang.activeBossTeamSlot || 0] = [...state.gang.bossTeam];
         }
       } else {
         const agent = state.agents.find(a => a.id === targetId);
@@ -3642,7 +4059,11 @@ function openTeamPicker(type, targetId, onDone) {
           const pk = state.pokemons.find(p => p.id === pkId);
           if (!pk) return;
           if (type === 'boss') {
-            if (state.gang.bossTeam.length < 3) { removePokemonFromAllAssignments(pkId); state.gang.bossTeam.push(pkId); }
+            if (state.gang.bossTeam.length < 3) {
+              removePokemonFromAllAssignments(pkId);
+              state.gang.bossTeam.push(pkId);
+              if (state.gang.bossTeamSlots) state.gang.bossTeamSlots[state.gang.activeBossTeamSlot || 0] = [...state.gang.bossTeam];
+            }
           } else {
             const agent = state.agents.find(a => a.id === targetId);
             if (agent && agent.team.length < 3) agent.team.push(pkId);
@@ -3772,55 +4193,18 @@ function renderCosmeticsTab() {
   const tab = document.getElementById('tabCosmetics');
   if (!tab) return;
 
-  const unlocked = state.purchases?.cosmeticsPanel;
+  // L'atelier cosmétique est maintenant intégré dans l'onglet Gang
+  tab.innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;gap:16px;text-align:center">
+      <div style="font-size:36px">👑</div>
+      <div style="font-family:var(--font-pixel);font-size:12px;color:var(--gold)">ATELIER COSMÉTIQUES</div>
+      <div style="font-size:11px;color:var(--text-dim);max-width:260px">L'atelier est maintenant intégré dans l'onglet Gang.</div>
+      <button id="btnGoGangTab" style="font-family:var(--font-pixel);font-size:9px;padding:8px 18px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">
+        → Aller à l'onglet Gang
+      </button>
+    </div>`;
 
-  if (!unlocked) {
-    // ── Panneau verrouillé — visible avec bouton d'achat ─────────
-    tab.innerHTML = `
-      <div class="cosm-tab-locked">
-        <div class="cosm-tab-locked-inner">
-          <div class="cosm-lock-icon">🎨</div>
-          <div class="cosm-lock-title">ATELIER COSMÉTIQUES</div>
-          <div class="cosm-lock-desc">Personnalise le fond d'écran, renomme ton Boss et tes Agents, change leurs sprites.</div>
-          <div class="cosm-lock-preview">
-            ${Object.entries(COSMETIC_BGS).slice(0,4).map(([,c]) =>
-              `<div class="cosm-lock-preview-tile" style="background-image:url('${c.url}');background-size:cover;background-position:center"></div>`
-            ).join('')}
-          </div>
-          <button id="btnUnlockCosmetics" class="cosm-unlock-btn">
-            🔓 Débloquer — ${COSMETICS_UNLOCK_COST.toLocaleString()}₽
-          </button>
-          <div class="cosm-lock-balance" id="cosmLockBalance">
-            Solde : ${(state.gang.money || 0).toLocaleString()}₽
-          </div>
-        </div>
-      </div>`;
-
-    tab.querySelector('#btnUnlockCosmetics')?.addEventListener('click', () => {
-      if (state.gang.money < COSMETICS_UNLOCK_COST) {
-        notify('Fonds insuffisants.', 'error');
-        SFX.play('error')
-        return;
-      }
-      showConfirm(`Débloquer l'Atelier Cosmétiques pour ${COSMETICS_UNLOCK_COST.toLocaleString()}₽ ?`, () => {
-        state.gang.money -= COSMETICS_UNLOCK_COST;
-        state.purchases.cosmeticsPanel = true;
-        saveState();
-        updateTopBar();
-        SFX.play('unlock');
-        notify('🎨 Atelier Cosmétiques débloqué !', 'gold');
-        renderCosmeticsTab();
-      });
-    });
-    return;
-  }
-
-  // ── Panneau débloqué ─────────────────────────────────────────
-  const container = document.createElement('div');
-  container.className = 'cosm-tab-content';
-  tab.innerHTML = '';
-  tab.appendChild(container);
-  renderCosmeticsPanel(container);
+  tab.querySelector('#btnGoGangTab')?.addEventListener('click', () => switchTab('tabGang'));
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -4206,7 +4590,9 @@ function renderShopPanel() {
 // ════════════════════════════════════════════════════════════════
 
 let pcSelectedId = null;
-let pcSelectedIds = new Set(); // Ctrl+click multi-selection
+let pcSelectedIds = new Set(); // Ctrl/Shift+click multi-selection
+let _pcLastClickedIdx = -1;   // ancre pour la sélection par plage (Shift+click)
+let _pcSelectedGroups = new Set(); // multi-sélection en mode groupé
 let pcPage = 0;
 const PC_PAGE_SIZE = 36;
 let pcGridCols = 6;   // colonnes de la grille (configurable)
@@ -4399,6 +4785,130 @@ function addBattleLogEntry(entry) {
   });
 }
 
+function openBulkSellModal() {
+  const existing = document.getElementById('bulkSellModal');
+  if (existing) existing.remove();
+
+  // Compute the set of protected Pokémon IDs
+  const teamIds = new Set([...state.gang.bossTeam]);
+  for (const a of state.agents) a.team.forEach(id => teamIds.add(id));
+  const trainingIds = new Set(state.trainingRoom?.pokemon || []);
+  const pensionIds  = getPensionSlotIds();
+
+  // Default filter state
+  let potFilter    = new Set([1, 2]);    // potentials to sell
+  let keepBest     = true;               // keep ≥1 top-potential per species
+  let keepFav      = true;
+  let keepTeam     = true;              // covers team + training + pension
+
+  function computeSellList() {
+    return state.pokemons.filter(pk => {
+      if (pk.shiny)                              return false;
+      if (!potFilter.has(pk.potential))          return false;
+      if (keepFav  && pk.favorite)               return false;
+      if (keepTeam && (teamIds.has(pk.id) || trainingIds.has(pk.id) || pensionIds.has(pk.id))) return false;
+      if (keepBest) {
+        // Keep this pokémon if it is the top-potential non-shiny non-protected of its species
+        const best = state.pokemons
+          .filter(p => p.species_en === pk.species_en && !p.shiny
+            && !teamIds.has(p.id) && !trainingIds.has(p.id) && !pensionIds.has(p.id))
+          .reduce((a, b) => (b.potential > a.potential ? b : a), pk);
+        if (pk.id === best.id) return false;
+      }
+      return true;
+    });
+  }
+
+  const modal = document.createElement('div');
+  modal.id = 'bulkSellModal';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,.82);display:flex;align-items:center;justify-content:center;';
+
+  function buildHTML() {
+    const list  = computeSellList();
+    const total = list.reduce((s, pk) => s + calculatePrice(pk), 0);
+    const potLabels = [1, 2, 3, 4, 5].map(n =>
+      `<label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:9px">
+        <input type="checkbox" data-pot="${n}" ${potFilter.has(n) ? 'checked' : ''} style="accent-color:var(--gold)">
+        ${'★'.repeat(n)}
+      </label>`
+    ).join('');
+
+    return `<div style="background:var(--bg-panel);border:2px solid var(--gold-dim);border-radius:var(--radius);padding:22px 24px;max-width:380px;width:92%;display:flex;flex-direction:column;gap:14px;font-family:var(--font-pixel)">
+      <div style="font-size:12px;color:var(--gold)">💸 Vente en masse</div>
+
+      <div>
+        <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">VENDRE LES POTENTIELS</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">${potLabels}</div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:9px">
+          <input type="checkbox" id="bsmKeepBest" ${keepBest ? 'checked' : ''} style="accent-color:var(--gold)">
+          Garder le meilleur de chaque espèce
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:9px">
+          <input type="checkbox" id="bsmKeepFav" ${keepFav ? 'checked' : ''} style="accent-color:var(--gold)">
+          Garder les favoris
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:9px">
+          <input type="checkbox" id="bsmKeepTeam" ${keepTeam ? 'checked' : ''} style="accent-color:var(--gold)">
+          Garder équipes / entraînement / pension
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:default;font-size:9px;opacity:.55">
+          <input type="checkbox" checked disabled style="accent-color:var(--gold)">
+          ✨ Garder les chromatiques (toujours)
+        </label>
+      </div>
+
+      <div id="bsmPreview" style="padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);text-align:center">
+        <span style="font-size:11px;color:var(--gold)">${list.length} Pokémon — ${total.toLocaleString()}₽</span>
+      </div>
+
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button id="bsmCancel" style="font-size:9px;padding:8px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">Annuler</button>
+        <button id="bsmSell" style="font-size:9px;padding:8px 14px;background:var(--red-dark);border:1px solid var(--red);border-radius:var(--radius-sm);color:#fff;cursor:pointer" ${list.length === 0 ? 'disabled style="opacity:.4"' : ''}>
+          Vendre ${list.length}
+        </button>
+      </div>
+    </div>`;
+  }
+
+  function refresh() {
+    modal.innerHTML = buildHTML();
+    bindModalEvents();
+  }
+
+  function bindModalEvents() {
+    modal.querySelectorAll('[data-pot]').forEach(cb => {
+      cb.addEventListener('change', () => {
+        const n = parseInt(cb.dataset.pot);
+        cb.checked ? potFilter.add(n) : potFilter.delete(n);
+        refresh();
+      });
+    });
+    document.getElementById('bsmKeepBest')?.addEventListener('change',  e => { keepBest  = e.target.checked; refresh(); });
+    document.getElementById('bsmKeepFav')?.addEventListener('change',   e => { keepFav   = e.target.checked; refresh(); });
+    document.getElementById('bsmKeepTeam')?.addEventListener('change',  e => { keepTeam  = e.target.checked; refresh(); });
+    document.getElementById('bsmCancel')?.addEventListener('click', () => modal.remove());
+    document.getElementById('bsmSell')?.addEventListener('click', () => {
+      const list = computeSellList();
+      if (!list.length) return;
+      const total = list.reduce((s, pk) => s + calculatePrice(pk), 0);
+      modal.remove();
+      showConfirm(
+        `Vendre <b>${list.length}</b> Pokémon pour <b style="color:var(--gold)">${total.toLocaleString()}₽</b> ?<br><span style="color:var(--text-dim);font-size:10px">Shinies et favoris exclus.</span>`,
+        () => { sellPokemon(list.map(pk => pk.id)); _pcLastRenderKey = ''; updateTopBar(); renderPCTab(); },
+        null, { confirmLabel: 'Vendre', cancelLabel: 'Annuler', danger: true }
+      );
+    });
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  }
+
+  modal.innerHTML = buildHTML();
+  document.body.appendChild(modal);
+  bindModalEvents();
+}
+
 function renderPCTab() {
   // Inject view switcher if not present
   const pcLayout = document.querySelector('#tabPC .pc-layout');
@@ -4412,8 +4922,7 @@ function renderPCTab() {
         <button class="pc-view-btn" id="pcBtnGrid" data-pcview="grid">[PC]</button>
         <button class="pc-view-btn" id="pcBtnTraining" data-pcview="training">[FORMATION]</button>
         <button class="pc-view-btn" id="pcBtnLab" data-pcview="lab">[LABO]</button>
-        <button class="pc-view-btn" id="pcBtnPension" data-pcview="pension">[PENSION]</button>
-        <button class="pc-view-btn" id="pcBtnEggs" data-pcview="eggs">[OEUFS${state.eggs.length ? ` (${state.eggs.length})` : ''}]</button>`;
+        <button class="pc-view-btn" id="pcBtnPension" data-pcview="pension">[PENSION${state.eggs.length ? ` & ${state.eggs.length} 🥚` : ''}]</button>`;
       pcLayout.parentNode.insertBefore(switcher, pcLayout);
       switcher.querySelectorAll('.pc-view-btn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -4423,14 +4932,17 @@ function renderPCTab() {
         });
       });
     }
+    // Redirect legacy 'eggs' pcView to 'pension' (merged)
+    if (pcView === 'eggs') { pcView = 'pension'; globalThis.pcView = pcView; }
+
     // Update active state + eggs count (always refresh)
     switcher.querySelectorAll('.pc-view-btn').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.pcview === pcView);
     });
-    const eggsBtn = switcher.querySelector('#pcBtnEggs');
-    if (eggsBtn) eggsBtn.textContent = `[OEUFS${state.eggs.length ? ` (${state.eggs.length})` : ''}]`;
+    const pensionBtn = switcher.querySelector('#pcBtnPension');
+    if (pensionBtn) pensionBtn.textContent = `[PENSION${state.eggs.length ? ` & ${state.eggs.length} 🥚` : ''}]`;
 
-    const subViews = ['trainingInPC', 'labInPC', 'pensionInPC', 'eggsInPC'];
+    const subViews = ['trainingInPC', 'labInPC', 'pensionInPC'];
     if (pcView === 'training') {
       pcLayout.style.display = 'none';
       subViews.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = id === 'trainingInPC' ? '' : 'none'; });
@@ -4467,18 +4979,6 @@ function renderPCTab() {
       pensionInPC.style.display = '';
       renderPensionView(pensionInPC);
       return;
-    } else if (pcView === 'eggs') {
-      pcLayout.style.display = 'none';
-      subViews.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = id === 'eggsInPC' ? '' : 'none'; });
-      let eggsInPC = document.getElementById('eggsInPC');
-      if (!eggsInPC) {
-        eggsInPC = document.createElement('div');
-        eggsInPC.id = 'eggsInPC';
-        pcLayout.parentNode.appendChild(eggsInPC);
-      }
-      eggsInPC.style.display = '';
-      renderEggsView(eggsInPC);
-      return;
     } else {
       pcLayout.style.display = '';
       subViews.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
@@ -4511,7 +5011,10 @@ function renderPCTab() {
       <label style="display:flex;align-items:center;gap:4px;font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);cursor:pointer;user-select:none">
         <input type="checkbox" id="pcGroupChk" ${pcGroupMode?'checked':''} style="accent-color:var(--gold)">
         Grouper
-      </label>`;
+      </label>
+      <div style="flex:1"></div>
+      <button id="pcBtnSelectPage" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer" title="Sélectionner toute la page (ou Shift+Clic sur les cartes)">☐ Tout</button>
+      <button id="pcBtnBulkSell" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">💸 Vendre max</button>`;
     document.getElementById('pcColsSel')?.addEventListener('change', e => {
       pcGridCols = parseInt(e.target.value); pcPage = 0; renderPokemonGrid(true);
     });
@@ -4521,8 +5024,21 @@ function renderPCTab() {
     document.getElementById('pcGroupChk')?.addEventListener('change', e => {
       pcGroupMode = e.target.checked;
       pcGroupSpecies = null; pcPage = 0;
+      _pcSelectedGroups.clear(); _pcLastClickedIdx = -1;
       renderPokemonGrid(true); renderPokemonDetail();
     });
+    document.getElementById('pcBtnSelectPage')?.addEventListener('click', () => {
+      const cards = [...document.querySelectorAll('#pcGrid .pc-pokemon')];
+      if (!cards.length) return;
+      const allSelected = cards.every(c => pcSelectedIds.has(c.dataset.pkId));
+      if (allSelected) {
+        cards.forEach(c => { pcSelectedIds.delete(c.dataset.pkId); c.classList.remove('multi-selected'); });
+      } else {
+        cards.forEach(c => { pcSelectedIds.add(c.dataset.pkId); c.classList.add('multi-selected'); });
+      }
+      renderPokemonDetail();
+    });
+    document.getElementById('pcBtnBulkSell')?.addEventListener('click', openBulkSellModal);
   }
 
   renderPokemonGrid();
@@ -4539,7 +5055,7 @@ function tryAutoIncubate() {
   let changed = false;
   for (const egg of eggs) {
     if (egg.incubating) continue;
-    const incubatingNow = eggs.filter(e => e.incubating).length;
+    const incubatingNow = eggs.filter(e => e.incubating && e.status !== 'ready').length;
     if (incubatingNow >= incubatorCount) break;
     egg.incubating = true;
     egg.incubatedAt = Date.now();
@@ -4578,7 +5094,14 @@ function hatchEgg(eggId) {
   saveState();
 
   // ── Animation popup ─────────────────────────────────────────────
-  const eggUrl = ITEM_SPRITE_URLS.mysteryegg;
+  // Try PokéOS species egg for pension eggs, fallback to rarity sprite
+  const _sp = SPECIES_BY_EN[egg.species_en];
+  const _dex = _sp?.dex;
+  const _hasPokeos = _dex && (egg.parentA || egg.scanned);
+  const eggUrl = _hasPokeos
+    ? `https://s3.pokeos.com/pokeos-uploads/forgotten-dex/eggs/${_dex}-animegg.png`
+    : eggSprite(egg);
+  const eggFallback = eggSprite(egg);
   const pkUrl  = pokeSprite(baseEn, egg.shiny);
   const name   = speciesName(baseEn);
   const stars  = '★'.repeat(hatched.potential || 0);
@@ -4605,7 +5128,7 @@ function hatchEgg(eggId) {
         65%{transform:scale(1.15) translateY(-4px);opacity:1}
         100%{transform:scale(1) translateY(0);opacity:1}
       }
-      #_hatchEgg { animation:_eggWobble .55s ease-in-out infinite; image-rendering:pixelated; }
+      #_hatchEgg { animation:_eggWobble .55s ease-in-out infinite; }
       #_hatchEgg.cracking { animation:_eggCrack .45s ease-in forwards; }
       #_hatchPk { display:none; animation:_pkReveal .5s cubic-bezier(.17,.67,.37,1.3) forwards; image-rendering:pixelated; }
       #_hatchPk.visible { display:block; }
@@ -4613,7 +5136,7 @@ function hatchEgg(eggId) {
     <div style="background:var(--bg-panel);border:2px solid var(--gold);border-radius:var(--radius);padding:32px 28px;max-width:300px;width:90%;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center">
       <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold);letter-spacing:.1em">✦ ÉCLOSION ✦</div>
       <div style="position:relative;width:88px;height:88px;display:flex;align-items:center;justify-content:center">
-        <img id="_hatchEgg" src="${eggUrl}" style="width:64px;height:64px">
+        <img id="_hatchEgg" src="${eggUrl}" style="width:64px;height:64px;object-fit:contain" onerror="if(!this._f){this._f=1;this.src='${eggFallback}'}">
         <img id="_hatchPk"  src="${pkUrl}"  style="width:88px;height:88px;position:absolute;inset:0;${egg.shiny ? 'filter:drop-shadow(0 0 8px gold)' : ''}">
       </div>
       <div id="_hatchInfo" style="opacity:0;transition:opacity .4s;display:flex;flex-direction:column;gap:6px">
@@ -4648,7 +5171,7 @@ function hatchEgg(eggId) {
 function renderEggsView(container) {
   const eggs = state.eggs || [];
   const incubatorCount = state.inventory?.incubator || 0;
-  const incubatingCount = eggs.filter(e => e.incubating).length;
+  const incubatingCount = eggs.filter(e => e.incubating && e.status !== 'ready').length;
   const freeIncubators = incubatorCount - incubatingCount;
 
   if (eggs.length === 0) {
@@ -4660,8 +5183,8 @@ function renderEggsView(container) {
   container.innerHTML = `
     <div style="display:flex;flex-wrap:wrap;gap:12px;padding:8px">
       ${eggs.map(egg => {
-        const isIncubating = egg.incubating;
-        const isReady = isIncubating && egg.hatchAt && egg.hatchAt <= now;
+        const isReady = egg.status === 'ready' || (egg.incubating && egg.hatchAt && egg.hatchAt <= now);
+        const isIncubating = egg.incubating && !isReady;
         const timeLeft = isIncubating && egg.hatchAt ? Math.max(0, Math.ceil((egg.hatchAt - now) / 60000)) : null;
         const progress = isIncubating && egg.hatchAt && egg.incubatedAt
           ? Math.min(100, Math.round((now - egg.incubatedAt) / (egg.hatchAt - egg.incubatedAt) * 100))
@@ -4699,7 +5222,7 @@ function renderEggsView(container) {
           : '⏳ En attente d\'incubateur';
 
         return `<div style="background:var(--bg-card);border:1px solid ${isReady ? 'var(--green)' : 'var(--border)'};border-radius:var(--radius);padding:10px;min-width:130px;max-width:150px;display:flex;flex-direction:column;align-items:center;gap:6px;${isReady ? 'box-shadow:0 0 8px rgba(68,187,85,.3)' : ''}">
-          <div style="font-size:28px">${isReady ? '🐣' : '🥚'}</div>
+          ${eggImgTag(egg, isReady, `width:64px;height:64px;${isReady ? 'filter:drop-shadow(0 0 6px var(--green))' : ''}`)}
           ${parentHtml}
           <div style="font-size:8px;color:${statusColor};text-align:center;font-family:var(--font-pixel);line-height:1.4">${statusText}</div>
           ${isIncubating && !isReady ? `
@@ -4814,7 +5337,16 @@ function _buildPCCard(p, teamIds, trainingIds, pensionIds) {
 
 function _bindPCCardListeners(el) {
   el.addEventListener('click', (e) => {
-    if (e.ctrlKey || e.metaKey) {
+    const cards = [...document.querySelectorAll('#pcGrid .pc-pokemon')];
+    const idx   = cards.indexOf(el);
+
+    if (e.shiftKey && _pcLastClickedIdx >= 0 && idx >= 0) {
+      // Shift+Click : sélection de plage
+      const lo = Math.min(_pcLastClickedIdx, idx);
+      const hi = Math.max(_pcLastClickedIdx, idx);
+      cards.slice(lo, hi + 1).forEach(c => { pcSelectedIds.add(c.dataset.pkId); c.classList.add('multi-selected'); });
+      renderPokemonDetail();
+    } else if (e.ctrlKey || e.metaKey) {
       // Ctrl+Click : basculer la multi-sélection sans rebuild complet
       const id = el.dataset.pkId;
       if (pcSelectedIds.has(id)) {
@@ -4824,6 +5356,7 @@ function _bindPCCardListeners(el) {
         pcSelectedIds.add(id);
         el.classList.add('multi-selected');
       }
+      _pcLastClickedIdx = idx;
       renderPokemonDetail();
     } else {
       // Clic normal : effacer la multi-sélection, sélectionner ce Pokémon
@@ -4831,6 +5364,7 @@ function _bindPCCardListeners(el) {
         pcSelectedIds.clear();
         document.querySelectorAll('.pc-pokemon.multi-selected').forEach(c => c.classList.remove('multi-selected'));
       }
+      _pcLastClickedIdx = idx;
       pcSelectedId = el.dataset.pkId;
       renderPCTab();
     }
@@ -4843,7 +5377,13 @@ function _bindPCCardListeners(el) {
     const price = calculatePrice(pk);
     const inTeam = state.gang.bossTeam.includes(pk.id) || state.agents.some(a => a.team.includes(pk.id));
     const hasCandy = (state.inventory.rarecandy || 0) > 0;
-    showContextMenu(e.clientX, e.clientY, [
+    const sameSpecies = state.pokemons.filter(p => p.species_en === pk.species_en && p.id !== pk.id && !p.shiny);
+    const sameSpeciesTotal = calculatePrice(pk) * sameSpecies.length;
+    const has5StarDonor = state.pokemons.some(p =>
+      p.species_en === pk.species_en && p.id !== pk.id && p.potential === 5 && !p.shiny
+      && !state.gang.bossTeam.includes(p.id) && !state.agents.some(a => a.team.includes(p.id))
+    );
+    const items = [
       { action:'sell', label:`Vendre (${price}₽)${pk.shiny ? ' ✨' : ''}`, fn: () => {
         if (pk.shiny) {
           showConfirm(`<span style="color:gold">✨ CHROMATIQUE !</span><br>Vendre <b>${speciesName(pk.species_en)}</b> pour <b>${price.toLocaleString()}₽</b> ?<br><span style="color:var(--text-dim);font-size:11px">Cette action est irréversible.</span>`,
@@ -4851,12 +5391,41 @@ function _bindPCCardListeners(el) {
             null, { confirmLabel: 'Vendre', cancelLabel: 'Garder', danger: true });
         } else { sellPokemon([pk.id]); renderPCTab(); updateTopBar(); }
       }},
+      sameSpecies.length > 0 ? { action:'sellSpecies', label:`Vendre tout (${speciesName(pk.species_en)}) ×${sameSpecies.length} — ${sameSpeciesTotal.toLocaleString()}₽`, fn: () => {
+        showConfirm(`Vendre <b>${sameSpecies.length}× ${speciesName(pk.species_en)}</b> pour <b>${sameSpeciesTotal.toLocaleString()}₽</b> ?<br><span style="color:var(--text-dim);font-size:11px">Shinies exclus.</span>`,
+          () => { sellPokemon(sameSpecies.map(p => p.id)); renderPCTab(); updateTopBar(); },
+          null, { confirmLabel: 'Vendre tout', cancelLabel: 'Annuler', danger: true });
+      }} : null,
+      sameSpecies.filter(p => p.potential < 5).length > 0 ? { action:'sellSpeciesNon5', label:`Vendre ${speciesName(pk.species_en)} (sauf ★★★★★)`, fn: () => {
+        const toSell = sameSpecies.filter(p => p.potential < 5);
+        const total = toSell.reduce((s, p) => s + calculatePrice(p), 0);
+        showConfirm(`Vendre <b>${toSell.length}× ${speciesName(pk.species_en)}</b> (hors ★★★★★) pour <b>${total.toLocaleString()}₽</b> ?`,
+          () => { sellPokemon(toSell.map(p => p.id)); renderPCTab(); updateTopBar(); },
+          null, { confirmLabel: 'Vendre', cancelLabel: 'Annuler', danger: true });
+      }} : null,
+      state.purchases.scientist && state.purchases.scientistEnabled !== false && pk.potential < 5 && has5StarDonor ? { action:'scientist', label:`🧬 Mutation (sacrifice 1× ★★★★★ ${speciesName(pk.species_en)})`, fn: () => {
+        const donor = state.pokemons.find(p =>
+          p.species_en === pk.species_en && p.id !== pk.id && p.potential === 5 && !p.shiny
+          && !state.gang.bossTeam.includes(p.id) && !state.agents.some(a => a.team.includes(p.id))
+        );
+        if (!donor) { notify('Aucun donneur ★★★★★ disponible.', 'error'); return; }
+        showConfirm(`Sacrifier <b>${speciesName(donor.species_en)} ★★★★★</b> pour élever <b>${speciesName(pk.species_en)}</b> de ★${pk.potential} à ★${pk.potential + 1} ?<br><span style="color:var(--red);font-size:11px">Le donneur sera détruit.</span>`,
+          () => {
+            state.pokemons = state.pokemons.filter(p => p.id !== donor.id);
+            pk.potential = Math.min(5, pk.potential + 1);
+            pk.stats = calculateStats(pk);
+            saveState(); notify(`🧬 ${speciesName(pk.species_en)} est maintenant ${'★'.repeat(pk.potential)} !`, 'gold');
+            renderPCTab(); updateTopBar();
+          },
+          null, { confirmLabel: 'Confirmer', cancelLabel: 'Annuler', danger: true });
+      }} : null,
       inTeam
         ? { action:'unteam', label:'Retirer de l\'equipe', fn: () => { state.gang.bossTeam = state.gang.bossTeam.filter(id => id !== pk.id); state.agents.forEach(a => { a.team = a.team.filter(id => id !== pk.id); }); saveState(); renderPCTab(); } }
         : { action:'team', label:'Attribuer a...', fn: () => { openAssignToPicker(pk.id); } },
       { action:'candy', label:`Super Bonbon${hasCandy ? '' : ' (aucun)'}`, fn: () => { if (!hasCandy) return; state.inventory.rarecandy--; if (pk.level < 100) { pk.level++; pk.xp = 0; pk.stats = calculateStats(pk); tryAutoEvolution(pk); } saveState(); notify(`🍬 ${speciesName(pk.species_en)} → Lv.${pk.level}`, 'gold'); renderPCTab(); updateTopBar(); } },
       { action:'fav', label: pk.favorite ? 'Retirer favori' : 'Ajouter favori', fn: () => { pk.favorite = !pk.favorite; saveState(); renderPCTab(); } },
-    ]);
+    ].filter(Boolean);
+    showContextMenu(e.clientX, e.clientY, items);
   });
 }
 
@@ -4881,7 +5450,7 @@ function renderPokemonGrid(forceRebuild = false) {
   }
   else if (filter.startsWith('pot')) list = list.filter(p => p.potential === parseInt(filter.replace('pot', '')));
   else if (filter === 'pension') {
-    const psIds = new Set([state.pension?.slotA, state.pension?.slotB].filter(Boolean));
+    const psIds = getPensionSlotIds();
     list = list.filter(p => psIds.has(p.id));
   }
   else if (filter === 'training') list = list.filter(p => state.trainingRoom?.pokemon?.includes(p.id));
@@ -4909,7 +5478,7 @@ function renderPokemonGrid(forceRebuild = false) {
   const teamIds = new Set([...state.gang.bossTeam]);
   for (const a of state.agents) a.team.forEach(id => teamIds.add(id));
   const trainingIds = new Set(state.trainingRoom.pokemon);
-  const pensionIds = new Set([state.pension?.slotA, state.pension?.slotB].filter(Boolean));
+  const pensionIds = getPensionSlotIds();
 
   // Render key: rebuild on any change (list length catches sells/releases, species catches evolutions)
   const speciesHash = list.slice(pcPage * pageSize, (pcPage + 1) * pageSize).map(p => p.species_en + p.level).join(',').length;
@@ -4960,11 +5529,25 @@ function renderPokemonGrid(forceRebuild = false) {
       }).join('') || '<div style="color:var(--text-dim);padding:16px;grid-column:1/-1;text-align:center">Aucun Pokémon</div>';
 
       grid.querySelectorAll('.pc-group-card').forEach(el => {
-        el.addEventListener('click', () => {
-          pcGroupSpecies = el.dataset.groupSpecies;
-          _grpPotFilter = 0; // reset potential filter on species change
-          renderPokemonGrid(true);
-          renderPokemonDetailGroup(pcGroupSpecies);
+        el.addEventListener('click', (e) => {
+          const species = el.dataset.groupSpecies;
+          if (e.ctrlKey || e.metaKey) {
+            // Ctrl+Click : multi-sélection de groupes
+            if (_pcSelectedGroups.has(species)) {
+              _pcSelectedGroups.delete(species);
+              el.style.border = '2px solid var(--border)';
+            } else {
+              _pcSelectedGroups.add(species);
+              el.style.border = '2px solid var(--gold)';
+            }
+            renderPokemonDetail();
+          } else {
+            _pcSelectedGroups.clear();
+            pcGroupSpecies = species;
+            _grpPotFilter = 0;
+            renderPokemonGrid(true);
+            renderPokemonDetailGroup(pcGroupSpecies);
+          }
         });
       });
 
@@ -5151,7 +5734,58 @@ function renderPokemonDetail() {
   const panel = document.getElementById('pokemonDetail');
   if (!panel) return;
 
-  // ── Mode groupe ───────────────────────────────────────────────
+  // ── Mode groupe — multi-sélection de groupes (Ctrl+Clic) ─────
+  if (pcGroupMode && _pcSelectedGroups.size > 0) {
+    panel.classList.remove('hidden');
+    const tIds = new Set([...state.gang.bossTeam]);
+    for (const a of state.agents) a.team.forEach(id => tIds.add(id));
+    const allPks = [..._pcSelectedGroups].flatMap(sp =>
+      state.pokemons.filter(p => p.species_en === sp)
+    );
+    const sellable = allPks.filter(pk => !pk.shiny && !pk.favorite && !tIds.has(pk.id));
+    const totalValue = sellable.reduce((s, pk) => s + calculatePrice(pk), 0);
+    const shinyCount = allPks.filter(p => p.shiny).length;
+
+    panel.innerHTML = `
+      <div style="padding:10px;font-family:var(--font-pixel)">
+        <div style="font-size:11px;color:var(--gold);margin-bottom:4px">${_pcSelectedGroups.size} espèces sélectionnées</div>
+        <div style="font-size:8px;color:var(--text-dim);margin-bottom:8px">Ctrl+Clic pour ajouter/retirer des espèces</div>
+        <div style="display:flex;flex-wrap:wrap;gap:3px;justify-content:center;margin-bottom:10px">
+          ${[..._pcSelectedGroups].slice(0, 10).map(sp => `<img src="${pokeSprite(sp, false)}" style="width:32px;height:32px">`).join('')}
+          ${_pcSelectedGroups.size > 10 ? `<div style="font-size:9px;color:var(--text-dim);align-self:center">+${_pcSelectedGroups.size - 10}</div>` : ''}
+        </div>
+        <div style="font-size:8px;color:var(--text-dim);margin-bottom:8px">
+          ${allPks.length} Pokémon au total — ${sellable.length} vendables
+          ${shinyCount > 0 ? `<br><span style="color:var(--gold)">✨×${shinyCount} exclu${shinyCount > 1 ? 's' : ''}</span>` : ''}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          ${sellable.length > 0 ? `
+          <button id="btnSellGroupMulti" style="width:100%;font-size:9px;padding:6px;background:var(--red-dark);border:1px solid var(--red);border-radius:var(--radius-sm);color:var(--text);cursor:pointer">
+            Vendre ${sellable.length} Pokémon (${totalValue.toLocaleString()}₽)
+          </button>` : ''}
+          <button id="btnClearGroupMulti" style="width:100%;font-size:9px;padding:5px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">
+            Annuler la sélection
+          </button>
+        </div>
+      </div>`;
+
+    document.getElementById('btnSellGroupMulti')?.addEventListener('click', () => {
+      const ids = sellable.map(pk => pk.id);
+      showConfirm(`Vendre <b>${ids.length}</b> Pokémon (${[..._pcSelectedGroups].map(sp => speciesName(sp)).join(', ')}) pour <b style="color:var(--gold)">${totalValue.toLocaleString()}₽</b> ?`, () => {
+        sellPokemon(ids);
+        _pcSelectedGroups.clear();
+        _pcLastRenderKey = '';
+        updateTopBar(); renderPCTab();
+      }, null, { confirmLabel: 'Vendre', cancelLabel: 'Annuler', danger: true });
+    });
+    document.getElementById('btnClearGroupMulti')?.addEventListener('click', () => {
+      _pcSelectedGroups.clear();
+      renderPokemonGrid(true); renderPokemonDetail();
+    });
+    return;
+  }
+
+  // ── Mode groupe — espèce unique sélectionnée ──────────────────
   if (pcGroupMode && pcGroupSpecies) {
     renderPokemonDetailGroup(pcGroupSpecies);
     return;
@@ -5287,11 +5921,25 @@ function renderPokemonDetail() {
       <div>PC: <b>${power}</b></div>
     </div>
     <div style="font-size:11px;margin-bottom:8px">
-      <div style="color:var(--text-dim);margin-bottom:4px">${t('moves')}:</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <span style="color:var(--text-dim)">${t('moves')}:</span>
+        <button id="btnChangeMoves" style="font-size:8px;padding:2px 7px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer" title="Changer les attaques (10 000₽)">🔄 10k₽</button>
+      </div>
       ${p.moves.map(m => `<div style="padding:2px 0">▸ ${m}</div>`).join('')}
     </div>
     <div style="font-size:11px;margin-bottom:8px">
-      <div>ATK: <b>${p.stats.atk}</b> — DEF: <b>${p.stats.def}</b> — SPD: <b>${p.stats.spd}</b></div>
+      ${(() => {
+        const ref = { species_en: p.species_en, potential: 5, nature: 'hardy', level: p.level };
+        ref.stats = calculateStats(ref);
+        const pct = v => Math.min(100, Math.round(v / ref.stats[Object.keys(ref.stats)[0]] * 100));
+        const bar = (val, max, color) => `<div style="flex:1;background:var(--border);border-radius:2px;height:5px"><div style="background:${color};width:${Math.min(100,Math.round(val/max*100))}%;height:5px;border-radius:2px"></div></div>`;
+        return `<div style="display:flex;flex-direction:column;gap:3px">
+          <div style="display:flex;align-items:center;gap:6px"><span style="font-size:9px;width:30px">ATK</span>${bar(p.stats.atk, ref.stats.atk,'#e57373')}<span style="font-size:9px;color:var(--text-dim)">${p.stats.atk}<span style="color:var(--border-light)">/${ref.stats.atk}</span></span></div>
+          <div style="display:flex;align-items:center;gap:6px"><span style="font-size:9px;width:30px">DEF</span>${bar(p.stats.def, ref.stats.def,'#64b5f6')}<span style="font-size:9px;color:var(--text-dim)">${p.stats.def}<span style="color:var(--border-light)">/${ref.stats.def}</span></span></div>
+          <div style="display:flex;align-items:center;gap:6px"><span style="font-size:9px;width:30px">SPD</span>${bar(p.stats.spd, ref.stats.spd,'#81c784')}<span style="font-size:9px;color:var(--text-dim)">${p.stats.spd}<span style="color:var(--border-light)">/${ref.stats.spd}</span></span></div>
+          <div style="font-size:7px;color:var(--text-dim);margin-top:1px">/ ref ★★★★★ Hardy Lv.${p.level}</div>
+        </div>`;
+      })()}
     </div>
     <div style="font-size:10px;color:var(--text-dim);margin-bottom:8px">${t('zone_caught')}: ${zoneName}</div>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
@@ -5315,12 +5963,14 @@ function renderPokemonDetail() {
       return '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px"><button style="flex:1;font-size:10px;padding:6px;background:var(--bg);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--green);cursor:pointer" id="btnAssignTo">📋 ' + (state.lang === 'fr' ? 'Attribuer à...' : 'Assign to...') + '</button></div>';
     })()}
     ${(() => {
-      const inPension = p.id === state.pension.slotA || p.id === state.pension.slotB;
+      const pensionSlots = state.pension?.slots || [];
+      const maxPensionSlots = 2 + (state.pension?.extraSlotsPurchased || 0);
+      const inPension = pensionSlots.includes(p.id);
       const inTraining = state.trainingRoom?.pokemon?.includes(p.id);
       const inTeam = state.gang.bossTeam.includes(p.id) || state.agents.some(a => a.team.includes(p.id));
       if (inTeam) return '';
-      const pensionFull = state.pension.slotA && state.pension.slotB;
-      const trainingFull = (state.trainingRoom?.pokemon?.length || 0) >= 6;
+      const pensionFull = pensionSlots.length >= maxPensionSlots;
+      const trainingFull = (state.trainingRoom?.pokemon?.length || 0) >= 6 + (state.trainingRoom?.extraSlots || 0);
       let btns = '';
       if (!inPension && !inTraining) {
         btns += `<button style="flex:1;font-size:10px;padding:6px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:${pensionFull ? 'var(--text-dim)' : 'var(--text)'};cursor:${pensionFull ? 'default' : 'pointer'}" id="btnSendPension"${pensionFull ? ' disabled' : ''}>Pension ${pensionFull ? '(pleine)' : ''}</button>`;
@@ -5353,6 +6003,25 @@ function renderPokemonDetail() {
     p.favorite = !p.favorite;
     saveState();
     renderPCTab();
+  });
+
+  document.getElementById('btnChangeMoves')?.addEventListener('click', () => {
+    const cost = 10000;
+    if (state.gang.money < cost) { notify('Fonds insuffisants (10 000₽).', 'error'); return; }
+    const sp2 = SPECIES_BY_EN[p.species_en];
+    if (!sp2 || !sp2.moves?.length) { notify('Aucune attaque disponible pour cette espèce.', 'error'); return; }
+    showConfirm(`Changer les attaques de <b>${speciesName(p.species_en)}</b> pour <b>10 000₽</b> ?<br><span style="color:var(--text-dim);font-size:10px">Les nouvelles attaques seront tirées aléatoirement dans le pool de l'espèce.</span>`,
+      () => {
+        state.gang.money -= cost;
+        state.stats.totalMoneySpent = (state.stats.totalMoneySpent || 0) + cost;
+        p.moves = rollMoves(p.species_en);
+        saveState();
+        notify(`Attaques changées → ${p.moves.join(', ')}`, 'gold');
+        renderPCTab();
+        updateTopBar();
+      },
+      null, { confirmLabel: 'Changer', cancelLabel: 'Annuler' }
+    );
   });
 
   document.getElementById('btnRareCandy')?.addEventListener('click', () => {
@@ -5398,9 +6067,9 @@ function renderPokemonDetail() {
 
   document.getElementById('btnSendPension')?.addEventListener('click', () => {
     removePokemonFromAllAssignments(p.id);
-    if (!state.pension.slotA) state.pension.slotA = p.id;
-    else if (!state.pension.slotB && state.pension.slotA !== p.id) state.pension.slotB = p.id;
-    else { notify('Pension pleine'); return; }
+    const maxSlots = 2 + (state.pension?.extraSlotsPurchased || 0);
+    if ((state.pension.slots || []).length >= maxSlots) { notify('Pension pleine'); return; }
+    if (!state.pension.slots.includes(p.id)) state.pension.slots.push(p.id);
     saveState();
     notify(`${speciesName(p.species_en)} → Pension`, 'success');
     renderPCTab();
@@ -5408,15 +6077,14 @@ function renderPokemonDetail() {
   document.getElementById('btnSendTraining')?.addEventListener('click', () => {
     removePokemonFromAllAssignments(p.id);
     if (!state.trainingRoom.pokemon) state.trainingRoom.pokemon = [];
-    if (state.trainingRoom.pokemon.length >= 6) { notify('Salle pleine (max 6)'); return; }
+    if (state.trainingRoom.pokemon.length >= 6 + (state.trainingRoom.extraSlots || 0)) { notify(`Salle pleine (max ${6 + (state.trainingRoom.extraSlots || 0)})`); return; }
     if (!state.trainingRoom.pokemon.includes(p.id)) state.trainingRoom.pokemon.push(p.id);
     saveState();
     notify(`${speciesName(p.species_en)} → Formation`, 'success');
     renderPCTab();
   });
   document.getElementById('btnRemovePension')?.addEventListener('click', () => {
-    if (state.pension.slotA === p.id) state.pension.slotA = null;
-    if (state.pension.slotB === p.id) state.pension.slotB = null;
+    state.pension.slots = (state.pension.slots || []).filter(id => id !== p.id);
     saveState();
     notify(`${speciesName(p.species_en)} retiré de la pension`, 'success');
     renderPCTab();
@@ -5953,6 +6621,13 @@ function renderDexDetail(species_en) {
         🔍 Voir dans le PC (×${ownedCount})
       </button>
     </div>` : ''}
+    ${state.purchases.autoSellAgent && entry.shiny ? `
+    <div style="margin-top:10px;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm)">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:9px">
+        <input type="checkbox" id="dexShinyUnprotect" ${entry.shinyUnprotected ? 'checked' : ''} style="width:14px;height:14px">
+        <span>✨ Autoriser la vente auto du Shiny<br><span style="color:var(--text-dim);font-size:8px">Les shinies de cette espèce pourront être auto-vendus</span></span>
+      </label>
+    </div>` : ''}
     <div style="margin-top:8px">
       ${_getDexAssistantCostHtml(sp)}
     </div>
@@ -5965,6 +6640,12 @@ function renderDexDetail(species_en) {
 
   document.getElementById('dexFilterPCBtn')?.addEventListener('click', () => filterPCBySpecies(sp.en));
   document.getElementById('dexAssistantBtn')?.addEventListener('click', () => openDexAssistant(species_en));
+  document.getElementById('dexShinyUnprotect')?.addEventListener('change', (e) => {
+    if (!state.pokedex[sp.en]) state.pokedex[sp.en] = {};
+    state.pokedex[sp.en].shinyUnprotected = e.target.checked;
+    saveState();
+    notify(e.target.checked ? `⚠ Shinies de ${speciesName(sp.en)} déprotégés.` : `✅ Shinies de ${speciesName(sp.en)} à nouveau protégés.`, e.target.checked ? '' : 'success');
+  });
 }
 
 // ── Player stat modal ────────────────────────────────────────────
@@ -6356,7 +7037,7 @@ function renderAgentsTab() {
     const teamSlots = [0, 1, 2].map(i => {
       const pkId = a.team[i];
       const pk   = pkId ? state.pokemons.find(p => p.id === pkId) : null;
-      if (pk) return `<div class="agent-team-slot filled" data-agent-team="${a.id}" data-slot="${i}" title="${speciesName(pk.species_en)} Lv.${pk.level}"><img src="${pokeSprite(pk.species_en, pk.shiny)}"></div>`;
+      if (pk) return `<div class="agent-team-slot filled" data-agent-team="${a.id}" data-slot="${i}" title="${speciesName(pk.species_en)} Lv.${pk.level}"><img src="${pokeIcon(pk.species_en)}" style="${pk.shiny ? 'filter:drop-shadow(0 0 2px var(--gold))' : ''}" onerror="this.src='${pokeSprite(pk.species_en, pk.shiny)}'"></div>`;
       return `<div class="agent-team-slot" data-agent-team="${a.id}" data-slot="${i}">+</div>`;
     }).join('');
 
@@ -6380,14 +7061,22 @@ function renderAgentsTab() {
 
     const statPts = a.statPoints || 0;
 
+    const cosmUnlockedAgent = state.purchases?.cosmeticsPanel;
     html += `<div class="agent-card-full" data-agent-id="${a.id}">
       <div class="agent-header">
         <img src="${a.sprite}" alt="${a.name}" onerror="this.src='${FALLBACK_TRAINER_SVG}';this.onerror=null">
         <div class="agent-meta">
-          <div class="agent-name">${a.name}</div>
-          <div class="agent-title agent-rank-${a.title}">${getAgentRankLabel(a)} — Lv.${a.level}</div>
+          <div class="agent-title agent-rank-${a.title}" style="display:flex;align-items:baseline;gap:5px;flex-wrap:nowrap;overflow:hidden">
+            <span style="font-size:7px;opacity:.75;flex-shrink:0">[${getAgentRankLabel(a)}]</span>
+            <span style="font-family:var(--font-pixel);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.name}</span>
+            <span style="font-size:8px;opacity:.7;flex-shrink:0">Lv.${a.level}</span>
+          </div>
           <div class="agent-xp-bar"><div class="agent-xp-fill" style="width:${xpPct}%"></div></div>
         </div>
+        ${cosmUnlockedAgent ? `<div style="display:flex;flex-direction:column;gap:3px;margin-left:auto;padding-left:6px">
+          <button class="agent-card-rename" data-agent-id="${a.id}" title="Renommer (2 000₽)" style="font-size:10px;padding:2px 5px;background:var(--bg);border:1px solid var(--border);border-radius:3px;cursor:pointer;color:var(--text-dim)">✏</button>
+          <button class="agent-card-sprite" data-agent-id="${a.id}" title="Changer sprite (5 000₽)" style="font-size:10px;padding:2px 5px;background:var(--bg);border:1px solid var(--border);border-radius:3px;cursor:pointer;color:var(--text-dim)">🎨</button>
+        </div>` : ''}
       </div>
       <div class="agent-stats-row">
         <span title="Base: ${a.baseStats?.combat ?? a.stats.combat}">ATK ${a.stats.combat}${alloc.combat > 0 ? ` <small style="color:var(--gold)">(+${alloc.combat})</small>` : ''}</span>
@@ -6448,6 +7137,18 @@ function renderAgentsTab() {
   </div>`;
 
   grid.innerHTML = html;
+
+  // Agent tree toggle
+  const treeBtn = document.getElementById('btnToggleAgentTree');
+  const treeCon = document.getElementById('agentTreeContainer');
+  if (treeBtn && treeCon) {
+    treeBtn.addEventListener('click', () => {
+      const open = treeCon.style.display === 'none';
+      treeCon.style.display = open ? 'block' : 'none';
+      treeBtn.textContent  = open ? '🌳 Masquer l\'arbre' : '🌳 Afficher l\'arbre';
+      if (open) renderAgentTree(treeCon);
+    });
+  }
 
   // Wire unequip-all button (once, guarded)
   const unequipBtn = document.getElementById('btnUnequipAll');
@@ -6600,6 +7301,123 @@ function renderAgentsTab() {
     });
   });
 
+  // Rename / sprite buttons (cosmétiques dans agents tab)
+  grid.querySelectorAll('.agent-card-rename').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (state.gang.money < 2000) { notify('Fonds insuffisants (2 000₽)', 'error'); return; }
+      const agent = state.agents.find(a => a.id === btn.dataset.agentId);
+      if (!agent) return;
+      openNameModal({ title: `Renommer ${agent.name}`, current: agent.name, cost: 2000, onConfirm: (val) => {
+        state.gang.money -= 2000;
+        agent.name = val;
+        saveState(); renderAgentsTab();
+        notify(`Agent renommé : ${val}`, 'gold');
+      }});
+    });
+  });
+  grid.querySelectorAll('.agent-card-sprite').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (state.gang.money < 5000) { notify('Fonds insuffisants (5 000₽)', 'error'); return; }
+      const agent = state.agents.find(a => a.id === btn.dataset.agentId);
+      if (!agent) return;
+      openSpritePicker(null, (newSprite) => {
+        state.gang.money -= 5000;
+        agent.sprite = trainerSprite(newSprite);
+        saveState(); renderAgentsTab();
+        notify(`Sprite de ${agent.name} mis à jour !`, 'gold');
+      });
+    });
+  });
+
+}
+
+// ── Agent org-chart (proto — visual only, no mechanical assignment yet) ──
+// Ranks: grunt → sergent → lieutenant → commandant → elite/général
+// Capacity per rank (how many direct reports they can have):
+const RANK_CAPACITY = { grunt: 0, sergent: 2, lieutenant: 3, commandant: 4, elite: 5, general: 6 };
+// Rank level (higher = more senior)
+const RANK_LEVEL = { grunt: 0, sergent: 1, lieutenant: 2, commandant: 3, elite: 4, general: 5 };
+
+function renderAgentTree(container) {
+  const RANK_COLOR = {
+    grunt:      'var(--text-dim)',
+    sergent:    '#7ecfff',
+    lieutenant: '#b07cff',
+    commandant: 'var(--gold)',
+    elite:      '#ff8c5a',
+    general:    'var(--red)',
+  };
+  const RANK_FR = { grunt:'Grunt', sergent:'Sergent', lieutenant:'Lieutenant', commandant:'Commandant', elite:'Élite', general:'Général' };
+
+  // Sort agents by rank level desc
+  const sorted = [...state.agents].sort((a, b) => (RANK_LEVEL[b.title] ?? 0) - (RANK_LEVEL[a.title] ?? 0));
+
+  // Group by rank
+  const byRank = {};
+  for (const a of sorted) {
+    (byRank[a.title] = byRank[a.title] || []).push(a);
+  }
+
+  // Build level columns (boss + each rank level)
+  const rankOrder = ['general','elite','commandant','lieutenant','sergent','grunt'];
+  const usedRanks = rankOrder.filter(r => byRank[r]?.length);
+
+  const agentNode = (a) => {
+    const cap  = RANK_CAPACITY[a.title] || 0;
+    const col  = RANK_COLOR[a.title]   || 'var(--text-dim)';
+    const zone = a.assignedZone ? (ZONE_BY_ID[a.assignedZone]?.fr || a.assignedZone) : '—';
+    return `<div class="agent-tree-node" style="border-color:${col};background:var(--bg-panel)">
+      <img src="${a.sprite}" style="width:32px;height:32px;image-rendering:pixelated" onerror="this.style.display='none'">
+      <div>
+        <div style="font-family:var(--font-pixel);font-size:7px;color:${col}">${RANK_FR[a.title] || a.title}</div>
+        <div style="font-size:9px;margin-top:1px">${a.name}</div>
+        <div style="font-size:8px;color:var(--text-dim);margin-top:1px">Lv.${a.level} · ${zone}</div>
+        ${cap > 0 ? `<div style="font-size:7px;color:var(--text-dim);margin-top:2px;font-family:var(--font-pixel)">⬇ ${cap} max</div>` : ''}
+      </div>
+    </div>`;
+  };
+
+  const bossNode = `<div class="agent-tree-node" style="border-color:var(--gold);background:rgba(255,204,90,.06)">
+    ${state.gang.bossSprite ? `<img src="${trainerSprite(state.gang.bossSprite)}" style="width:36px;height:36px;image-rendering:pixelated">` : '<span style="font-size:26px">👤</span>'}
+    <div>
+      <div style="font-family:var(--font-pixel);font-size:7px;color:var(--gold)">BOSS</div>
+      <div style="font-size:9px;margin-top:1px">${state.gang.bossName || 'Boss'}</div>
+      <div style="font-size:8px;color:var(--text-dim);margin-top:1px">${getBossFullTitle()}</div>
+    </div>
+  </div>`;
+
+  const columns = [
+    { label: 'Boss', nodes: [bossNode] },
+    ...usedRanks.map(r => ({
+      label: RANK_FR[r] + (byRank[r].length > 1 ? ` ×${byRank[r].length}` : ''),
+      color: RANK_COLOR[r],
+      nodes: byRank[r].map(agentNode),
+    })),
+  ];
+
+  if (!state.agents.length) {
+    container.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text-dim);font-size:10px;font-family:var(--font-pixel)">Recrutez des agents pour construire votre organisation.</div>`;
+    return;
+  }
+
+  container.innerHTML = `
+    <div style="display:flex;gap:0;align-items:flex-start;min-width:max-content">
+      ${columns.map((col, ci) => `
+        <div style="display:flex;flex-direction:column;align-items:center;position:relative">
+          <!-- connector line to next column -->
+          ${ci < columns.length - 1 ? '<div class="agent-tree-connector"></div>' : ''}
+          <div style="font-family:var(--font-pixel);font-size:7px;color:${col.color || 'var(--gold)'};margin-bottom:8px;white-space:nowrap">${col.label}</div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            ${col.nodes.join('')}
+          </div>
+        </div>
+      `).join('')}
+    </div>
+    <div style="margin-top:12px;font-size:8px;color:var(--text-dim);font-family:var(--font-pixel);opacity:.6">
+      ⚠ PROTO — L'assignation hiérarchique n'est pas encore implémentée.
+    </div>`;
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -6975,8 +7793,7 @@ function openHubSlotRepairModal() {
         // Ghost IDs
         const allIds = new Set((fixed.pokemons || []).map(p => p.id));
         fixed.gang.bossTeam = (fixed.gang.bossTeam || []).filter(id => allIds.has(id));
-        if (fixed.pension?.slotA && !allIds.has(fixed.pension.slotA)) fixed.pension.slotA = null;
-        if (fixed.pension?.slotB && !allIds.has(fixed.pension.slotB)) fixed.pension.slotB = null;
+        if (fixed.pension?.slots) fixed.pension.slots = fixed.pension.slots.filter(id => allIds.has(id));
         if (fixed.trainingRoom?.pokemon) fixed.trainingRoom.pokemon = fixed.trainingRoom.pokemon.filter(id => allIds.has(id));
         // Invalid title slots
         const allTitleIds = new Set((TITLES || []).map(t => t.id));
@@ -7964,8 +8781,7 @@ function repairSave() {
         const teamBefore = state.gang.bossTeam.length;
         state.gang.bossTeam = state.gang.bossTeam.filter(id => allIds.has(id));
         // 3. IDs fantômes en pension
-        if (state.pension.slotA && !allIds.has(state.pension.slotA)) state.pension.slotA = null;
-        if (state.pension.slotB && !allIds.has(state.pension.slotB)) state.pension.slotB = null;
+        if (state.pension.slots) state.pension.slots = state.pension.slots.filter(id => allIds.has(id));
         // 4. IDs fantômes en salle d'entraînement
         const trainBefore = state.trainingRoom.pokemon.length;
         state.trainingRoom.pokemon = state.trainingRoom.pokemon.filter(id => allIds.has(id));
@@ -8143,7 +8959,7 @@ function renderLabTabInEl(tab) {
 
   const teamIds = new Set([...state.gang.bossTeam]);
   for (const a of state.agents) a.team.forEach(id => teamIds.add(id));
-  const pensionSet = new Set([state.pension?.slotA, state.pension?.slotB].filter(Boolean));
+  const pensionSet = getPensionSlotIds();
 
   const allUpgradeable = state.pokemons
     .filter(p => p.potential < 5)
@@ -8289,10 +9105,47 @@ function renderLabTabInEl(tab) {
         <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);flex:1;overflow-y:auto;max-height:520px">${listHtml}</div>
       </div>
       <div style="display:flex;flex-direction:column;gap:10px;overflow-y:auto;max-height:600px">
+        ${(() => {
+          const owned   = !!state.purchases.scientist;
+          const enabled = state.purchases.scientistEnabled !== false;
+          const color   = owned ? (enabled ? 'var(--green)' : 'var(--border)') : 'var(--border)';
+          return `<div style="background:var(--bg-panel);border:1px solid ${color};border-radius:var(--radius);padding:10px;display:flex;gap:10px;align-items:flex-start">
+            <img src="${trainerSprite('scientist')}" style="width:36px;height:36px;image-rendering:pixelated;flex-shrink:0;${owned && !enabled ? 'opacity:.4;filter:grayscale(1)' : ''}" onerror="this.style.display='none'">
+            <div style="flex:1">
+              <div style="font-family:var(--font-pixel);font-size:8px;color:${owned ? (enabled ? 'var(--green)' : 'var(--text-dim)') : 'var(--text)'};margin-bottom:3px">Scientifique peu scrupuleux</div>
+              <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">Mutation artificielle : sacrifice d'un ★★★★★ même espèce → potentiel max.</div>
+              ${owned
+                ? `<div style="display:flex;align-items:center;gap:8px">
+                     <span style="font-family:var(--font-pixel);font-size:7px;color:${enabled ? 'var(--green)' : 'var(--text-dim)'}">${enabled ? '✓ EN POSTE' : '✗ RENVOYÉ'}</span>
+                     <button id="btnLabToggleScientist" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid ${enabled ? 'var(--red)' : 'var(--green)'};border-radius:var(--radius-sm);color:${enabled ? 'var(--red)' : 'var(--green)'};cursor:pointer">${enabled ? 'Renvoyer' : 'Rappeler'}</button>
+                   </div>`
+                : `<button id="btnLabBuyScientist" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">Engager — 5 000 000₽</button>`}
+            </div>
+          </div>`;
+        })()}
         <div style="background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);padding:12px">${mutationHtml}</div>
         <div style="background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);padding:12px">${trackerHtml}</div>
       </div>
     </div>`;
+
+  // ── Scientist card handlers (Lab) ──
+  tab.querySelector('#btnLabBuyScientist')?.addEventListener('click', () => {
+    if (state.gang.money < 5_000_000) { notify('Fonds insuffisants.', 'error'); return; }
+    showConfirm('Engager le Scientifique peu scrupuleux pour <b>5 000 000₽</b> ?<br><span style="font-size:10px;color:var(--text-dim)">Permet la mutation artificielle depuis ce Labo et le menu contextuel du PC.</span>', () => {
+      state.gang.money -= 5_000_000;
+      state.purchases.scientist = true;
+      state.purchases.scientistEnabled = true;
+      saveState(); updateTopBar(); SFX.play('unlock');
+      notify('🧬 Le scientifique est en poste !', 'gold');
+      if (pcView === 'lab') renderPCTab(); else renderLabTab();
+    }, null, { confirmLabel: 'Engager', cancelLabel: 'Annuler' });
+  });
+  tab.querySelector('#btnLabToggleScientist')?.addEventListener('click', () => {
+    state.purchases.scientistEnabled = state.purchases.scientistEnabled === false;
+    saveState();
+    notify(state.purchases.scientistEnabled !== false ? '🧬 Scientifique rappelé !' : '🚫 Scientifique renvoyé.', 'success');
+    if (pcView === 'lab') renderPCTab(); else renderLabTab();
+  });
 
   tab.querySelectorAll('.lab-candidate').forEach(el => {
     el.addEventListener('click', () => {
@@ -8309,12 +9162,11 @@ function renderLabTabInEl(tab) {
   tab.querySelector('#btnLabUpgrade')?.addEventListener('click', () => {
     if (!selected) return;
     const cost = POT_UPGRADE_COSTS[selected.potential - 1];
-    const pensionSet2 = new Set([state.pension?.slotA, state.pension?.slotB].filter(Boolean));
     const donors = state.pokemons.filter(d =>
       d.species_en === selected.species_en && d.id !== selected.id &&
       !d.shiny && d.potential <= selected.potential &&
       !teamIds.has(d.id) && !state.trainingRoom.pokemon?.includes(d.id) &&
-      !pensionSet2.has(d.id)
+      !pensionSet.has(d.id)
     );
     if (donors.length < cost) return;
     const toSacrifice = donors.slice(0, cost).map(p => p.id);
@@ -8403,14 +9255,26 @@ function startGameLoop() {
   // Auto-save every 10 seconds
   autoSaveInterval = setInterval(saveState, 10000);
 
-  // Cloud save every 10 minutes (dirty-checked — skipped if nothing changed)
-  setInterval(supaCloudSave, 10 * 60 * 1000);
+ 
 
   // Snapshot every 10 minutes tick, but supaWriteSnapshot() throttles itself to 30 min
   setInterval(supaWriteSnapshot, 10 * 60 * 1000);
 
   // Leaderboard push every 10 minutes (has its own 1h dirty-check throttle)
   setInterval(supaUpdateLeaderboardAnon, 10 * 60 * 1000);
+  // Cloud save every hour (dirty-checked — skipped if nothing changed)
+  setInterval(supaCloudSave, 60 * 60 * 1000);
+
+  // Snapshot every 6 h — internally throttled + fingerprint-guarded (skipped if no new progress)
+  setInterval(supaWriteSnapshot, 6 * 60 * 60 * 1000);
+
+  // Leaderboard push every 2h, only if player was active since last push
+  setInterval(() => {
+    if (_playerWasActive) {
+      _playerWasActive = false;
+      supaUpdateLeaderboardAnon();
+    }
+  }, 2 * 60 * 60 * 1000);
 
   // Cooldown tick removed — cooldowns no longer exist in gameplay
 
@@ -8463,6 +9327,7 @@ if (!_lbToken) {
 }
 
 let _lbLastPushAt = 0;
+let _playerWasActive = false; // set to true on any saveState() call; consumed by 2h lb timer
 const LB_PUSH_THROTTLE_MS = 60 * 60 * 1000; // push at most once every hour
 let _lbLastFingerprint = ''; // dirty check — skip push if nothing changed
 
@@ -8685,7 +9550,7 @@ async function supaForceCloudLoad() {
 }
 
 // ── Rolling snapshots ─────────────────────────────────────────────
-const MAX_SNAPSHOTS = 6;
+const MAX_SNAPSHOTS = 2;
 let _snapshotCount = -1; // -1 = unknown (fetched lazily); avoids SELECT on every write
 
 // Snapshot throttle — one snapshot per session at most every 30 minutes.
@@ -8851,6 +9716,8 @@ async function supaUpdateLeaderboardAnon() {
       shiny_species_count: getShinySpeciesCount(),
       dex_kanto_count:     getDexKantoCaught(),
       dex_national_count:  getDexNationalCaught(),
+      total_sold:          state.stats?.totalSold          || 0,
+      total_money_earned:  state.stats?.totalMoneyEarned   || 0,
       agents_count:        (state.agents || []).length,
       is_anonymous:        !supaSession,
       updated_at:          new Date().toISOString(),
@@ -8897,38 +9764,58 @@ function updateSupaTabLabel() {
 }
 
 // ── Leaderboard Tab ───────────────────────────────────────────────
-let _lbSortBy = 'reputation'; // 'reputation' | 'dex_kanto' | 'shiny_species' | 'total_caught'
+let _lbSortBy   = 'reputation';  // sort column key
+let _lbPeriod   = 'alltime';    // 'alltime' | 'weekly' | 'daily'
 
+// ── Leaderboard Tab ─────────────────────────────────────────────────
 async function renderLeaderboardTab() {
   const tab = document.getElementById('tabLeaderboard');
   if (!tab) return;
 
   if (!supaConfigured()) {
     tab.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-dim);font-family:var(--font-pixel);font-size:10px">
-      🏆 CLASSEMENT<br><br><span style="font-size:9px;font-family:inherit">Supabase non configuré — le classement n'est pas disponible en mode hors-ligne.</span>
+      \u{1F3C6} CLASSEMENT<br><br><span style="font-size:9px;font-family:inherit">Supabase non configuré — le classement n'est pas disponible en mode hors-ligne.</span>
     </div>`;
     return;
   }
 
   const SORTS = [
-    { key: 'reputation',        label: '⭐ Réputation' },
-    { key: 'dex_kanto_count',   label: '📖 Dex Kanto' },
-    { key: 'shiny_species_count', label: '✨ Chromatiques' },
-    { key: 'total_caught',      label: '🎯 Capturés' },
+    { key: 'reputation',          label: '⭐ Réputation'   },
+    { key: 'dex_kanto_count',     label: '\u{1F4D6} Dex Kanto'   },
+    { key: 'dex_national_count',  label: '\u{1F4D7} Dex National' },
+    { key: 'shiny_species_count', label: '✨ Chromas'       },
+    { key: 'total_caught',        label: '\u{1F3AF} Capturés'    },
+    { key: 'total_sold',          label: '\u{1F4B0} Ventes'      },
+    { key: 'total_money_earned',  label: '\u{1F4B5} Gains total'  },
   ];
 
+  const PERIODS = [
+    { key: 'alltime', label: 'All time' },
+    { key: 'weekly',  label: 'Cette semaine' },
+    { key: 'daily',   label: "Aujourd'hui" },
+  ];
+
+  const btnStyle = (active) =>
+    `font-family:var(--font-pixel);font-size:7px;padding:4px 9px;border-radius:var(--radius-sm);cursor:pointer;` +
+    `background:${active ? 'var(--red)' : 'var(--bg)'};` +
+    `border:1px solid ${active ? 'var(--red)' : 'var(--border)'};` +
+    `color:${active ? '#fff' : 'var(--text-dim)'}`;
+
   tab.innerHTML = `
-    <div style="padding:16px;max-width:780px">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
-        <div style="font-family:var(--font-pixel);font-size:12px;color:var(--gold)">🏆 CLASSEMENT MONDIAL</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-left:auto">
-          ${SORTS.map(s => `<button class="lb-sort-btn${_lbSortBy === s.key ? ' active' : ''}" data-sort="${s.key}"
-            style="font-family:var(--font-pixel);font-size:7px;padding:4px 9px;border-radius:var(--radius-sm);cursor:pointer;
-            background:${_lbSortBy === s.key ? 'var(--red)' : 'var(--bg)'};
-            border:1px solid ${_lbSortBy === s.key ? 'var(--red)' : 'var(--border)'};
-            color:${_lbSortBy === s.key ? '#fff' : 'var(--text-dim)'}">${s.label}</button>`).join('')}
-          <button id="btnLbRefresh" style="font-family:var(--font-pixel);font-size:7px;padding:4px 9px;border-radius:var(--radius-sm);cursor:pointer;background:var(--bg);border:1px solid var(--border);color:var(--text-dim)">⟳</button>
-        </div>
+    <div style="padding:16px;max-width:820px">
+      <div style="font-family:var(--font-pixel);font-size:12px;color:var(--gold);margin-bottom:12px">\u{1F3C6} CLASSEMENT MONDIAL</div>
+
+      <!-- Période -->
+      <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;align-items:center">
+        <span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">PÉRIODE :</span>
+        ${PERIODS.map(p => `<button class="lb-period-btn" data-period="${p.key}" style="${btnStyle(_lbPeriod === p.key)}">${p.label}</button>`).join('')}
+        <button id="btnLbRefresh" style="${btnStyle(false)};margin-left:auto">⟳</button>
+      </div>
+
+      <!-- Catégorie -->
+      <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+        <span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">CATÉGORIE :</span>
+        ${SORTS.map(s => `<button class="lb-sort-btn" data-sort="${s.key}" style="${btnStyle(_lbSortBy === s.key)}">${s.label}</button>`).join('')}
       </div>
 
       <!-- Ma position -->
@@ -8942,22 +9829,20 @@ async function renderLeaderboardTab() {
       </div>
 
       <div style="margin-top:8px;font-size:8px;color:var(--text-dim);text-align:right">
-        Top 50 · Mis à jour toutes les 5 min ·
-        ${supaSession ? `<span style="color:var(--green)">Connecté ✓</span>` : `<span style="color:var(--text-dim)">Anonyme — <a href="#" id="lbGoLogin" style="color:var(--gold);text-decoration:none">Connecte-toi</a> pour afficher ton nom</span>`}
+        Top 50 · Mis à jour toutes les 2h si actif ·
+        ${supaSession ? `<span style="color:var(--green)">Connecté ✓</span>` : `<span>Anonyme — <a href="#" id="lbGoLogin" style="color:var(--gold);text-decoration:none">Connecte-toi</a></span>`}
       </div>
     </div>`;
 
-  // Bind sort buttons
   tab.querySelectorAll('.lb-sort-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      _lbSortBy = btn.dataset.sort;
-      renderLeaderboardTab();
-    });
+    btn.addEventListener('click', () => { _lbSortBy = btn.dataset.sort; renderLeaderboardTab(); });
+  });
+  tab.querySelectorAll('.lb-period-btn').forEach(btn => {
+    btn.addEventListener('click', () => { _lbPeriod = btn.dataset.period; renderLeaderboardTab(); });
   });
   tab.querySelector('#btnLbRefresh')?.addEventListener('click', () => renderLeaderboardTab());
   tab.querySelector('#lbGoLogin')?.addEventListener('click', e => { e.preventDefault(); switchTab('tabCompte'); });
 
-  // Push own entry first (throttled) then load
   await supaUpdateLeaderboardAnon();
   _loadLeaderboardTable();
 }
@@ -8968,91 +9853,112 @@ async function _loadLeaderboardTable() {
   const SORT_COLS = {
     reputation:          'reputation',
     dex_kanto_count:     'dex_kanto_count',
+    dex_national_count:  'dex_national_count',
     shiny_species_count: 'shiny_species_count',
     total_caught:        'total_caught',
+    total_sold:          'total_sold',
+    total_money_earned:  'total_money_earned',
   };
+  const SORT_LABELS = {
+    reputation:          '⭐ Rép.',
+    dex_kanto_count:     '\u{1F4D6} Kanto',
+    dex_national_count:  '\u{1F4D7} National',
+    shiny_species_count: '✨ Chroma',
+    total_caught:        '\u{1F3AF} Cap.',
+    total_sold:          '\u{1F4B0} Ventes',
+    total_money_earned:  '\u{1F4B5} Gains',
+  };
+
   const col = SORT_COLS[_lbSortBy] || 'reputation';
 
-  // Fetch top 50
-  const { data: rows, error } = await _supabase
+  // Period filter via updated_at
+  const PERIOD_MS = { daily: 86400_000, weekly: 604800_000 };
+  const cutoff = PERIOD_MS[_lbPeriod]
+    ? new Date(Date.now() - PERIOD_MS[_lbPeriod]).toISOString()
+    : null;
+
+  let query = _supabase
     .from('leaderboard')
-    .select('token, user_id, gang_name, boss_name, boss_sprite, reputation, total_caught, shiny_count, shiny_species_count, dex_kanto_count, dex_national_count, agents_count, is_anonymous, updated_at')
+    .select('token, user_id, gang_name, boss_name, boss_sprite, reputation, total_caught, shiny_count, shiny_species_count, dex_kanto_count, dex_national_count, total_sold, total_money_earned, agents_count, is_anonymous, updated_at')
     .order(col, { ascending: false })
     .limit(50);
 
-  // Fetch own rank
+  if (cutoff) query = query.gte('updated_at', cutoff);
+
+  const { data: rows, error } = await query;
+
+  // Own entry (always alltime for "my rank" banner)
   const { data: myRow } = await _supabase
     .from('leaderboard')
-    .select('gang_name, reputation, total_caught, shiny_species_count, dex_kanto_count, updated_at')
+    .select('gang_name, reputation, total_caught, shiny_species_count, dex_kanto_count, dex_national_count, total_sold, total_money_earned, updated_at')
     .eq('token', _lbToken)
     .maybeSingle();
 
-  // My rank position
+  // Own rank in current period+sort
   let myRank = '—';
   if (myRow) {
-    const { count } = await _supabase
-      .from('leaderboard')
-      .select('token', { count: 'exact', head: true })
-      .gt(col, myRow[col] || 0);
+    let rankQ = _supabase.from('leaderboard').select('token', { count: 'exact', head: true }).gt(col, myRow[col] || 0);
+    if (cutoff) rankQ = rankQ.gte('updated_at', cutoff);
+    const { count } = await rankQ;
     if (count !== null) myRank = `#${count + 1}`;
   }
 
-  // Render my entry banner
+  // My entry banner
   const myEntryEl = document.getElementById('lbMyEntry');
   if (myEntryEl) {
     if (myRow) {
       const updAgo = myRow.updated_at ? _lbAgo(new Date(myRow.updated_at)) : '?';
-      myEntryEl.innerHTML = `<span style="color:var(--gold);font-family:var(--font-pixel);font-size:9px">${myRow.gang_name}</span>
+      myEntryEl.innerHTML = `
+        <span style="color:var(--gold);font-family:var(--font-pixel);font-size:9px">${myRow.gang_name}</span>
         <span style="margin-left:12px">Rang <b style="color:var(--gold)">${myRank}</b></span>
         <span style="margin-left:12px;color:var(--text-dim)">⭐ ${(myRow.reputation||0).toLocaleString('fr-FR')}</span>
-        <span style="margin-left:12px;color:var(--text-dim)">✨ ${myRow.shiny_species_count||0} esp.</span>
-        <span style="margin-left:12px;color:var(--text-dim)">📖 ${myRow.dex_kanto_count||0}/151</span>
+        <span style="margin-left:12px;color:var(--text-dim)">✨ ${myRow.shiny_species_count||0}</span>
+        <span style="margin-left:12px;color:var(--text-dim)">\u{1F4D6} ${myRow.dex_kanto_count||0}/151</span>
         <span style="margin-left:auto;font-size:8px;opacity:.6">mis à jour ${updAgo}</span>`;
-      myEntryEl.style.display = 'flex';
-      myEntryEl.style.alignItems = 'center';
-      myEntryEl.style.gap = '0';
+      myEntryEl.style.cssText += ';display:flex;align-items:center;gap:0';
     } else {
-      myEntryEl.textContent = 'Votre entrée n\'est pas encore dans le classement — elle apparaîtra dans les prochaines minutes.';
+      myEntryEl.textContent = "Votre entrée n'est pas encore dans le classement.";
     }
   }
 
-  // Render table
   const tableEl = document.getElementById('lbTable');
   if (!tableEl) return;
 
   if (error || !rows?.length) {
-    tableEl.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text-dim);font-size:10px">Aucune entrée pour l'instant — sois le premier !</div>`;
+    const periodLabel = { alltime: 'all time', weekly: 'cette semaine', daily: "aujourd'hui" }[_lbPeriod] || '';
+    tableEl.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text-dim);font-size:10px">Aucune entrée ${periodLabel} — sois le premier !</div>`;
     return;
   }
 
-  const MEDALS = ['🥇','🥈','🥉'];
-  const SORT_LABELS = { reputation: '⭐ Rép.', dex_kanto_count: '📖 Dex', shiny_species_count: '✨ Chroma', total_caught: '🎯 Cap.' };
+  const MEDALS = ['\u{1F947}','\u{1F948}','\u{1F949}'];
+  const sortLabel = SORT_LABELS[_lbSortBy] || '⭐ Rép.';
 
   tableEl.innerHTML = `
     <div style="display:grid;grid-template-columns:36px 1fr auto;border-bottom:1px solid var(--border);padding:6px 10px;font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">
-      <span>#</span><span>Gang</span><span style="text-align:right">${SORT_LABELS[_lbSortBy] || '⭐ Rép.'} &nbsp; ✨ &nbsp; 📖</span>
+      <span>#</span><span>Gang</span><span style="text-align:right">${sortLabel}   ✨   \u{1F4D6}</span>
     </div>
     ${rows.map((p, i) => {
-      const isMe    = p.token === _lbToken;
-      const medal   = MEDALS[i] || `<span style="font-family:var(--font-pixel);font-size:9px;color:var(--text-dim)">${i+1}</span>`;
+      const isMe  = p.token === _lbToken;
+      const medal = MEDALS[i] || `<span style="font-family:var(--font-pixel);font-size:9px;color:var(--text-dim)">${i+1}</span>`;
       const nameTag = p.is_anonymous
         ? `<span style="font-size:8px;color:var(--text-dim)">Joueur anonyme <span style="opacity:.5">#${p.token.slice(-5)}</span></span>`
         : `<span style="font-size:9px">${p.gang_name}</span>`;
-      const sprite  = p.boss_sprite
+      const sprite = p.boss_sprite
         ? `<img src="https://play.pokemonshowdown.com/sprites/gen5/${p.boss_sprite}.png" style="width:32px;height:32px;image-rendering:pixelated" onerror="this.style.display='none'">`
         : `<div style="width:32px;height:32px;background:var(--bg);border-radius:4px"></div>`;
       const val = p[col] ?? 0;
+      const valStr = typeof val === 'number' ? val.toLocaleString('fr-FR') : val;
       const ago = p.updated_at ? _lbAgo(new Date(p.updated_at)) : '';
       return `<div style="display:grid;grid-template-columns:36px auto 1fr auto;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid var(--border);background:${isMe ? 'rgba(255,204,90,.07)' : ''};border-left:3px solid ${isMe ? 'var(--gold)' : 'transparent'}">
         <span style="text-align:center;font-size:14px">${medal}</span>
         ${sprite}
         <div style="min-width:0">
-          ${isMe ? `<div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">${p.gang_name} <span style="font-size:7px;opacity:.7">◀ toi</span></div>` : nameTag}
+          ${isMe ? `<div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">${p.gang_name} <span style="font-size:7px;opacity:.7">◄ toi</span></div>` : nameTag}
           <div style="font-size:8px;color:var(--text-dim);margin-top:1px">${p.boss_name || ''}${ago ? ` · ${ago}` : ''}</div>
         </div>
         <div style="text-align:right;flex-shrink:0">
-          <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">${val.toLocaleString('fr-FR')}</div>
-          <div style="font-size:8px;color:var(--text-dim);margin-top:2px">✨ ${p.shiny_species_count||0} &nbsp; 📖 ${p.dex_kanto_count||0}/151</div>
+          <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">${valStr}</div>
+          <div style="font-size:8px;color:var(--text-dim);margin-top:2px">✨ ${p.shiny_species_count||0}   \u{1F4D6} ${p.dex_kanto_count||0}/151</div>
         </div>
       </div>`;
     }).join('')}`;
@@ -9060,8 +9966,8 @@ async function _loadLeaderboardTable() {
 
 function _lbAgo(date) {
   const ms = Date.now() - date.getTime();
-  if (ms < 60_000)   return 'à l\'instant';
-  if (ms < 3600_000) return `il y a ${Math.round(ms/60_000)}min`;
+  if (ms < 60_000)    return "à l'instant";
+  if (ms < 3600_000)  return `il y a ${Math.round(ms/60_000)}min`;
   if (ms < 86400_000) return `il y a ${Math.round(ms/3600_000)}h`;
   return `il y a ${Math.round(ms/86400_000)}j`;
 }
@@ -9425,10 +10331,10 @@ function showMigrationBanner({ from, toLegacyKey, fields }) {
 Object.assign(globalThis, {
   // Utility functions
   t, pick, weightedPick, uid, randInt, addLog, speciesName, playSE,
-  getMysteryEggCost, trainerSprite,
+  getMysteryEggCost, trainerSprite, safeTrainerImg, safePokeImg,
   // UI / state helpers
   notify, saveState,
-  checkForNewlyUnlockedZones, updateTopBar, tryAutoIncubate,
+  updateTopBar, tryAutoIncubate,
   renderZonesTab, renderGangTab, renderAgentsTab, renderPokemonGrid, renderEggsView, renderGangBasePanel,
   // Audio
   SFX,
@@ -9440,7 +10346,8 @@ Object.assign(globalThis, {
   triggerGymRaid, investInZone,
   tryCapture, calculateStats, showCaptureBurst,
   checkForNewlyUnlockedZones, showZoneUnlockPopup, _processZoneUnlockQueue,
-  startBackgroundZone, stopBackgroundZone, syncBackgroundZones,
+  startActiveZone, stopActiveZone, pauseZoneIfIdle, syncActiveZones,
+  startBackgroundZone, stopBackgroundZone, syncBackgroundZones, // aliases
   activateEvent, isBallAssistActive, clamp, getTeamPower,
   SPECIAL_TRAINER_KEYS,
   // Zone UI — fenêtres (zoneWindows.js)
@@ -9469,9 +10376,14 @@ Object.assign(globalThis, {
   pokeSprite, tryAutoEvolution,
   // pension module
   showConfirm, renderPCTab, switchTab,
+  getMaxPensionSlots, getPensionSlotIds,
+  eggSprite, eggImgTag, EGG_SPRITES,
   // zoneSelector module — zone helpers + data it reads from globalThis
   isZoneDegraded, getZoneMastery,
   getZoneSlotCost, ZONE_SLOT_COSTS, ZONE_BGS, SHOP_ITEMS,
+  // Zone UI helpers — called by agent.js background ticks
+  refreshZoneIncomeTile: _refreshZoneIncomeTile,
+  updateZoneButtons: _updateZoneButtons,
   // gangBase module — helpers needed by modules/ui/gangBase.js
   openTeamPicker, openRareCandyPicker,
   pokemonDisplayName, sanitizeSpriteName,
@@ -9506,6 +10418,7 @@ function boot() {
     globalThis.state = state;
   }
   state.sessionStart = Date.now();
+  _sessionStatsBase = { ...state.stats };
 
   // ── Banner de migration si save convertie ────────────────────────────────
   if (_migrationResult) {
@@ -9648,11 +10561,7 @@ function boot() {
       openZones.add(zId);
       initZone(zId);
       zoneSpawns[zId] = [];
-      const zone = ZONE_BY_ID[zId];
-      if (zone) {
-        const interval = Math.round(1000 / zone.spawnRate);
-        zoneSpawnTimers[zId] = setInterval(() => tickZoneSpawn(zId), interval);
-      }
+      startActiveZone(zId); // timer unifié (tickZoneSpawn car zone ouverte)
       if (!state.openZoneOrder) state.openZoneOrder = [];
       if (!state.openZoneOrder.includes(zId)) state.openZoneOrder.push(zId);
     }

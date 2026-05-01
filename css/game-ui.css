@@ -2247,14 +2247,6 @@
       flex-shrink: 0;
     }
     .agent-card-full .agent-meta { flex: 1; min-width: 0; }
-    .agent-card-full .agent-name { font-family: var(--font-pixel); font-size: 11px; color: var(--text); }
-    .agent-card-full .agent-title {
-      font-size: 10px;
-      font-family: var(--font-pixel);
-      text-transform: uppercase;
-      letter-spacing: .5px;
-      color: var(--gold); /* fallback */
-    }
     /* Couleur par grade */
     .agent-card-full .agent-rank-grunt      { color: var(--text-dim); }
     .agent-card-full .agent-rank-sergent    { color: #7eb8f7; }        /* bleu clair */
@@ -2294,8 +2286,8 @@
       gap: 4px;
     }
     .agent-card-full .agent-team-slot {
-      width: 44px;
-      height: 44px;
+      width: 48px;
+      height: 40px;
       background: var(--bg);
       border: 1px dashed var(--border-light);
       border-radius: var(--radius-sm);
@@ -2307,7 +2299,7 @@
     }
     .agent-card-full .agent-team-slot:hover { border-color: var(--gold); }
     .agent-card-full .agent-team-slot.filled { border-style: solid; border-color: var(--red); }
-    .agent-card-full .agent-team-slot img { width: 36px; height: 36px; image-rendering: pixelated; }
+    .agent-card-full .agent-team-slot img { width: 40px; height: 30px; image-rendering: pixelated; object-fit: contain; }
     .agent-card-full .agent-personality {
       font-size: 9px;
       color: var(--text-dim);
@@ -2320,6 +2312,45 @@
       font-size: 9px;
       color: var(--text-dim);
       cursor: pointer;
+    }
+
+    /* ── Agent title → name formatting ──────────────────────────── */
+    .agent-card-full .agent-title {
+      font-family: var(--font-pixel);
+      font-size: 8px;
+      letter-spacing: .04em;
+      line-height: 1.2;
+    }
+    .agent-card-full .agent-name {
+      font-family: var(--font-pixel);
+      font-size: 11px;
+      color: var(--text);
+      margin-top: 1px;
+    }
+    .agent-card-full .agent-level {
+      font-size: 8px;
+      color: var(--text-dim);
+    }
+
+    /* ── Agent org-chart tree (proto) ────────────────────────────── */
+    .agent-tree-node {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 8px 10px;
+      min-width: 150px;
+      max-width: 200px;
+    }
+    .agent-tree-connector {
+      position: absolute;
+      right: -20px;
+      top: 50%;
+      width: 20px;
+      height: 1px;
+      background: var(--border-light);
+      z-index: 1;
     }
 
     /* ── Bag/Inventory Tab ───────────────────────────────────────── */
@@ -2657,17 +2688,21 @@
 
     /* ── Gang Card Layout ── */
     .gang-card-layout { padding: 12px; display: flex; flex-direction: column; gap: 0; }
-    .gang-card-header { display: flex; align-items: flex-start; gap: 14px; padding: 14px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 12px; }
+    .gang-card-header { display: flex; flex-direction: column; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 12px; overflow: hidden; }
     .gang-section-label { font-family: var(--font-pixel); font-size: 8px; color: var(--gold); letter-spacing: 1px; padding: 8px 4px 4px; border-bottom: 1px solid var(--border); margin-bottom: 8px; }
-    .gang-showcase-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
-    .gang-showcase-slot { background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 6px; display: flex; flex-direction: column; align-items: center; text-align: center; min-height: 110px; justify-content: center; transition: border-color .2s; }
+    .gang-section-label.gang-collapsible-header:hover { color: var(--text); }
+    /* Showcase: 6 slots in 2 rows of 3, compact */
+    .gang-showcase-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 0; }
+    .gang-showcase-slot { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 7px 4px; display: flex; flex-direction: column; align-items: center; text-align: center; min-height: 90px; justify-content: center; transition: border-color .2s; }
     .gang-showcase-slot.empty { border-style: dashed; cursor: pointer; }
     .gang-showcase-slot.filled { border-color: var(--border-light); cursor: pointer; }
     .gang-showcase-slot:hover { border-color: var(--gold-dim); }
-    .gang-team-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
-    .gang-team-slot { background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 4px; display: flex; flex-direction: column; align-items: center; text-align: center; min-height: 80px; justify-content: center; cursor: pointer; transition: border-color .2s; }
+    /* Boss team */
+    .gang-team-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 0; }
+    .gang-team-slot { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 4px; display: flex; flex-direction: column; align-items: center; text-align: center; min-height: 74px; justify-content: center; cursor: pointer; transition: border-color .2s; }
     .gang-team-slot.filled { border-color: var(--border-light); }
     .gang-team-slot:hover { border-color: var(--red); }
+    .gang-team-slot-tab.active { position: relative; z-index: 1; }
     .gang-agents-grid { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
     .gang-agent-card { display: flex; align-items: center; gap: 10px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 10px; }
     .gang-stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 12px; }

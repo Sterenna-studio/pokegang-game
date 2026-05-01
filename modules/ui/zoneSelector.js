@@ -24,14 +24,19 @@ let _ctxMenu    = null;  // active context menu DOM node
 // ── Filter helpers ────────────────────────────────────────────
 function _getFilteredZones() {
   const state = globalThis.state;
+  const gangPark = ZONES.find(z => z.type === 'gang_park');
   // ZONES est un const de script classique, accessible par nom nu
+  let filtered;
   switch (_zoneFilter) {
-    case 'fav':     return ZONES.filter(z => (state.favoriteZones || []).includes(z.id));
-    case 'route':   return ZONES.filter(z => z.type === 'route');
-    case 'city':    return ZONES.filter(z => z.type === 'city');
-    case 'special': return ZONES.filter(z => z.type === 'special');
-    default:        return ZONES;
+    case 'fav':     filtered = ZONES.filter(z => z.type !== 'gang_park' && (state.favoriteZones || []).includes(z.id)); break;
+    case 'route':   filtered = ZONES.filter(z => z.type === 'route'); break;
+    case 'city':    filtered = ZONES.filter(z => z.type === 'city'); break;
+    case 'special': filtered = ZONES.filter(z => z.type === 'special'); break;
+    default:        filtered = ZONES.filter(z => z.type !== 'gang_park'); break;
   }
+  // Gang Park toujours en tête (sauf filtre strict par type)
+  const showPark = !['route','city','special'].includes(_zoneFilter);
+  return showPark && gangPark ? [gangPark, ...filtered] : filtered;
 }
 
 // ── Favorite helpers ──────────────────────────────────────────
@@ -256,8 +261,35 @@ function _buySlotFromCtx(zoneId) {
   );
 }
 
+// ── Gang Park tile (special — always unlocked, not a standard zone) ──
+function _buildGangParkTile(zone) {
+  const state = globalThis.state;
+  const openZones = globalThis.openZones;
+  const isOpen = openZones?.has('gang_park');
+  const agentCount = state.agents.length;
+  const trainingCount = (state.trainingRoom?.pokemon || []).length;
+  const pensionCount = (state.pension?.slots || []).length;
+  const name = state.lang === 'fr' ? zone.fr : zone.en;
+  return `<div class="fog-tile unlocked gang-park-tile${isOpen ? ' zone-open' : ''}" data-zone="gang_park"
+    style="background:linear-gradient(135deg,#1a1a2e,#16213e);border:2px solid ${isOpen ? 'var(--gold)' : 'var(--border-light)'};position:relative;cursor:pointer">
+    <div class="fog-tile-content" style="gap:3px">
+      <div style="font-size:18px">🏛️</div>
+      <div class="fog-tile-name" style="color:${isOpen ? 'var(--gold)' : 'var(--text)'};font-size:8px">${name}</div>
+      <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:center;margin-top:2px">
+        ${agentCount > 0 ? `<span style="font-size:7px;color:var(--text-dim)">👥${agentCount}</span>` : ''}
+        ${trainingCount > 0 ? `<span style="font-size:7px;color:var(--text-dim)">🏋${trainingCount}</span>` : ''}
+        ${pensionCount > 0 ? `<span style="font-size:7px;color:var(--text-dim)">🏠${pensionCount}</span>` : ''}
+      </div>
+      ${isOpen ? `<div style="font-size:7px;color:var(--gold);margin-top:2px">OUVERT</div>` : ''}
+    </div>
+  </div>`;
+}
+
 // ── Tile builder ──────────────────────────────────────────────
 function _buildTile(zone) {
+  // Special tile for Gang Park
+  if (zone.type === 'gang_park') return _buildGangParkTile(zone);
+
   const state     = globalThis.state;
   const openZones = globalThis.openZones;
   const ZONE_BGS  = globalThis.ZONE_BGS;
@@ -384,14 +416,21 @@ export function renderZoneSelector() {
   el.querySelectorAll('.fog-tile.unlocked').forEach(tile => {
     tile.addEventListener('click', () => {
       const zid = tile.dataset.zone;
+      // Gang Park has its own toggle
+      if (zid === 'gang_park') {
+        globalThis.toggleGangParkWindow?.();
+        return;
+      }
       if (globalThis.openZones?.has(zid)) globalThis.closeZoneWindow?.(zid);
       else globalThis.openZoneWindow?.(zid);
     });
-    // ── Right-click: context menu ──────────────────────────
-    tile.addEventListener('contextmenu', e => {
-      e.preventDefault();
-      showZoneContextMenu(tile.dataset.zone, e.clientX, e.clientY);
-    });
+    // ── Right-click: context menu (not for gang park) ─────
+    if (tile.dataset.zone !== 'gang_park') {
+      tile.addEventListener('contextmenu', e => {
+        e.preventDefault();
+        showZoneContextMenu(tile.dataset.zone, e.clientX, e.clientY);
+      });
+    }
   });
 
   // ── Income ₽ buttons ──────────────────────────────────────

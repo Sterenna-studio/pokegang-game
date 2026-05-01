@@ -38,7 +38,13 @@ const SHOP_ITEMS = [
     fr:'Permis Carillon',   en:'Bell Tower Permit',
     desc_fr:'50× Arcenci\'Aile requis → Tour Carillon (Ho-Oh)',
     desc_en:'50× Rainbow Wing required → Bell Tower (Ho-Oh)' },
+  // ── Gang special upgrades ──
+  { id:'autoSellAgent', qty:1, cost:10_000_000, icon:'🤖',
+    fr:'Vente Automatique', en:'Auto-Sell',
+    desc_fr:'Les agents vendent automatiquement les captures selon le filtre configuré (Shinies toujours protégés)',
+    desc_en:'Agents automatically sell captures based on your filter (Shinies always protected)' },
 ];
+// Note: 'scientist' s'achète depuis l'onglet Gang ou Labo (carte avec sprite), pas au Marché.
 
 // ── Mystery Egg ───────────────────────────────────────────────
 const MYSTERY_EGG_BASE_COST = 50000;

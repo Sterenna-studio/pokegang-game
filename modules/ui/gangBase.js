@@ -29,6 +29,8 @@ import { FALLBACK_TRAINER_SVG } from '../../data/assets-data.js';
 
 // ── Gang Base Window ──────────────────────────────────────────
 
+let _boostMult = 1; // multiplicateur actif pour les boosts (x1/x5/x10)
+
 function renderGangBasePanel() {
   const gangContainer = document.getElementById('gangBaseContainer');
   if (!gangContainer) return;
@@ -137,16 +139,17 @@ function renderGangBaseWindow() {
     for (let i = 0; i < incCount; i++) {
       const egg = incubatingEggs[i];
       if (egg) {
-        const isReady   = egg.hatchAt && egg.hatchAt <= now;
+        const isReady   = egg.status === 'ready';
         const progress  = (egg.hatchAt && egg.incubatedAt)
           ? Math.min(100, Math.round((now - egg.incubatedAt) / (egg.hatchAt - egg.incubatedAt) * 100))
           : 0;
-        const timeLeftMin = egg.hatchAt ? Math.max(0, Math.ceil((egg.hatchAt - now) / 60000)) : null;
+        const timeLeftMin = (!isReady && egg.hatchAt) ? Math.max(0, Math.ceil((egg.hatchAt - now) / 60000)) : null;
+        const eggSrc = globalThis.eggSprite?.(egg, isReady) || '';
         incSlotsHtml += `
           <div class="base-inc-slot ${isReady ? 'ready' : 'active'}" data-egg-id="${egg.id}"
-            title="${egg.species_en}${isReady ? ' — PRÊT!' : timeLeftMin !== null ? ' — '+timeLeftMin+'min' : ''}">
-            <img src="${pokeSprite(egg.species_en)}" class="base-inc-egg" alt=""
-              style="${isReady ? '' : 'filter:brightness(0.18) saturate(0)'}">
+            title="${egg.species_en}${isReady ? ' — PRÊT !' : timeLeftMin !== null ? ' — '+timeLeftMin+'min' : ''}"
+            style="${isReady ? 'cursor:pointer;' : ''}">
+            <img src="${eggSrc}" class="base-inc-egg" alt="">
             <div class="base-inc-bar">
               <div class="base-inc-fill" style="width:${isReady ? 100 : progress}%;background:${isReady ? 'var(--green)' : 'var(--gold)'}"></div>
             </div>
@@ -199,7 +202,15 @@ function renderGangBaseWindow() {
 
     <!-- ── Boosts ── -->
     <div class="base-inv-section">
-      <div class="base-inv-label">⚡ BOOSTS</div>
+      <div class="base-inv-label" style="display:flex;align-items:center;gap:6px">
+        <span>⚡ BOOSTS</span>
+        <div style="display:flex;gap:3px;margin-left:auto">
+          ${[1,5,10].map(n => `<button data-boost-mult="${n}" style="font-family:var(--font-pixel);font-size:7px;padding:1px 5px;border-radius:3px;cursor:pointer;
+            background:${_boostMult===n?'var(--red-dark)':'var(--bg)'};
+            border:1px solid ${_boostMult===n?'var(--red)':'var(--border)'};
+            color:${_boostMult===n?'#fff':'var(--text-dim)'};line-height:1.6">×${n}</button>`).join('')}
+        </div>
+      </div>
       <div class="base-inv-row">${boostsHtml}</div>
     </div>
 
@@ -240,10 +251,34 @@ function bindGangBase(container) {
     });
   });
 
-  // Incubator section → PC eggs tab
-  container.querySelector('[data-base-action="pension"]')?.addEventListener('click', () => {
-    globalThis.pcView = 'eggs';
+  // Incubator section background → pension tab
+  container.querySelector('[data-base-action="pension"]')?.addEventListener('click', e => {
+    // Don't navigate if clicked directly on a ready egg slot
+    if (e.target.closest('[data-egg-id]')) return;
+    globalThis.pcView = 'pension';
     globalThis.switchTab('tabPC');
+  });
+
+  // Ready egg slots in gang base → hatch animation directly
+  container.querySelectorAll('.base-inc-slot.ready[data-egg-id]').forEach(slot => {
+    slot.addEventListener('click', e => {
+      e.stopPropagation();
+      const eggId = slot.dataset.eggId;
+      const egg = state.eggs.find(egg => egg.id === eggId);
+      if (!egg) return;
+      globalThis.openHatchAnimation?.(egg, () => {
+        renderGangBasePanel();
+      });
+    });
+  });
+
+  // Boost multiplier buttons
+  container.querySelectorAll('[data-boost-mult]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      _boostMult = parseInt(btn.dataset.boostMult);
+      renderGangBasePanel();
+    });
   });
 
   // Item tiles
@@ -261,8 +296,11 @@ function bindGangBase(container) {
       }
       if (id === 'rarecandy') { globalThis.openRareCandyPicker(); return; }
       if (BOOST_IDS.includes(id)) {
-        if (qty > 0 && globalThis.activateBoost(id)) {
-          globalThis.notify(`Boost activé — ${Math.ceil(globalThis.boostRemaining(id))}s`, 'success');
+        const uses = Math.min(_boostMult, qty);
+        if (uses > 0) {
+          for (let i = 0; i < uses; i++) globalThis.activateBoost(id);
+          const rem = Math.ceil(globalThis.boostRemaining(id));
+          globalThis.notify(`Boost ×${uses} activé — ${rem}s`, 'success');
         }
         globalThis.renderZoneWindows();
         renderGangBasePanel();
