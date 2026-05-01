@@ -11,12 +11,10 @@ import { FALLBACK_TRAINER_SVG, FALLBACK_POKEMON_SVG } from '../../data/assets-da
 // ── Name sanitisation ─────────────────────────────────────────────────────────
 
 export function sanitizeSpriteName(en) {
-  // Showdown: no hyphens for nidoran (nidoranf/m), mr-mime → mrmime, etc.
   return en.replace(/[^a-z0-9]/g, '');
 }
 
 // ── Showdown sprite URL resolver ─────────────────────────────────────────────
-// mode: 'gen1'|'gen2'|'gen3'|'gen4'|'gen5'|'ani'|'dex'|'home'
 
 export function _showdownSpriteUrl(en, mode, { shiny = false, back = false } = {}) {
   const name = sanitizeSpriteName(en);
@@ -26,7 +24,7 @@ export function _showdownSpriteUrl(en, mode, { shiny = false, back = false } = {
   const ext   = isGif ? 'gif' : 'png';
   let folder;
   switch (mode) {
-    case 'gen1': folder = `gen1${sh}`;             break; // no back-shiny in gen1
+    case 'gen1': folder = `gen1${sh}`;             break;
     case 'gen2': folder = `gen2${bk}${sh}`;        break;
     case 'gen3': folder = `gen3${bk}${sh}`;        break;
     case 'gen4': folder = `gen4${bk}${sh}`;        break;
@@ -75,7 +73,6 @@ export function pokeSpriteBack(en, shiny = false) {
   return _showdownSpriteUrl(en, sdMode, { shiny, back: true });
 }
 
-// Icône miniature BW (~40×30 px)
 export function pokeIcon(en) {
   const name = sanitizeSpriteName(en);
   return `https://play.pokemonshowdown.com/sprites/bwicons/${name}.png`;
@@ -101,12 +98,6 @@ export function eggSprite(egg, ready = false) {
   return EGG_SPRITES[rarity] || EGG_SPRITES.default;
 }
 
-/**
- * Retourne un string `<img>` avec PokéOS (espèce connue) ou fallback rareté → NB.
- * @param {object}  egg
- * @param {boolean} ready  – true = prêt à éclore
- * @param {string}  style  – CSS inline supplémentaire
- */
 export function eggImgTag(egg, ready = false, style = '') {
   const fallback   = eggSprite(egg, ready);
   const bwFallback = _EGG_NB;
@@ -146,7 +137,6 @@ export const CUSTOM_TRAINER_SPRITES = {
   giovanni: 'https://www.pokepedia.fr/images/archive/7/73/20230124191924%21Sprite_Giovanni_RB.png',
 };
 
-// Index à plat construit après chargement de trainer-sprites-grouped.json
 export const _trainerJsonIndex = {};
 
 export function _buildTrainerIndex(data) {
@@ -180,8 +170,6 @@ export function trainerSprite(name) {
   return `https://play.pokemonshowdown.com/sprites/trainers/${fixed}.png`;
 }
 
-// ── Safe img helpers (avec fallback sur erreur) ───────────────────────────────
-
 export function safeTrainerImg(name, { style = '', cls = '' } = {}) {
   const src = trainerSprite(name);
   return `<img src="${src}" ${cls ? `class="${cls}"` : ''} style="${style}" alt="${name}" onerror="this.src='${FALLBACK_TRAINER_SVG}';this.onerror=null">`;
@@ -193,19 +181,19 @@ export function safePokeImg(species_en, { shiny = false, back = false, variant =
 }
 
 // ── Backward-compat: expose on globalThis ─────────────────────────────────────
-globalThis.sanitizeSpriteName   = sanitizeSpriteName;
-globalThis._showdownSpriteUrl   = _showdownSpriteUrl;
-globalThis.pokeSpriteVariant    = pokeSpriteVariant;
-globalThis.pokeSprite           = pokeSprite;
-globalThis.pokeSpriteBack       = pokeSpriteBack;
-globalThis.pokeIcon             = pokeIcon;
-globalThis.eggSprite            = eggSprite;
-globalThis.eggImgTag            = eggImgTag;
-globalThis.EGG_SPRITES          = EGG_SPRITES;
-globalThis.SPRITE_FIX           = SPRITE_FIX;
+globalThis.sanitizeSpriteName     = sanitizeSpriteName;
+globalThis._showdownSpriteUrl     = _showdownSpriteUrl;
+globalThis.pokeSpriteVariant      = pokeSpriteVariant;
+globalThis.pokeSprite             = pokeSprite;
+globalThis.pokeSpriteBack         = pokeSpriteBack;
+globalThis.pokeIcon               = pokeIcon;
+globalThis.eggSprite              = eggSprite;
+globalThis.eggImgTag              = eggImgTag;
+globalThis.EGG_SPRITES            = EGG_SPRITES;
+globalThis.SPRITE_FIX             = SPRITE_FIX;
 globalThis.CUSTOM_TRAINER_SPRITES = CUSTOM_TRAINER_SPRITES;
-globalThis._trainerJsonIndex    = _trainerJsonIndex;
-globalThis._buildTrainerIndex   = _buildTrainerIndex;
-globalThis.trainerSprite        = trainerSprite;
-globalThis.safeTrainerImg       = safeTrainerImg;
-globalThis.safePokeImg          = safePokeImg;
+globalThis._trainerJsonIndex      = _trainerJsonIndex;
+globalThis._buildTrainerIndex     = _buildTrainerIndex;
+globalThis.trainerSprite          = trainerSprite;
+globalThis.safeTrainerImg         = safeTrainerImg;
+globalThis.safePokeImg            = safePokeImg;

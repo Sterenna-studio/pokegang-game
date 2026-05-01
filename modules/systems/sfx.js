@@ -29,7 +29,7 @@ export const SFX = (() => {
     osc.connect(gain);
     gain.connect(c.destination);
     osc.start();
-    osc.stop(c.currentTime + duration + 0.05); // +50 ms buffer — élim. click/scratch
+    osc.stop(c.currentTime + duration + 0.05);
   }
 
   return {
