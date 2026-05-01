@@ -844,46 +844,71 @@ function triggerGymRaid(zoneId, isAuto) {
 }
 
 // ── Background zone simulation ─────────────────────────────────
-function startBackgroundZone(zoneId) {
-  const backgroundZoneTimers = globalThis.backgroundZoneTimers;
-  if (backgroundZoneTimers[zoneId]) return; // déjà actif
+// ── Modèle actif / pausé ──────────────────────────────────────────
+// Une zone est ACTIVE si : le joueur l'a ouverte OU ≥1 agent y est assigné.
+// Sinon, elle est PAUSÉE : aucun calcul, aucun timer.
+//
+// Un seul dict "zoneTimers" remplace les anciens zoneSpawnTimers + backgroundZoneTimers.
+// À chaque tick le callback décide du mode selon openZones :
+//   • zone ouverte → tickZoneSpawn   (spawns visuels)
+//   • zone fermée  → resolveBackgroundSpawnForZone  (résolution silencieuse)
+
+function isZoneActive(zoneId) {
+  const openZones = globalThis.openZones;
+  const state     = globalThis.state;
+  return openZones?.has(zoneId) || state.agents.some(a => a.assignedZone === zoneId);
+}
+
+function startActiveZone(zoneId) {
+  const zoneTimers = globalThis.zoneTimers;
+  if (zoneTimers[zoneId]) return; // déjà actif
   const zone = ZONE_BY_ID[zoneId];
   if (!zone || !zone.spawnRate) return;
   const interval = Math.round(1000 / zone.spawnRate);
-  backgroundZoneTimers[zoneId] = setInterval(() => {
-    globalThis.resolveBackgroundSpawnForZone?.(zoneId);
+  zoneTimers[zoneId] = setInterval(() => {
+    if (globalThis.openZones?.has(zoneId)) {
+      globalThis.tickZoneSpawn?.(zoneId);               // mode visuel
+    } else {
+      globalThis.resolveBackgroundSpawnForZone?.(zoneId); // mode silencieux
+    }
   }, interval);
 }
 
-function stopBackgroundZone(zoneId) {
-  const backgroundZoneTimers = globalThis.backgroundZoneTimers;
-  if (backgroundZoneTimers[zoneId]) {
-    clearInterval(backgroundZoneTimers[zoneId]);
-    delete backgroundZoneTimers[zoneId];
+function stopActiveZone(zoneId) {
+  const zoneTimers = globalThis.zoneTimers;
+  if (zoneTimers[zoneId]) {
+    clearInterval(zoneTimers[zoneId]);
+    delete zoneTimers[zoneId];
   }
 }
 
-// Recalcule quels timers background sont nécessaires selon l'état actuel
-function syncBackgroundZones() {
-  const state = globalThis.state;
+// Délai de grâce 5 s avant de pauser — évite l'arrêt/redémarrage du timer
+// quand le joueur ferme et rouvre rapidement une zone.
+function pauseZoneIfIdle(zoneId) {
+  setTimeout(() => {
+    if (!isZoneActive(zoneId)) stopActiveZone(zoneId);
+  }, 5000);
+}
+
+// Recalcule quels timers sont nécessaires (appelé au boot + assign/unassign agent)
+function syncActiveZones() {
+  const state    = globalThis.state;
   const openZones = globalThis.openZones;
-  const backgroundZoneTimers = globalThis.backgroundZoneTimers;
-  const activeZones = new Set(
-    state.agents.filter(a => a.assignedZone).map(a => a.assignedZone)
-  );
+  if (!openZones) return;
   // Démarrer les timers manquants
-  for (const zoneId of activeZones) {
-    if (!openZones.has(zoneId) && !backgroundZoneTimers[zoneId]) {
-      startBackgroundZone(zoneId);
-    }
-  }
-  // Arrêter les timers orphelins (zone ouverte ou plus d'agent)
-  for (const zoneId of Object.keys(backgroundZoneTimers)) {
-    if (!activeZones.has(zoneId) || openZones.has(zoneId)) {
-      stopBackgroundZone(zoneId);
-    }
+  for (const zoneId of openZones) startActiveZone(zoneId);
+  for (const a of state.agents) { if (a.assignedZone) startActiveZone(a.assignedZone); }
+  // Arrêter les timers orphelins (zone ni ouverte ni avec agent)
+  const zoneTimers = globalThis.zoneTimers;
+  for (const zoneId of Object.keys(zoneTimers)) {
+    if (!isZoneActive(zoneId)) stopActiveZone(zoneId);
   }
 }
+
+// Aliases de compatibilité (appelés depuis app.js wrappers, gardés temporairement)
+const startBackgroundZone = startActiveZone;
+const stopBackgroundZone  = stopActiveZone;
+const syncBackgroundZones = syncActiveZones;
 
 Object.assign(globalThis, {
   // Zone activity (état exclusif par zone)
@@ -913,9 +938,16 @@ Object.assign(globalThis, {
   _zsys_showZoneUnlockPopup:          showZoneUnlockPopup,
   _zsys_processZoneUnlockQueue:       _processZoneUnlockQueue,
   _zsys_triggerGymRaid:               triggerGymRaid,
-  _zsys_startBackgroundZone:          startBackgroundZone,
-  _zsys_stopBackgroundZone:           stopBackgroundZone,
-  _zsys_syncBackgroundZones:          syncBackgroundZones,
+  // Unified active/paused zone timer (accès via préfixe _zsys_ — évite les conflits avec wrappers app.js)
+  _zsys_isZoneActive:                 isZoneActive,
+  _zsys_startActiveZone:              startActiveZone,
+  _zsys_stopActiveZone:               stopActiveZone,
+  _zsys_pauseZoneIfIdle:              pauseZoneIfIdle,
+  _zsys_syncActiveZones:              syncActiveZones,
+  // Aliases de compatibilité
+  _zsys_startBackgroundZone:          startActiveZone,
+  _zsys_stopBackgroundZone:           stopActiveZone,
+  _zsys_syncBackgroundZones:          syncActiveZones,
   ZONE_DIFFICULTY_SCALING,
 });
 

@@ -17,7 +17,7 @@
 //    showConfirm, showRarePopup, showShinyPopup, getTrainerDialogue
 //    checkPlayerStatPoints
 //    SFX, activeTab
-//    openZones, zoneSpawns, zoneSpawnTimers, backgroundZoneTimers
+//    openZones, zoneSpawns, zoneTimers
 //    ZONE_BGS, ZONE_SLOT_COSTS, ITEM_SPRITE_URLS, BALL_SPRITES, MAX_COMBAT_REWARD
 //    SPECIAL_TRAINER_KEYS
 //
@@ -561,7 +561,7 @@ function _applyZoneViewMode() {
 function _renderZoneStatsView() {
   const state       = globalThis.state;
   const openZones   = globalThis.openZones;
-  const bgTimers    = globalThis.backgroundZoneTimers || {};
+  const zoneTimers  = globalThis.zoneTimers || {};
 
   // Hide fogmap, show stats overlay in same container
   document.getElementById('zoneSelector')?.style.setProperty('display', 'none');
@@ -577,19 +577,26 @@ function _renderZoneStatsView() {
   ));
 
   const rows = allZones.map(zone => {
-    const zs      = state.zones?.[zone.id] || {};
-    const isOpen  = openZones?.has(zone.id);
-    const hasBg   = !!bgTimers[zone.id];
-    const agents  = state.agents.filter(a => a.assignedZone === zone.id);
-    const income  = zs.pendingIncome || 0;
-    const combats = zs.combatsWon   || 0;
-    const caps    = zs.captures     || 0;
+    const zs       = state.zones?.[zone.id] || {};
+    const isVisible = openZones?.has(zone.id);          // fenêtre ouverte
+    const isRunning = !!zoneTimers[zone.id];             // timer actif (ouverte OU agent)
+    const agents   = state.agents.filter(a => a.assignedZone === zone.id);
+    const income   = zs.pendingIncome || 0;
+    const combats  = zs.combatsWon   || 0;
+    const caps     = zs.captures     || 0;
 
-    let statusText, statusColor;
-    if (isOpen)           { statusText = 'OUVERTE';  statusColor = 'var(--green)'; }
-    else if (hasBg)       { statusText = 'AGENT';    statusColor = 'var(--gold)'; }
-    else if (agents.length) { statusText = 'INACTIF'; statusColor = 'var(--red)'; }
-    else                  { statusText = '—';         statusColor = 'var(--text-dim)'; }
+    // Deux dimensions indépendantes :
+    //   Activité : ACTIF (vert) si timer tourne, INACTIF (gris) sinon
+    //   Fenêtre  : Visible (or) si ouverte, Fond (gris) si agent seul, rien si inactif
+    const actifBadge = isRunning
+      ? `<span style="font-family:var(--font-pixel);font-size:7px;color:var(--green)">ACTIF</span>`
+      : `<span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">INACTIF</span>`;
+    const fenetreBadge = isRunning
+      ? `<span style="font-family:var(--font-pixel);font-size:6px;color:${isVisible ? 'var(--gold)' : 'var(--text-dim)'}">
+           ${isVisible ? '👁 Visible' : '⚙ Fond'}
+         </span>`
+      : '';
+    const statusCell = `<div style="display:flex;flex-direction:column;align-items:center;gap:1px">${actifBadge}${fenetreBadge}</div>`;
 
     const agentNames = agents.map(a => a.name).join(', ') || '—';
     const incomeFmt  = income > 0 ? `<b style="color:var(--gold)">${income.toLocaleString()}₽</b>` : '<span style="color:var(--text-dim)">0₽</span>';
@@ -597,7 +604,7 @@ function _renderZoneStatsView() {
     const collectBtn = income > 0
       ? `<button class="zstat-collect" data-zone="${zone.id}" style="font-family:var(--font-pixel);font-size:7px;padding:2px 7px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer;white-space:nowrap">₽ Récolter</button>`
       : '';
-    const openBtn = !isOpen
+    const openBtn = !isVisible
       ? `<button class="zstat-open" data-zone="${zone.id}" style="font-family:var(--font-pixel);font-size:7px;padding:2px 7px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer;white-space:nowrap">▶ Ouvrir</button>`
       : `<button class="zstat-close" data-zone="${zone.id}" style="font-family:var(--font-pixel);font-size:7px;padding:2px 7px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer;white-space:nowrap">✕ Fermer</button>`;
 
@@ -606,7 +613,7 @@ function _renderZoneStatsView() {
         <span style="font-family:var(--font-pixel);font-size:8px;color:var(--text)">${state.lang === 'fr' ? zone.fr : zone.en}</span>
         <span style="font-size:7px;color:var(--text-dim);margin-left:4px">${zone.type}</span>
       </td>
-      <td style="padding:5px 8px;text-align:center"><span style="font-family:var(--font-pixel);font-size:7px;color:${statusColor}">${statusText}</span></td>
+      <td style="padding:5px 8px;text-align:center">${statusCell}</td>
       <td style="padding:5px 8px;font-size:8px;color:var(--text-dim);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${agentNames}">${agentNames}</td>
       <td style="padding:5px 8px;font-size:8px;text-align:right">${incomeFmt}</td>
       <td style="padding:5px 8px;font-size:8px;color:var(--text-dim);text-align:center">${combats > 0 ? `⚔ ${combats}` : '—'}</td>
@@ -670,79 +677,62 @@ globalThis._refreshZoneStatsView = () => {
 };
 
 function openZoneWindow(zoneId) {
-  const state = globalThis.state;
+  const state     = globalThis.state;
   const openZones = globalThis.openZones;
   const zoneSpawns = globalThis.zoneSpawns;
-  const zoneSpawnTimers = globalThis.zoneSpawnTimers;
 
-  // Guard : si déjà ouverte, ne rien faire (évite les timers orphelins)
+  // Guard : si déjà ouverte, ne rien faire
   if (openZones.has(zoneId)) { _zsRefreshTile(zoneId); return; }
-  // Limit to 6 simultaneously open zones (gang_park excluded)
+  // Max 6 zones ouvertes simultanément (gang_park exclu)
   const MAX_OPEN_ZONES = 6;
-  const regularOpen = [...openZones].filter(z => z !== 'gang_park').length;
-  if (zoneId !== 'gang_park' && regularOpen >= MAX_OPEN_ZONES) {
+  if (zoneId !== 'gang_park' && [...openZones].filter(z => z !== 'gang_park').length >= MAX_OPEN_ZONES) {
     globalThis.notify(`Maximum ${MAX_OPEN_ZONES} zones ouvertes simultanément. Ferme une zone pour en ouvrir une autre.`, 'error');
     return;
   }
+
   openZones.add(zoneId);
-  // Zone passe en mode visuel → arrêter le timer background si actif
-  globalThis.stopBackgroundZone(zoneId);
-  // Persister l'ordre pour la musique et le rechargement
+  // Le timer unifié existe peut-être déjà (zone avait des agents) → startActiveZone est idempotent.
+  // Le callback branché sur openZones.has(zoneId) basculera automatiquement en mode visuel.
+  globalThis.startActiveZone(zoneId);
+
   if (!state.openZoneOrder) state.openZoneOrder = [];
   if (!state.openZoneOrder.includes(zoneId)) state.openZoneOrder.push(zoneId);
   globalThis.saveState();
   globalThis.initZone(zoneId);
-  zoneSpawns[zoneId] = [];
-  // Boss auto-moves to first opened zone if not set
-  if (!state.gang.bossZone || !openZones.has(state.gang.bossZone)) {
-    state.gang.bossZone = zoneId;
-  }
-  // Nettoyer un éventuel timer résiduel avant d'en créer un nouveau
-  if (zoneSpawnTimers[zoneId]) { clearInterval(zoneSpawnTimers[zoneId]); delete zoneSpawnTimers[zoneId]; }
-  // Start spawn timer
-  const zone = ZONE_BY_ID[zoneId];
-  if (zone) {
-    const interval = Math.round(1000 / zone.spawnRate);
-    zoneSpawnTimers[zoneId] = setInterval(() => tickZoneSpawn(zoneId), interval);
-  }
+  zoneSpawns[zoneId] = []; // liste visuelle de spawns — fraîche à chaque ouverture
+  if (!state.gang.bossZone || !openZones.has(state.gang.bossZone)) state.gang.bossZone = zoneId;
+
   globalThis.MusicPlayer?.updateFromContext();
-  // Mise à jour ciblée : tuile + fenêtres + base — sans reconstruire tout le sélecteur
   _zsRefreshTile(zoneId);
   globalThis.renderGangBasePanel();
   renderZoneWindows();
-    _zsUpdateButtons();
+  _zsUpdateButtons();
 }
 
 function closeZoneWindow(zoneId) {
-  const state = globalThis.state;
+  const state     = globalThis.state;
   const openZones = globalThis.openZones;
   const zoneSpawns = globalThis.zoneSpawns;
-  const zoneSpawnTimers = globalThis.zoneSpawnTimers;
 
   openZones.delete(zoneId);
-  // Retirer de l'ordre persisté → MusicPlayer ne lira plus cette zone
   state.openZoneOrder = (state.openZoneOrder || []).filter(id => id !== zoneId);
   globalThis.saveState();
-  if (zoneSpawnTimers[zoneId]) {
-    clearInterval(zoneSpawnTimers[zoneId]);
-    delete zoneSpawnTimers[zoneId];
-  }
-  // Clean up spawns
+
+  // Nettoyer les spawns visuels
   if (zoneSpawns[zoneId]) {
-    for (const s of zoneSpawns[zoneId]) {
-      if (s.timeout) clearTimeout(s.timeout);
-    }
+    for (const s of zoneSpawns[zoneId]) { if (s.timeout) clearTimeout(s.timeout); }
     delete zoneSpawns[zoneId];
   }
-  // Zone fermée → démarrer timer background si agents présents
-  const hasAgents = state.agents.some(a => a.assignedZone === zoneId);
-  if (hasAgents) globalThis.startBackgroundZone(zoneId);
+
+  // Délai de grâce 5 s : si aucun agent n'est assigné après 5 s, le timer s'arrête.
+  // Si des agents sont présents, le timer continue en mode silencieux automatiquement.
+  globalThis.pauseZoneIfIdle(zoneId);
+
   globalThis.MusicPlayer?.updateFromContext();
-  // Mise à jour ciblée : tuile + fenêtres + base — sans reconstruire tout le sélecteur
   _zsRefreshTile(zoneId);
   globalThis.renderGangBasePanel();
   renderZoneWindows();
-    _zsUpdateButtons();
+  _zsUpdateButtons();
 }
 
 function renderZoneWindows() {

@@ -182,6 +182,8 @@ function assignAgentToZone(agentId, zoneId) {
     }
   }
   globalThis.saveState();
+  // Démarre ou arrête le timer selon le nouvel état (zone active = ouverte OU avec agent)
+  globalThis.syncActiveZones?.();
 }
 
 // ── Auto-sell on agent capture ────────────────────────────────────
@@ -190,6 +192,7 @@ function assignAgentToZone(agentId, zoneId) {
 function _autoSellCaptured(pokemon) {
   const state = globalThis.state;
   if (!state.purchases?.autoSellAgent) return false;
+  if (state.purchases?.autoSellAgentEnabled === false) return false;
   // Shinies always protected unless explicitly unprotected per-species in Pokédex
   if (pokemon.shiny && !state.pokedex?.[pokemon.species_en]?.shinyUnprotected) return false;
   const cfg = state.settings?.autoSellAgent;
@@ -449,15 +452,24 @@ function resolveBackgroundSpawnForZone(zoneId) {
       if ((state.inventory[preferred] || 0) > 0)   { capturer = a; ball = preferred; break; }
       if ((state.inventory['pokeball'] || 0) > 0)  { capturer = a; ball = 'pokeball'; break; }
     }
-    if (!capturer || !ball) return false;
+    if (!capturer || !ball) {
+      // Notifier une fois par session qu'il n'y a plus de Poké Balls
+      const _now = Date.now();
+      if (!resolveBackgroundSpawnForZone._noBallWarnAt || _now - resolveBackgroundSpawnForZone._noBallWarnAt > 120_000) {
+        resolveBackgroundSpawnForZone._noBallWarnAt = _now;
+        const zone = ZONE_BY_ID[zoneId];
+        globalThis.notify(`⚠️ Plus de Poké Balls — les agents de ${zone?.fr || zoneId} ne capturent plus !`, 'error');
+      }
+      return false;
+    }
 
     const pokemon = globalThis.makePokemon(entry.species_en, zoneId, ball);
     if (!pokemon) return false;
 
     // Crit de capture basé sur la stat CAP
-    if (Math.random() < (capturer.stats.capture || 0) / 100) {
+    const isCrit = Math.random() < (capturer.stats.capture || 0) / 100;
+    if (isCrit) {
       pokemon.potential = Math.min(5, (pokemon.potential || 1) + 1);
-      if (capturer.notifyCaptures) globalThis.notify(`★ ${capturer.name} — Capture critique ! ★`, 'gold');
     }
     state.inventory[ball]--;
     state.pokemons.push(pokemon);
@@ -473,10 +485,20 @@ function resolveBackgroundSpawnForZone(zoneId) {
     }
     if (pokemon.shiny) state.stats.shinyCaught++;
     grantAgentXP(capturer, captureXP(entry.species_en, pokemon.potential, pokemon.shiny));
-    const name = globalThis.speciesName(pokemon.species_en);
+    const name  = globalThis.speciesName(pokemon.species_en);
     const stars = '★'.repeat(pokemon.potential);
-    if (capturer.notifyCaptures) {
-      globalThis.notify(`👤 ${capturer.name} → ${name} ${stars}${pokemon.shiny ? ' ✨' : ''}`, pokemon.shiny ? 'gold' : 'success');
+    const rarity = globalThis.SPECIES_BY_EN?.[pokemon.species_en]?.rarity;
+    // Toujours notifier pour shiny, légendaire, très rare — peu importe le réglage notifyCaptures
+    if (pokemon.shiny) {
+      globalThis.notify(`✨ ${capturer.name} — SHINY ! ${name} ${stars} ✨`, 'gold');
+    } else if (rarity === 'legendary') {
+      globalThis.notify(`🏆 ${capturer.name} — LÉGENDAIRE ! ${name} ${stars}`, 'gold');
+    } else if (rarity === 'very_rare') {
+      globalThis.notify(`⭐ ${capturer.name} — Très rare ! ${name} ${stars}`, 'gold');
+    } else if (capturer.notifyCaptures !== false) {
+      // notifyCaptures peut être undefined (agents d'avant le champ) → traiter comme true
+      if (isCrit) globalThis.notify(`★ ${capturer.name} — Critique ! ${name} ${stars}`, 'gold');
+      else         globalThis.notify(`👤 ${capturer.name} → ${name} ${stars}`, 'success');
     }
     globalThis.addLog(globalThis.t('agent_catch', { agent: capturer.name, pokemon: name }));
     changed = true;
@@ -521,12 +543,17 @@ function resolveBackgroundSpawnForZone(zoneId) {
         grantAgentXP(a, xpEach);
         for (const pkId of a.team) {
           const p = state.pokemons.find(pk => pk.id === pkId);
-          if (p) globalThis.levelUpPokemon(p, xpEach);
+          if (p) {
+            const didLevel = globalThis.levelUpPokemon(p, xpEach);
+            if (didLevel && a.notifyCaptures !== false) {
+              globalThis.notify(`📈 ${globalThis.speciesName(p.species_en)} Lv.${p.level}`, 'success');
+            }
+          }
         }
       }
       if (trainerKey === 'rocketgrunt' || trainerKey === 'rocketgruntf' || trainerKey === 'giovanni') state.stats.rocketDefeated++;
       if (trainerKey === 'blue') state.stats.blueDefeated = (state.stats.blueDefeated || 0) + 1;
-      if (mainAgent.notifyCaptures) globalThis.notify(`[WIN] ${mainAgent.name} +${reward}P`, 'success');
+      if (mainAgent.notifyCaptures !== false) globalThis.notify(`⚔️ ${mainAgent.name} +${reward}₽ +${repGain}rep`, 'success');
       globalThis.addLog(globalThis.t('agent_win', { agent: mainAgent.name }));
       globalThis.addBattleLogEntry({
         ts: Date.now(),
@@ -538,7 +565,7 @@ function resolveBackgroundSpawnForZone(zoneId) {
     } else {
       state.stats.totalFights++;
       state.gang.reputation = Math.max(0, state.gang.reputation - 5);
-      if (mainAgent.notifyCaptures) globalThis.notify(`[KO] ${mainAgent.name} defaite...`);
+      if (mainAgent.notifyCaptures !== false) globalThis.notify(`💀 ${mainAgent.name} — défaite`, 'error');
       globalThis.addLog(globalThis.t('agent_lose', { agent: mainAgent.name }));
       globalThis.addBattleLogEntry({
         ts: Date.now(),
@@ -555,7 +582,7 @@ function resolveBackgroundSpawnForZone(zoneId) {
     state.stats.chestsOpened = (state.stats.chestsOpened || 0) + 1;
     const loot = globalThis.rollChestLoot(zoneId, true);
     const mainAgent = agents[0];
-    if (mainAgent?.notifyCaptures) globalThis.notify(`📦 ${mainAgent.name} — ${loot.msg}`, loot.type);
+    if (mainAgent?.notifyCaptures !== false) globalThis.notify(`📦 ${mainAgent.name} — ${loot.msg}`, loot.type);
     changed = true;
 
   // ── Événement spécial — ignoré en background (zones auto) ──────
@@ -739,10 +766,21 @@ function agentCaptureVisibleSpawn(agent, zoneId, spawnObj) {
       _autoSellCaptured(caught);
       globalThis.showCaptureBurst(viewport, targetX, targetY, caught.potential, caught.shiny);
       grantAgentXP(agent, 2);
-      if (agent.notifyCaptures !== false) {
-        globalThis.notify(globalThis.t('agent_catch', { agent: agent.name, pokemon: globalThis.speciesName(spawnObj.species_en) }), 'success');
+      {
+        const cName   = globalThis.speciesName(spawnObj.species_en);
+        const cStars  = '★'.repeat(caught.potential || 0);
+        const cRarity = globalThis.SPECIES_BY_EN?.[spawnObj.species_en]?.rarity;
+        if (caught.shiny) {
+          globalThis.notify(`✨ ${agent.name} — SHINY ! ${cName} ${cStars} ✨`, 'gold');
+        } else if (cRarity === 'legendary') {
+          globalThis.notify(`🏆 ${agent.name} — LÉGENDAIRE ! ${cName} ${cStars}`, 'gold');
+        } else if (cRarity === 'very_rare') {
+          globalThis.notify(`⭐ ${agent.name} — Très rare ! ${cName} ${cStars}`, 'gold');
+        } else if (agent.notifyCaptures !== false) {
+          globalThis.notify(globalThis.t('agent_catch', { agent: agent.name, pokemon: cName }), 'success');
+        }
+        globalThis.addLog(globalThis.t('agent_catch', { agent: agent.name, pokemon: cName }));
       }
-      globalThis.addLog(globalThis.t('agent_catch', { agent: agent.name, pokemon: globalThis.speciesName(spawnObj.species_en) }));
       // Feed event for agent capture
       {
         const stars = '★'.repeat(caught.potential || 0) + '☆'.repeat(5 - (caught.potential || 0));

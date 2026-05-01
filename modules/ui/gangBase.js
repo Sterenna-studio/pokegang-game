@@ -29,6 +29,8 @@ import { FALLBACK_TRAINER_SVG } from '../../data/assets-data.js';
 
 // ── Gang Base Window ──────────────────────────────────────────
 
+let _boostMult = 1; // multiplicateur actif pour les boosts (x1/x5/x10)
+
 function renderGangBasePanel() {
   const gangContainer = document.getElementById('gangBaseContainer');
   if (!gangContainer) return;
@@ -200,7 +202,15 @@ function renderGangBaseWindow() {
 
     <!-- ── Boosts ── -->
     <div class="base-inv-section">
-      <div class="base-inv-label">⚡ BOOSTS</div>
+      <div class="base-inv-label" style="display:flex;align-items:center;gap:6px">
+        <span>⚡ BOOSTS</span>
+        <div style="display:flex;gap:3px;margin-left:auto">
+          ${[1,5,10].map(n => `<button data-boost-mult="${n}" style="font-family:var(--font-pixel);font-size:7px;padding:1px 5px;border-radius:3px;cursor:pointer;
+            background:${_boostMult===n?'var(--red-dark)':'var(--bg)'};
+            border:1px solid ${_boostMult===n?'var(--red)':'var(--border)'};
+            color:${_boostMult===n?'#fff':'var(--text-dim)'};line-height:1.6">×${n}</button>`).join('')}
+        </div>
+      </div>
       <div class="base-inv-row">${boostsHtml}</div>
     </div>
 
@@ -262,6 +272,15 @@ function bindGangBase(container) {
     });
   });
 
+  // Boost multiplier buttons
+  container.querySelectorAll('[data-boost-mult]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      _boostMult = parseInt(btn.dataset.boostMult);
+      renderGangBasePanel();
+    });
+  });
+
   // Item tiles
   container.querySelectorAll('.base-item-tile[data-bag-item]').forEach(el => {
     el.addEventListener('click', () => {
@@ -277,8 +296,11 @@ function bindGangBase(container) {
       }
       if (id === 'rarecandy') { globalThis.openRareCandyPicker(); return; }
       if (BOOST_IDS.includes(id)) {
-        if (qty > 0 && globalThis.activateBoost(id)) {
-          globalThis.notify(`Boost activé — ${Math.ceil(globalThis.boostRemaining(id))}s`, 'success');
+        const uses = Math.min(_boostMult, qty);
+        if (uses > 0) {
+          for (let i = 0; i < uses; i++) globalThis.activateBoost(id);
+          const rem = Math.ceil(globalThis.boostRemaining(id));
+          globalThis.notify(`Boost ×${uses} activé — ${rem}s`, 'success');
         }
         globalThis.renderZoneWindows();
         renderGangBasePanel();

@@ -255,7 +255,8 @@ const DEFAULT_STATE = {
     chromaCharm: false,       // Gagné à 10 000 000₽ — taux shiny ×2
     scientist: false,         // 5 000 000₽ — Scientifique peu scrupuleux
     scientistEnabled: true,   // toggle actif/inactif après achat
-    autoSellAgent: false,     // 10 000 000₽ — Vente auto à la capture agent
+    autoSellAgent: false,         // 10 000 000₽ — Vente auto à la capture agent
+    autoSellAgentEnabled: true,   // toggle on/off après achat
     autoSellEggs: false,      // 5 000 000₽ — Vente auto des œufs éclots
   },
   pension: {
@@ -484,6 +485,7 @@ function migrate(saved) {
   if (merged.purchases.autoIncubator === undefined) merged.purchases.autoIncubator = false;
   if (merged.purchases.autoCollect === undefined) merged.purchases.autoCollect = false;
   if (merged.purchases.autoCollectEnabled === undefined) merged.purchases.autoCollectEnabled = true;
+  if (merged.purchases.autoSellAgentEnabled === undefined) merged.purchases.autoSellAgentEnabled = true;
   if (merged.purchases.chromaCharm === undefined) merged.purchases.chromaCharm = false;
   if (merged.purchases.scientist === undefined) merged.purchases.scientist = false;
   if (merged.purchases.scientistEnabled === undefined) merged.purchases.scientistEnabled = true;
@@ -954,17 +956,21 @@ function pokeIcon(en) {
 // ── Egg sprites ──────────────────────────────────────────────────────────────
 // Pokémon-specific anime eggs (PokéOS) : {dex}-egg-anime.png
 // Rarity-coded GO eggs (Pokepedia)     : mystery / unknown species
+// Sprite générique NB (Noir & Blanc) — utilisé comme fallback universel.
+// Les sprites GO (pokepedia) permettent de distinguer visuellement la rareté.
+const _EGG_NB = 'https://www.pokepedia.fr/images/f/f5/Sprite_%C5%92uf_NB.png?20190202195308';
+
 const EGG_SPRITES = {
-  // Generic rarity-based (mystery eggs)
-  common:    'https://archives.bulbagarden.net/media/upload/e/ed/Spr_5b_Egg.png',
+  // Generic rarity-based (mystery eggs — GO-style coloring)
+  common:    _EGG_NB,
   uncommon:  'https://www.pokepedia.fr/images/a/ab/Sprite_%C5%92uf_5_km_GO.png',
   rare:      'https://www.pokepedia.fr/images/7/70/Sprite_%C5%92uf_10_km_GO.png',
   very_rare: 'https://www.pokepedia.fr/images/a/a8/Sprite_%C5%92uf_12_km_GO.png',
   legendary: 'https://www.pokepedia.fr/images/a/a8/Sprite_%C5%92uf_12_km_GO.png',
   // Special states
-  ready:     'https://archives.bulbagarden.net/media/upload/0/06/HOMEEgg.png',
-  // Default fallback
-  default:   'https://archives.bulbagarden.net/media/upload/e/ed/Spr_5b_Egg.png',
+  ready:     'https://www.pokepedia.fr/images/f/f5/Sprite_%C5%92uf_NB.png?20190202195308',
+  // Default fallback (NB générique — toujours accessible)
+  default:   _EGG_NB,
 };
 
 // Returns the generic fallback egg sprite URL (rarity-coded).
@@ -978,8 +984,8 @@ function eggSprite(egg, ready = false) {
 // and automatic onerror fallback chain to rarity sprite → BW generic.
 // style: optional inline CSS string to add to the img.
 function eggImgTag(egg, ready = false, style = '') {
-  const fallback = eggSprite(egg, ready);
-  const bwFallback = EGG_SPRITES.default;
+  const fallback   = eggSprite(egg, ready);
+  const bwFallback = _EGG_NB; // fallback universel NB (pokepedia, toujours dispo)
   const baseStyle = `object-fit:contain;image-rendering:pixelated;${style}`;
 
   // Pension egg (parents known) or scanned (species revealed) → try PokéOS first
@@ -2182,17 +2188,14 @@ function getZoneAgentSlots(zoneId) { return globalThis._zsys_getZoneAgentSlots(z
 
 // Open zone windows tracking
 const openZones = new Set();
-const zoneSpawnTimers = {};
 const zoneSpawns = {}; // zoneId -> [{ type, data, el, timeout }]
-// Expose for agent module (const objects — mutated in-place, reference stays valid)
-globalThis.openZones = openZones;
+// Unified timer dict: active if zone is open OR has ≥1 agent assigned
+// (replaces former zoneSpawnTimers + backgroundZoneTimers)
+const zoneTimers = {};
+// Expose for modules (const objects — mutated in-place, reference stays valid)
+globalThis.openZones  = openZones;
 globalThis.zoneSpawns = zoneSpawns;
-globalThis.zoneSpawnTimers = zoneSpawnTimers;
-
-// Background zone timers (closed zones with ≥1 agent assigned)
-// Tick at real spawn rate — agent module resolves spawns silently
-const backgroundZoneTimers = {};
-globalThis.backgroundZoneTimers = backgroundZoneTimers;
+globalThis.zoneTimers = zoneTimers;
 
 // masteryLevel (1-3) permet de renforcer les équipes ennemies selon la progression de zone.
 function makeTrainerTeam(zone, trainerKey, forcedSize, masteryLevel = 1) { return globalThis._zsys_makeTrainerTeam(zone, trainerKey, forcedSize, masteryLevel); }
@@ -3146,173 +3149,6 @@ function renderCosmeticsPanel(container) {
     openTitleModal();
   });
 
-  // ── Infirmière Joëlle corrompue ────────────────────────────────
-  const nurseDiv = document.createElement('div');
-  nurseDiv.style.cssText = 'margin-top:20px';
-  const nurseOwned   = !!state.purchases?.autoIncubator;
-  const nurseEnabled = state.purchases?.autoIncubatorEnabled !== false; // true par défaut
-  nurseDiv.innerHTML = `
-    <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold);margin-bottom:10px">SERVICES</div>
-    <div style="background:var(--bg-card);border:1px solid ${nurseOwned ? (nurseEnabled ? 'var(--green)' : 'var(--border)') : 'var(--border)'};border-radius:var(--radius-sm);padding:10px;display:flex;gap:12px;align-items:flex-start">
-      <img src="${trainerSprite('nurse')}" style="width:48px;height:48px;image-rendering:pixelated;flex-shrink:0;${nurseOwned && !nurseEnabled ? 'opacity:.4;filter:grayscale(1)' : ''}" onerror="this.style.display='none'">
-      <div style="flex:1">
-        <div style="font-family:var(--font-pixel);font-size:9px;color:${nurseOwned ? (nurseEnabled ? 'var(--green)' : 'var(--text-dim)') : 'var(--text)'};margin-bottom:4px">Infirmière Joëlle corrompue</div>
-        <div style="font-size:8px;color:var(--text-dim);margin-bottom:8px">Met automatiquement les oeufs en incubation dès qu'un incubateur est libre.</div>
-        ${nurseOwned
-          ? `<div style="display:flex;align-items:center;gap:8px">
-               <span style="font-family:var(--font-pixel);font-size:8px;color:${nurseEnabled ? 'var(--green)' : 'var(--text-dim)'}">
-                 ${nurseEnabled ? '✓ EN POSTE' : '✗ CONGÉ'}
-               </span>
-               <button id="btnToggleNurse" style="font-family:var(--font-pixel);font-size:8px;padding:4px 10px;background:var(--bg);border:1px solid ${nurseEnabled ? 'var(--red)' : 'var(--green)'};border-radius:var(--radius-sm);color:${nurseEnabled ? 'var(--red)' : 'var(--green)'};cursor:pointer">
-                 ${nurseEnabled ? 'Mettre en congé' : 'Rappeler'}
-               </button>
-             </div>`
-          : `<button id="btnBuyNurse" style="font-family:var(--font-pixel);font-size:8px;padding:6px 12px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">Embaucher — 300 000₽</button>`}
-      </div>
-    </div>`;
-  container.appendChild(nurseDiv);
-  nurseDiv.querySelector('#btnBuyNurse')?.addEventListener('click', () => {
-    if (state.gang.money < 300000) { notify('Fonds insuffisants.', 'error'); SFX.play('error'); return; }
-    showConfirm('Embaucher l\'Infirmière Joëlle corrompue pour 300 000₽ ? (permanent)', () => {
-      state.gang.money -= 300000;
-      state.purchases.autoIncubator = true;
-      state.purchases.autoIncubatorEnabled = true;
-      saveState(); updateTopBar();
-      SFX.play('unlock');
-      notify('💉 Joëlle est en poste ! Les oeufs seront auto-incubés.', 'gold');
-      tryAutoIncubate();
-      renderCosmeticsPanel(container);
-    }, null, { confirmLabel: 'Embaucher', cancelLabel: 'Annuler' });
-  });
-  nurseDiv.querySelector('#btnToggleNurse')?.addEventListener('click', () => {
-    state.purchases.autoIncubatorEnabled = !nurseEnabled;
-    saveState();
-    const msg = state.purchases.autoIncubatorEnabled
-      ? '💉 Joëlle est de retour en poste !'
-      : '😴 Joëlle est en congé.';
-    notify(msg, 'success');
-    renderCosmeticsPanel(container);
-  });
-
-  // ── Récolte automatique ────────────────────────────────────────
-  const acOwned   = !!state.purchases?.autoCollect;
-  const acEnabled = state.purchases?.autoCollectEnabled !== false;
-  const acDiv = document.createElement('div');
-  acDiv.style.cssText = 'margin-top:10px';
-  acDiv.innerHTML = `
-    <div style="background:var(--bg-card);border:1px solid ${acOwned ? (acEnabled ? 'var(--green)' : 'var(--border)') : 'var(--border)'};border-radius:var(--radius-sm);padding:10px;display:flex;gap:12px;align-items:flex-start">
-      <div style="font-size:24px;flex-shrink:0;${acOwned && !acEnabled ? 'opacity:.4;filter:grayscale(1)' : ''}">🪙</div>
-      <div style="flex:1">
-        <div style="font-family:var(--font-pixel);font-size:9px;color:${acOwned ? (acEnabled ? 'var(--green)' : 'var(--text-dim)') : 'var(--text)'};margin-bottom:4px">Récolte automatique</div>
-        <div style="font-size:8px;color:var(--text-dim);margin-bottom:8px">Collecte les revenus de zone sans animation de combat. Le combat reste calculé en arrière-plan.</div>
-        ${acOwned
-          ? `<div style="display:flex;align-items:center;gap:8px">
-               <span style="font-family:var(--font-pixel);font-size:8px;color:${acEnabled ? 'var(--green)' : 'var(--text-dim)'}">
-                 ${acEnabled ? '✓ ACTIVE' : '✗ INACTIVE'}
-               </span>
-               <button id="btnToggleAutoCollect" style="font-family:var(--font-pixel);font-size:8px;padding:4px 10px;background:var(--bg);border:1px solid ${acEnabled ? 'var(--red)' : 'var(--green)'};border-radius:var(--radius-sm);color:${acEnabled ? 'var(--red)' : 'var(--green)'};cursor:pointer">
-                 ${acEnabled ? 'Désactiver' : 'Activer'}
-               </button>
-             </div>`
-          : `<button id="btnBuyAutoCollect" style="font-family:var(--font-pixel);font-size:8px;padding:6px 12px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">Acheter — 100 000₽</button>`}
-      </div>
-    </div>`;
-  container.appendChild(acDiv);
-  acDiv.querySelector('#btnBuyAutoCollect')?.addEventListener('click', () => {
-    if (state.gang.money < 100_000) { notify('Fonds insuffisants.', 'error'); SFX.play('error'); return; }
-    showConfirm('Acheter la Récolte automatique pour 100 000₽ ?', () => {
-      state.gang.money -= 100_000;
-      state.purchases.autoCollect = true;
-      state.purchases.autoCollectEnabled = true;
-      saveState(); updateTopBar();
-      SFX.play('unlock');
-      notify('🪙 Récolte automatique activée !', 'gold');
-      renderCosmeticsPanel(container);
-    }, null, { confirmLabel: 'Acheter', cancelLabel: 'Annuler' });
-  });
-  acDiv.querySelector('#btnToggleAutoCollect')?.addEventListener('click', () => {
-    state.purchases.autoCollectEnabled = !acEnabled;
-    saveState();
-    notify(state.purchases.autoCollectEnabled ? '🪙 Récolte automatique activée !' : '⏸ Récolte automatique désactivée.', 'success');
-    renderCosmeticsPanel(container);
-  });
-
-  // ── Achats spéciaux (Titres, Charme Chroma) ───────────────────
-  const SPECIAL_PURCHASES = [
-    {
-      id: 'title_richissime',
-      icon: '💰', label: 'Titre "Richissime"',
-      desc: 'Débloque le titre légendaire. Ostentation maximale.',
-      cost: 5_000_000,
-      owned: () => !!state.purchases?.title_richissime || (state.unlockedTitles || []).includes('richissime'),
-      buy: () => {
-        state.purchases = state.purchases || {};
-        state.purchases.title_richissime = true;
-        state.unlockedTitles = [...new Set([...(state.unlockedTitles || []), 'richissime'])];
-        notify('💰 Titre "Richissime" débloqué !', 'gold');
-      },
-    },
-    {
-      id: 'title_doublerichissim',
-      icon: '💎', label: 'Titre "Double Richissime"',
-      desc: 'Débloque le titre ultime. Noblesse oblige.',
-      cost: 10_000_000,
-      owned: () => !!state.purchases?.title_doublerichissim || (state.unlockedTitles || []).includes('doublerichissim'),
-      buy: () => {
-        state.purchases = state.purchases || {};
-        state.purchases.title_doublerichissim = true;
-        state.unlockedTitles = [...new Set([...(state.unlockedTitles || []), 'doublerichissim'])];
-        notify('💎 Titre "Double Richissime" débloqué !', 'gold');
-      },
-    },
-    {
-      id: 'chromaCharm',
-      icon: '✨', label: 'Charme Chroma',
-      desc: 'Double le taux de Pokémon chromatiques. Permanent.',
-      cost: 5_000_000,
-      owned: () => !!state.purchases?.chromaCharm,
-      buy: () => {
-        state.purchases.chromaCharm = true;
-        notify('✨ Charme Chroma obtenu ! Taux shiny ×2', 'gold');
-      },
-    },
-  ];
-
-  const specialDiv = document.createElement('div');
-  specialDiv.style.cssText = 'margin-top:24px';
-  specialDiv.innerHTML = `
-    <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold);margin-bottom:12px">🛒 ACHATS SPÉCIAUX</div>
-    <div style="display:flex;flex-direction:column;gap:8px">
-      ${SPECIAL_PURCHASES.map(sp => {
-        const owned = sp.owned();
-        return `<div style="background:var(--bg-card);border:1px solid ${owned ? 'var(--green)' : 'var(--border)'};border-radius:var(--radius-sm);padding:10px;display:flex;gap:12px;align-items:center">
-          <div style="font-size:24px;flex-shrink:0">${sp.icon}</div>
-          <div style="flex:1">
-            <div style="font-family:var(--font-pixel);font-size:9px;color:${owned ? 'var(--green)' : 'var(--text)'};margin-bottom:2px">${sp.label}</div>
-            <div style="font-size:8px;color:var(--text-dim)">${sp.desc}</div>
-          </div>
-          ${owned
-            ? `<div style="font-family:var(--font-pixel);font-size:8px;color:var(--green);white-space:nowrap">✓ ACTIF</div>`
-            : `<button class="btn-special-buy" data-sp-id="${sp.id}" style="font-family:var(--font-pixel);font-size:8px;padding:6px 10px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer;white-space:nowrap">${sp.cost.toLocaleString()}₽</button>`}
-        </div>`;
-      }).join('')}
-    </div>`;
-  container.appendChild(specialDiv);
-
-  specialDiv.querySelectorAll('.btn-special-buy').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const sp = SPECIAL_PURCHASES.find(s => s.id === btn.dataset.spId);
-      if (!sp || sp.owned()) return;
-      if (state.gang.money < sp.cost) { notify('Fonds insuffisants.', 'error'); SFX.play('error'); return; }
-      showConfirm(`Acheter "${sp.label}" pour ${sp.cost.toLocaleString()}₽ ?`, () => {
-        state.gang.money -= sp.cost;
-        sp.buy();
-        saveState(); updateTopBar();
-        SFX.play('unlock');
-        renderCosmeticsPanel(container);
-      }, null, { confirmLabel: 'Acheter', cancelLabel: 'Annuler' });
-    });
-  });
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -3450,60 +3286,122 @@ function renderGangTab() {
       </div>
     </div>
 
-    <!-- ── Collapsible: AUTOMATISATION ── -->
-    ${state.purchases.autoSellAgent ? `
-    <div class="gang-section-label gang-collapsible-header" data-section="automation" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none">
-      <span>— AUTOMATISATION —</span>
-      <span style="font-size:9px;color:var(--text-dim)">${_gangCollapsed.automation ? '▶' : '▼'}</span>
-    </div>
-    <div class="gang-collapsible-body" data-section-body="automation" style="${_gangCollapsed.automation ? 'display:none' : ''}">
-      <div style="padding:10px 14px">
-        <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold);margin-bottom:8px">🤖 VENTE AUTO — CAPTURES AGENT</div>
-        <div style="font-size:9px;color:var(--text-dim);margin-bottom:8px">Les Shinies sont toujours protégés.</div>
-        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
-          <label style="font-size:9px;color:var(--text)">Mode :</label>
-          <label style="display:flex;align-items:center;gap:4px;font-size:9px;cursor:pointer">
-            <input type="radio" name="autoSellMode" value="all" ${(state.settings.autoSellAgent?.mode || 'all') === 'all' ? 'checked' : ''}> Tout vendre
-          </label>
-          <label style="display:flex;align-items:center;gap:4px;font-size:9px;cursor:pointer">
-            <input type="radio" name="autoSellMode" value="by_potential" ${state.settings.autoSellAgent?.mode === 'by_potential' ? 'checked' : ''}> Par potentiel
-          </label>
-        </div>
-        ${state.settings.autoSellAgent?.mode === 'by_potential' ? `
-        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
-          <span style="font-size:9px;color:var(--text-dim)">Vendre si :</span>
-          ${[1,2,3,4,5].map(p => `<label style="display:flex;align-items:center;gap:3px;font-size:9px;cursor:pointer">
-            <input type="checkbox" class="autoSellPot" value="${p}" ${(state.settings.autoSellAgent?.potentials || []).includes(p) ? 'checked' : ''}> ${'★'.repeat(p)}
-          </label>`).join('')}
-        </div>` : ''}
-      </div>
-    </div>` : ''}
-
     <!-- ── Collapsible: SERVICES ── -->
     <div class="gang-section-label gang-collapsible-header" data-section="services" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none">
       <span>— SERVICES —</span>
       <span style="font-size:9px;color:var(--text-dim)">${_gangCollapsed.services ? '▶' : '▼'}</span>
     </div>
     <div class="gang-collapsible-body" data-section-body="services" style="${_gangCollapsed.services ? 'display:none' : ''}">
-      <div style="padding:0 2px 8px">
-        ${(() => {
-          const owned   = !!state.purchases.scientist;
-          const enabled = state.purchases.scientistEnabled !== false;
-          const color   = owned ? (enabled ? 'var(--green)' : 'var(--border)') : 'var(--border)';
-          return `<div style="background:var(--bg);border:1px solid ${color};border-radius:var(--radius-sm);padding:10px;display:flex;gap:10px;align-items:flex-start">
-            <img src="${trainerSprite('scientist')}" style="width:40px;height:40px;image-rendering:pixelated;flex-shrink:0;${owned && !enabled ? 'opacity:.4;filter:grayscale(1)' : ''}" onerror="this.style.display='none'">
+      <div style="padding:0 2px 8px;display:flex;flex-direction:column;gap:8px">
+
+        ${/* ── Récolte automatique ──────────────────────────────── */(() => {
+          const own = !!state.purchases.autoCollect;
+          const en  = state.purchases.autoCollectEnabled !== false;
+          return `<div style="background:var(--bg);border:1px solid ${own ? (en ? 'var(--green)' : 'var(--border)') : 'var(--border)'};border-radius:var(--radius-sm);padding:10px;display:flex;gap:10px;align-items:flex-start">
+            <div style="font-size:22px;flex-shrink:0;${own && !en ? 'opacity:.4;filter:grayscale(1)' : ''}">🪙</div>
             <div style="flex:1">
-              <div style="font-family:var(--font-pixel);font-size:8px;color:${owned ? (enabled ? 'var(--green)' : 'var(--text-dim)') : 'var(--text)'};margin-bottom:3px">Scientifique peu scrupuleux</div>
-              <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">Permet la mutation artificielle : sacrifice d'un ★★★★★ même espèce pour porter un Pokémon au potentiel max.</div>
-              ${owned
+              <div style="font-family:var(--font-pixel);font-size:8px;color:${own ? (en ? 'var(--green)' : 'var(--text-dim)') : 'var(--text)'};margin-bottom:3px">Récolte automatique</div>
+              <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">Collecte les revenus de zone sans animation. Combat calculé en arrière-plan.</div>
+              ${own
                 ? `<div style="display:flex;align-items:center;gap:8px">
-                     <span style="font-family:var(--font-pixel);font-size:7px;color:${enabled ? 'var(--green)' : 'var(--text-dim)'}">${enabled ? '✓ EN POSTE' : '✗ RENVOYÉ'}</span>
-                     <button id="btnToggleScientist" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid ${enabled ? 'var(--red)' : 'var(--green)'};border-radius:var(--radius-sm);color:${enabled ? 'var(--red)' : 'var(--green)'};cursor:pointer">${enabled ? 'Renvoyer' : 'Rappeler'}</button>
+                     <span style="font-family:var(--font-pixel);font-size:7px;color:${en ? 'var(--green)' : 'var(--text-dim)'}">${en ? '✓ ACTIVE' : '✗ INACTIVE'}</span>
+                     <button id="btnToggleAutoCollect" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid ${en ? 'var(--red)' : 'var(--green)'};border-radius:var(--radius-sm);color:${en ? 'var(--red)' : 'var(--green)'};cursor:pointer">${en ? 'Désactiver' : 'Activer'}</button>
+                   </div>`
+                : `<button id="btnBuyAutoCollect" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">Acheter — 100 000₽</button>`}
+            </div>
+          </div>`;
+        })()}
+
+        ${/* ── Vente automatique (captures agents) ─────────────── */(() => {
+          const own = !!state.purchases.autoSellAgent;
+          const en  = state.purchases.autoSellAgentEnabled !== false;
+          return `<div style="background:var(--bg);border:1px solid ${own ? (en ? 'var(--green)' : 'var(--border)') : 'var(--border)'};border-radius:var(--radius-sm);padding:10px;display:flex;gap:10px;align-items:flex-start">
+            <div style="font-size:22px;flex-shrink:0;${own && !en ? 'opacity:.4;filter:grayscale(1)' : ''}">🤖</div>
+            <div style="flex:1">
+              <div style="font-family:var(--font-pixel);font-size:8px;color:${own ? (en ? 'var(--green)' : 'var(--text-dim)') : 'var(--text)'};margin-bottom:3px">Vente automatique (captures agent)</div>
+              <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">Vend automatiquement les Pokémon capturés par les agents. Shinies toujours protégés.</div>
+              ${own
+                ? `<div style="display:flex;flex-direction:column;gap:6px">
+                     <div style="display:flex;align-items:center;gap:8px">
+                       <span style="font-family:var(--font-pixel);font-size:7px;color:${en ? 'var(--green)' : 'var(--text-dim)'}">${en ? '✓ ACTIVE' : '✗ INACTIVE'}</span>
+                       <button id="btnToggleAutoSellAgent" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid ${en ? 'var(--red)' : 'var(--green)'};border-radius:var(--radius-sm);color:${en ? 'var(--red)' : 'var(--green)'};cursor:pointer">${en ? 'Désactiver' : 'Activer'}</button>
+                     </div>
+                     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                       <label style="display:flex;align-items:center;gap:4px;font-size:8px;cursor:pointer"><input type="radio" name="autoSellMode" value="all" ${(state.settings.autoSellAgent?.mode || 'all') === 'all' ? 'checked' : ''}> Tout vendre</label>
+                       <label style="display:flex;align-items:center;gap:4px;font-size:8px;cursor:pointer"><input type="radio" name="autoSellMode" value="by_potential" ${state.settings.autoSellAgent?.mode === 'by_potential' ? 'checked' : ''}> Par potentiel</label>
+                     </div>
+                     ${state.settings.autoSellAgent?.mode === 'by_potential' ? `<div style="display:flex;gap:6px;flex-wrap:wrap">${[1,2,3,4,5].map(p => `<label style="display:flex;align-items:center;gap:3px;font-size:8px;cursor:pointer"><input type="checkbox" class="autoSellPot" value="${p}" ${(state.settings.autoSellAgent?.potentials || []).includes(p) ? 'checked' : ''}> ${'★'.repeat(p)}</label>`).join('')}</div>` : ''}
+                   </div>`
+                : `<button id="btnBuyAutoSellAgent" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">Acheter — 10 000 000₽</button>`}
+            </div>
+          </div>`;
+        })()}
+
+        ${/* ── Infirmière Joëlle corrompue ─────────────────────── */(() => {
+          const own = !!state.purchases.autoIncubator;
+          const en  = state.purchases.autoIncubatorEnabled !== false;
+          return `<div style="background:var(--bg);border:1px solid ${own ? (en ? 'var(--green)' : 'var(--border)') : 'var(--border)'};border-radius:var(--radius-sm);padding:10px;display:flex;gap:10px;align-items:flex-start">
+            <img src="${trainerSprite('nurse')}" style="width:36px;height:36px;image-rendering:pixelated;flex-shrink:0;${own && !en ? 'opacity:.4;filter:grayscale(1)' : ''}" onerror="this.style.display='none'">
+            <div style="flex:1">
+              <div style="font-family:var(--font-pixel);font-size:8px;color:${own ? (en ? 'var(--green)' : 'var(--text-dim)') : 'var(--text)'};margin-bottom:3px">Infirmière Joëlle corrompue</div>
+              <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">Auto-incube les œufs dès qu'un incubateur est libre.</div>
+              ${own
+                ? `<div style="display:flex;align-items:center;gap:8px">
+                     <span style="font-family:var(--font-pixel);font-size:7px;color:${en ? 'var(--green)' : 'var(--text-dim)'}">${en ? '✓ EN POSTE' : '✗ CONGÉ'}</span>
+                     <button id="btnToggleNurse" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid ${en ? 'var(--red)' : 'var(--green)'};border-radius:var(--radius-sm);color:${en ? 'var(--red)' : 'var(--green)'};cursor:pointer">${en ? 'Mettre en congé' : 'Rappeler'}</button>
+                   </div>`
+                : `<button id="btnBuyNurse" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">Embaucher — 300 000₽</button>`}
+            </div>
+          </div>`;
+        })()}
+
+        ${/* ── Scientifique peu scrupuleux ─────────────────────── */(() => {
+          const own = !!state.purchases.scientist;
+          const en  = state.purchases.scientistEnabled !== false;
+          return `<div style="background:var(--bg);border:1px solid ${own ? (en ? 'var(--green)' : 'var(--border)') : 'var(--border)'};border-radius:var(--radius-sm);padding:10px;display:flex;gap:10px;align-items:flex-start">
+            <img src="${trainerSprite('scientist')}" style="width:36px;height:36px;image-rendering:pixelated;flex-shrink:0;${own && !en ? 'opacity:.4;filter:grayscale(1)' : ''}" onerror="this.style.display='none'">
+            <div style="flex:1">
+              <div style="font-family:var(--font-pixel);font-size:8px;color:${own ? (en ? 'var(--green)' : 'var(--text-dim)') : 'var(--text)'};margin-bottom:3px">Scientifique peu scrupuleux</div>
+              <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">Révèle l'espèce des œufs (10k₽) · Mutation artificielle : sacrifice ★★★★★ même espèce pour potentiel max.</div>
+              ${own
+                ? `<div style="display:flex;align-items:center;gap:8px">
+                     <span style="font-family:var(--font-pixel);font-size:7px;color:${en ? 'var(--green)' : 'var(--text-dim)'}">${en ? '✓ EN POSTE' : '✗ RENVOYÉ'}</span>
+                     <button id="btnToggleScientist" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid ${en ? 'var(--red)' : 'var(--green)'};border-radius:var(--radius-sm);color:${en ? 'var(--red)' : 'var(--green)'};cursor:pointer">${en ? 'Renvoyer' : 'Rappeler'}</button>
                    </div>`
                 : `<button id="btnBuyScientist" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">Engager — 5 000 000₽</button>`}
             </div>
           </div>`;
         })()}
+
+        ${/* ── 🛒 ACHATS SPÉCIAUX ──────────────────────────────── */(() => {
+          const SPECIALS = [
+            { id:'title_richissime',    icon:'💰', label:'Titre "Richissime"',       desc:'Débloque le titre légendaire. Ostentation maximale.',  cost:5_000_000,
+              owned:() => !!state.purchases.title_richissime || (state.unlockedTitles||[]).includes('richissime') },
+            { id:'title_doublerichissim', icon:'💎', label:'Titre "Double Richissime"', desc:'Débloque le titre ultime. Noblesse oblige.',           cost:10_000_000,
+              owned:() => !!state.purchases.title_doublerichissim || (state.unlockedTitles||[]).includes('doublerichissim') },
+            { id:'chromaCharm',         icon:'✨', label:'Charme Chroma',            desc:'Double le taux de Pokémon chromatiques. Permanent.',    cost:5_000_000,
+              owned:() => !!state.purchases.chromaCharm },
+          ];
+          return `<div>
+            <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold-dim);margin:4px 0 6px;letter-spacing:1px">🛒 ACHATS SPÉCIAUX</div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              ${SPECIALS.map(sp => {
+                const own = sp.owned();
+                return `<div style="background:var(--bg);border:1px solid ${own ? 'var(--green)' : 'var(--border)'};border-radius:var(--radius-sm);padding:8px;display:flex;gap:10px;align-items:center">
+                  <div style="font-size:20px;flex-shrink:0">${sp.icon}</div>
+                  <div style="flex:1">
+                    <div style="font-family:var(--font-pixel);font-size:8px;color:${own ? 'var(--green)' : 'var(--text)'};margin-bottom:2px">${sp.label}</div>
+                    <div style="font-size:7px;color:var(--text-dim)">${sp.desc}</div>
+                  </div>
+                  ${own
+                    ? `<div style="font-family:var(--font-pixel);font-size:7px;color:var(--green);white-space:nowrap">✓ ACTIF</div>`
+                    : `<button class="btn-special-buy" data-sp-id="${sp.id}" style="font-family:var(--font-pixel);font-size:7px;padding:4px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer;white-space:nowrap">${sp.cost.toLocaleString()}₽</button>`}
+                </div>`;
+              }).join('')}
+            </div>
+          </div>`;
+        })()}
+
       </div>
     </div>
 
@@ -3589,6 +3487,93 @@ function renderGangTab() {
     saveState();
     notify(state.purchases.scientistEnabled !== false ? '🧬 Scientifique rappelé !' : '🚫 Scientifique renvoyé.', 'success');
     renderGangTab();
+  });
+
+  // ── AutoCollect service handlers ──
+  tab.querySelector('#btnBuyAutoCollect')?.addEventListener('click', () => {
+    if (state.gang.money < 100_000) { notify('Fonds insuffisants.', 'error'); return; }
+    showConfirm('Acheter la <b>Récolte automatique</b> pour <b>100 000₽</b> ?<br><span style="font-size:10px;color:var(--text-dim)">Collecte les revenus de zone sans animation.</span>', () => {
+      state.gang.money -= 100_000;
+      state.purchases.autoCollect = true;
+      state.purchases.autoCollectEnabled = true;
+      saveState(); updateTopBar(); SFX.play('unlock');
+      notify('🪙 Récolte automatique activée !', 'gold');
+      renderGangTab();
+    }, null, { confirmLabel: 'Acheter', cancelLabel: 'Annuler' });
+  });
+  tab.querySelector('#btnToggleAutoCollect')?.addEventListener('click', () => {
+    state.purchases.autoCollectEnabled = state.purchases.autoCollectEnabled === false;
+    saveState();
+    notify(state.purchases.autoCollectEnabled !== false ? '🪙 Récolte automatique activée !' : '🚫 Récolte automatique désactivée.', '');
+    renderGangTab();
+  });
+
+  // ── AutoSellAgent service handlers ──
+  tab.querySelector('#btnBuyAutoSellAgent')?.addEventListener('click', () => {
+    if (state.gang.money < 10_000_000) { notify('Fonds insuffisants.', 'error'); return; }
+    showConfirm('Acheter la <b>Vente automatique</b> pour <b>10 000 000₽</b> ?<br><span style="font-size:10px;color:var(--text-dim)">Vend automatiquement les captures des agents. Shinies toujours protégés.</span>', () => {
+      state.gang.money -= 10_000_000;
+      state.purchases.autoSellAgent = true;
+      state.purchases.autoSellAgentEnabled = true;
+      if (!state.settings.autoSellAgent) state.settings.autoSellAgent = { mode: 'all', potentials: [] };
+      saveState(); updateTopBar(); SFX.play('unlock');
+      notify('🤖 Vente automatique activée !', 'gold');
+      renderGangTab();
+    }, null, { confirmLabel: 'Acheter', cancelLabel: 'Annuler' });
+  });
+  tab.querySelector('#btnToggleAutoSellAgent')?.addEventListener('click', () => {
+    state.purchases.autoSellAgentEnabled = state.purchases.autoSellAgentEnabled === false;
+    saveState();
+    notify(state.purchases.autoSellAgentEnabled !== false ? '🤖 Vente automatique activée !' : '🚫 Vente automatique désactivée.', '');
+    renderGangTab();
+  });
+
+  // ── Nurse (autoIncubator) service handlers ──
+  tab.querySelector('#btnBuyNurse')?.addEventListener('click', () => {
+    if (state.gang.money < 300_000) { notify('Fonds insuffisants.', 'error'); return; }
+    showConfirm('Embaucher l\'<b>Infirmière Joëlle</b> pour <b>300 000₽</b> ?<br><span style="font-size:10px;color:var(--text-dim)">Auto-incube les œufs dès qu\'un incubateur est libre.</span>', () => {
+      state.gang.money -= 300_000;
+      state.purchases.autoIncubator = true;
+      state.purchases.autoIncubatorEnabled = true;
+      saveState(); updateTopBar(); SFX.play('unlock');
+      notify('💉 Joëlle est en poste !', 'gold');
+      renderGangTab();
+    }, null, { confirmLabel: 'Embaucher', cancelLabel: 'Annuler' });
+  });
+  tab.querySelector('#btnToggleNurse')?.addEventListener('click', () => {
+    state.purchases.autoIncubatorEnabled = state.purchases.autoIncubatorEnabled === false;
+    saveState();
+    notify(state.purchases.autoIncubatorEnabled !== false ? '💉 Joëlle est de retour !' : '💤 Joëlle en congé.', '');
+    renderGangTab();
+  });
+
+  // ── Special purchases handlers ──
+  const SPECIAL_DEFS = {
+    title_richissime:     { cost: 5_000_000,  label: 'Titre "Richissime"' },
+    title_doublerichissim:{ cost: 10_000_000, label: 'Titre "Double Richissime"' },
+    chromaCharm:          { cost: 5_000_000,  label: 'Charme Chroma' },
+  };
+  tab.querySelectorAll('.btn-special-buy').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const spId = btn.dataset.spId;
+      const def  = SPECIAL_DEFS[spId];
+      if (!def) return;
+      if (state.gang.money < def.cost) { notify('Fonds insuffisants.', 'error'); return; }
+      showConfirm(`Acheter <b>${def.label}</b> pour <b>${def.cost.toLocaleString()}₽</b> ?`, () => {
+        state.gang.money -= def.cost;
+        state.purchases[spId] = true;
+        if (spId === 'title_richissime') {
+          if (!state.unlockedTitles) state.unlockedTitles = [];
+          if (!state.unlockedTitles.includes('richissime')) state.unlockedTitles.push('richissime');
+        } else if (spId === 'title_doublerichissim') {
+          if (!state.unlockedTitles) state.unlockedTitles = [];
+          if (!state.unlockedTitles.includes('doublerichissim')) state.unlockedTitles.push('doublerichissim');
+        }
+        saveState(); updateTopBar(); SFX.play('unlock');
+        notify(`✨ ${def.label} débloqué !`, 'gold');
+        renderGangTab();
+      }, null, { confirmLabel: 'Acheter', cancelLabel: 'Annuler' });
+    });
   });
 
   // ── Handlers ──
@@ -3828,12 +3813,20 @@ function _refreshZoneTile(zoneId)       { _zsRefreshTile(zoneId); }
 function _refreshZoneIncomeTile(zoneId) { _zsRefreshIncome(zoneId); }
 function _updateZoneButtons()           { _zsUpdateButtons(); }
 
-// ── Background zone simulation ─────────────────────────────────
-// Zones fermées avec ≥1 agent : tick au vrai spawnRate, résolution silencieuse.
-// État zone : Open (fenêtre visible) | Closed+agent (background) | Inactive (rien)
-function startBackgroundZone(zoneId) { return globalThis._zsys_startBackgroundZone(zoneId); }
-function stopBackgroundZone(zoneId)  { return globalThis._zsys_stopBackgroundZone(zoneId); }
-function syncBackgroundZones()       { return globalThis._zsys_syncBackgroundZones(); }
+// ── Zone active/paused model ────────────────────────────────────
+// Active  = zone ouverte OU ≥1 agent assigné → timer unifié dans zoneTimers
+// Pausée  = ni ouverte ni agent → aucun calcul (délai de grâce 5 s à la fermeture)
+// Les wrappers appellent les clés _zsys_* pour éviter la récursion infinie :
+// le grand Object.assign final écrase globalThis.startActiveZone avec ces wrappers,
+// mais _zsys_startActiveZone reste toujours la vraie fonction de zoneSystem.js.
+function startActiveZone(zoneId)  { return globalThis._zsys_startActiveZone(zoneId); }
+function stopActiveZone(zoneId)   { return globalThis._zsys_stopActiveZone(zoneId); }
+function pauseZoneIfIdle(zoneId)  { return globalThis._zsys_pauseZoneIfIdle(zoneId); }
+function syncActiveZones()        { return globalThis._zsys_syncActiveZones(); }
+// Aliases (rétrocompatibilité)
+function startBackgroundZone(zoneId) { return globalThis._zsys_startActiveZone(zoneId); }
+function stopBackgroundZone(zoneId)  { return globalThis._zsys_stopActiveZone(zoneId); }
+function syncBackgroundZones()       { return globalThis._zsys_syncActiveZones(); }
 
 function openZoneWindow(zoneId)  { return globalThis._zwin_openZoneWindow(zoneId); }
 function closeZoneWindow(zoneId) { return globalThis._zwin_closeZoneWindow(zoneId); }
@@ -4597,7 +4590,9 @@ function renderShopPanel() {
 // ════════════════════════════════════════════════════════════════
 
 let pcSelectedId = null;
-let pcSelectedIds = new Set(); // Ctrl+click multi-selection
+let pcSelectedIds = new Set(); // Ctrl/Shift+click multi-selection
+let _pcLastClickedIdx = -1;   // ancre pour la sélection par plage (Shift+click)
+let _pcSelectedGroups = new Set(); // multi-sélection en mode groupé
 let pcPage = 0;
 const PC_PAGE_SIZE = 36;
 let pcGridCols = 6;   // colonnes de la grille (configurable)
@@ -4790,6 +4785,130 @@ function addBattleLogEntry(entry) {
   });
 }
 
+function openBulkSellModal() {
+  const existing = document.getElementById('bulkSellModal');
+  if (existing) existing.remove();
+
+  // Compute the set of protected Pokémon IDs
+  const teamIds = new Set([...state.gang.bossTeam]);
+  for (const a of state.agents) a.team.forEach(id => teamIds.add(id));
+  const trainingIds = new Set(state.trainingRoom?.pokemon || []);
+  const pensionIds  = getPensionSlotIds();
+
+  // Default filter state
+  let potFilter    = new Set([1, 2]);    // potentials to sell
+  let keepBest     = true;               // keep ≥1 top-potential per species
+  let keepFav      = true;
+  let keepTeam     = true;              // covers team + training + pension
+
+  function computeSellList() {
+    return state.pokemons.filter(pk => {
+      if (pk.shiny)                              return false;
+      if (!potFilter.has(pk.potential))          return false;
+      if (keepFav  && pk.favorite)               return false;
+      if (keepTeam && (teamIds.has(pk.id) || trainingIds.has(pk.id) || pensionIds.has(pk.id))) return false;
+      if (keepBest) {
+        // Keep this pokémon if it is the top-potential non-shiny non-protected of its species
+        const best = state.pokemons
+          .filter(p => p.species_en === pk.species_en && !p.shiny
+            && !teamIds.has(p.id) && !trainingIds.has(p.id) && !pensionIds.has(p.id))
+          .reduce((a, b) => (b.potential > a.potential ? b : a), pk);
+        if (pk.id === best.id) return false;
+      }
+      return true;
+    });
+  }
+
+  const modal = document.createElement('div');
+  modal.id = 'bulkSellModal';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,.82);display:flex;align-items:center;justify-content:center;';
+
+  function buildHTML() {
+    const list  = computeSellList();
+    const total = list.reduce((s, pk) => s + calculatePrice(pk), 0);
+    const potLabels = [1, 2, 3, 4, 5].map(n =>
+      `<label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:9px">
+        <input type="checkbox" data-pot="${n}" ${potFilter.has(n) ? 'checked' : ''} style="accent-color:var(--gold)">
+        ${'★'.repeat(n)}
+      </label>`
+    ).join('');
+
+    return `<div style="background:var(--bg-panel);border:2px solid var(--gold-dim);border-radius:var(--radius);padding:22px 24px;max-width:380px;width:92%;display:flex;flex-direction:column;gap:14px;font-family:var(--font-pixel)">
+      <div style="font-size:12px;color:var(--gold)">💸 Vente en masse</div>
+
+      <div>
+        <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">VENDRE LES POTENTIELS</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">${potLabels}</div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:9px">
+          <input type="checkbox" id="bsmKeepBest" ${keepBest ? 'checked' : ''} style="accent-color:var(--gold)">
+          Garder le meilleur de chaque espèce
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:9px">
+          <input type="checkbox" id="bsmKeepFav" ${keepFav ? 'checked' : ''} style="accent-color:var(--gold)">
+          Garder les favoris
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:9px">
+          <input type="checkbox" id="bsmKeepTeam" ${keepTeam ? 'checked' : ''} style="accent-color:var(--gold)">
+          Garder équipes / entraînement / pension
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:default;font-size:9px;opacity:.55">
+          <input type="checkbox" checked disabled style="accent-color:var(--gold)">
+          ✨ Garder les chromatiques (toujours)
+        </label>
+      </div>
+
+      <div id="bsmPreview" style="padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);text-align:center">
+        <span style="font-size:11px;color:var(--gold)">${list.length} Pokémon — ${total.toLocaleString()}₽</span>
+      </div>
+
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button id="bsmCancel" style="font-size:9px;padding:8px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">Annuler</button>
+        <button id="bsmSell" style="font-size:9px;padding:8px 14px;background:var(--red-dark);border:1px solid var(--red);border-radius:var(--radius-sm);color:#fff;cursor:pointer" ${list.length === 0 ? 'disabled style="opacity:.4"' : ''}>
+          Vendre ${list.length}
+        </button>
+      </div>
+    </div>`;
+  }
+
+  function refresh() {
+    modal.innerHTML = buildHTML();
+    bindModalEvents();
+  }
+
+  function bindModalEvents() {
+    modal.querySelectorAll('[data-pot]').forEach(cb => {
+      cb.addEventListener('change', () => {
+        const n = parseInt(cb.dataset.pot);
+        cb.checked ? potFilter.add(n) : potFilter.delete(n);
+        refresh();
+      });
+    });
+    document.getElementById('bsmKeepBest')?.addEventListener('change',  e => { keepBest  = e.target.checked; refresh(); });
+    document.getElementById('bsmKeepFav')?.addEventListener('change',   e => { keepFav   = e.target.checked; refresh(); });
+    document.getElementById('bsmKeepTeam')?.addEventListener('change',  e => { keepTeam  = e.target.checked; refresh(); });
+    document.getElementById('bsmCancel')?.addEventListener('click', () => modal.remove());
+    document.getElementById('bsmSell')?.addEventListener('click', () => {
+      const list = computeSellList();
+      if (!list.length) return;
+      const total = list.reduce((s, pk) => s + calculatePrice(pk), 0);
+      modal.remove();
+      showConfirm(
+        `Vendre <b>${list.length}</b> Pokémon pour <b style="color:var(--gold)">${total.toLocaleString()}₽</b> ?<br><span style="color:var(--text-dim);font-size:10px">Shinies et favoris exclus.</span>`,
+        () => { sellPokemon(list.map(pk => pk.id)); _pcLastRenderKey = ''; updateTopBar(); renderPCTab(); },
+        null, { confirmLabel: 'Vendre', cancelLabel: 'Annuler', danger: true }
+      );
+    });
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  }
+
+  modal.innerHTML = buildHTML();
+  document.body.appendChild(modal);
+  bindModalEvents();
+}
+
 function renderPCTab() {
   // Inject view switcher if not present
   const pcLayout = document.querySelector('#tabPC .pc-layout');
@@ -4892,7 +5011,10 @@ function renderPCTab() {
       <label style="display:flex;align-items:center;gap:4px;font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);cursor:pointer;user-select:none">
         <input type="checkbox" id="pcGroupChk" ${pcGroupMode?'checked':''} style="accent-color:var(--gold)">
         Grouper
-      </label>`;
+      </label>
+      <div style="flex:1"></div>
+      <button id="pcBtnSelectPage" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer" title="Sélectionner toute la page (ou Shift+Clic sur les cartes)">☐ Tout</button>
+      <button id="pcBtnBulkSell" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">💸 Vendre max</button>`;
     document.getElementById('pcColsSel')?.addEventListener('change', e => {
       pcGridCols = parseInt(e.target.value); pcPage = 0; renderPokemonGrid(true);
     });
@@ -4902,8 +5024,21 @@ function renderPCTab() {
     document.getElementById('pcGroupChk')?.addEventListener('change', e => {
       pcGroupMode = e.target.checked;
       pcGroupSpecies = null; pcPage = 0;
+      _pcSelectedGroups.clear(); _pcLastClickedIdx = -1;
       renderPokemonGrid(true); renderPokemonDetail();
     });
+    document.getElementById('pcBtnSelectPage')?.addEventListener('click', () => {
+      const cards = [...document.querySelectorAll('#pcGrid .pc-pokemon')];
+      if (!cards.length) return;
+      const allSelected = cards.every(c => pcSelectedIds.has(c.dataset.pkId));
+      if (allSelected) {
+        cards.forEach(c => { pcSelectedIds.delete(c.dataset.pkId); c.classList.remove('multi-selected'); });
+      } else {
+        cards.forEach(c => { pcSelectedIds.add(c.dataset.pkId); c.classList.add('multi-selected'); });
+      }
+      renderPokemonDetail();
+    });
+    document.getElementById('pcBtnBulkSell')?.addEventListener('click', openBulkSellModal);
   }
 
   renderPokemonGrid();
@@ -5202,7 +5337,16 @@ function _buildPCCard(p, teamIds, trainingIds, pensionIds) {
 
 function _bindPCCardListeners(el) {
   el.addEventListener('click', (e) => {
-    if (e.ctrlKey || e.metaKey) {
+    const cards = [...document.querySelectorAll('#pcGrid .pc-pokemon')];
+    const idx   = cards.indexOf(el);
+
+    if (e.shiftKey && _pcLastClickedIdx >= 0 && idx >= 0) {
+      // Shift+Click : sélection de plage
+      const lo = Math.min(_pcLastClickedIdx, idx);
+      const hi = Math.max(_pcLastClickedIdx, idx);
+      cards.slice(lo, hi + 1).forEach(c => { pcSelectedIds.add(c.dataset.pkId); c.classList.add('multi-selected'); });
+      renderPokemonDetail();
+    } else if (e.ctrlKey || e.metaKey) {
       // Ctrl+Click : basculer la multi-sélection sans rebuild complet
       const id = el.dataset.pkId;
       if (pcSelectedIds.has(id)) {
@@ -5212,6 +5356,7 @@ function _bindPCCardListeners(el) {
         pcSelectedIds.add(id);
         el.classList.add('multi-selected');
       }
+      _pcLastClickedIdx = idx;
       renderPokemonDetail();
     } else {
       // Clic normal : effacer la multi-sélection, sélectionner ce Pokémon
@@ -5219,6 +5364,7 @@ function _bindPCCardListeners(el) {
         pcSelectedIds.clear();
         document.querySelectorAll('.pc-pokemon.multi-selected').forEach(c => c.classList.remove('multi-selected'));
       }
+      _pcLastClickedIdx = idx;
       pcSelectedId = el.dataset.pkId;
       renderPCTab();
     }
@@ -5383,11 +5529,25 @@ function renderPokemonGrid(forceRebuild = false) {
       }).join('') || '<div style="color:var(--text-dim);padding:16px;grid-column:1/-1;text-align:center">Aucun Pokémon</div>';
 
       grid.querySelectorAll('.pc-group-card').forEach(el => {
-        el.addEventListener('click', () => {
-          pcGroupSpecies = el.dataset.groupSpecies;
-          _grpPotFilter = 0; // reset potential filter on species change
-          renderPokemonGrid(true);
-          renderPokemonDetailGroup(pcGroupSpecies);
+        el.addEventListener('click', (e) => {
+          const species = el.dataset.groupSpecies;
+          if (e.ctrlKey || e.metaKey) {
+            // Ctrl+Click : multi-sélection de groupes
+            if (_pcSelectedGroups.has(species)) {
+              _pcSelectedGroups.delete(species);
+              el.style.border = '2px solid var(--border)';
+            } else {
+              _pcSelectedGroups.add(species);
+              el.style.border = '2px solid var(--gold)';
+            }
+            renderPokemonDetail();
+          } else {
+            _pcSelectedGroups.clear();
+            pcGroupSpecies = species;
+            _grpPotFilter = 0;
+            renderPokemonGrid(true);
+            renderPokemonDetailGroup(pcGroupSpecies);
+          }
         });
       });
 
@@ -5574,7 +5734,58 @@ function renderPokemonDetail() {
   const panel = document.getElementById('pokemonDetail');
   if (!panel) return;
 
-  // ── Mode groupe ───────────────────────────────────────────────
+  // ── Mode groupe — multi-sélection de groupes (Ctrl+Clic) ─────
+  if (pcGroupMode && _pcSelectedGroups.size > 0) {
+    panel.classList.remove('hidden');
+    const tIds = new Set([...state.gang.bossTeam]);
+    for (const a of state.agents) a.team.forEach(id => tIds.add(id));
+    const allPks = [..._pcSelectedGroups].flatMap(sp =>
+      state.pokemons.filter(p => p.species_en === sp)
+    );
+    const sellable = allPks.filter(pk => !pk.shiny && !pk.favorite && !tIds.has(pk.id));
+    const totalValue = sellable.reduce((s, pk) => s + calculatePrice(pk), 0);
+    const shinyCount = allPks.filter(p => p.shiny).length;
+
+    panel.innerHTML = `
+      <div style="padding:10px;font-family:var(--font-pixel)">
+        <div style="font-size:11px;color:var(--gold);margin-bottom:4px">${_pcSelectedGroups.size} espèces sélectionnées</div>
+        <div style="font-size:8px;color:var(--text-dim);margin-bottom:8px">Ctrl+Clic pour ajouter/retirer des espèces</div>
+        <div style="display:flex;flex-wrap:wrap;gap:3px;justify-content:center;margin-bottom:10px">
+          ${[..._pcSelectedGroups].slice(0, 10).map(sp => `<img src="${pokeSprite(sp, false)}" style="width:32px;height:32px">`).join('')}
+          ${_pcSelectedGroups.size > 10 ? `<div style="font-size:9px;color:var(--text-dim);align-self:center">+${_pcSelectedGroups.size - 10}</div>` : ''}
+        </div>
+        <div style="font-size:8px;color:var(--text-dim);margin-bottom:8px">
+          ${allPks.length} Pokémon au total — ${sellable.length} vendables
+          ${shinyCount > 0 ? `<br><span style="color:var(--gold)">✨×${shinyCount} exclu${shinyCount > 1 ? 's' : ''}</span>` : ''}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          ${sellable.length > 0 ? `
+          <button id="btnSellGroupMulti" style="width:100%;font-size:9px;padding:6px;background:var(--red-dark);border:1px solid var(--red);border-radius:var(--radius-sm);color:var(--text);cursor:pointer">
+            Vendre ${sellable.length} Pokémon (${totalValue.toLocaleString()}₽)
+          </button>` : ''}
+          <button id="btnClearGroupMulti" style="width:100%;font-size:9px;padding:5px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">
+            Annuler la sélection
+          </button>
+        </div>
+      </div>`;
+
+    document.getElementById('btnSellGroupMulti')?.addEventListener('click', () => {
+      const ids = sellable.map(pk => pk.id);
+      showConfirm(`Vendre <b>${ids.length}</b> Pokémon (${[..._pcSelectedGroups].map(sp => speciesName(sp)).join(', ')}) pour <b style="color:var(--gold)">${totalValue.toLocaleString()}₽</b> ?`, () => {
+        sellPokemon(ids);
+        _pcSelectedGroups.clear();
+        _pcLastRenderKey = '';
+        updateTopBar(); renderPCTab();
+      }, null, { confirmLabel: 'Vendre', cancelLabel: 'Annuler', danger: true });
+    });
+    document.getElementById('btnClearGroupMulti')?.addEventListener('click', () => {
+      _pcSelectedGroups.clear();
+      renderPokemonGrid(true); renderPokemonDetail();
+    });
+    return;
+  }
+
+  // ── Mode groupe — espèce unique sélectionnée ──────────────────
   if (pcGroupMode && pcGroupSpecies) {
     renderPokemonDetailGroup(pcGroupSpecies);
     return;
@@ -9047,8 +9258,8 @@ function startGameLoop() {
   // Cloud save every hour (dirty-checked — skipped if nothing changed)
   setInterval(supaCloudSave, 60 * 60 * 1000);
 
-  // Snapshot check every hour — supaWriteSnapshot() throttles itself to 30 min internally
-  setInterval(supaWriteSnapshot, 60 * 60 * 1000);
+  // Snapshot every 6 h — internally throttled + fingerprint-guarded (skipped if no new progress)
+  setInterval(supaWriteSnapshot, 6 * 60 * 60 * 1000);
 
   // Leaderboard push every 2h, only if player was active since last push
   setInterval(() => {
@@ -9237,16 +9448,17 @@ async function supaSignOut() {
 }
 
 // ── Cloud Save ────────────────────────────────────────────────────
-// Dirty-check fingerprint for cloud save — avoids upsert when nothing changed
+// Dirty-check fingerprint for cloud save — avoids upsert when nothing changed.
+// Intentionally excludes _savedAt (changes every 10 s even when idle) so the
+// check reflects actual gameplay progress, not just the local-save heartbeat.
 let _cloudSaveFingerprint = '';
 
 async function supaCloudSave() {
   if (!_supabase || !supaSession) return;
   if (supaSyncing) return;
 
-  // Skip the upsert if key stats haven't changed since the last successful cloud write.
-  // Uses the same fields as the leaderboard fingerprint + pokémon count + money.
-  const fp = `${state.gang.reputation}|${state.stats?.totalCaught}|${state.pokemons?.length}|${state.gang.money}|${state._savedAt}`;
+  // Skip the upsert if key gameplay values haven't changed since the last cloud write.
+  const fp = `${state.gang.reputation}|${state.stats?.totalCaught}|${state.pokemons?.length}|${state.gang.money}`;
   if (fp === _cloudSaveFingerprint) return;
 
   supaSyncing = true;
@@ -9335,17 +9547,20 @@ async function supaForceCloudLoad() {
 const MAX_SNAPSHOTS = 2;
 let _snapshotCount = -1; // -1 = unknown (fetched lazily); avoids SELECT on every write
 
-// Snapshot throttle — one snapshot per session at most every 30 minutes.
-// The 5-min game loop calls this but the guard prevents actual DB writes more often.
+// Snapshot throttle — at most one every 6 hours, and only when gameplay has
+// progressed since the previous snapshot (reuses the cloud-save fingerprint).
 let _lastSnapshotAt = 0;
-const SNAPSHOT_THROTTLE_MS = 30 * 60 * 1000; // 30 min minimum between snapshots
+let _lastSnapshotFingerprint = '';
+const SNAPSHOT_THROTTLE_MS = 6 * 60 * 60 * 1000; // 6 h — max 4 snapshots/day
 
 async function supaWriteSnapshot() {
   if (!_supabase || !supaSession) return;
 
-  // Rate-limit to one snapshot per 30 minutes (previously fired every 5 min)
   const now = Date.now();
   if (now - _lastSnapshotAt < SNAPSHOT_THROTTLE_MS) return;
+
+  // Skip if no meaningful gameplay progress since the last snapshot.
+  if (!_cloudSaveFingerprint || _cloudSaveFingerprint === _lastSnapshotFingerprint) return;
 
   try {
     // Slim the payload — same as cloud save and localStorage
@@ -9363,6 +9578,7 @@ async function supaWriteSnapshot() {
     if (error) return;
 
     _lastSnapshotAt = now;
+    _lastSnapshotFingerprint = _cloudSaveFingerprint; // mark progress committed
 
     // Track count client-side to avoid a SELECT on every write
     if (_snapshotCount < 0) {
@@ -10128,7 +10344,8 @@ Object.assign(globalThis, {
   triggerGymRaid, investInZone,
   tryCapture, calculateStats, showCaptureBurst,
   checkForNewlyUnlockedZones, showZoneUnlockPopup, _processZoneUnlockQueue,
-  startBackgroundZone, stopBackgroundZone, syncBackgroundZones,
+  startActiveZone, stopActiveZone, pauseZoneIfIdle, syncActiveZones,
+  startBackgroundZone, stopBackgroundZone, syncBackgroundZones, // aliases
   activateEvent, isBallAssistActive, clamp, getTeamPower,
   SPECIAL_TRAINER_KEYS,
   // Zone UI — fenêtres (zoneWindows.js)
@@ -10342,11 +10559,7 @@ function boot() {
       openZones.add(zId);
       initZone(zId);
       zoneSpawns[zId] = [];
-      const zone = ZONE_BY_ID[zId];
-      if (zone) {
-        const interval = Math.round(1000 / zone.spawnRate);
-        zoneSpawnTimers[zId] = setInterval(() => tickZoneSpawn(zId), interval);
-      }
+      startActiveZone(zId); // timer unifié (tickZoneSpawn car zone ouverte)
       if (!state.openZoneOrder) state.openZoneOrder = [];
       if (!state.openZoneOrder.includes(zId)) state.openZoneOrder.push(zId);
     }
