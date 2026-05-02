@@ -91,10 +91,7 @@ function getOpenZones() {
 function resetTransientSelections() {
   if (typeof settingsContext.resetTransientSelections === 'function') {
     settingsContext.resetTransientSelections();
-    return;
   }
-  globalThis.pcSelectedId = null;
-  globalThis.pcSelectedIds?.clear?.();
 }
 // ════════════════════════════════════════════════════════════════
 // 20.  UI — SETTINGS MODAL

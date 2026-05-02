@@ -73,7 +73,10 @@ import {
   renderPokemonDetailGroup,
   renderPokemonGrid,
   renderPokemonHistory,
+  resetPcRenderCache,
+  resetPcSelection,
   showContextMenu,
+  setPcPage,
   tryAutoIncubate,
 } from './modules/ui/pcPokedex.js';
 import {
@@ -181,21 +184,18 @@ function setActiveSaveSlotValue(value, { persist = false } = {}) {
   if (persist) localStorage.setItem('pokeforge.activeSlot', String(activeSaveSlot));
   return activeSaveSlot;
 }
-Object.defineProperty(globalThis, 'activeSaveSlot', {
-  get: () => activeSaveSlot,
-  set: value => setActiveSaveSlotValue(value),
-  configurable: true,
-});
-
 // Résultat de migration exposé au boot pour afficher le banner
 let _migrationResult = null; // null | { from: string, fields: string[] }
 
 let state = createDefaultState();
-globalThis.state = state;
+Object.defineProperty(globalThis, 'state', {
+  get: () => state,
+  set: nextState => { state = nextState; },
+  configurable: true,
+});
 
 function setState(nextState) {
   state = nextState;
-  globalThis.state = state;
   return state;
 }
 
@@ -208,7 +208,6 @@ function stateManagementContext() {
     localStorage,
     getState: () => state,
     setState,
-    syncGlobalState: s => { globalThis.state = s; },
     getSaveKey: () => SAVE_KEY,
     getActiveSaveSlot: () => activeSaveSlot,
     setMigrationResult: result => { _migrationResult = result; },
@@ -1451,7 +1450,7 @@ function tryAutoEvolution(pokemon) {
   // Multiple choices + manual mode: show card popup
   showEvolutionChoicePopup(pokemon, valid, targetEN => {
     evolvePokemon(pokemon, targetEN);
-    _pcLastRenderKey = '';
+    resetPcRenderCache();
     if (activeTab === 'tabPC') renderPCTab();
   });
   return false; // evolution pending user choice
@@ -2198,11 +2197,9 @@ function initKeyboardShortcuts() {
 }
 
 function switchTab(tabId) {
-  if (tabId !== 'tabPC') _pcLastRenderKey = ''; // force full rebuild on next PC visit
+  if (tabId !== 'tabPC') resetPcRenderCache(); // force full rebuild on next PC visit
   SFX.play('tabSwitch');
   activeTab = tabId;
-  globalThis.activeTab = activeTab;
-  globalThis.pcView = pcView; // sync in case pcView changed before this call
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.tab === tabId);
   });
@@ -5787,7 +5784,7 @@ function renderLabTabInEl(tab) {
     state.pokemons = state.pokemons.filter(p => !toSacrifice.includes(p.id));
     selected.potential++;
     saveState();
-    _pcLastRenderKey = '';
+    resetPcRenderCache();
     notify(`${speciesName(selected.species_en)} est maintenant ${'★'.repeat(selected.potential)} !`, 'gold');
     if (pcView === 'lab') renderPCTab(); else renderLabTab();
     updateTopBar();
@@ -6314,10 +6311,7 @@ configureSettingsModal({
   tryCheatCode,
   detectLLM: (...args) => globalThis.detectLLM?.(...args),
   renderAll,
-  resetTransientSelections: () => {
-    globalThis.pcSelectedId = null;
-    globalThis.pcSelectedIds?.clear?.();
-  },
+  resetTransientSelections: resetPcSelection,
 });
 
 // ── Intercepteur global des rejets non gérés GoTrue ──────────────────
@@ -6409,13 +6403,13 @@ function boot() {
       document.getElementById('pcSearch').value = '';
       return;
     }
-    if (activeTab === 'tabPC') { pcPage = 0; renderPokemonGrid(true); }
+    if (activeTab === 'tabPC') { setPcPage(0); renderPokemonGrid(true); }
   });
   document.getElementById('pcSort')?.addEventListener('change', () => {
-    if (activeTab === 'tabPC') { pcPage = 0; renderPokemonGrid(true); }
+    if (activeTab === 'tabPC') { setPcPage(0); renderPokemonGrid(true); }
   });
   document.getElementById('pcFilter')?.addEventListener('change', () => {
-    if (activeTab === 'tabPC') { pcPage = 0; renderPokemonGrid(true); }
+    if (activeTab === 'tabPC') { setPcPage(0); renderPokemonGrid(true); }
   });
 
   // Info buttons (ℹ on tab nav)

@@ -31,6 +31,11 @@ const _mkTitleExec = (titleId) => (claim) => {
   if (typeof renderCosmeticsTab === 'function' && activeTab === 'tabCosmetics') renderCosmeticsTab();
 };
 
+function refreshPcGridAfterSecretReward() {
+  globalThis.resetPcRenderCache?.();
+  renderPokemonGrid(true);
+}
+
 const SECRET_CODES = {
   'MERCIDAVOIRJOUEMONJEU': {
     key: 'code_missingno',
@@ -47,7 +52,7 @@ const SECRET_CODES = {
       claim();
       saveState();
       notify('👾 MissingNo a rejoint ton PC ! Le tissu du jeu tremble…', 'gold');
-      _pcLastRenderKey = ''; renderPokemonGrid(true);
+      refreshPcGridAfterSecretReward();
     }
   },
   'POKEGANGSTARTER': {
@@ -69,7 +74,7 @@ const SECRET_CODES = {
             state.pokemons.push(p);
             claim(); saveState();
             notify(`🎁 ${spDef?.fr || sp}${shiny ? ' ✨' : ''} a rejoint ton PC !`, 'gold');
-            _pcLastRenderKey = ''; renderPokemonGrid(true);
+            refreshPcGridAfterSecretReward();
           }
         };
       });
@@ -122,7 +127,7 @@ const SECRET_CODES = {
           state.pokemons.push(p);
           claim(); saveState();
           notify(`⚡ Pikachu${shiny ? ' ✨' : ''} — ${opt.bonus} — a rejoint ton PC !`, 'gold');
-          _pcLastRenderKey = ''; renderPokemonGrid(true);
+          refreshPcGridAfterSecretReward();
         }
       }));
       showRewardChoicePopup('⚡ Choisis ton Pikachu !', 'Chaque version est unique.', choices);

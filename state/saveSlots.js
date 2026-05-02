@@ -19,14 +19,16 @@ function getSaveKeys() {
 }
 
 function getActiveSaveSlot() {
-  return saveSlotContext.getActiveSaveSlot?.() ?? globalThis.activeSaveSlot ?? 0;
+  if (saveSlotContext.getActiveSaveSlot) return saveSlotContext.getActiveSaveSlot();
+  const raw = Number(globalThis.localStorage?.getItem('pokeforge.activeSlot') || 0);
+  return Math.min(2, Math.max(0, Number.isFinite(raw) ? raw : 0));
 }
 
 function setActiveSaveSlot(slotIdx) {
   if (saveSlotContext.setActiveSaveSlot) return saveSlotContext.setActiveSaveSlot(slotIdx);
-  globalThis.activeSaveSlot = slotIdx;
-  globalThis.localStorage?.setItem('pokeforge.activeSlot', String(slotIdx));
-  return slotIdx;
+  const nextSlot = Math.min(2, Math.max(0, Number(slotIdx) || 0));
+  globalThis.localStorage?.setItem('pokeforge.activeSlot', String(nextSlot));
+  return nextSlot;
 }
 
 function getStorage() {

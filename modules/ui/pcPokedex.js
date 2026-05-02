@@ -46,8 +46,6 @@ function getPcView() {
 function setPcView(value) {
   if (pcPokedexContext.setPcView) {
     pcPokedexContext.setPcView(value);
-  } else {
-    globalThis.pcView = value;
   }
   return value;
 }
@@ -261,6 +259,22 @@ let pcGridRows = 6;   // lignes par page (configurable)
 let pcGroupMode = false; // regroupement par espèce
 let pcGroupSpecies = null; // espèce sélectionnée en mode groupe
 let _pcLastRenderKey = ''; // tracks last filter/sort/page combo to avoid unnecessary rebuilds
+
+function resetPcSelection() {
+  pcSelectedId = null;
+  pcSelectedIds.clear();
+  _pcLastClickedIdx = -1;
+  _pcSelectedGroups.clear();
+}
+
+function resetPcRenderCache() {
+  _pcLastRenderKey = '';
+}
+
+function setPcPage(value = 0) {
+  pcPage = Math.max(0, Number(value) || 0);
+  return pcPage;
+}
 
 // ── Filter PC to a specific species (from detail panel or Pokédex) ──
 function filterPCBySpecies(species_en) {
@@ -2590,15 +2604,9 @@ function renderPokedexTab() {
 
 // ════════════════════════════════════════════════════════════════
 
-Object.defineProperties(globalThis, {
-  pcSelectedId: { get: () => pcSelectedId, set: value => { pcSelectedId = value; }, configurable: true },
-  pcSelectedIds: { get: () => pcSelectedIds, set: value => { pcSelectedIds = value; }, configurable: true },
-  pcPage: { get: () => pcPage, set: value => { pcPage = value; }, configurable: true },
-  _pcLastRenderKey: { get: () => _pcLastRenderKey, set: value => { _pcLastRenderKey = value; }, configurable: true },
-});
-
 Object.assign(globalThis, {
   configurePcPokedex,
+  resetPcRenderCache,
   filterPCBySpecies, showContextMenu, closeContextMenu,
   pushFeedEvent, renderEventsTab, addBattleLogEntry,
   openBulkSellModal, tryAutoIncubate, hatchEgg, renderEggsView,
@@ -2610,6 +2618,7 @@ Object.assign(globalThis, {
 
 export {
   configurePcPokedex,
+  resetPcSelection, resetPcRenderCache, setPcPage,
   filterPCBySpecies, showContextMenu, closeContextMenu,
   pushFeedEvent, renderEventsTab, addBattleLogEntry,
   openBulkSellModal, tryAutoIncubate, hatchEgg, renderEggsView,

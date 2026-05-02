@@ -24,7 +24,6 @@ export function slimPokemon(p) {
 
 export function saveState(ctx) {
   const state = ctx.getState();
-  ctx.syncGlobalState?.(state);
   if (!state.marketSales) state.marketSales = {};
   ctx.setPlayerWasActive?.(true);
 

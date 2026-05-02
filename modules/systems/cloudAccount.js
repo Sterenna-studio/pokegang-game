@@ -23,7 +23,9 @@ function getActiveTab() {
 }
 
 function getActiveSaveSlot() {
-  return cloudContext.getActiveSaveSlot?.() ?? globalThis.activeSaveSlot ?? 0;
+  if (cloudContext.getActiveSaveSlot) return cloudContext.getActiveSaveSlot();
+  const raw = Number(getStorage()?.getItem?.('pokeforge.activeSlot') || 0);
+  return Math.min(2, Math.max(0, Number.isFinite(raw) ? raw : 0));
 }
 
 function getSupabaseConfig() {
