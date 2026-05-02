@@ -7,10 +7,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Development
 
 ```bash
-npm run dev   # serve on localhost:8080 — no build step, pure static files
+py -m http.server 8080
 ```
 
-No bundler, no transpiler. Open `http://localhost:8080/` directly in Chrome or Firefox. Changes to any file are live on refresh.
+No bundler, no transpiler, no `package.json` at the moment. Any static server is enough. Open `http://localhost:8080/` in Chrome or Firefox. Changes to any file are live on refresh.
+
+`index.html` loads an optional local `config.js` for Supabase credentials. The game still boots without that file; the browser may simply report a 404 for it in local dev.
 
 ---
 
@@ -23,7 +25,7 @@ Single-page idle/management game. No framework, no reactive system. Everything i
 | File | Role |
 |---|---|
 | `index.html` | HTML shell — tab structure, static DOM anchors, script tags |
-| `app.js` | 12 000-line ES module — core engine (state, rendering, game logic) |
+| `app.js` | Large ES module — core engine (state, rendering, game logic) |
 | `css/base.css` | CSS custom properties (design tokens) + reset |
 | `css/game-ui.css` | All component styles |
 | `css/intro.css` | Intro/onboarding screen only |
@@ -33,9 +35,12 @@ Single-page idle/management game. No framework, no reactive system. Everything i
 `index.html` loads data files as **classic `<script>` tags** before `app.js`:
 
 ```
+config.js               → optional SUPABASE_URL, SUPABASE_ANON_KEY
+data/loaders.js         → sprite JSON loader helpers on window
 data/zones-data.js       → const ZONES, ZONE_BY_ID, ZONE_MUSIC_MAP
 data/species-data.js     → const POKEMON_GEN1, SPECIES_BY_EN
 data/evolutions-data.js  → const EVOLUTION_CHAINS
+data/titles-data.js      → title definitions
 ... (other data files)
 ```
 

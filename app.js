@@ -5,6 +5,16 @@
 'use strict';
 
 import './modules/secretCodes.js';
+import {
+  saveState as _smSaveState,
+  loadState as _smLoadState,
+  migrate as _smMigrate,
+  exportSave as _smExportSave,
+  importSave as _smImportSave,
+  slimPokemon,
+  formatPlaytime,
+  MAX_HISTORY,
+} from './modules/stateManagement.js';
 import './modules/systems/llm.js';
 import './modules/systems/missions.js';
 import './modules/systems/market.js';
@@ -291,317 +301,51 @@ const DEFAULT_STATE = {
 let state = structuredClone(DEFAULT_STATE);
 globalThis.state = state;
 
+function setState(nextState) {
+  state = nextState;
+  globalThis.state = state;
+  return state;
+}
 
-const MAX_HISTORY = 30; // cap des entrées d'historique par Pokémon (anti-QuotaExceeded)
-
-// ── Sérialisation slim des pokémons ──────────────────────────────────────────
-// On ne touche PAS les objets en mémoire : on crée un clone allégé pour la save.
-// Champs supprimés : dérivables au runtime (species_fr, dex) + valeurs par défaut
-// (assignedTo=null, cooldown=0, homesick=false, favorite=false, xp=0).
-// Gain moyen : ~35% sur la section pokemons soit ~20-25% sur la save totale.
-function slimPokemon(p) {
-  const s = { ...p };
-  // Dérivable depuis species_en via SPECIES_BY_EN
-  delete s.species_fr;
-  delete s.dex;
-  // Valeurs par défaut — omises pour gagner de la place
-  if (s.assignedTo === null)  delete s.assignedTo;
-  if (s.cooldown   === 0)     delete s.cooldown;
-  if (s.homesick   === false) delete s.homesick;
-  if (s.favorite   === false) delete s.favorite;
-  if (s.xp         === 0)     delete s.xp;
-  // History : cap + suppression si vide
-  if (s.history && s.history.length > MAX_HISTORY) s.history = s.history.slice(-MAX_HISTORY);
-  if (!s.history || s.history.length === 0) delete s.history;
-  return s;
+function stateManagementContext() {
+  return {
+    DEFAULT_STATE,
+    SAVE_SCHEMA_VERSION,
+    LEGACY_SAVE_KEYS,
+    SPECIES_BY_EN,
+    localStorage,
+    getState: () => state,
+    setState,
+    syncGlobalState: s => { globalThis.state = s; },
+    getSaveKey: () => SAVE_KEY,
+    getActiveSaveSlot: () => activeSaveSlot,
+    setMigrationResult: result => { _migrationResult = result; },
+    setPlayerWasActive: value => { _playerWasActive = value; },
+    notify,
+    uid,
+    openImportPreviewModal,
+  };
 }
 
 function saveState() {
-  globalThis.state = state; // keep modules in sync
-  if (!state.marketSales) state.marketSales = {}; // guard: toujours initialisé
-  _playerWasActive = true; // signal leaderboard timer that the player is active
-
-  // Playtime accumulation
-  if (state.sessionStart) {
-    state.playtime = (state.playtime || 0) + Math.floor((Date.now() - state.sessionStart) / 1000);
-    state.sessionStart = Date.now();
-  }
-
-  state._savedAt = Date.now();
-
-  // Sérialisation slim : les objets en mémoire restent intacts
-  const payload = { ...state, pokemons: state.pokemons.map(slimPokemon) };
-  const data = JSON.stringify(payload);
-
-  try {
-    localStorage.setItem(SAVE_KEY, data);
-  } catch (e) {
-    if (e.name === 'QuotaExceededError') {
-      notify('⚠ Save trop volumineuse — historiques supprimés', 'error');
-      // Fallback : retirer tous les historiques
-      const emergency = JSON.parse(data);
-      for (const p of emergency.pokemons) delete p.history;
-      try { localStorage.setItem(SAVE_KEY, JSON.stringify(emergency)); } catch {}
-    }
-  }
-  // Cloud sync : géré par le tick 5 min dans startGameLoop (pas ici)
-}
-
-function formatPlaytime(seconds) {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  return h > 0 ? `${h}h${m.toString().padStart(2, '0')}` : `${m}min`;
+  return _smSaveState(stateManagementContext());
 }
 
 function loadState() {
-  let raw = localStorage.getItem(SAVE_KEY);
-  let legacyKey = null;
-
-  // ── Détection save legacy (clés anciennes) ────────────────────────────────
-  if (!raw) {
-    for (const key of LEGACY_SAVE_KEYS) {
-      const legacy = localStorage.getItem(key);
-      if (legacy) { raw = legacy; legacyKey = key; break; }
-    }
-  }
-
-  if (!raw) return null;
-  try {
-    const saved = JSON.parse(raw);
-    const fromVersion = saved._schemaVersion ?? saved.version ?? 'inconnue';
-    const needsMigration = legacyKey || (saved._schemaVersion !== SAVE_SCHEMA_VERSION);
-
-    const migrated = migrate(saved);
-
-    if (needsMigration) {
-      // Lister les champs qui ont été ajoutés (présents dans DEFAULT_STATE mais absents du raw)
-      const addedFields = [];
-      if (!saved.behaviourLogs)       addedFields.push('Logs comportementaux');
-      if (saved.discoveryProgress?.agentsUnlocked === undefined)
-                                       addedFields.push('Progression découverte étendue');
-      if (saved.settings?.spriteMode === undefined && saved.settings?.classicSprites === undefined) addedFields.push('Option sprites');
-      if (!saved.eggs)                addedFields.push('Système d\'œufs');
-      if (!saved.pension)             addedFields.push('Pension');
-      if (!saved.trainingRoom)        addedFields.push('Salle d\'entraînement');
-      if (!saved.missions)            addedFields.push('Missions');
-      if (!saved.cosmetics)           addedFields.push('Cosmétiques');
-
-      _migrationResult = {
-        from: legacyKey ? `clé ${legacyKey}` : `schéma v${fromVersion}`,
-        toLegacyKey: legacyKey,
-        fields: addedFields,
-      };
-
-      // Si c'était une clé legacy, migrer dans la clé v6 et nettoyer l'ancienne
-      if (legacyKey) {
-        try { localStorage.removeItem(legacyKey); } catch {}
-      }
-    }
-
-    // Stamper le schéma courant dans la save migrée
-    migrated._schemaVersion = SAVE_SCHEMA_VERSION;
-    return migrated;
-  } catch (e) {
-    console.error('[PokéForge] Erreur loadState() — save corrompue ou illisible :', e);
-    return null;
-  }
+  return _smLoadState(stateManagementContext());
 }
 
 function migrate(saved) {
-  if (!saved.version) saved.version = '6.0.0';
-  const merged = { ...structuredClone(DEFAULT_STATE), ...saved };
-  merged.gang = { ...structuredClone(DEFAULT_STATE.gang), ...saved.gang };
-  merged.inventory = { ...structuredClone(DEFAULT_STATE.inventory), ...saved.inventory };
-  merged.stats = { ...structuredClone(DEFAULT_STATE.stats), ...saved.stats };
-  merged.settings = { ...structuredClone(DEFAULT_STATE.settings), ...saved.settings };
-  // Migration: discoveryProgress — merge avec valeurs par défaut complètes
-  merged.discoveryProgress = { ...structuredClone(DEFAULT_STATE.discoveryProgress), ...(saved.discoveryProgress || {}) };
-  if (!merged.behaviourLogs) merged.behaviourLogs = { firstCombatAt:0, firstCaptureAt:0, firstPurchaseAt:0, firstAgentAt:0, firstMissionAt:0, tabViewCounts:{} };
-  if (!merged.behaviourLogs.tabViewCounts) merged.behaviourLogs.tabViewCounts = {};
-  // Nouveau joueur → découverte ON ; joueur existant sans ce champ → OFF (déjà habitué)
-  if (merged.settings.discoveryMode === undefined) merged.settings.discoveryMode = false;
-  if (merged.settings.autoBuyBall === undefined) merged.settings.autoBuyBall = null;
-  // Migration classicSprites (bool) → spriteMode (string)
-  if (merged.settings.spriteMode === undefined) {
-    merged.settings.spriteMode = merged.settings.classicSprites ? 'gen5' : 'local';
-  }
-  delete merged.settings.classicSprites;
-  if (merged.settings.autoEvoChoice  === undefined) merged.settings.autoEvoChoice  = false;
-  merged.activeBoosts = { ...structuredClone(DEFAULT_STATE.activeBoosts), ...(saved.activeBoosts || {}) };
-  merged.activeEvents = saved.activeEvents || {};
-  // Migration: bossTeam + save slots
-  if (!merged.gang.bossTeam) merged.gang.bossTeam = [];
-  if (!merged.gang.showcase) merged.gang.showcase = [];
-  while (merged.gang.showcase.length < 6) merged.gang.showcase.push(null);
-  if (!merged.gang.bossTeamSlots) merged.gang.bossTeamSlots = [[...(merged.gang.bossTeam || [])], [], []];
-  if (merged.gang.activeBossTeamSlot === undefined) merged.gang.activeBossTeamSlot = 0;
-  if (!merged.gang.bossTeamSlotsPurchased) merged.gang.bossTeamSlotsPurchased = [true, false, false];
-  // Keep bossTeam in sync with active slot
-  merged.gang.bossTeam = [...(merged.gang.bossTeamSlots[merged.gang.activeBossTeamSlot] || [])];
-  // Migration: titles
-  if (!merged.unlockedTitles) merged.unlockedTitles = ['recrue', 'fondateur'];
-  if (!merged.gang.titleA) merged.gang.titleA = 'recrue';
-  if (merged.gang.titleB === undefined) merged.gang.titleB = null;
-  if (merged.gang.titleLiaison === undefined) merged.gang.titleLiaison = '';
-  if (merged.gang.titleC === undefined) merged.gang.titleC = null;
-  if (merged.gang.titleD === undefined) merged.gang.titleD = null;
-  // Migration: marketSales + favorites
-  if (!merged.marketSales) merged.marketSales = {};
-  if (!merged.favorites) merged.favorites = [];
-  // Migration: agent notifyCaptures
-  for (const agent of (merged.agents || [])) {
-    if (agent.notifyCaptures === undefined) agent.notifyCaptures = true;
-  }
-  // Migration: pokemon history + favorite
-  for (const p of (merged.pokemons || [])) {
-    // Restituer les champs omis par slimPokemon()
-    const sp = SPECIES_BY_EN[p.species_en];
-    if (!p.species_fr)             p.species_fr  = sp?.fr  || p.species_en;
-    if (p.dex === undefined)       p.dex         = sp?.dex ?? 0;
-    if (p.assignedTo === undefined) p.assignedTo = null;
-    if (p.cooldown   === undefined) p.cooldown   = 0;
-    if (p.homesick   === undefined) p.homesick   = false;
-    if (p.favorite   === undefined) p.favorite   = false;
-    if (p.xp         === undefined) p.xp         = 0;
-    if (!p.history)                p.history     = [];
-  }
-  // Migration: missions
-  if (!merged.missions) {
-    merged.missions = structuredClone(DEFAULT_STATE.missions);
-  }
-  if (!merged.missions.daily) merged.missions.daily = { reset: 0, progress: {}, claimed: [] };
-  if (!merged.missions.weekly) merged.missions.weekly = { reset: 0, progress: {}, claimed: [] };
-  if (!merged.missions.completed) merged.missions.completed = [];
-  if (!merged.missions.hourly) merged.missions.hourly = { reset: 0, slots: [], baseline: {}, claimed: [] };
-  // Migration: trainingRoom + cosmetics + purchases
-  if (!merged.trainingRoom) merged.trainingRoom = structuredClone(DEFAULT_STATE.trainingRoom);
-  merged.trainingRoom = { ...structuredClone(DEFAULT_STATE.trainingRoom), ...merged.trainingRoom };
-  if (!merged.cosmetics) merged.cosmetics = { gameBg: null, bossBg: null, unlockedBgs: [] };
-  if (!merged.lab) merged.lab = { trackedSpecies: [] };
-  if (!merged.lab.trackedSpecies) merged.lab.trackedSpecies = [];
-  if (!merged.purchases) merged.purchases = { translator: false, mysteryEggCount: 0 };
-  if (merged.purchases.mysteryEggCount === undefined) merged.purchases.mysteryEggCount = 0;
-  if (merged.purchases.cosmeticsPanel === undefined) merged.purchases.cosmeticsPanel = false;
-  if (merged.purchases.autoIncubator === undefined) merged.purchases.autoIncubator = false;
-  if (merged.purchases.autoCollect === undefined) merged.purchases.autoCollect = false;
-  if (merged.purchases.autoCollectEnabled === undefined) merged.purchases.autoCollectEnabled = true;
-  if (merged.purchases.autoSellAgentEnabled === undefined) merged.purchases.autoSellAgentEnabled = true;
-  if (merged.purchases.chromaCharm === undefined) merged.purchases.chromaCharm = false;
-  if (merged.purchases.scientist === undefined) merged.purchases.scientist = false;
-  if (merged.purchases.scientistEnabled === undefined) merged.purchases.scientistEnabled = true;
-  if (merged.purchases.autoSellAgent === undefined) merged.purchases.autoSellAgent = false;
-  if (merged.purchases.autoSellEggs === undefined) merged.purchases.autoSellEggs = false;
-  // Auto-sell config — nested under settings (consistent with sfxIndividual, etc.)
-  if (!merged.settings.autoSellAgent) merged.settings.autoSellAgent = { mode: 'all', potentials: [] };
-  if (!merged.settings.autoSellEggs) merged.settings.autoSellEggs = { mode: 'all', potentials: [], allowShiny: false };
-  // Migrate legacy top-level keys if present (from a brief wrong placement)
-  if (merged.autoSellAgentSettings) { Object.assign(merged.settings.autoSellAgent, merged.autoSellAgentSettings); delete merged.autoSellAgentSettings; }
-  if (merged.autoSellEggsSettings)  { Object.assign(merged.settings.autoSellEggs,  merged.autoSellEggsSettings);  delete merged.autoSellEggsSettings; }
-  if (!merged.favoriteZones) merged.favoriteZones = [];
-  if (merged.settings.uiScale === undefined) merged.settings.uiScale = 100;
-  if (merged.settings.musicVol === undefined) merged.settings.musicVol = 50;
-  if (merged.settings.sfxVol === undefined)   merged.settings.sfxVol   = 80;
-  if (merged.settings.zoneScale === undefined) merged.settings.zoneScale = 100;
-  if (merged.settings.lightTheme === undefined) merged.settings.lightTheme = false;
-  if (merged.settings.lowSpec === undefined)   merged.settings.lowSpec  = false;
-  if (!merged.settings.sfxIndividual)          merged.settings.sfxIndividual = {};
-  // Migration pension slotA/slotB → slots[]
-  if (!merged.pension) merged.pension = { slots: [], extraSlotsPurchased: 0, eggAt: null };
-  if (merged.pension.slotA !== undefined || merged.pension.slotB !== undefined) {
-    // Convert legacy fields to array
-    merged.pension.slots = [merged.pension.slotA, merged.pension.slotB].filter(Boolean);
-    delete merged.pension.slotA;
-    delete merged.pension.slotB;
-  }
-
-  if (merged.pension.extraSlotsPurchased === undefined) merged.pension.extraSlotsPurchased = 0;
-  if (!merged.eggs) merged.eggs = [];
-  // Migration: eggs need incubating flag; auto-hatching eggs get paused
-  for (const egg of merged.eggs) {
-    if (egg.incubating === undefined) {
-      egg.incubating = false;
-      egg.hatchAt = null; // require manual incubation
-    }
-    if (!egg.rarity) egg.rarity = SPECIES_BY_EN[egg.species_en]?.rarity || 'common';
-  }
-  if (!merged.inventory.incubator) merged.inventory.incubator = 0;
-  // Migration: agent perkLevels / pendingPerk
-  for (const agent of (merged.agents || [])) {
-    if (!agent.perkLevels) agent.perkLevels = [];
-    if (agent.pendingPerk === undefined) agent.pendingPerk = false;
-  }
-  // Migration: homesick flag for imported pokemon
-  merged.pokemons.forEach(p => { if (p.homesick === undefined) p.homesick = false; });
-  // Clean up stale training room IDs (deleted pokemon)
-  const allIds = new Set((merged.pokemons || []).map(p => p.id));
-  merged.trainingRoom.pokemon = (merged.trainingRoom.pokemon || []).filter(id => allIds.has(id));
-  // Résoudre les conflits d'affectation : priorité équipe > pension > formation
-  {
-    const teamSet = new Set(merged.gang.bossTeam || []);
-    // Pension : retirer si aussi en équipe
-    merged.pension.slots = (merged.pension.slots || []).filter(id => !teamSet.has(id));
-    // Formation : retirer si en équipe ou en pension
-    const resolvedPension = new Set(merged.pension.slots || []);
-    merged.trainingRoom.pokemon = (merged.trainingRoom.pokemon || []).filter(id => !teamSet.has(id) && !resolvedPension.has(id));
-  }
-  // Migration Gen 2 retirée : Lugia et Ho-Oh sont des Pokémon légitimes capturables
-  // via leurs zones dédiées (Îles Tourbillon / Victory Road) — conversion en ailes supprimée.
-
-  // ── Migration limites : valeurs hors-limites → MissingNo reward ─
-  // Limite incubateur = 10 (cohérent avec le shop qui bloque à owned >= 10)
-  const LIMITS = { incubator: 10 };
-  let limitViolation = false;
-  for (const [item, max] of Object.entries(LIMITS)) {
-    if ((merged.inventory[item] || 0) > max) {
-      merged.inventory[item] = max;
-      limitViolation = true;
-    }
-  }
-  // Pokémon avec potential > 5 ou level > 100
-  for (const pk of merged.pokemons || []) {
-    if ((pk.potential || 1) > 5) { pk.potential = 5; limitViolation = true; }
-    if ((pk.level || 1) > 100)   { pk.level = 100; limitViolation = true; }
-  }
-  if (limitViolation && !(merged.pokemons || []).some(p => p.species_en === 'missingno')) {
-    const reward = { id: uid(), species_en:'missingno', species_fr:'MissingNo', dex:0,
-      level:1, xp:0, potential:1, shiny:false, history:[{ type:'migration_reward', ts:Date.now() }],
-      moves:['Morphing','Psyko','Métronome','Surf'] };
-    merged.pokemons = merged.pokemons || [];
-    merged.pokemons.push(reward);
-    merged._limitViolationReward = true;
-  }
-
-  // Toujours stamper la version schéma courante
-  merged._schemaVersion = SAVE_SCHEMA_VERSION;
-  return merged;
+  return _smMigrate(stateManagementContext(), saved);
 }
 
 function exportSave() {
-  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `pokeforge-v6-save-${Date.now()}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
+  return _smExportSave(stateManagementContext());
 }
 
 function importSave(file) {
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    try {
-      const raw = JSON.parse(e.target.result);
-      if (!raw || typeof raw !== 'object' || (!raw.gang && !raw.pokemons)) {
-        notify('Import échoué — fichier invalide ou non-reconnu.', 'error'); return;
-      }
-      openImportPreviewModal(raw);
-    } catch {
-      notify('Import échoué — fichier JSON invalide.', 'error');
-    }
-  };
-  reader.readAsText(file);
+  return _smImportSave(stateManagementContext(), file);
 }
-
 // ── Modal de prévisualisation + conversion d'import ──────────────────────────
 function openImportPreviewModal(raw) {
   const overlay = document.createElement('div');
@@ -727,7 +471,7 @@ function openImportPreviewModal(raw) {
       `Remplacer la save du slot ${activeSaveSlot + 1} par la save importée de "${gangName}" ?`,
       () => {
         try {
-          state = migrate(raw);
+          setState(migrate(raw));
           saveState();
           overlay.remove();
           renderAll();
@@ -841,7 +585,7 @@ function openLegacyImportModal(legacyData) {
     fresh.pension.slots = chosenPokes.slice(0, 2).map(p => p.id);
     fresh.pension.eggAt = Date.now() + 60000; // first egg in 1 minute
 
-    state = migrate(fresh);
+    setState(migrate(fresh));
     saveState();
     overlay.remove();
     renderAll();
@@ -2770,7 +2514,7 @@ function loadSlot(slotIdx) {
   const raw = localStorage.getItem(SAVE_KEYS[slotIdx]);
   if (!raw) { notify('Slot vide.'); return; }
   try {
-    state = migrate(JSON.parse(raw));
+    setState(migrate(JSON.parse(raw)));
     activeSaveSlot = slotIdx;
     SAVE_KEY = SAVE_KEYS[slotIdx];
     localStorage.setItem('pokeforge.activeSlot', String(slotIdx));
@@ -7805,7 +7549,7 @@ function openHubSlotRepairModal() {
 
         // If we just repaired the active slot, reload state
         if (targetSlot === activeSaveSlot) {
-          state = fixed;
+          setState(fixed);
           saveState();
         }
 
@@ -8765,7 +8509,7 @@ function repairSave() {
 
         // Réappliquer migrate() sur le state courant
         const raw = JSON.parse(JSON.stringify(state)); // deep clone sérialisable
-        state = migrate(raw);
+        setState(migrate(raw));
 
         // Nettoyage supplémentaire
         // 1. Historiques trop longs
@@ -8855,7 +8599,7 @@ function _bindSettingsActionButtons() {
   document.getElementById('btnResetAll')?.addEventListener('click', () => {
     showConfirm(t('reset_confirm'), () => {
       localStorage.removeItem(SAVE_KEY);
-      state = structuredClone(DEFAULT_STATE);
+      setState(structuredClone(DEFAULT_STATE));
       // Close all zone windows
       for (const zid of [...openZones]) closeZoneWindow(zid);
       pcSelectedId = null;
@@ -9511,7 +9255,7 @@ async function supaCheckCloudLoad() {
     showConfirm(
       `Une sauvegarde cloud plus récente existe (${fmt}).<br>Charger la sauvegarde cloud ? <span style="color:var(--text-dim);font-size:11px">(La save locale sera remplacée)</span>`,
       () => {
-        state = migrate(data.state);
+        setState(migrate(data.state));
         saveState();
         renderAll();
         notify('Sauvegarde cloud chargée !', 'success');
@@ -9539,7 +9283,7 @@ async function supaForceCloudLoad() {
   showConfirm(
     `Charger la save cloud du ${fmt} ?<br><span style="color:var(--text-dim);font-size:11px">La save locale sera écrasée.</span>`,
     () => {
-      state = migrate(data.state);
+      setState(migrate(data.state));
       saveState();
       renderAll();
       notify('Sauvegarde cloud chargée !', 'success');
@@ -9639,7 +9383,7 @@ async function supaRestoreSnapshot(snapshotId) {
   showConfirm(
     `Restaurer le snapshot du <b>${fmt}</b> ?<br><span style="color:var(--text-dim);font-size:11px">La save actuelle sera écrasée — exporte-la d'abord si nécessaire.</span>`,
     () => {
-      state = migrate(data.state);
+      setState(migrate(data.state));
       saveState();
       renderAll();
       notify(`⏪ Snapshot du ${fmt} restauré !`, 'success');
@@ -10414,8 +10158,7 @@ function boot() {
   // Try to load saved state
   const saved = loadState();
   if (saved) {
-    state = saved;
-    globalThis.state = state;
+    setState(saved);
   }
   state.sessionStart = Date.now();
   _sessionStatsBase = { ...state.stats };
