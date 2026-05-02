@@ -176,10 +176,25 @@ export function migrate(ctx, saved) {
   if (merged.purchases.scientistEnabled === undefined) merged.purchases.scientistEnabled = true;
   if (merged.purchases.autoSellAgent === undefined) merged.purchases.autoSellAgent = false;
   if (merged.purchases.autoSellEggs === undefined) merged.purchases.autoSellEggs = false;
+  if (merged.purchases.autoSellEggsEnabled === undefined) merged.purchases.autoSellEggsEnabled = true;
   if (!merged.settings.autoSellAgent) merged.settings.autoSellAgent = { mode: 'all', potentials: [] };
   if (!merged.settings.autoSellEggs) merged.settings.autoSellEggs = { mode: 'all', potentials: [], allowShiny: false };
   if (merged.autoSellAgentSettings) { Object.assign(merged.settings.autoSellAgent, merged.autoSellAgentSettings); delete merged.autoSellAgentSettings; }
   if (merged.autoSellEggsSettings)  { Object.assign(merged.settings.autoSellEggs,  merged.autoSellEggsSettings);  delete merged.autoSellEggsSettings; }
+  merged.playerStats = {
+    ...structuredClone(DEFAULT_STATE.playerStats),
+    ...(merged.playerStats || {}),
+  };
+  merged.playerStats.baseStats = {
+    ...structuredClone(DEFAULT_STATE.playerStats.baseStats),
+    ...(merged.playerStats.baseStats || {}),
+  };
+  merged.playerStats.allocatedStats = {
+    ...structuredClone(DEFAULT_STATE.playerStats.allocatedStats),
+    ...(merged.playerStats.allocatedStats || {}),
+  };
+  if (merged.playerStats.statPoints === undefined) merged.playerStats.statPoints = 0;
+  if (merged.playerStats.pointsGrantedCount === undefined) merged.playerStats.pointsGrantedCount = 0;
   if (!merged.favoriteZones) merged.favoriteZones = [];
   if (merged.settings.uiScale === undefined) merged.settings.uiScale = 100;
   if (merged.settings.musicVol === undefined) merged.settings.musicVol = 50;

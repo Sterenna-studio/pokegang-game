@@ -43,7 +43,13 @@ export function migrateSave(saved, deps) {
 
   if (merged.settings.discoveryMode === undefined) merged.settings.discoveryMode = false;
   if (merged.settings.autoBuyBall === undefined) merged.settings.autoBuyBall = null;
-  if (merged.settings.classicSprites === undefined) merged.settings.classicSprites = false;
+  if (merged.settings.spriteMode === undefined) {
+    merged.settings.spriteMode = merged.settings.classicSprites ? 'gen5' : 'local';
+  }
+  delete merged.settings.classicSprites;
+  if (merged.settings.autoEvoChoice === undefined) merged.settings.autoEvoChoice = false;
+  if (!merged.settings.autoSellAgent) merged.settings.autoSellAgent = { mode: 'all', potentials: [] };
+  if (!merged.settings.autoSellEggs) merged.settings.autoSellEggs = { mode: 'all', potentials: [], allowShiny: false };
   if (merged.settings.uiScale === undefined) merged.settings.uiScale = 100;
   if (merged.settings.musicVol === undefined) merged.settings.musicVol = 50;
   if (merged.settings.sfxVol === undefined) merged.settings.sfxVol = 80;
@@ -62,7 +68,12 @@ export function migrateSave(saved, deps) {
   if (!Array.isArray(merged.unlockedTitles)) merged.unlockedTitles = ['recrue', 'fondateur'];
 
   if (!merged.gang.bossTeam) merged.gang.bossTeam = [];
-  if (!merged.gang.showcase) merged.gang.showcase = [null, null, null];
+  if (!merged.gang.bossTeamSlots) merged.gang.bossTeamSlots = [[...(merged.gang.bossTeam || [])], [], []];
+  if (merged.gang.activeBossTeamSlot === undefined) merged.gang.activeBossTeamSlot = 0;
+  if (!merged.gang.bossTeamSlotsPurchased) merged.gang.bossTeamSlotsPurchased = [true, false, false];
+  merged.gang.bossTeam = [...(merged.gang.bossTeamSlots[merged.gang.activeBossTeamSlot] || [])];
+  if (!merged.gang.showcase) merged.gang.showcase = [];
+  while (merged.gang.showcase.length < 6) merged.gang.showcase.push(null);
   if (!merged.gang.titleA) merged.gang.titleA = 'recrue';
   if (merged.gang.titleB === undefined) merged.gang.titleB = null;
   if (merged.gang.titleLiaison === undefined) merged.gang.titleLiaison = '';
@@ -172,16 +183,30 @@ export function migrateSave(saved, deps) {
 
   if (merged.purchases.cosmeticsPanel === undefined) merged.purchases.cosmeticsPanel = false;
   if (merged.purchases.autoIncubator === undefined) merged.purchases.autoIncubator = false;
+  if (merged.purchases.autoCollect === undefined) merged.purchases.autoCollect = false;
+  if (merged.purchases.autoCollectEnabled === undefined) merged.purchases.autoCollectEnabled = true;
   if (merged.purchases.chromaCharm === undefined) merged.purchases.chromaCharm = false;
+  if (merged.purchases.scientist === undefined) merged.purchases.scientist = false;
+  if (merged.purchases.scientistEnabled === undefined) merged.purchases.scientistEnabled = true;
+  if (merged.purchases.autoSellAgent === undefined) merged.purchases.autoSellAgent = false;
+  if (merged.purchases.autoSellAgentEnabled === undefined) merged.purchases.autoSellAgentEnabled = true;
+  if (merged.purchases.autoSellEggs === undefined) merged.purchases.autoSellEggs = false;
+  if (merged.purchases.autoSellEggsEnabled === undefined) merged.purchases.autoSellEggsEnabled = true;
 
   const allIds = new Set(merged.pokemons.map(p => p.id));
   merged.trainingRoom.pokemon = (merged.trainingRoom.pokemon || []).filter(id => allIds.has(id));
 
   {
     const teamSet = new Set(merged.gang.bossTeam || []);
-    if (merged.pension.slotA && teamSet.has(merged.pension.slotA)) merged.pension.slotA = null;
-    if (merged.pension.slotB && teamSet.has(merged.pension.slotB)) merged.pension.slotB = null;
-    const pensionSet = new Set([merged.pension.slotA, merged.pension.slotB].filter(Boolean));
+    if (merged.pension.slotA !== undefined || merged.pension.slotB !== undefined) {
+      merged.pension.slots = [merged.pension.slotA, merged.pension.slotB].filter(Boolean);
+      delete merged.pension.slotA;
+      delete merged.pension.slotB;
+    }
+    if (!Array.isArray(merged.pension.slots)) merged.pension.slots = [];
+    if (merged.pension.extraSlotsPurchased === undefined) merged.pension.extraSlotsPurchased = 0;
+    merged.pension.slots = merged.pension.slots.filter(id => allIds.has(id) && !teamSet.has(id));
+    const pensionSet = new Set(merged.pension.slots);
     merged.trainingRoom.pokemon = (merged.trainingRoom.pokemon || []).filter(id => !teamSet.has(id) && !pensionSet.has(id));
   }
 
