@@ -5,6 +5,7 @@ import {
   SAVE_KEYS,
   LEGACY_SAVE_KEYS,
   SAVE_SCHEMA_VERSION,
+  createDefaultState,
 } from './defaultState.js';
 
 import { buildSavePayload } from './serialization.js';
@@ -13,7 +14,7 @@ import { migrateSave, getMigrationSummary } from './migrateSave.js';
 export function createStore(options = {}) {
   const {
     localStorageRef = window.localStorage,
-    initialState = structuredClone(DEFAULT_STATE),
+    initialState = createDefaultState(),
     notify = () => {},
     cloudSave = null,
     supabaseThrottleMs = 30_000,
@@ -43,7 +44,7 @@ export function createStore(options = {}) {
     return state;
   }
   function resetState({ emit = true } = {}) {
-    state = structuredClone(DEFAULT_STATE);
+    state = createDefaultState();
     if (emit) emitChange();
     return state;
   }
@@ -63,6 +64,21 @@ export function createStore(options = {}) {
     saveKey = SAVE_KEYS[activeSaveSlot];
     if (persist) localStorageRef.setItem('pokeforge.activeSlot', String(activeSaveSlot));
     return activeSaveSlot;
+  }
+  function saveToSlot(slotIdx) {
+    const previousSlot = activeSaveSlot;
+    state._savedAt = now();
+    localStorageRef.setItem(SAVE_KEYS[previousSlot], JSON.stringify(buildSavePayload(state)));
+    setActiveSaveSlot(slotIdx);
+    return save();
+  }
+  function loadSlot(slotIdx) {
+    setActiveSaveSlot(slotIdx);
+    return load();
+  }
+  function deleteSlot(slotIdx) {
+    localStorageRef.removeItem(SAVE_KEYS[slotIdx]);
+    if (slotIdx === activeSaveSlot) setActiveSaveSlot(0);
   }
   function accumulatePlaytime() {
     if (state.sessionStart) {
@@ -166,7 +182,11 @@ export function createStore(options = {}) {
     getMigrationResult,
     getActiveSaveSlot,
     getSaveKey,
+    getSaveKeys: () => [...SAVE_KEYS],
     setActiveSaveSlot,
+    saveToSlot,
+    loadSlot,
+    deleteSlot,
   };
 }
 
