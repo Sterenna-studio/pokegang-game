@@ -3116,7 +3116,7 @@ function renderCosmeticsTab() {
 // ════════════════════════════════════════════════════════════════
 
 function renderMarketTab() {
-  renderQuestPanel();
+  renderSpecialItemPanel();
   renderShopPanel();
   renderBarterPanel();
 }
@@ -3268,101 +3268,58 @@ function renderBarterPanel() {
 }
 
 // ── Quest Panel (replaces sell panel) ────────────────────────────
-function renderQuestPanel() {
-  const panel = document.querySelector('#questPanel .quest-list');
+function renderSpecialItemPanel() {
+  const panel = document.querySelector('#specialItemPanel .special-list');
   if (!panel) return;
-  initMissions();
-  initHourlyQuests();
 
-  // ── Helper: build a classic mission section ──────────────────
-  function buildSection(title, timer, missions) {
-    if (missions.length === 0) return '';
-    let html = `<div class="quest-section-title">${title}${timer ? `<span class="quest-timer">${timer}</span>` : ''}</div>`;
-    for (const m of missions) {
-      const progress = getMissionProgress(m);
-      const complete  = isMissionComplete(m);
-      const claimed   = isMissionClaimed(m);
-      const pct = Math.min(100, (progress / m.target) * 100);
-      const name = state.lang === 'fr' ? m.fr : m.en;
-      const rewardStr = [m.reward.money ? m.reward.money.toLocaleString() + '₽' : '', m.reward.rep ? '+' + m.reward.rep + ' rep' : ''].filter(Boolean).join('  ');
-      const fillColor = complete ? 'var(--green)' : 'var(--red)';
-      html += `<div class="quest-entry${claimed ? ' claimed' : ''}">
-        <span class="quest-icon">${m.icon}</span>
-        <div class="quest-body">
-          <div class="quest-name${claimed ? ' done' : ''}">${name}</div>
-          ${m.desc_fr ? `<div class="quest-desc">${state.lang === 'fr' ? m.desc_fr : m.desc_en}</div>` : ''}
-          <div class="quest-progress-bar"><div class="quest-progress-fill" style="width:${pct}%;background:${fillColor}"></div></div>
-          <div class="quest-reward">${progress}/${m.target}${rewardStr ? '  —  ' + rewardStr : ''}</div>
-        </div>
-        ${complete && !claimed
-          ? `<button class="btn-claim-quest" data-mission-id="${m.id}">Réclamer</button>`
-          : claimed ? '<span style="font-size:12px;color:var(--green)">✓</span>' : ''}
-      </div>`;
-    }
-    return html;
-  }
+  const ZONE_UNLOCK_IDS = new Set(['map_pallet','casino_ticket','silph_keycard','boat_ticket','tourbillon_permit','carillon_permit']);
+  const WING_PERMIT_IDS = new Set(['tourbillon_permit','carillon_permit']);
+  const items = SHOP_ITEMS.filter(item => ZONE_UNLOCK_IDS.has(item.id));
 
-  // ── Hourly section ────────────────────────────────────────────
-  const hourlyRem = Math.max(0, HOUR_MS - (Date.now() - state.missions.hourly.reset));
-  const hMin = Math.floor(hourlyRem / 60000);
-  const hSec = Math.floor((hourlyRem % 60000) / 1000);
-  const hourlyCountdown = `${hMin}m${String(hSec).padStart(2,'0')}s`;
-
-  let hourlyHtml = `<div class="quest-section-title">Quêtes Horaires <span class="quest-timer">${hourlyCountdown}</span></div>`;
-  for (let i = 0; i < 5; i++) {
-    const q = getHourlyQuest(i);
-    if (!q) continue;
-    const progress = getHourlyProgress(q);
-    const complete  = isHourlyComplete(q);
-    const claimed   = isHourlyClaimed(i);
-    const pct = Math.min(100, (progress / q.target) * 100);
-    const rewardStr = [q.reward.money ? q.reward.money.toLocaleString() + '₽' : '', q.reward.rep ? '+' + q.reward.rep + ' rep' : ''].filter(Boolean).join('  ');
-    const diffColor = q.diff === 'hard' ? 'var(--red)' : 'var(--blue)';
-    const fillColor = complete ? 'var(--green)' : diffColor;
-    hourlyHtml += `<div class="quest-entry${claimed ? ' claimed' : ''}" style="border-left:3px solid ${diffColor};padding-left:6px">
-      <span class="quest-icon">${q.icon}</span>
-      <div class="quest-body">
-        <div class="quest-name${claimed ? ' done' : ''}" style="display:flex;align-items:center;gap:5px">
-          ${q.fr}
-          <span style="font-size:7px;padding:1px 4px;border-radius:3px;background:${diffColor};color:#fff;font-family:var(--font-pixel)">${q.diff === 'hard' ? 'HARD' : 'MED'}</span>
-        </div>
-        <div class="quest-progress-bar"><div class="quest-progress-fill" style="width:${pct}%;background:${fillColor}"></div></div>
-        <div class="quest-reward">${progress}/${q.target}  —  ${rewardStr}</div>
+  const html = items.map(item => {
+    const alreadyOwned = state.purchases?.[item.id];
+    const isWingPermit = WING_PERMIT_IDS.has(item.id);
+    const wingHave = isWingPermit ? (state.inventory[item.wingCost?.item] || 0) : 0;
+    const wingName = isWingPermit
+      ? (item.wingCost?.item === 'silver_wing' ? "Argent'Aile" : "Arcenci'Aile")
+      : '';
+    const btnDisabled = alreadyOwned || (isWingPermit && wingHave < (item.wingCost?.qty || 50));
+    const btnLabel = alreadyOwned
+      ? 'Acquis'
+      : isWingPermit
+        ? `${item.wingCost?.qty||50}× ${wingName}`
+        : `${item.cost.toLocaleString()}₽`;
+    const desc = state.lang === 'fr' ? item.desc_fr : item.desc_en;
+    const statusHtml = alreadyOwned
+      ? `<div style="font-size:10px;color:var(--green)">✓ Zone débloquée</div>`
+      : isWingPermit
+        ? `<div style="font-size:10px;color:${wingHave>=(item.wingCost?.qty||50)?'var(--gold)':'var(--red)'}">
+            ${wingName} : ${wingHave}/${item.wingCost?.qty||50}</div>`
+        : `<div style="font-size:10px;color:var(--text-dim)">Débloque une zone</div>`;
+    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid var(--border);opacity:${btnDisabled?'0.6':'1'}">
+      <span style="font-size:22px">${item.icon}</span>
+      <div style="flex:1">
+        <div style="font-size:12px">${state.lang==='fr' ? item.fr : item.en}</div>
+        <div style="font-size:9px;color:var(--text-dim);margin-top:2px">${desc}</div>
+        ${statusHtml}
       </div>
-      <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
-        ${complete && !claimed
-          ? `<button class="btn-claim-quest btn-claim-hourly" data-slot="${i}">Réclamer</button>`
-          : claimed ? '<span style="font-size:12px;color:var(--green)">✓</span>' : ''}
-        ${!claimed ? `<button class="btn-reroll-hourly" data-slot="${i}" title="Reroll (-${HOURLY_QUEST_REROLL_COST}₽)" style="font-size:7px;padding:3px 6px;background:var(--bg);border:1px solid var(--border);border-radius:3px;color:var(--text-dim);cursor:pointer">↻ ${HOURLY_QUEST_REROLL_COST}₽</button>` : ''}
-      </div>
+      <button style="font-family:var(--font-pixel);font-size:9px;padding:6px 10px;background:var(--bg);
+        border:1px solid ${btnDisabled?'var(--border)':'var(--gold-dim)'};border-radius:var(--radius-sm);
+        color:${btnDisabled?'var(--text-dim)':'var(--gold)'};cursor:${btnDisabled?'default':'pointer'};white-space:nowrap"
+        data-zone-item-idx="${SHOP_ITEMS.indexOf(item)}" ${btnDisabled?'disabled':''}>${btnLabel}</button>
     </div>`;
-  }
+  }).join('');
 
-  // ── Regular missions ──────────────────────────────────────────
-  const story   = MISSIONS.filter(m => m.type === 'story' && !isMissionClaimed(m));
-  const done    = MISSIONS.filter(m => m.type === 'story' &&  isMissionClaimed(m));
+  panel.innerHTML = html || '<div style="color:var(--text-dim);font-size:10px;padding:12px">Aucun accès disponible.</div>';
 
-  panel.innerHTML = hourlyHtml +
-    buildSection('Histoire & Objectifs', '', story) +
-    (done.length ? buildSection('Terminées ✓', '', done) : '');
-
-  // Bind buttons
-  panel.querySelectorAll('.btn-claim-quest').forEach(btn => {
+  panel.querySelectorAll('[data-zone-item-idx]').forEach(btn => {
     btn.addEventListener('click', () => {
-      const m = MISSIONS.find(m => m.id === btn.dataset.missionId);
-      if (m) { claimMission(m); renderQuestPanel(); }
-    });
-  });
-  panel.querySelectorAll('.btn-claim-hourly').forEach(btn => {
-    btn.addEventListener('click', () => {
-      claimHourlyQuest(parseInt(btn.dataset.slot));
-      renderQuestPanel();
-    });
-  });
-  panel.querySelectorAll('.btn-reroll-hourly').forEach(btn => {
-    btn.addEventListener('click', () => {
-      rerollHourlyQuest(parseInt(btn.dataset.slot));
-      renderQuestPanel();
+      const item = SHOP_ITEMS[parseInt(btn.dataset.zoneItemIdx)];
+      if (!item || btn.disabled) return;
+      buyItem(item);
+      updateTopBar();
+      renderSpecialItemPanel();
+      if (activeTab === 'tabZones') renderZoneWindows();
     });
   });
 }
@@ -3374,8 +3331,9 @@ function renderShopPanel() {
   if (!panel) return;
 
   const ZONE_UNLOCK_ITEM_IDS = new Set(['map_pallet','casino_ticket','silph_keycard','boat_ticket','tourbillon_permit','carillon_permit']);
-  const ONE_OFF_IDS = new Set(['mysteryegg','incubator','translator','map_pallet','casino_ticket','silph_keycard','boat_ticket','tourbillon_permit','carillon_permit']);
+  const ONE_OFF_IDS = new Set(['mysteryegg','incubator','translator']);
   const WING_PERMIT_IDS = new Set(['tourbillon_permit','carillon_permit']);
+  const shopItems = SHOP_ITEMS.filter(item => !ZONE_UNLOCK_ITEM_IDS.has(item.id));
 
   // ── Multiplier toolbar ─────────────────────────────────────────
   const multBar = [1,5,10].map(m =>
@@ -3387,7 +3345,7 @@ function renderShopPanel() {
   ).join('');
 
   // ── Shop items ─────────────────────────────────────────────────
-  const itemsHtml = SHOP_ITEMS.map(item => {
+  const itemsHtml = shopItems.map(item => {
     const ballInfo = BALLS[item.id];
     const name = ballInfo ? (state.lang === 'fr' ? ballInfo.fr : ballInfo.en) : (state.lang === 'fr' ? (item.fr || item.id) : (item.en || item.id));
     const owned = state.inventory[item.id] || 0;
@@ -3994,7 +3952,9 @@ function renderMissionsTab() {
   const el = document.getElementById('tabMissions');
   if (!el) return;
   initMissions();
+  initHourlyQuests();
 
+  // ── Helper: regular mission section ──────────────────────────
   const renderSection = (title, missions) => {
     let html = `<div style="margin-bottom:20px">
       <h3 style="font-family:var(--font-pixel);font-size:11px;color:var(--gold);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">${title}</h3>`;
@@ -4007,7 +3967,6 @@ function renderMissionsTab() {
       const rewardStr = [];
       if (m.reward.money) rewardStr.push(m.reward.money.toLocaleString() + '₽');
       if (m.reward.rep) rewardStr.push('+' + m.reward.rep + ' rep');
-
       html += `<div style="display:flex;align-items:center;gap:10px;padding:8px;border-bottom:1px solid var(--border);opacity:${claimed ? '.5' : '1'}">
         <span style="font-size:20px">${m.icon}</span>
         <div style="flex:1;min-width:0">
@@ -4020,16 +3979,53 @@ function renderMissionsTab() {
         </div>
         ${complete && !claimed
           ? `<button class="btn-claim-mission" data-mission-id="${m.id}" style="font-family:var(--font-pixel);font-size:9px;padding:6px 12px;background:var(--green);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--bg);cursor:pointer;white-space:nowrap;animation:glow 1.5s ease-in-out infinite">${state.lang === 'fr' ? 'Récupérer' : 'Claim'}</button>`
-          : claimed
-          ? '<span style="font-size:9px;color:var(--green)">✓</span>'
-          : ''}
+          : claimed ? '<span style="font-size:9px;color:var(--green)">✓</span>' : ''}
       </div>`;
     }
     html += '</div>';
     return html;
   };
 
-  // Daily reset countdown
+  // ── Hourly quests section ────────────────────────────────────
+  const hourlyRem = Math.max(0, HOUR_MS - (Date.now() - state.missions.hourly.reset));
+  const hMin = Math.floor(hourlyRem / 60000);
+  const hSec = Math.floor((hourlyRem % 60000) / 1000);
+  let hourlyHtml = `<div style="margin-bottom:20px">
+    <h3 style="font-family:var(--font-pixel);font-size:11px;color:var(--gold);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">
+      Quêtes Horaires <span style="font-size:9px;color:var(--text-dim)">${hMin}m${String(hSec).padStart(2,'0')}s</span>
+    </h3>`;
+  for (let i = 0; i < 5; i++) {
+    const q = getHourlyQuest(i);
+    if (!q) continue;
+    const progress = getHourlyProgress(q);
+    const complete  = isHourlyComplete(q);
+    const claimed   = isHourlyClaimed(i);
+    const pct = Math.min(100, (progress / q.target) * 100);
+    const rewardStr = [q.reward.money ? q.reward.money.toLocaleString() + '₽' : '', q.reward.rep ? '+' + q.reward.rep + ' rep' : ''].filter(Boolean).join('  ');
+    const diffColor = q.diff === 'hard' ? 'var(--red)' : 'var(--blue)';
+    const fillColor = complete ? 'var(--green)' : diffColor;
+    hourlyHtml += `<div style="display:flex;align-items:center;gap:10px;padding:8px;border-bottom:1px solid var(--border);border-left:3px solid ${diffColor};opacity:${claimed?'.5':'1'}">
+      <span style="font-size:20px">${q.icon}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;${claimed?'text-decoration:line-through':''}">
+          ${q.fr} <span style="font-size:7px;padding:1px 4px;border-radius:3px;background:${diffColor};color:#fff;font-family:var(--font-pixel)">${q.diff === 'hard' ? 'HARD' : 'MED'}</span>
+        </div>
+        <div style="background:var(--bg);border-radius:3px;height:6px;margin-top:4px;overflow:hidden">
+          <div style="width:${pct}%;height:100%;background:${fillColor};transition:width .3s"></div>
+        </div>
+        <div style="font-size:9px;color:var(--text-dim);margin-top:2px">${progress}/${q.target}  —  ${rewardStr}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
+        ${complete && !claimed
+          ? `<button class="btn-claim-hourly" data-slot="${i}" style="font-family:var(--font-pixel);font-size:9px;padding:6px 12px;background:var(--green);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--bg);cursor:pointer;white-space:nowrap;animation:glow 1.5s ease-in-out infinite">Récupérer</button>`
+          : claimed ? '<span style="font-size:9px;color:var(--green)">✓</span>' : ''}
+        ${!claimed ? `<button class="btn-reroll-hourly" data-slot="${i}" style="font-size:7px;padding:3px 6px;background:var(--bg);border:1px solid var(--border);border-radius:3px;color:var(--text-dim);cursor:pointer;font-family:var(--font-pixel)">↻ ${HOURLY_QUEST_REROLL_COST}₽</button>` : ''}
+      </div>
+    </div>`;
+  }
+  hourlyHtml += '</div>';
+
+  // ── Timers ────────────────────────────────────────────────────
   const dailyRem = Math.max(0, 86400000 - (Date.now() - state.missions.daily.reset));
   const dailyH = Math.floor(dailyRem / 3600000);
   const dailyM = Math.floor((dailyRem % 3600000) / 60000);
@@ -4043,7 +4039,7 @@ function renderMissionsTab() {
   const unclaimedStory = storyMissions.filter(m => !isMissionClaimed(m));
   const claimedStory = storyMissions.filter(m => isMissionClaimed(m));
 
-  let content = '';
+  let content = hourlyHtml;
   content += renderSection(
     `${state.lang === 'fr' ? 'Missions Quotidiennes' : 'Daily Missions'} (${dailyH}h${String(dailyM).padStart(2,'0')})`,
     dailyMissions
@@ -4071,6 +4067,7 @@ function renderMissionsTab() {
     ? `<button id="btnClaimAllMissions" style="font-family:var(--font-pixel);font-size:9px;padding:7px 16px;background:var(--green);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--bg);cursor:pointer;margin-bottom:14px;animation:glow 1.5s ease-in-out infinite">✓ Tout réclamer (${claimableMissions.length})</button>`
     : '';
   el.innerHTML = `<div style="padding:12px">${claimAllBtn}${content}</div>`;
+
   if (claimableMissions.length > 0) {
     document.getElementById('btnClaimAllMissions')?.addEventListener('click', () => {
       claimableMissions.forEach(m => claimMission(m));
@@ -4078,15 +4075,22 @@ function renderMissionsTab() {
       renderMissionsTab();
     });
   }
-
-  // Claim buttons
   el.querySelectorAll('.btn-claim-mission').forEach(btn => {
     btn.addEventListener('click', () => {
       const mission = MISSIONS.find(m => m.id === btn.dataset.missionId);
-      if (mission) {
-        claimMission(mission);
-        renderMissionsTab();
-      }
+      if (mission) { claimMission(mission); renderMissionsTab(); }
+    });
+  });
+  el.querySelectorAll('.btn-claim-hourly').forEach(btn => {
+    btn.addEventListener('click', () => {
+      claimHourlyQuest(parseInt(btn.dataset.slot));
+      renderMissionsTab();
+    });
+  });
+  el.querySelectorAll('.btn-reroll-hourly').forEach(btn => {
+    btn.addEventListener('click', () => {
+      rerollHourlyQuest(parseInt(btn.dataset.slot));
+      renderMissionsTab();
     });
   });
 }
@@ -5215,16 +5219,16 @@ function startGameLoop() {
   // Passive agent tick every 10 seconds (closed zones, background activity)
   setInterval(passiveAgentTick, 10000);
 
-  // Hourly quests countdown refresh (every 10s when market tab open)
+  // Hourly quests countdown refresh (every 10s when missions tab open)
   setInterval(() => {
-    if (activeTab === 'tabMarket') renderQuestPanel();
+    if (activeTab === 'tabMissions') renderMissionsTab();
   }, 10000);
 
   // Hourly quest reset check (every minute)
   setInterval(() => {
     if (state.missions?.hourly && Date.now() - state.missions.hourly.reset >= HOUR_MS) {
       initHourlyQuests();
-      if (activeTab === 'tabMarket') renderQuestPanel();
+      if (activeTab === 'tabMissions') renderMissionsTab();
       notify('⏰ Nouvelles quêtes horaires disponibles !', 'gold');
     }
   }, 60000);

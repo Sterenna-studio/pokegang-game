@@ -28,7 +28,6 @@ const SHOP_ITEMS = [
   { id:'casino_ticket', qty:1, cost:20000, icon:'🎰', fr:'Ticket Casino',    en:'Casino Ticket',   desc_fr:'Accès au Casino de Céladopole',         desc_en:'Access to Celadon Casino' },
   { id:'silph_keycard', qty:1, cost:50000, icon:'🔑', fr:'Badge Sylphe',     en:'Silph Keycard',   desc_fr:'Accès à Sylphe SARL',                   desc_en:'Access to Silph Co.' },
   { id:'boat_ticket',   qty:1, cost:15000, icon:'⚓', fr:'Ticket Bateau',    en:'Boat Ticket',     desc_fr:'Monte à bord du Bateau St. Anne',        desc_en:'Board the S.S. Anne' },
-  { id:'egg_scanner', qty:1, cost:5000, icon:'🔬', fr:'Scanneur d\'Oeuf', en:'Egg Scanner', desc_fr:'89% révèle l\'espèce, 10% détruit l\'outil, 1% détruit l\'oeuf', desc_en:'89% reveals species, 10% destroys tool, 1% destroys egg' },
   // ── Zones légendaires Gen 2 (débloquables avec ailes) ──
   { id:'tourbillon_permit', qty:1, cost:0, wingCost:{ item:'silver_wing', qty:50 }, icon:'🌊',
     fr:'Permis Tourbillon', en:'Whirlpool Permit',
@@ -38,11 +37,6 @@ const SHOP_ITEMS = [
     fr:'Permis Carillon',   en:'Bell Tower Permit',
     desc_fr:'50× Arcenci\'Aile requis → Tour Carillon (Ho-Oh)',
     desc_en:'50× Rainbow Wing required → Bell Tower (Ho-Oh)' },
-  // ── Gang special upgrades ──
-  { id:'autoSellAgent', qty:1, cost:10_000_000, icon:'🤖',
-    fr:'Vente Automatique', en:'Auto-Sell',
-    desc_fr:'Les agents vendent automatiquement les captures selon le filtre configuré (Shinies toujours protégés)',
-    desc_en:'Agents automatically sell captures based on your filter (Shinies always protected)' },
 ];
 // Note: 'scientist' s'achète depuis l'onglet Gang ou Labo (carte avec sprite), pas au Marché.
 
