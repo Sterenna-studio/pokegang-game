@@ -4,7 +4,10 @@
 
 'use strict';
 
-import './modules/secretCodes.js';
+import {
+  checkSecretCode,
+  configureSecretCodes,
+} from './modules/secretCodes.js';
 import {
   saveState as _smSaveState,
   loadState as _smLoadState,
@@ -115,7 +118,6 @@ import { TRANSLATOR_PHRASES_FR } from './data/flavor-data.js';
 // ════════════════════════════════════════════════════════════════
 
 // Secret code logic moved to modules/secretCodes.js
-// Exposes _mkTitleExec, SECRET_CODES, checkSecretCode and showRewardChoicePopup on globalThis.
 
 // Pokédex descriptions moved to data/pokedex-desc.js
 
@@ -6178,6 +6180,23 @@ Object.assign(globalThis, {
   getDexKantoCaught, getDexNationalCaught, getShinySpeciesCount,
   getBossFullTitle, getTitleLabel,
   KANTO_DEX_SIZE, NATIONAL_DEX_SIZE, COSMETIC_BGS,
+});
+
+configureSecretCodes({
+  getState: () => state,
+  notify,
+  saveState,
+  getTitles: () => TITLES,
+  getActiveTab: () => activeTab,
+  renderGangTab,
+  renderCosmeticsTab,
+  makePokemon,
+  getSpeciesList: () => POKEMON_GEN1,
+  pokeSprite,
+  renderPokemonGrid,
+  updateTopBar,
+  document,
+  resetPcRenderCache,
 });
 
 configureSaveSlots({

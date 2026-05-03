@@ -1,42 +1,96 @@
 /* Secret code module extracted from app.js
  *
- * Exposes:
- * - _mkTitleExec
- * - SECRET_CODES
- * - checkSecretCode
- * - showRewardChoicePopup
- *
- * This module relies on the main app runtime for globals such as:
- * state, notify, saveState, TITLES, activeTab, renderGangTab,
- * renderCosmeticsTab, makePokemon, POKEMON_GEN1, pokeSprite,
- * renderPokemonGrid, updateTopBar, and showRewardChoicePopup consumers.
+ * app.js injects runtime dependencies through configureSecretCodes().
  */
+
+let secretCodesContext = {};
+
+export function configureSecretCodes(ctx = {}) {
+  secretCodesContext = { ...secretCodesContext, ...ctx };
+}
+
+function requireContext(name) {
+  const value = secretCodesContext[name];
+  if (value === undefined) {
+    throw new Error(`[secretCodes] Missing context dependency: ${name}`);
+  }
+  return value;
+}
+
+function getStateObject() {
+  return requireContext('getState')();
+}
+
+const state = new Proxy({}, {
+  get(_target, prop) {
+    return getStateObject()?.[prop];
+  },
+  set(_target, prop, value) {
+    const current = getStateObject();
+    if (!current) return false;
+    current[prop] = value;
+    return true;
+  },
+  ownKeys() {
+    return Reflect.ownKeys(getStateObject() ?? {});
+  },
+  getOwnPropertyDescriptor(_target, prop) {
+    const current = getStateObject() ?? {};
+    return Object.getOwnPropertyDescriptor(current, prop) || {
+      configurable: true,
+      enumerable: true,
+      writable: true,
+      value: current[prop],
+    };
+  },
+});
+
+const document = new Proxy({}, {
+  get(_target, prop) {
+    const doc = requireContext('document');
+    const value = doc?.[prop];
+    return typeof value === 'function' ? value.bind(doc) : value;
+  },
+});
+
+function notify(...args) { return requireContext('notify')(...args); }
+function saveState() { return requireContext('saveState')(); }
+function getTitles() { return requireContext('getTitles')(); }
+function getActiveTab() { return requireContext('getActiveTab')(); }
+function renderGangTab() { return requireContext('renderGangTab')(); }
+function renderCosmeticsTab() { return requireContext('renderCosmeticsTab')(); }
+function makePokemon(...args) { return requireContext('makePokemon')(...args); }
+function getSpeciesList() { return requireContext('getSpeciesList')(); }
+function pokeSprite(...args) { return requireContext('pokeSprite')(...args); }
+function renderPokemonGrid(...args) { return requireContext('renderPokemonGrid')(...args); }
+function updateTopBar() { return requireContext('updateTopBar')(); }
+function resetPcRenderCache() { return requireContext('resetPcRenderCache')(); }
 
 // ── Secret codes ───────────────────────────────────────────
 // Helper : génère la fonction exec pour un code qui débloque un titre
 // (TITLES et state sont accédés au moment de l'appel, pas de la définition)
-const _mkTitleExec = (titleId) => (claim) => {
+export const _mkTitleExec = (titleId) => (claim) => {
   if (!state.unlockedTitles) state.unlockedTitles = [];
   if (state.unlockedTitles.includes(titleId)) {
     notify('Ce titre est déjà débloqué !', 'error'); return;
   }
-  const t = TITLES.find(x => x.id === titleId);
+  const t = getTitles().find(x => x.id === titleId);
   state.unlockedTitles.push(titleId);
   // Sync avec purchases (pour les titres achetables en boutique)
   state.purchases = state.purchases || {};
   state.purchases[`title_${titleId}`] = true;
   claim(); saveState();
   notify(`🏆 Titre débloqué : "${t?.label || titleId}" !`, 'gold');
-  if (typeof renderGangTab    === 'function' && activeTab === 'tabGang')      renderGangTab();
-  if (typeof renderCosmeticsTab === 'function' && activeTab === 'tabCosmetics') renderCosmeticsTab();
+  if (getActiveTab() === 'tabGang') renderGangTab();
+  if (getActiveTab() === 'tabCosmetics') renderCosmeticsTab();
 };
 
 function refreshPcGridAfterSecretReward() {
-  globalThis.resetPcRenderCache?.();
+  resetPcRenderCache();
   renderPokemonGrid(true);
 }
 
-const SECRET_CODES = {
+export const SECRET_CODES = {
   'MERCIDAVOIRJOUEMONJEU': {
     key: 'code_missingno',
     cooldownMs: 60 * 60 * 1000,
@@ -63,7 +117,7 @@ const SECRET_CODES = {
       const starters = ['bulbasaur','charmander','squirtle'];
       const choices = starters.map(sp => {
         const shiny = Math.random() < 0.5;
-        const spDef = POKEMON_GEN1.find(s => s.en === sp);
+        const spDef = getSpeciesList().find(s => s.en === sp);
         return {
           emoji: `<img src="${pokeSprite(sp, shiny)}" style="width:56px;height:56px;image-rendering:pixelated${shiny ? ';filter:drop-shadow(0 0 6px gold)' : ''}">`,
           label: (shiny ? '✨ ' : '') + (spDef?.fr || sp),
@@ -172,7 +226,7 @@ const SECRET_CODES = {
   'MC9X4Z2W7K': { key:'ct_maitre_chronicles', oneTime:true, label:'🏆 Titre',  exec: _mkTitleExec('maitre_chronicles') },
 };
 
-function checkSecretCode(input) {
+export function checkSecretCode(input) {
   const code = input.trim().toUpperCase();
   const def = SECRET_CODES[code];
   if (!def) return false;
@@ -200,7 +254,7 @@ function checkSecretCode(input) {
 
 // ── Reward choice popup ─────────────────────────────────────
 // choices = array of { label, sublabel, emoji, onPick: () => void }
-function showRewardChoicePopup(title, subtitle, choices) {
+export function showRewardChoicePopup(title, subtitle, choices) {
   const overlay = document.createElement('div');
   overlay.style.cssText = 'position:fixed;inset:0;z-index:9800;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center;padding:16px';
 
@@ -231,12 +285,3 @@ function showRewardChoicePopup(title, subtitle, choices) {
     });
   });
 }
-
-Object.assign(globalThis, {
-  _mkTitleExec,
-  SECRET_CODES,
-  checkSecretCode,
-  showRewardChoicePopup,
-});
-
-export {};
