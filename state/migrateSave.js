@@ -161,6 +161,7 @@ export function migrateSave(saved, deps) {
   if (merged.purchases.autoSellAgentEnabled === undefined) merged.purchases.autoSellAgentEnabled = true;
   if (merged.purchases.autoSellEggs      === undefined) merged.purchases.autoSellEggs      = false;
   if (merged.purchases.mysteryEggCount  === undefined) merged.purchases.mysteryEggCount  = 0;
+  if (merged.purchases.johtoUnlocked    === undefined) merged.purchases.johtoUnlocked    = false;
 
   // trainingRoom extraSlots
   if (merged.trainingRoom.extraSlots === undefined) merged.trainingRoom.extraSlots = 0;

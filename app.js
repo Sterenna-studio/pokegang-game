@@ -1698,6 +1698,10 @@ function updateDiscovery() {
     notify('🎨 Les Cosmétiques sont maintenant accessibles !', 'gold');
   }
 
+  // Johto : débloqué via code secret
+  const johtoBtn = document.getElementById('tabBtnZone2');
+  if (johtoBtn) johtoBtn.style.display = state.purchases.johtoUnlocked ? '' : 'none';
+
   // Appliquer la visibilité
   // PC (Pokémon) : TOUJOURS visible, jamais masqué
   const pcBtn = document.querySelector('[data-tab="tabPC"]');
@@ -2379,6 +2383,7 @@ function renderActiveTab() {
     case 'tabLab':      pcView = 'lab'; switchTab('tabPC'); break;
     case 'tabLeaderboard': renderLeaderboardTab(); break;
     case 'tabCompte':      renderCompteTab(); break;
+    case 'tabZone2':       renderZone2Tab(); break;
   }
 }
 
@@ -5205,6 +5210,93 @@ let cooldownInterval  = null;
 let _gameLoopStarted  = false; // guard against double-start
 let _playerWasActive = false; // set by saveState(); consumed by the 2h leaderboard timer
 
+// ════════════════════════════════════════════════════════════════
+// JOHTO — Extension régionale
+// ════════════════════════════════════════════════════════════════
+
+function activateJohtoRegion() {
+  // Injecter ZONES_JOHTO dans ZONES (une seule fois)
+  if (!ZONES.find(z => z.id === 'route29')) {
+    ZONES.push(...ZONES_JOHTO);
+    ZONES_JOHTO.forEach(z => { ZONE_BY_ID[z.id] = z; });
+    Object.assign(ZONE_MUSIC_MAP, ZONE_MUSIC_MAP_JOHTO);
+  }
+  state.purchases.johtoUnlocked = true;
+  const btn = document.getElementById('tabBtnZone2');
+  if (btn) btn.style.display = '';
+  saveState();
+}
+
+const _JOHTO_FILTER_LABELS = { all:'Tout', route:'🗺 Routes', city:'🏙 Villes', special:'⭐ Spéciaux' };
+let _johtoActiveFilter = 'all';
+
+function renderZone2Tab() {
+  const el = document.getElementById('tabZone2');
+  if (!el) return;
+
+  // Filter tabs
+  const filterBar = document.getElementById('zoneFilterTabsJohto');
+  if (filterBar && !filterBar.dataset.bound) {
+    filterBar.dataset.bound = '1';
+    filterBar.innerHTML = Object.entries(_JOHTO_FILTER_LABELS).map(([key, label]) =>
+      `<button class="zone-ftab${_johtoActiveFilter === key ? ' active' : ''}" data-jfilter="${key}">${label}</button>`
+    ).join('');
+    filterBar.querySelectorAll('[data-jfilter]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        _johtoActiveFilter = btn.dataset.jfilter;
+        filterBar.dataset.bound = '';
+        renderZone2Tab();
+      });
+    });
+  } else if (filterBar) {
+    filterBar.querySelectorAll('[data-jfilter]').forEach(b =>
+      b.classList.toggle('active', b.dataset.jfilter === _johtoActiveFilter));
+  }
+
+  const grid = document.getElementById('zoneSelectorJohto');
+  if (!grid) return;
+
+  const zones = ZONES_JOHTO.filter(z =>
+    _johtoActiveFilter === 'all' || z.type === _johtoActiveFilter
+  );
+  const rep = state.gang.reputation || 0;
+
+  grid.innerHTML = zones.map(zone => {
+    const locked = rep < (zone.rep || 0);
+    const itemLocked = zone.unlockItem && !state.purchases?.[zone.unlockItem];
+    const isLocked = locked || itemLocked;
+    const isOpen = globalThis.openZones?.has(zone.id);
+    const assignedAgents = (state.agents || []).filter(a => a.assignedZone === zone.id);
+    const typeIcon = zone.type === 'city' ? '🏙' : zone.type === 'special' ? '⭐' : '🗺';
+
+    return `<div style="display:flex;align-items:center;gap:10px;padding:8px;border-bottom:1px solid var(--border);opacity:${isLocked ? '0.45' : '1'}">
+      <span style="font-size:18px;flex-shrink:0">${typeIcon}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:11px;font-family:var(--font-pixel)">${zone.fr}</div>
+        <div style="font-size:9px;color:var(--text-dim);margin-top:2px">
+          ${isLocked
+            ? (itemLocked ? `🔒 Objet requis` : `🔒 ${zone.rep} rep`)
+            : (assignedAgents.length ? `👤 ${assignedAgents.length} agent${assignedAgents.length > 1 ? 's' : ''}` : '')}
+          ${zone.gymLeader ? ` · Arena ${zone.gymType}` : ''}
+        </div>
+      </div>
+      ${!isLocked ? `<button data-johto-open="${zone.id}" style="font-family:var(--font-pixel);font-size:8px;padding:5px 10px;background:${isOpen ? 'var(--red-dark)' : 'var(--bg)'};border:1px solid ${isOpen ? 'var(--red)' : 'var(--gold-dim)'};border-radius:var(--radius-sm);color:${isOpen ? 'var(--red)' : 'var(--gold)'};cursor:pointer;white-space:nowrap">${isOpen ? '✕ Fermer' : '→ Ouvrir'}</button>` : ''}
+    </div>`;
+  }).join('');
+
+  grid.querySelectorAll('[data-johto-open]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const zid = btn.dataset.johtoOpen;
+      if (globalThis.openZones?.has(zid)) {
+        globalThis.closeZoneWindow(zid);
+      } else {
+        globalThis.openZoneWindow(zid);
+      }
+      renderZone2Tab();
+    });
+  });
+}
+
 function startGameLoop() {
   // Guard: only start once — prevents interval accumulation on hot-reload
   if (_gameLoopStarted) return;
@@ -6324,6 +6416,7 @@ Object.assign(globalThis, {
   notify, saveState, setState, migrate, renderAll, slimPokemon,
   updateTopBar, tryAutoIncubate,
   renderZonesTab, renderGangTab, renderAgentsTab, renderPokemonGrid, renderEggsView, renderGangBasePanel,
+  activateJohtoRegion, renderZone2Tab,
   // Audio
   SFX,
   // Zone system — logique pure (zoneSystem.js)
@@ -6752,6 +6845,9 @@ function boot() {
       });
     });
   }
+
+  // Réactiver Johto si déjà débloqué (save existante)
+  if (state.purchases?.johtoUnlocked) activateJohtoRegion();
 
   // Start game loop
   startGameLoop();

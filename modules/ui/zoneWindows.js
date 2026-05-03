@@ -729,17 +729,47 @@ function closeZoneWindow(zoneId) {
   _zsUpdateButtons();
 }
 
+function _renderZoneWindowsInto(containerId, zoneIds) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  const openZones = globalThis.openZones;
+
+  if (zoneIds.length === 0) {
+    let ph = container.querySelector('.zone-placeholder');
+    if (!ph) {
+      ph = document.createElement('div');
+      ph.className = 'zone-placeholder';
+      ph.style.cssText = 'color:var(--text-dim);padding:20px 0;text-align:center;width:100%';
+      ph.textContent = 'Sélectionnez une zone pour commencer';
+      container.appendChild(ph);
+    }
+    return;
+  }
+  container.querySelector('.zone-placeholder')?.remove();
+  container.querySelectorAll('.zone-window').forEach(el => {
+    if (!openZones.has(el.id.replace('zw-', ''))) el.remove();
+  });
+}
+
 function renderZoneWindows() {
   const state = globalThis.state;
   const openZones = globalThis.openZones;
   const zoneSpawns = globalThis.zoneSpawns;
+
+  // Séparer Kanto et Johto
+  const johtoIds = typeof ZONE_JOHTO_BY_ID !== 'undefined'
+    ? [...openZones].filter(id => ZONE_JOHTO_BY_ID[id])
+    : [];
+  const kantoIds = [...openZones].filter(id => !johtoIds.includes(id));
+
+  _renderZoneWindowsInto('zoneWindowsJohto', johtoIds);
 
   const container = document.getElementById('zoneWindows');
   if (!container) return;
 
   // "No zones" placeholder
   let placeholder = container.querySelector('.zone-placeholder');
-  if (openZones.size === 0) {
+  if (kantoIds.length === 0) {
     if (!placeholder) {
       placeholder = document.createElement('div');
       placeholder.className = 'zone-placeholder';
@@ -747,7 +777,7 @@ function renderZoneWindows() {
       placeholder.textContent = 'Sélectionnez une zone dans la grille pour commencer';
       container.appendChild(placeholder);
     }
-    return;
+    if (openZones.size === 0) return;
   }
   placeholder?.remove();
 
@@ -757,7 +787,7 @@ function renderZoneWindows() {
   });
 
   // ── Sort open zones by saved order ───────────────────────────
-  const ordered = [...openZones].sort((a, b) => {
+  const ordered = kantoIds.sort((a, b) => {
     const order = state.openZoneOrder || [];
     const oa = order.indexOf(a);
     const ob = order.indexOf(b);
@@ -765,42 +795,46 @@ function renderZoneWindows() {
   });
 
   // ── Update or create each open zone window ────────────────────
-  for (const zoneId of ordered) {
-    if (zoneId === 'gang_park') continue; // managed by toggleGangParkWindow
+  const _appendZoneWindow = (zoneId, targetContainer) => {
+    if (zoneId === 'gang_park') return;
     const existing = document.getElementById(`zw-${zoneId}`);
     if (existing) {
       patchZoneWindow(zoneId, existing);
     } else {
       const win = buildZoneWindowEl(zoneId);
-      // Drag & drop reordering
       win.setAttribute('draggable', 'true');
-      win.addEventListener('dragstart', e => {
-        e.dataTransfer.setData('text/plain', zoneId);
-        win.style.opacity = '0.5';
-      });
+      win.addEventListener('dragstart', e => { e.dataTransfer.setData('text/plain', zoneId); win.style.opacity = '0.5'; });
       win.addEventListener('dragend', () => { win.style.opacity = ''; });
       win.addEventListener('dragover', e => { e.preventDefault(); win.style.borderColor = 'var(--gold)'; });
       win.addEventListener('dragleave', () => { win.style.borderColor = ''; });
       win.addEventListener('drop', e => {
-        e.preventDefault();
-        win.style.borderColor = '';
+        e.preventDefault(); win.style.borderColor = '';
         const sourceId = e.dataTransfer.getData('text/plain');
         if (sourceId === zoneId) return;
         const order = [...openZones];
         const fromIdx = order.indexOf(sourceId);
         const toIdx = order.indexOf(zoneId);
         if (fromIdx !== -1 && toIdx !== -1) {
-          order.splice(fromIdx, 1);
-          order.splice(toIdx, 0, sourceId);
-          state.openZoneOrder = order;
-          globalThis.saveState();
-          renderZoneWindows();
+          order.splice(fromIdx, 1); order.splice(toIdx, 0, sourceId);
+          state.openZoneOrder = order; globalThis.saveState(); renderZoneWindows();
         }
       });
-      container.appendChild(win);
+      targetContainer.appendChild(win);
       updateZoneTimers(zoneId);
       (zoneSpawns[zoneId] || []).forEach(s => renderSpawnInWindow(zoneId, s));
     }
+  };
+
+  for (const zoneId of ordered) _appendZoneWindow(zoneId, container);
+
+  // Johto zone windows → #zoneWindowsJohto
+  const johtoContainer = document.getElementById('zoneWindowsJohto');
+  if (johtoContainer) {
+    johtoContainer.querySelector('.zone-placeholder')?.remove();
+    johtoContainer.querySelectorAll('.zone-window').forEach(el => {
+      if (!openZones.has(el.id.replace('zw-', ''))) el.remove();
+    });
+    for (const zoneId of johtoIds) _appendZoneWindow(zoneId, johtoContainer);
   }
 }
 

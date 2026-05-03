@@ -156,6 +156,7 @@ export const DEFAULT_STATE = {
     autoSellAgent: false,
     autoSellAgentEnabled: true,
     autoSellEggs: false,
+    johtoUnlocked: false,
   },
   pension: {
     slots: [],              // array de pokemon IDs (2 base + extra achetés)

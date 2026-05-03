@@ -221,7 +221,24 @@ export const SECRET_CODES = {
   'BW5SH2G9': { key:'ct_seigneur_chroma',oneTime:true, label:'🏆 Titre',  exec: _mkTitleExec('seigneur_chroma') },
   'YK3DC8R5': { key:'ct_dresseur_chroma',    oneTime:true, label:'🏆 Titre',  exec: _mkTitleExec('dresseur_chroma') },
 
-  // ── Titres exclusifs ────────────────────────────────���───────────────────────
+  // ── Région Johto ─────────────────────────────────────────────────────────────
+  'JOHTO': {
+    key: 'region_johto',
+    oneTime: true,
+    label: '🗾 Région Johto débloquée',
+    exec: (claim) => {
+      if (globalThis.state?.purchases?.johtoUnlocked) {
+        notify('🗾 La région Johto est déjà débloquée !', 'error');
+        return;
+      }
+      claim();
+      globalThis.activateJohtoRegion?.();
+      notify('🗾 Région Johto débloquée ! L\'onglet Johto est maintenant accessible.', 'gold');
+      globalThis.SFX?.play?.('unlock');
+    }
+  },
+
+  // ── Titres exclusifs ──────────────────────────────────────────────────────────
   'EP1C5AR7Y2': { key:'ct_early_backer',      oneTime:true, label:'🏆 Titre',  exec: _mkTitleExec('early_backer') },
   'MC9X4Z2W7K': { key:'ct_maitre_chronicles', oneTime:true, label:'🏆 Titre',  exec: _mkTitleExec('maitre_chronicles') },
 };
