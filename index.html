@@ -70,6 +70,8 @@
       <button class="tab-btn" data-tab="tabPokedex">Pokédex <span class="tab-info-btn" data-info-tab="tabPokedex">ℹ</span></button>
       <button class="tab-btn" data-tab="tabCosmetics">🎨</button>
       <button class="tab-btn" data-tab="tabBattleLog">📋 Évts</button>
+      <button class="tab-btn" data-tab="tabTraining" id="tabBtnTraining">Formation</button>
+      <button class="tab-btn" data-tab="tabLab" id="tabBtnLab">Labo</button>
       <button class="tab-btn" data-tab="tabMissions" id="tabBtnMissions" style="display:none">Missions</button>
       <button class="tab-btn" data-tab="tabLeaderboard" id="tabBtnLeaderboard" style="margin-left:auto">🏆</button>
       <button class="tab-btn" data-tab="tabCompte" id="tabBtnCompte">☁ Compte</button>
@@ -370,5 +372,7 @@
   <script src="./data/evolutions-data.js?v=1"></script>
   <script src="./data/titles-data.js?v=1"></script>
   <script type="module" src="./app.js?v=22"></script>
+  <!-- Offline / background idle catchup system -->
+  <script type="module" src="./modules/systems/offlineCatchup.js?v=1"></script>
 </body>
 </html>

@@ -1,10 +1,10 @@
 'use strict';
 
-// App version: bump on every deploy to force client reload.
+// ── Version identique à app.js ────────────────────────────────────────────────
 export const APP_VERSION = '2.2.0';
 export const GAME_VERSION = 'v0.1 — pre-alpha';
 
-// Save schema: bump when migration should be visible to players.
+// Incrémenter à chaque ajout de champ majeur pour déclencher le banner migration.
 export const SAVE_SCHEMA_VERSION = 8;
 
 export const SAVE_KEYS = ['pokeforge.v6', 'pokeforge.v6.s2', 'pokeforge.v6.s3'];
@@ -60,11 +60,11 @@ export const DEFAULT_STATE = {
   },
   activeBall: 'pokeball',
   activeBoosts: {
-    incense: 0,
-    rarescope: 0,
-    aura: 0,
-    lure: 0,
-    superlure: 0,
+    incense:    0,
+    rarescope:  0,
+    aura:       0,
+    lure:       0,
+    superlure:  0,
     chestBoost: 0,
   },
   pokemons: [],
@@ -74,7 +74,7 @@ export const DEFAULT_STATE = {
   activeEvents: {},
   missions: {
     completed: [],
-    daily: { reset: 0, progress: {}, claimed: [] },
+    daily:  { reset: 0, progress: {}, claimed: [] },
     weekly: { reset: 0, progress: {}, claimed: [] },
     hourly: { reset: 0, slots: [], baseline: {}, claimed: [] },
   },
@@ -111,14 +111,14 @@ export const DEFAULT_STATE = {
     autoCombat: true,
     discoveryMode: true,
     autoBuyBall: null,
-    spriteMode: 'local',
+    spriteMode: 'local',   // 'local'|'gen1'|'gen2'|'gen3'|'gen4'|'gen5'|'ani'|'dex'|'home'
     autoEvoChoice: false,
     autoSellAgent: {
-      mode: 'all',
+      mode: 'all',         // 'all' | 'by_potential'
       potentials: [],
     },
     autoSellEggs: {
-      mode: 'all',
+      mode: 'all',         // 'all' | 'by_potential'
       potentials: [],
       allowShiny: false,
     },
@@ -131,7 +131,7 @@ export const DEFAULT_STATE = {
     log: [],
     level: 1,
     lastFight: null,
-    extraSlots: 0,
+    extraSlots: 0,         // 0–6 extra slots achetables
   },
   _savedAt: 0,
   cosmetics: {
@@ -154,11 +154,10 @@ export const DEFAULT_STATE = {
     autoSellAgent: false,
     autoSellAgentEnabled: true,
     autoSellEggs: false,
-    autoSellEggsEnabled: true,
   },
   pension: {
-    slots: [],
-    extraSlotsPurchased: 0,
+    slots: [],              // array de pokemon IDs (2 base + extra achetés)
+    extraSlotsPurchased: 0, // 0–4 extra slots
     eggAt: null,
   },
   eggs: [],
