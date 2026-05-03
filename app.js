@@ -6222,7 +6222,6 @@ if (!_lbToken) {
 }
 
 let _lbLastPushAt = 0;
-let _playerWasActive = false; // set to true on any saveState() call; consumed by 2h lb timer
 const LB_PUSH_THROTTLE_MS = 60 * 60 * 1000; // push at most once every hour
 let _lbLastFingerprint = ''; // dirty check — skip push if nothing changed
 
