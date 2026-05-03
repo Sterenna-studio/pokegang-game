@@ -3297,7 +3297,7 @@ function renderSpecialItemPanel() {
             ${wingName} : ${wingHave}/${item.wingCost?.qty||50}</div>`
         : `<div style="font-size:10px;color:var(--text-dim)">Débloque une zone</div>`;
     return `<div style="display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid var(--border);opacity:${btnDisabled?'0.6':'1'}">
-      <span style="font-size:22px">${item.icon}</span>
+      ${itemSprite(item.id)}
       <div style="flex:1">
         <div style="font-size:12px">${state.lang==='fr' ? item.fr : item.en}</div>
         <div style="font-size:9px;color:var(--text-dim);margin-top:2px">${desc}</div>

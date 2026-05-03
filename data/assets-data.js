@@ -34,8 +34,10 @@ const ITEM_SPRITE_URLS = {
   silph_keycard:'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/silph-scope.png',
   boat_ticket:  'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/ss-ticket.png',
   pokecoin:     'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/amulet-coin.png',
-  silver_wing:  'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/silver-wing.png',
-  rainbow_wing: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/rainbow-wing.png',
+  silver_wing:       'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/silver-wing.png',
+  rainbow_wing:      'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/rainbow-wing.png',
+  tourbillon_permit: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/silver-wing.png',
+  carillon_permit:   'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/rainbow-wing.png',
 };
 
 // Chest sprite URL
