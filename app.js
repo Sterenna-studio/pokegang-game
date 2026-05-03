@@ -93,6 +93,17 @@ import { HOURLY_QUEST_REROLL_COST, BOOST_DURATIONS } from './data/gameplay-confi
 import { SPECIAL_TRAINER_KEYS, MAX_COMBAT_REWARD } from './data/combat-config-data.js';
 import { FALLBACK_TRAINER_SVG, FALLBACK_POKEMON_SVG, BALL_SPRITES, ITEM_SPRITE_URLS, CHEST_SPRITE_URL } from './data/assets-data.js';
 import { TRANSLATOR_PHRASES_FR } from './data/flavor-data.js';
+import {
+  APP_VERSION,
+  GAME_VERSION,
+  SAVE_SCHEMA_VERSION,
+  SAVE_KEYS,
+  LEGACY_SAVE_KEYS,
+  DEFAULT_STATE,
+  createDefaultState,
+} from './state/defaultState.js';
+import { slimPokemon, buildSavePayload, MAX_HISTORY } from './state/serialization.js';
+import { migrateSave, getMigrationSummary } from './state/migrateSave.js';
 
 // ════════════════════════════════════════════════════════════════
 //  1.  CONFIG & CONSTANTS
@@ -159,21 +170,6 @@ function t(key, vars = {}) {
 //  2.  STATE MANAGEMENT
 // ════════════════════════════════════════════════════════════════
 
-// ── App version — bump on every deploy to force client reload ──
-// ── State modules — source de vérité unique ──────────────────────────────────
-import {
-  APP_VERSION,
-  GAME_VERSION,
-  SAVE_SCHEMA_VERSION,
-  SAVE_KEYS,
-  LEGACY_SAVE_KEYS,
-  DEFAULT_STATE,
-  createDefaultState,
-} from './state/defaultState.js';
-
-import { slimPokemon, buildSavePayload, MAX_HISTORY } from './state/serialization.js';
-import { migrateSave, getMigrationSummary } from './state/migrateSave.js';
-
 // ── Save slot (runtime mutable) ───────────────────────────────────────────────
 let activeSaveSlot = Math.min(2, parseInt(localStorage.getItem('pokeforge.activeSlot') || '0'));
 let SAVE_KEY = SAVE_KEYS[activeSaveSlot];
@@ -183,9 +179,6 @@ let _migrationResult = null; // null | { from: string, fields: string[] }
 
 let state = structuredClone(DEFAULT_STATE);
 globalThis.state = state;
-
-
-const MAX_HISTORY = 30; // cap des entrées d'historique par Pokémon (anti-QuotaExceeded)
 
 // ── Sérialisation slim des pokémons ──────────────────────────────────────────
 // On ne touche PAS les objets en mémoire : on crée un clone allégé pour la save.
