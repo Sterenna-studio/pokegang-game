@@ -40,6 +40,43 @@ const ZONE_BGS = {
   // ── Lieux spéciaux ───────────────────────────────────────────
   safari_zone:      { url:`${SD_BG}meadow.png`,          fb:'#082008,#041204' },
   celadon_casino:   { url:`${SD_BG}city.png`,            fb:'#1a0030,#100020' },
+
+  // ── Johto : Routes & nature ───────────────────────────────────
+  johto_gang_hq:    { url:`${SD_BG}meadow.png`,          fb:'#0a2810,#051408' },
+  route29:          { url:`${SD_BG}meadow.png`,          fb:'#1a3a0a,#0d2008' },
+  route30_31:       { url:`${SD_BG}forest.png`,          fb:'#083010,#041a08' },
+  dark_cave:        { url:`${SD_BG}mountain.png`,        fb:'#0e0e1a,#060610' },
+  ilex_forest:      { url:`${SD_BG}forest.png`,          fb:'#042810,#021408' },
+  route36_37:       { url:`${SD_BG}meadow.png`,          fb:'#1a2e08,#0e1a04' },
+  mt_mortar:        { url:`${SD_BG}mountain.png`,        fb:'#1a1208,#0e0a04' },
+  route42_43:       { url:`${SD_BG}river.png`,           fb:'#0a1a28,#040e18' },
+  ice_path:         { url:`${SD_BG}mountain.png`,        fb:'#0a1428,#040c1c' },
+  route44_45_46:    { url:`${SD_BG}forest.png`,          fb:'#0a2208,#041204' },
+  mt_silver_johto:  { url:`${SD_BG}mountain.png`,        fb:'#121220,#080814' },
+
+  // ── Johto : Villes & Arènes ───────────────────────────────────
+  violet_gym:       { url:`${SD_BG}city.png`,            fb:'#100c28,#08081a' },
+  azalea_gym:       { url:`${SD_BG}forest.png`,          fb:'#0c1808,#060e04' },
+  goldenrod_gym:    { url:`${SD_BG}city.png`,            fb:'#281a00,#181000' },
+  ecruteak_gym:     { url:`${SD_BG}city.png`,            fb:'#0d0020,#06000f' },
+  cianwood_gym:     { url:`${SD_BG}beach.png`,           fb:'#081c38,#041228' },
+  olivine_gym:      { url:`${SD_BG}city.png`,            fb:'#08141a,#040c10' },
+  mahogany_gym:     { url:`${SD_BG}mountain.png`,        fb:'#0a1428,#06101e' },
+  blackthorn_gym:   { url:`${SD_BG}mountain.png`,        fb:'#180808,#0e0404' },
+  indigo_johto:     { url:`${SD_BG}mountain.png`,        fb:'#1a1a2a,#0c0c1c' },
+
+  // ── Johto : Lieux spéciaux ────────────────────────────────────
+  slowpoke_well:    { url:`${SD_BG}mountain.png`,        fb:'#081828,#040e18' },
+  ruins_of_alph:    { url:`${SD_BG}mountain.png`,        fb:'#1a1008,#0e0a04' },
+  national_park:    { url:`${SD_BG}forest.png`,          fb:'#0a2810,#041804' },
+  burned_tower:     { url:`${SD_BG}city.png`,            fb:'#200804,#140402' },
+  team_rocket_hq:   { url:`${SD_BG}city.png`,            fb:'#100404,#080202' },
+  radio_tower:      { url:`${SD_BG}city.png`,            fb:'#041018,#020810' },
+  dragons_den:      { url:`${SD_BG}deepsea.png`,         fb:'#040c18,#020810' },
+  safari_johto:     { url:`${SD_BG}meadow.png`,          fb:'#0a2808,#041404' },
+  whirl_islands:    { url:`${SD_BG}deepsea.png`,         fb:'#040e20,#020a14' },
+  tin_tower:        { url:`${SD_BG}city.png`,            fb:'#201400,#141000' },
+  mt_silver_summit: { url:`${SD_BG}mountain.png`,        fb:'#080820,#040414' },
 };
 
 // Cosmetic backgrounds purchasable for the game screen

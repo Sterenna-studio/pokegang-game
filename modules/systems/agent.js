@@ -3,6 +3,12 @@
 //  Extracted from app.js
 // ════════════════════════════════════════════════════════════════
 
+// ── REWORK FLAG ──────────────────────────────────────────────────
+// La montée de niveau des agents est temporairement gelée pendant
+// le rework du système. Les agents accumulent de l'XP normalement
+// mais ne peuvent plus monter de niveau ni respec.
+const AGENT_LEVEL_FREEZE = true;
+
 // Exponential cost scaling: 5k → 20k → 80k → 320k → 1.28M → …
 function getAgentRecruitCost() {
   const state = globalThis.state;
@@ -226,6 +232,7 @@ function captureXP(species_en, potential, shiny) {
 
 function grantAgentXP(agent, amount) {
   agent.xp += amount;
+  if (AGENT_LEVEL_FREEZE) return; // niveau gelé pendant rework
   const needed = agent.level * 30;
   while (agent.xp >= needed && agent.level < 100) {
     agent.xp -= needed;
@@ -238,6 +245,10 @@ function grantAgentXP(agent, amount) {
 
 // Respec stats : rend tous les pts distribués, coûte 1 000 000₽
 function respecAgentStats(agentId) {
+  if (AGENT_LEVEL_FREEZE) {
+    globalThis.notify('Respec indisponible — système en cours de rework', 'error');
+    return;
+  }
   const state = globalThis.state;
   const agent = state.agents.find(a => a.id === agentId);
   if (!agent) return;
@@ -487,22 +498,35 @@ function resolveBackgroundSpawnForZone(zoneId) {
     // Fabric BG unlock
     globalThis._unlockFabricBg?.(pokemon.dex, pokemon.shiny);
     grantAgentXP(capturer, captureXP(entry.species_en, pokemon.potential, pokemon.shiny));
-    const name  = globalThis.speciesName(pokemon.species_en);
-    const stars = '★'.repeat(pokemon.potential);
+    const name   = globalThis.speciesName(pokemon.species_en);
+    const stars  = '★'.repeat(pokemon.potential) + '☆'.repeat(5 - pokemon.potential);
     const rarity = globalThis.SPECIES_BY_EN?.[pokemon.species_en]?.rarity;
-    // Toujours notifier pour shiny, légendaire, très rare — peu importe le réglage notifyCaptures
+    const zoneName = ZONE_BY_ID?.[zoneId]?.fr || zoneId;
+    const ballName = globalThis.BALLS?.[ball]?.fr || ball;
+    // Notifs spéciales uniquement — les captures normales passent par le feed
     if (pokemon.shiny) {
       globalThis.notify(`✨ ${capturer.name} — SHINY ! ${name} ${stars} ✨`, 'gold');
+      setTimeout(() => globalThis.showShinyPopup?.(pokemon.species_en), 200);
     } else if (rarity === 'legendary') {
       globalThis.notify(`🏆 ${capturer.name} — LÉGENDAIRE ! ${name} ${stars}`, 'gold');
     } else if (rarity === 'very_rare') {
       globalThis.notify(`⭐ ${capturer.name} — Très rare ! ${name} ${stars}`, 'gold');
-    } else if (capturer.notifyCaptures !== false) {
-      // notifyCaptures peut être undefined (agents d'avant le champ) → traiter comme true
-      if (isCrit) globalThis.notify(`★ ${capturer.name} — Critique ! ${name} ${stars}`, 'gold');
-      else         globalThis.notify(`👤 ${capturer.name} → ${name} ${stars}`, 'success');
     }
     globalThis.addLog(globalThis.t('agent_catch', { agent: capturer.name, pokemon: name }));
+    // Feed event — une seule entrée propre par capture
+    globalThis.pushFeedEvent?.({
+      category: 'capture',
+      title: `${name}${pokemon.shiny ? ' ✨' : ''} — ${stars}`,
+      detail: `${capturer.name} · ${zoneName} · ${ballName}`,
+      win: true,
+      species_en: pokemon.species_en,
+      level: pokemon.level,
+      potential: pokemon.potential,
+      shiny: pokemon.shiny,
+      byAgent: capturer.name,
+      zone: zoneName,
+      ball: ballName,
+    });
     changed = true;
 
   // ── Dresseur / Raid ──────────────────────────────────────────
@@ -755,10 +779,14 @@ function agentCaptureVisibleSpawn(agent, zoneId, spawnObj) {
     const state = globalThis.state;
     const preferred = agent.preferredBall || 'pokeball';
     const hasPref = (state.inventory[preferred] || 0) > 0;
+    const usedBall = hasPref ? preferred : 'pokeball';
     const prevBall = state.activeBall;
-    state.activeBall = hasPref ? preferred : ((state.inventory['pokeball'] || 0) > 0 ? 'pokeball' : prevBall);
+    state.activeBall = (state.inventory[usedBall] || 0) > 0 ? usedBall : prevBall;
+    // Poser le contexte agent pour que zoneSystem.js ne pousse pas son propre feed event
+    globalThis._agentCaptureCtx = { agentName: agent.name, ball: usedBall, zoneId };
     const caught = globalThis.tryCapture(zoneId, spawnObj.species_en);
-    state.activeBall = prevBall; // restore player's ball choice
+    globalThis._agentCaptureCtx = null;
+    state.activeBall = prevBall;
     if (caught) {
       // Luck reroll for agents
       if (agent.stats.luck > 8 && caught.potential < 3 && Math.random() < 0.3) {
@@ -768,36 +796,34 @@ function agentCaptureVisibleSpawn(agent, zoneId, spawnObj) {
       _autoSellCaptured(caught);
       globalThis.showCaptureBurst(viewport, targetX, targetY, caught.potential, caught.shiny);
       grantAgentXP(agent, 2);
-      {
-        const cName   = globalThis.speciesName(spawnObj.species_en);
-        const cStars  = '★'.repeat(caught.potential || 0);
-        const cRarity = globalThis.SPECIES_BY_EN?.[spawnObj.species_en]?.rarity;
-        if (caught.shiny) {
-          globalThis.notify(`✨ ${agent.name} — SHINY ! ${cName} ${cStars} ✨`, 'gold');
-        } else if (cRarity === 'legendary') {
-          globalThis.notify(`🏆 ${agent.name} — LÉGENDAIRE ! ${cName} ${cStars}`, 'gold');
-        } else if (cRarity === 'very_rare') {
-          globalThis.notify(`⭐ ${agent.name} — Très rare ! ${cName} ${cStars}`, 'gold');
-        } else if (agent.notifyCaptures !== false) {
-          globalThis.notify(globalThis.t('agent_catch', { agent: agent.name, pokemon: cName }), 'success');
-        }
-        globalThis.addLog(globalThis.t('agent_catch', { agent: agent.name, pokemon: cName }));
+      const cName   = globalThis.speciesName(caught.species_en);
+      const cStars  = '★'.repeat(caught.potential || 0) + '☆'.repeat(5 - (caught.potential || 0));
+      const cRarity = globalThis.SPECIES_BY_EN?.[caught.species_en]?.rarity;
+      const zoneName = ZONE_BY_ID?.[zoneId]?.fr || zoneId;
+      const ballName = globalThis.BALLS?.[usedBall]?.fr || usedBall;
+      // Notifications spéciales seulement (éviter doublon avec le toast de tryCapture)
+      if (caught.shiny) {
+        globalThis.notify(`✨ ${agent.name} — SHINY ! ${cName} ${cStars} ✨`, 'gold');
+      } else if (cRarity === 'legendary') {
+        globalThis.notify(`🏆 ${agent.name} — LÉGENDAIRE ! ${cName} ${cStars}`, 'gold');
+      } else if (cRarity === 'very_rare') {
+        globalThis.notify(`⭐ ${agent.name} — Très rare ! ${cName} ${cStars}`, 'gold');
       }
-      // Feed event for agent capture
-      {
-        const stars = '★'.repeat(caught.potential || 0) + '☆'.repeat(5 - (caught.potential || 0));
-        const shinyTag = caught.shiny ? ' ✨' : '';
-        globalThis.pushFeedEvent({
-          category: 'capture',
-          title: `${globalThis.speciesName(caught.species_en)}${shinyTag} — ${stars}`,
-          detail: `Zone: ${zoneId} · Agent: ${agent.name}`,
-          win: true,
-          species_en: caught.species_en,
-          potential: caught.potential,
-          shiny: caught.shiny,
-          byAgent: agent.name,
-        });
-      }
+      globalThis.addLog(globalThis.t('agent_catch', { agent: agent.name, pokemon: cName }));
+      // Feed event unique et complet
+      globalThis.pushFeedEvent({
+        category: 'capture',
+        title: `${cName}${caught.shiny ? ' ✨' : ''} — ${cStars}`,
+        detail: `${agent.name} · ${zoneName} · ${ballName}`,
+        win: true,
+        species_en: caught.species_en,
+        level: caught.level,
+        potential: caught.potential,
+        shiny: caught.shiny,
+        byAgent: agent.name,
+        zone: zoneName,
+        ball: ballName,
+      });
       globalThis.removeSpawn(zoneId, spawnObj.id);
       globalThis.updateTopBar();
       globalThis.updateZoneTimers(zoneId);

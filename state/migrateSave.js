@@ -38,6 +38,15 @@ export function migrateSave(saved, deps) {
   merged.cosmetics    = { ...structuredClone(DEFAULT_STATE.cosmetics),    ...ensureObject(saved.cosmetics) };
   if (!Array.isArray(merged.cosmetics.favoriteBgs))  merged.cosmetics.favoriteBgs  = [];
   if (!Array.isArray(merged.cosmetics.activePatches)) merged.cosmetics.activePatches = [];
+  if (merged.cosmetics.fabricMode === undefined)  merged.cosmetics.fabricMode  = 'repeat';
+  if (merged.cosmetics.fabricSize === undefined)  merged.cosmetics.fabricSize  = 320;
+  if (merged.cosmetics.fabricOpacity === undefined) merged.cosmetics.fabricOpacity = 72;
+  // Strip legacy _emb keys (Embroidered feature removed)
+  merged.cosmetics.unlockedBgs = (merged.cosmetics.unlockedBgs || []).filter(k => !k.endsWith('_emb'));
+  merged.cosmetics.favoriteBgs = (merged.cosmetics.favoriteBgs || []).filter(k => !k.endsWith('_emb'));
+  if (merged.cosmetics.gameBg?.endsWith('_emb')) {
+    merged.cosmetics.gameBg = merged.cosmetics.gameBg.replace(/_emb$/, '');
+  }
   merged.lab          = { ...structuredClone(DEFAULT_STATE.lab),          ...ensureObject(saved.lab) };
   merged.purchases    = { ...structuredClone(DEFAULT_STATE.purchases),    ...ensureObject(saved.purchases) };
   merged.pension      = { ...structuredClone(DEFAULT_STATE.pension),      ...ensureObject(saved.pension) };

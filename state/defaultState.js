@@ -140,6 +140,9 @@ export const DEFAULT_STATE = {
     unlockedBgs: [],
     favoriteBgs: [],      // array of bg keys (fabric, image, gradient)
     activePatches: [],    // array of patch pids (max 3)
+    fabricMode: 'repeat', // 'repeat' | 'full'
+    fabricSize: 320,      // px, used in repeat mode
+    fabricOpacity: 72,    // 30–95, alpha % of --bg dark overlay
   },
   lab: {
     trackedSpecies: [],

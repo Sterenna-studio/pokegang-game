@@ -84,6 +84,10 @@ function getKantoDexSize() {
   return requireContext('getKantoDexSize')();
 }
 
+function getJohtoDexSize() {
+  return requireContext('getJohtoDexSize')();
+}
+
 function getNationalDexSize() {
   return requireContext('getNationalDexSize')();
 }
@@ -123,6 +127,7 @@ function renderPensionView(...args) { return callContext('renderPensionView', ..
 function eggSprite(...args) { return callContext('eggSprite', ...args) ?? ''; }
 function eggImgTag(...args) { return callContext('eggImgTag', ...args) ?? ''; }
 function getDexKantoCaught() { return callContext('getDexKantoCaught') ?? 0; }
+function getDexJohtoCaught() { return callContext('getDexJohtoCaught') ?? 0; }
 function getDexNationalCaught() { return callContext('getDexNationalCaught') ?? 0; }
 function getShinySpeciesCount() { return callContext('getShinySpeciesCount') ?? 0; }
 function playSfx(key) {
@@ -407,14 +412,19 @@ function renderEventsTab() {
     const color = e.win === true ? 'var(--green)' : e.win === false ? 'var(--red)' : 'var(--text)';
     const hasExpandable = e.detail || e.combatLog?.length || e.species_en;
 
-    // Capture entry: show sprite + stars
+    // Capture entry: show sprite + stars + level
     let captureHtml = '';
     if (e.category === 'capture' && e.species_en) {
       const stars = '★'.repeat(e.potential || 0) + '☆'.repeat(5 - (e.potential || 0));
-      const shinyGlow = e.shiny ? 'filter:drop-shadow(0 0 4px var(--gold))' : '';
-      captureHtml = `<div class="feed-capture-preview" style="display:flex;align-items:center;gap:6px;margin-top:4px">
-        <img src="${pokeSprite(e.species_en, e.shiny)}" style="width:32px;height:32px;image-rendering:pixelated;${shinyGlow}" alt="${e.species_en}">
-        <span style="font-family:var(--font-pixel);font-size:9px;color:${e.shiny ? 'var(--gold)' : 'var(--text-dim)'}">${stars}${e.byAgent ? ` · ${e.byAgent}` : ''}</span>
+      const shinyGlow   = e.shiny ? 'filter:drop-shadow(0 0 5px var(--gold))' : '';
+      const shinyBorder = e.shiny ? 'border:1px solid var(--gold);border-radius:4px;' : '';
+      const levelTag    = e.level ? `Niv.${e.level} ` : '';
+      captureHtml = `<div class="feed-capture-preview" style="display:flex;align-items:center;gap:8px;margin-top:4px;padding:4px 6px;background:${e.shiny ? 'rgba(255,204,90,.08)' : 'rgba(255,255,255,.04)'};border-radius:6px;${shinyBorder}">
+        <img src="${pokeSprite(e.species_en, e.shiny)}" style="width:36px;height:36px;image-rendering:pixelated;${shinyGlow}" alt="${e.species_en}">
+        <div style="display:flex;flex-direction:column;gap:1px">
+          <span style="font-family:var(--font-pixel);font-size:9px;color:${e.shiny ? 'var(--gold)' : 'var(--text)'}">${levelTag}${stars}</span>
+          ${e.detail ? `<span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">${e.detail}</span>` : ''}
+        </div>
       </div>`;
     }
 
@@ -430,8 +440,8 @@ function renderEventsTab() {
     return `<div class="feed-entry${hasExpandable ? ' feed-has-detail' : ''}" data-fi="${i}">
       <span class="feed-icon">${e.icon}</span>
       <div class="feed-body">
-        <div class="feed-title" style="color:${color}">${e.title}</div>
-        ${e.detail ? `<div class="feed-detail">${e.detail}</div>` : ''}
+        <div class="feed-title" style="color:${e.shiny && e.category === 'capture' ? 'var(--gold)' : color}">${e.title}</div>
+        ${e.detail && e.category !== 'capture' ? `<div class="feed-detail">${e.detail}</div>` : ''}
         ${captureHtml}
         ${combatLogHtml}
       </div>
@@ -2500,8 +2510,9 @@ function renderPokedexTab() {
   const grid = document.getElementById('pokedexGrid');
   if (!grid) return;
 
-  // ── Counter bar (Kanto / National / Chromas) ─────────────────
+  // ── Counter bar (Kanto / Johto / National / Chromas) ──────────
   const kantoCaught    = getDexKantoCaught();
+  const johtoCaught    = getDexJohtoCaught();
   const nationalCaught = getDexNationalCaught();
   const shinySpecies   = getShinySpeciesCount();
 
@@ -2514,6 +2525,7 @@ function renderPokedexTab() {
   }
   dexCounter.innerHTML = `
     <span title="Pokédex Kanto (151 espèces originales)">📖 Kanto&nbsp;<b style="color:var(--text)">${kantoCaught}/${getKantoDexSize()}</b></span>
+    <span title="Pokédex Johto (espèces #152–251)" style="opacity:.85">🗾 Johto&nbsp;<b style="color:var(--text)">${johtoCaught}/${getJohtoDexSize()}</b></span>
     <span title="Pokédex National (toutes espèces disponibles)" style="opacity:.7">🌐 National&nbsp;<b style="color:var(--text)">${nationalCaught}/${getNationalDexSize()}</b></span>
     <span title="Espèces uniques dont au moins un exemplaire chromatique">✨&nbsp;<b style="color:var(--gold)">${shinySpecies}</b></span>
     <button id="dexRebuildBtn" title="Reconstruire le Pokédex depuis tes Pokémon réels" style="margin-left:auto;font-family:var(--font-pixel);font-size:7px;padding:3px 7px;background:rgba(255,204,90,.08);border:1px solid rgba(255,204,90,.35);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer;white-space:nowrap">🔄 Recalibrer</button>
@@ -2523,6 +2535,7 @@ function renderPokedexTab() {
   // ── Filter tabs ────────────────────────────────────────────────
   const DEX_FILTERS = [
     { id: 'kanto',    label: 'Kanto',       title: 'Pokémon #001–151' },
+    { id: 'johto',    label: 'Johto',       title: 'Pokémon #152–251' },
     { id: 'national', label: 'National',    title: 'Toutes les espèces disponibles' },
     { id: 'shiny',    label: '✨ Chromas',  title: 'Espèces dont tu possèdes un chromatique' },
     { id: 'missing',  label: '❓ Manquants',title: 'Espèces non encore capturées' },
@@ -2554,10 +2567,14 @@ function renderPokedexTab() {
   const search = document.getElementById('dexSearchInput')?.value?.toLowerCase() || '';
 
   // Pool = full dex for this view (never shrinks due to filter)
-  const isNational = dexViewFilter === 'national';
-  let pool = isNational
-    ? POKEMON_GEN1.filter(sp => !sp.hidden)
-    : POKEMON_GEN1.filter(sp => !sp.hidden && sp.dex >= 1 && sp.dex <= 151);
+  let pool;
+  if (dexViewFilter === 'national' || dexViewFilter === 'shiny' || dexViewFilter === 'missing') {
+    pool = POKEMON_GEN1.filter(sp => !sp.hidden);
+  } else if (dexViewFilter === 'johto') {
+    pool = POKEMON_GEN1.filter(sp => !sp.hidden && sp.dex >= 152 && sp.dex <= 251);
+  } else {
+    pool = POKEMON_GEN1.filter(sp => !sp.hidden && sp.dex >= 1 && sp.dex <= 151);
+  }
 
   // Text search hides entries (intentional user action)
   if (search) {

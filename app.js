@@ -116,9 +116,11 @@ const { FR_TO_EN, EN_TO_FR } = buildSpeciesNameMaps(POKEMON_GEN1);
 const KANTO_DEX_SIZE    = 151;
 // Pokédex National = toutes les espèces non-cachées disponibles dans le jeu
 const NATIONAL_DEX_SIZE = POKEMON_GEN1.filter(s => !s.hidden).length;
+const JOHTO_DEX_SIZE    = POKEMON_GEN1.filter(s => !s.hidden && s.dex >= 152 && s.dex <= 251).length;
 
 // Helpers de comptage — centralisés ici pour éviter la duplication partout dans l'UI
 function getDexKantoCaught()   { return POKEMON_GEN1.filter(s => !s.hidden && s.dex >= 1 && s.dex <= 151 && state.pokedex[s.en]?.caught).length; }
+function getDexJohtoCaught()   { return POKEMON_GEN1.filter(s => !s.hidden && s.dex >= 152 && s.dex <= 251 && state.pokedex[s.en]?.caught).length; }
 function getDexNationalCaught(){ return POKEMON_GEN1.filter(s => !s.hidden && state.pokedex[s.en]?.caught).length; }
 // Nombre d'espèces UNIQUES avec au moins un exemplaire chromatique (≠ shinyCaught qui compte les doublons)
 function getShinySpeciesCount(){ return POKEMON_GEN1.filter(s => !s.hidden && state.pokedex[s.en]?.shiny).length; }
@@ -2392,12 +2394,11 @@ function renderActiveTab() {
 // ════════════════════════════════════════════════════════════════
 
 function _resolveFabricBgUrl(bgKey) {
-  // bgKey = 'fabric_{pid}' | 'fabric_{pid}_v2' | 'fabric_{pid}_emb'
-  const m = bgKey.match(/^fabric_(\d+)(_v(\d+)|_emb)?$/);
+  // bgKey = 'fabric_{pid}' | 'fabric_{pid}_v2'
+  const m = bgKey.match(/^fabric_(\d+)(?:_v(\d+))?$/);
   if (!m) return null;
-  const pid = parseInt(m[1], 10);
-  if (m[2] === '_emb') return fabricEmbUrl(pid);
-  const variant = m[3] ? parseInt(m[3], 10) : 1;
+  const pid     = parseInt(m[1], 10);
+  const variant = m[2] ? parseInt(m[2], 10) : 1;
   return fabricBgUrl(pid, variant);
 }
 
@@ -2433,17 +2434,26 @@ function applyCosmetics() {
   } else if (isFabric) {
     const url = _resolveFabricBgUrl(bgKey);
     if (url) {
+      const fMode    = state.cosmetics?.fabricMode    || 'repeat';
+      const fSize    = state.cosmetics?.fabricSize    ?? 320;
       _bgTargets.forEach(el => {
         el.style.backgroundImage = `url('${url}')`;
-        el.style.backgroundSize = '320px';
-        el.style.backgroundRepeat = 'repeat';
         el.style.backgroundAttachment = 'fixed';
-        el.style.backgroundPosition = 'top left';
+        if (fMode === 'full') {
+          el.style.backgroundSize     = 'cover';
+          el.style.backgroundRepeat   = 'no-repeat';
+          el.style.backgroundPosition = 'center';
+        } else {
+          el.style.backgroundSize     = `${fSize}px`;
+          el.style.backgroundRepeat   = 'repeat';
+          el.style.backgroundPosition = 'top left';
+        }
       });
     }
-    document.documentElement.style.setProperty('--bg', 'rgba(10,10,10,0.72)');
-    document.documentElement.style.setProperty('--bg-card', 'rgba(20,20,20,0.70)');
-    document.documentElement.style.setProperty('--bg-panel', 'rgba(26,26,26,0.70)');
+    const alpha = ((state.cosmetics?.fabricOpacity ?? 72) / 100).toFixed(2);
+    document.documentElement.style.setProperty('--bg',       `rgba(10,10,10,${alpha})`);
+    document.documentElement.style.setProperty('--bg-card',  `rgba(20,20,20,${alpha})`);
+    document.documentElement.style.setProperty('--bg-panel', `rgba(26,26,26,${alpha})`);
     document.documentElement.style.setProperty('--bg-hover', 'rgba(34,34,34,0.80)');
   } else {
     _bgTargets.forEach(el => { el.style.backgroundImage = ''; });
@@ -2462,7 +2472,6 @@ function _unlockFabricBg(dexNum, isShiny) {
   const add = (key) => { if (!unlocked.includes(key)) unlocked.push(key); };
   add(`fabric_${dexNum}`);
   if (spec[2] >= 2) add(`fabric_${dexNum}_v2`);
-  if (isShiny && spec[3]) add(`fabric_${dexNum}_emb`);
   state.cosmetics.unlockedBgs = unlocked;
 }
 
@@ -6472,9 +6481,9 @@ Object.assign(globalThis, {
   // gangBase module — helpers needed by modules/ui/gangBase.js
   openTeamPicker, openRareCandyPicker,
   pokemonDisplayName, sanitizeSpriteName,
-  getDexKantoCaught, getDexNationalCaught, getShinySpeciesCount,
+  getDexKantoCaught, getDexJohtoCaught, getDexNationalCaught, getShinySpeciesCount,
   getBossFullTitle, getTitleLabel,
-  KANTO_DEX_SIZE, NATIONAL_DEX_SIZE, COSMETIC_BGS,
+  KANTO_DEX_SIZE, JOHTO_DEX_SIZE, NATIONAL_DEX_SIZE, COSMETIC_BGS,
   // Fabric BG unlock helper — used by capture modules
   _unlockFabricBg,
   FABRIC_SPECIES, PATCH_PIDS, fabricBgUrl, fabricEmbUrl, patchUrl,
@@ -6572,6 +6581,7 @@ configurePcPokedex({
   getZones: () => ZONES,
   getZoneById: () => ZONE_BY_ID,
   getKantoDexSize: () => KANTO_DEX_SIZE,
+  getJohtoDexSize: () => JOHTO_DEX_SIZE,
   getNationalDexSize: () => NATIONAL_DEX_SIZE,
   saveState,
   notify,
@@ -6603,6 +6613,7 @@ configurePcPokedex({
   eggSprite,
   eggImgTag,
   getDexKantoCaught,
+  getDexJohtoCaught,
   getDexNationalCaught,
   getShinySpeciesCount,
   playSfx: key => SFX.play?.(key),

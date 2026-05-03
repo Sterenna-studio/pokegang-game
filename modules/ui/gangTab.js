@@ -7,7 +7,7 @@
 //   EVO_BY_SPECIES, isZoneUnlocked, applyCosmetics, MusicPlayer, MUSIC_TRACKS, GAME_VERSION,
 //   openBossEditModal, openTitleModal, openShowcasePicker, openTeamPickerModal,
 //   showEvoPreviewModal, openNameModal, openSpritePicker,
-//   COSMETIC_BGS, FABRIC_SPECIES, PATCH_PIDS, fabricBgUrl, fabricEmbUrl, patchUrl,
+//   COSMETIC_BGS, FABRIC_SPECIES, PATCH_PIDS, fabricBgUrl, patchUrl,
 //   _gbase_openExportModal
 // classic-script globals (bare name): ZONES
 
@@ -80,19 +80,23 @@ function renderMusicPanel(container) {
 
 // ── Appearance panel (backgrounds + pins) ────────────────────────────────────
 function renderAppearancePanel(container) {
-  const state       = globalThis.state;
-  const unlocked    = new Set(state.cosmetics?.unlockedBgs || []);
-  const active      = state.cosmetics?.gameBg || null;
-  const favoriteBgs = state.cosmetics?.favoriteBgs  || [];
+  const state         = globalThis.state;
+  const unlocked      = new Set(state.cosmetics?.unlockedBgs || []);
+  const active        = state.cosmetics?.gameBg || null;
+  const favoriteBgs   = state.cosmetics?.favoriteBgs  || [];
   const activePatches = state.cosmetics?.activePatches || [];
+  const fabricMode    = state.cosmetics?.fabricMode    || 'repeat';
+  const fabricSize    = state.cosmetics?.fabricSize    ?? 320;
+  const fabricOpacity = state.cosmetics?.fabricOpacity ?? 72;
+  const isFabricActive = active?.startsWith('fabric_') ?? false;
 
-  // ── wallpaper card builder ──
+  // ── wallpaper card builder (80px thumb) ──
   const _bgCard = (key, c) => {
     const own   = unlocked.has(key);
     const isAct = active === key;
     const thumb = c.type === 'image'
-      ? `<div style="height:50px;background-image:url('${c.url}');background-size:cover;background-position:center;border-radius:2px;margin-bottom:6px"></div>`
-      : `<div style="height:50px;background:${c.gradient};border-radius:2px;margin-bottom:6px"></div>`;
+      ? `<div style="height:80px;background-image:url('${c.url}');background-size:cover;background-position:center;border-radius:2px;margin-bottom:6px"></div>`
+      : `<div style="height:80px;background:${c.gradient};border-radius:2px;margin-bottom:6px"></div>`;
     return `<div class="cosm-card${isAct ? ' cosm-active' : ''}" data-cosm="${key}"
       style="border:2px solid ${isAct ? 'var(--gold)' : own ? 'var(--green)' : 'var(--border)'};border-radius:var(--radius-sm);padding:8px;cursor:pointer;background:var(--bg-card)">
       ${thumb}
@@ -105,40 +109,39 @@ function renderAppearancePanel(container) {
 
   const defaultCard = `<div class="cosm-card${!active ? ' cosm-active' : ''}" data-cosm="none"
     style="border:2px solid ${!active ? 'var(--gold)' : 'var(--border)'};border-radius:var(--radius-sm);padding:8px;cursor:pointer;background:var(--bg-card)">
-    <div style="height:50px;background:linear-gradient(180deg,#0a0a0a,#1a1a1a);border-radius:2px;margin-bottom:6px"></div>
+    <div style="height:80px;background:linear-gradient(180deg,#0a0a0a,#1a1a1a);border-radius:2px;margin-bottom:6px"></div>
     <div style="font-size:9px">Défaut</div>
     <div style="font-size:8px;color:${!active ? 'var(--gold)' : 'var(--text-dim)'}">Gratuit${!active ? ' [ ACTIF ]' : ''}</div>
   </div>`;
 
   const bgHtml = Object.entries(COSMETIC_BGS).map(([k, c]) => _bgCard(k, c)).join('');
 
-  // ── fabric card builder ──
-  const fabricUnlocked = [...unlocked].filter(k => k.startsWith('fabric_'));
+  // ── fabric card builder (no _emb, 110px preview via <img>) ──
+  const fabricUnlocked = [...unlocked].filter(k => k.startsWith('fabric_') && !k.endsWith('_emb'));
   const allFabricKeys  = [];
   for (const spec of FABRIC_SPECIES) {
     const pid = spec[0];
     allFabricKeys.push(`fabric_${pid}`);
     if (spec[2] >= 2) allFabricKeys.push(`fabric_${pid}_v2`);
-    if (spec[3]) allFabricKeys.push(`fabric_${pid}_emb`);
   }
 
   const _buildFabricCard = (key) => {
-    const m = key.match(/^fabric_(\d+)(_v(\d+)|_emb)?$/);
+    const m = key.match(/^fabric_(\d+)(?:_v(\d+))?$/);
     if (!m) return '';
     const pid     = parseInt(m[1], 10);
-    const isEmb   = m[2] === '_emb';
-    const variant = m[3] ? parseInt(m[3], 10) : 1;
+    const variant = m[2] ? parseInt(m[2], 10) : 1;
     const spec    = FABRIC_SPECIES.find(s => s[0] === pid);
     const fr      = spec ? spec[1] : `#${pid}`;
     const own     = unlocked.has(key);
     const isAct   = active === key;
     const isFav   = favoriteBgs.includes(key);
-    const previewUrl = isEmb ? fabricEmbUrl(pid) : fabricBgUrl(pid, variant);
-    const badge   = isEmb ? '✨' : (variant > 1 ? `v${variant}` : '');
-    const suffix  = isEmb ? ' Brodé' : (variant > 1 ? ' (alt)' : '');
+    const previewUrl = fabricBgUrl(pid, variant);
+    const badge   = variant > 1 ? `v${variant}` : '';
+    const suffix  = variant > 1 ? ' (alt)' : '';
     return `<div class="cosm-card cosm-fabric-card${isAct ? ' cosm-active' : ''}" data-cosm="${key}" data-fabric-key="${key}"
-      style="position:relative;border:2px solid ${isAct ? 'var(--gold)' : own ? 'var(--green)' : 'var(--border)'};border-radius:var(--radius-sm);padding:6px;cursor:pointer;background:var(--bg-card);min-width:80px;flex-shrink:0">
-      <div style="height:64px;background-image:url('${previewUrl}');background-size:cover;background-position:center;border-radius:2px;margin-bottom:4px"></div>
+      style="position:relative;border:2px solid ${isAct ? 'var(--gold)' : own ? 'var(--green)' : 'var(--border)'};border-radius:var(--radius-sm);padding:6px;cursor:pointer;background:var(--bg-card);width:120px;flex-shrink:0;scroll-snap-align:start">
+      <img src="${previewUrl}" style="width:100%;height:110px;object-fit:cover;border-radius:2px;margin-bottom:4px;display:block"
+        onerror="this.closest('[data-fabric-key]').style.display='none'">
       ${badge ? `<div style="position:absolute;top:4px;right:4px;font-size:9px;background:rgba(0,0,0,.7);border-radius:3px;padding:1px 4px">${badge}</div>` : ''}
       <button class="cosm-fav-btn" data-fav-key="${key}" style="position:absolute;top:4px;left:4px;background:rgba(0,0,0,.6);border:none;border-radius:3px;cursor:pointer;font-size:10px;padding:1px 3px;line-height:1">${isFav ? '⭐' : '☆'}</button>
       <div style="font-size:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${fr}${suffix}</div>
@@ -147,6 +150,42 @@ function renderAppearancePanel(container) {
       </div>
     </div>`;
   };
+
+  // ── fabric settings panel (shown only when a fabric BG is active) ──
+  const _modeBtn = (mode, label) => {
+    const act = fabricMode === mode;
+    return `<button class="fabric-mode-btn" data-mode="${mode}"
+      style="font-family:var(--font-pixel);font-size:8px;padding:4px 10px;border-radius:var(--radius-sm);cursor:pointer;
+             border:1px solid ${act ? 'var(--gold)' : 'var(--border)'};
+             background:${act ? 'rgba(255,200,0,0.10)' : 'var(--bg)'};
+             color:${act ? 'var(--gold)' : 'var(--text-dim)'}">${label}</button>`;
+  };
+  const fabricSettingsHtml = isFabricActive ? `
+    <div id="fabricSettings" style="margin-top:12px;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm)">
+      <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);margin-bottom:8px;letter-spacing:.4px">⚙ PARAMÈTRES TISSU</div>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        ${_modeBtn('full',   'Plein écran')}
+        ${_modeBtn('repeat', 'Répétition')}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="${fabricMode === 'repeat' ? '' : 'opacity:0.35;pointer-events:none'}">
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+            <span style="font-size:8px;color:var(--text-dim)">Taille motif</span>
+            <span id="fabricSizeVal" style="font-size:8px;color:var(--gold)">${fabricSize}px</span>
+          </div>
+          <input type="range" id="fabricSizeRange" min="80" max="600" step="10" value="${fabricSize}"
+            style="width:100%;accent-color:var(--gold);cursor:pointer">
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+            <span style="font-size:8px;color:var(--text-dim)">Transparence UI</span>
+            <span id="fabricOpacityVal" style="font-size:8px;color:var(--gold)">${fabricOpacity}%</span>
+          </div>
+          <input type="range" id="fabricOpacityRange" min="30" max="95" step="1" value="${fabricOpacity}"
+            style="width:100%;accent-color:var(--gold);cursor:pointer">
+        </div>
+      </div>
+    </div>` : '';
 
   // ── patches ──
   const _patchLabel = {
@@ -169,19 +208,33 @@ function renderAppearancePanel(container) {
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-bottom:20px">
       ${defaultCard}${bgHtml}
     </div>
-    <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold-dim);margin-bottom:8px;letter-spacing:.5px">🧵 ORIGINAL STITCH <span style="font-size:7px;color:var(--text-dim);font-weight:normal">${fabricUnlocked.length} débloqué(s)</span></div>
+
+    <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold-dim);margin-bottom:8px;letter-spacing:.5px">
+      🧵 ORIGINAL STITCH
+      <span style="font-size:7px;color:var(--text-dim);font-weight:normal;margin-left:6px">${fabricUnlocked.length} débloqué(s)</span>
+    </div>
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
-      <button class="fabric-filter-btn" data-fabric-filter="owned"     style="font-family:var(--font-pixel);font-size:8px;padding:4px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text-dim);cursor:pointer">Possédé</button>
-      <button class="fabric-filter-btn" data-fabric-filter="all"       style="font-family:var(--font-pixel);font-size:8px;padding:4px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text-dim);cursor:pointer">Tous</button>
-      <button class="fabric-filter-btn" data-fabric-filter="favorites" style="font-family:var(--font-pixel);font-size:8px;padding:4px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text-dim);cursor:pointer">⭐ Favoris</button>
+      <button class="fabric-filter-btn" data-fabric-filter="owned"
+        style="font-family:var(--font-pixel);font-size:8px;padding:4px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text-dim);cursor:pointer">Possédé</button>
+      <button class="fabric-filter-btn" data-fabric-filter="all"
+        style="font-family:var(--font-pixel);font-size:8px;padding:4px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text-dim);cursor:pointer">Tous</button>
+      <button class="fabric-filter-btn" data-fabric-filter="favorites"
+        style="font-family:var(--font-pixel);font-size:8px;padding:4px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text-dim);cursor:pointer">⭐ Favoris</button>
     </div>
-    <div id="fabricSlider" style="display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch">
-      ${fabricUnlocked.length > 0 ? fabricUnlocked.map(_buildFabricCard).join('') : '<div style="font-size:9px;color:var(--text-dim);padding:12px">Capture des Pokémon pour débloquer des fonds tissu !</div>'}
+    <div id="fabricSlider"
+      style="display:flex;gap:10px;overflow-x:auto;padding-bottom:10px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:thin">
+      ${fabricUnlocked.length > 0
+        ? fabricUnlocked.map(_buildFabricCard).join('')
+        : '<div style="font-size:9px;color:var(--text-dim);padding:12px">Capture des Pokémon pour débloquer des fonds tissu !</div>'}
     </div>
-    <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold-dim);margin-top:20px;margin-bottom:8px;letter-spacing:.5px">📌 PINS <span style="font-size:7px;color:var(--text-dim);font-weight:normal">${activePatches.length}/3 actifs</span></div>
+    ${fabricSettingsHtml}
+
+    <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold-dim);margin-top:20px;margin-bottom:8px;letter-spacing:.5px">
+      📌 PINS <span style="font-size:7px;color:var(--text-dim);font-weight:normal">${activePatches.length}/3 actifs</span>
+    </div>
     <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">${patchesHtml}</div>`;
 
-  // wallpaper handlers
+  // ── wallpaper handlers ──
   container.querySelectorAll('.cosm-card:not(.cosm-fabric-card)').forEach(el => {
     el.addEventListener('click', () => {
       const key = el.dataset.cosm;
@@ -211,7 +264,7 @@ function renderAppearancePanel(container) {
     });
   });
 
-  // fabric handlers
+  // ── fabric card + fav handlers ──
   const _bindFabricHandlers = (root) => {
     root.querySelectorAll('.cosm-fav-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
@@ -256,6 +309,7 @@ function renderAppearancePanel(container) {
   const fabricSlider = container.querySelector('#fabricSlider');
   if (fabricSlider) _bindFabricHandlers(fabricSlider);
 
+  // ── filter buttons ──
   container.querySelectorAll('.fabric-filter-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const filter = btn.dataset.fabricFilter;
@@ -263,7 +317,7 @@ function renderAppearancePanel(container) {
       if (!slider) return;
       let keys = filter === 'owned'     ? fabricUnlocked
                : filter === 'all'       ? allFabricKeys
-               : favoriteBgs.filter(k => k.startsWith('fabric_'));
+               : favoriteBgs.filter(k => k.startsWith('fabric_') && !k.endsWith('_emb'));
       const favSet = new Set(favoriteBgs);
       keys = [...keys].sort((a, b) => (favSet.has(b) ? 1 : 0) - (favSet.has(a) ? 1 : 0));
       slider.innerHTML = keys.length > 0
@@ -273,6 +327,39 @@ function renderAppearancePanel(container) {
     });
   });
 
+  // ── fabric settings handlers ──
+  const fabricSettings = container.querySelector('#fabricSettings');
+  if (fabricSettings) {
+    fabricSettings.querySelectorAll('.fabric-mode-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.cosmetics.fabricMode = btn.dataset.mode;
+        globalThis.saveState(); globalThis.applyCosmetics();
+        renderAppearancePanel(container);
+      });
+    });
+    const sizeRange    = fabricSettings.querySelector('#fabricSizeRange');
+    const sizeVal      = fabricSettings.querySelector('#fabricSizeVal');
+    const opacityRange = fabricSettings.querySelector('#fabricOpacityRange');
+    const opacityVal   = fabricSettings.querySelector('#fabricOpacityVal');
+    if (sizeRange && sizeVal) {
+      sizeRange.addEventListener('input', () => {
+        sizeVal.textContent = sizeRange.value + 'px';
+        state.cosmetics.fabricSize = parseInt(sizeRange.value, 10);
+        globalThis.applyCosmetics();
+      });
+      sizeRange.addEventListener('change', () => globalThis.saveState());
+    }
+    if (opacityRange && opacityVal) {
+      opacityRange.addEventListener('input', () => {
+        opacityVal.textContent = opacityRange.value + '%';
+        state.cosmetics.fabricOpacity = parseInt(opacityRange.value, 10);
+        globalThis.applyCosmetics();
+      });
+      opacityRange.addEventListener('change', () => globalThis.saveState());
+    }
+  }
+
+  // ── patch handlers ──
   container.querySelectorAll('.cosm-patch-card').forEach(el => {
     el.addEventListener('click', () => {
       const pid     = parseInt(el.dataset.patchPid, 10);

@@ -624,17 +624,23 @@ function tryCapture(zoneId, speciesEN, bonusPotential = 0) {
     globalThis.notify(`${name} ${stars}`, pokemon.potential >= 4 ? 'gold' : 'success');
   }
   globalThis.addLog(globalThis.t('catch_success', { name }) + ` [${stars}]`);
-  // Feed event
-  globalThis.pushFeedEvent({
-    category: 'capture',
-    title: `${name}${shinyTag} — ${stars}`,
-    detail: `Zone: ${zoneId || '?'} · ${BALLS[ball]?.fr || ball}`,
-    win: true,
-    species_en: pokemon.species_en,
-    potential: pokemon.potential,
-    shiny: pokemon.shiny,
-    byAgent: null,
-  });
+  // Feed event — skip si un agent gère son propre feed event (évite les doublons)
+  if (!globalThis._agentCaptureCtx) {
+    const zoneName = ZONE_BY_ID?.[zoneId]?.fr || zoneId || '?';
+    globalThis.pushFeedEvent({
+      category: 'capture',
+      title: `${name}${pokemon.shiny ? ' ✨' : ''} — ${stars}`,
+      detail: `${zoneName} · ${BALLS[ball]?.fr || ball}`,
+      win: true,
+      species_en: pokemon.species_en,
+      level: pokemon.level,
+      potential: pokemon.potential,
+      shiny: pokemon.shiny,
+      byAgent: null,
+      zone: zoneName,
+      ball: BALLS[ball]?.fr || ball,
+    });
+  }
   // SFX
   globalThis.SFX.play('capture', pokemon.potential, pokemon.shiny);
   globalThis.saveState();

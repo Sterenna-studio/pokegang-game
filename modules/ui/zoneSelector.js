@@ -21,6 +21,29 @@ let _ctxMenu    = null;  // active context menu DOM node
 // Déclarés ici pour que les moteurs strict-mode ne les rejettent pas.
 /* globals ZONES, ZONE_BY_ID, SPECIES_BY_EN */
 
+// ── Dex completion helpers ────────────────────────────────────
+function _getZoneSpecies(zone) {
+  const pool = new Set(zone.pool || []);
+  (zone.rarePool || []).forEach(r => pool.add(r.en));
+  return [...pool].filter(en => SPECIES_BY_EN?.[en] && !SPECIES_BY_EN[en].hidden);
+}
+
+function _getZoneDexPct(zone) {
+  const state = globalThis.state;
+  const species = _getZoneSpecies(zone);
+  if (!species.length) return 100;
+  const caught = species.filter(en => state.pokedex?.[en]?.caught).length;
+  return { caught, total: species.length, pct: Math.round(caught / species.length * 100) };
+}
+
+function _getZoneShinyPct(zone) {
+  const state = globalThis.state;
+  const species = _getZoneSpecies(zone);
+  if (!species.length) return { caught: 0, total: 0, pct: 100 };
+  const caught = species.filter(en => state.pokedex?.[en]?.shiny).length;
+  return { caught, total: species.length, pct: Math.round(caught / species.length * 100) };
+}
+
 // ── Filter helpers ────────────────────────────────────────────
 function _getFilteredZones() {
   const state = globalThis.state;
@@ -28,14 +51,16 @@ function _getFilteredZones() {
   // ZONES est un const de script classique, accessible par nom nu
   let filtered;
   switch (_zoneFilter) {
-    case 'fav':     filtered = ZONES.filter(z => z.type !== 'gang_park' && (state.favoriteZones || []).includes(z.id)); break;
-    case 'route':   filtered = ZONES.filter(z => z.type === 'route'); break;
-    case 'city':    filtered = ZONES.filter(z => z.type === 'city'); break;
-    case 'special': filtered = ZONES.filter(z => z.type === 'special'); break;
-    default:        filtered = ZONES.filter(z => z.type !== 'gang_park'); break;
+    case 'fav':      filtered = ZONES.filter(z => z.type !== 'gang_park' && (state.favoriteZones || []).includes(z.id)); break;
+    case 'route':    filtered = ZONES.filter(z => z.type === 'route'); break;
+    case 'city':     filtered = ZONES.filter(z => z.type === 'city'); break;
+    case 'special':  filtered = ZONES.filter(z => z.type === 'special'); break;
+    case 'dex':      filtered = ZONES.filter(z => z.type !== 'gang_park' && globalThis.isZoneUnlocked?.(z.id) && _getZoneDexPct(z).pct < 100); break;
+    case 'dex_shiny':filtered = ZONES.filter(z => z.type !== 'gang_park' && globalThis.isZoneUnlocked?.(z.id) && _getZoneShinyPct(z).pct < 100); break;
+    default:         filtered = ZONES.filter(z => z.type !== 'gang_park'); break;
   }
   // Gang Park toujours en tête (sauf filtre strict par type)
-  const showPark = !['route','city','special'].includes(_zoneFilter);
+  const showPark = !['route','city','special','dex','dex_shiny'].includes(_zoneFilter);
   return showPark && gangPark ? [gangPark, ...filtered] : filtered;
 }
 
@@ -334,6 +359,23 @@ function _buildTile(zone) {
         title="${SPECIES_BY_EN?.[en]?.fr || en}">`
     ).join('');
 
+    // Barre de complétion Pokédex / Chroma (visible dans les filtres dédiés)
+    let dexBarHtml = '';
+    if (_zoneFilter === 'dex' || _zoneFilter === 'dex_shiny') {
+      const comp    = _zoneFilter === 'dex' ? _getZoneDexPct(zone) : _getZoneShinyPct(zone);
+      const color   = _zoneFilter === 'dex_shiny' ? 'var(--gold)' : 'var(--accent)';
+      const label   = _zoneFilter === 'dex_shiny' ? '✨' : '📖';
+      dexBarHtml = `
+        <div style="position:absolute;bottom:0;left:0;right:0;padding:2px 4px;background:rgba(0,0,0,.55)">
+          <div style="display:flex;justify-content:space-between;font-family:var(--font-pixel);font-size:7px;color:${color};margin-bottom:1px">
+            <span>${label} ${comp.caught}/${comp.total}</span><span>${comp.pct}%</span>
+          </div>
+          <div style="height:3px;background:rgba(255,255,255,.12);border-radius:2px;overflow:hidden">
+            <div style="height:100%;width:${comp.pct}%;background:${color};border-radius:2px;transition:width .3s"></div>
+          </div>
+        </div>`;
+    }
+
     // Calcul du statut affiché sur la tuile
     const statusText = isOpen
       ? '[OUVERT]'
@@ -363,6 +405,7 @@ function _buildTile(zone) {
         <div class="fog-tile-status">${statusText}</div>
       </div>
       ${incomeHtml}
+      ${dexBarHtml}
       <button class="zone-fav-btn${isFav ? ' active' : ''}" data-fav-zone="${zone.id}"
         title="${isFav ? 'Retirer des favoris' : "Favori (s'ouvre au démarrage)"}">${isFav ? '★' : '☆'}</button>
     </div>`;
