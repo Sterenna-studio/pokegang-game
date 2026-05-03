@@ -4,11 +4,13 @@
  * Depends on globals set by app.js:
  *   state, BASE_PRICE, POTENTIAL_MULT, NATURES, BALLS, MYSTERY_EGG_POOL,
  *   notify, SFX, saveState, t, addLog, speciesName,
- *   tryAutoIncubate, renderZonesTab, uid, weightedPick, getMysteryEggCost, playSE
+ *   renderZonesTab, uid, weightedPick, getMysteryEggCost, playSE
  * Depends on globals from regular scripts: SPECIES_BY_EN, POKEMON_GEN1, ZONES
  * Exposes: calculatePrice, getMarketSaturation, decayMarketSales,
  *          removePokemonFromAllAssignments, sellPokemon, BOOST_ITEMS, buyItem
  */
+
+import { tryAutoIncubate } from '../ui/pcPokedex.js';
 
 // ════════════════════════════════════════════════════════════════
 //  9.  MARKET MODULE
@@ -246,7 +248,7 @@ function buyItem(itemDef) {
     const shiny = Math.random() < 0.02;
     state.eggs.push({ id: globalThis.uid(), species_en, hatchAt: null, incubating: false, potential, shiny, mystery: true });
     state.purchases.mysteryEggCount = (state.purchases.mysteryEggCount || 0) + 1;
-    globalThis.tryAutoIncubate();
+    tryAutoIncubate();
     globalThis.notify(`🥚 Un œuf mystérieux est apparu… On se demande ce qu'il contient !`, 'gold');
     globalThis.saveState();
     return true;
