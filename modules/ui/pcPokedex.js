@@ -4,7 +4,7 @@
 // ════════════════════════════════════════════════════════════════
 //
 //  app.js injects runtime dependencies through configurePcPokedex().
-//  global exports remain as temporary compatibility bridges for older modules.
+//  Legacy global exports are centralized in app.js while older modules migrate.
 // ════════════════════════════════════════════════════════════════
 
 import { getDexDesc } from '../../data/dex-helpers.js';
@@ -2608,18 +2608,6 @@ function renderPokedexTab() {
 }
 
 // ════════════════════════════════════════════════════════════════
-
-Object.assign(globalThis, {
-  configurePcPokedex,
-  resetPcRenderCache,
-  filterPCBySpecies, showContextMenu, closeContextMenu,
-  pushFeedEvent, renderEventsTab, addBattleLogEntry,
-  openBulkSellModal, tryAutoIncubate, hatchEgg, renderEggsView,
-  renderPCTab, renderPokemonGrid, renderPokemonDetail,
-  renderPokemonDetailGroup, renderPokemonHistory,
-  openDexAssistant, renderDexDetail, checkPlayerStatPoints, openPlayerStatModal,
-  rebuildPokedex, renderPokedexTab,
-});
 
 export {
   configurePcPokedex,
