@@ -3968,7 +3968,7 @@ function renderMissionsTab() {
       if (m.reward.money) rewardStr.push(m.reward.money.toLocaleString() + '₽');
       if (m.reward.rep) rewardStr.push('+' + m.reward.rep + ' rep');
       html += `<div style="display:flex;align-items:center;gap:10px;padding:8px;border-bottom:1px solid var(--border);opacity:${claimed ? '.5' : '1'}">
-        <span style="font-size:20px">${m.icon}</span>
+        <img src="${pokeIcon(m.icon)}" style="width:32px;height:24px;image-rendering:pixelated;flex-shrink:0" onerror="this.style.display='none'">
         <div style="flex:1;min-width:0">
           <div style="font-size:12px;${claimed ? 'text-decoration:line-through' : ''}">${name}</div>
           ${m.desc_fr ? `<div style="font-size:9px;color:var(--text-dim);margin-top:2px">${state.lang === 'fr' ? m.desc_fr : m.desc_en}</div>` : ''}
@@ -4005,7 +4005,7 @@ function renderMissionsTab() {
     const diffColor = q.diff === 'hard' ? 'var(--red)' : 'var(--blue)';
     const fillColor = complete ? 'var(--green)' : diffColor;
     hourlyHtml += `<div style="display:flex;align-items:center;gap:10px;padding:8px;border-bottom:1px solid var(--border);border-left:3px solid ${diffColor};opacity:${claimed?'.5':'1'}">
-      <span style="font-size:20px">${q.icon}</span>
+      <img src="${pokeIcon(q.icon)}" style="width:32px;height:24px;image-rendering:pixelated;flex-shrink:0" onerror="this.style.display='none'">
       <div style="flex:1;min-width:0">
         <div style="font-size:12px;${claimed?'text-decoration:line-through':''}">
           ${q.fr} <span style="font-size:7px;padding:1px 4px;border-radius:3px;background:${diffColor};color:#fff;font-family:var(--font-pixel)">${q.diff === 'hard' ? 'HARD' : 'MED'}</span>
