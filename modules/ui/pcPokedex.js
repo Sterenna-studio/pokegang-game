@@ -99,6 +99,7 @@ function showConfirm(...args) { return callContext('showConfirm', ...args); }
 function switchTab(...args) { return callContext('switchTab', ...args); }
 function updateTopBar() { return callContext('updateTopBar'); }
 function calculateStats(pokemon) { return callContext('calculateStats', pokemon) ?? pokemon.stats ?? {}; }
+function evolvePokemon(pokemon, targetEN) { return callContext('evolvePokemon', pokemon, targetEN); }
 function tryAutoEvolution(pokemon) { return callContext('tryAutoEvolution', pokemon); }
 function getPokemonPower(pokemon) { return callContext('getPokemonPower', pokemon) ?? 0; }
 function getBaseSpecies(en) { return callContext('getBaseSpecies', en) ?? en; }

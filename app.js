@@ -6277,6 +6277,7 @@ configurePcPokedex({
   switchTab,
   updateTopBar,
   calculateStats,
+  evolvePokemon,
   tryAutoEvolution,
   getPokemonPower,
   getBaseSpecies,
