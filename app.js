@@ -5757,6 +5757,50 @@ async function supaUpdateLeaderboard() {
   });
 }
 
+// ── Monthly leaderboard snapshot (localStorage) ──────────────────
+// Tracks cumulative stats at the start of each calendar month so we can
+// compute deltas (rep/caught/shinies earned THIS month) client-side.
+// Schema migration to run once in Supabase SQL editor:
+//
+//   ALTER TABLE leaderboard
+//     ADD COLUMN IF NOT EXISTS month_key             TEXT    DEFAULT '',
+//     ADD COLUMN IF NOT EXISTS rep_monthly           BIGINT  DEFAULT 0,
+//     ADD COLUMN IF NOT EXISTS caught_monthly        INT     DEFAULT 0,
+//     ADD COLUMN IF NOT EXISTS shiny_monthly         INT     DEFAULT 0,
+//     ADD COLUMN IF NOT EXISTS shiny_species_monthly INT     DEFAULT 0;
+//
+const _LB_MONTH_SNAP_KEY = 'pg.lb_month_snap';
+function _lbMonthKey() { return new Date().toISOString().slice(0, 7); } // '2026-05'
+
+function _getOrInitMonthSnap() {
+  const currentMonth = _lbMonthKey();
+  let snap = {};
+  try { snap = JSON.parse(localStorage.getItem(_LB_MONTH_SNAP_KEY) || '{}'); } catch {}
+  if (snap.month !== currentMonth) {
+    // New month (or first time) — snapshot current totals so deltas start at 0
+    snap = {
+      month:        currentMonth,
+      reputation:   state.gang.reputation   || 0,
+      totalCaught:  state.stats?.totalCaught   || 0,
+      shinyCaught:  state.stats?.shinyCaught   || 0,
+      shinySpecies: getShinySpeciesCount(),
+    };
+    localStorage.setItem(_LB_MONTH_SNAP_KEY, JSON.stringify(snap));
+  }
+  return snap;
+}
+
+function _getMonthlyDeltas() {
+  const snap = _getOrInitMonthSnap();
+  return {
+    month_key:             snap.month,
+    rep_monthly:           Math.max(0, (state.gang.reputation   || 0) - snap.reputation),
+    caught_monthly:        Math.max(0, (state.stats?.totalCaught   || 0) - snap.totalCaught),
+    shiny_monthly:         Math.max(0, (state.stats?.shinyCaught   || 0) - snap.shinyCaught),
+    shiny_species_monthly: Math.max(0, getShinySpeciesCount()            - snap.shinySpecies),
+  };
+}
+
 // ── Anonymous leaderboard push (works with or without auth) ──────
 // Uses _lbToken as primary key; links user_id when authenticated.
 // SQL schema for the 'leaderboard' table (run once in Supabase SQL editor):
@@ -5775,7 +5819,12 @@ async function supaUpdateLeaderboard() {
 //     dex_national_count   INT     DEFAULT 0,
 //     agents_count         INT     DEFAULT 0,
 //     is_anonymous         BOOLEAN DEFAULT TRUE,
-//     updated_at           TIMESTAMPTZ DEFAULT NOW()
+//     updated_at           TIMESTAMPTZ DEFAULT NOW(),
+//     month_key             TEXT    DEFAULT '',
+//     rep_monthly           BIGINT  DEFAULT 0,
+//     caught_monthly        INT     DEFAULT 0,
+//     shiny_monthly         INT     DEFAULT 0,
+//     shiny_species_monthly INT     DEFAULT 0
 //   );
 //   ALTER TABLE leaderboard ENABLE ROW LEVEL SECURITY;
 //   CREATE POLICY "lb_read"   ON leaderboard FOR SELECT USING (true);
@@ -5791,6 +5840,8 @@ async function supaUpdateLeaderboardAnon() {
   if (fp === _lbLastFingerprint) return;
   _lbLastFingerprint = fp;
   _lbLastPushAt = now;
+
+  const monthly = _getMonthlyDeltas();
 
   try {
     await _supabase.from('leaderboard').upsert({
@@ -5810,6 +5861,12 @@ async function supaUpdateLeaderboardAnon() {
       agents_count:        (state.agents || []).length,
       is_anonymous:        !supaSession,
       updated_at:          new Date().toISOString(),
+      // monthly deltas
+      month_key:             monthly.month_key,
+      rep_monthly:           monthly.rep_monthly,
+      caught_monthly:        monthly.caught_monthly,
+      shiny_monthly:         monthly.shiny_monthly,
+      shiny_species_monthly: monthly.shiny_species_monthly,
     }, { onConflict: 'token' });
   } catch { /* silencieux */ }
 }
@@ -5853,10 +5910,25 @@ function updateSupaTabLabel() {
 }
 
 // ── Leaderboard Tab ───────────────────────────────────────────────
-let _lbSortBy   = 'reputation';  // sort column key
-let _lbPeriod   = 'alltime';    // 'alltime' | 'weekly' | 'daily'
+let _lbSortBy   = 'reputation'; // sort column key
+let _lbPeriod   = 'monthly';   // 'monthly' | 'alltime'
 
-// ── Leaderboard Tab ─────────────────────────────────────────────────
+// Sorts available per period
+const _LB_SORTS_MONTHLY = [
+  { key: 'reputation',          label: '⭐ Réputation'   },
+  { key: 'total_caught',        label: '\u{1F3AF} Capturés'    },
+  { key: 'shiny_species_count', label: '✨ Chromas'       },
+];
+const _LB_SORTS_ALLTIME = [
+  { key: 'reputation',          label: '⭐ Réputation'   },
+  { key: 'dex_kanto_count',     label: '\u{1F4D6} Dex Kanto'   },
+  { key: 'dex_national_count',  label: '\u{1F4D7} Dex National' },
+  { key: 'shiny_species_count', label: '✨ Chromas'       },
+  { key: 'total_caught',        label: '\u{1F3AF} Capturés'    },
+  { key: 'total_sold',          label: '\u{1F4B0} Ventes'      },
+  { key: 'total_money_earned',  label: '\u{1F4B5} Gains total'  },
+];
+
 async function renderLeaderboardTab() {
   const tab = document.getElementById('tabLeaderboard');
   if (!tab) return;
@@ -5868,21 +5940,14 @@ async function renderLeaderboardTab() {
     return;
   }
 
-  const SORTS = [
-    { key: 'reputation',          label: '⭐ Réputation'   },
-    { key: 'dex_kanto_count',     label: '\u{1F4D6} Dex Kanto'   },
-    { key: 'dex_national_count',  label: '\u{1F4D7} Dex National' },
-    { key: 'shiny_species_count', label: '✨ Chromas'       },
-    { key: 'total_caught',        label: '\u{1F3AF} Capturés'    },
-    { key: 'total_sold',          label: '\u{1F4B0} Ventes'      },
-    { key: 'total_money_earned',  label: '\u{1F4B5} Gains total'  },
+  const SORTS   = _lbPeriod === 'monthly' ? _LB_SORTS_MONTHLY : _LB_SORTS_ALLTIME;
+  const PERIODS = [
+    { key: 'monthly', label: '\u{1F4C5} Ce mois' },
+    { key: 'alltime', label: '\u{1F30D} Depuis toujours' },
   ];
 
-  const PERIODS = [
-    { key: 'alltime', label: 'All time' },
-    { key: 'weekly',  label: 'Cette semaine' },
-    { key: 'daily',   label: "Aujourd'hui" },
-  ];
+  // Reset sort if not valid for current period
+  if (!SORTS.some(s => s.key === _lbSortBy)) _lbSortBy = 'reputation';
 
   const btnStyle = (active) =>
     `font-family:var(--font-pixel);font-size:7px;padding:4px 9px;border-radius:var(--radius-sm);cursor:pointer;` +
@@ -5890,9 +5955,15 @@ async function renderLeaderboardTab() {
     `border:1px solid ${active ? 'var(--red)' : 'var(--border)'};` +
     `color:${active ? '#fff' : 'var(--text-dim)'}`;
 
+  // Month badge
+  const monthLabel = new Date().toLocaleString('fr-FR', { month: 'long', year: 'numeric' });
+
   tab.innerHTML = `
     <div style="padding:16px;max-width:820px">
-      <div style="font-family:var(--font-pixel);font-size:12px;color:var(--gold);margin-bottom:12px">\u{1F3C6} CLASSEMENT MONDIAL</div>
+      <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px">
+        <span style="font-family:var(--font-pixel);font-size:12px;color:var(--gold)">\u{1F3C6} CLASSEMENT MONDIAL</span>
+        ${_lbPeriod === 'monthly' ? `<span style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim)">${monthLabel}</span>` : ''}
+      </div>
 
       <!-- Période -->
       <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;align-items:center">
@@ -5939,7 +6010,15 @@ async function renderLeaderboardTab() {
 async function _loadLeaderboardTable() {
   if (!_supabase) return;
 
-  const SORT_COLS = {
+  const isMonthly    = _lbPeriod === 'monthly';
+  const currentMonth = _lbMonthKey();
+
+  const SORT_COLS_MONTHLY = {
+    reputation:          'rep_monthly',
+    total_caught:        'caught_monthly',
+    shiny_species_count: 'shiny_species_monthly',
+  };
+  const SORT_COLS_ALLTIME = {
     reputation:          'reputation',
     dex_kanto_count:     'dex_kanto_count',
     dex_national_count:  'dex_national_count',
@@ -5950,44 +6029,41 @@ async function _loadLeaderboardTable() {
   };
   const SORT_LABELS = {
     reputation:          '⭐ Rép.',
-    dex_kanto_count:     '\u{1F4D6} Kanto',
-    dex_national_count:  '\u{1F4D7} National',
+    dex_kanto_count:     '📖 Kanto',
+    dex_national_count:  '📗 National',
     shiny_species_count: '✨ Chroma',
-    total_caught:        '\u{1F3AF} Cap.',
-    total_sold:          '\u{1F4B0} Ventes',
-    total_money_earned:  '\u{1F4B5} Gains',
+    total_caught:        '🎯 Cap.',
+    total_sold:          '💰 Ventes',
+    total_money_earned:  '💵 Gains',
   };
 
-  const col = SORT_COLS[_lbSortBy] || 'reputation';
-
-  // Period filter via updated_at
-  const PERIOD_MS = { daily: 86400_000, weekly: 604800_000 };
-  const cutoff = PERIOD_MS[_lbPeriod]
-    ? new Date(Date.now() - PERIOD_MS[_lbPeriod]).toISOString()
-    : null;
+  const SORT_COLS = isMonthly ? SORT_COLS_MONTHLY : SORT_COLS_ALLTIME;
+  const col = SORT_COLS[_lbSortBy] || (isMonthly ? 'rep_monthly' : 'reputation');
+  const selectFields = 'token, user_id, gang_name, boss_name, boss_sprite, reputation, total_caught, shiny_count, shiny_species_count, dex_kanto_count, dex_national_count, total_sold, total_money_earned, agents_count, is_anonymous, updated_at, month_key, rep_monthly, caught_monthly, shiny_monthly, shiny_species_monthly';
 
   let query = _supabase
     .from('leaderboard')
-    .select('token, user_id, gang_name, boss_name, boss_sprite, reputation, total_caught, shiny_count, shiny_species_count, dex_kanto_count, dex_national_count, total_sold, total_money_earned, agents_count, is_anonymous, updated_at')
+    .select(selectFields)
     .order(col, { ascending: false })
     .limit(50);
 
-  if (cutoff) query = query.gte('updated_at', cutoff);
+  if (isMonthly) query = query.eq('month_key', currentMonth);
 
   const { data: rows, error } = await query;
 
-  // Own entry (always alltime for "my rank" banner)
+  // Own entry — include monthly cols
   const { data: myRow } = await _supabase
     .from('leaderboard')
-    .select('gang_name, reputation, total_caught, shiny_species_count, dex_kanto_count, dex_national_count, total_sold, total_money_earned, updated_at')
+    .select('gang_name, reputation, total_caught, shiny_species_count, dex_kanto_count, dex_national_count, total_sold, total_money_earned, updated_at, month_key, rep_monthly, caught_monthly, shiny_monthly, shiny_species_monthly')
     .eq('token', _lbToken)
     .maybeSingle();
 
   // Own rank in current period+sort
   let myRank = '—';
   if (myRow) {
-    let rankQ = _supabase.from('leaderboard').select('token', { count: 'exact', head: true }).gt(col, myRow[col] || 0);
-    if (cutoff) rankQ = rankQ.gte('updated_at', cutoff);
+    const myVal = myRow[col] || 0;
+    let rankQ = _supabase.from('leaderboard').select('token', { count: 'exact', head: true }).gt(col, myVal);
+    if (isMonthly) rankQ = rankQ.eq('month_key', currentMonth);
     const { count } = await rankQ;
     if (count !== null) myRank = `#${count + 1}`;
   }
@@ -5997,14 +6073,28 @@ async function _loadLeaderboardTable() {
   if (myEntryEl) {
     if (myRow) {
       const updAgo = myRow.updated_at ? _lbAgo(new Date(myRow.updated_at)) : '?';
-      myEntryEl.innerHTML = `
-        <span style="color:var(--gold);font-family:var(--font-pixel);font-size:9px">${myRow.gang_name}</span>
-        <span style="margin-left:12px">Rang <b style="color:var(--gold)">${myRank}</b></span>
-        <span style="margin-left:12px;color:var(--text-dim)">⭐ ${(myRow.reputation||0).toLocaleString('fr-FR')}</span>
-        <span style="margin-left:12px;color:var(--text-dim)">✨ ${myRow.shiny_species_count||0}</span>
-        <span style="margin-left:12px;color:var(--text-dim)">\u{1F4D6} ${myRow.dex_kanto_count||0}/151</span>
-        <span style="margin-left:auto;font-size:8px;opacity:.6">mis à jour ${updAgo}</span>`;
-      myEntryEl.style.cssText += ';display:flex;align-items:center;gap:0';
+      const isSameMonth = myRow.month_key === currentMonth;
+      if (isMonthly) {
+        const repM = isSameMonth ? (myRow.rep_monthly           || 0) : 0;
+        const capM = isSameMonth ? (myRow.caught_monthly        || 0) : 0;
+        const shM  = isSameMonth ? (myRow.shiny_species_monthly || 0) : 0;
+        myEntryEl.innerHTML = `
+          <span style="color:var(--gold);font-family:var(--font-pixel);font-size:9px">${myRow.gang_name}</span>
+          <span style="margin-left:12px">Rang <b style="color:var(--gold)">${myRank}</b></span>
+          <span style="margin-left:12px;color:var(--text-dim)">⭐ +${repM.toLocaleString('fr-FR')} rép.</span>
+          <span style="margin-left:12px;color:var(--text-dim)">🎯 +${capM.toLocaleString('fr-FR')}</span>
+          <span style="margin-left:12px;color:var(--text-dim)">✨ +${shM}</span>
+          <span style="margin-left:auto;font-size:8px;opacity:.6">${isSameMonth ? `maj ${updAgo}` : 'pas encore de données ce mois'}</span>`;
+      } else {
+        myEntryEl.innerHTML = `
+          <span style="color:var(--gold);font-family:var(--font-pixel);font-size:9px">${myRow.gang_name}</span>
+          <span style="margin-left:12px">Rang <b style="color:var(--gold)">${myRank}</b></span>
+          <span style="margin-left:12px;color:var(--text-dim)">⭐ ${(myRow.reputation||0).toLocaleString('fr-FR')}</span>
+          <span style="margin-left:12px;color:var(--text-dim)">✨ ${myRow.shiny_species_count||0}</span>
+          <span style="margin-left:12px;color:var(--text-dim)">📖 ${myRow.dex_kanto_count||0}/151</span>
+          <span style="margin-left:auto;font-size:8px;opacity:.6">maj ${updAgo}</span>`;
+      }
+      myEntryEl.style.cssText += ';display:flex;align-items:center;gap:0;flex-wrap:wrap';
     } else {
       myEntryEl.textContent = "Votre entrée n'est pas encore dans le classement.";
     }
@@ -6014,21 +6104,24 @@ async function _loadLeaderboardTable() {
   if (!tableEl) return;
 
   if (error || !rows?.length) {
-    const periodLabel = { alltime: 'all time', weekly: 'cette semaine', daily: "aujourd'hui" }[_lbPeriod] || '';
-    tableEl.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text-dim);font-size:10px">Aucune entrée ${periodLabel} — sois le premier !</div>`;
+    const periodLabel = isMonthly ? 'ce mois-ci' : 'all time';
+    tableEl.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text-dim);font-size:10px">Aucune entrée ${periodLabel} — sois le premier !</div>`;
     return;
   }
 
-  const MEDALS = ['\u{1F947}','\u{1F948}','\u{1F949}'];
+  const MEDALS = ['🥇','🥈','🥉'];
   const sortLabel = SORT_LABELS[_lbSortBy] || '⭐ Rép.';
+  const monthlyPrefix = isMonthly ? '+' : '';
 
   tableEl.innerHTML = `
     <div style="display:grid;grid-template-columns:36px 1fr auto;border-bottom:1px solid var(--border);padding:6px 10px;font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">
-      <span>#</span><span>Gang</span><span style="text-align:right">${sortLabel}   ✨   \u{1F4D6}</span>
+      <span>#</span><span>Gang</span><span style="text-align:right">${isMonthly ? '📅 ' : ''}${sortLabel}</span>
     </div>
     ${rows.map((p, i) => {
       const isMe  = p.token === _lbToken;
-      const medal = MEDALS[i] || `<span style="font-family:var(--font-pixel);font-size:9px;color:var(--text-dim)">${i+1}</span>`;
+      const medal = i < 3
+        ? `<span style="font-size:18px">${MEDALS[i]}</span>`
+        : `<span style="font-family:var(--font-pixel);font-size:9px;color:var(--text-dim)">${i+1}</span>`;
       const nameTag = p.is_anonymous
         ? `<span style="font-size:8px;color:var(--text-dim)">Joueur anonyme <span style="opacity:.5">#${p.token.slice(-5)}</span></span>`
         : `<span style="font-size:9px">${p.gang_name}</span>`;
@@ -6036,10 +6129,13 @@ async function _loadLeaderboardTable() {
         ? `<img src="https://play.pokemonshowdown.com/sprites/gen5/${p.boss_sprite}.png" style="width:32px;height:32px;image-rendering:pixelated" onerror="this.style.display='none'">`
         : `<div style="width:32px;height:32px;background:var(--bg);border-radius:4px"></div>`;
       const val = p[col] ?? 0;
-      const valStr = typeof val === 'number' ? val.toLocaleString('fr-FR') : val;
+      const valStr = monthlyPrefix + (typeof val === 'number' ? val.toLocaleString('fr-FR') : val);
       const ago = p.updated_at ? _lbAgo(new Date(p.updated_at)) : '';
+      const secLine = isMonthly
+        ? `✨ +${p.shiny_species_monthly||0}   🎯 +${p.caught_monthly||0}`
+        : `✨ ${p.shiny_species_count||0}   📖 ${p.dex_kanto_count||0}/151`;
       return `<div style="display:grid;grid-template-columns:36px auto 1fr auto;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid var(--border);background:${isMe ? 'rgba(255,204,90,.07)' : ''};border-left:3px solid ${isMe ? 'var(--gold)' : 'transparent'}">
-        <span style="text-align:center;font-size:14px">${medal}</span>
+        <span style="text-align:center">${medal}</span>
         ${sprite}
         <div style="min-width:0">
           ${isMe ? `<div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">${p.gang_name} <span style="font-size:7px;opacity:.7">◄ toi</span></div>` : nameTag}
@@ -6047,7 +6143,7 @@ async function _loadLeaderboardTable() {
         </div>
         <div style="text-align:right;flex-shrink:0">
           <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">${valStr}</div>
-          <div style="font-size:8px;color:var(--text-dim);margin-top:2px">✨ ${p.shiny_species_count||0}   \u{1F4D6} ${p.dex_kanto_count||0}/151</div>
+          <div style="font-size:8px;color:var(--text-dim);margin-top:2px">${secLine}</div>
         </div>
       </div>`;
     }).join('')}`;
