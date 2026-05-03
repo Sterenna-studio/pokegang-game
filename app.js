@@ -29,15 +29,7 @@ import './modules/systems/sessionObjectives.js';
 import './modules/systems/trainingRoom.js';
 import './modules/systems/pension.js';
 import './modules/systems/zoneSystem.js';
-import {
-  configureCloudAccount,
-  initSupabase,
-  renderCompteTab,
-  renderLeaderboardTab,
-  supaCloudSave,
-  supaUpdateLeaderboardAnon,
-  supaWriteSnapshot,
-} from './modules/systems/cloudAccount.js';
+import { configureCloudAccount } from './modules/systems/cloudAccount.js';
 import {
   addBattleLogEntry,
   checkPlayerStatPoints,
