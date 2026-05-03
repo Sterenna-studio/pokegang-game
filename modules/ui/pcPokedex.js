@@ -98,15 +98,20 @@ function notify(...args) { return callContext('notify', ...args); }
 function showConfirm(...args) { return callContext('showConfirm', ...args); }
 function switchTab(...args) { return callContext('switchTab', ...args); }
 function updateTopBar() { return callContext('updateTopBar'); }
+function t(...args) { return callContext('t', ...args) ?? args[0]; }
 function calculateStats(pokemon) { return callContext('calculateStats', pokemon) ?? pokemon.stats ?? {}; }
 function evolvePokemon(pokemon, targetEN) { return callContext('evolvePokemon', pokemon, targetEN); }
 function tryAutoEvolution(pokemon) { return callContext('tryAutoEvolution', pokemon); }
+function rollMoves(speciesEN) { return callContext('rollMoves', speciesEN) ?? []; }
 function getPokemonPower(pokemon) { return callContext('getPokemonPower', pokemon) ?? 0; }
 function getBaseSpecies(en) { return callContext('getBaseSpecies', en) ?? en; }
+function makePokemon(...args) { return callContext('makePokemon', ...args); }
 function speciesName(en) { return callContext('speciesName', en) ?? en; }
+function typeFr(type) { return callContext('typeFr', type) ?? type; }
 function pokeSprite(en, shiny = false) { return callContext('pokeSprite', en, shiny) ?? ''; }
 function calculatePrice(pokemon) { return callContext('calculatePrice', pokemon) ?? 0; }
 function getMarketSaturation(species) { return callContext('getMarketSaturation', species) ?? 0; }
+function removePokemonFromAllAssignments(...args) { return callContext('removePokemonFromAllAssignments', ...args); }
 function sellPokemon(...args) { return callContext('sellPokemon', ...args); }
 function getPensionSlotIds() { return callContext('getPensionSlotIds') ?? new Set(); }
 function openAssignToPicker(...args) { return callContext('openAssignToPicker', ...args); }
