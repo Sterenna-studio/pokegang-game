@@ -63,6 +63,7 @@ import {
 import './modules/ui/zoneWindows.js';
 import './modules/ui/gangBase.js';
 import './modules/ui/gangTab.js';
+import { configureIntro, openGiovanniIntro } from './modules/ui/intro.js';
 import {
   renderZoneSelector    as _zsRenderSelector,
   refreshZoneTile       as _zsRefreshTile,
@@ -4757,7 +4758,16 @@ function showIntro() {
         if (idx !== undefined && !isNaN(idx)) {
           selectedSlotIdx = idx;
           renderSlots();
-          openNewGameModal(idx);
+          openGiovanniIntro({
+            slotIdx: idx,
+            onComplete: ({ slotIdx: si }) => {
+              saveToSlot(si);
+              const hub = document.getElementById('introOverlay');
+              hub?.classList.remove('active');
+              stopShowcase?.();
+              renderAll();
+            },
+          });
         }
       });
     });
@@ -6955,6 +6965,18 @@ function boot() {
 
   // Réactiver Johto si déjà débloqué (save existante)
   if (state.purchases?.johtoUnlocked) activateJohtoRegion();
+
+  // Configure intro module
+  configureIntro({
+    getState: () => state,
+    makePokemon,
+    calculateStats,
+    pokeSprite,
+    trainerSprite,
+    BOSS_SPRITES,
+    saveState,
+    notify,
+  });
 
   // Start game loop
   startGameLoop();
