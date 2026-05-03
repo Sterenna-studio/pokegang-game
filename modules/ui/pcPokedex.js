@@ -4,7 +4,7 @@
 // ════════════════════════════════════════════════════════════════
 //
 //  app.js injects runtime dependencies through configurePcPokedex().
-//  globalThis fallbacks remain as a temporary bridge for older modules.
+//  global exports remain as temporary compatibility bridges for older modules.
 // ════════════════════════════════════════════════════════════════
 
 import { getDexDesc } from '../../data/dex-helpers.js';
@@ -15,75 +15,81 @@ function configurePcPokedex(ctx = {}) {
   pcPokedexContext = { ...pcPokedexContext, ...ctx };
 }
 
-function getState() {
-  return pcPokedexContext.getState?.() ?? globalThis.state;
-}
-
-function getActiveTab() {
-  return pcPokedexContext.getActiveTab?.() ?? globalThis.activeTab;
-}
-
-function getDocument() {
-  return pcPokedexContext.document ?? globalThis.document;
-}
-
-function getSpeciesList() {
-  return pcPokedexContext.getSpeciesList?.() ?? globalThis.POKEMON_GEN1 ?? [];
-}
-
-function getSpeciesMap() {
-  return pcPokedexContext.getSpeciesMap?.() ?? globalThis.SPECIES_BY_EN ?? {};
-}
-
-function getWindow() {
-  return pcPokedexContext.window ?? globalThis.window ?? {};
-}
-
-function getPcView() {
-  return pcPokedexContext.getPcView?.() ?? globalThis.pcView ?? 'grid';
-}
-
-function setPcView(value) {
-  if (pcPokedexContext.setPcView) {
-    pcPokedexContext.setPcView(value);
+function requireContext(name) {
+  const value = pcPokedexContext[name];
+  if (value === undefined) {
+    throw new Error(`[pcPokedex] Missing context dependency: ${name}`);
   }
   return value;
 }
 
+function getState() {
+  return requireContext('getState')();
+}
+
+function getActiveTab() {
+  return requireContext('getActiveTab')();
+}
+
+function getDocument() {
+  return requireContext('document');
+}
+
+function getSpeciesList() {
+  return requireContext('getSpeciesList')();
+}
+
+function getSpeciesMap() {
+  return requireContext('getSpeciesMap')();
+}
+
+function getWindow() {
+  return requireContext('window');
+}
+
+function getPcView() {
+  return requireContext('getPcView')();
+}
+
+function setPcView(value) {
+  requireContext('setPcView')(value);
+  return value;
+}
+
 function getEvolutionsBySpecies() {
-  return pcPokedexContext.getEvolutionsBySpecies?.() ?? globalThis.EVO_BY_SPECIES ?? {};
+  return requireContext('getEvolutionsBySpecies')();
 }
 
 function getPotentialUpgradeCosts() {
-  return pcPokedexContext.getPotentialUpgradeCosts?.() ?? globalThis.POT_UPGRADE_COSTS ?? [];
+  return requireContext('getPotentialUpgradeCosts')();
 }
 
 function getNatures() {
-  return pcPokedexContext.getNatures?.() ?? globalThis.NATURES ?? {};
+  return requireContext('getNatures')();
 }
 
 function getBalls() {
-  return pcPokedexContext.getBalls?.() ?? globalThis.BALLS ?? {};
+  return requireContext('getBalls')();
 }
 
 function getZones() {
-  return pcPokedexContext.getZones?.() ?? globalThis.ZONES ?? [];
+  return requireContext('getZones')();
 }
 
 function getZoneById() {
-  return pcPokedexContext.getZoneById?.() ?? globalThis.ZONE_BY_ID ?? {};
+  return requireContext('getZoneById')();
 }
 
 function getKantoDexSize() {
-  return pcPokedexContext.getKantoDexSize?.() ?? globalThis.KANTO_DEX_SIZE ?? 151;
+  return requireContext('getKantoDexSize')();
 }
 
 function getNationalDexSize() {
-  return pcPokedexContext.getNationalDexSize?.() ?? globalThis.NATIONAL_DEX_SIZE ?? getSpeciesList().filter(s => !s.hidden).length;
+  return requireContext('getNationalDexSize')();
 }
 
 function callContext(name, ...args) {
-  const fn = pcPokedexContext[name] ?? globalThis[name];
+  const fn = requireContext(name);
   return typeof fn === 'function' ? fn(...args) : undefined;
 }
 
@@ -114,8 +120,7 @@ function getDexKantoCaught() { return callContext('getDexKantoCaught') ?? 0; }
 function getDexNationalCaught() { return callContext('getDexNationalCaught') ?? 0; }
 function getShinySpeciesCount() { return callContext('getShinySpeciesCount') ?? 0; }
 function playSfx(key) {
-  if (pcPokedexContext.playSfx) return pcPokedexContext.playSfx(key);
-  return globalThis.SFX?.play?.(key);
+  return requireContext('playSfx')(key);
 }
 
 const state = new Proxy({}, {
