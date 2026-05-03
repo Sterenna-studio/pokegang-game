@@ -9,25 +9,6 @@ import {
   configureSecretCodes,
 } from './modules/secretCodes.js';
 import {
-  saveState as _smSaveState,
-  loadState as _smLoadState,
-  migrate as _smMigrate,
-  exportSave as _smExportSave,
-  importSave as _smImportSave,
-  slimPokemon,
-  formatPlaytime,
-  MAX_HISTORY,
-} from './modules/stateManagement.js';
-import {
-  APP_VERSION,
-  GAME_VERSION,
-  SAVE_KEYS,
-  LEGACY_SAVE_KEYS,
-  SAVE_SCHEMA_VERSION,
-  DEFAULT_STATE,
-  createDefaultState,
-} from './state/defaultState.js';
-import {
   configureSaveSlots,
   getSlotPreview,
   openSaveSlotModal,
@@ -100,7 +81,7 @@ import {
 } from './modules/ui/zoneSelector.js';
 
 import { POKEDEX_DESC } from './data/pokedex-desc.js';
-import { ZONE_BGS, COSMETIC_BGS } from './data/zones-visuals-data.js';
+import { ZONE_BGS, COSMETIC_BGS, FABRIC_SPECIES, PATCH_PIDS, fabricBgUrl, fabricEmbUrl, patchUrl } from './data/zones-visuals-data.js';
 import { MISSIONS, HOURLY_QUEST_POOL } from './data/missions-data.js';
 import { TRAINER_TYPES } from './data/trainers-data.js';
 import { getDexDesc, buildSpeciesNameMaps } from './data/dex-helpers.js';
@@ -2414,9 +2395,20 @@ function renderActiveTab() {
 //  COSMETICS
 // ════════════════════════════════════════════════════════════════
 
+function _resolveFabricBgUrl(bgKey) {
+  // bgKey = 'fabric_{pid}' | 'fabric_{pid}_v2' | 'fabric_{pid}_emb'
+  const m = bgKey.match(/^fabric_(\d+)(_v(\d+)|_emb)?$/);
+  if (!m) return null;
+  const pid = parseInt(m[1], 10);
+  if (m[2] === '_emb') return fabricEmbUrl(pid);
+  const variant = m[3] ? parseInt(m[3], 10) : 1;
+  return fabricBgUrl(pid, variant);
+}
+
 function applyCosmetics() {
   const bgKey = state.cosmetics?.gameBg;
   const bg = bgKey ? COSMETIC_BGS[bgKey] : null;
+  const isFabric = bgKey && bgKey.startsWith('fabric_');
   const _bgTargets = [document.documentElement, document.body];
   if (bg?.type === 'image') {
     _bgTargets.forEach(el => {
@@ -2442,6 +2434,21 @@ function applyCosmetics() {
     document.documentElement.style.setProperty('--bg-card', '#141414');
     document.documentElement.style.setProperty('--bg-panel', '#1a1a1a');
     document.documentElement.style.setProperty('--bg-hover', '#222');
+  } else if (isFabric) {
+    const url = _resolveFabricBgUrl(bgKey);
+    if (url) {
+      _bgTargets.forEach(el => {
+        el.style.backgroundImage = `url('${url}')`;
+        el.style.backgroundSize = '320px';
+        el.style.backgroundRepeat = 'repeat';
+        el.style.backgroundAttachment = 'fixed';
+        el.style.backgroundPosition = 'top left';
+      });
+    }
+    document.documentElement.style.setProperty('--bg', 'rgba(10,10,10,0.72)');
+    document.documentElement.style.setProperty('--bg-card', 'rgba(20,20,20,0.70)');
+    document.documentElement.style.setProperty('--bg-panel', 'rgba(26,26,26,0.70)');
+    document.documentElement.style.setProperty('--bg-hover', 'rgba(34,34,34,0.80)');
   } else {
     _bgTargets.forEach(el => { el.style.backgroundImage = ''; });
     document.documentElement.style.setProperty('--bg', '#0a0a0a');
@@ -2449,6 +2456,18 @@ function applyCosmetics() {
     document.documentElement.style.setProperty('--bg-panel', '#1a1a1a');
     document.documentElement.style.setProperty('--bg-hover', '#222');
   }
+}
+
+function _unlockFabricBg(dexNum, isShiny) {
+  if (!dexNum || dexNum <= 0) return;
+  const spec = FABRIC_SPECIES.find(s => s[0] === dexNum);
+  if (!spec) return;
+  const unlocked = state.cosmetics.unlockedBgs || [];
+  const add = (key) => { if (!unlocked.includes(key)) unlocked.push(key); };
+  add(`fabric_${dexNum}`);
+  if (spec[2] >= 2) add(`fabric_${dexNum}_v2`);
+  if (isShiny && spec[3]) add(`fabric_${dexNum}_emb`);
+  state.cosmetics.unlockedBgs = unlocked;
 }
 
 // ── In-game text input modal — replaces all browser prompt() calls ────────
@@ -2574,7 +2593,10 @@ function renderCosmeticsPanel(container) {
     </div>`;
   }).join('');
 
-  // ── Fonds d'écran ─────────────────────────────────────────────
+  const favoriteBgs = state.cosmetics?.favoriteBgs || [];
+  const activePatches = state.cosmetics?.activePatches || [];
+
+  // ── Fonds d'écran (scènes & thèmes) ─────────────────────────────
   const bgImagesHtml = Object.entries(COSMETIC_BGS).filter(([,c]) => c.type === 'image').map(([key, c]) => {
     const own = unlocked.has(key);
     const isActive = active === key;
@@ -2599,6 +2621,61 @@ function renderCosmeticsPanel(container) {
     </div>`;
   }).join('');
 
+  // ── Fonds tissu (fabric) ─────────────────────────────────────────
+  // Collect all fabric keys the player has unlocked + all purchasable (not dex-linked)
+  const FABRIC_SHOP_COST = 100000;
+  // Build list: unlocked fabric keys + all FABRIC_SPECIES
+  const fabricUnlocked = [...unlocked].filter(k => k.startsWith('fabric_'));
+  // Also build full list for "Tous" mode
+  const allFabricKeys = [];
+  for (const spec of FABRIC_SPECIES) {
+    const pid = spec[0];
+    allFabricKeys.push(`fabric_${pid}`);
+    if (spec[2] >= 2) allFabricKeys.push(`fabric_${pid}_v2`);
+    if (spec[3]) allFabricKeys.push(`fabric_${pid}_emb`);
+  }
+  // Build fabric card HTML helper
+  const _buildFabricCard = (key) => {
+    const m = key.match(/^fabric_(\d+)(_v(\d+)|_emb)?$/);
+    if (!m) return '';
+    const pid = parseInt(m[1], 10);
+    const isEmb = m[2] === '_emb';
+    const variant = m[3] ? parseInt(m[3], 10) : 1;
+    const spec = FABRIC_SPECIES.find(s => s[0] === pid);
+    const fr = spec ? spec[1] : `#${pid}`;
+    const own = unlocked.has(key);
+    const isActive = active === key;
+    const isFav = favoriteBgs.includes(key);
+    const previewUrl = isEmb ? fabricEmbUrl(pid) : fabricBgUrl(pid, variant);
+    const badge = isEmb ? '✨' : (variant > 1 ? `v${variant}` : '');
+    const labelSuffix = isEmb ? ' Brodé' : (variant > 1 ? ` (alt)` : '');
+    return `<div class="cosm-card cosm-fabric-card ${isActive ? 'cosm-active' : ''}" data-cosm="${key}" data-fabric-key="${key}"
+      style="position:relative;border:2px solid ${isActive ? 'var(--gold)' : own ? 'var(--green)' : 'var(--border)'};border-radius:var(--radius-sm);padding:6px;cursor:pointer;background:var(--bg-card);min-width:80px;flex-shrink:0">
+      <div style="height:64px;background-image:url('${previewUrl}');background-size:cover;background-position:center;border-radius:2px;margin-bottom:4px"></div>
+      ${badge ? `<div style="position:absolute;top:4px;right:4px;font-size:9px;background:rgba(0,0,0,.7);border-radius:3px;padding:1px 4px">${badge}</div>` : ''}
+      <button class="cosm-fav-btn" data-fav-key="${key}" style="position:absolute;top:4px;left:4px;background:rgba(0,0,0,.6);border:none;border-radius:3px;cursor:pointer;font-size:10px;padding:1px 3px;line-height:1">${isFav ? '⭐' : '☆'}</button>
+      <div style="font-size:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${fr}${labelSuffix}</div>
+      <div style="font-size:7px;color:${isActive ? 'var(--gold)' : own ? 'var(--green)' : 'var(--text-dim)'}">
+        ${isActive ? '[ ACTIF ]' : own ? 'Équiper' : FABRIC_SHOP_COST.toLocaleString() + '₽'}
+      </div>
+    </div>`;
+  };
+
+  // Patches section
+  const _patchLabel = { 1:'Bulbizarre',4:'Salamèche',7:'Carapuce',25:'Pikachu',39:'Rondoudou',
+    50:'Taupiqueur',54:'Psykokwak',94:'Ectoplasma',129:'Magicarpe',131:'Lokhlass',
+    132:'Métamorph',133:'Évoli',143:'Ronflex',149:'Dracolosse',151:'Mew' };
+  const patchesHtml = PATCH_PIDS.map(pid => {
+    const isActive2 = activePatches.includes(pid);
+    const label = _patchLabel[pid] || `#${pid}`;
+    return `<div class="cosm-patch-card" data-patch-pid="${pid}"
+      style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px;border:2px solid ${isActive2 ? 'var(--gold)' : 'var(--border)'};border-radius:var(--radius-sm);cursor:pointer;background:${isActive2 ? 'rgba(255,200,0,0.08)' : 'var(--bg-card)'};width:72px;flex-shrink:0">
+      <img src="${patchUrl(pid)}" style="width:48px;height:48px;object-fit:contain;image-rendering:pixelated" onerror="this.style.display='none'">
+      <div style="font-size:7px;text-align:center;color:${isActive2 ? 'var(--gold)' : 'var(--text-dim)'}">${label}</div>
+      ${isActive2 ? '<div style="font-size:7px;color:var(--gold)">[ ON ]</div>' : ''}
+    </div>`;
+  }).join('');
+
   container.innerHTML = `
     <!-- ── Jukebox ── -->
     <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold);margin-bottom:8px">🎵 JUKEBOX
@@ -2611,8 +2688,8 @@ function renderCosmeticsPanel(container) {
       </div>
     </div>
 
-    <!-- ── Fonds d'écran photo ── -->
-    <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold);margin-bottom:10px">🖼 FOND D'ÉCRAN</div>
+    <!-- ── Fonds d'écran scènes & thèmes ── -->
+    <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold);margin-bottom:10px">🖼 SCÈNES & THÈMES</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-bottom:8px">
       <div class="cosm-card ${!active ? 'cosm-active' : ''}" data-cosm="none" style="border:2px solid ${!active ? 'var(--gold)' : 'var(--border)'};border-radius:var(--radius-sm);padding:8px;cursor:pointer;background:var(--bg-card)">
         <div style="height:50px;background:linear-gradient(180deg,#0a0a0a,#1a1a1a);border-radius:2px;margin-bottom:6px"></div>
@@ -2624,8 +2701,26 @@ function renderCosmeticsPanel(container) {
 
     <!-- ── Thèmes couleur ── -->
     <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold);margin-bottom:10px;margin-top:6px">🎨 THÈMES</div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px">
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-bottom:20px">
       ${bgGradientsHtml}
+    </div>
+
+    <!-- ── Fonds tissu Original Stitch ── -->
+    <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold);margin-bottom:10px">🧵 FONDS TISSU</div>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+      <button class="fabric-filter-btn" data-fabric-filter="owned" style="font-family:var(--font-pixel);font-size:8px;padding:4px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text-dim);cursor:pointer">Possédé</button>
+      <button class="fabric-filter-btn" data-fabric-filter="all" style="font-family:var(--font-pixel);font-size:8px;padding:4px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text-dim);cursor:pointer">Tous</button>
+      <button class="fabric-filter-btn" data-fabric-filter="favorites" style="font-family:var(--font-pixel);font-size:8px;padding:4px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text-dim);cursor:pointer">⭐ Favoris</button>
+      <span style="font-size:8px;color:var(--text-dim);margin-left:4px">${fabricUnlocked.length} débloqué(s)</span>
+    </div>
+    <div id="fabricSlider" style="display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch">
+      ${fabricUnlocked.length > 0 ? fabricUnlocked.map(_buildFabricCard).join('') : '<div style="font-size:9px;color:var(--text-dim);padding:12px">Capture des Pokémon pour débloquer des fonds tissu !</div>'}
+    </div>
+
+    <!-- ── Pins / Patches ── -->
+    <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold);margin-top:20px;margin-bottom:8px">📌 PINS <span style="font-size:7px;color:var(--text-dim);font-weight:normal">${activePatches.length}/3 actifs</span></div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">
+      ${patchesHtml}
     </div>`;
 
   // Jukebox handlers
@@ -2646,8 +2741,8 @@ function renderCosmeticsPanel(container) {
     });
   });
 
-  // Wallpaper / theme handlers
-  container.querySelectorAll('.cosm-card').forEach(el => {
+  // Wallpaper / theme handlers (scènes & thèmes)
+  container.querySelectorAll('.cosm-card:not(.cosm-fabric-card)').forEach(el => {
     el.addEventListener('click', () => {
       const key = el.dataset.cosm;
       if (key === 'none') {
@@ -2675,6 +2770,99 @@ function renderCosmeticsPanel(container) {
           renderCosmeticsPanel(container);
         }, null, { confirmLabel: 'Acheter', cancelLabel: 'Annuler' });
       }
+    });
+  });
+
+  // Fabric card handlers (initial bind)
+  const _bindFabricCardHandlers = (root) => {
+    // Fav toggle
+    root.querySelectorAll('.cosm-fav-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const key = btn.dataset.favKey;
+        const favs = state.cosmetics.favoriteBgs || [];
+        const idx = favs.indexOf(key);
+        if (idx >= 0) favs.splice(idx, 1); else favs.push(key);
+        state.cosmetics.favoriteBgs = favs;
+        saveState();
+        btn.textContent = favs.includes(key) ? '⭐' : '☆';
+      });
+    });
+    // Card click (equip / buy)
+    root.querySelectorAll('.cosm-fabric-card').forEach(el => {
+      el.addEventListener('click', (e) => {
+        if (e.target.classList.contains('cosm-fav-btn')) return;
+        const key = el.dataset.cosm;
+        if (!key) return;
+        if (unlocked.has(key)) {
+          state.cosmetics.gameBg = key;
+          saveState(); applyCosmetics();
+          renderCosmeticsPanel(container);
+        } else {
+          const m = key.match(/^fabric_(\d+)/);
+          const pid = m ? parseInt(m[1], 10) : 0;
+          const spec = pid ? FABRIC_SPECIES.find(s => s[0] === pid) : null;
+          const fr = spec ? spec[1] : `#${pid}`;
+          if (state.gang.money < FABRIC_SHOP_COST) { notify('Fonds insuffisants (100 000₽).', 'error'); return; }
+          showConfirm(`Acheter le fond tissu "${fr}" pour ${FABRIC_SHOP_COST.toLocaleString()}₽ ?`, () => {
+            state.gang.money -= FABRIC_SHOP_COST;
+            state.cosmetics.unlockedBgs = [...(state.cosmetics.unlockedBgs || []), key];
+            state.cosmetics.gameBg = key;
+            saveState(); applyCosmetics(); updateTopBar();
+            notify(`🧵 Fond tissu "${fr}" débloqué !`, 'gold');
+            SFX.play('unlock');
+            renderCosmeticsPanel(container);
+          }, null, { confirmLabel: 'Acheter', cancelLabel: 'Annuler' });
+        }
+      });
+    });
+  };
+  const fabricSlider = container.querySelector('#fabricSlider');
+  if (fabricSlider) _bindFabricCardHandlers(fabricSlider);
+
+  // Fabric filter buttons
+  container.querySelectorAll('.fabric-filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const filter = btn.dataset.fabricFilter;
+      const slider = container.querySelector('#fabricSlider');
+      if (!slider) return;
+      let keys = [];
+      if (filter === 'owned') {
+        keys = fabricUnlocked;
+      } else if (filter === 'all') {
+        keys = allFabricKeys;
+      } else if (filter === 'favorites') {
+        keys = favoriteBgs.filter(k => k.startsWith('fabric_'));
+      }
+      // Sort favorites first
+      const favSet = new Set(favoriteBgs);
+      keys = [...keys].sort((a, b) => (favSet.has(b) ? 1 : 0) - (favSet.has(a) ? 1 : 0));
+      slider.innerHTML = keys.length > 0 ? keys.map(_buildFabricCard).join('') : '<div style="font-size:9px;color:var(--text-dim);padding:12px">Aucun fond disponible dans cette catégorie.</div>';
+      // Re-bind handlers for new cards
+      _bindFabricCardHandlers(slider);
+    });
+  });
+
+  // Patch handlers
+  container.querySelectorAll('.cosm-patch-card').forEach(el => {
+    el.addEventListener('click', () => {
+      const pid = parseInt(el.dataset.patchPid, 10);
+      const patches = [...(state.cosmetics.activePatches || [])];
+      const idx = patches.indexOf(pid);
+      if (idx >= 0) {
+        patches.splice(idx, 1);
+        notify(`📌 Pin retiré`, 'success');
+      } else {
+        if (patches.length >= 3) { notify('Maximum 3 pins actifs.', 'error'); return; }
+        patches.push(pid);
+        const _patchLabel2 = { 1:'Bulbizarre',4:'Salamèche',7:'Carapuce',25:'Pikachu',39:'Rondoudou',
+          50:'Taupiqueur',54:'Psykokwak',94:'Ectoplasma',129:'Magicarpe',131:'Lokhlass',
+          132:'Métamorph',133:'Évoli',143:'Ronflex',149:'Dracolosse',151:'Mew' };
+        notify(`📌 Pin "${_patchLabel2[pid] || pid}" activé !`, 'gold');
+      }
+      state.cosmetics.activePatches = patches;
+      saveState();
+      renderCosmeticsPanel(container);
     });
   });
 
@@ -7107,6 +7295,9 @@ Object.assign(globalThis, {
   getDexKantoCaught, getDexNationalCaught, getShinySpeciesCount,
   getBossFullTitle, getTitleLabel,
   KANTO_DEX_SIZE, NATIONAL_DEX_SIZE, COSMETIC_BGS,
+  // Fabric BG unlock helper — used by capture modules
+  _unlockFabricBg,
+  FABRIC_SPECIES, PATCH_PIDS, fabricBgUrl, fabricEmbUrl, patchUrl,
 });
 
 configureSecretCodes({

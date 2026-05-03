@@ -777,6 +777,8 @@ function hatchEgg(eggId) {
     state.pokedex[baseEn].count++;
     if (egg.shiny) state.pokedex[baseEn].shiny = true;
   }
+  // Fabric BG unlock
+  globalThis._unlockFabricBg?.(hatched.dex, hatched.shiny);
   saveState();
 
   // ── Animation popup ─────────────────────────────────────────────

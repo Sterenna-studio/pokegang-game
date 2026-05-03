@@ -56,6 +56,8 @@
       if (pokemon.shiny) state.pokedex[pokemon.species_en].shiny = true;
     }
     if (pokemon.shiny) state.stats.shinyCaught++;
+    // Fabric BG unlock
+    globalThis._unlockFabricBg?.(pokemon.dex, pokemon.shiny);
     const name = speciesName(pokemon.species_en);
     const stars = '★'.repeat(pokemon.potential) + '☆'.repeat(5 - pokemon.potential);
     const shinyTag = pokemon.shiny ? ' ✨SHINY✨' : '';

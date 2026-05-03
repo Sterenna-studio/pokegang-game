@@ -36,6 +36,8 @@ export function migrateSave(saved, deps) {
   merged.discoveryProgress = { ...structuredClone(DEFAULT_STATE.discoveryProgress), ...ensureObject(saved.discoveryProgress) };
   merged.trainingRoom = { ...structuredClone(DEFAULT_STATE.trainingRoom), ...ensureObject(saved.trainingRoom) };
   merged.cosmetics    = { ...structuredClone(DEFAULT_STATE.cosmetics),    ...ensureObject(saved.cosmetics) };
+  if (!Array.isArray(merged.cosmetics.favoriteBgs))  merged.cosmetics.favoriteBgs  = [];
+  if (!Array.isArray(merged.cosmetics.activePatches)) merged.cosmetics.activePatches = [];
   merged.lab          = { ...structuredClone(DEFAULT_STATE.lab),          ...ensureObject(saved.lab) };
   merged.purchases    = { ...structuredClone(DEFAULT_STATE.purchases),    ...ensureObject(saved.purchases) };
   merged.pension      = { ...structuredClone(DEFAULT_STATE.pension),      ...ensureObject(saved.pension) };

@@ -138,6 +138,8 @@ export const DEFAULT_STATE = {
     gameBg: null,
     bossBg: null,
     unlockedBgs: [],
+    favoriteBgs: [],      // array of bg keys (fabric, image, gradient)
+    activePatches: [],    // array of patch pids (max 3)
   },
   lab: {
     trackedSpecies: [],

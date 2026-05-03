@@ -484,6 +484,8 @@ function resolveBackgroundSpawnForZone(zoneId) {
       if (pokemon.shiny) state.pokedex[pokemon.species_en].shiny = true;
     }
     if (pokemon.shiny) state.stats.shinyCaught++;
+    // Fabric BG unlock
+    globalThis._unlockFabricBg?.(pokemon.dex, pokemon.shiny);
     grantAgentXP(capturer, captureXP(entry.species_en, pokemon.potential, pokemon.shiny));
     const name  = globalThis.speciesName(pokemon.species_en);
     const stars = '★'.repeat(pokemon.potential);

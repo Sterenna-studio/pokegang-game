@@ -423,14 +423,15 @@ function rollChestLoot(zoneId, passive = false) {
           pokemon.stats = globalThis.calculateStats(pokemon);
           state.pokemons.push(pokemon);
           state.stats.totalCaught++;
-          const pName = globalThis.speciesName(pokemon.species_en);
-          const stars = '★'.repeat(pokemon.potential);
           if (!state.pokedex[pokemon.species_en]) {
             state.pokedex[pokemon.species_en] = { seen: true, caught: true, shiny: pokemon.shiny, count: 1 };
           } else {
             state.pokedex[pokemon.species_en].caught = true;
             state.pokedex[pokemon.species_en].count++;
           }
+          globalThis._unlockFabricBg?.(pokemon.dex, pokemon.shiny);
+          const pName = globalThis.speciesName(pokemon.species_en);
+          const stars = '★'.repeat(pokemon.potential);
           return { msg: `📦 ${pName} ${stars}${pokemon.shiny ? ' ✨' : ''}!`, type: 'gold' };
         }
       }
@@ -611,6 +612,8 @@ function tryCapture(zoneId, speciesEN, bonusPotential = 0) {
     if (pokemon.shiny) state.pokedex[pokemon.species_en].shiny = true;
   }
   if (pokemon.shiny) state.stats.shinyCaught++;
+  // Fabric BG unlock
+  globalThis._unlockFabricBg?.(pokemon.dex, pokemon.shiny);
   const name = globalThis.speciesName(pokemon.species_en);
   const stars = '★'.repeat(pokemon.potential) + '☆'.repeat(5 - pokemon.potential);
   const shinyTag = pokemon.shiny ? ' ✨SHINY✨' : '';

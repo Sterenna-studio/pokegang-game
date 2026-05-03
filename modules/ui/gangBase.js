@@ -186,9 +186,20 @@ function renderGangBaseWindow() {
         <div style="position:absolute;inset:0;background:rgba(12,4,4,.55);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)"></div>
       </div>
       <div style="position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 8px 10px">
-        ${state.gang.bossSprite
-          ? `<img class="base-boss-sprite" src="${trainerSprite(state.gang.bossSprite)}" alt="Boss" onerror="this.src='${FALLBACK_TRAINER_SVG}';this.onerror=null">`
-          : '<div style="width:72px;height:72px;background:rgba(0,0,0,.5);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:28px">💀</div>'}
+        <div style="position:relative;display:inline-block">
+          ${state.gang.bossSprite
+            ? `<img class="base-boss-sprite" src="${trainerSprite(state.gang.bossSprite)}" alt="Boss" onerror="this.src='${FALLBACK_TRAINER_SVG}';this.onerror=null">`
+            : '<div style="width:72px;height:72px;background:rgba(0,0,0,.5);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:28px">💀</div>'}
+          ${(() => {
+            const pids = state.cosmetics?.activePatches || [];
+            const patchUrlFn = globalThis.patchUrl;
+            if (!pids.length || !patchUrlFn) return '';
+            const positions = ['bottom:0;right:-4px','bottom:0;left:-4px','top:0;right:-4px'];
+            return pids.slice(0,3).map((pid,i) =>
+              `<img src="${patchUrlFn(pid)}" style="position:absolute;width:24px;height:24px;${positions[i]};object-fit:contain;image-rendering:pixelated;filter:drop-shadow(0 1px 2px rgba(0,0,0,.8))" onerror="this.style.display='none'">`
+            ).join('');
+          })()}
+        </div>
         <div style="font-family:var(--font-pixel);font-size:9px;color:var(--text)">${state.gang.bossName}</div>
         <div class="base-team-slots">${bossTeamHtml}</div>
       </div>
@@ -734,7 +745,18 @@ function buildExportCard(opts = {}) {
 
   sections += `
     <div style="display:flex;align-items:flex-start;gap:16px;padding:16px 20px 14px">
-      ${g.bossSprite ? img(trainerSprite(g.bossSprite), 96, 96) : '<div style="width:96px;height:96px;flex-shrink:0"></div>'}
+      <div style="position:relative;flex-shrink:0;width:96px;height:96px">
+        ${g.bossSprite ? img(trainerSprite(g.bossSprite), 96, 96) : ''}
+        ${(() => {
+          const pids = globalThis.state?.cosmetics?.activePatches || [];
+          const patchUrlFn = globalThis.patchUrl;
+          if (!pids.length || !patchUrlFn) return '';
+          const positions = ['bottom:0;right:0','bottom:0;left:0','top:0;right:0'];
+          return pids.slice(0,3).map((pid,i) =>
+            `<img src="${patchUrlFn(pid)}" style="position:absolute;width:28px;height:28px;${positions[i]};object-fit:contain;image-rendering:pixelated;filter:drop-shadow(0 1px 2px rgba(0,0,0,.8))" onerror="this.style.display='none'">`
+          ).join('');
+        })()}
+      </div>
       <div style="flex:1;display:flex;flex-direction:column;gap:5px">
         <div style="font-family:'Press Start 2P',monospace;font-size:18px;color:#cc3333;line-height:1.2">${g.name}</div>
         <div style="font-size:10px;color:#aaa">Boss : <strong style="color:#e0e0e0">${g.bossName}</strong></div>
