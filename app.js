@@ -172,6 +172,12 @@ let _migrationResult = null; // null | { from: string, fields: string[] }
 let state = structuredClone(DEFAULT_STATE);
 globalThis.state = state;
 
+function setState(nextState) {
+  state = nextState;
+  globalThis.state = state;
+  return state;
+}
+
 // ── Sérialisation slim des pokémons ──────────────────────────────────────────
 // On ne touche PAS les objets en mémoire : on crée un clone allégé pour la save.
 // Champs supprimés : dérivables au runtime (species_fr, dex) + valeurs par défaut
