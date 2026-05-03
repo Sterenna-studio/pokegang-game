@@ -14,46 +14,44 @@ function configureCloudAccount(ctx = {}) {
   cloudContext = { ...cloudContext, ...ctx };
 }
 
+function requireContext(name) {
+  const value = cloudContext[name];
+  if (value === undefined) {
+    throw new Error(`[cloudAccount] Missing context dependency: ${name}`);
+  }
+  return value;
+}
+
 function getState() {
-  return cloudContext.getState?.() ?? globalThis.state;
+  return requireContext('getState')();
 }
 
 function getActiveTab() {
-  return cloudContext.getActiveTab?.() ?? globalThis.activeTab;
+  return requireContext('getActiveTab')();
 }
 
 function getActiveSaveSlot() {
-  if (cloudContext.getActiveSaveSlot) return cloudContext.getActiveSaveSlot();
-  const raw = Number(getStorage()?.getItem?.('pokeforge.activeSlot') || 0);
-  return Math.min(2, Math.max(0, Number.isFinite(raw) ? raw : 0));
+  return requireContext('getActiveSaveSlot')();
 }
 
 function getSupabaseConfig() {
-  if (cloudContext.getSupabaseConfig) return cloudContext.getSupabaseConfig();
-  return {
-    url: globalThis.SUPABASE_URL,
-    anonKey: globalThis.SUPABASE_ANON_KEY,
-  };
+  return requireContext('getSupabaseConfig')();
 }
 
 function getSupabaseSdk() {
-  return cloudContext.getSupabaseSdk?.() ?? getWindow().supabase;
+  return requireContext('getSupabaseSdk')();
 }
 
 function getDocument() {
-  return cloudContext.document ?? globalThis.document;
-}
-
-function getWindow() {
-  return cloudContext.window ?? globalThis.window ?? {};
+  return requireContext('document');
 }
 
 function getStorage() {
-  return cloudContext.localStorage ?? globalThis.localStorage;
+  return requireContext('localStorage');
 }
 
 function getFetch() {
-  return cloudContext.fetch ?? globalThis.fetch?.bind(globalThis);
+  return requireContext('fetch');
 }
 
 const state = new Proxy({}, {
@@ -102,52 +100,52 @@ const localStorage = new Proxy({}, {
 
 function fetch(...args) {
   const fetchFn = getFetch();
-  if (!fetchFn) throw new Error('Fetch API unavailable');
+  if (!fetchFn) throw new Error('[cloudAccount] Missing context dependency: fetch');
   return fetchFn(...args);
 }
 
 function slimPokemon(pokemon) {
-  return cloudContext.slimPokemon?.(pokemon) ?? globalThis.slimPokemon?.(pokemon) ?? pokemon;
+  return requireContext('slimPokemon')(pokemon);
 }
 
 function setState(nextState) {
-  return (cloudContext.setState ?? globalThis.setState)?.(nextState);
+  return requireContext('setState')(nextState);
 }
 
 function migrate(saved) {
-  return (cloudContext.migrate ?? globalThis.migrate)?.(saved);
+  return requireContext('migrate')(saved);
 }
 
 function saveState() {
-  return (cloudContext.saveState ?? globalThis.saveState)?.();
+  return requireContext('saveState')();
 }
 
 function renderAll() {
-  return (cloudContext.renderAll ?? globalThis.renderAll)?.();
+  return requireContext('renderAll')();
 }
 
 function notify(...args) {
-  return (cloudContext.notify ?? globalThis.notify)?.(...args);
+  return requireContext('notify')(...args);
 }
 
 function showConfirm(...args) {
-  return (cloudContext.showConfirm ?? globalThis.showConfirm)?.(...args);
+  return requireContext('showConfirm')(...args);
 }
 
 function getDexKantoCaught() {
-  return (cloudContext.getDexKantoCaught ?? globalThis.getDexKantoCaught)?.() ?? 0;
+  return requireContext('getDexKantoCaught')();
 }
 
 function getDexNationalCaught() {
-  return (cloudContext.getDexNationalCaught ?? globalThis.getDexNationalCaught)?.() ?? 0;
+  return requireContext('getDexNationalCaught')();
 }
 
 function getShinySpeciesCount() {
-  return (cloudContext.getShinySpeciesCount ?? globalThis.getShinySpeciesCount)?.() ?? 0;
+  return requireContext('getShinySpeciesCount')();
 }
 
 function switchTab(...args) {
-  return (cloudContext.switchTab ?? globalThis.switchTab)?.(...args);
+  return requireContext('switchTab')(...args);
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -987,13 +985,6 @@ async function renderCompteTab() {
 }
 
 // ════════════════════════════════════════════════════════════════
-
-
-Object.assign(globalThis, {
-  configureCloudAccount, initSupabase, supaConfigured, supaCloudSave, supaWriteSnapshot,
-  supaUpdateLeaderboard, supaUpdateLeaderboardAnon, renderLeaderboardTab, renderCompteTab,
-  updateSupaIndicator, updateSupaTabLabel,
-});
 
 export {
   configureCloudAccount, initSupabase, supaConfigured, supaCloudSave, supaWriteSnapshot,

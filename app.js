@@ -6239,7 +6239,6 @@ configureCloudAccount({
   }),
   getSupabaseSdk: () => window.supabase,
   localStorage,
-  window,
   document,
   fetch,
   slimPokemon,
