@@ -6,48 +6,56 @@ export function configureSaveRepair(ctx = {}) {
   saveRepairContext = { ...saveRepairContext, ...ctx };
 }
 
+function requireContext(name) {
+  const value = saveRepairContext[name];
+  if (value === undefined) {
+    throw new Error(`[saveRepair] Missing context dependency: ${name}`);
+  }
+  return value;
+}
+
 function getState() {
-  return saveRepairContext.getState?.() ?? globalThis.state;
+  return requireContext('getState')();
 }
 
 function setState(nextState) {
-  return (saveRepairContext.setState ?? globalThis.setState)?.(nextState);
+  return requireContext('setState')(nextState);
 }
 
 function migrate(saved) {
-  return (saveRepairContext.migrate ?? globalThis.migrate)?.(saved);
+  return requireContext('migrate')(saved);
 }
 
 function saveState() {
-  return (saveRepairContext.saveState ?? globalThis.saveState)?.();
+  return requireContext('saveState')();
 }
 
 function renderAll() {
-  return (saveRepairContext.renderAll ?? globalThis.renderAll)?.();
+  return requireContext('renderAll')();
 }
 
 function notify(...args) {
-  return (saveRepairContext.notify ?? globalThis.notify)?.(...args);
+  return requireContext('notify')(...args);
 }
 
 function showConfirm(...args) {
-  return (saveRepairContext.showConfirm ?? globalThis.showConfirm)?.(...args);
+  return requireContext('showConfirm')(...args);
 }
 
 function getDocument() {
-  return saveRepairContext.document ?? globalThis.document;
+  return requireContext('document');
 }
 
 function getTitles() {
-  return saveRepairContext.getTitles?.() ?? globalThis.TITLES ?? [];
+  return requireContext('getTitles')();
 }
 
 function getZones() {
-  return saveRepairContext.getZones?.() ?? globalThis.ZONES ?? [];
+  return requireContext('getZones')();
 }
 
 function getMaxHistory() {
-  return saveRepairContext.MAX_HISTORY ?? globalThis.MAX_HISTORY ?? 30;
+  return requireContext('MAX_HISTORY');
 }
 
 export function applyAutoMutation(pokemons) {

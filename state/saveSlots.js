@@ -6,61 +6,64 @@ export function configureSaveSlots(ctx = {}) {
   saveSlotContext = { ...saveSlotContext, ...ctx };
 }
 
+function requireContext(name) {
+  const value = saveSlotContext[name];
+  if (value === undefined) {
+    throw new Error(`[saveSlots] Missing context dependency: ${name}`);
+  }
+  return value;
+}
+
 function getState() {
-  return saveSlotContext.getState?.() ?? globalThis.state;
+  return requireContext('getState')();
 }
 
 function setState(nextState) {
-  return (saveSlotContext.setState ?? globalThis.setState)?.(nextState);
+  return requireContext('setState')(nextState);
 }
 
 function getSaveKeys() {
-  return saveSlotContext.getSaveKeys?.() ?? globalThis.SAVE_KEYS ?? [];
+  return requireContext('getSaveKeys')();
 }
 
 function getActiveSaveSlot() {
-  if (saveSlotContext.getActiveSaveSlot) return saveSlotContext.getActiveSaveSlot();
-  const raw = Number(globalThis.localStorage?.getItem('pokeforge.activeSlot') || 0);
-  return Math.min(2, Math.max(0, Number.isFinite(raw) ? raw : 0));
+  return requireContext('getActiveSaveSlot')();
 }
 
 function setActiveSaveSlot(slotIdx) {
-  if (saveSlotContext.setActiveSaveSlot) return saveSlotContext.setActiveSaveSlot(slotIdx);
-  const nextSlot = Math.min(2, Math.max(0, Number(slotIdx) || 0));
-  globalThis.localStorage?.setItem('pokeforge.activeSlot', String(nextSlot));
-  return nextSlot;
+  return requireContext('setActiveSaveSlot')(slotIdx);
 }
 
 function getStorage() {
-  return saveSlotContext.localStorage ?? globalThis.localStorage;
+  return requireContext('localStorage');
 }
 
 function getDocument() {
-  return saveSlotContext.document ?? globalThis.document;
+  return requireContext('document');
 }
 
 function formatPlaytime(seconds) {
-  return (saveSlotContext.formatPlaytime ?? globalThis.formatPlaytime)?.(seconds) ?? `${Math.floor((seconds || 0) / 60)}min`;
+  return requireContext('formatPlaytime')(seconds);
 }
 
 function notify(...args) {
-  return (saveSlotContext.notify ?? globalThis.notify)?.(...args);
+  return requireContext('notify')(...args);
 }
 
 function showConfirm(...args) {
-  return (saveSlotContext.showConfirm ?? globalThis.showConfirm)?.(...args);
+  return requireContext('showConfirm')(...args);
 }
 
 function saveState() {
-  return (saveSlotContext.saveState ?? globalThis.saveState)?.();
+  return requireContext('saveState')();
 }
 
 function migrate(saved) {
-  return (saveSlotContext.migrate ?? globalThis.migrate)?.(saved);
+  return requireContext('migrate')(saved);
 }
 
 function renderAll() {
-  return (saveSlotContext.renderAll ?? globalThis.renderAll)?.();
+  return requireContext('renderAll')();
 }
 
 export function getSlotPreview(slotIdx) {
