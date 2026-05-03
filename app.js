@@ -63,7 +63,7 @@ import {
 import './modules/ui/zoneWindows.js';
 import './modules/ui/gangBase.js';
 import './modules/ui/gangTab.js';
-import { configureIntro, openGiovanniIntro } from './modules/ui/intro.js';
+import { configureIntro, openGiovanniIntro, openStarterGiftPopup } from './modules/ui/intro.js';
 import {
   renderZoneSelector    as _zsRenderSelector,
   refreshZoneTile       as _zsRefreshTile,
@@ -6980,6 +6980,13 @@ function boot() {
 
   // Start game loop
   startGameLoop();
+
+  // Catch-up starter gift: existing players who never saw the Giovanni intro
+  if (state.gang?.initialized && !state.gang?.introSeen) {
+    setTimeout(() => {
+      openStarterGiftPopup({ onComplete: () => renderAll() });
+    }, 800);
+  }
 }
 
 window.addEventListener('DOMContentLoaded', boot);

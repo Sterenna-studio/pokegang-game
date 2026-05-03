@@ -483,6 +483,7 @@ export function openGiovanniIntro({ slotIdx = 0, onComplete } = {}) {
     state.gang.name      = gangName  || 'Team Fury';
     state.gang.bossSprite = bossSprite || 'red';
     state.gang.initialized = true;
+    state.gang.introSeen   = true;
 
     // Create starter Pokémon (level 15, potential 3)
     const sp = starterEn || INTRO_STARTERS[0].en;
@@ -519,4 +520,201 @@ export function openGiovanniIntro({ slotIdx = 0, onComplete } = {}) {
 function _trainerSprite(name) {
   if (_ctx.trainerSprite) return _ctx.trainerSprite(name);
   return `https://play.pokemonshowdown.com/sprites/trainers/${name}.png`;
+}
+
+// ════════════════════════════════════════════════════════════════
+//  CATCH-UP STARTER GIFT
+//  Shown on boot for existing players who never went through the
+//  Giovanni intro. Auto-fills their existing save info; they only
+//  need to pick a starter.
+// ════════════════════════════════════════════════════════════════
+export function openStarterGiftPopup({ onComplete } = {}) {
+  const state = _ctx.getState?.();
+  if (!state) return;
+
+  const bossName = state.gang?.bossName || 'Boss';
+  const gangName = state.gang?.name     || 'Team Fury';
+  const bossSprite = state.gang?.bossSprite || 'red';
+
+  let starterEn = '';
+
+  // ── Overlay (same visual language as main intro) ──────────────
+  const overlay = document.createElement('div');
+  overlay.id = 'starter-gift-overlay';
+  overlay.style.cssText = `
+    position:fixed;inset:0;z-index:8000;
+    background:linear-gradient(160deg,#09090f 0%,#140808 55%,#0a0a0f 100%);
+    display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
+    font-family:var(--font-system,sans-serif);
+    overflow:hidden;
+  `;
+  overlay.innerHTML = `
+    <div style="position:absolute;inset:0;pointer-events:none;
+      background:radial-gradient(ellipse at 50% 20%,rgba(180,30,30,.07) 0%,transparent 65%),
+                 radial-gradient(ellipse at 20% 80%,rgba(80,20,80,.05) 0%,transparent 50%)">
+    </div>
+    <div id="sgp-stage" style="position:absolute;inset:0;display:flex;flex-direction:column;
+      align-items:center;justify-content:flex-end;padding:0 16px 0;"></div>`;
+
+  document.body.appendChild(overlay);
+  const stage = overlay.querySelector('#sgp-stage');
+
+  // ── Giovanni portrait ─────────────────────────────────────────
+  const portrait = document.createElement('div');
+  portrait.style.cssText = `
+    position:absolute;top:0;left:50%;transform:translateX(-50%);
+    width:100%;max-width:560px;
+    display:flex;align-items:flex-start;justify-content:center;
+    padding-top:32px;pointer-events:none;
+  `;
+  portrait.innerHTML = `
+    <div style="position:relative;text-align:center">
+      <img src="${_trainerSprite('giovanni')}"
+        style="width:140px;height:140px;image-rendering:pixelated;
+               filter:drop-shadow(0 8px 24px rgba(180,20,20,.45));
+               animation:gi-bob 2.8s ease-in-out infinite"
+        onerror="this.style.opacity='.3'">
+    </div>`;
+  overlay.appendChild(portrait);
+
+  // ── Starter card area ─────────────────────────────────────────
+  const contentZone = document.createElement('div');
+  contentZone.style.cssText = `
+    width:100%;max-width:560px;margin-bottom:8px;min-height:180px;
+    display:flex;align-items:flex-end;justify-content:center;padding:0 8px;
+  `;
+  stage.appendChild(contentZone);
+
+  // ── Dialog box ────────────────────────────────────────────────
+  const dialog = document.createElement('div');
+  dialog.style.cssText = `
+    width:100%;max-width:560px;
+    background:rgba(6,6,10,.95);
+    border:2px solid rgba(180,30,30,.6);
+    border-radius:8px;padding:16px 18px 18px;
+    margin-bottom:24px;
+    box-shadow:0 -4px 32px rgba(0,0,0,.5),inset 0 0 0 1px rgba(255,255,255,.04);
+    position:relative;
+  `;
+  dialog.innerHTML = `
+    <div style="font-family:var(--font-pixel,monospace);font-size:7px;color:rgba(204,60,60,.9);
+      letter-spacing:.8px;text-transform:uppercase;margin-bottom:8px">Giovanni</div>
+    <div id="sgp-text" style="font-size:14px;color:#e8e8e8;line-height:1.65;min-height:46px"></div>
+    <div id="sgp-input" style="margin-top:14px"></div>
+    <div id="sgp-cursor" style="position:absolute;bottom:14px;right:16px;
+      font-size:10px;color:rgba(204,60,60,.7);
+      animation:gi-blink 1s ease-in-out infinite;display:none">▶</div>
+  `;
+  stage.appendChild(dialog);
+
+  // ── Shared CSS (reuse gi-* keyframes if already present) ─────
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes gi-bob   { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+    @keyframes gi-blink { 0%,100%{opacity:.7} 50%{opacity:.15} }
+    .sgp-starter-card {
+      flex:1;min-width:0;
+      background:rgba(255,255,255,.03);
+      border:2px solid rgba(255,255,255,.1);
+      border-radius:8px;padding:12px 8px;
+      cursor:pointer;text-align:center;
+      transition:border-color .15s,background .15s,transform .12s;
+    }
+    .sgp-starter-card:hover  { border-color:rgba(204,60,60,.6);background:rgba(204,60,60,.07);transform:translateY(-3px) }
+    .sgp-starter-card.selected { border-color:var(--gold,#fcc800);background:rgba(200,160,0,.10);transform:translateY(-3px) }
+  `;
+  document.head.appendChild(style);
+
+  // ── Helpers ───────────────────────────────────────────────────
+  const textEl  = dialog.querySelector('#sgp-text');
+  const inputEl = dialog.querySelector('#sgp-input');
+  const cursor  = dialog.querySelector('#sgp-cursor');
+  let _twTimer  = null;
+
+  function _say(text, onDone) {
+    if (_twTimer) clearInterval(_twTimer);
+    cursor.style.display = 'none';
+    textEl.textContent = '';
+    let i = 0;
+    _twTimer = setInterval(() => {
+      textEl.textContent += text[i++];
+      if (i >= text.length) { clearInterval(_twTimer); cursor.style.display = 'block'; onDone?.(); }
+    }, 22);
+  }
+
+  // ── Giovanni's catch-up line ──────────────────────────────────
+  const line = `Tiens tiens… ${bossName}. Je vois que la ${gangName} est déjà sur pied. Mais tu n'as pas encore choisi ton Pokémon. Remédions à ça.`;
+
+  // Show starter cards
+  contentZone.innerHTML = `
+    <div style="display:flex;gap:10px;width:100%;padding:0 4px;align-items:stretch">
+      ${INTRO_STARTERS.map(s => `
+        <div class="sgp-starter-card" data-en="${s.en}">
+          <img src="${_ctx.pokeSprite?.(s.en, false) || ''}"
+            style="width:72px;height:72px;image-rendering:pixelated;display:block;margin:0 auto 8px"
+            onerror="this.style.opacity='.2'">
+          <div style="font-family:var(--font-pixel,monospace);font-size:9px;color:#e8e8e8;margin-bottom:4px">${s.fr}</div>
+          <div style="font-size:8px;color:rgba(255,255,255,.35);margin-bottom:8px">${s.types.join(' · ')}</div>
+          <div style="font-size:10px;color:rgba(255,255,255,.6);line-height:1.5;white-space:pre-line">${s.desc}</div>
+          <div style="margin-top:8px;font-size:8px;color:rgba(200,160,0,.7)">Niv. 15 · ★★★</div>
+        </div>`).join('')}
+    </div>`;
+
+  contentZone.querySelectorAll('.sgp-starter-card').forEach(card => {
+    card.addEventListener('click', () => {
+      contentZone.querySelectorAll('.sgp-starter-card').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+      starterEn = card.dataset.en;
+    });
+  });
+
+  _say(line, () => {
+    inputEl.innerHTML = `
+      <div style="display:flex;justify-content:flex-end">
+        <button style="
+          font-family:var(--font-pixel,monospace);font-size:10px;
+          padding:10px 22px;border-radius:6px;border:none;cursor:pointer;
+          background:var(--red,#cc3333);color:#fff;transition:background .15s"
+          id="sgp-confirm-btn">Prendre ce Pokémon →</button>
+      </div>`;
+
+    dialog.querySelector('#sgp-confirm-btn').addEventListener('click', () => {
+      // Auto-pick first if nothing selected
+      if (!starterEn) {
+        const first = contentZone.querySelector('.sgp-starter-card');
+        if (first) { first.classList.add('selected'); starterEn = first.dataset.en; }
+      }
+      _applyGift();
+    });
+  });
+
+  // ── Apply gift ────────────────────────────────────────────────
+  function _applyGift() {
+    const sp = starterEn || INTRO_STARTERS[0].en;
+    const starter = _ctx.makePokemon?.(sp, 'intro', 'pokeball');
+    if (starter) {
+      starter.level     = 15;
+      starter.potential = 3;
+      if (_ctx.calculateStats) starter.stats = _ctx.calculateStats(starter);
+      starter.capturedIn = 'intro';
+      starter.history = [{ type: 'starter', ts: Date.now(), zone: 'intro', ball: 'giovanni' }];
+      if (!Array.isArray(state.pokemons)) state.pokemons = [];
+      state.pokemons.push(starter);
+    }
+
+    state.gang.introSeen = true;
+    _ctx.saveState?.();
+
+    const starterFr = INTRO_STARTERS.find(s => s.en === sp)?.fr || sp;
+    _ctx.notify?.(`🎁 Giovanni t'a offert ${starterFr} niv. 15 !`, 'gold');
+
+    // Fade out
+    overlay.style.transition = 'opacity .4s ease';
+    overlay.style.opacity = '0';
+    setTimeout(() => {
+      overlay.remove();
+      style.remove();
+      onComplete?.();
+    }, 400);
+  }
 }

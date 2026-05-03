@@ -109,6 +109,8 @@ export function migrateSave(saved, deps) {
   if (merged.gang.titleLiaison === undefined) merged.gang.titleLiaison = '';
   if (merged.gang.titleC      === undefined) merged.gang.titleC      = null;
   if (merged.gang.titleD      === undefined) merged.gang.titleD      = null;
+  // introSeen — false for existing players (they'll get the catch-up popup)
+  if (merged.gang.introSeen   === undefined) merged.gang.introSeen   = false;
 
   // ── Missions ───────────────────────────────────────────────────────────────────
   if (!merged.missions) merged.missions = structuredClone(DEFAULT_STATE.missions);

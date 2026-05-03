@@ -40,6 +40,7 @@ export const DEFAULT_STATE = {
     titleLiaison: '',
     titleC: null,
     titleD: null,
+    introSeen: false,   // true once the Giovanni intro (or catch-up gift) has been completed
   },
   inventory: {
     pokeball: 50,
