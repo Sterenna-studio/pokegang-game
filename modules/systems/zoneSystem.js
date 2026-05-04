@@ -136,6 +136,17 @@ function getZoneMastery(zoneId) {
   return 1;
 }
 
+// ── Tier de difficulté sélectionné par le joueur ──────────────
+// Retourne selectedTier si le joueur en a choisi un (1–mastery),
+// sinon retourne le niveau de mastery débloqué.
+function getZoneDifficulty(zoneId) {
+  const mastery = getZoneMastery(zoneId);
+  const z = globalThis.state?.zones?.[zoneId];
+  const sel = z?.selectedTier;
+  if (sel && sel >= 1 && sel <= mastery) return sel;
+  return mastery;
+}
+
 function getZoneAgentSlots(zoneId) {
   const m = getZoneMastery(zoneId);
   if (m >= 3) return 2;
@@ -240,8 +251,8 @@ function spawnInZone(zoneId) {
   const isChestBoosted = globalThis.isBoostActive('chestBoost');
   const r = Math.random();
 
-  // Niveau de mastery pour le scaling de difficulté
-  const mastery = getZoneMastery(zoneId);
+  // Niveau de difficulté : mastery ou tier sélectionné manuellement
+  const mastery = getZoneDifficulty(zoneId);
   const diffScaling = ZONE_DIFFICULTY_SCALING[mastery] || ZONE_DIFFICULTY_SCALING[1];
 
   // DEGRADED MODE: rep dropped below zone threshold — combat only (no pokemon, no chests, no events)
@@ -940,6 +951,7 @@ Object.assign(globalThis, {
   _zsys_isZoneUnlocked:               isZoneUnlocked,
   _zsys_isZoneDegraded:               isZoneDegraded,
   _zsys_getZoneMastery:               getZoneMastery,
+  _zsys_getZoneDifficulty:            getZoneDifficulty,
   _zsys_getZoneAgentSlots:            getZoneAgentSlots,
   _zsys_makeTrainerTeam:              makeTrainerTeam,
   _zsys_makeRaidSpawn:                makeRaidSpawn,

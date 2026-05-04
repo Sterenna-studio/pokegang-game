@@ -838,6 +838,34 @@ function renderZoneWindows() {
   }
 }
 
+// ── Tier picker helpers ───────────────────────────────────────────
+function _tierPickerHtml(zoneId, mastery, selectedTier) {
+  const cur = (selectedTier >= 1 && selectedTier <= mastery) ? selectedTier : mastery;
+  const stars = '★'.repeat(cur);
+  if (mastery <= 1) return `<span style="color:var(--gold)">${stars}</span>`;
+  const btnStyle = 'background:none;border:none;cursor:pointer;padding:0 2px;font-size:9px;color:var(--text-dim);line-height:1;transition:color .1s';
+  const dn = cur <= 1 ? `style="${btnStyle};opacity:.3" disabled` : `style="${btnStyle};color:var(--text)" data-tier-dn="${zoneId}"`;
+  const up = cur >= mastery ? `style="${btnStyle};opacity:.3" disabled` : `style="${btnStyle};color:var(--text)" data-tier-up="${zoneId}"`;
+  return `<button ${dn}>◀</button><span style="color:var(--gold);min-width:20px;text-align:center;display:inline-block" class="zone-tier-stars" data-zone-tier="${zoneId}">${stars}</span><button ${up}>▶</button>`;
+}
+
+function _bindTierPicker(win, zoneId) {
+  win.querySelector(`[data-tier-dn="${zoneId}"]`)?.addEventListener('click', e => {
+    e.stopPropagation();
+    const zs = globalThis.initZone(zoneId);
+    const mastery = globalThis.getZoneMastery(zoneId);
+    const cur = (zs.selectedTier >= 1 && zs.selectedTier <= mastery) ? zs.selectedTier : mastery;
+    if (cur > 1) { zs.selectedTier = cur - 1; globalThis.saveState(); patchZoneWindow(zoneId, win); }
+  });
+  win.querySelector(`[data-tier-up="${zoneId}"]`)?.addEventListener('click', e => {
+    e.stopPropagation();
+    const zs = globalThis.initZone(zoneId);
+    const mastery = globalThis.getZoneMastery(zoneId);
+    const cur = (zs.selectedTier >= 1 && zs.selectedTier <= mastery) ? zs.selectedTier : mastery;
+    if (cur < mastery) { zs.selectedTier = cur + 1; globalThis.saveState(); patchZoneWindow(zoneId, win); }
+  });
+}
+
 // Build a fresh zone window element (used on first open)
 function buildZoneWindowEl(zoneId) {
   const state = globalThis.state;
@@ -845,6 +873,7 @@ function buildZoneWindowEl(zoneId) {
   const zone = ZONE_BY_ID[zoneId];
   const zState = state.zones[zoneId] || {};
   const mastery = globalThis.getZoneMastery(zoneId);
+  const selectedTier = zState.selectedTier;
   const name = state.lang === 'fr' ? zone.fr : zone.en;
   const degraded = globalThis.isZoneDegraded(zoneId);
   const ZONE_BGS = globalThis.ZONE_BGS;
@@ -892,7 +921,7 @@ function buildZoneWindowEl(zoneId) {
   win.innerHTML = `
     <div class="zone-headbar${degraded ? ' zone-headbar-degraded' : ''}" data-zone-hb="${zoneId}">
       <span class="headbar-name">${name}${gymDefeated ? ' [V]' : ''}${degraded ? ' ⚠' : ''}</span>
-      <span class="headbar-stats">${'*'.repeat(mastery)} ${boosts.map(b => `<span class="boost-tag">${b}</span>`).join('')}</span>
+      <span class="headbar-stats">${_tierPickerHtml(zoneId, mastery, selectedTier)} ${boosts.map(b => `<span class="boost-tag">${b}</span>`).join('')}</span>
       <button class="headbar-collect-btn" data-headbar-collect="${zoneId}" style="display:${(zState.pendingIncome||0) > 0 ? 'flex' : 'none'};font-family:var(--font-pixel);font-size:7px;padding:1px 6px;background:rgba(200,160,40,.25);border:1px solid var(--gold-dim);border-radius:2px;color:var(--gold);cursor:pointer;align-items:center;gap:2px">₽ ${(zState.pendingIncome||0) > 0 ? (zState.pendingIncome).toLocaleString() : ''}</button>
       <button class="headbar-close" data-close-zone="${zoneId}" title="Fermer">✕</button>
     </div>
@@ -951,6 +980,8 @@ function buildZoneWindowEl(zoneId) {
     </div>
   `;
 
+  _bindTierPicker(win, zoneId);
+
   win.querySelector(`[data-close-zone="${zoneId}"]`)?.addEventListener('click', (e) => {
     e.stopPropagation();
     closeZoneWindow(zoneId);
@@ -1000,6 +1031,7 @@ function patchZoneWindow(zoneId, win) {
   if (!zone) return;
   const zState = state.zones[zoneId] || {};
   const mastery = globalThis.getZoneMastery(zoneId);
+  const selectedTier = zState.selectedTier;
   const name = state.lang === 'fr' ? zone.fr : zone.en;
   const degraded = globalThis.isZoneDegraded(zoneId);
   const ZONE_SLOT_COSTS = globalThis.ZONE_SLOT_COSTS;
@@ -1025,7 +1057,10 @@ function patchZoneWindow(zoneId, win) {
     const nameEl = headbar.querySelector('.headbar-name');
     if (nameEl) nameEl.innerHTML = `${name}${gymDefeated ? ' [V]' : ''}${degraded ? ' ⚠' : ''}`;
     const statsEl = headbar.querySelector('.headbar-stats');
-    if (statsEl) statsEl.innerHTML = `${'*'.repeat(mastery)} ${boosts.map(b => `<span class="boost-tag">${b}</span>`).join('')}`;
+    if (statsEl) {
+      statsEl.innerHTML = `${_tierPickerHtml(zoneId, mastery, selectedTier)} ${boosts.map(b => `<span class="boost-tag">${b}</span>`).join('')}`;
+      _bindTierPicker(win, zoneId);
+    }
     // ₽ collect button
     const collectBtn = headbar.querySelector(`[data-headbar-collect="${zoneId}"]`);
     const income = zState.pendingIncome || 0;

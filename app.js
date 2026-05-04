@@ -1900,7 +1900,8 @@ function isZoneUnlocked(zoneId) { return globalThis._zsys_isZoneUnlocked(zoneId)
 // Is a zone in "degraded" mode? (rep below threshold → combat only, no pokemon spawns)
 function isZoneDegraded(zoneId) { return globalThis._zsys_isZoneDegraded(zoneId); }
 
-function getZoneMastery(zoneId) { return globalThis._zsys_getZoneMastery(zoneId); }
+function getZoneMastery(zoneId)    { return globalThis._zsys_getZoneMastery(zoneId); }
+function getZoneDifficulty(zoneId) { return globalThis._zsys_getZoneDifficulty(zoneId); }
 
 function getZoneAgentSlots(zoneId) { return globalThis._zsys_getZoneAgentSlots(zoneId); }
 
@@ -6579,7 +6580,7 @@ Object.assign(globalThis, {
   eggSprite, eggImgTag, EGG_SPRITES,
   renderLabTabInEl, getDexDesc,
   // zoneSelector module — zone helpers + data it reads from globalThis
-  isZoneDegraded, getZoneMastery,
+  isZoneDegraded, getZoneMastery, getZoneDifficulty,
   getZoneSlotCost, ZONE_SLOT_COSTS, ZONE_BGS, SHOP_ITEMS,
   // Zone UI helpers — called by agent.js background ticks
   refreshZoneIncomeTile: _refreshZoneIncomeTile,
