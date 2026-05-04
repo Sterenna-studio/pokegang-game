@@ -455,8 +455,8 @@ function resolveBackgroundSpawnForZone(zoneId) {
 
   // ── Pokémon ──────────────────────────────────────────────────
   if (entry.type === 'pokemon') {
-    // Premier agent avec capture autorisé + pokeball disponible
-    const capAgents = agents.filter(a => { const b = a.behavior || 'all'; return b === 'all' || b === 'capture'; });
+    // Premier agent avec capture autorisée + pokeball disponible
+    const capAgents = agents.filter(a => a.autoCapture !== false);
     let capturer = null; let ball = null;
     for (const a of capAgents) {
       const preferred = a.preferredBall || 'pokeball';
@@ -531,7 +531,8 @@ function resolveBackgroundSpawnForZone(zoneId) {
 
   // ── Dresseur / Raid ──────────────────────────────────────────
   } else if (entry.type === 'trainer' || entry.type === 'raid') {
-    const combatAgents = agents.filter(a => { const b = a.behavior || 'all'; return b === 'all' || b === 'combat'; });
+    const isRaid = entry.type === 'raid';
+    const combatAgents = agents.filter(a => isRaid ? a.autoRaid !== false : a.autoCombat !== false);
     if (combatAgents.length === 0) return false;
 
     // Puissance combinée de tous les agents de combat dans la zone
@@ -657,6 +658,7 @@ function passiveAgentTick() {
   const checkedRaidZones = new Set();
   for (const agent of state.agents) {
     if (!agent.assignedZone) continue;
+    if (agent.autoRaid === false) continue;       // agent a désactivé les raids
     const zid = agent.assignedZone;
     if (checkedRaidZones.has(zid)) continue;
     if (openZones.has(zid)) continue;
@@ -695,15 +697,20 @@ function agentTick() {
     const actChance = 0.5 + agent.stats.capture / 60;
     if (Math.random() > actChance) continue;
 
-    // Priority: raids > trainers > pokemon > chests — filtered by agent behavior
-    const behavior = agent.behavior || 'all';
-    const canCombat  = behavior === 'all' || behavior === 'combat';
-    const canCapture = behavior === 'all' || behavior === 'capture';
-    const trainerSpawn = canCombat  ? spawns.find(s => (s.type === 'trainer' || s.type === 'raid') && !s._agentClaimed) : null;
+    // Priority: raids > trainers > pokemon > chests — filtered by agent behavior flags
+    const canCombat  = agent.autoCombat  !== false;
+    const canRaid    = agent.autoRaid    !== false;
+    const canCapture = agent.autoCapture !== false;
+    const raidSpawn    = canRaid    ? spawns.find(s => s.type === 'raid'    && !s._agentClaimed) : null;
+    const trainerSpawn = canCombat  ? spawns.find(s => s.type === 'trainer' && !s._agentClaimed) : null;
     const pokemonSpawn = canCapture ? spawns.find(s => s.type === 'pokemon' && !s._agentClaimed && !s.playerCatching) : null;
     const chestSpawn = spawns.find(s => s.type === 'chest' && !s._agentClaimed);
 
-    if (trainerSpawn) {
+    if (raidSpawn) {
+      raidSpawn._agentClaimed = true;
+      zoneDone.add(zoneId);
+      agentAutoCombat(zoneId, raidSpawn, agent);
+    } else if (trainerSpawn) {
       // Mark claimed so other agents don't try
       trainerSpawn._agentClaimed = true;
       zoneDone.add(zoneId);

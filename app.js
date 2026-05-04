@@ -3510,10 +3510,11 @@ function renderAgentPerkModal(agentId) {
 
 const AGENT_BALLS = ['pokeball','greatball','ultraball','duskball','masterball'];
 const AGENT_BALL_LABELS = { pokeball:'Poké Ball', greatball:'Super Ball', ultraball:'Hyper Ball', duskball:'Sombre Ball', masterball:'Master Ball' };
-const BEHAVIOR_CFG = [
-  { key:'all',     icon:'⚡', label:'Tout' },
-  { key:'capture', icon:'🎯', label:'Capture' },
-  { key:'combat',  icon:'⚔️',  label:'Combat' },
+// Behavior flag config (used for global "tout" buttons)
+const BEHAVIOR_FLAGS = [
+  { key:'autoCombat',  icon:'⚔️',  label:'Combat'  },
+  { key:'autoRaid',    icon:'💣',  label:'Raid'    },
+  { key:'autoCapture', icon:'🎯', label:'Capture' },
 ];
 
 function renderAgentsTab() {
@@ -3561,8 +3562,8 @@ function renderAgentsTab() {
     ${availBalls.map(b => `<button data-setallball="${b}" title="Définir ${AGENT_BALL_LABELS[b]} pour tous" style="display:flex;align-items:center;gap:3px;padding:3px 7px;font-size:8px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;color:var(--text)">
       <img src="${BALL_SPRITES[b] || ''}" style="width:14px;height:14px;image-rendering:pixelated"> ${AGENT_BALL_LABELS[b]}
     </button>`).join('')}
-    <span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);margin-left:8px">MODE :</span>
-    ${BEHAVIOR_CFG.map(b => `<button data-setallbehavior="${b.key}" title="Mode ${b.label} pour tous" style="padding:3px 7px;font-size:8px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;color:var(--text)">${b.icon} ${b.label}</button>`).join('')}
+    <span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);margin-left:8px">AUTO :</span>
+    ${BEHAVIOR_FLAGS.map(f => `<button data-setallflag="${f.key}" data-val="true" title="${f.label} ON pour tous" style="padding:3px 7px;font-size:8px;background:var(--bg-card);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);cursor:pointer;color:var(--gold)">${f.icon} ${f.label} ON</button><button data-setallflag="${f.key}" data-val="false" title="${f.label} OFF pour tous" style="padding:3px 7px;font-size:8px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;color:var(--text-dim)">${f.icon} OFF</button>`).join('')}
   </div>`;
 
   // ── Agent cards ─────────────────────────────────────────────────
@@ -3592,12 +3593,13 @@ function renderAgentsTab() {
       </button>`;
     }).join('');
 
-    // Behavior toggle
-    const bh = a.behavior || 'all';
-    const bhCfg = BEHAVIOR_CFG.find(x => x.key === bh) || BEHAVIOR_CFG[0];
-    const bhBtns = BEHAVIOR_CFG.map(b =>
-      `<button data-agent-behavior="${a.id}" data-bh="${b.key}" style="padding:2px 7px;font-size:8px;border:1px solid ${bh === b.key ? 'var(--gold)' : 'var(--border)'};background:${bh === b.key ? 'rgba(255,204,90,.15)' : 'var(--bg)'};border-radius:3px;cursor:pointer;color:${bh === b.key ? 'var(--gold)' : 'var(--text-dim)'}">${b.icon} ${b.label}</button>`
-    ).join('');
+    // Behavior toggles (3 independent flags)
+    const _bhBtn = (flag, icon, label) => {
+      const on = a[flag] !== false;
+      const activeStyle = on ? 'border:1px solid var(--gold);background:rgba(255,204,90,.15);color:var(--gold)' : 'border:1px solid var(--border);background:var(--bg);color:var(--text-dim)';
+      return `<button data-ag-flag="${a.id}" data-flag="${flag}" style="padding:2px 7px;font-size:8px;border-radius:3px;cursor:pointer;${activeStyle}">${icon} ${label}${on ? '' : ' ✗'}</button>`;
+    };
+    const bhBtns = _bhBtn('autoCombat','⚔️','Combat') + _bhBtn('autoRaid','💣','Raid') + _bhBtn('autoCapture','🎯','Capture');
 
     const statPts = a.statPoints || 0;
 
@@ -3630,9 +3632,9 @@ function renderAgentsTab() {
         ${ballBtns}
       </div>
 
-      <!-- Behavior toggle -->
+      <!-- Comportements auto -->
       <div style="display:flex;align-items:center;gap:4px;margin-bottom:6px;flex-wrap:wrap">
-        <span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">MODE :</span>
+        <span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">AUTO :</span>
         ${bhBtns}
       </div>
 
@@ -3759,12 +3761,13 @@ function renderAgentsTab() {
     });
   });
 
-  // Behavior per agent
-  grid.querySelectorAll('[data-agent-behavior]').forEach(btn => {
+  // Behavior flag toggles per agent
+  grid.querySelectorAll('[data-ag-flag]').forEach(btn => {
     btn.addEventListener('click', () => {
-      const agent = state.agents.find(a => a.id === btn.dataset.agentBehavior);
+      const agent = state.agents.find(a => a.id === btn.dataset.agFlag);
       if (!agent) return;
-      agent.behavior = btn.dataset.bh;
+      const flag = btn.dataset.flag;
+      agent[flag] = agent[flag] === false ? true : false; // toggle
       saveState();
       renderAgentsTab();
     });
@@ -3781,15 +3784,16 @@ function renderAgentsTab() {
     });
   });
 
-  // Global behavior setters
-  grid.querySelectorAll('[data-setallbehavior]').forEach(btn => {
+  // Global behavior flag setters
+  grid.querySelectorAll('[data-setallflag]').forEach(btn => {
     btn.addEventListener('click', () => {
-      const bh = btn.dataset.setallbehavior;
-      state.agents.forEach(a => { a.behavior = bh; });
+      const flag = btn.dataset.setallflag;
+      const val  = btn.dataset.val === 'true';
+      state.agents.forEach(a => { a[flag] = val; });
       saveState();
       renderAgentsTab();
-      const cfg = BEHAVIOR_CFG.find(x => x.key === bh);
-      notify(`Tous les agents → mode ${cfg?.label || bh}`, 'success');
+      const cfg = BEHAVIOR_FLAGS.find(f => f.key === flag);
+      notify(`Tous les agents → ${cfg?.label || flag} ${val ? 'ON' : 'OFF'}`, val ? 'success' : '');
     });
   });
 

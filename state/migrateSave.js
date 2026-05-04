@@ -124,6 +124,15 @@ export function migrateSave(saved, deps) {
     if (agent.notifyCaptures === undefined) agent.notifyCaptures = true;
     if (!Array.isArray(agent.perkLevels)) agent.perkLevels = [];
     if (agent.pendingPerk === undefined) agent.pendingPerk = false;
+    // Migrate legacy behavior string → 3 independent flags
+    if (agent.autoCombat === undefined) {
+      const b = agent.behavior || 'all';
+      agent.autoCombat  = b === 'all' || b === 'combat';
+      agent.autoRaid    = b === 'all' || b === 'combat';
+      agent.autoCapture = b === 'all' || b === 'capture';
+    }
+    if (agent.autoRaid    === undefined) agent.autoRaid    = agent.autoCombat ?? true;
+    if (agent.autoCapture === undefined) agent.autoCapture = true;
   }
 
   // ── Pokémons ───────────────────────────────────────────────────────────────────
