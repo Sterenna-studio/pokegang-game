@@ -139,7 +139,7 @@ function renderAppearancePanel(container) {
     const badge   = variant > 1 ? `v${variant}` : '';
     const suffix  = variant > 1 ? ' (alt)' : '';
     return `<div class="cosm-card cosm-fabric-card${isAct ? ' cosm-active' : ''}" data-cosm="${key}" data-fabric-key="${key}"
-      style="position:relative;border:2px solid ${isAct ? 'var(--gold)' : own ? 'var(--green)' : 'var(--border)'};border-radius:var(--radius-sm);padding:6px;cursor:pointer;background:var(--bg-card);width:120px;flex-shrink:0;scroll-snap-align:start">
+      style="position:relative;border:2px solid ${isAct ? 'var(--gold)' : own ? 'var(--green)' : 'var(--border)'};border-radius:var(--radius-sm);padding:6px;cursor:pointer;background:var(--bg-card);width:120px">
       <img src="${previewUrl}" style="width:100%;height:110px;object-fit:cover;border-radius:2px;margin-bottom:4px;display:block"
         onerror="this.closest('[data-fabric-key]').style.display='none'">
       ${badge ? `<div style="position:absolute;top:4px;right:4px;font-size:9px;background:rgba(0,0,0,.7);border-radius:3px;padding:1px 4px">${badge}</div>` : ''}
@@ -222,10 +222,10 @@ function renderAppearancePanel(container) {
         style="font-family:var(--font-pixel);font-size:8px;padding:4px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text-dim);cursor:pointer">⭐ Favoris</button>
     </div>
     <div id="fabricSlider"
-      style="display:flex;gap:10px;overflow-x:auto;padding-bottom:10px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:thin">
+      style="display:grid;grid-template-columns:repeat(8,120px);gap:10px;overflow-y:auto;max-height:380px;padding:4px 2px 10px;scrollbar-width:thin">
       ${fabricUnlocked.length > 0
         ? fabricUnlocked.map(_buildFabricCard).join('')
-        : '<div style="font-size:9px;color:var(--text-dim);padding:12px">Capture des Pokémon pour débloquer des fonds tissu !</div>'}
+        : '<div style="font-size:9px;color:var(--text-dim);padding:12px;grid-column:1/-1">Capture des Pokémon pour débloquer des fonds tissu !</div>'}
     </div>
     ${fabricSettingsHtml}
 
@@ -241,14 +241,14 @@ function renderAppearancePanel(container) {
       if (key === 'none') {
         state.cosmetics.gameBg = null;
         globalThis.saveState(); globalThis.applyCosmetics();
-        renderAppearancePanel(container); return;
+        _patchActiveBg(container, null); return;
       }
       const c = COSMETIC_BGS[key];
       if (!c) return;
       if (unlocked.has(key)) {
         state.cosmetics.gameBg = key;
         globalThis.saveState(); globalThis.applyCosmetics();
-        renderAppearancePanel(container);
+        _patchActiveBg(container, key);
       } else {
         if (state.gang.money < c.cost) { globalThis.notify('Fonds insuffisants.', 'error'); return; }
         globalThis.showConfirm(`Acheter "${c.fr}" pour ${c.cost.toLocaleString()}₽ ?`, () => {
@@ -286,7 +286,7 @@ function renderAppearancePanel(container) {
         if (unlocked.has(key)) {
           state.cosmetics.gameBg = key;
           globalThis.saveState(); globalThis.applyCosmetics();
-          renderAppearancePanel(container);
+          _patchActiveFabric(container, key);
         } else {
           const m   = key.match(/^fabric_(\d+)/);
           const pid = m ? parseInt(m[1], 10) : 0;
@@ -334,7 +334,7 @@ function renderAppearancePanel(container) {
       btn.addEventListener('click', () => {
         state.cosmetics.fabricMode = btn.dataset.mode;
         globalThis.saveState(); globalThis.applyCosmetics();
-        renderAppearancePanel(container);
+        _patchFabricSettings(container, state.cosmetics);
       });
     });
     const sizeRange    = fabricSettings.querySelector('#fabricSizeRange');
@@ -375,7 +375,7 @@ function renderAppearancePanel(container) {
       }
       state.cosmetics.activePatches = patches;
       globalThis.saveState();
-      renderAppearancePanel(container);
+      _patchPinCards(container, patches);
     });
   });
 }
@@ -488,6 +488,67 @@ function _buildServicesHtml(state) {
   </div>`);
 
   return parts.join('');
+}
+
+// ── Targeted DOM patch helpers (avoid full re-render on every click) ──────────
+
+function _patchActiveBg(container, newKey) {
+  container.querySelectorAll('.cosm-card:not(.cosm-fabric-card)').forEach(el => {
+    const k = el.dataset.cosm;
+    const isAct = (newKey === null && k === 'none') || k === newKey;
+    el.classList.toggle('cosm-active', isAct);
+    el.style.borderColor = isAct ? 'var(--gold)' : (el.dataset.owned === '1' ? 'var(--green)' : 'var(--border)');
+    const sub = el.querySelector('[data-cosm-sub]');
+    if (sub) sub.style.color = isAct ? 'var(--gold)' : (el.dataset.owned === '1' ? 'var(--green)' : 'var(--text-dim)');
+  });
+}
+
+function _patchActiveFabric(container, newKey) {
+  container.querySelectorAll('.cosm-fabric-card').forEach(el => {
+    const k = el.dataset.cosm;
+    const isAct = k === newKey;
+    el.classList.toggle('cosm-active', isAct);
+    el.style.borderColor = isAct ? 'var(--gold)' : (el.dataset.owned === '1' ? 'var(--green)' : 'var(--border)');
+  });
+}
+
+function _patchFabricSettings(container, cosmetics) {
+  const settings = container.querySelector('#fabricSettings');
+  if (!settings) return;
+  const mode = cosmetics.fabricMode || 'repeat';
+  settings.querySelectorAll('.fabric-mode-btn').forEach(btn => {
+    const act = btn.dataset.mode === mode;
+    btn.style.borderColor = act ? 'var(--gold)' : 'var(--border)';
+    btn.style.background  = act ? 'rgba(255,200,0,0.10)' : 'var(--bg)';
+    btn.style.color       = act ? 'var(--gold)' : 'var(--text-dim)';
+  });
+  const sizeRange = settings.querySelector('#fabricSizeRange');
+  if (sizeRange) {
+    const sizeWrap = sizeRange.closest('div');
+    if (sizeWrap) sizeWrap.style.opacity = mode === 'repeat' ? '1' : '0.35';
+    sizeRange.style.pointerEvents = mode === 'repeat' ? '' : 'none';
+  }
+}
+
+function _patchPinCards(container, activePatches) {
+  container.querySelectorAll('.cosm-patch-card').forEach(el => {
+    const pid = parseInt(el.dataset.patchPid, 10);
+    const isAct = activePatches.includes(pid);
+    el.style.borderColor = isAct ? 'var(--gold)' : 'var(--border)';
+    el.style.background  = isAct ? 'rgba(255,200,0,0.08)' : 'var(--bg-card)';
+    const labels = el.querySelectorAll('div');
+    if (labels.length) labels[labels.length - 1].style.color = isAct ? 'var(--gold)' : 'var(--text-dim)';
+    let onTag = el.querySelector('.cosm-on-tag');
+    if (isAct && !onTag) {
+      onTag = document.createElement('div');
+      onTag.className = 'cosm-on-tag';
+      onTag.style.cssText = 'font-size:7px;color:var(--gold)';
+      onTag.textContent = '[ ON ]';
+      el.appendChild(onTag);
+    } else if (!isAct && onTag) {
+      onTag.remove();
+    }
+  });
 }
 
 // ── Main Gang tab ─────────────────────────────────────────────────────────────

@@ -16,7 +16,7 @@ const EVOLUTIONS = [
   ['weedle','kakuna',7],['kakuna','beedrill',10],
   // Birds
   ['pidgey','pidgeotto',18],['pidgeotto','pidgeot',36],
-  ['spearow','fearow',20],
+  ['spearow','fearow',20],['doduo','dodrio',31],
   // Poison
   ['ekans','arbok',22],
   ['nidoran-f','nidorina',16],['nidorina','nidoqueen','item'],
