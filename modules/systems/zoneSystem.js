@@ -82,24 +82,35 @@ function initZone(zoneId) {
       slots: 1,
     };
   }
+  const zs = state.zones[zoneId];
   // Migration
-  if (state.zones[zoneId].captures === undefined) state.zones[zoneId].captures = 0;
-  if (state.zones[zoneId].pendingIncome === undefined) state.zones[zoneId].pendingIncome = 0;
-  if (state.zones[zoneId].pendingItems === undefined) state.zones[zoneId].pendingItems = {};
-  if (state.zones[zoneId].slots === undefined) state.zones[zoneId].slots = 1;
-  // Remove legacy invest fields
-  delete state.zones[zoneId].invested;
-  delete state.zones[zoneId].investPower;
-  return state.zones[zoneId];
+  if (zs.captures        === undefined) zs.captures        = 0;
+  if (zs.pendingIncome   === undefined) zs.pendingIncome   = 0;
+  if (zs.pendingItems    === undefined) zs.pendingItems    = {};
+  if (zs.slots           === undefined) zs.slots           = 1;
+  if (!Array.isArray(zs.assignedAgents)) zs.assignedAgents = [];
+  // Persistent unlock flag: derive from historical activity if not set yet
+  if (zs.unlocked === undefined) {
+    zs.unlocked = (zs.combatsWon > 0 || zs.captures > 0 || zs.invested === true);
+  }
+  // Remove legacy invest fields (AFTER reading invested for migration above)
+  delete zs.invested;
+  delete zs.investPower;
+  return zs;
 }
 
 function isZoneUnlocked(zoneId) {
   const state = globalThis.state;
   const zone = ZONE_BY_ID[zoneId];
   if (!zone) return false;
-  // Check if zone was previously accessed (degraded mode: rep dropped, but still accessible)
+  // Persistent flag: once unlocked, zone stays accessible even if rep drops
+  // (still requires unlockItem purchase if applicable)
   const zoneState = state.zones[zoneId];
-  const wasPreviouslyAccessed = zoneState && (zoneState.combatsWon > 0 || zoneState.invested > 0 || zoneState.captures > 0);
+  const wasPreviouslyAccessed = zoneState && (
+    zoneState.unlocked === true ||
+    zoneState.combatsWon > 0   ||
+    zoneState.captures > 0
+  );
   if (wasPreviouslyAccessed) {
     // Zone stays open (degraded if rep dropped), but still check unlock item
     if (zone.unlockItem && !state.purchases?.[zone.unlockItem]) return false;
@@ -584,6 +595,7 @@ function investInZone(zoneId) {
   }
   state.gang.money -= cost;
   state.stats.totalMoneySpent += cost;
+  zState.unlocked = true;  // persistent: zone stays accessible even if rep drops later
   zState.invested = true;
   zState.investPower = zonePower;
   globalThis.notify(state.lang === 'fr'
@@ -686,6 +698,10 @@ function applyCombatResult(result, playerTeamIds, trainerData) {
   // Behavioural log — premier combat
   if (!state.behaviourLogs) state.behaviourLogs = {};
   if (!state.behaviourLogs.firstCombatAt) state.behaviourLogs.firstCombatAt = Date.now();
+  // Mark zone as permanently unlocked (persists even if rep drops later)
+  if (trainerData.zoneId && state.zones[trainerData.zoneId]) {
+    state.zones[trainerData.zoneId].unlocked = true;
+  }
   if (result.win && result.reward >= 0) {
     state.stats.totalFightsWon++;
     if (result.reward > 0) {

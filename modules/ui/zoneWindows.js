@@ -691,8 +691,10 @@ function openZoneWindow(zoneId) {
 
   if (!state.openZoneOrder) state.openZoneOrder = [];
   if (!state.openZoneOrder.includes(zoneId)) state.openZoneOrder.push(zoneId);
+  const _zs = globalThis.initZone(zoneId);
+  // Persistent unlock flag — zone reste accessible même si la réputation chute plus tard
+  _zs.unlocked = true;
   globalThis.saveState();
-  globalThis.initZone(zoneId);
   zoneSpawns[zoneId] = []; // liste visuelle de spawns — fraîche à chaque ouverture
   if (!state.gang.bossZone || !openZones.has(state.gang.bossZone)) state.gang.bossZone = zoneId;
 

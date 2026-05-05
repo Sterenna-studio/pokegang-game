@@ -187,7 +187,8 @@ export function migrateSave(saved, deps) {
   if (merged.trainingRoom.extraSlots === undefined) merged.trainingRoom.extraSlots = 0;
 
   // ── Intégrité : nettoyer les IDs obsolètes ───────────────────────────────────────
-  const allIds = new Set(merged.pokemons.map(p => p.id));
+  const allIds    = new Set(merged.pokemons.map(p => p.id));
+  const agentIds  = new Set(merged.agents.map(a => a.id));
   merged.trainingRoom.pokemon = (merged.trainingRoom.pokemon || []).filter(id => allIds.has(id));
 
   // Résoudre les conflits d'affectation : priorité équipe > pension > formation
@@ -198,6 +199,27 @@ export function migrateSave(saved, deps) {
     merged.trainingRoom.pokemon = (merged.trainingRoom.pokemon || []).filter(
       id => !teamSet.has(id) && !resolvedPension.has(id),
     );
+  }
+
+  // ── Zones : reconstruire assignedAgents + flag unlocked ────────────────────────────
+  // agent.assignedZone est la source de vérité ; zone.assignedAgents est un cache dérivé.
+  // On vide et reconstruit pour éviter les IDs fantômes (agents supprimés, migrations, etc.)
+  if (merged.zones && typeof merged.zones === 'object') {
+    for (const zs of Object.values(merged.zones)) {
+      if (!Array.isArray(zs.assignedAgents)) zs.assignedAgents = [];
+      else zs.assignedAgents = zs.assignedAgents.filter(id => agentIds.has(id)); // purge fantômes
+      // Migration flag unlocked depuis l'activité historique
+      if (zs.unlocked === undefined) {
+        zs.unlocked = (zs.combatsWon > 0 || zs.captures > 0 || zs.invested === true);
+      }
+    }
+    // Rebuild assignedAgents depuis agent.assignedZone (source de vérité)
+    for (const agent of merged.agents) {
+      if (agent.assignedZone && merged.zones[agent.assignedZone]) {
+        const zs = merged.zones[agent.assignedZone];
+        if (!zs.assignedAgents.includes(agent.id)) zs.assignedAgents.push(agent.id);
+      }
+    }
   }
 
   // ── Limites : valeurs hors-limites → MissingNo reward ──────────────────────────────
