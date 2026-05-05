@@ -1491,7 +1491,7 @@ function _getEvoInfo(pks) {
 }
 
 // ── Evolution preview popup ──────────────────────────────────────
-// Shows initial count → cost → final count before committing.
+// Shows market value before → cost → market value after evolution.
 function _showEvoPreviewPopup(evolvable, type, onConfirm) {
   if (!evolvable.length) return;
   const stoneNeeded = type === 'stone' ? evolvable.length : 0;
@@ -1515,6 +1515,18 @@ function _showEvoPreviewPopup(evolvable, type, onConfirm) {
     transitionMap[key].count++;
   }
 
+  // Market value before and after (mock evolved species for price estimation)
+  const beforeTotal = evolvable.reduce((s, pk) => s + calculatePrice(pk), 0);
+  const afterTotal  = evolvable.reduce((s, pk) => {
+    const evos = EVO_BY_SPECIES[pk.species_en] || [];
+    const candidates = type === 'xp'
+      ? evos.filter(e => e.req !== 'item' && typeof e.req === 'number' && pk.level >= e.req)
+      : evos.filter(e => e.req === 'item');
+    if (!candidates.length) return s + calculatePrice(pk);
+    return s + calculatePrice(Object.assign({}, pk, { species_en: candidates[0].to }));
+  }, 0);
+  const valueDiff = afterTotal - beforeTotal;
+
   const confirmLabel = type === 'stone' && shortage > 0 && canBuyMore
     ? `Acheter ${shortage} 💎 (${(shortage * 5000).toLocaleString()}₽) + Évoluer`
     : 'Évoluer !';
@@ -1526,8 +1538,8 @@ function _showEvoPreviewPopup(evolvable, type, onConfirm) {
       <div style="font-size:10px;color:var(--gold);margin-bottom:12px">ÉVOLUTION GROUPÉE — ${type === 'xp' ? '⬆ XP' : '💎 PIERRE'}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;text-align:center">
         <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px">
-          <div style="font-size:16px;color:var(--text)">${evolvable.length}</div>
-          <div style="font-size:7px;color:var(--text-dim)">INITIAL</div>
+          <div style="font-size:11px;color:var(--text)">${beforeTotal.toLocaleString()}₽</div>
+          <div style="font-size:7px;color:var(--text-dim);margin-top:3px">AVANT</div>
         </div>
         <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px">
           <div style="font-size:13px;color:${type === 'stone' ? (shortage > 0 ? 'var(--red)' : 'var(--gold)') : 'var(--green,#4caf50)'}">
@@ -1535,8 +1547,8 @@ function _showEvoPreviewPopup(evolvable, type, onConfirm) {
           <div style="font-size:7px;color:var(--text-dim)">${type === 'stone' ? `${stoneHave} dispo` : 'GRATUIT'}</div>
         </div>
         <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px">
-          <div style="font-size:16px;color:var(--green,#4caf50)">${evolvable.length}</div>
-          <div style="font-size:7px;color:var(--text-dim)">FINAL</div>
+          <div style="font-size:11px;color:var(--green,#4caf50)">${afterTotal.toLocaleString()}₽</div>
+          <div style="font-size:7px;color:${valueDiff >= 0 ? 'var(--green,#4caf50)' : 'var(--red)'};margin-top:3px">${valueDiff >= 0 ? '+' : ''}${valueDiff.toLocaleString()}₽</div>
         </div>
       </div>
       ${shinyCount > 0 ? `<div style="font-size:8px;color:var(--gold);margin-bottom:8px;text-align:center">✨×${shinyCount} chromatique${shinyCount > 1 ? 's' : ''} inclus</div>` : ''}
