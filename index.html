@@ -53,6 +53,7 @@
       <div id="pokemonCountDisplay" title="Pokémon possédés" style="cursor:default;display:flex;align-items:center;gap:4px"><img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png" style="width:20px;height:20px;image-rendering:pixelated" onerror="this.style.display='none'"> 0</div>
       <button id="btnCodex" title="Codex — Prix & Spawns" style="padding:2px 5px;background:transparent;border:1px solid rgba(255,255,255,.2);border-radius:4px;cursor:pointer;transition:all .2s;display:flex;align-items:center"><img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/town-map.png" style="width:22px;height:22px;image-rendering:pixelated" onerror="this.style.display='none'"></button>
       <span id="supaIndicator" title="Compte cloud"></span>
+      <button id="notifBell" class="notif-bell-btn" title="Notifications" aria-label="Notifications">🔔<span id="notifBadge" class="notif-badge" style="display:none">0</span></button>
       <button id="btnSettings" aria-label="Settings">⚙</button>
     </header>
 
@@ -241,8 +242,9 @@
 
   </div>
 
-  <!-- ═══ Notifications ═══ -->
-  <div id="notifications"></div>
+  <!-- ═══ Notification Ticker (one-at-a-time, non-overlapping) ═══ -->
+  <!-- Le panel complet est injecté par modules/ui/notifPanel.js -->
+  <div id="notifTicker" class="notif-ticker"></div>
 
   <!-- ═══ Intro Overlay ═══ -->
   <div id="introOverlay">

@@ -60,6 +60,7 @@ import {
   initSettings,
   openSettingsModal,
 } from './modules/ui/settingsModal.js';
+import './modules/ui/notifPanel.js';
 import './modules/ui/zoneWindows.js';
 import './modules/ui/gangBase.js';
 import './modules/ui/gangTab.js';
@@ -1534,11 +1535,12 @@ function tryAutoEvolution(pokemon) {
 }
 
 function showPokemonLevelPopup(pokemon, newLevel) {
-  const el = document.createElement('div');
-  el.style.cssText = 'position:fixed;bottom:80px;right:16px;background:var(--bg-card);border:1px solid var(--gold-dim);border-radius:var(--radius);padding:8px 12px;font-family:var(--font-pixel);font-size:9px;color:var(--gold);z-index:9999;display:flex;align-items:center;gap:8px;animation:fadeIn .2s ease;pointer-events:none';
-  el.innerHTML = `<img src="${pokeSprite(pokemon.species_en, pokemon.shiny)}" style="width:32px;height:32px"><span>${speciesName(pokemon.species_en)}<br>Lv.${newLevel} !</span>`;
-  document.body.appendChild(el);
-  setTimeout(() => el.remove(), 2000);
+  // Routed to notification panel — no more overlapping floating divs
+  globalThis._npanel_push?.({
+    category: 'levelup',
+    title:    `${speciesName(pokemon.species_en)} → Lv.${newLevel} !`,
+    type:     'gold',
+  });
 }
 
 function levelUpPokemon(pokemon, xpGain) {
@@ -1979,31 +1981,10 @@ function _processZoneUnlockQueue()            { return globalThis._zsys_processZ
 // ════════════════════════════════════════════════════════════════
 
 function notify(msg, type = '') {
-  const container = document.getElementById('notifications');
-  if (!container) return;
   if (type === 'gold') SFX.play('notify');
-  // Stack identical toasts instead of spamming duplicates
-  const existing = [...container.querySelectorAll('.toast')].find(el =>
-    el.dataset.notifyMsg === msg && el.dataset.notifyType === (type || '')
-  );
-  if (existing) {
-    const count = (parseInt(existing.dataset.notifyCount) || 1) + 1;
-    existing.dataset.notifyCount = String(count);
-    existing.textContent = `${msg} ×${count}`;
-    clearTimeout(parseInt(existing.dataset.timerId || '0'));
-    const tid = setTimeout(() => { existing.classList.add('leaving'); setTimeout(() => existing.remove(), 300); }, 3000);
-    existing.dataset.timerId = String(tid);
-    return;
-  }
-  const el = document.createElement('div');
-  el.className = `toast ${type}`;
-  el.textContent = msg;
-  el.dataset.notifyMsg = msg;
-  el.dataset.notifyType = type || '';
-  el.dataset.notifyCount = '1';
-  container.appendChild(el);
-  const tid = setTimeout(() => { el.classList.add('leaving'); setTimeout(() => el.remove(), 300); }, 3000);
-  el.dataset.timerId = String(tid);
+  // Routed to notification panel (replaces old #notifications toast system)
+  // category = type if recognized, otherwise 'system'
+  globalThis._npanel_push?.({ category: type || 'system', title: msg, type });
 }
 
 // Milestone : 10 000 000₽ → Charme Chroma
@@ -6446,26 +6427,24 @@ function _checkDailyReload() {
 }
 
 function _runDailyCountdown(seconds) {
-  // Show persistent warning toast
-  const container = document.getElementById('notifications');
-  if (!container) { _triggerDailyReload(); return; }
+  // Persistent countdown displayed directly in the ticker (sticky until reload)
+  const ticker = document.getElementById('notifTicker');
+  if (!ticker) { _triggerDailyReload(); return; }
 
-  const el = document.createElement('div');
-  el.className = 'toast warning';
-  el.id = 'dailyReloadToast';
-  el.style.cssText = 'position:relative; min-width:220px; pointer-events:none;';
-  el.textContent = `🔄 Maintenance — rechargement dans ${seconds}s`;
-  container.appendChild(el);
+  const _showCountdown = (remaining) => {
+    ticker.className  = 'notif-ticker notif-ticker-error';
+    ticker.innerHTML  = `<span class="notif-ticker-icon">⚠</span>`
+                      + `<span class="notif-ticker-text">🔄 Maintenance — rechargement dans ${remaining}s</span>`;
+    ticker.style.opacity   = '1';
+    ticker.style.transform = 'translateY(0)';
+  };
+  _showCountdown(seconds);
 
   let remaining = seconds;
   const interval = setInterval(() => {
     remaining--;
-    const toastEl = document.getElementById('dailyReloadToast');
-    if (toastEl) toastEl.textContent = `🔄 Maintenance — rechargement dans ${remaining}s`;
-    if (remaining <= 0) {
-      clearInterval(interval);
-      _triggerDailyReload();
-    }
+    _showCountdown(remaining);
+    if (remaining <= 0) { clearInterval(interval); _triggerDailyReload(); }
   }, 1000);
 }
 
