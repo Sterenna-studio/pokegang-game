@@ -1,5 +1,7 @@
 'use strict';
 
+import { BALL_SPRITES, FALLBACK_TRAINER_SVG } from '../../data/assets-data.js';
+
 // 18b. UI — AGENTS TAB
 // ════════════════════════════════════════════════════════════════
 
