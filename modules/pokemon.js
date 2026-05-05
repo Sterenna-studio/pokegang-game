@@ -209,11 +209,12 @@
    * Affiche une pop‑up de niveau lorsque le Pokémon gagne un niveau.
    */
   function showPokemonLevelPopup(pokemon, newLevel) {
-    const el = document.createElement('div');
-    el.style.cssText = 'position:fixed;bottom:80px;right:16px;background:var(--bg-card);border:1px solid var(--gold-dim);border-radius:var(--radius);padding:8px 12px;font-family:var(--font-pixel);font-size:9px;color:var(--gold);z-index:9999;display:flex;align-items:center;gap:8px;animation:fadeIn .2s ease;pointer-events:none';
-    el.innerHTML = `<img src="${pokeSprite(pokemon.species_en, pokemon.shiny)}" style="width:32px;height:32px"><span>${speciesName(pokemon.species_en)}<br>Lv.${newLevel} !</span>`;
-    document.body.appendChild(el);
-    setTimeout(() => el.remove(), 2000);
+    // Routed to notification panel — no more overlapping floating divs
+    globalThis._npanel_push?.({
+      category: 'levelup',
+      title:    `${speciesName(pokemon.species_en)} → Lv.${newLevel} !`,
+      type:     'gold',
+    });
   }
 
   /**
