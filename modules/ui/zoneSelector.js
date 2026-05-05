@@ -3,7 +3,8 @@
 //  Extracted from app.js for modularity.
 //
 //  Accesses globalThis for cross-module state:
-//    state, openZones, ZONES, ZONE_BY_ID, ZONE_BGS, SPECIES_BY_EN,
+//    state, openZones, ZONES, ZONE_BY_ID, ZONES_JOHTO, ZONE_JOHTO_BY_ID,
+//    ZONE_BGS, SPECIES_BY_EN,
 //    isZoneUnlocked, isZoneDegraded, getZoneMastery,
 //    openZoneWindow, closeZoneWindow, openCollectionModal,
 //    assignAgentToZone, getZoneSlotCost, initZone,
@@ -13,13 +14,40 @@
 'use strict';
 
 // ── Internal state ────────────────────────────────────────────
-let _zoneFilter = 'all'; // 'all' | 'fav' | 'route' | 'city' | 'special'
-let _ctxMenu    = null;  // active context menu DOM node
+let _zoneFilter    = 'all'; // 'all' | 'fav' | 'route' | 'city' | 'special'
+let _activeRegion  = 'kanto';
+let _ctxMenu       = null;  // active context menu DOM node
 
 // ── Classic-script globals (const → pas sur window, mais dans la portée ──
 // lexicale globale partagée entre tous les scripts de la page).
 // Déclarés ici pour que les moteurs strict-mode ne les rejettent pas.
-/* globals ZONES, ZONE_BY_ID, SPECIES_BY_EN */
+/* globals ZONES, ZONE_BY_ID, ZONES_JOHTO, ZONE_JOHTO_BY_ID, SPECIES_BY_EN */
+
+function setActiveRegion(region) {
+  _activeRegion = region === 'johto' ? 'johto' : 'kanto';
+}
+
+function getActiveRegion() {
+  return _activeRegion;
+}
+
+function _isJohtoZone(zoneId) {
+  return typeof ZONE_JOHTO_BY_ID !== 'undefined' && !!ZONE_JOHTO_BY_ID[zoneId];
+}
+
+function _getActiveZones() {
+  if (_activeRegion === 'johto') return ZONES_JOHTO;
+  // Legacy unlock code may extend ZONES with Johto for shared systems.
+  return ZONES.filter(z => !_isJohtoZone(z.id));
+}
+
+function _getActiveZoneById() {
+  return _activeRegion === 'johto' ? ZONE_JOHTO_BY_ID : ZONE_BY_ID;
+}
+
+function _getAnyZoneById(zoneId) {
+  return ZONE_BY_ID?.[zoneId] || ZONE_JOHTO_BY_ID?.[zoneId];
+}
 
 // ── Dex completion helpers ────────────────────────────────────
 function _getZoneSpecies(zone) {
@@ -47,17 +75,18 @@ function _getZoneShinyPct(zone) {
 // ── Filter helpers ────────────────────────────────────────────
 function _getFilteredZones() {
   const state = globalThis.state;
-  const gangPark = ZONES.find(z => z.type === 'gang_park');
-  // ZONES est un const de script classique, accessible par nom nu
+  const activeZones = _getActiveZones();
+  const gangPark = activeZones.find(z => z.type === 'gang_park');
+  // Les données de zones sont des const de scripts classiques accessibles par nom nu.
   let filtered;
   switch (_zoneFilter) {
-    case 'fav':      filtered = ZONES.filter(z => z.type !== 'gang_park' && (state.favoriteZones || []).includes(z.id)); break;
-    case 'route':    filtered = ZONES.filter(z => z.type === 'route'); break;
-    case 'city':     filtered = ZONES.filter(z => z.type === 'city'); break;
-    case 'special':  filtered = ZONES.filter(z => z.type === 'special'); break;
-    case 'dex':      filtered = ZONES.filter(z => z.type !== 'gang_park' && globalThis.isZoneUnlocked?.(z.id) && _getZoneDexPct(z).pct < 100); break;
-    case 'dex_shiny':filtered = ZONES.filter(z => z.type !== 'gang_park' && globalThis.isZoneUnlocked?.(z.id) && _getZoneShinyPct(z).pct < 100); break;
-    default:         filtered = ZONES.filter(z => z.type !== 'gang_park'); break;
+    case 'fav':      filtered = activeZones.filter(z => z.type !== 'gang_park' && (state.favoriteZones || []).includes(z.id)); break;
+    case 'route':    filtered = activeZones.filter(z => z.type === 'route'); break;
+    case 'city':     filtered = activeZones.filter(z => z.type === 'city'); break;
+    case 'special':  filtered = activeZones.filter(z => z.type === 'special'); break;
+    case 'dex':      filtered = activeZones.filter(z => z.type !== 'gang_park' && globalThis.isZoneUnlocked?.(z.id) && _getZoneDexPct(z).pct < 100); break;
+    case 'dex_shiny':filtered = activeZones.filter(z => z.type !== 'gang_park' && globalThis.isZoneUnlocked?.(z.id) && _getZoneShinyPct(z).pct < 100); break;
+    default:         filtered = activeZones.filter(z => z.type !== 'gang_park'); break;
   }
   // Gang Park toujours en tête (sauf filtre strict par type)
   const showPark = !['route','city','special','dex','dex_shiny'].includes(_zoneFilter);
@@ -69,7 +98,7 @@ function toggleZoneFav(zoneId) {
   const state = globalThis.state;
   if (!state.favoriteZones) state.favoriteZones = [];
   const idx = state.favoriteZones.indexOf(zoneId);
-  const zone = ZONE_BY_ID?.[zoneId];
+  const zone = _getActiveZoneById()?.[zoneId];
   const name = state.lang === 'fr' ? zone?.fr : zone?.en;
   if (idx === -1) {
     state.favoriteZones.push(zoneId);
@@ -117,7 +146,7 @@ export function showZoneContextMenu(zoneId, x, y) {
 
   const state     = globalThis.state;
   const openZones = globalThis.openZones;
-  const zone      = ZONE_BY_ID?.[zoneId];
+  const zone      = _getActiveZoneById()?.[zoneId];
   if (!zone) return;
 
   const zState     = state.zones[zoneId] || {};
@@ -206,7 +235,7 @@ export function showZoneContextMenu(zoneId, x, y) {
       html += `<div class="zone-ctx-section">DISPONIBLES</div>`;
       for (const a of available) {
         const curZone = a.assignedZone
-          ? (ZONE_BY_ID?.[a.assignedZone]?.fr || a.assignedZone)
+          ? (_getAnyZoneById(a.assignedZone)?.fr || a.assignedZone)
           : 'sans zone';
         html += `<button class="zone-ctx-item zone-ctx-agent${canAdd ? '' : ' zone-ctx-disabled'}"
           data-agent-id="${a.id}" ${canAdd ? '' : 'disabled'}>
@@ -524,7 +553,7 @@ export function refreshZoneTile(zoneId) {
   if (!tile) return;
   const state     = globalThis.state;
   const openZones = globalThis.openZones;
-  const zone      = ZONE_BY_ID?.[zoneId];
+  const zone      = _getActiveZoneById()?.[zoneId];
   if (!zone) return;
   const zState   = state?.zones?.[zoneId] || {};
   const isOpen   = openZones?.has(zoneId);
@@ -642,3 +671,8 @@ export function bindZoneActionButtons() {
   }
   updateZoneButtons();
 }
+
+Object.assign(globalThis, {
+  _zsel_setActiveRegion: setActiveRegion,
+  _zsel_getActiveRegion: getActiveRegion,
+});
