@@ -41,6 +41,16 @@ export const DEFAULT_STATE = {
     titleC: null,
     titleD: null,
     introSeen: false,   // true once the Giovanni intro (or catch-up gift) has been completed
+    competition: {
+      defenseTeam: [null, null, null, null, null, null],
+      defenseAgent: null,
+      defenseZone: null,
+      defensePublished: false,
+      wins:   { attack: 0, defense: 0 },
+      losses: { attack: 0, defense: 0 },
+      raidCooldowns: {},
+      pendingRaids: [],
+    },
   },
   inventory: {
     pokeball: 50,
