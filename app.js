@@ -6694,6 +6694,7 @@ configurePcPokedex({
   removePokemonFromAllAssignments,
   sellPokemon,
   getPensionSlotIds,
+  getMaxPensionSlots,
   openAssignToPicker,
   renderAgentsTab,
   renderGangTab,

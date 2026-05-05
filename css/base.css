@@ -45,6 +45,9 @@
       display: flex;
       flex-direction: column;
       min-height: 100vh;
+      background: rgba(10, 10, 10, 0.72);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
     }
 
     /* ── Top Bar ─────────────────────────────────────────────────── */
@@ -55,6 +58,7 @@
       padding: 10px 0;
       border-bottom: 2px solid var(--border);
       gap: 12px;
+      background: rgba(10, 10, 10, 0.55);
     }
 
     /* ── Supabase sync indicator ─────────────────────────────────── */
