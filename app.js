@@ -39,6 +39,35 @@ import {
   supaUpdateLeaderboardAnon,
 } from './modules/systems/cloudAccount.js';
 import {
+  MusicPlayer,
+  JinglePlayer,
+  MUSIC_TRACKS,
+  SFX,
+  playSE,
+  playTone,
+} from './modules/ui/audio.js';
+import {
+  configureBagTab,
+  renderBagTab as renderBagTabImpl,
+} from './modules/ui/bagTab.js';
+import {
+  configureModals,
+  openHubImportModal as openHubImportModalImpl,
+  openImportPreviewModal as openImportPreviewModalImpl,
+  openLegacyImportModal as openLegacyImportModalImpl,
+  showConfirm as showConfirmImpl,
+  showInfoModal as showInfoModalImpl,
+  showMigrationBanner as showMigrationBannerImpl,
+} from './modules/ui/modals.js';
+import {
+  configureTabRouter,
+  getTabHint as getTabHintImpl,
+  hintLink as hintLinkImpl,
+  renderActiveTab as renderActiveTabImpl,
+  renderHint as renderHintImpl,
+  showFirstVisitHint as showFirstVisitHintImpl,
+} from './modules/ui/tabRouter.js';
+import {
   addBattleLogEntry,
   checkPlayerStatPoints,
   configurePcPokedex,
@@ -50,7 +79,6 @@ import {
   rebuildPokedex,
   renderDexDetail,
   renderEggsView,
-  renderEventsTab,
   renderPCTab,
   renderPokedexTab,
   renderPokemonDetail,
@@ -63,6 +91,12 @@ import {
   setPcPage,
   tryAutoIncubate,
 } from './modules/ui/pcPokedex.js';
+import { renderAgentsTab } from './modules/ui/agentsTab.js';
+import { renderBattleLogTab } from './modules/ui/battleLogTab.js';
+import { renderCosmeticsTab } from './modules/ui/cosmeticsTab.js';
+import { renderLabTab, renderLabTabInEl } from './modules/ui/labTab.js';
+import { renderMarketTab } from './modules/ui/marketTab.js';
+import { renderMissionsTab } from './modules/ui/missionsTab.js';
 import {
   configureSettingsModal,
   initSettings,
@@ -326,250 +360,11 @@ function importSave(file) {
 }
 // ── Modal de prévisualisation + conversion d'import ──────────────────────────
 function openImportPreviewModal(raw) {
-  const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:20000;display:flex;align-items:center;justify-content:center;padding:16px';
-
-  // ── Analyse de la save importée ──────────────────────────────────────────
-  const schemaVer   = raw._schemaVersion ?? raw.version ?? '?';
-  const isLegacy    = !raw.eggs || !raw.pension || !raw.trainingRoom;
-  const isVeryOld   = !raw.gang || !raw.pokemons;
-  const gangName    = raw.gang?.name    ?? '—';
-  const bossName    = raw.gang?.bossName ?? '—';
-  const reputation  = (raw.gang?.reputation ?? 0).toLocaleString();
-  const money       = (raw.gang?.money ?? 0).toLocaleString();
-  const pokeCount   = (raw.pokemons  || []).length;
-  const agentCount  = (raw.agents    || []).length;
-  const _dexRaw     = raw.pokedex || {};
-  const dexKanto    = POKEMON_GEN1.filter(s => !s.hidden && s.dex >= 1 && s.dex <= 151 && _dexRaw[s.en]?.caught).length;
-  const dexCaught   = POKEMON_GEN1.filter(s => !s.hidden && _dexRaw[s.en]?.caught).length;
-  const shinyCount  = POKEMON_GEN1.filter(s => !s.hidden && _dexRaw[s.en]?.shiny).length;
-  const savedAt     = raw._savedAt ? new Date(raw._savedAt).toLocaleString('fr-FR') : '—';
-  const playtime    = raw.playtime  ? formatPlaytime(raw.playtime) : '—';
-
-  // ── Liste des champs qui seront ajoutés/migrés ───────────────────────────
-  const migrations = [];
-  if (!raw.eggs)             migrations.push('Système d\'œufs');
-  if (!raw.pension)          migrations.push('Pension');
-  if (!raw.trainingRoom)     migrations.push('Salle d\'entraînement');
-  if (!raw.missions)         migrations.push('Missions');
-  if (!raw.cosmetics)        migrations.push('Cosmétiques');
-  if (!raw.unlockedTitles)   migrations.push('Titres débloqués');
-  if (raw.gang?.titleC === undefined) migrations.push('Slots de titres (×4)');
-  if (!raw.behaviourLogs)    migrations.push('Logs comportementaux');
-  if (!raw.lab)              migrations.push('Laboratoire');
-  if (!raw.purchases)        migrations.push('Achats spéciaux');
-  if (!raw.eggs && !raw.inventory?.incubator) migrations.push('Inventaire incubateurs');
-  if (raw.settings?.uiScale === undefined) migrations.push('Paramètres UI avancés');
-
-  const migHtml = migrations.length
-    ? migrations.map(m => `<div style="display:flex;gap:6px;align-items:center;font-size:8px;color:var(--text-dim)"><span style="color:var(--green)">✓</span>${m}</div>`).join('')
-    : '<div style="font-size:8px;color:var(--green)">Aucune migration nécessaire — save à jour</div>';
-
-  const versionBadge = isLegacy
-    ? `<span style="font-size:7px;padding:2px 6px;border-radius:8px;background:rgba(255,160,0,.15);border:1px solid #ffa000;color:#ffa000">Version ancienne</span>`
-    : `<span style="font-size:7px;padding:2px 6px;border-radius:8px;background:rgba(0,200,100,.1);border:1px solid var(--green);color:var(--green)">Format compatible</span>`;
-
-  overlay.innerHTML = `
-    <div style="background:var(--bg-panel);border:2px solid var(--gold-dim);border-radius:var(--radius);padding:24px;max-width:620px;width:100%;max-height:90vh;overflow-y:auto;display:flex;flex-direction:column;gap:16px">
-
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <div style="font-family:var(--font-pixel);font-size:11px;color:var(--gold)">📥 Importer une Save</div>
-        <button id="btnImportClose" style="background:none;border:none;color:var(--text-dim);font-size:18px;cursor:pointer">✕</button>
-      </div>
-
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-
-        <!-- Infos save importée -->
-        <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;display:flex;flex-direction:column;gap:8px">
-          <div style="display:flex;justify-content:space-between;align-items:center">
-            <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim)">SAVE IMPORTÉE</div>
-            ${versionBadge}
-          </div>
-          <div style="font-family:var(--font-pixel);font-size:12px;color:var(--red)">${gangName}</div>
-          <div style="font-size:9px;color:var(--text-dim)">Boss : <span style="color:var(--text)">${bossName}</span></div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:4px">
-            <div style="font-size:8px;color:var(--text-dim)">🎯 Pokémon <span style="color:var(--text)">${pokeCount}</span></div>
-            <div style="font-size:8px;color:var(--text-dim)">👤 Agents <span style="color:var(--text)">${agentCount}</span></div>
-            <div style="font-size:8px;color:var(--text-dim)">⭐ Rép. <span style="color:var(--gold)">${reputation}</span></div>
-            <div style="font-size:8px;color:var(--text-dim)">₽ <span style="color:var(--text)">${money}</span></div>
-            <div style="font-size:8px;color:var(--text-dim)">📖 Kanto <span style="color:var(--text)">${dexKanto}/${KANTO_DEX_SIZE}</span></div>
-            <div style="font-size:8px;color:var(--text-dim)">🌐 National <span style="color:var(--text)">${dexCaught}/${NATIONAL_DEX_SIZE}</span></div>
-            <div style="font-size:8px;color:var(--text-dim)">✨ Espèces chromas <span style="color:var(--text)">${shinyCount}</span></div>
-          </div>
-          <div style="font-size:7px;color:var(--text-dim);border-top:1px solid var(--border);padding-top:6px;margin-top:2px">
-            Sauvegardé le ${savedAt}<br>Temps de jeu : ${playtime} · Schéma v${schemaVer}
-          </div>
-        </div>
-
-        <!-- Champs à migrer -->
-        <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;display:flex;flex-direction:column;gap:6px">
-          <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);margin-bottom:4px">MIGRATION AUTOMATIQUE</div>
-          ${migHtml}
-        </div>
-      </div>
-
-      <!-- Avertissement écrasement -->
-      <div style="background:rgba(204,51,51,.08);border:1px solid rgba(204,51,51,.3);border-radius:var(--radius-sm);padding:10px;font-size:9px;color:var(--text-dim)">
-        ⚠ <b style="color:var(--red)">Import complet</b> : remplacera définitivement la save active (slot ${activeSaveSlot + 1}).
-        Exporte d'abord ta save actuelle si tu veux la conserver.
-      </div>
-
-      <div style="display:flex;flex-direction:column;gap:8px">
-        <button id="btnImportBackupFirst" style="font-family:var(--font-pixel);font-size:8px;padding:8px 12px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer;text-align:left">
-          💾 Exporter ma save actuelle avant d'importer
-        </button>
-        <div style="display:flex;gap:8px">
-          <button id="btnImportFull" style="flex:2;font-family:var(--font-pixel);font-size:9px;padding:12px;background:var(--bg);border:2px solid var(--gold);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">
-            ⚡ Import complet<br><span style="font-size:7px;color:var(--text-dim);font-family:sans-serif">Tous les données migrées automatiquement</span>
-          </button>
-          ${isLegacy ? `<button id="btnImportHeritage" style="flex:1;font-family:var(--font-pixel);font-size:9px;padding:12px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">
-            🏆 Mode héritage<br><span style="font-size:7px;font-family:sans-serif">1 agent + 2 Pokémon</span>
-          </button>` : ''}
-        </div>
-        <button id="btnImportCancel" style="font-family:var(--font-pixel);font-size:8px;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">
-          Annuler
-        </button>
-      </div>
-    </div>`;
-
-  document.body.appendChild(overlay);
-  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
-
-  overlay.querySelector('#btnImportClose')?.addEventListener('click',  () => overlay.remove());
-  overlay.querySelector('#btnImportCancel')?.addEventListener('click', () => overlay.remove());
-
-  overlay.querySelector('#btnImportBackupFirst')?.addEventListener('click', () => {
-    exportSave();
-    overlay.querySelector('#btnImportBackupFirst').textContent = '✅ Save actuelle exportée !';
-    overlay.querySelector('#btnImportBackupFirst').style.color = 'var(--green)';
-  });
-
-  overlay.querySelector('#btnImportFull')?.addEventListener('click', () => {
-    showConfirm(
-      `Remplacer la save du slot ${activeSaveSlot + 1} par la save importée de "${gangName}" ?`,
-      () => {
-        try {
-          setState(migrate(raw));
-          saveState();
-          overlay.remove();
-          renderAll();
-          notify(`✅ Save de "${gangName}" importée et convertie au format actuel.`, 'success');
-        } catch (err) {
-          notify('Erreur lors de la conversion — save non-importée.', 'error');
-          console.error(err);
-        }
-      },
-      null,
-      { confirmLabel: 'Importer', cancelLabel: 'Annuler' }
-    );
-  });
-
-  overlay.querySelector('#btnImportHeritage')?.addEventListener('click', () => {
-    overlay.remove();
-    openLegacyImportModal(raw);
-  });
+  return openImportPreviewModalImpl(raw);
 }
 
 function openLegacyImportModal(legacyData) {
-  const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px';
-
-  const agents = legacyData.agents || [];
-  const pokemons = legacyData.pokemons || [];
-
-  const agentHtml = agents.length
-    ? agents.map(a => `<label style="display:flex;align-items:center;gap:8px;padding:6px;border-bottom:1px solid var(--border);cursor:pointer">
-        <input type="radio" name="legacyAgent" value="${a.id}" style="accent-color:var(--gold)">
-        <img src="${a.sprite || ''}" style="width:32px;height:32px" onerror="this.style.display='none'">
-        <span style="font-size:10px">${a.name} — Lv.${a.level} (${getAgentRankLabel?.(a) ?? a.title})</span>
-      </label>`).join('')
-    : '<div style="color:var(--text-dim);font-size:10px;padding:8px">Aucun agent dans cette save</div>';
-
-  const pokeHtml = pokemons.slice(0, 60).map(p => `<label style="display:flex;align-items:center;gap:6px;padding:4px;border-bottom:1px solid var(--border);cursor:pointer">
-      <input type="checkbox" name="legacyPoke" value="${p.id}" style="accent-color:var(--gold)">
-      <img src="${pokeSprite(p.species_en, p.shiny)}" style="width:28px;height:28px">
-      <span style="font-size:9px">${speciesName(p.species_en)} Lv.${p.level} ${'*'.repeat(p.potential)}${p.shiny?' [S]':''}</span>
-    </label>`).join('') || '<div style="color:var(--text-dim);font-size:10px">Aucun Pokémon</div>';
-
-  overlay.innerHTML = `
-    <div style="background:var(--bg-panel);border:2px solid var(--gold-dim);border-radius:var(--radius);padding:20px;max-width:600px;width:100%;max-height:90vh;overflow-y:auto">
-      <div style="font-family:var(--font-pixel);font-size:12px;color:var(--gold);margin-bottom:8px">IMPORT HERITAGE</div>
-      <div style="font-size:10px;color:var(--text-dim);margin-bottom:16px">
-        Save d'une version antérieure détectée. Tu peux conserver <b style="color:var(--text)">1 agent</b> et <b style="color:var(--text)">2 Pokémon</b>.<br>
-        Les 2 Pokémon seront placés à la Pension pour pondre un oeuf de départ.
-      </div>
-
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-        <div>
-          <div style="font-family:var(--font-pixel);font-size:9px;color:var(--text-dim);margin-bottom:8px">CHOISIR 1 AGENT</div>
-          <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);max-height:200px;overflow-y:auto">${agentHtml}</div>
-        </div>
-        <div>
-          <div style="font-family:var(--font-pixel);font-size:9px;color:var(--text-dim);margin-bottom:8px">CHOISIR 2 POKEMON</div>
-          <div id="legacyPokeCount" style="font-size:9px;color:var(--red);margin-bottom:4px">0/2 sélectionnés</div>
-          <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);max-height:200px;overflow-y:auto">${pokeHtml}</div>
-        </div>
-      </div>
-
-      <div style="margin-top:16px;display:flex;gap:8px">
-        <button id="btnLegacyConfirm" style="flex:1;font-family:var(--font-pixel);font-size:10px;padding:10px;background:var(--bg);border:2px solid var(--gold);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">COMMENCER</button>
-        <button id="btnLegacyCancel" style="font-family:var(--font-pixel);font-size:10px;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">Annuler</button>
-      </div>
-    </div>`;
-
-  document.body.appendChild(overlay);
-
-  // Limit pokemon checkboxes to 2
-  overlay.querySelectorAll('input[name="legacyPoke"]').forEach(cb => {
-    cb.addEventListener('change', () => {
-      const checked = [...overlay.querySelectorAll('input[name="legacyPoke"]:checked')];
-      const countEl = document.getElementById('legacyPokeCount');
-      if (checked.length > 2) { cb.checked = false; return; }
-      if (countEl) countEl.textContent = `${checked.length}/2 sélectionnés`;
-    });
-  });
-
-  document.getElementById('btnLegacyCancel')?.addEventListener('click', () => overlay.remove());
-
-  document.getElementById('btnLegacyConfirm')?.addEventListener('click', () => {
-    const agentId = overlay.querySelector('input[name="legacyAgent"]:checked')?.value;
-    const pokeIds = [...overlay.querySelectorAll('input[name="legacyPoke"]:checked')].map(cb => cb.value);
-
-    if (pokeIds.length !== 2) {
-      notify('Sélectionne exactement 2 Pokémon.'); return;
-    }
-
-    // Build fresh state
-    const fresh = createDefaultState();
-    // Transfer gang basics from legacy
-    fresh.gang.name = legacyData.gang?.name || 'La Gang';
-    fresh.gang.bossName = legacyData.gang?.bossName || 'Boss';
-    fresh.gang.bossSprite = legacyData.gang?.bossSprite || 'rocketgrunt';
-
-    // Transfer chosen agent
-    if (agentId) {
-      const agent = agents.find(a => a.id === agentId);
-      if (agent) {
-        agent.team = []; // reset team
-        agent.pendingPerk = false;
-        fresh.agents = [agent];
-      }
-    }
-
-    // Transfer chosen pokemon to pension
-    const chosenPokes = pokeIds.map(id => pokemons.find(p => p.id === id)).filter(Boolean);
-    chosenPokes.forEach(p => { p.homesick = true; });
-    fresh.pokemons = chosenPokes;
-    fresh.pension.slots = chosenPokes.slice(0, 2).map(p => p.id);
-    fresh.pension.eggAt = Date.now() + 60000; // first egg in 1 minute
-
-    setState(migrate(fresh));
-    saveState();
-    overlay.remove();
-    renderAll();
-    notify('Nouvelle partie héritée commencée ! Les Pokémon sont à la Pension.', 'gold');
-    switchTab('tabPC');
-  });
+  return openLegacyImportModalImpl(legacyData);
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -833,370 +628,10 @@ Object.defineProperty(globalThis, 'pcView', {
   configurable: true,
 });
 let _sessionStatsBase = null;     // snapshot of state.stats at session start (also on globalThis._gangSessionStatsBase)
-let labSelectedId = null;
-let labShowAll    = false;
 
 // Chest sprite URL moved to data/assets-data.js
 
-// ── SFX Engine (Web Audio API) ────────────────────────────────
-const SFX = (() => {
-  let ctx;
-  function getCtx() {
-    if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
-    return ctx;
-  }
-  function playTone(freq, duration, type = 'square', volume = 0.15) {
-    const c = getCtx();
-    if (c.state === 'suspended') { c.resume().catch(() => {}); return; }
-    const osc = c.createOscillator();
-    const gain = c.createGain();
-    const sfxMult = (state?.settings?.sfxVol ?? 80) / 100;
-    osc.type = type;
-    osc.frequency.setValueAtTime(freq, c.currentTime);
-    gain.gain.setValueAtTime(volume * sfxMult, c.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + duration);
-    osc.connect(gain);
-    gain.connect(c.destination);
-    osc.start();
-    osc.stop(c.currentTime + duration + 0.05); // +50 ms buffer → élimine le click/scratch à l'arrêt
-  }
-  return {
-    ballThrow() {
-      // Whoosh sound: descending noise
-      playTone(800, 0.15, 'sawtooth', 0.08);
-      setTimeout(() => playTone(400, 0.1, 'sawtooth', 0.06), 80);
-    },
-    capture(potential, shiny) {
-      // Base capture jingle
-      const base = 520;
-      playTone(base, 0.12, 'square', 0.12);
-      setTimeout(() => playTone(base * 1.25, 0.12, 'square', 0.12), 100);
-      setTimeout(() => playTone(base * 1.5, 0.15, 'square', 0.12), 200);
-      // Extra notes for high potential
-      if (potential >= 4) {
-        setTimeout(() => playTone(base * 2, 0.2, 'square', 0.15), 320);
-      }
-      if (potential >= 5 || shiny) {
-        setTimeout(() => playTone(base * 2.5, 0.25, 'sine', 0.18), 440);
-        setTimeout(() => playTone(base * 3, 0.3, 'sine', 0.15), 580);
-      }
-      if (shiny) {
-        // Sparkle effect
-        setTimeout(() => {
-          for (let i = 0; i < 5; i++) {
-            setTimeout(() => playTone(1200 + i * 200, 0.08, 'sine', 0.1), i * 60);
-          }
-        }, 700);
-      }
-    },
-    error() {
-      playTone(200, 0.2, 'sawtooth', 0.1);
-    },
-    levelUp() {
-      // Ascending fanfare
-      playTone(523, 0.1, 'square', 0.1);
-      setTimeout(() => playTone(659, 0.1, 'square', 0.1), 110);
-      setTimeout(() => playTone(784, 0.15, 'square', 0.1), 220);
-      setTimeout(() => playTone(1047, 0.2, 'sine',  0.12), 360);
-    },
-    coin() {
-      // Money sound
-      playTone(988, 0.06, 'sine', 0.1);
-      setTimeout(() => playTone(1318, 0.1, 'sine', 0.1), 80);
-    },
-    click() {
-      // UI button click — tick léger
-      playTone(1200, 0.04, 'square', 0.05);
-    },
-    tabSwitch() {
-      // Changement d'onglet — glissement court
-      playTone(660, 0.06, 'sine', 0.07);
-      setTimeout(() => playTone(880, 0.05, 'sine', 0.05), 50);
-    },
-    buy() {
-      // Achat confirmé — coin sound plus grave
-      playTone(659, 0.08, 'sine', 0.1);
-      setTimeout(() => playTone(880, 0.12, 'sine', 0.12), 80);
-    },
-    unlock() {
-      // Déverrouillage / découverte — fanfare ascendante
-      playTone(440, 0.08, 'square', 0.1);
-      setTimeout(() => playTone(554, 0.08, 'square', 0.1), 100);
-      setTimeout(() => playTone(659, 0.08, 'square', 0.1), 200);
-      setTimeout(() => playTone(880, 0.16, 'sine',   0.12), 310);
-      setTimeout(() => playTone(1108, 0.2, 'sine',   0.1),  450);
-    },
-    menuOpen() {
-      // Ouverture modale / menu
-      playTone(880, 0.08, 'sine', 0.07);
-      setTimeout(() => playTone(1100, 0.1, 'sine', 0.06), 80);
-    },
-    menuClose() {
-      // Fermeture modale
-      playTone(660, 0.07, 'sine', 0.06);
-      setTimeout(() => playTone(440, 0.09, 'sine', 0.05), 70);
-    },
-    chest() {
-      // Coffre ouvert — effet magique
-      playTone(660, 0.08, 'square', 0.08);
-      setTimeout(() => playTone(880, 0.08, 'square', 0.09), 80);
-      setTimeout(() => playTone(1100, 0.08, 'square', 0.1), 160);
-      setTimeout(() => {
-        for (let i = 0; i < 4; i++) {
-          setTimeout(() => playTone(1200 + i * 180, 0.07, 'sine', 0.07), i * 55);
-        }
-      }, 260);
-    },
-    notify() {
-      // Notification — ping doux
-      playTone(880, 0.07, 'sine', 0.08);
-      setTimeout(() => playTone(1108, 0.1, 'sine', 0.07), 90);
-    },
-    sell() {
-      // Vente Pokémon
-      playTone(660, 0.05, 'sine', 0.08);
-      setTimeout(() => playTone(440, 0.08, 'sawtooth', 0.06), 70);
-    },
-    evolve() {
-      // Évolution — fanfare complète
-      const notes = [523, 659, 784, 1047, 1319];
-      notes.forEach((f, i) => setTimeout(() => playTone(f, 0.15, 'square', 0.12), i * 120));
-      setTimeout(() => {
-        for (let i = 0; i < 6; i++) setTimeout(() => playTone(1200 + i * 150, 0.1, 'sine', 0.1), i * 60);
-      }, notes.length * 120 + 100);
-    },
-    _enabled() { return state?.settings?.sfxEnabled !== false; },
-    play(name, ...args) {
-      if (!this._enabled()) return;
-      if (state?.settings?.sfxIndividual?.[name] === false) return;
-      try { this[name]?.(...args); } catch {}
-    },
-  };
-})();
-
-// ════════════════════════════════════════════════════════════════
-//  3b.  MUSIC PLAYER (zone-aware, crossfade progressif)
-// ════════════════════════════════════════════════════════════════
-
-/**
- * MUSIC_TRACKS — catalogue de toutes les pistes audio.
- * Ajoutez des pistes ici + placez les fichiers dans game/music/.
- * Chaque zone référence une clé via sa propriété `music`.
- *
- * Structure :
- *   key:  identifiant unique (référencé dans ZONES[].music)
- *   file: chemin relatif depuis game/
- *   loop: true pour boucle continue
- *   vol:  volume de base 0–1
- */
-const MUSIC_TRACKS = {
-  // ── Base / Routes ─────────────────────────────────────────────
-  base:        { file: 'music/BGM/First Town.mp3',    loop: true,  vol: 0.45, fr: 'Base du Gang'       },
-  forest:      { file: 'music/BGM/Route 1.mp3',       loop: true,  vol: 0.50, fr: 'Route'               },
-  cave:        { file: 'music/BGM/Cave.mp3',           loop: true,  vol: 0.45, fr: 'Caverne'             },
-  city:        { file: 'music/BGM/Lab.mp3',            loop: true,  vol: 0.50, fr: 'Ville'               },
-  sea:         { file: 'music/BGM/Introduction.mp3',   loop: true,  vol: 0.45, fr: 'Mer / Bateau'        },
-  safari:      { file: 'music/BGM/Route 1.mp3',        loop: true,  vol: 0.45, fr: 'Parc Safari'         },
-  lavender:    { file: 'music/BGM/Cave.mp3',           loop: true,  vol: 0.30, fr: 'Lavanville'          },
-  tower:       { file: 'music/BGM/Cave.mp3',           loop: true,  vol: 0.28, fr: 'Tour Pokémon'        },
-  mansion:     { file: 'music/BGM/Cave.mp3',           loop: true,  vol: 0.35, fr: 'Manoir Pokémon'      },
-  // ── Combat / Arènes ───────────────────────────────────────────
-  gym:         { file: 'music/BGM/VSTrainer.mp3',      loop: true,  vol: 0.55, fr: 'Arène'               },
-  rocket:      { file: 'music/BGM/VSRival.mp3',        loop: true,  vol: 0.55, fr: 'Team Rocket'         },
-  silph:       { file: 'music/BGM/Lab.mp3',            loop: true,  vol: 0.50, fr: 'Sylphe SARL'         },
-  elite4:      { file: 'music/BGM/VSLegend.mp3',       loop: true,  vol: 0.60, fr: 'Élite 4 / Sommet'    },
-  // ── Ambiances spéciales ────────────────────────────────────────
-  casino:      { file: 'music/BGM/MysteryGift.mp3',    loop: true,  vol: 0.55, fr: 'Casino'              },
-  halloffame:  { file: 'music/BGM/Hall of Fame.mp3',   loop: false, vol: 0.60, fr: 'Tableau d\'Honneur'  },
-  title:       { file: 'music/BGM/Title.mp3',          loop: true,  vol: 0.50, fr: 'Titre'               },
-};
-
-/**
- * MusicPlayer — gère la lecture de fond avec crossfade.
- * Utilise deux éléments <audio> pour un fondu croisé doux.
- */
-const MusicPlayer = (() => {
-  let _trackA = null;   // HTMLAudioElement actif
-  let _trackB = null;   // HTMLAudioElement en fondu entrant
-  let _current = null;  // clé du morceau en cours
-  let _fadeTimer = null;
-
-  const FADE_DURATION = 2000; // ms
-
-  function _createAudio(src, vol, loop) {
-    const a = new Audio(src);
-    a.loop = loop;
-    a.volume = 0;
-    a.preload = 'auto';
-    a.dataset.targetVol = vol;
-    return a;
-  }
-
-  function _isEnabled() {
-    return state?.settings?.musicEnabled === true;
-  }
-
-  function _setVol(el, v) {
-    if (el) el.volume = Math.max(0, Math.min(1, v));
-  }
-
-  function _fade(el, fromVol, toVol, durationMs, onDone) {
-    const steps = 30;
-    const dt = durationMs / steps;
-    const delta = (toVol - fromVol) / steps;
-    let step = 0;
-    const id = setInterval(() => {
-      step++;
-      _setVol(el, fromVol + delta * step);
-      if (step >= steps) {
-        clearInterval(id);
-        _setVol(el, toVol);
-        if (onDone) onDone();
-      }
-    }, dt);
-    return id;
-  }
-
-  return {
-    /**
-     * Joue la piste `trackId` avec crossfade si une piste est déjà active.
-     * Ne fait rien si la piste est déjà en cours ou si la musique est désactivée.
-     */
-    play(trackId) {
-      if (!_isEnabled()) return;
-      if (!trackId || !MUSIC_TRACKS[trackId]) return;
-      if (_current === trackId) return; // déjà en cours
-
-      const def = MUSIC_TRACKS[trackId];
-      const newAudio = _createAudio(def.file, def.vol, def.loop);
-      const targetVol = def.vol;
-
-      _current = trackId;
-
-      if (_trackA && !_trackA.paused) {
-        // Crossfade : fade out A, fade in B
-        const oldA = _trackA;
-        _trackB = newAudio;
-        _trackB.play().catch(() => {});
-        _fade(_trackB, 0, targetVol, FADE_DURATION);
-        _fade(oldA, oldA.volume, 0, FADE_DURATION, () => {
-          oldA.pause();
-          oldA.src = '';
-          _trackA = _trackB;
-          _trackB = null;
-        });
-      } else {
-        // Pas de piste active — démarre directement avec fade in
-        if (_trackA) { _trackA.pause(); _trackA.src = ''; }
-        _trackA = newAudio;
-        _trackA.play().catch(() => {});
-        _fade(_trackA, 0, targetVol, FADE_DURATION);
-      }
-    },
-
-    /** Arrête la musique avec fade out. */
-    stop() {
-      if (_trackA) {
-        const old = _trackA;
-        _trackA = null;
-        _current = null;
-        _fade(old, old.volume, 0, FADE_DURATION / 2, () => {
-          old.pause(); old.src = '';
-        });
-      }
-    },
-
-    /** Appelé lors du changement de zone ouverte ou d'onglet actif. */
-    updateFromContext() {
-      if (!_isEnabled()) { this.stop(); return; }
-
-      // Priorité 0 : jukebox manuel
-      if (state?.settings?.jukeboxTrack) {
-        this.play(state.settings.jukeboxTrack);
-        return;
-      }
-
-      // Priorité : première zone ouverte qui a une musique définie
-      for (const zId of (state.openZoneOrder || [])) {
-        const zone = ZONE_BY_ID[zId];
-        if (zone?.music) { this.play(zone.music); return; }
-      }
-      // Fallback : musique de l'onglet actif
-      if (activeTab === 'tabGang' || activeTab === 'tabZones') {
-        this.play('base');
-      } else {
-        // Pas de zones ouvertes et onglet neutre → silence progressif
-        this.stop();
-      }
-    },
-
-    /** Volume global 0–1 */
-    setVolume(v) {
-      if (_trackA) _setVol(_trackA, Math.max(0, Math.min(1, v)) * (parseFloat(_trackA.dataset.targetVol) || 0.5));
-    },
-
-    get current() { return _current; },
-  };
-})();
-
-/**
- * JinglePlayer — joue des courts extraits audio (ME) en one-shot.
- * Ne bloque pas la musique de fond — les deux coexistent.
- */
-const JINGLES = {
-  trainer_encounter: 'music/ME/VSTrainer_Intro.mp3',
-  wild_encounter:    'music/ME/VSWildPoke_Intro.mp3',
-  legend_encounter:  'music/ME/VSLegend_Intro.mp3',
-  rival_encounter:   'music/ME/VSRival_Intro.mp3',
-  youngster:         'music/ME/Encounter_Youngster.mp3',
-  mystery_gift:      'music/BGM/MysteryGift.mp3',
-  low_hp:            'music/ME/lowhp.mp3',
-  slots_win:         'music/ME/SlotsWin.mp3',
-  slots_big:         'music/ME/SlotsBigWin.mp3',
-};
-
-const JinglePlayer = (() => {
-  let _current = null;
-  function _enabled() { return state?.settings?.musicEnabled === true; }
-
-  return {
-    play(key) {
-      if (!_enabled()) return;
-      const src = JINGLES[key];
-      if (!src) return;
-      if (_current) { _current.pause(); _current = null; }
-      const a = new Audio(src);
-      a.volume = 0.7;
-      a.play().catch(() => {});
-      _current = a;
-      a.addEventListener('ended', () => { _current = null; });
-    },
-    stop() { if (_current) { _current.pause(); _current = null; } },
-  };
-})();
-
-/**
- * SE (Sound Effects) — sons d'attaque et événements gameplay.
- * Utilise Audio HTML plutôt que Web Audio pour les fichiers complexes.
- */
-const SE_SOUNDS = {
-  buy:        'music/SE/Charm.mp3',
-  level_up:   'music/SE/BW2Summary.mp3',
-  slash:      'music/SE/Slash.mp3',
-  metronome:  'music/SE/Metronome.mp3',
-  explosion:  'music/SE/Explosion.mp3',
-  protect:    'music/SE/Protect.mp3',
-  flash:      'music/SE/Flash.mp3',
-};
-
-function playSE(key, vol = 0.6) {
-  if (state?.settings?.sfxEnabled === false) return;
-  const src = SE_SOUNDS[key];
-  if (!src) return;
-  const a = new Audio(src);
-  a.volume = vol;
-  a.play().catch(() => {});
-}
+// ── Audio extracted to modules/ui/audio.js ───────────────────────
 
 // ════════════════════════════════════════════════════════════════
 //  3c.  DOPAMINE POPUP HELPERS
@@ -1284,110 +719,11 @@ function showRarePopup(species_en, zoneId) {
 // ════════════════════════════════════════════════════════════════
 
 function showConfirm(message, onConfirm, onCancel = null, opts = {}) {
-  const existing = document.getElementById('confirmModal');
-  if (existing) existing.remove();
-  SFX.play('menuOpen');
-
-  const modal = document.createElement('div');
-  modal.id = 'confirmModal';
-  modal.style.cssText = 'position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,.82);display:flex;align-items:center;justify-content:center;';
-
-  const danger = opts.danger ? 'var(--red)' : 'var(--gold-dim)';
-  const confirmLabel = opts.confirmLabel || (opts.lang === 'fr' ? 'Confirmer' : 'Confirm');
-  const cancelLabel  = opts.cancelLabel  || (opts.lang === 'fr' ? 'Annuler'   : 'Cancel');
-
-  modal.innerHTML = `
-    <div style="background:var(--bg-panel);border:2px solid ${danger};border-radius:var(--radius);padding:24px 28px;max-width:440px;width:90%;display:flex;flex-direction:column;gap:16px">
-      <div style="font-size:13px;color:var(--text);line-height:1.6">${message}</div>
-      <div style="display:flex;gap:8px;justify-content:flex-end">
-        <button id="confirmModalCancel" style="font-family:var(--font-pixel);font-size:9px;padding:8px 16px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">${cancelLabel}</button>
-        <button id="confirmModalOk" style="font-family:var(--font-pixel);font-size:9px;padding:8px 16px;background:${opts.danger ? 'var(--red-dark)' : 'var(--bg)'};border:1px solid ${danger};border-radius:var(--radius-sm);color:${opts.danger ? '#fff' : 'var(--gold)'};cursor:pointer">${confirmLabel}</button>
-      </div>
-    </div>`;
-
-  document.body.appendChild(modal);
-
-  document.getElementById('confirmModalOk').addEventListener('click', () => { SFX.play('menuClose'); modal.remove(); onConfirm?.(); });
-  document.getElementById('confirmModalCancel').addEventListener('click', () => { SFX.play('menuClose'); modal.remove(); onCancel?.(); });
-  modal.addEventListener('click', e => { if (e.target === modal) { SFX.play('menuClose'); modal.remove(); onCancel?.(); } });
+  return showConfirmImpl(message, onConfirm, onCancel, opts);
 }
 
 function showInfoModal(tabId) {
-  const INFO = {
-    tabGang: {
-      title: '💀 LE GANG',
-      body: `
-        <strong>Réputation</strong> — Débloque zones, quêtes et achats. Visible dans la barre en haut à droite.<br><br>
-        <strong>Argent (₽)</strong> — Les récompenses de combat s'accumulent dans les zones. Récupère-les via le bouton ₽ jaune (un combat est nécessaire).<br><br>
-        <strong>Boss</strong> — Ton avatar. Assigne jusqu'à <strong>3 Pokémon</strong> à son équipe depuis le PC.<br><br>
-        <strong>Sac</strong> — Clique sur une Ball pour l'activer. Clique sur un boost pour le lancer. L'incubateur ouvre la gestion des œufs.<br><br>
-        <span class="dim">Conseil : assigne tes meilleurs Pokémon au Boss pour maximiser tes chances en combat.</span>
-      `
-    },
-    tabAgents: {
-      title: '👥 AGENTS',
-      body: `
-        <strong>CAP (Capture)</strong> — Chance de capturer automatiquement des Pokémon dans les zones non-ouvertes. Plus c'est haut, plus l'agent est efficace.<br><br>
-        <strong>LCK (Chance)</strong> — Influence la rareté des captures passives et la qualité des récompenses de coffres.<br><br>
-        <strong>ATK (Combat)</strong> — Puissance en combat automatique. Un agent fort bat des dresseurs difficiles.<br><br>
-        <strong>Grade</strong> — Grunt → Lieutenant (50+ combats gagnés) → Captain (200+). Chaque grade donne un bonus ATK.<br><br>
-        <strong>Zone assignée</strong> — L'agent farm passivement : captures, combats contre dresseurs, ouverture de coffres.<br><br>
-        <span class="dim">Un agent sans zone assignée ne fait rien. Assigne-les toujours !</span>
-      `
-    },
-    tabZones: {
-      title: '🗺️ ZONES',
-      body: `
-        <strong>Zone de capture</strong> (field / safari / water / cave) — Des Pokémon sauvages apparaissent. Agents et Boss capturent automatiquement.<br><br>
-        <strong>Zone d'arène</strong> (gym / elite) — Uniquement des combats. Récompenses en ₽ et réputation élevées.<br><br>
-        <strong>Récolte ₽</strong> — Les gains de combat s'accumulent (icône jaune ₽). Clique pour lancer une récolte avec combat défensif.<br><br>
-        <strong>Maîtrise ★</strong> — Augmente avec les victoires. Améliore les spawns et débloque des dresseurs élites.<br><br>
-        <strong>Slots d'agents</strong> — Coût en réputation, croissant avec le niveau de la zone.<br><br>
-        <span class="dim">Les zones dégradées (⚠) n'ont que des combats — remonte ta réputation pour les débloquer.</span>
-      `
-    },
-    tabMarket: {
-      title: '💰 MARCHÉ',
-      body: `
-        <strong>Quêtes horaires</strong> — 3 quêtes Moyennes + 2 Difficiles, réinitialisées toutes les heures. Reroll possible contre 10 rep.<br><br>
-        <strong>Histoire & Objectifs</strong> — Quêtes permanentes liées à la progression. Complète-les pour des grosses récompenses.<br><br>
-        <strong>Balls</strong> — Chaque type améliore le potentiel max capturé. Troc (onglet Troc) : 10 PB→1 GB, 10 GB→1 UB, 100 UB⇄1 MB.<br><br>
-        <strong>Multiplicateur ×1/×5/×10</strong> — Achète en lot depuis la boutique.<br><br>
-        <strong>Boosts temporaires</strong> — S'activent depuis le Sac dans la fenêtre de zone. Durée 60–90s.<br><br>
-        <span class="dim">Vends des Pokémon depuis le PC pour financer tes achats.</span>
-      `
-    },
-    tabPC: {
-      title: '💻 PC',
-      body: `
-        <strong>Potentiel ★</strong> — Permanent, détermine le plafond de puissance. ★5 = top tier. Dépend de la Ball utilisée.<br><br>
-        <strong>Nature</strong> — Chaque nature booste 2 stats et en pénalise 1. <em>Hardy</em> = équilibré.<br><br>
-        <strong>ATK/DEF/SPD</strong> — Calculées depuis base × nature × niveau × potentiel.<br><br>
-        <strong>Vente</strong> — Prix = rareté × potentiel × nature. Pas de malus de revente.<br><br>
-        <strong>Labo</strong> — Fais évoluer tes Pokémon (pierre ou niveau requis).<br><br>
-        <strong>Pension</strong> — 2 Pokémon compatibles → oeuf. Nécessite un incubateur. Les Pokémon de pension ont le "mal du pays" et ne peuvent pas être vendus.<br><br>
-        <strong>Oeufs</strong> — Gère tes oeufs en attente d'incubation ou prêts à éclore.<br><br>
-        <span class="dim">Filtre par rareté, type ou shiny pour retrouver facilement tes Pokémon.</span>
-      `
-    },
-    tabPokedex: {
-      title: '📖 POKÉDEX',
-      body: `
-        <strong>Vu 👁</strong> — Tu as aperçu ce Pokémon dans une zone (spawn visible).<br><br>
-        <strong>Capturé ✓</strong> — Tu en possèdes au moins un dans ton PC.<br><br>
-        <strong>Shiny ✨</strong> — Tu as capturé une version chromatique. Chance de base très faible, boostée par l'Aura Shiny.<br><br>
-        <strong>Progression</strong> — Compléter le Pokédex donne des bonus de réputation et de récompenses de quêtes.<br><br>
-        <span class="dim">Les légendaires et très rares n'apparaissent que dans des zones spécifiques avec le bon équipement.</span>
-      `
-    },
-  };
-
-  const info = INFO[tabId];
-  if (!info) return;
-
-  document.getElementById('infoModalTitle').textContent = info.title;
-  document.getElementById('infoModalBody').innerHTML = info.body;
-  document.getElementById('infoModal').classList.add('active');
+  return showInfoModalImpl(tabId);
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -2088,117 +1424,6 @@ Object.defineProperty(globalThis, 'activeTab', {
 });
 // zoneFilter state is now managed inside modules/ui/zoneSelector.js
 
-function hintLink(label, tabId) {
-  return `<button onclick="switchTab('${tabId}')" style="font-family:var(--font-pixel);font-size:9px;color:var(--red);background:none;border:none;border-bottom:1px solid var(--red);cursor:pointer;padding:0">${label}</button>`;
-}
-
-function getTabHint(tabId) {
-  const pc       = state.pokemons.length;
-  const agents   = state.agents.length;
-  const money    = state.gang.money;
-  const bossTeam = state.gang.bossTeam.length;
-  const hasZone  = openZones.size > 0;
-
-  switch (tabId) {
-    case 'tabGang':
-      if (!state.gang.initialized) return 'Crée ton gang pour commencer.';
-      if (bossTeam === 0 && pc === 0) return `Capture des Pokémon dans ${hintLink('Zones', 'tabZones')} puis assigne-en à ton équipe Boss.`;
-      if (bossTeam === 0) return `Assigne des Pokémon à ton équipe Boss depuis le ${hintLink('PC', 'tabPC')} — clique sur un Pokémon → Équipe.`;
-      if (!hasZone) return `Ouvre une zone dans ${hintLink('Zones', 'tabZones')} pour explorer et combattre.`;
-      return `Vitrine : montre tes meilleurs Pokémon. L\'équipe Boss combat quand tu entres en zone.`;
-    case 'tabAgents':
-      if (pc === 0) return `Capture des Pokémon en ${hintLink('Zones', 'tabZones')} — tu pourras en recruter comme agents.`;
-      if (agents === 0) return `Recrute un agent depuis le ${hintLink('PC', 'tabPC')} : clique sur un Pokémon → Recruter Agent. Les agents explorent les zones et ramènent de l'argent automatiquement.`;
-      if (!hasZone) return `Assigne tes agents à une zone depuis ${hintLink('Zones', 'tabZones')} ou directement ici via le menu déroulant.`;
-      return `Les agents assignés à une zone génèrent des ₽ toutes les 5 min. Collecte depuis l'onglet ${hintLink('Zones', 'tabZones')}.`;
-    case 'tabZones':
-      if (!hasZone) return `Clique sur <b>Route 1</b> puis sur <b>Ouvrir</b> pour explorer ta première zone.`;
-      if (bossTeam === 0) return `Entre dans une zone avec ton boss — assigne d'abord un Pokémon à ton équipe depuis le ${hintLink('PC', 'tabPC')}.`;
-      return `Capture des Pokémon, bats des dresseurs. 10 victoires → combats élites. Clique 💰 pour collecter les revenus.`;
-    case 'tabBag':
-      return null;
-    case 'tabMarket':
-      if (money < 500) return `Tu n'as presque plus d'argent. Bats des dresseurs ou vends des Pokémon en double depuis le ${hintLink('PC', 'tabPC')}.`;
-      if (!state.inventory.pokeball) return `Achète des Pokéballs (100₽) dans la boutique pour pouvoir capturer des Pokémon.`;
-      return `Boutique : Pokéballs, objets de boost, incubateurs. Quêtes : missions journalières pour des récompenses.`;
-    case 'tabPC':
-      if (pc === 0) return `Ton PC est vide. Capture des Pokémon en ${hintLink('Zones', 'tabZones')} pour les voir ici.`;
-      if (bossTeam === 0) return `Clique sur un Pokémon → menu → <b>Équipe Boss</b> pour l'ajouter à ton équipe de combat.`;
-      return `Filtre (Eq/Tr/PS), trie par prix/niveau/potentiel, vends les doublons.`;
-    case 'tabTraining':
-      if (pc === 0) return `Capture des Pokémon en ${hintLink('Zones', 'tabZones')} pour les entraîner.`;
-      return `Place 2 à 6 Pokémon — ils s'affrontent automatiquement toutes les 60s. Gagnant : XP ×1.25, tous gagnent de l'XP.`;
-    case 'tabLab':
-      if (pc < 3) return `Capture plusieurs exemplaires du même Pokémon pour les fusionner au Labo et augmenter le Potentiel.`;
-      return `Potentiel (⭐) = multiplicateur de prix et de stats. Sacrifie des doublons pour monter jusqu'à 5⭐ (max).`;
-    case 'tabMissions':
-      return `Missions journalières et hebdomadaires = source de ₽ et d'objets rares. Reviens chaque jour.`;
-    case 'tabPokedex':
-      return `Kanto ${getDexKantoCaught()}/${KANTO_DEX_SIZE} · National ${getDexNationalCaught()}/${NATIONAL_DEX_SIZE} · Chromas ${getShinySpeciesCount()} espèces. Explore toutes les zones pour compléter !`;
-    default:
-      return null;
-  }
-}
-
-// ── First-visit contextual hint (non-bloquant, disparaît en 6s ou au clic) ──
-const _FIRST_VISIT_HINTS = {
-  tabGang:     { icon: '👑', title: 'Ton Gang', body: 'Ta base d\'opérations. Gère l\'équipe Boss (3 slots sauvegardables), place tes meilleurs Pokémon en vitrine, et débloque des upgrades spéciaux au Marché.' },
-  tabAgents:   { icon: '👥', title: 'Les Agents', body: 'Assigne-leur une zone → ils capturent et combattent automatiquement, même zones fermées. Chaque agent a un comportement (tout / capture / combat) et une stat de chance qui augmente les potentiels.' },
-  tabZones:    { icon: '🗺', title: 'Zones', body: 'Ouvre jusqu\'à 6 zones simultanément pour capturer des Pokémon et battre des dresseurs. Les zones fermées avec agent continuent de se jouer en arrière-plan. Ton Boss participe aux combats de toutes les zones ouvertes.' },
-  tabMarket:   { icon: '🛒', title: 'Marché', body: 'Achète des Pokéballs pour capturer, des incubateurs pour faire éclore des œufs, et plus encore.' },
-  tabPC:       { icon: '💾', title: 'Le PC', body: 'Tous tes Pokémon sont ici. Assigne-les à ton équipe, à un agent, à la pension ou à la salle d\'entraînement.' },
-  tabTraining: { icon: '🏋', title: 'Salle d\'entraînement', body: 'Tes Pokémon s\'entraînent automatiquement. Parfait pour monter en niveau des Pokémon que tu n\'utilises pas.' },
-  tabLab:      { icon: '🔬', title: 'Laboratoire', body: 'Le Potentiel (⭐) multiplie la valeur et les stats d\'un Pokémon. Fusionne des doublons pour monter jusqu\'à 5⭐.' },
-  tabMissions: { icon: '📋', title: 'Missions', body: 'Objectifs quotidiens et hebdomadaires. Complète-les pour des ₽ et des objets rares.' },
-  tabPokedex:  { icon: '📖', title: 'Pokédex', body: 'Chaque espèce capturée est enregistrée ici. Vise 151/151 pour tout débloquer.' },
-};
-
-function showFirstVisitHint(tabId) {
-  const def = _FIRST_VISIT_HINTS[tabId];
-  if (!def) return;
-  // Remove any existing hint
-  document.getElementById('firstVisitHint')?.remove();
-
-  const el = document.createElement('div');
-  el.id = 'firstVisitHint';
-  el.style.cssText = `
-    position:fixed;bottom:24px;right:24px;z-index:4000;
-    background:var(--bg-panel);border:2px solid var(--gold-dim);border-radius:var(--radius);
-    padding:12px 14px;max-width:260px;box-shadow:0 4px 20px rgba(0,0,0,.6);
-    animation:fvhIn .3s ease;cursor:pointer;
-  `;
-  el.innerHTML = `
-    <div style="display:flex;align-items:flex-start;gap:10px">
-      <span style="font-size:20px;flex-shrink:0">${def.icon}</span>
-      <div>
-        <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold);margin-bottom:4px">${def.title}</div>
-        <div style="font-size:10px;color:var(--text-dim);line-height:1.5">${def.body}</div>
-      </div>
-      <button style="background:none;border:none;color:var(--text-dim);font-size:14px;cursor:pointer;padding:0;flex-shrink:0;line-height:1" onclick="document.getElementById('firstVisitHint')?.remove()">✕</button>
-    </div>`;
-
-  document.body.appendChild(el);
-
-  // Auto-dismiss after 7s
-  const timer = setTimeout(() => {
-    el.style.animation = 'fvhOut .3s ease forwards';
-    setTimeout(() => el.remove(), 300);
-  }, 7000);
-  el.addEventListener('click', () => { clearTimeout(timer); el.remove(); });
-}
-
-function renderHint(tabId) {
-  const bar = document.getElementById('hintBar');
-  if (!bar) return;
-  const hint = getTabHint(tabId);
-  if (hint) {
-    bar.innerHTML = '&gt;&gt; ' + hint;
-    bar.style.display = 'block';
-  } else {
-    bar.style.display = 'none';
-  }
-}
-
 // Track which tabs have been seen (first-visit hints)
 const _visitedTabs = new Set(JSON.parse(sessionStorage.getItem('pg_visited_tabs') || '[]'));
 
@@ -2220,6 +1445,22 @@ function checkBallAssist() {
 
 function isBallAssistActive() {
   return Date.now() < _ballAssistUntil;
+}
+
+function hintLink(label, tabId) {
+  return hintLinkImpl(label, tabId);
+}
+
+function getTabHint(tabId) {
+  return getTabHintImpl(tabId);
+}
+
+function showFirstVisitHint(tabId) {
+  return showFirstVisitHintImpl(tabId);
+}
+
+function renderHint(tabId) {
+  return renderHintImpl(tabId);
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -2361,23 +1602,7 @@ function renderAll() {
 }
 
 function renderActiveTab() {
-  switch (activeTab) {
-    case 'tabGang':     renderGangTab(); break;
-    case 'tabZones':    renderZonesTab(); break;
-    case 'tabMarket':   renderMarketTab(); break;
-    case 'tabPC':       renderPCTab(); break;
-    case 'tabPokedex':  renderPokedexTab(); break;
-    case 'tabAgents':   renderAgentsTab(); break;
-    case 'tabBag':        switchTab('tabMarket'); break;
-    case 'tabCosmetics':   renderCosmeticsTab(); break;
-    case 'tabMissions':    renderMissionsTab(); break;
-    case 'tabBattleLog':   renderEventsTab(); break;
-    case 'tabTraining': pcView = 'training'; switchTab('tabPC'); break;
-    case 'tabLab':      pcView = 'lab'; switchTab('tabPC'); break;
-    case 'tabLeaderboard': renderLeaderboardTab(); break;
-    case 'tabCompte':      renderCompteTab(); break;
-    case 'tabZone2':       renderZone2Tab(); break;
-  }
+  return renderActiveTabImpl();
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -3093,1016 +2318,24 @@ function _refreshRaidBtn(zoneId)                                   { return glob
 
 
 // ════════════════════════════════════════════════════════════════
-// 15b. UI — COSMETICS TAB (panel dédié, débloquable 50 000₽)
+// 15b. UI — COSMETICS TAB (extracted to modules/ui/cosmeticsTab.js)
 // ════════════════════════════════════════════════════════════════
 
-const COSMETICS_UNLOCK_COST = 50000;
-
-function renderCosmeticsTab() {
-  const tab = document.getElementById('tabCosmetics');
-  if (!tab) return;
-
-  // L'atelier cosmétique est maintenant intégré dans l'onglet Gang
-  tab.innerHTML = `
-    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;gap:16px;text-align:center">
-      <div style="font-size:36px">👑</div>
-      <div style="font-family:var(--font-pixel);font-size:12px;color:var(--gold)">ATELIER COSMÉTIQUES</div>
-      <div style="font-size:11px;color:var(--text-dim);max-width:260px">L'atelier est maintenant intégré dans l'onglet Gang.</div>
-      <button id="btnGoGangTab" style="font-family:var(--font-pixel);font-size:9px;padding:8px 18px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">
-        → Aller à l'onglet Gang
-      </button>
-    </div>`;
-
-  tab.querySelector('#btnGoGangTab')?.addEventListener('click', () => switchTab('tabGang'));
-}
-
 // ════════════════════════════════════════════════════════════════
-// 16.  UI — MARKET TAB
+// 16.  UI — MARKET TAB (extracted to modules/ui/marketTab.js)
 // ════════════════════════════════════════════════════════════════
-
-function renderMarketTab() {
-  renderSpecialItemPanel();
-  renderShopPanel();
-  renderBarterPanel();
-}
-
-// ── Troc d'objets ─────────────────────────────────────────────
-const BARTER_RECIPES = [
-  // [donnerItemId, donnerQty, recevoirItemId, recevoirQty, label]
-  ['pokeball',  10, 'greatball',  1,   '10 Poké Balls → 1 Super Ball'],
-  ['greatball', 10, 'ultraball',  1,   '10 Super Balls → 1 Hyper Ball'],
-  // index 2 = MB ⇄ HB (bidirectionnel — voir _barterMbReverse)
-  ['ultraball', 100, 'masterball', 1,  '100 Hyper Balls → 1 Master Ball'],
-  ['lure',       5, 'superlure',  1,   '5 Leurres → 1 Super Leurre'],
-  ['superlure',  3, 'evostone',   1,   '3 Super Leurres → 1 Pierre Évol.'],
-  ['rarecandy',  3, 'evostone',   1,   '3 Super Bonbons → 1 Pierre Évol.'],
-  ['incense',    3, 'aura',       1,   '3 Encens → 1 Aura Shiny'],
-  ['potion',    10, 'rarecandy',  1,   '10 Potions → 1 Super Bonbon'],
-];
-
-// Sens du troc MB ⇄ HB (false = 100 HB→1 MB ; true = 1 MB→100 HB)
-let _barterMbReverse = false;
-
-function renderBarterPanel() {
-  const panel = document.querySelector('#barterPanel .barter-list');
-  if (!panel) return;
-
-  // Recette active pour le troc MB (index 2), sens selon _barterMbReverse
-  const mbRecipe = _barterMbReverse
-    ? ['masterball', 1,   'ultraball', 100, '1 Master Ball → 100 Hyper Balls']
-    : ['ultraball',  100, 'masterball', 1,  '100 Hyper Balls → 1 Master Ball'];
-  const recipes = [...BARTER_RECIPES];
-  recipes[2] = mbRecipe;
-
-  // Bouton toggle sens MB en tête de panel
-  const toggleBtn = `<div style="padding:6px 4px 4px;border-bottom:1px solid var(--border)">
-    <button id="btnBarterMbToggle" style="font-family:var(--font-pixel);font-size:7px;padding:4px 10px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">
-      ⇄ ${_barterMbReverse ? 'MB → 100 HB' : '100 HB → MB'}
-    </button>
-  </div>`;
-
-  // ── Recettes d'items classiques ────────────────────────────────
-  const recipesHtml = recipes.map((r, i) => {
-    const [giveId, giveQty, getId, getQty, label] = r;
-    const owned = state.inventory?.[giveId] || 0;
-    const canAfford = owned >= giveQty;
-    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--border);opacity:${canAfford ? 1 : 0.5}">
-      ${itemSprite(giveId)}
-      <div style="flex:1;font-size:9px;color:var(--text)">${label}</div>
-      <div style="font-size:8px;color:${canAfford ? 'var(--gold-dim)' : 'var(--text-dim)'}">×${owned}</div>
-      <button data-barter="${i}" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:${canAfford ? 'var(--bg-hover)' : 'var(--bg)'};border:1px solid ${canAfford ? 'var(--gold-dim)' : 'var(--border)'};border-radius:var(--radius-sm);color:${canAfford ? 'var(--gold)' : 'var(--text-dim)'};cursor:${canAfford ? 'pointer' : 'default'}" ${canAfford ? '' : 'disabled'}>Troquer</button>
-    </div>`;
-  }).join('');
-
-  // ── Échange d'ailes (bidirectionnel) ──────────────────────────
-  const WING_EXCHANGES = [
-    { giveId:'silver_wing',  giveQty:2, getId:'rainbow_wing', getQty:1, label:"2 Argent'Ailes → 1 Arcenci'Aile" },
-    { giveId:'rainbow_wing', giveQty:2, getId:'silver_wing',  getQty:1, label:"2 Arcenci'Ailes → 1 Argent'Aile" },
-  ];
-  const wingExchangeHtml = `
-    <div style="padding:8px 4px 4px;border-top:2px solid var(--border);margin-top:2px">
-      <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold);margin-bottom:6px;letter-spacing:1px">— ÉCHANGE D'AILES —</div>
-      ${WING_EXCHANGES.map((wx, i) => {
-        const owned = state.inventory?.[wx.giveId] || 0;
-        const canAfford = owned >= wx.giveQty;
-        return `<div style="display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--border);opacity:${canAfford ? 1 : 0.5}">
-          ${itemSprite(wx.giveId)}
-          <div style="flex:1;font-size:9px;color:var(--text)">${wx.label}</div>
-          <div style="font-size:8px;color:${canAfford ? 'var(--gold-dim)' : 'var(--text-dim)'}">×${owned}</div>
-          <button data-wing-barter="${i}" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:${canAfford ? 'var(--bg-hover)' : 'var(--bg)'};border:1px solid ${canAfford ? 'var(--gold-dim)' : 'var(--border)'};border-radius:var(--radius-sm);color:${canAfford ? 'var(--gold)' : 'var(--text-dim)'};cursor:${canAfford ? 'pointer' : 'default'}" ${canAfford ? '' : 'disabled'}>Troquer</button>
-        </div>`;
-      }).join('')}
-    </div>`;
-
-  // ── Section déblocage zones via ailes ──────────────────────────
-  const WING_PERMITS = [
-    { permitId:'tourbillon_permit', wingId:'silver_wing', wingName:"Argent'Aile",  wingQty:50,
-      zoneName:'Îles Tourbillon', icon:'🌊', legendary:'Lugia' },
-    { permitId:'carillon_permit',   wingId:'rainbow_wing', wingName:"Arcenci'Aile", wingQty:50,
-      zoneName:'Tour Carillon',   icon:'🔔', legendary:'Ho-Oh' },
-  ];
-  const wingZonesHtml = `
-    <div style="padding:8px 4px 4px;border-top:2px solid var(--border);margin-top:2px">
-      <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold);margin-bottom:6px;letter-spacing:1px">— ZONES LÉGENDAIRES —</div>
-      ${WING_PERMITS.map(wp => {
-        const have = state.inventory?.[wp.wingId] || 0;
-        const alreadyOwned = !!state.purchases?.[wp.permitId];
-        const canBuy = !alreadyOwned && have >= wp.wingQty;
-        const pct = Math.min(100, Math.round(have / wp.wingQty * 100));
-        const progressColor = alreadyOwned ? 'var(--green)' : have >= wp.wingQty ? 'var(--gold)' : 'var(--red)';
-        return `<div style="display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--border);opacity:${alreadyOwned ? 0.6 : 1}">
-          ${itemSprite(wp.wingId)}
-          <div style="flex:1">
-            <div style="font-size:9px;color:var(--text)">${wp.wingQty}× ${wp.wingName} → ${wp.icon} ${wp.zoneName}</div>
-            <div style="font-size:8px;color:var(--text-dim);margin-top:2px">Légendaire : ${wp.legendary}</div>
-            <div style="height:4px;background:var(--border);border-radius:2px;margin-top:4px;overflow:hidden">
-              <div style="height:100%;width:${alreadyOwned ? 100 : pct}%;background:${progressColor};border-radius:2px;transition:width .3s"></div>
-            </div>
-            <div style="font-size:8px;color:${progressColor};margin-top:2px">${alreadyOwned ? '✓ Zone débloquée' : `${have} / ${wp.wingQty} ${wp.wingName}`}</div>
-          </div>
-          <button data-wing-permit="${wp.permitId}" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:${canBuy ? 'var(--bg-hover)' : 'var(--bg)'};border:1px solid ${canBuy ? 'var(--gold-dim)' : 'var(--border)'};border-radius:var(--radius-sm);color:${alreadyOwned ? 'var(--green)' : canBuy ? 'var(--gold)' : 'var(--text-dim)'};cursor:${canBuy ? 'pointer' : 'default'}" ${canBuy ? '' : 'disabled'}>${alreadyOwned ? 'Acquis' : 'Échanger'}</button>
-        </div>`;
-      }).join('')}
-    </div>`;
-
-  panel.innerHTML = toggleBtn + recipesHtml + wingExchangeHtml + wingZonesHtml;
-
-  document.getElementById('btnBarterMbToggle')?.addEventListener('click', () => {
-    _barterMbReverse = !_barterMbReverse;
-    renderBarterPanel();
-  });
-
-  panel.querySelectorAll('[data-barter]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const [giveId, giveQty, getId, getQty] = recipes[parseInt(btn.dataset.barter)];
-      if ((state.inventory?.[giveId] || 0) < giveQty) { SFX.play('error'); return; }
-      state.inventory[giveId] -= giveQty;
-      state.inventory[getId] = (state.inventory[getId] || 0) + getQty;
-      saveState(); updateTopBar(); SFX.play('buy');
-      notify(`Troc effectué !`, 'success');
-      renderBarterPanel();
-    });
-  });
-
-  panel.querySelectorAll('[data-wing-barter]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const wx = WING_EXCHANGES[parseInt(btn.dataset.wingBarter)];
-      if (!wx) return;
-      if ((state.inventory?.[wx.giveId] || 0) < wx.giveQty) { SFX.play('error'); return; }
-      state.inventory[wx.giveId] -= wx.giveQty;
-      state.inventory[wx.getId] = (state.inventory[wx.getId] || 0) + wx.getQty;
-      saveState(); updateTopBar(); SFX.play('buy');
-      notify(`🪶 Échange effectué !`, 'success');
-      renderBarterPanel();
-    });
-  });
-
-  panel.querySelectorAll('[data-wing-permit]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const permitId = btn.dataset.wingPermit;
-      const itemDef = SHOP_ITEMS.find(s => s.id === permitId);
-      if (!itemDef) return;
-      if (buyItem(itemDef)) {
-        SFX.play('buy');
-        renderBarterPanel();
-        renderShopPanel();
-        if (activeTab === 'tabZones') renderZonesTab();
-      }
-    });
-  });
-}
-
-// ── Quest Panel (replaces sell panel) ────────────────────────────
-function renderSpecialItemPanel() {
-  const panel = document.querySelector('#specialItemPanel .special-list');
-  if (!panel) return;
-
-  const ZONE_UNLOCK_IDS = new Set(['map_pallet','casino_ticket','silph_keycard','boat_ticket','tourbillon_permit','carillon_permit']);
-  const WING_PERMIT_IDS = new Set(['tourbillon_permit','carillon_permit']);
-  const items = SHOP_ITEMS.filter(item => ZONE_UNLOCK_IDS.has(item.id));
-
-  const html = items.map(item => {
-    const alreadyOwned = state.purchases?.[item.id];
-    const isWingPermit = WING_PERMIT_IDS.has(item.id);
-    const wingHave = isWingPermit ? (state.inventory[item.wingCost?.item] || 0) : 0;
-    const wingName = isWingPermit
-      ? (item.wingCost?.item === 'silver_wing' ? "Argent'Aile" : "Arcenci'Aile")
-      : '';
-    const btnDisabled = alreadyOwned || (isWingPermit && wingHave < (item.wingCost?.qty || 50));
-    const btnLabel = alreadyOwned
-      ? 'Acquis'
-      : isWingPermit
-        ? `${item.wingCost?.qty||50}× ${wingName}`
-        : `${item.cost.toLocaleString()}₽`;
-    const desc = state.lang === 'fr' ? item.desc_fr : item.desc_en;
-    const statusHtml = alreadyOwned
-      ? `<div style="font-size:10px;color:var(--green)">✓ Zone débloquée</div>`
-      : isWingPermit
-        ? `<div style="font-size:10px;color:${wingHave>=(item.wingCost?.qty||50)?'var(--gold)':'var(--red)'}">
-            ${wingName} : ${wingHave}/${item.wingCost?.qty||50}</div>`
-        : `<div style="font-size:10px;color:var(--text-dim)">Débloque une zone</div>`;
-    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid var(--border);opacity:${btnDisabled?'0.6':'1'}">
-      ${itemSprite(item.id)}
-      <div style="flex:1">
-        <div style="font-size:12px">${state.lang==='fr' ? item.fr : item.en}</div>
-        <div style="font-size:9px;color:var(--text-dim);margin-top:2px">${desc}</div>
-        ${statusHtml}
-      </div>
-      <button style="font-family:var(--font-pixel);font-size:9px;padding:6px 10px;background:var(--bg);
-        border:1px solid ${btnDisabled?'var(--border)':'var(--gold-dim)'};border-radius:var(--radius-sm);
-        color:${btnDisabled?'var(--text-dim)':'var(--gold)'};cursor:${btnDisabled?'default':'pointer'};white-space:nowrap"
-        data-zone-item-idx="${SHOP_ITEMS.indexOf(item)}" ${btnDisabled?'disabled':''}>${btnLabel}</button>
-    </div>`;
-  }).join('');
-
-  panel.innerHTML = html || '<div style="color:var(--text-dim);font-size:10px;padding:12px">Aucun accès disponible.</div>';
-
-  panel.querySelectorAll('[data-zone-item-idx]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const item = SHOP_ITEMS[parseInt(btn.dataset.zoneItemIdx)];
-      if (!item || btn.disabled) return;
-      buyItem(item);
-      updateTopBar();
-      renderSpecialItemPanel();
-      if (activeTab === 'tabZones') renderZoneWindows();
-    });
-  });
-}
-
-let shopMultiplier = 1; // ×1, ×5, ×10
-
-function renderShopPanel() {
-  const panel = document.querySelector('#shopPanel .shop-list');
-  if (!panel) return;
-
-  const ZONE_UNLOCK_ITEM_IDS = new Set(['map_pallet','casino_ticket','silph_keycard','boat_ticket','tourbillon_permit','carillon_permit']);
-  const ONE_OFF_IDS = new Set(['mysteryegg','incubator','translator']);
-  const WING_PERMIT_IDS = new Set(['tourbillon_permit','carillon_permit']);
-  const shopItems = SHOP_ITEMS.filter(item => !ZONE_UNLOCK_ITEM_IDS.has(item.id));
-
-  // ── Multiplier toolbar ─────────────────────────────────────────
-  const multBar = [1,5,10].map(m =>
-    `<button class="shop-mult-btn" data-mult="${m}" style="font-family:var(--font-pixel);font-size:9px;padding:4px 10px;border-radius:var(--radius-sm);cursor:pointer;
-      background:${shopMultiplier===m?'var(--gold-dim)':'var(--bg)'};
-      border:1px solid ${shopMultiplier===m?'var(--gold)':'var(--border)'};
-      color:${shopMultiplier===m?'#0a0a0a':'var(--text)'}"
-    >×${m}</button>`
-  ).join('');
-
-  // ── Shop items ─────────────────────────────────────────────────
-  const itemsHtml = shopItems.map(item => {
-    const ballInfo = BALLS[item.id];
-    const name = ballInfo ? (state.lang === 'fr' ? ballInfo.fr : ballInfo.en) : (state.lang === 'fr' ? (item.fr || item.id) : (item.en || item.id));
-    const owned = state.inventory[item.id] || 0;
-    const isOneOff = ONE_OFF_IDS.has(item.id);
-    const mult = isOneOff ? 1 : shopMultiplier;
-    const baseCost = item.id === 'mysteryegg' ? getMysteryEggCost()
-      : item.id === 'incubator' ? Math.round(15000 * Math.pow(2, owned))
-      : item.cost;
-    const totalCost = baseCost * mult;
-    const totalQty  = item.qty * mult;
-    const isUnlockItem = ZONE_UNLOCK_ITEM_IDS.has(item.id);
-    const alreadyOwned = isUnlockItem && state.purchases?.[item.id];
-    const incubatorMaxed = item.id === 'incubator' && owned >= 10;
-    const desc = item.desc_fr
-      ? (state.lang === 'fr' ? item.desc_fr : item.desc_en)
-      : `×${totalQty}`;
-    const isWingPermit = WING_PERMIT_IDS.has(item.id);
-    const wingHave = isWingPermit ? (state.inventory[item.wingCost?.item] || 0) : 0;
-    const wingName = isWingPermit
-      ? (item.wingCost?.item === 'silver_wing' ? "Argent'Aile" : "Arcenci'Aile")
-      : '';
-    const extraInfo = item.id === 'mysteryegg'
-      ? `<div style="font-size:9px;color:var(--text-dim)">Achat #${(state.purchases?.mysteryEggCount||0)+1} — 45min éclosion</div>`
-      : item.id === 'incubator'
-        ? `<div style="font-size:10px;color:var(--text-dim)">Possédés: ${owned}/10${incubatorMaxed ? ' <span style="color:var(--red)">MAX</span>' : ''}</div>`
-        : isWingPermit
-          ? `<div style="font-size:10px;color:${alreadyOwned?'var(--green)':wingHave>=(item.wingCost?.qty||50)?'var(--gold)':'var(--red)'}">
-              ${alreadyOwned ? '✓ Possédé' : `${wingName} : ${wingHave}/${item.wingCost?.qty||50}`}
-             </div>`
-          : isUnlockItem
-            ? `<div style="font-size:10px;color:${alreadyOwned?'var(--green)':'var(--text-dim)'}"> ${alreadyOwned ? '✓ Possédé' : 'Débloque une zone'}</div>`
-            : `<div style="font-size:10px;color:var(--text-dim)">Stock: ${owned}${!isOneOff && mult>1 ? ` (+${totalQty})` : ''}</div>`;
-    const btnDisabled = alreadyOwned || incubatorMaxed || (isWingPermit && wingHave < (item.wingCost?.qty || 50));
-    const btnLabel = (alreadyOwned || incubatorMaxed)
-      ? (incubatorMaxed ? 'MAX' : 'Acquis')
-      : isWingPermit
-        ? `${item.wingCost?.qty||50}× ${wingName}`
-        : `${totalCost.toLocaleString()}₽${mult>1&&!isOneOff ? ` ×${mult}` : ''}`;
-    return `<div style="display:flex;align-items:center;gap:8px;padding:8px 4px;border-bottom:1px solid var(--border);opacity:${btnDisabled?'0.6':'1'}">
-      ${itemSprite(item.id)}
-      <div style="flex:1">
-        <div style="font-size:12px">${name} <span style="color:var(--text-dim)">(${desc})</span></div>
-        ${extraInfo}
-      </div>
-      <button style="font-family:var(--font-pixel);font-size:9px;padding:6px 10px;background:var(--bg);
-        border:1px solid ${btnDisabled?'var(--border)':'var(--gold-dim)'};border-radius:var(--radius-sm);
-        color:${btnDisabled?'var(--text-dim)':'var(--gold)'};cursor:${btnDisabled?'default':'pointer'};white-space:nowrap"
-        data-shop-idx="${SHOP_ITEMS.indexOf(item)}" data-shop-mult="${mult}" ${btnDisabled?'disabled':''}>${btnLabel}</button>
-    </div>`;
-  }).join('');
-
-  // ── Active ball selector ───────────────────────────────────────
-  const ballSel = `
-    <div style="padding:10px 4px;border-top:2px solid var(--border);margin-top:4px">
-      <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold);margin-bottom:8px">— BALL ACTIVE —</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap">
-        ${Object.entries(BALLS).map(([key, ball]) => `
-          <button data-ball="${key}" style="font-size:10px;padding:4px 10px;border-radius:var(--radius-sm);cursor:pointer;
-            background:${state.activeBall===key?'var(--red-dark)':'var(--bg)'};
-            border:1px solid ${state.activeBall===key?'var(--red)':'var(--border)'};color:var(--text)">
-            ${state.lang==='fr'?ball.fr:ball.en} (${state.inventory[key]||0})
-          </button>`).join('')}
-      </div>
-    </div>`;
-
-  panel.innerHTML = `
-    <div style="display:flex;align-items:center;gap:6px;padding:6px 4px 8px;border-bottom:1px solid var(--border)">
-      <span style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim)">Quantité :</span>
-      ${multBar}
-    </div>
-    ${itemsHtml}${ballSel}`;
-
-  // ── Bind events ────────────────────────────────────────────────
-  panel.querySelectorAll('.shop-mult-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      shopMultiplier = parseInt(btn.dataset.mult);
-      renderShopPanel();
-    });
-  });
-  panel.querySelectorAll('[data-shop-idx]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const item = SHOP_ITEMS[parseInt(btn.dataset.shopIdx)];
-      const mult = parseInt(btn.dataset.shopMult) || 1;
-      if (!item || btn.disabled) return;
-      for (let i = 0; i < mult; i++) {
-        if (!buyItem(item)) break;
-      }
-      updateTopBar();
-      renderShopPanel();
-      if (activeTab === 'tabZones') renderZoneWindows();
-    });
-  });
-  panel.querySelectorAll('[data-ball]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      state.activeBall = btn.dataset.ball;
-      saveState();
-      renderShopPanel();
-    });
-  });
-}
 
 // ════════════════════════════════════════════════════════════════
 // 17.  UI — PC / POKÉDEX
 // ════════════════════════════════════════════════════════════════
 // Extracted to modules/ui/pcPokedex.js.
 
-// 18b. UI — AGENTS TAB
+// 18b. UI — AGENTS TAB (extracted to modules/ui/agentsTab.js)
 // ════════════════════════════════════════════════════════════════
 
-function renderAgentPerkModal(agentId) {
-  const agent = state.agents.find(a => a.id === agentId);
-  if (!agent) return;
-
-  const overlay = document.createElement('div');
-  overlay.className = 'perk-modal-overlay';
-  overlay.innerHTML = `
-    <div class="perk-modal-box">
-      <div class="perk-modal-title">${agent.name} — PERK Lv.${agent.level}</div>
-      <div style="font-size:10px;color:var(--text-dim);margin-bottom:12px">Choisis une amelioration :</div>
-      <div class="perk-modal-btns">
-        <button class="perk-modal-btn" data-perk="combat">+3 ATK</button>
-        <button class="perk-modal-btn" data-perk="capture">+3 CAP</button>
-        <button class="perk-modal-btn" data-perk="luck">+3 LCK</button>
-      </div>
-    </div>`;
-
-  document.body.appendChild(overlay);
-
-  overlay.querySelectorAll('[data-perk]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const stat = btn.dataset.perk;
-      agent.stats[stat] = (agent.stats[stat] || 0) + 3;
-      if (!agent.perkLevels) agent.perkLevels = [];
-      agent.perkLevels.push({ level: agent.level, stat });
-      agent.pendingPerk = false;
-      saveState();
-      overlay.remove();
-      renderAgentsTab();
-    });
-  });
-
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) overlay.remove();
-  });
-}
-
-const AGENT_BALLS = ['pokeball','greatball','ultraball','duskball','masterball'];
-const AGENT_BALL_LABELS = { pokeball:'Poké Ball', greatball:'Super Ball', ultraball:'Hyper Ball', duskball:'Sombre Ball', masterball:'Master Ball' };
-// Behavior flag config (used for global "tout" buttons)
-const BEHAVIOR_FLAGS = [
-  { key:'autoCombat',  icon:'⚔️',  label:'Combat'  },
-  { key:'autoRaid',    icon:'💣',  label:'Raid'    },
-  { key:'autoCapture', icon:'🎯', label:'Capture' },
-];
-
-function renderAgentsTab() {
-  const grid = document.getElementById('agentsGrid');
-  if (!grid) return;
-
-  const unlockedZones = ZONES.filter(z => isZoneUnlocked(z.id));
-  const RECRUIT_COST  = getAgentRecruitCost();
-
-  // ── Player stat card ────────────────────────────────────────────
-  const ps      = state.playerStats || {};
-  const psBase  = ps.baseStats  || { combat: 10, capture: 10, luck: 5 };
-  const psAlloc = ps.allocatedStats || { combat: 0, capture: 0, luck: 0 };
-  const psPts   = ps.statPoints || 0;
-  const psAtk   = (psBase.combat  || 0) + (psAlloc.combat  || 0);
-  const psCap   = (psBase.capture || 0) + (psAlloc.capture || 0);
-  const psLck   = (psBase.luck    || 0) + (psAlloc.luck    || 0);
-  const PLAYER_STAT_POINT_EVERY = 25;
-  const playerTotalPoints = Math.floor((state.stats?.totalCaught || 0) / PLAYER_STAT_POINT_EVERY);
-
-  let html = `
-    <div class="agent-card-full" style="border-color:var(--gold)" id="playerStatCard">
-      <div class="agent-header">
-        ${state.gang.bossSprite ? `<img src="${trainerSprite(state.gang.bossSprite)}" alt="Boss" style="width:44px;height:44px;image-rendering:pixelated">` : '<div style="width:44px;height:44px;background:var(--bg-card);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:20px">👤</div>'}
-        <div class="agent-meta">
-          <div class="agent-name" style="color:var(--gold)">${state.gang.bossName || 'Boss'}</div>
-          <div class="agent-title" style="color:var(--gold)">Chef de gang</div>
-          <div style="font-size:8px;color:var(--text-dim)">Pts gagnés : ${playerTotalPoints} · Distribués : ${playerTotalPoints - psPts} · Disponibles : <b style="color:var(--gold)">${psPts}</b></div>
-        </div>
-      </div>
-      <div class="agent-stats-row">
-        <span title="Base: ${psBase.combat}">ATK ${psAtk}${psAlloc.combat > 0 ? ` <small style="color:var(--gold)">(+${psAlloc.combat})</small>` : ''}</span>
-        <span title="Base: ${psBase.capture}">CAP ${psCap}${psAlloc.capture > 0 ? ` <small style="color:var(--gold)">(+${psAlloc.capture})</small>` : ''}</span>
-        <span title="Base: ${psBase.luck}">LCK ${psLck}${psAlloc.luck > 0 ? ` <small style="color:var(--gold)">(+${psAlloc.luck})</small>` : ''}</span>
-      </div>
-      <div style="display:flex;gap:6px;margin-top:6px">
-        <button id="btnPlayerStatModal" style="flex:1;font-family:var(--font-pixel);font-size:7px;padding:4px;background:rgba(255,204,90,.1);border:1px solid var(--gold);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">📊 Attribuer les stats${psPts > 0 ? ` (${psPts} pts)` : ''}</button>
-      </div>
-    </div>`;
-
-  // ── Global ball setters ─────────────────────────────────────────
-  const availBalls = AGENT_BALLS.filter(b => (state.inventory[b] || 0) > 0 || b === 'pokeball');
-  html += `<div id="agentGlobalControls" style="grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);margin-bottom:4px">
-    <span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">TOUT :</span>
-    ${availBalls.map(b => `<button data-setallball="${b}" title="Définir ${AGENT_BALL_LABELS[b]} pour tous" style="display:flex;align-items:center;gap:3px;padding:3px 7px;font-size:8px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;color:var(--text)">
-      <img src="${BALL_SPRITES[b] || ''}" style="width:14px;height:14px;image-rendering:pixelated"> ${AGENT_BALL_LABELS[b]}
-    </button>`).join('')}
-    <span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);margin-left:8px">AUTO :</span>
-    ${BEHAVIOR_FLAGS.map(f => `<button data-setallflag="${f.key}" data-val="true" title="${f.label} ON pour tous" style="padding:3px 7px;font-size:8px;background:var(--bg-card);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);cursor:pointer;color:var(--gold)">${f.icon} ${f.label} ON</button><button data-setallflag="${f.key}" data-val="false" title="${f.label} OFF pour tous" style="padding:3px 7px;font-size:8px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;color:var(--text-dim)">${f.icon} OFF</button>`).join('')}
-  </div>`;
-
-  // ── Agent cards ─────────────────────────────────────────────────
-  for (const a of state.agents) {
-    const xpNeeded = a.level * 30;
-    const xpPct    = Math.min(100, (a.xp / xpNeeded) * 100);
-    const alloc    = a.allocatedStats || { capture: 0, combat: 0, luck: 0 };
-    const zoneOptions = unlockedZones.map(z =>
-      `<option value="${z.id}" ${a.assignedZone === z.id ? 'selected' : ''}>${state.lang === 'fr' ? z.fr : z.en}</option>`
-    ).join('');
-
-    const teamSlots = [0, 1, 2].map(i => {
-      const pkId = a.team[i];
-      const pk   = pkId ? state.pokemons.find(p => p.id === pkId) : null;
-      if (pk) return `<div class="agent-team-slot filled" data-agent-team="${a.id}" data-slot="${i}" title="${speciesName(pk.species_en)} Lv.${pk.level}"><img src="${pokeIcon(pk.species_en)}" style="${pk.shiny ? 'filter:drop-shadow(0 0 2px var(--gold))' : ''}" onerror="this.src='${pokeSprite(pk.species_en, pk.shiny)}'"></div>`;
-      return `<div class="agent-team-slot" data-agent-team="${a.id}" data-slot="${i}">+</div>`;
-    }).join('');
-
-    // Ball selector
-    const curBall   = a.preferredBall || 'pokeball';
-    const curBallSp = BALL_SPRITES[curBall] || '';
-    const ballBtns  = AGENT_BALLS.map(b => {
-      const qty = state.inventory[b] || 0;
-      const active = b === curBall;
-      return `<button data-agent-ball="${a.id}" data-ball="${b}" title="${AGENT_BALL_LABELS[b]} (×${qty})" style="padding:2px 4px;border:1px solid ${active ? 'var(--gold)' : 'var(--border)'};background:${active ? 'rgba(255,204,90,.15)' : 'var(--bg)'};border-radius:3px;cursor:pointer;opacity:${qty > 0 || active ? '1' : '.4'}">
-        <img src="${BALL_SPRITES[b] || ''}" style="width:16px;height:16px;image-rendering:pixelated">
-      </button>`;
-    }).join('');
-
-    // Behavior toggles (3 independent flags)
-    const _bhBtn = (flag, icon, label) => {
-      const on = a[flag] !== false;
-      const activeStyle = on ? 'border:1px solid var(--gold);background:rgba(255,204,90,.15);color:var(--gold)' : 'border:1px solid var(--border);background:var(--bg);color:var(--text-dim)';
-      return `<button data-ag-flag="${a.id}" data-flag="${flag}" style="padding:2px 7px;font-size:8px;border-radius:3px;cursor:pointer;${activeStyle}">${icon} ${label}${on ? '' : ' ✗'}</button>`;
-    };
-    const bhBtns = _bhBtn('autoCombat','⚔️','Combat') + _bhBtn('autoRaid','💣','Raid') + _bhBtn('autoCapture','🎯','Capture');
-
-    const statPts = a.statPoints || 0;
-
-    const cosmUnlockedAgent = state.purchases?.cosmeticsPanel;
-    html += `<div class="agent-card-full" data-agent-id="${a.id}">
-      <div class="agent-header">
-        <img src="${a.sprite}" alt="${a.name}" onerror="this.src='${FALLBACK_TRAINER_SVG}';this.onerror=null">
-        <div class="agent-meta">
-          <div class="agent-title agent-rank-${a.title}" style="display:flex;align-items:baseline;gap:5px;flex-wrap:nowrap;overflow:hidden">
-            <span style="font-size:7px;opacity:.75;flex-shrink:0">[${getAgentRankLabel(a)}]</span>
-            <span style="font-family:var(--font-pixel);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.name}</span>
-            <span style="font-size:8px;opacity:.7;flex-shrink:0">Lv.${a.level}</span>
-          </div>
-          <div class="agent-xp-bar"><div class="agent-xp-fill" style="width:${xpPct}%"></div></div>
-        </div>
-        ${cosmUnlockedAgent ? `<div style="display:flex;flex-direction:column;gap:3px;margin-left:auto;padding-left:6px">
-          <button class="agent-card-rename" data-agent-id="${a.id}" title="Renommer (2 000₽)" style="font-size:10px;padding:2px 5px;background:var(--bg);border:1px solid var(--border);border-radius:3px;cursor:pointer;color:var(--text-dim)">✏</button>
-          <button class="agent-card-sprite" data-agent-id="${a.id}" title="Changer sprite (5 000₽)" style="font-size:10px;padding:2px 5px;background:var(--bg);border:1px solid var(--border);border-radius:3px;cursor:pointer;color:var(--text-dim)">🎨</button>
-        </div>` : ''}
-      </div>
-      <div class="agent-stats-row">
-        <span title="Base: ${a.baseStats?.combat ?? a.stats.combat}">ATK ${a.stats.combat}${alloc.combat > 0 ? ` <small style="color:var(--gold)">(+${alloc.combat})</small>` : ''}</span>
-        <span title="Base: ${a.baseStats?.capture ?? a.stats.capture}">CAP ${a.stats.capture}${alloc.capture > 0 ? ` <small style="color:var(--gold)">(+${alloc.capture})</small>` : ''}</span>
-        <span title="Base: ${a.baseStats?.luck ?? a.stats.luck}">LCK ${a.stats.luck}${alloc.luck > 0 ? ` <small style="color:var(--gold)">(+${alloc.luck})</small>` : ''}</span>
-      </div>
-
-      <!-- Ball selector -->
-      <div style="display:flex;align-items:center;gap:4px;margin:4px 0;flex-wrap:wrap">
-        <span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">BALL :</span>
-        ${ballBtns}
-      </div>
-
-      <!-- Comportements auto -->
-      <div style="display:flex;align-items:center;gap:4px;margin-bottom:6px;flex-wrap:wrap">
-        <span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">AUTO :</span>
-        ${bhBtns}
-      </div>
-
-      <div style="font-size:9px">
-        <select class="agents-zone-select" data-agent-id="${a.id}" style="background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:4px;font-size:9px;padding:2px 4px;width:100%">
-          <option value="">— Aucune zone —</option>
-          ${zoneOptions}
-        </select>
-      </div>
-      <div class="agent-team-slots">${teamSlots}</div>
-      <div class="agent-personality">${a.personality.join(', ')}</div>
-
-      <!-- Stat points & respec -->
-      ${!a.natureDefined
-        ? `<div style="margin-top:6px">
-            <button data-agent-statmodal="${a.id}" style="width:100%;font-family:var(--font-pixel);font-size:7px;padding:6px;background:rgba(224,92,92,.12);border:2px solid #e05c5c;border-radius:var(--radius-sm);color:#e05c5c;cursor:pointer;animation:pulse 1.6s infinite">
-              🌟 DÉFINIR SA NATURE PROFONDE
-            </button>
-          </div>`
-        : `<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
-            <button data-agent-statmodal="${a.id}" style="flex:1;font-family:var(--font-pixel);font-size:7px;padding:4px;background:${statPts > 0 ? 'rgba(255,204,90,.12)' : 'var(--bg)'};border:1px solid ${statPts > 0 ? 'var(--gold)' : 'var(--border)'};border-radius:var(--radius-sm);color:${statPts > 0 ? 'var(--gold)' : 'var(--text-dim)'};cursor:pointer">
-              📊 Stats${statPts > 0 ? ` (${statPts} pts !)` : ''}
-            </button>
-            <button data-agent-respec="${a.id}" title="Réattribuer les stats (1 000 000₽)" style="font-family:var(--font-pixel);font-size:7px;padding:4px 8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">🔄 Respec</button>
-          </div>`
-      }
-
-      <label class="agent-notify-toggle">
-        <input type="checkbox" class="agent-notify-cb" data-agent-id="${a.id}" ${a.notifyCaptures !== false ? 'checked' : ''}>
-        ${a.notifyCaptures !== false ? '🔔' : '🔕'} Notifications
-      </label>
-    </div>`;
-  }
-
-  // Recruit button
-  html += `<div class="agent-card-full" style="display:flex;align-items:center;justify-content:center;cursor:pointer;border:2px dashed var(--border-light);min-height:120px" id="btnRecruitAgentFull">
-    <div style="text-align:center">
-      <div style="font-size:28px">➕</div>
-      <div style="font-family:var(--font-pixel);font-size:9px;color:var(--text);margin-top:6px">Recruter</div>
-      <div style="font-size:10px;color:var(--gold)">₽ ${RECRUIT_COST.toLocaleString()}</div>
-    </div>
-  </div>`;
-
-  grid.innerHTML = html;
-
-  // Agent tree toggle
-  const treeBtn = document.getElementById('btnToggleAgentTree');
-  const treeCon = document.getElementById('agentTreeContainer');
-  if (treeBtn && treeCon) {
-    treeBtn.addEventListener('click', () => {
-      const open = treeCon.style.display === 'none';
-      treeCon.style.display = open ? 'block' : 'none';
-      treeBtn.textContent  = open ? '🌳 Masquer l\'arbre' : '🌳 Afficher l\'arbre';
-      if (open) renderAgentTree(treeCon);
-    });
-  }
-
-  // Wire unequip-all button (once, guarded)
-  const unequipBtn = document.getElementById('btnUnequipAll');
-  if (unequipBtn && !unequipBtn.dataset.wired) {
-    unequipBtn.dataset.wired = '1';
-    unequipBtn.addEventListener('click', () => {
-      for (const a of state.agents) a.team = [];
-      saveState();
-      renderAgentsTab();
-      notify(state.lang === 'fr' ? 'Toutes les équipes vidées' : 'All teams cleared', 'success');
-    });
-  }
-
-  // Bind events
-  // Recruit
-  document.getElementById('btnRecruitAgentFull')?.addEventListener('click', () => {
-    openAgentRecruitModal(() => renderAgentsTab());
-  });
-
-  // Zone assignment
-  grid.querySelectorAll('.agents-zone-select').forEach(sel => {
-    sel.addEventListener('change', (e) => {
-      assignAgentToZone(e.target.dataset.agentId, e.target.value || null);
-      if (activeTab === 'tabZones') renderZoneWindows();
-    });
-  });
-
-  // Team slot clicks
-  grid.querySelectorAll('[data-agent-team]').forEach(slot => {
-    slot.addEventListener('click', () => {
-      const agentId = slot.dataset.agentTeam;
-      const slotIdx = parseInt(slot.dataset.slot);
-      const agent = state.agents.find(a => a.id === agentId);
-      if (!agent) return;
-      const pkId = agent.team[slotIdx];
-      if (pkId) {
-        // Remove from team
-        agent.team.splice(slotIdx, 1);
-        saveState();
-        renderAgentsTab();
-      } else {
-        // Show picker
-        openTeamPicker('agent', agentId, () => renderAgentsTab());
-      }
-    });
-  });
-
-  // Notification toggle
-  grid.querySelectorAll('.agent-notify-cb').forEach(cb => {
-    cb.addEventListener('change', (e) => {
-      const agent = state.agents.find(a => a.id === e.target.dataset.agentId);
-      if (agent) {
-        agent.notifyCaptures = e.target.checked;
-        saveState();
-        renderAgentsTab();
-      }
-    });
-  });
-
-  // Ball selector per agent
-  grid.querySelectorAll('[data-agent-ball]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const agent = state.agents.find(a => a.id === btn.dataset.agentBall);
-      if (!agent) return;
-      agent.preferredBall = btn.dataset.ball;
-      saveState();
-      renderAgentsTab();
-    });
-  });
-
-  // Behavior flag toggles per agent
-  grid.querySelectorAll('[data-ag-flag]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const agent = state.agents.find(a => a.id === btn.dataset.agFlag);
-      if (!agent) return;
-      const flag = btn.dataset.flag;
-      agent[flag] = agent[flag] === false ? true : false; // toggle
-      saveState();
-      renderAgentsTab();
-    });
-  });
-
-  // Global ball setters
-  grid.querySelectorAll('[data-setallball]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const ball = btn.dataset.setallball;
-      state.agents.forEach(a => { a.preferredBall = ball; });
-      saveState();
-      renderAgentsTab();
-      notify(`Tous les agents → ${AGENT_BALL_LABELS[ball]}`, 'success');
-    });
-  });
-
-  // Global behavior flag setters
-  grid.querySelectorAll('[data-setallflag]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const flag = btn.dataset.setallflag;
-      const val  = btn.dataset.val === 'true';
-      state.agents.forEach(a => { a[flag] = val; });
-      saveState();
-      renderAgentsTab();
-      const cfg = BEHAVIOR_FLAGS.find(f => f.key === flag);
-      notify(`Tous les agents → ${cfg?.label || flag} ${val ? 'ON' : 'OFF'}`, val ? 'success' : '');
-    });
-  });
-
-  // Stat modal per agent — route to nature modal if not yet defined
-  grid.querySelectorAll('[data-agent-statmodal]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const agentId = btn.dataset.agentStatmodal;
-      const agent   = state.agents.find(a => a.id === agentId);
-      if (!agent) return;
-      if (!agent.natureDefined) openAgentNatureModal(agentId);
-      else                      openAgentStatModal(agentId);
-    });
-  });
-
-  // Respec per agent
-  grid.querySelectorAll('[data-agent-respec]').forEach(btn => {
-    btn.addEventListener('click', () => respecAgentStats(btn.dataset.agentRespec));
-  });
-
-  // Player stat modal
-  document.getElementById('btnPlayerStatModal')?.addEventListener('click', openPlayerStatModal);
-
-  // Right-click context menu on agent cards
-  grid.querySelectorAll('.agent-card-full[data-agent-id]').forEach(card => {
-    card.addEventListener('contextmenu', (e) => {
-      e.preventDefault();
-      const aId = card.dataset.agentId;
-      const agent = state.agents.find(a => a.id === aId);
-      if (!agent) return;
-      const unlockedZones = ZONES.filter(z => isZoneUnlocked(z.id));
-      const zoneItems = unlockedZones.slice(0, 8).map(z => ({
-        action: 'zone_' + z.id,
-        label: (state.lang === 'fr' ? z.fr : z.en),
-        fn: () => { agent.assignedZone = z.id; saveState(); renderAgentsTab(); notify(agent.name + ' -> ' + (state.lang === 'fr' ? z.fr : z.en), 'success'); syncBackgroundZones(); }
-      }));
-      showContextMenu(e.clientX, e.clientY, [
-        { action:'clearteam', label:'Vider l\'equipe', fn: () => { agent.team = []; saveState(); renderAgentsTab(); } },
-        { action:'autoteam', label:'Auto-equipe (top 3)', fn: () => {
-          const usedIds = new Set();
-          state.agents.forEach(a => { if (a.id !== agent.id) a.team.forEach(id => usedIds.add(id)); });
-          state.gang.bossTeam.forEach(id => usedIds.add(id));
-          const avail = state.pokemons.filter(p => !usedIds.has(p.id)).sort((a,b) => getPokemonPower(b) - getPokemonPower(a));
-          agent.team = avail.slice(0, 3).map(p => p.id);
-          saveState(); renderAgentsTab(); notify('Equipe auto assignee', 'success');
-        }},
-        ...zoneItems.length ? [{ action:'envoyer', label:'Envoyer en zone', fn: () => {} }, ...zoneItems] : [],
-        { action:'unassign', label:'Retirer de la zone', fn: () => { agent.assignedZone = null; saveState(); renderAgentsTab(); syncBackgroundZones(); } },
-      ]);
-    });
-  });
-
-  // Rename / sprite buttons (cosmétiques dans agents tab)
-  grid.querySelectorAll('.agent-card-rename').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (state.gang.money < 2000) { notify('Fonds insuffisants (2 000₽)', 'error'); return; }
-      const agent = state.agents.find(a => a.id === btn.dataset.agentId);
-      if (!agent) return;
-      openNameModal({ title: `Renommer ${agent.name}`, current: agent.name, cost: 2000, onConfirm: (val) => {
-        state.gang.money -= 2000;
-        agent.name = val;
-        saveState(); renderAgentsTab();
-        notify(`Agent renommé : ${val}`, 'gold');
-      }});
-    });
-  });
-  grid.querySelectorAll('.agent-card-sprite').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (state.gang.money < 5000) { notify('Fonds insuffisants (5 000₽)', 'error'); return; }
-      const agent = state.agents.find(a => a.id === btn.dataset.agentId);
-      if (!agent) return;
-      openSpritePicker(null, (newSprite) => {
-        state.gang.money -= 5000;
-        agent.sprite = trainerSprite(newSprite);
-        saveState(); renderAgentsTab();
-        notify(`Sprite de ${agent.name} mis à jour !`, 'gold');
-      });
-    });
-  });
-
-}
-
-// ── Agent org-chart (proto — visual only, no mechanical assignment yet) ──
-// Ranks: grunt → sergent → lieutenant → commandant → elite/général
-// Capacity per rank (how many direct reports they can have):
-const RANK_CAPACITY = { grunt: 0, sergent: 2, lieutenant: 3, commandant: 4, elite: 5, general: 6 };
-// Rank level (higher = more senior)
-const RANK_LEVEL = { grunt: 0, sergent: 1, lieutenant: 2, commandant: 3, elite: 4, general: 5 };
-
-function renderAgentTree(container) {
-  const RANK_COLOR = {
-    grunt:      'var(--text-dim)',
-    sergent:    '#7ecfff',
-    lieutenant: '#b07cff',
-    commandant: 'var(--gold)',
-    elite:      '#ff8c5a',
-    general:    'var(--red)',
-  };
-  const RANK_FR = { grunt:'Grunt', sergent:'Sergent', lieutenant:'Lieutenant', commandant:'Commandant', elite:'Élite', general:'Général' };
-
-  // Sort agents by rank level desc
-  const sorted = [...state.agents].sort((a, b) => (RANK_LEVEL[b.title] ?? 0) - (RANK_LEVEL[a.title] ?? 0));
-
-  // Group by rank
-  const byRank = {};
-  for (const a of sorted) {
-    (byRank[a.title] = byRank[a.title] || []).push(a);
-  }
-
-  // Build level columns (boss + each rank level)
-  const rankOrder = ['general','elite','commandant','lieutenant','sergent','grunt'];
-  const usedRanks = rankOrder.filter(r => byRank[r]?.length);
-
-  const agentNode = (a) => {
-    const cap  = RANK_CAPACITY[a.title] || 0;
-    const col  = RANK_COLOR[a.title]   || 'var(--text-dim)';
-    const zone = a.assignedZone ? (ZONE_BY_ID[a.assignedZone]?.fr || a.assignedZone) : '—';
-    return `<div class="agent-tree-node" style="border-color:${col};background:var(--bg-panel)">
-      <img src="${a.sprite}" style="width:32px;height:32px;image-rendering:pixelated" onerror="this.style.display='none'">
-      <div>
-        <div style="font-family:var(--font-pixel);font-size:7px;color:${col}">${RANK_FR[a.title] || a.title}</div>
-        <div style="font-size:9px;margin-top:1px">${a.name}</div>
-        <div style="font-size:8px;color:var(--text-dim);margin-top:1px">Lv.${a.level} · ${zone}</div>
-        ${cap > 0 ? `<div style="font-size:7px;color:var(--text-dim);margin-top:2px;font-family:var(--font-pixel)">⬇ ${cap} max</div>` : ''}
-      </div>
-    </div>`;
-  };
-
-  const bossNode = `<div class="agent-tree-node" style="border-color:var(--gold);background:rgba(255,204,90,.06)">
-    ${state.gang.bossSprite ? `<img src="${trainerSprite(state.gang.bossSprite)}" style="width:36px;height:36px;image-rendering:pixelated">` : '<span style="font-size:26px">👤</span>'}
-    <div>
-      <div style="font-family:var(--font-pixel);font-size:7px;color:var(--gold)">BOSS</div>
-      <div style="font-size:9px;margin-top:1px">${state.gang.bossName || 'Boss'}</div>
-      <div style="font-size:8px;color:var(--text-dim);margin-top:1px">${getBossFullTitle()}</div>
-    </div>
-  </div>`;
-
-  const columns = [
-    { label: 'Boss', nodes: [bossNode] },
-    ...usedRanks.map(r => ({
-      label: RANK_FR[r] + (byRank[r].length > 1 ? ` ×${byRank[r].length}` : ''),
-      color: RANK_COLOR[r],
-      nodes: byRank[r].map(agentNode),
-    })),
-  ];
-
-  if (!state.agents.length) {
-    container.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text-dim);font-size:10px;font-family:var(--font-pixel)">Recrutez des agents pour construire votre organisation.</div>`;
-    return;
-  }
-
-  container.innerHTML = `
-    <div style="display:flex;gap:0;align-items:flex-start;min-width:max-content">
-      ${columns.map((col, ci) => `
-        <div style="display:flex;flex-direction:column;align-items:center;position:relative">
-          <!-- connector line to next column -->
-          ${ci < columns.length - 1 ? '<div class="agent-tree-connector"></div>' : ''}
-          <div style="font-family:var(--font-pixel);font-size:7px;color:${col.color || 'var(--gold)'};margin-bottom:8px;white-space:nowrap">${col.label}</div>
-          <div style="display:flex;flex-direction:column;gap:8px">
-            ${col.nodes.join('')}
-          </div>
-        </div>
-      `).join('')}
-    </div>
-    <div style="margin-top:12px;font-size:8px;color:var(--text-dim);font-family:var(--font-pixel);opacity:.6">
-      ⚠ PROTO — L'assignation hiérarchique n'est pas encore implémentée.
-    </div>`;
-}
-
 // ════════════════════════════════════════════════════════════════
-// 18c. UI — MISSIONS TAB
+// 18c. UI — MISSIONS TAB (extracted to modules/ui/missionsTab.js)
 // ════════════════════════════════════════════════════════════════
-
-function renderMissionsTab() {
-  const el = document.getElementById('tabMissions');
-  if (!el) return;
-  initMissions();
-  initHourlyQuests();
-
-  // ── Helper: regular mission section ──────────────────────────
-  const renderSection = (title, missions) => {
-    let html = `<div style="margin-bottom:20px">
-      <h3 style="font-family:var(--font-pixel);font-size:11px;color:var(--gold);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">${title}</h3>`;
-    for (const m of missions) {
-      const progress = getMissionProgress(m);
-      const complete = isMissionComplete(m);
-      const claimed = isMissionClaimed(m);
-      const pct = Math.min(100, (progress / m.target) * 100);
-      const name = state.lang === 'fr' ? m.fr : m.en;
-      const rewardStr = [];
-      if (m.reward.money) rewardStr.push(m.reward.money.toLocaleString() + '₽');
-      if (m.reward.rep) rewardStr.push('+' + m.reward.rep + ' rep');
-      html += `<div style="display:flex;align-items:center;gap:10px;padding:8px;border-bottom:1px solid var(--border);opacity:${claimed ? '.5' : '1'}">
-        <img src="${pokeIcon(m.icon)}" style="width:32px;height:24px;image-rendering:pixelated;flex-shrink:0" onerror="this.style.display='none'">
-        <div style="flex:1;min-width:0">
-          <div style="font-size:12px;${claimed ? 'text-decoration:line-through' : ''}">${name}</div>
-          ${m.desc_fr ? `<div style="font-size:9px;color:var(--text-dim);margin-top:2px">${state.lang === 'fr' ? m.desc_fr : m.desc_en}</div>` : ''}
-          <div style="background:var(--bg);border-radius:3px;height:6px;margin-top:4px;overflow:hidden">
-            <div style="width:${pct}%;height:100%;background:${complete ? 'var(--green)' : 'var(--red)'};transition:width .3s"></div>
-          </div>
-          <div style="font-size:9px;color:var(--text-dim);margin-top:2px">${progress}/${m.target} — ${rewardStr.join(', ')}</div>
-        </div>
-        ${complete && !claimed
-          ? `<button class="btn-claim-mission" data-mission-id="${m.id}" style="font-family:var(--font-pixel);font-size:9px;padding:6px 12px;background:var(--green);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--bg);cursor:pointer;white-space:nowrap;animation:glow 1.5s ease-in-out infinite">${state.lang === 'fr' ? 'Récupérer' : 'Claim'}</button>`
-          : claimed ? '<span style="font-size:9px;color:var(--green)">✓</span>' : ''}
-      </div>`;
-    }
-    html += '</div>';
-    return html;
-  };
-
-  // ── Hourly quests section ────────────────────────────────────
-  const hourlyRem = Math.max(0, HOUR_MS - (Date.now() - state.missions.hourly.reset));
-  const hMin = Math.floor(hourlyRem / 60000);
-  const hSec = Math.floor((hourlyRem % 60000) / 1000);
-  let hourlyHtml = `<div style="margin-bottom:20px">
-    <h3 style="font-family:var(--font-pixel);font-size:11px;color:var(--gold);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">
-      Quêtes Horaires <span style="font-size:9px;color:var(--text-dim)">${hMin}m${String(hSec).padStart(2,'0')}s</span>
-    </h3>`;
-  for (let i = 0; i < 5; i++) {
-    const q = getHourlyQuest(i);
-    if (!q) continue;
-    const progress = getHourlyProgress(q);
-    const complete  = isHourlyComplete(q);
-    const claimed   = isHourlyClaimed(i);
-    const pct = Math.min(100, (progress / q.target) * 100);
-    const rewardStr = [q.reward.money ? q.reward.money.toLocaleString() + '₽' : '', q.reward.rep ? '+' + q.reward.rep + ' rep' : ''].filter(Boolean).join('  ');
-    const diffColor = q.diff === 'hard' ? 'var(--red)' : 'var(--blue)';
-    const fillColor = complete ? 'var(--green)' : diffColor;
-    hourlyHtml += `<div style="display:flex;align-items:center;gap:10px;padding:8px;border-bottom:1px solid var(--border);border-left:3px solid ${diffColor};opacity:${claimed?'.5':'1'}">
-      <img src="${pokeIcon(q.icon)}" style="width:32px;height:24px;image-rendering:pixelated;flex-shrink:0" onerror="this.style.display='none'">
-      <div style="flex:1;min-width:0">
-        <div style="font-size:12px;${claimed?'text-decoration:line-through':''}">
-          ${q.fr} <span style="font-size:7px;padding:1px 4px;border-radius:3px;background:${diffColor};color:#fff;font-family:var(--font-pixel)">${q.diff === 'hard' ? 'HARD' : 'MED'}</span>
-        </div>
-        <div style="background:var(--bg);border-radius:3px;height:6px;margin-top:4px;overflow:hidden">
-          <div style="width:${pct}%;height:100%;background:${fillColor};transition:width .3s"></div>
-        </div>
-        <div style="font-size:9px;color:var(--text-dim);margin-top:2px">${progress}/${q.target}  —  ${rewardStr}</div>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
-        ${complete && !claimed
-          ? `<button class="btn-claim-hourly" data-slot="${i}" style="font-family:var(--font-pixel);font-size:9px;padding:6px 12px;background:var(--green);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--bg);cursor:pointer;white-space:nowrap;animation:glow 1.5s ease-in-out infinite">Récupérer</button>`
-          : claimed ? '<span style="font-size:9px;color:var(--green)">✓</span>' : ''}
-        ${!claimed ? `<button class="btn-reroll-hourly" data-slot="${i}" style="font-size:7px;padding:3px 6px;background:var(--bg);border:1px solid var(--border);border-radius:3px;color:var(--text-dim);cursor:pointer;font-family:var(--font-pixel)">↻ ${HOURLY_QUEST_REROLL_COST}₽</button>` : ''}
-      </div>
-    </div>`;
-  }
-  hourlyHtml += '</div>';
-
-  // ── Timers ────────────────────────────────────────────────────
-  const dailyRem = Math.max(0, 86400000 - (Date.now() - state.missions.daily.reset));
-  const dailyH = Math.floor(dailyRem / 3600000);
-  const dailyM = Math.floor((dailyRem % 3600000) / 60000);
-  const weeklyRem = Math.max(0, 604800000 - (Date.now() - state.missions.weekly.reset));
-  const weeklyD = Math.floor(weeklyRem / 86400000);
-  const weeklyH = Math.floor((weeklyRem % 86400000) / 3600000);
-
-  const dailyMissions = MISSIONS.filter(m => m.type === 'daily');
-  const weeklyMissions = MISSIONS.filter(m => m.type === 'weekly');
-  const storyMissions = MISSIONS.filter(m => m.type === 'story');
-  const unclaimedStory = storyMissions.filter(m => !isMissionClaimed(m));
-  const claimedStory = storyMissions.filter(m => isMissionClaimed(m));
-
-  let content = hourlyHtml;
-  content += renderSection(
-    `${state.lang === 'fr' ? 'Missions Quotidiennes' : 'Daily Missions'} (${dailyH}h${String(dailyM).padStart(2,'0')})`,
-    dailyMissions
-  );
-  content += renderSection(
-    `${state.lang === 'fr' ? 'Missions Hebdomadaires' : 'Weekly Missions'} (${weeklyD}j ${weeklyH}h)`,
-    weeklyMissions
-  );
-  if (unclaimedStory.length > 0) {
-    content += renderSection(
-      state.lang === 'fr' ? 'Histoire & Objectifs' : 'Story & Objectives',
-      unclaimedStory
-    );
-  }
-  if (claimedStory.length > 0) {
-    content += renderSection(
-      state.lang === 'fr' ? 'Terminés' : 'Completed',
-      claimedStory
-    );
-  }
-
-  // ── Bouton "Tout réclamer" ──
-  const claimableMissions = MISSIONS.filter(m => isMissionComplete(m) && !isMissionClaimed(m));
-  const claimAllBtn = claimableMissions.length > 0
-    ? `<button id="btnClaimAllMissions" style="font-family:var(--font-pixel);font-size:9px;padding:7px 16px;background:var(--green);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--bg);cursor:pointer;margin-bottom:14px;animation:glow 1.5s ease-in-out infinite">✓ Tout réclamer (${claimableMissions.length})</button>`
-    : '';
-  el.innerHTML = `<div style="padding:12px">${claimAllBtn}${content}</div>`;
-
-  if (claimableMissions.length > 0) {
-    document.getElementById('btnClaimAllMissions')?.addEventListener('click', () => {
-      claimableMissions.forEach(m => claimMission(m));
-      saveState(); updateTopBar();
-      renderMissionsTab();
-    });
-  }
-  el.querySelectorAll('.btn-claim-mission').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const mission = MISSIONS.find(m => m.id === btn.dataset.missionId);
-      if (mission) { claimMission(mission); renderMissionsTab(); }
-    });
-  });
-  el.querySelectorAll('.btn-claim-hourly').forEach(btn => {
-    btn.addEventListener('click', () => {
-      claimHourlyQuest(parseInt(btn.dataset.slot));
-      renderMissionsTab();
-    });
-  });
-  el.querySelectorAll('.btn-reroll-hourly').forEach(btn => {
-    btn.addEventListener('click', () => {
-      rerollHourlyQuest(parseInt(btn.dataset.slot));
-      renderMissionsTab();
-    });
-  });
-}
 
 // ════════════════════════════════════════════════════════════════
 // 18d. UI — BAG TAB
@@ -4178,82 +2411,7 @@ function openRareCandyPicker() {
 }
 
 function renderBagTab() {
-  const grid = document.getElementById('bagGrid');
-  if (!grid) return;
-
-  const items = [
-    { id: 'pokeball',  icon: 'PB', fr: 'Poke Ball',      en: 'Poke Ball',      desc_fr: 'Ball standard',         desc_en: 'Standard ball' },
-    { id: 'greatball', icon: 'GB', fr: 'Super Ball',      en: 'Great Ball',     desc_fr: 'Meilleur potentiel',    desc_en: 'Better potential' },
-    { id: 'ultraball', icon: 'UB', fr: 'Hyper Ball',      en: 'Ultra Ball',     desc_fr: 'Excellent potentiel',   desc_en: 'Excellent potential' },
-    { id: 'duskball',  icon: 'DB', fr: 'Sombre Ball',     en: 'Dusk Ball',      desc_fr: 'Potentiel equilibre',   desc_en: 'Balanced potential' },
-    { id: 'lure',      icon: 'LR', fr: 'Leurre',          en: 'Lure',           desc_fr: 'x2 spawns 60s',         desc_en: 'x2 spawns 60s',      usable: true },
-    { id: 'superlure', icon: 'SL', fr: 'Super Leurre',    en: 'Super Lure',     desc_fr: 'x3 spawns 60s',         desc_en: 'x3 spawns 60s',      usable: true },
-    { id: 'incense',   icon: 'IN', fr: 'Encens Chance',   en: 'Lucky Incense',  desc_fr: '*+1 potentiel 90s',     desc_en: '*+1 potential 90s',  usable: true },
-    { id: 'rarescope', icon: 'SC', fr: 'Rarioscope',       en: 'Rare Scope',     desc_fr: 'Spawns rares x3 90s',   desc_en: 'Rare spawns x3 90s', usable: true },
-    { id: 'aura',      icon: 'AU', fr: 'Aura Shiny',       en: 'Shiny Aura',     desc_fr: 'Shiny x5 90s',          desc_en: 'Shiny x5 90s',       usable: true },
-    { id: 'evostone',  icon: 'EV', fr: 'Pierre Evol.',     en: 'Evo Stone',      desc_fr: 'Evolution par pierre',  desc_en: 'Stone evolution' },
-    { id: 'rarecandy', icon: 'RC', fr: 'Super Bonbon',     en: 'Rare Candy',     desc_fr: '+1 niveau',              desc_en: '+1 level',          usable: true },
-    { id: 'masterball',icon: 'MB', fr: 'Master Ball',      en: 'Master Ball',    desc_fr: '***** garanti',         desc_en: '***** guaranteed' },
-  ];
-
-  grid.innerHTML = items.map(item => {
-    const qty = state.inventory[item.id] || 0;
-    const name = state.lang === 'fr' ? item.fr : item.en;
-    const desc = state.lang === 'fr' ? item.desc_fr : item.desc_en;
-    const active = isBoostActive(item.id);
-    const remaining = active ? boostRemaining(item.id) : 0;
-    return `<div class="bag-item" ${active ? 'style="border-color:var(--gold)"' : ''}>
-      <span class="bag-icon">${itemSprite(item.id)}</span>
-      <div class="bag-info">
-        <div class="bag-name">${name}</div>
-        <div class="bag-qty">x${qty}${active ? ` (${remaining}s)` : ''}</div>
-        <div class="bag-desc">${desc}</div>
-      </div>
-      ${item.usable && qty > 0 ? `<button class="bag-use-btn" data-use-item="${item.id}">${state.lang === 'fr' ? 'Utiliser' : 'Use'}</button>` : ''}
-    </div>`;
-  }).join('');
-
-  // Active ball selector
-  grid.innerHTML += `
-    <div class="bag-item" style="grid-column:1/-1;border-color:var(--gold-dim)">
-      <span class="bag-icon">🎯</span>
-      <div class="bag-info">
-        <div class="bag-name">${state.lang === 'fr' ? 'Ball active' : 'Active Ball'}</div>
-        <div class="bag-desc">${state.lang === 'fr' ? 'Ball utilisée pour les captures' : 'Ball used for captures'}</div>
-      </div>
-      <div style="display:flex;gap:4px;flex-wrap:wrap">
-        ${Object.entries(BALLS).map(([key, ball]) => `
-          <button style="font-size:9px;padding:3px 8px;border-radius:4px;cursor:pointer;
-            background:${state.activeBall === key ? 'var(--red-dark)' : 'var(--bg)'};
-            border:1px solid ${state.activeBall === key ? 'var(--red)' : 'var(--border)'};
-            color:var(--text)" data-bag-ball="${key}">
-            ${state.lang === 'fr' ? ball.fr : ball.en} (${state.inventory[key] || 0})
-          </button>
-        `).join('')}
-      </div>
-    </div>`;
-
-  // Bind use buttons
-  grid.querySelectorAll('[data-use-item]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const itemId = btn.dataset.useItem;
-      if (itemId === 'rarecandy') {
-        openRareCandyPicker();
-      } else if (activateBoost(itemId)) {
-        notify(state.lang === 'fr' ? 'Boost activé !' : 'Boost activated!', 'success');
-      }
-      renderBagTab();
-    });
-  });
-
-  // Ball selector
-  grid.querySelectorAll('[data-bag-ball]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      state.activeBall = btn.dataset.bagBall;
-      saveState();
-      renderBagTab();
-    });
-  });
+  return renderBagTabImpl();
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -4366,209 +2524,7 @@ function openHubSlotRepairModal() {
  * then writes the migrated save to the chosen slot.
  */
 function openHubImportModal(raw) {
-  const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px';
-
-  // ── Save preview data ────────────────────────────────────────────────────
-  const gangName    = raw.gang?.name     ?? '—';
-  const bossName    = raw.gang?.bossName ?? '—';
-  const reputation  = (raw.gang?.reputation ?? 0).toLocaleString();
-  const money       = (raw.gang?.money ?? 0).toLocaleString();
-  const pokeCount   = (raw.pokemons  || []).length;
-  const count4star  = (raw.pokemons  || []).filter(p => p.potential === 4).length;
-  const count4shiny = (raw.pokemons  || []).filter(p => p.potential === 4 && p.shiny).length;
-  const agentCount  = (raw.agents    || []).length;
-  const rawDex      = raw.pokedex || {};
-  const dexKanto    = POKEMON_GEN1.filter(s => !s.hidden && s.dex >= 1 && s.dex <= 151 && rawDex[s.en]?.caught).length;
-  const dexNat      = POKEMON_GEN1.filter(s => !s.hidden && rawDex[s.en]?.caught).length;
-  const shinyCount  = POKEMON_GEN1.filter(s => !s.hidden && rawDex[s.en]?.shiny).length;
-  const savedAt     = raw._savedAt ? new Date(raw._savedAt).toLocaleString('fr-FR') : '—';
-  const playtime    = raw.playtime  ? formatPlaytime(raw.playtime) : '—';
-  const schemaVer   = raw._schemaVersion ?? raw.version ?? '?';
-
-  // Detect potential orphan zones
-  const validIds = new Set(ZONES.map(z => z.id));
-  const orphanZones = Object.keys(raw.zones || {}).filter(id => !validIds.has(id));
-
-  // ── Slot picker HTML ─────────────────────────────────────────────────────
-  const slotHtml = [0, 1, 2].map(i => {
-    const prev = getSlotPreview(i);
-    const label = prev
-      ? `<b style="color:var(--text)">${prev.name}</b> <span style="color:var(--text-dim);font-size:9px">(${prev.pokemon} pkm · ⭐${prev.rep})</span>`
-      : `<span style="color:#555;font-style:italic">Vide</span>`;
-    return `<label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;background:var(--bg);transition:border-color .15s" id="hubSlotLabel${i}">
-      <input type="radio" name="hubTargetSlot" value="${i}" ${i === 0 ? 'checked' : ''} style="accent-color:var(--gold)">
-      <span style="font-family:var(--font-pixel);font-size:8px;color:var(--gold)">SLOT ${i+1}</span>
-      <span style="font-size:10px">${label}</span>
-    </label>`;
-  }).join('');
-
-  // ── Warnings ─────────────────────────────────────────────────────────────
-  const warnMutation = count4star > 0
-    ? `<span style="color:#ffa040">${count4star} Pokémon 4★ détectés${count4shiny > 0 ? ` (dont ${count4shiny} ✨ shiny)` : ''} — tous passeront en 5★</span>`
-    : `<span style="color:var(--text-dim)">Aucun Pokémon 4★ détecté</span>`;
-  const warnClean = orphanZones.length > 0
-    ? `<span style="color:#ffa040">${orphanZones.length} zone(s) obsolète(s) supprimée(s)</span>`
-    : `<span style="color:var(--text-dim)">Aucune zone obsolète</span>`;
-
-  overlay.innerHTML = `
-    <div style="background:var(--bg-panel);border:2px solid #ffa040;border-radius:var(--radius);padding:24px;max-width:640px;width:100%;max-height:92vh;overflow-y:auto;display:flex;flex-direction:column;gap:16px">
-
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <div style="font-family:var(--font-pixel);font-size:11px;color:#ffa040">📥 Importer une Save</div>
-        <button id="btnHubImportClose" style="background:none;border:none;color:var(--text-dim);font-size:18px;cursor:pointer">✕</button>
-      </div>
-
-      <!-- Save preview -->
-      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;display:flex;flex-direction:column;gap:6px">
-        <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);margin-bottom:4px">SAVE IMPORTÉE</div>
-        <div style="font-family:var(--font-pixel);font-size:13px;color:var(--red)">${gangName}</div>
-        <div style="font-size:9px;color:var(--text-dim)">Boss : <span style="color:var(--text)">${bossName}</span></div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-top:4px">
-          <div style="font-size:8px;color:var(--text-dim)">🎯 Pokémon <span style="color:var(--text)">${pokeCount}</span></div>
-          <div style="font-size:8px;color:var(--text-dim)">👤 Agents <span style="color:var(--text)">${agentCount}</span></div>
-          <div style="font-size:8px;color:var(--text-dim)">⭐ Rép. <span style="color:var(--gold)">${reputation}</span></div>
-          <div style="font-size:8px;color:var(--text-dim)">₽ <span style="color:var(--text)">${money}</span></div>
-          <div style="font-size:8px;color:var(--text-dim)">📖 Pokédex Kanto <span style="color:var(--text)">${dexKanto}/151</span> <span style="opacity:.6">(Nat. ${dexNat})</span></div>
-          <div style="font-size:8px;color:var(--text-dim)">✨ Espèces chroma <span style="color:var(--text)">${shinyCount}</span></div>
-        </div>
-        <div style="font-size:7px;color:var(--text-dim);border-top:1px solid var(--border);padding-top:6px;margin-top:2px">
-          Sauvegardé le ${savedAt} · Temps de jeu : ${playtime} · Schéma v${schemaVer}
-        </div>
-      </div>
-
-      <!-- Slot picker -->
-      <div>
-        <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold);margin-bottom:8px;letter-spacing:1px">SLOT DE DESTINATION</div>
-        <div style="display:flex;flex-direction:column;gap:6px" id="hubSlotPicker">
-          ${slotHtml}
-        </div>
-      </div>
-
-      <!-- Options -->
-      <div style="display:flex;flex-direction:column;gap:8px">
-        <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold);letter-spacing:1px">OPTIONS D'IMPORT</div>
-
-        <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);cursor:pointer">
-          <input type="checkbox" id="chkAutoMutation" ${count4star > 0 ? 'checked' : ''} style="margin-top:2px;accent-color:var(--gold)">
-          <div>
-            <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text);margin-bottom:3px">⚡ Mutation auto 4★ → 5★</div>
-            <div style="font-size:9px;color:var(--text-dim)">Améliore tous les Pokémon 4★ en 5★ automatiquement.<br>Priorité : ✨ shiny → niveau → ordre PC. Les shinys ne seront jamais utilisés comme matière première.</div>
-            <div style="font-size:8px;margin-top:4px">${warnMutation}</div>
-          </div>
-        </label>
-
-        <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);cursor:pointer">
-          <input type="checkbox" id="chkCleanObsolete" ${orphanZones.length > 0 ? 'checked' : ''} style="margin-top:2px;accent-color:var(--gold)">
-          <div>
-            <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text);margin-bottom:3px">🧹 Nettoyage des données obsolètes</div>
-            <div style="font-size:9px;color:var(--text-dim)">Supprime les zones, états et environnements qui n'existent plus dans la version actuelle du jeu.<br>Ces données seront remplacées par <i>"information perdue avec le temps"</i>.</div>
-            <div style="font-size:8px;margin-top:4px">${warnClean}</div>
-          </div>
-        </label>
-      </div>
-
-      <!-- Warning -->
-      <div style="background:rgba(255,140,0,.08);border:1px solid rgba(255,140,0,.3);border-radius:var(--radius-sm);padding:10px;font-size:9px;color:var(--text-dim)">
-        ⚠ Le slot de destination sera <b style="color:#ffa040">écrasé</b>. Exporte ta save actuelle si tu veux la conserver.
-      </div>
-
-      <!-- Actions -->
-      <div style="display:flex;gap:8px">
-        <button id="btnHubImportBackup" style="flex:1;font-family:var(--font-pixel);font-size:8px;padding:10px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">
-          💾 Exporter ma save actuelle
-        </button>
-        <button id="btnHubImportConfirm" style="flex:2;font-family:var(--font-pixel);font-size:9px;padding:10px;background:var(--bg);border:2px solid #ffa040;border-radius:var(--radius-sm);color:#ffa040;cursor:pointer">
-          📥 Importer dans ce slot
-        </button>
-      </div>
-      <button id="btnHubImportCancel" style="font-family:var(--font-pixel);font-size:8px;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">
-        Annuler
-      </button>
-
-    </div>`;
-
-  document.body.appendChild(overlay);
-  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
-
-  overlay.querySelector('#btnHubImportClose')?.addEventListener('click',  () => overlay.remove());
-  overlay.querySelector('#btnHubImportCancel')?.addEventListener('click', () => overlay.remove());
-
-  // Slot label hover effect
-  overlay.querySelectorAll('#hubSlotPicker label').forEach(lbl => {
-    lbl.addEventListener('mouseenter', () => lbl.style.borderColor = '#ffa040');
-    lbl.addEventListener('mouseleave', () => lbl.style.borderColor = 'var(--border)');
-  });
-
-  overlay.querySelector('#btnHubImportBackup')?.addEventListener('click', () => {
-    exportSave();
-    const btn = overlay.querySelector('#btnHubImportBackup');
-    btn.textContent = '✅ Save exportée !';
-    btn.style.color = 'var(--green)';
-  });
-
-  overlay.querySelector('#btnHubImportConfirm')?.addEventListener('click', () => {
-    const targetSlot = parseInt(overlay.querySelector('input[name="hubTargetSlot"]:checked')?.value ?? '0');
-    const doMutation = overlay.querySelector('#chkAutoMutation')?.checked ?? false;
-    const doClean    = overlay.querySelector('#chkCleanObsolete')?.checked ?? false;
-
-    showConfirm(
-      `Importer la save de <b>${gangName}</b> dans le Slot ${targetSlot + 1} ?<br><span style="color:var(--text-dim);font-size:10px">Le contenu actuel du slot sera effacé.</span>`,
-      () => {
-        try {
-          // Deep clone before mutation
-          const draft = JSON.parse(JSON.stringify(raw));
-
-          // Apply optional steps before migration
-          let mutated = 0, cleaned = 0;
-          if (doMutation && draft.pokemons) mutated = applyAutoMutation(draft.pokemons);
-          if (doClean)                      cleaned  = cleanObsoleteData(draft);
-
-          // Full migration to current schema
-          const migrated = migrate(draft);
-
-          // Add cleaned-zone log if relevant
-          if (doClean && cleaned > 0) {
-            if (!migrated.behaviourLogs) migrated.behaviourLogs = {};
-            migrated.behaviourLogs._importCleanedZones = cleaned;
-            // Add a visible log to pokedex area isn't natural — add a note to notifications array if present
-            if (!migrated._importNotes) migrated._importNotes = [];
-            migrated._importNotes.push(`information perdue avec le temps (${cleaned} zone(s) obsolète(s) supprimée(s))`);
-          }
-
-          // Save to the target slot (don't affect current active game)
-          localStorage.setItem(SAVE_KEYS[targetSlot], JSON.stringify(migrated));
-
-          overlay.remove();
-
-          // Compose summary message
-          const parts = [`✅ Save de "${gangName}" importée dans le Slot ${targetSlot + 1}.`];
-          if (mutated > 0) parts.push(`⚡ ${mutated} Pokémon 4★ → 5★.`);
-          if (cleaned > 0) parts.push(`🧹 ${cleaned} zone(s) obsolète(s) supprimée(s).`);
-          parts.push('Clique ▶ sur le slot pour jouer.');
-          notify(parts.join(' '), 'success');
-
-          // Refresh hub slot display if introOverlay is visible
-          const introSlots = document.getElementById('introSlots');
-          if (introSlots) {
-            // Re-trigger showIntro rendering by dispatching a custom event, or simply reload slots
-            // We call the global renderSlots if accessible — it's locally scoped, so refresh the overlay
-            const introOverlay = document.getElementById('introOverlay');
-            if (introOverlay?.classList.contains('active')) {
-              // Remove active class to reset, then re-show
-              introOverlay.classList.remove('active');
-              showIntro();
-            }
-          }
-        } catch (err) {
-          notify('Erreur lors de l\'importation — save non modifiée.', 'error');
-          console.error(err);
-        }
-      },
-      null,
-      { confirmLabel: 'Importer', cancelLabel: 'Annuler' }
-    );
-  });
+  return openHubImportModalImpl(raw);
 }
 
 function showIntro() {
@@ -4960,257 +2916,8 @@ function showBossSpriteRepairModal() {
 // ── pensionTick / renderPensionView extracted → modules/systems/pension.js ──
 
 // ════════════════════════════════════════════════════════════════
-// LAB TAB
+// LAB TAB (extracted to modules/ui/labTab.js)
 // ════════════════════════════════════════════════════════════════
-function renderLabTabInEl(tab) {
-  if (!tab) return;
-
-  const teamIds = new Set([...state.gang.bossTeam]);
-  for (const a of state.agents) a.team.forEach(id => teamIds.add(id));
-  const pensionSet = getPensionSlotIds();
-
-  const allUpgradeable = state.pokemons
-    .filter(p => p.potential < 5)
-    .sort((a, b) => b.potential - a.potential || getPokemonPower(b) - getPokemonPower(a));
-
-  const possible = allUpgradeable.filter(p => {
-    const cost = POT_UPGRADE_COSTS[p.potential - 1] || 99;
-    const donors = state.pokemons.filter(d =>
-      d.species_en === p.species_en && d.id !== p.id &&
-      !d.shiny && d.potential <= p.potential &&
-      !teamIds.has(d.id) && !state.trainingRoom.pokemon?.includes(d.id) &&
-      !pensionSet.has(d.id)
-    );
-    return donors.length >= cost;
-  });
-
-  const displayList = labShowAll ? allUpgradeable : possible;
-  const selected = labSelectedId ? state.pokemons.find(p => p.id === labSelectedId) : null;
-
-  // ── Panneau mutation ────────────────────────────────────────
-  let mutationHtml = `
-    <div style="color:var(--text-dim);font-size:9px;padding:16px;text-align:center;line-height:1.6">
-      Sélectionne un Pokémon<br><br>
-      <span style="font-size:8px">Par défaut, seules les mutations<br>réalisables sont affichées.</span>
-    </div>`;
-  if (selected) {
-    const cost = POT_UPGRADE_COSTS[selected.potential - 1] || 99;
-    const donors = state.pokemons.filter(d =>
-      d.species_en === selected.species_en && d.id !== selected.id &&
-      !d.shiny && d.potential <= selected.potential &&
-      !teamIds.has(d.id) && !state.trainingRoom.pokemon?.includes(d.id) &&
-      !pensionSet.has(d.id)
-    );
-    const canUpgrade = donors.length >= cost && selected.potential < 5;
-    mutationHtml = `
-      <div style="text-align:center;margin-bottom:12px">
-        <img src="${pokeSprite(selected.species_en, selected.shiny)}" style="width:80px;height:80px">
-        <div style="font-family:var(--font-pixel);font-size:10px;margin-top:4px">${speciesName(selected.species_en)}</div>
-        <div style="font-size:10px;color:var(--gold)">${'*'.repeat(selected.potential)} → ${'*'.repeat(selected.potential + 1)}</div>
-      </div>
-      <div style="font-size:10px;margin-bottom:8px">
-        <div>Potentiel : <b>${selected.potential}/5</b></div>
-        <div>Spécimens : <b style="color:${donors.length >= cost ? 'var(--green)' : 'var(--red)'}">${donors.length}/${cost}</b></div>
-      </div>
-      <div style="font-size:8px;color:var(--text-dim);margin-bottom:10px">Équipe + Formation protégées.</div>
-      <button id="btnLabUpgrade" style="width:100%;font-size:10px;padding:8px;background:var(--bg);
-        border:2px solid ${canUpgrade ? 'var(--gold)' : 'var(--border)'};border-radius:var(--radius-sm);
-        color:${canUpgrade ? 'var(--gold)' : 'var(--text-dim)'};cursor:${canUpgrade ? 'pointer' : 'default'}"
-        ${canUpgrade ? '' : 'disabled'}>
-        ${canUpgrade ? '⚗ MUTER LE POTENTIEL' : 'Spécimens insuffisants'}
-      </button>
-      <div style="margin-top:12px">
-        <div style="font-size:8px;color:var(--text-dim);margin-bottom:4px">COÛTS</div>
-        ${POT_UPGRADE_COSTS.map((c, i) =>
-          `<div style="font-size:8px;${selected.potential - 1 === i ? 'color:var(--gold)' : 'color:var(--text-dim)'}">
-            ${'★'.repeat(i+1)} → ${'★'.repeat(i+2)}: ${c} specimens
-          </div>`
-        ).join('')}
-      </div>`;
-  }
-
-  // ── Panneau tracker ─────────────────────────────────────────
-  const tracked = state.lab?.trackedSpecies || [];
-  const ownedSpecies = [...new Set(state.pokemons.map(p => p.species_en))].sort((a, b) =>
-    speciesName(a).localeCompare(speciesName(b))
-  );
-  const trackerHtml = `
-    <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold);margin-bottom:8px">🔍 TRACKER</div>
-    <div style="display:flex;gap:6px;margin-bottom:10px">
-      <select id="labTrackerSel" style="flex:1;font-size:9px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:3px;padding:3px">
-        <option value="">— Espèce —</option>
-        ${ownedSpecies.map(en => `<option value="${en}">${speciesName(en)}</option>`).join('')}
-      </select>
-      <button id="btnLabTrack" style="font-size:10px;padding:3px 10px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:3px;color:var(--gold);cursor:pointer">+</button>
-    </div>
-    ${tracked.length === 0
-      ? '<div style="font-size:9px;color:var(--text-dim)">Aucune espèce suivie.</div>'
-      : tracked.map(species => {
-          const owned = state.pokemons.filter(p => p.species_en === species);
-          const byPot = [1,2,3,4,5].map(pot => owned.filter(p => p.potential === pot).length);
-          const mutPossible = [1,2,3,4].some(pot => {
-            const cost = POT_UPGRADE_COSTS[pot - 1] || 99;
-            const donors = owned.filter(d => d.potential === pot &&
-              !teamIds.has(d.id) && !state.trainingRoom.pokemon?.includes(d.id));
-            const targets = owned.filter(d => d.potential === pot);
-            return targets.length > 0 && donors.length >= cost + 1;
-          });
-          return `<div style="border:1px solid ${mutPossible ? 'var(--gold-dim)' : 'var(--border)'};border-radius:var(--radius-sm);padding:8px;background:var(--bg);margin-bottom:6px">
-            <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
-              <img src="${pokeSprite(species)}" style="width:26px;height:26px">
-              <span style="font-size:9px;flex:1"><b>${speciesName(species)}</b> — <span style="color:var(--gold)">${owned.length}</span></span>
-              <button class="lab-untrack" data-untrack="${species}" style="font-size:8px;padding:1px 5px;background:var(--bg);border:1px solid var(--red);border-radius:2px;color:var(--red);cursor:pointer">✕</button>
-            </div>
-            <div style="display:flex;gap:3px;flex-wrap:wrap">
-              ${byPot.map((n, i) => `<div style="font-size:8px;padding:2px 5px;border-radius:2px;
-                background:${n > 0 ? 'rgba(255,204,90,0.12)' : 'rgba(0,0,0,0)'};
-                border:1px solid ${n > 0 ? 'var(--gold-dim)' : 'var(--border)'}">
-                ${'★'.repeat(i+1)}: <b>${n}</b>
-              </div>`).join('')}
-            </div>
-            ${mutPossible ? '<div style="font-size:8px;color:var(--green);margin-top:4px">⚡ Mutation possible !</div>' : ''}
-          </div>`;
-        }).join('')
-    }`;
-
-  // ── Liste candidates ────────────────────────────────────────
-  const listHtml = displayList.map(p => {
-    const cost = POT_UPGRADE_COSTS[p.potential - 1] || 99;
-    const donors = state.pokemons.filter(d =>
-      d.species_en === p.species_en && d.id !== p.id &&
-      !d.shiny && d.potential <= p.potential &&
-      !teamIds.has(d.id) && !state.trainingRoom.pokemon?.includes(d.id)
-    );
-    const ready = donors.length >= cost;
-    return `<div class="lab-candidate" data-lab-id="${p.id}"
-      style="display:flex;align-items:center;gap:8px;padding:8px;border-bottom:1px solid var(--border);
-      cursor:pointer;background:${labSelectedId === p.id ? 'var(--bg-hover)' : ''}">
-      <img src="${pokeSprite(p.species_en, p.shiny)}" style="width:36px;height:36px">
-      <div style="flex:1">
-        <div style="font-size:10px">${speciesName(p.species_en)} ${'★'.repeat(p.potential)}</div>
-        <div style="font-size:9px;color:${ready ? 'var(--green)' : 'var(--text-dim)'}">
-          ${ready ? `✓ Prêt (${donors.length}/${cost})` : `${donors.length}/${cost} spécimens`}
-        </div>
-      </div>
-    </div>`;
-  }).join('') || `<div style="color:var(--text-dim);font-size:9px;padding:14px;text-align:center">
-    ${labShowAll ? 'Tous vos Pokémon sont au potentiel max' : 'Aucune mutation réalisable actuellement.<br>Activez « Tous » pour voir tous les candidats.'}
-  </div>`;
-
-  // ── Rendu principal ─────────────────────────────────────────
-  tab.innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr 290px;gap:14px;padding:12px;min-height:400px">
-      <div style="display:flex;flex-direction:column;gap:8px">
-        <div style="display:flex;align-items:center;justify-content:space-between">
-          <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold)">LABORATOIRE</div>
-          <button id="btnLabToggleAll" style="font-family:var(--font-pixel);font-size:8px;padding:3px 8px;
-            background:${labShowAll ? 'var(--gold-dim)' : 'var(--bg)'};
-            border:1px solid ${labShowAll ? 'var(--gold)' : 'var(--border)'};border-radius:3px;
-            color:${labShowAll ? 'var(--bg)' : 'var(--text-dim)'};cursor:pointer">
-            ${labShowAll ? '✓ TOUS' : 'PRÊTS seulement'}
-          </button>
-        </div>
-        <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);flex:1;overflow-y:auto;max-height:520px">${listHtml}</div>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:10px;overflow-y:auto;max-height:600px">
-        ${(() => {
-          const owned   = !!state.purchases.scientist;
-          const enabled = state.purchases.scientistEnabled !== false;
-          const color   = owned ? (enabled ? 'var(--green)' : 'var(--border)') : 'var(--border)';
-          return `<div style="background:var(--bg-panel);border:1px solid ${color};border-radius:var(--radius);padding:10px;display:flex;gap:10px;align-items:flex-start">
-            <img src="${trainerSprite('scientist')}" style="width:36px;height:36px;image-rendering:pixelated;flex-shrink:0;${owned && !enabled ? 'opacity:.4;filter:grayscale(1)' : ''}" onerror="this.style.display='none'">
-            <div style="flex:1">
-              <div style="font-family:var(--font-pixel);font-size:8px;color:${owned ? (enabled ? 'var(--green)' : 'var(--text-dim)') : 'var(--text)'};margin-bottom:3px">Scientifique peu scrupuleux</div>
-              <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">Mutation artificielle : sacrifice d'un ★★★★★ même espèce → potentiel max.</div>
-              ${owned
-                ? `<div style="display:flex;align-items:center;gap:8px">
-                     <span style="font-family:var(--font-pixel);font-size:7px;color:${enabled ? 'var(--green)' : 'var(--text-dim)'}">${enabled ? '✓ EN POSTE' : '✗ RENVOYÉ'}</span>
-                     <button id="btnLabToggleScientist" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid ${enabled ? 'var(--red)' : 'var(--green)'};border-radius:var(--radius-sm);color:${enabled ? 'var(--red)' : 'var(--green)'};cursor:pointer">${enabled ? 'Renvoyer' : 'Rappeler'}</button>
-                   </div>`
-                : `<button id="btnLabBuyScientist" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">Engager — 5 000 000₽</button>`}
-            </div>
-          </div>`;
-        })()}
-        <div style="background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);padding:12px">${mutationHtml}</div>
-        <div style="background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);padding:12px">${trackerHtml}</div>
-      </div>
-    </div>`;
-
-  // ── Scientist card handlers (Lab) ──
-  tab.querySelector('#btnLabBuyScientist')?.addEventListener('click', () => {
-    if (state.gang.money < 5_000_000) { notify('Fonds insuffisants.', 'error'); return; }
-    showConfirm('Engager le Scientifique peu scrupuleux pour <b>5 000 000₽</b> ?<br><span style="font-size:10px;color:var(--text-dim)">Permet la mutation artificielle depuis ce Labo et le menu contextuel du PC.</span>', () => {
-      state.gang.money -= 5_000_000;
-      state.purchases.scientist = true;
-      state.purchases.scientistEnabled = true;
-      saveState(); updateTopBar(); SFX.play('unlock');
-      notify('🧬 Le scientifique est en poste !', 'gold');
-      if (pcView === 'lab') renderPCTab(); else renderLabTab();
-    }, null, { confirmLabel: 'Engager', cancelLabel: 'Annuler' });
-  });
-  tab.querySelector('#btnLabToggleScientist')?.addEventListener('click', () => {
-    state.purchases.scientistEnabled = state.purchases.scientistEnabled === false;
-    saveState();
-    notify(state.purchases.scientistEnabled !== false ? '🧬 Scientifique rappelé !' : '🚫 Scientifique renvoyé.', 'success');
-    if (pcView === 'lab') renderPCTab(); else renderLabTab();
-  });
-
-  tab.querySelectorAll('.lab-candidate').forEach(el => {
-    el.addEventListener('click', () => {
-      labSelectedId = el.dataset.labId;
-      if (pcView === 'lab') renderPCTab(); else renderLabTab();
-    });
-  });
-
-  tab.querySelector('#btnLabToggleAll')?.addEventListener('click', () => {
-    labShowAll = !labShowAll;
-    if (pcView === 'lab') renderPCTab(); else renderLabTab();
-  });
-
-  tab.querySelector('#btnLabUpgrade')?.addEventListener('click', () => {
-    if (!selected) return;
-    const cost = POT_UPGRADE_COSTS[selected.potential - 1];
-    const donors = state.pokemons.filter(d =>
-      d.species_en === selected.species_en && d.id !== selected.id &&
-      !d.shiny && d.potential <= selected.potential &&
-      !teamIds.has(d.id) && !state.trainingRoom.pokemon?.includes(d.id) &&
-      !pensionSet.has(d.id)
-    );
-    if (donors.length < cost) return;
-    const toSacrifice = donors.slice(0, cost).map(p => p.id);
-    state.pokemons = state.pokemons.filter(p => !toSacrifice.includes(p.id));
-    selected.potential++;
-    saveState();
-    resetPcRenderCache();
-    notify(`${speciesName(selected.species_en)} est maintenant ${'★'.repeat(selected.potential)} !`, 'gold');
-    if (pcView === 'lab') renderPCTab(); else renderLabTab();
-    updateTopBar();
-  });
-
-  tab.querySelector('#btnLabTrack')?.addEventListener('click', () => {
-    const val = document.getElementById('labTrackerSel')?.value;
-    if (!val) return;
-    if (!state.lab.trackedSpecies.includes(val)) {
-      state.lab.trackedSpecies.push(val);
-      saveState();
-      if (pcView === 'lab') renderPCTab(); else renderLabTab();
-    }
-  });
-
-  tab.querySelectorAll('.lab-untrack').forEach(btn => {
-    btn.addEventListener('click', () => {
-      state.lab.trackedSpecies = state.lab.trackedSpecies.filter(s => s !== btn.dataset.untrack);
-      saveState();
-      if (pcView === 'lab') renderPCTab(); else renderLabTab();
-    });
-  });
-}
-
-function renderLabTab() {
-  const tab = document.getElementById('tabLab');
-  if (!tab) return;
-  renderLabTabInEl(tab);
-}
 
 // ════════════════════════════════════════════════════════════════
 // GAME LOOP VARS
@@ -5533,54 +3240,75 @@ function _triggerDailyReload() {
   setTimeout(() => location.reload(true), 500);
 }
 
-function showMigrationBanner({ from, toLegacyKey, fields }) {
-  const overlay = document.createElement('div');
-  overlay.style.cssText = `
-    position:fixed;inset:0;background:rgba(0,0,0,0.82);z-index:12000;
-    display:flex;align-items:center;justify-content:center;padding:16px;
-    animation:fadeIn .3s ease
-  `;
-  const fieldsHtml = fields.length
-    ? `<ul style="margin:8px 0 0 0;padding-left:18px;font-size:9px;color:var(--text-dim);line-height:1.8">
-        ${fields.map(f => `<li>${f}</li>`).join('')}
-      </ul>`
-    : '';
-  const legacyNote = toLegacyKey
-    ? `<div style="margin-top:8px;font-size:9px;color:var(--red);background:rgba(255,0,0,.07);padding:6px 8px;border-radius:4px;border-left:2px solid var(--red)">
-        ⚠ Ancienne sauvegarde détectée (<code style="font-size:9px">${toLegacyKey}</code>).<br>
-        Convertie et transférée vers le slot actuel. L'ancienne clé a été supprimée.
-      </div>`
-    : '';
-
-  overlay.innerHTML = `
-    <div style="background:var(--bg-panel);border:2px solid var(--gold-dim);border-radius:var(--radius);
-                padding:22px 24px;max-width:420px;width:100%;box-shadow:0 8px 40px rgba(0,0,0,.6)">
-      <div style="font-family:var(--font-pixel);font-size:11px;color:var(--gold);margin-bottom:4px">
-        🔄 SAVE MISE À JOUR
-      </div>
-      <div style="font-size:10px;color:var(--text-dim);margin-bottom:4px">
-        Depuis : <span style="color:var(--text)">${from}</span> →
-        schéma <span style="color:var(--gold)">v${SAVE_SCHEMA_VERSION}</span>
-      </div>
-      ${fields.length ? `<div style="font-size:9px;color:var(--text-dim);margin-top:6px">Nouveaux éléments ajoutés :</div>${fieldsHtml}` : ''}
-      ${legacyNote}
-      <div style="margin-top:8px;font-size:9px;color:var(--text-dim)">
-        Ta progression, Pokémon et argent sont intacts. ✅
-      </div>
-      <div style="margin-top:16px;text-align:right">
-        <button id="btnMigrationOk" class="btn-gold" style="padding:6px 20px;font-size:10px">
-          OK, continuer →
-        </button>
-      </div>
-    </div>`;
-
-  document.body.appendChild(overlay);
-  overlay.querySelector('#btnMigrationOk').addEventListener('click', () => {
-    overlay.remove();
-    saveState(); // persiste le nouveau schéma
-  });
-  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+function showMigrationBanner(opts) {
+  return showMigrationBannerImpl(opts);
 }
+
+configureModals({
+  getState: () => state,
+  setState,
+  saveState,
+  renderAll,
+  notify,
+  migrate,
+  formatPlaytime,
+  exportSave,
+  createDefaultState,
+  getActiveSaveSlot: () => activeSaveSlot,
+  getSaveKeys: () => SAVE_KEYS,
+  getKantoDexSize: () => KANTO_DEX_SIZE,
+  getNationalDexSize: () => NATIONAL_DEX_SIZE,
+  getSaveSchemaVersion: () => SAVE_SCHEMA_VERSION,
+  getAgentRankLabel: (...args) => globalThis.getAgentRankLabel?.(...args),
+  pokeSprite,
+  speciesName,
+  switchTab,
+  showIntro,
+  applyAutoMutation,
+  cleanObsoleteData,
+  getSlotPreview,
+});
+
+configureBagTab({
+  getState: () => state,
+  getActiveTab: () => activeTab,
+  notify,
+  saveState,
+  updateTopBar,
+  switchTab,
+  showConfirm,
+  isBoostActive: (...args) => globalThis.isBoostActive?.(...args),
+  boostRemaining: (...args) => globalThis.boostRemaining?.(...args),
+  activateBoost: (...args) => globalThis.activateBoost?.(...args),
+  itemSprite: (...args) => globalThis.itemSprite?.(...args),
+  openRareCandyPicker,
+  renderPCTab,
+});
+
+configureTabRouter({
+  getState: () => state,
+  getActiveTab: () => activeTab,
+  getOpenZones: () => openZones,
+  switchTab,
+  setPcView: value => { pcView = value; },
+  getDexKantoCaught,
+  getDexNationalCaught,
+  getShinySpeciesCount,
+  getKantoDexSize: () => KANTO_DEX_SIZE,
+  getNationalDexSize: () => NATIONAL_DEX_SIZE,
+  renderGangTab,
+  renderZonesTab,
+  renderMarketTab,
+  renderPCTab,
+  renderPokedexTab,
+  renderAgentsTab,
+  renderCosmeticsTab,
+  renderMissionsTab,
+  renderBattleLogTab,
+  renderLeaderboardTab,
+  renderCompteTab,
+  renderZone2Tab,
+});
 
 // ════════════════════════════════════════════════════════════════
 // GLOBAL EXPORTS — functions/constants needed by extracted modules
@@ -5592,10 +3320,11 @@ Object.assign(globalThis, {
   // UI / state helpers
   notify, saveState, setState, migrate, renderAll, slimPokemon,
   updateTopBar, tryAutoIncubate,
+  renderMarketTab, renderMissionsTab, renderCosmeticsTab, renderBattleLogTab, renderLabTab,
   renderZonesTab, renderGangTab, renderAgentsTab, renderPokemonGrid, renderEggsView, renderGangBasePanel,
   activateJohtoRegion, renderZone2Tab,
   // Audio
-  SFX,
+  SFX, MusicPlayer, JinglePlayer, MUSIC_TRACKS, playTone,
   // Zone system — logique pure (zoneSystem.js)
   initZone, spawnInZone, makePokemon, makeTrainerTeam, makeRaidSpawn,
   getPokemonPower, levelUpPokemon, getZoneAgentSlots,
@@ -5627,7 +3356,7 @@ Object.assign(globalThis, {
   GYM_ORDER,
   MISSIONS, HOURLY_QUEST_POOL, HOURLY_QUEST_REROLL_COST,
   BASE_PRICE, POTENTIAL_MULT, NATURES, BALLS, MYSTERY_EGG_POOL,
-  MAX_COMBAT_REWARD, BALL_SPRITES,
+  MAX_COMBAT_REWARD, BALL_SPRITES, FALLBACK_TRAINER_SVG,
   AGENT_NAMES_M, AGENT_NAMES_F, AGENT_SPRITES, AGENT_PERSONALITIES,
   TITLE_REQUIREMENTS, TITLE_BONUSES, AGENT_RANK_LABELS, RANK_CHAIN,
   // sessionObjectives module
@@ -5636,7 +3365,8 @@ Object.assign(globalThis, {
   // trainingRoom module
   pokeSprite, tryAutoEvolution,
   // pension module
-  showConfirm, renderPCTab, switchTab,
+  showConfirm, showInfoModal, renderPCTab, switchTab, showContextMenu,
+  openPlayerStatModal, resetPcRenderCache,
   getMaxPensionSlots, getPensionSlotIds,
   eggSprite, eggImgTag, EGG_SPRITES,
   renderLabTabInEl, getDexDesc,
@@ -5900,7 +3630,7 @@ function boot() {
   document.getElementById('btnCodex')?.addEventListener('click', openCodexModal);
 
   // (legacy battle log drag code removed — battle log is now the Events tab)
-  // Events tab renders on demand (switchTab triggers renderEventsTab via renderActiveTab)
+  // Events tab renders on demand (switchTab triggers renderBattleLogTab via renderActiveTab)
 
   // Init filter/sort listeners for PC (reset page on change, force full rebuild)
   document.getElementById('pcSearch')?.addEventListener('input', () => {
