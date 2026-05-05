@@ -37,7 +37,11 @@ import {
   supaCloudSave,
   supaWriteSnapshot,
   supaUpdateLeaderboardAnon,
+  getSupabaseClient,
+  getSupaSession,
 } from './modules/systems/cloudAccount.js';
+import { configureGangCompetition } from './modules/systems/gangCompetition.js';
+import { renderGangCompetitionTab } from './modules/ui/gangCompetitionTab.js';
 import {
   MusicPlayer,
   JinglePlayer,
@@ -3308,6 +3312,7 @@ configureTabRouter({
   renderLeaderboardTab,
   renderCompteTab,
   renderZone2Tab,
+  renderGangCompetitionTab,
 });
 
 // ════════════════════════════════════════════════════════════════
@@ -3322,7 +3327,7 @@ Object.assign(globalThis, {
   updateTopBar, tryAutoIncubate,
   renderMarketTab, renderMissionsTab, renderCosmeticsTab, renderBattleLogTab, renderLabTab,
   renderZonesTab, renderGangTab, renderAgentsTab, renderPokemonGrid, renderEggsView, renderGangBasePanel,
-  activateJohtoRegion, renderZone2Tab,
+  activateJohtoRegion, renderZone2Tab, renderGangCompetitionTab,
   // Audio
   SFX, MusicPlayer, JinglePlayer, MUSIC_TRACKS, playTone,
   // Zone system — logique pure (zoneSystem.js)
@@ -3461,6 +3466,15 @@ configureCloudAccount({
   getDexNationalCaught,
   getShinySpeciesCount,
   switchTab,
+});
+
+configureGangCompetition({
+  getState:         () => state,
+  saveState,
+  notify,
+  slimPokemon,
+  getSupabaseClient,
+  getSupaSession,
 });
 
 configurePcPokedex({

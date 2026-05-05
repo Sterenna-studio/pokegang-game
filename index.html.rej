@@ -1,0 +1,21 @@
+diff a/index.html b/index.html	(rejected hunks)
+@@ -72,7 +72,8 @@
+       <button class="tab-btn" data-tab="tabBattleLog">📋 Évts</button>
+       <button class="tab-btn" data-tab="tabMissions" id="tabBtnMissions" style="display:none">Missions</button>
+       <button class="tab-btn" data-tab="tabZone2" id="tabBtnZone2" style="display:none">🗾 Johto</button>
+-      <button class="tab-btn" data-tab="tabLeaderboard" id="tabBtnLeaderboard" style="margin-left:auto">🏆</button>
++      <button class="tab-btn" data-tab="tabCompetition" id="tabBtnCompetition" style="margin-left:auto">⚔️ Raids</button>
++      <button class="tab-btn" data-tab="tabLeaderboard" id="tabBtnLeaderboard">🏆</button>
+       <button class="tab-btn" data-tab="tabCompte" id="tabBtnCompte">☁ Compte</button>
+       <button class="tab-btn" id="btnSaveSlots" style="border-color:var(--gold-dim);color:var(--gold-dim)">Saves</button>
+     </nav>
+@@ -221,6 +222,9 @@
+       <!-- ── Missions ── -->
+       <section id="tabMissions" class="tab-pane"></section>
+
++      <!-- ── Compétition de gangs (PvP en ligne) ── -->
++      <section id="tabCompetition" class="tab-pane"></section>
++
+       <!-- ── Classement global ── -->
+       <section id="tabLeaderboard" class="tab-pane"></section>
+

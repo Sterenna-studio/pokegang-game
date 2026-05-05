@@ -1,0 +1,24 @@
+diff a/state/migrateSave.js b/state/migrateSave.js	(rejected hunks)
+@@ -111,6 +111,22 @@ export function migrateSave(saved, deps) {
+   if (merged.gang.titleD      === undefined) merged.gang.titleD      = null;
+   // introSeen — false for existing players (they'll get the catch-up popup)
+   if (merged.gang.introSeen   === undefined) merged.gang.introSeen   = false;
++  // competition — online PvP system
++  if (!merged.gang.competition || typeof merged.gang.competition !== 'object') {
++    merged.gang.competition = structuredClone(DEFAULT_STATE.gang.competition);
++  } else {
++    const comp = merged.gang.competition;
++    const def  = DEFAULT_STATE.gang.competition;
++    if (!Array.isArray(comp.defenseTeam) || comp.defenseTeam.length !== 6)
++      comp.defenseTeam = [...def.defenseTeam];
++    if (comp.defenseAgent     === undefined) comp.defenseAgent     = null;
++    if (comp.defenseZone      === undefined) comp.defenseZone      = null;
++    if (comp.defensePublished === undefined) comp.defensePublished  = false;
++    if (!comp.wins   || typeof comp.wins   !== 'object') comp.wins   = { attack: 0, defense: 0 };
++    if (!comp.losses || typeof comp.losses !== 'object') comp.losses = { attack: 0, defense: 0 };
++    if (!comp.raidCooldowns || typeof comp.raidCooldowns !== 'object') comp.raidCooldowns = {};
++    if (!Array.isArray(comp.pendingRaids)) comp.pendingRaids = [];
++  }
+
+   // ── Missions ───────────────────────────────────────────────────────────────────
+   if (!merged.missions) merged.missions = structuredClone(DEFAULT_STATE.missions);
