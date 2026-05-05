@@ -4,7 +4,7 @@
 // - getState, getActiveTab, getOpenZones, switchTab, setPcView
 // - renderGangTab, renderZonesTab, renderMarketTab, renderPCTab, renderPokedexTab,
 //   renderAgentsTab, renderCosmeticsTab, renderMissionsTab, renderBattleLogTab,
-//   renderLeaderboardTab, renderCompteTab, renderZone2Tab, renderGangCompetitionTab
+//   renderLeaderboardTab, renderCompteTab, renderGangCompetitionTab
 // - getDexKantoCaught, getDexNationalCaught, getShinySpeciesCount, dex size getters
 // classic-script data globals used by hints: POKEMON_GEN1
 
@@ -39,7 +39,6 @@ function renderMissionsTab(...args) { return callCtx('renderMissionsTab', ...arg
 function renderBattleLogTab(...args) { return callCtx('renderBattleLogTab', ...args); }
 function renderLeaderboardTab(...args) { return callCtx('renderLeaderboardTab', ...args); }
 function renderCompteTab(...args) { return callCtx('renderCompteTab', ...args); }
-function renderZone2Tab(...args) { return callCtx('renderZone2Tab', ...args); }
 function renderGangCompetitionTab(...args) { return callCtx('renderGangCompetitionTab', ...args); }
 
 function hintLink(label, tabId) {
@@ -175,7 +174,6 @@ function renderActiveTab() {
     case 'tabLab':      setPcView('lab'); switchTab('tabPC'); break;
     case 'tabLeaderboard': renderLeaderboardTab(); break;
     case 'tabCompte':      renderCompteTab(); break;
-    case 'tabZone2':       renderZone2Tab(); break;
     case 'tabCompetition': renderGangCompetitionTab(); break;
   }
 }
