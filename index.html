@@ -71,7 +71,6 @@
       <button class="tab-btn" data-tab="tabPokedex">Pokédex <span class="tab-info-btn" data-info-tab="tabPokedex">ℹ</span></button>
       <button class="tab-btn" data-tab="tabBattleLog">📋 Évts</button>
       <button class="tab-btn" data-tab="tabMissions" id="tabBtnMissions" style="display:none">Missions</button>
-      <button class="tab-btn" data-tab="tabZone2" id="tabBtnZone2" style="display:none">🗾 Johto</button>
       <button class="tab-btn" data-tab="tabLeaderboard" id="tabBtnLeaderboard" style="margin-left:auto">🏆</button>
       <button class="tab-btn" data-tab="tabCompte" id="tabBtnCompte">☁ Compte</button>
       <button class="tab-btn" id="btnSaveSlots" style="border-color:var(--gold-dim);color:var(--gold-dim)">Saves</button>
@@ -111,6 +110,12 @@
 
       <!-- ── Zones ── -->
       <section id="tabZones" class="tab-pane active">
+        <!-- Region switcher — visible seulement si Johto est débloqué -->
+        <div id="regionSwitcher" style="display:none;padding:4px 10px;border-bottom:1px solid var(--border);gap:6px;align-items:center">
+          <button class="region-btn active" data-region="kanto" style="font-family:var(--font-pixel);font-size:8px;padding:4px 10px;border-radius:4px;cursor:pointer">Kanto</button>
+          <button class="region-btn" data-region="johto" style="font-family:var(--font-pixel);font-size:8px;padding:4px 10px;border-radius:4px;cursor:pointer">Johto</button>
+        </div>
+
         <!-- Filter bar -->
         <div id="zoneFilterBar">
           <div id="zoneFilterTabs">
@@ -141,18 +146,6 @@
         <div id="zonesTopArea">
           <div id="gangBaseContainer"></div>
           <div id="zoneWindows"></div>
-        </div>
-      </section>
-
-      <!-- ── Zone 2 (Johto) ── -->
-      <section id="tabZone2" class="tab-pane">
-        <div id="zoneFilterBarJohto" style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-bottom:1px solid var(--border);flex-shrink:0">
-          <span style="font-family:var(--font-pixel);font-size:8px;color:var(--gold)">JOHTO</span>
-          <div id="zoneFilterTabsJohto" style="display:flex;gap:4px;margin-left:8px"></div>
-        </div>
-        <div id="zoneSelectorJohto" style="overflow-y:auto;flex:1;padding:8px 10px"></div>
-        <div id="zonesTopAreaJohto" style="display:flex;gap:8px;padding:0 10px 10px">
-          <div id="zoneWindowsJohto" style="display:flex;flex-wrap:wrap;gap:8px;flex:1"></div>
         </div>
       </section>
 

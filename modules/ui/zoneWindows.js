@@ -22,7 +22,8 @@
 //    SPECIAL_TRAINER_KEYS
 //
 //  Classic-script globals accessed by bare name:
-//    ZONE_BY_ID, SPECIES_BY_EN, TRAINER_TYPES, SPECIAL_EVENTS
+//    ZONES, ZONE_BY_ID, ZONES_JOHTO, ZONE_JOHTO_BY_ID,
+//    SPECIES_BY_EN, TRAINER_TYPES, SPECIAL_EVENTS
 // ════════════════════════════════════════════════════════════════
 
 import {
@@ -38,6 +39,19 @@ import { TRAINER_TYPES } from '../../data/trainers-data.js';
 const zoneNextSpawn = {}; // zoneId -> { countdown, lastSpawnType }
 const zoneSpawnHistory = {}; // zoneId -> { pokemon:N, trainer:N, total:N }
 let currentCombat = null;
+
+function _zwActiveRegion() {
+  return globalThis._zsel_getActiveRegion?.() || 'kanto';
+}
+
+function _zwIsJohtoZone(zoneId) {
+  return typeof ZONE_JOHTO_BY_ID !== 'undefined' && !!ZONE_JOHTO_BY_ID[zoneId];
+}
+
+function _zwActiveZones() {
+  if (_zwActiveRegion() === 'johto') return ZONES_JOHTO;
+  return ZONES.filter(z => !_zwIsJohtoZone(z.id));
+}
 
 // ── Wing drop config ──────────────────────────────────────────
 const SPECIAL_WING_EVENTS = {
@@ -527,6 +541,35 @@ function collectAllZones() {
 let _zonesViewMode = 'fog';
 
 function renderZonesTab() {
+  const switcher = document.getElementById('regionSwitcher');
+  if (switcher) {
+    const johtoUnlocked = !!globalThis.state?.purchases?.johtoUnlocked;
+    switcher.style.display = johtoUnlocked ? 'flex' : 'none';
+
+    if (!johtoUnlocked && _zwActiveRegion() !== 'kanto') {
+      globalThis._zsel_setActiveRegion?.('kanto');
+    }
+
+    if (!switcher._bound) {
+      switcher._bound = true;
+      switcher.querySelectorAll('.region-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const region = btn.dataset.region;
+          globalThis._zsel_setActiveRegion?.(region);
+          switcher.querySelectorAll('.region-btn').forEach(b => {
+            b.classList.toggle('active', b.dataset.region === region);
+          });
+          renderZonesTab();
+        });
+      });
+    }
+
+    const activeRegion = _zwActiveRegion();
+    switcher.querySelectorAll('.region-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.region === activeRegion);
+    });
+  }
+
   _zsRenderSelector();
   renderZoneWindows();
   _zsBindActions();
@@ -571,7 +614,7 @@ function _renderZoneStatsView() {
   if (!fogLayout) return;
 
   // Only include zones that are either unlocked or have activity
-  const allZones = ZONES.filter(z => z.type !== 'gang_park' && (
+  const allZones = _zwActiveZones().filter(z => z.type !== 'gang_park' && (
     globalThis.isZoneUnlocked?.(z.id) ||
     (state.zones?.[z.id]?.combatsWon || 0) > 0
   ));
@@ -758,20 +801,14 @@ function renderZoneWindows() {
   const openZones = globalThis.openZones;
   const zoneSpawns = globalThis.zoneSpawns;
 
-  // Séparer Kanto et Johto
-  const johtoIds = typeof ZONE_JOHTO_BY_ID !== 'undefined'
-    ? [...openZones].filter(id => ZONE_JOHTO_BY_ID[id])
-    : [];
-  const kantoIds = [...openZones].filter(id => !johtoIds.includes(id));
-
-  _renderZoneWindowsInto('zoneWindowsJohto', johtoIds);
-
   const container = document.getElementById('zoneWindows');
   if (!container) return;
 
+  const zoneIds = [...openZones].filter(id => ZONE_BY_ID[id] && ZONE_BY_ID[id].type !== 'gang_park');
+
   // "No zones" placeholder
   let placeholder = container.querySelector('.zone-placeholder');
-  if (kantoIds.length === 0) {
+  if (zoneIds.length === 0) {
     if (!placeholder) {
       placeholder = document.createElement('div');
       placeholder.className = 'zone-placeholder';
@@ -779,17 +816,19 @@ function renderZoneWindows() {
       placeholder.textContent = 'Sélectionnez une zone dans la grille pour commencer';
       container.appendChild(placeholder);
     }
-    if (openZones.size === 0) return;
+    container.querySelectorAll('.zone-window').forEach(el => el.remove());
+    return;
   }
   placeholder?.remove();
 
   // ── Remove zone windows that are no longer open ───────────────
+  const activeIdSet = new Set(zoneIds);
   container.querySelectorAll('.zone-window').forEach(el => {
-    if (!openZones.has(el.id.replace('zw-', ''))) el.remove();
+    if (!activeIdSet.has(el.id.replace('zw-', ''))) el.remove();
   });
 
   // ── Sort open zones by saved order ───────────────────────────
-  const ordered = kantoIds.sort((a, b) => {
+  const ordered = zoneIds.sort((a, b) => {
     const order = state.openZoneOrder || [];
     const oa = order.indexOf(a);
     const ob = order.indexOf(b);
@@ -798,7 +837,7 @@ function renderZoneWindows() {
 
   // ── Update or create each open zone window ────────────────────
   const _appendZoneWindow = (zoneId, targetContainer) => {
-    if (zoneId === 'gang_park') return;
+    if (zoneId === 'gang_park' || ZONE_BY_ID[zoneId]?.type === 'gang_park') return;
     const existing = document.getElementById(`zw-${zoneId}`);
     if (existing) {
       patchZoneWindow(zoneId, existing);
@@ -828,16 +867,6 @@ function renderZoneWindows() {
   };
 
   for (const zoneId of ordered) _appendZoneWindow(zoneId, container);
-
-  // Johto zone windows → #zoneWindowsJohto
-  const johtoContainer = document.getElementById('zoneWindowsJohto');
-  if (johtoContainer) {
-    johtoContainer.querySelector('.zone-placeholder')?.remove();
-    johtoContainer.querySelectorAll('.zone-window').forEach(el => {
-      if (!openZones.has(el.id.replace('zw-', ''))) el.remove();
-    });
-    for (const zoneId of johtoIds) _appendZoneWindow(zoneId, johtoContainer);
-  }
 }
 
 // ── Tier picker helpers ───────────────────────────────────────────

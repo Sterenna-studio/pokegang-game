@@ -4,7 +4,7 @@
 // - getState, getActiveTab, getOpenZones, switchTab, setPcView
 // - renderGangTab, renderZonesTab, renderMarketTab, renderPCTab, renderPokedexTab,
 //   renderAgentsTab, renderCosmeticsTab, renderMissionsTab, renderBattleLogTab,
-//   renderLeaderboardTab, renderCompteTab, renderZone2Tab
+//   renderLeaderboardTab, renderCompteTab
 // - getDexKantoCaught, getDexNationalCaught, getShinySpeciesCount, dex size getters
 // classic-script data globals used by hints: POKEMON_GEN1
 
@@ -39,7 +39,6 @@ function renderMissionsTab(...args) { return callCtx('renderMissionsTab', ...arg
 function renderBattleLogTab(...args) { return callCtx('renderBattleLogTab', ...args); }
 function renderLeaderboardTab(...args) { return callCtx('renderLeaderboardTab', ...args); }
 function renderCompteTab(...args) { return callCtx('renderCompteTab', ...args); }
-function renderZone2Tab(...args) { return callCtx('renderZone2Tab', ...args); }
 
 function hintLink(label, tabId) {
   return `<button onclick="switchTab('${tabId}')" style="font-family:var(--font-pixel);font-size:9px;color:var(--red);background:none;border:none;border-bottom:1px solid var(--red);cursor:pointer;padding:0">${label}</button>`;
@@ -171,7 +170,6 @@ function renderActiveTab() {
     case 'tabLab':      setPcView('lab'); switchTab('tabPC'); break;
     case 'tabLeaderboard': renderLeaderboardTab(); break;
     case 'tabCompte':      renderCompteTab(); break;
-    case 'tabZone2':       renderZone2Tab(); break;
   }
 }
 
