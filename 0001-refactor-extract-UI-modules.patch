@@ -1,0 +1,2800 @@
+From e1cfeefbaaecdd7d76d22b4bb6e3862effb35e0c Mon Sep 17 00:00:00 2001
+From: MutenRock <pierrehoyaux@hotmail.fr>
+Date: Tue, 5 May 2026 16:12:54 +0200
+Subject: [PATCH] refactor: extract UI modules
+
+---
+ app.js                  | 1278 ++++-----------------------------------
+ modules/ui/agentsTab.js |    2 +
+ modules/ui/audio.js     |  382 ++++++++++++
+ modules/ui/bagTab.js    |  114 ++++
+ modules/ui/marketTab.js |    2 +
+ modules/ui/modals.js    |  673 +++++++++++++++++++++
+ modules/ui/tabRouter.js |  187 ++++++
+ 7 files changed, 1482 insertions(+), 1156 deletions(-)
+ create mode 100644 modules/ui/audio.js
+ create mode 100644 modules/ui/bagTab.js
+ create mode 100644 modules/ui/modals.js
+ create mode 100644 modules/ui/tabRouter.js
+
+diff --git a/app.js b/app.js
+index b8a1efc..294cb32 100644
+--- a/app.js
++++ b/app.js
+@@ -38,6 +38,35 @@ import {
+   supaWriteSnapshot,
+   supaUpdateLeaderboardAnon,
+ } from './modules/systems/cloudAccount.js';
++import {
++  MusicPlayer,
++  JinglePlayer,
++  MUSIC_TRACKS,
++  SFX,
++  playSE,
++  playTone,
++} from './modules/ui/audio.js';
++import {
++  configureBagTab,
++  renderBagTab as renderBagTabImpl,
++} from './modules/ui/bagTab.js';
++import {
++  configureModals,
++  openHubImportModal as openHubImportModalImpl,
++  openImportPreviewModal as openImportPreviewModalImpl,
++  openLegacyImportModal as openLegacyImportModalImpl,
++  showConfirm as showConfirmImpl,
++  showInfoModal as showInfoModalImpl,
++  showMigrationBanner as showMigrationBannerImpl,
++} from './modules/ui/modals.js';
++import {
++  configureTabRouter,
++  getTabHint as getTabHintImpl,
++  hintLink as hintLinkImpl,
++  renderActiveTab as renderActiveTabImpl,
++  renderHint as renderHintImpl,
++  showFirstVisitHint as showFirstVisitHintImpl,
++} from './modules/ui/tabRouter.js';
+ import {
+   addBattleLogEntry,
+   checkPlayerStatPoints,
+@@ -331,250 +360,11 @@ function importSave(file) {
+ }
+ // ── Modal de prévisualisation + conversion d'import ──────────────────────────
+ function openImportPreviewModal(raw) {
+-  const overlay = document.createElement('div');
+-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:20000;display:flex;align-items:center;justify-content:center;padding:16px';
+-
+-  // ── Analyse de la save importée ──────────────────────────────────────────
+-  const schemaVer   = raw._schemaVersion ?? raw.version ?? '?';
+-  const isLegacy    = !raw.eggs || !raw.pension || !raw.trainingRoom;
+-  const isVeryOld   = !raw.gang || !raw.pokemons;
+-  const gangName    = raw.gang?.name    ?? '—';
+-  const bossName    = raw.gang?.bossName ?? '—';
+-  const reputation  = (raw.gang?.reputation ?? 0).toLocaleString();
+-  const money       = (raw.gang?.money ?? 0).toLocaleString();
+-  const pokeCount   = (raw.pokemons  || []).length;
+-  const agentCount  = (raw.agents    || []).length;
+-  const _dexRaw     = raw.pokedex || {};
+-  const dexKanto    = POKEMON_GEN1.filter(s => !s.hidden && s.dex >= 1 && s.dex <= 151 && _dexRaw[s.en]?.caught).length;
+-  const dexCaught   = POKEMON_GEN1.filter(s => !s.hidden && _dexRaw[s.en]?.caught).length;
+-  const shinyCount  = POKEMON_GEN1.filter(s => !s.hidden && _dexRaw[s.en]?.shiny).length;
+-  const savedAt     = raw._savedAt ? new Date(raw._savedAt).toLocaleString('fr-FR') : '—';
+-  const playtime    = raw.playtime  ? formatPlaytime(raw.playtime) : '—';
+-
+-  // ── Liste des champs qui seront ajoutés/migrés ───────────────────────────
+-  const migrations = [];
+-  if (!raw.eggs)             migrations.push('Système d\'œufs');
+-  if (!raw.pension)          migrations.push('Pension');
+-  if (!raw.trainingRoom)     migrations.push('Salle d\'entraînement');
+-  if (!raw.missions)         migrations.push('Missions');
+-  if (!raw.cosmetics)        migrations.push('Cosmétiques');
+-  if (!raw.unlockedTitles)   migrations.push('Titres débloqués');
+-  if (raw.gang?.titleC === undefined) migrations.push('Slots de titres (×4)');
+-  if (!raw.behaviourLogs)    migrations.push('Logs comportementaux');
+-  if (!raw.lab)              migrations.push('Laboratoire');
+-  if (!raw.purchases)        migrations.push('Achats spéciaux');
+-  if (!raw.eggs && !raw.inventory?.incubator) migrations.push('Inventaire incubateurs');
+-  if (raw.settings?.uiScale === undefined) migrations.push('Paramètres UI avancés');
+-
+-  const migHtml = migrations.length
+-    ? migrations.map(m => `<div style="display:flex;gap:6px;align-items:center;font-size:8px;color:var(--text-dim)"><span style="color:var(--green)">✓</span>${m}</div>`).join('')
+-    : '<div style="font-size:8px;color:var(--green)">Aucune migration nécessaire — save à jour</div>';
+-
+-  const versionBadge = isLegacy
+-    ? `<span style="font-size:7px;padding:2px 6px;border-radius:8px;background:rgba(255,160,0,.15);border:1px solid #ffa000;color:#ffa000">Version ancienne</span>`
+-    : `<span style="font-size:7px;padding:2px 6px;border-radius:8px;background:rgba(0,200,100,.1);border:1px solid var(--green);color:var(--green)">Format compatible</span>`;
+-
+-  overlay.innerHTML = `
+-    <div style="background:var(--bg-panel);border:2px solid var(--gold-dim);border-radius:var(--radius);padding:24px;max-width:620px;width:100%;max-height:90vh;overflow-y:auto;display:flex;flex-direction:column;gap:16px">
+-
+-      <div style="display:flex;justify-content:space-between;align-items:center">
+-        <div style="font-family:var(--font-pixel);font-size:11px;color:var(--gold)">📥 Importer une Save</div>
+-        <button id="btnImportClose" style="background:none;border:none;color:var(--text-dim);font-size:18px;cursor:pointer">✕</button>
+-      </div>
+-
+-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+-
+-        <!-- Infos save importée -->
+-        <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;display:flex;flex-direction:column;gap:8px">
+-          <div style="display:flex;justify-content:space-between;align-items:center">
+-            <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim)">SAVE IMPORTÉE</div>
+-            ${versionBadge}
+-          </div>
+-          <div style="font-family:var(--font-pixel);font-size:12px;color:var(--red)">${gangName}</div>
+-          <div style="font-size:9px;color:var(--text-dim)">Boss : <span style="color:var(--text)">${bossName}</span></div>
+-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:4px">
+-            <div style="font-size:8px;color:var(--text-dim)">🎯 Pokémon <span style="color:var(--text)">${pokeCount}</span></div>
+-            <div style="font-size:8px;color:var(--text-dim)">👤 Agents <span style="color:var(--text)">${agentCount}</span></div>
+-            <div style="font-size:8px;color:var(--text-dim)">⭐ Rép. <span style="color:var(--gold)">${reputation}</span></div>
+-            <div style="font-size:8px;color:var(--text-dim)">₽ <span style="color:var(--text)">${money}</span></div>
+-            <div style="font-size:8px;color:var(--text-dim)">📖 Kanto <span style="color:var(--text)">${dexKanto}/${KANTO_DEX_SIZE}</span></div>
+-            <div style="font-size:8px;color:var(--text-dim)">🌐 National <span style="color:var(--text)">${dexCaught}/${NATIONAL_DEX_SIZE}</span></div>
+-            <div style="font-size:8px;color:var(--text-dim)">✨ Espèces chromas <span style="color:var(--text)">${shinyCount}</span></div>
+-          </div>
+-          <div style="font-size:7px;color:var(--text-dim);border-top:1px solid var(--border);padding-top:6px;margin-top:2px">
+-            Sauvegardé le ${savedAt}<br>Temps de jeu : ${playtime} · Schéma v${schemaVer}
+-          </div>
+-        </div>
+-
+-        <!-- Champs à migrer -->
+-        <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;display:flex;flex-direction:column;gap:6px">
+-          <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);margin-bottom:4px">MIGRATION AUTOMATIQUE</div>
+-          ${migHtml}
+-        </div>
+-      </div>
+-
+-      <!-- Avertissement écrasement -->
+-      <div style="background:rgba(204,51,51,.08);border:1px solid rgba(204,51,51,.3);border-radius:var(--radius-sm);padding:10px;font-size:9px;color:var(--text-dim)">
+-        ⚠ <b style="color:var(--red)">Import complet</b> : remplacera définitivement la save active (slot ${activeSaveSlot + 1}).
+-        Exporte d'abord ta save actuelle si tu veux la conserver.
+-      </div>
+-
+-      <div style="display:flex;flex-direction:column;gap:8px">
+-        <button id="btnImportBackupFirst" style="font-family:var(--font-pixel);font-size:8px;padding:8px 12px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer;text-align:left">
+-          💾 Exporter ma save actuelle avant d'importer
+-        </button>
+-        <div style="display:flex;gap:8px">
+-          <button id="btnImportFull" style="flex:2;font-family:var(--font-pixel);font-size:9px;padding:12px;background:var(--bg);border:2px solid var(--gold);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">
+-            ⚡ Import complet<br><span style="font-size:7px;color:var(--text-dim);font-family:sans-serif">Tous les données migrées automatiquement</span>
+-          </button>
+-          ${isLegacy ? `<button id="btnImportHeritage" style="flex:1;font-family:var(--font-pixel);font-size:9px;padding:12px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">
+-            🏆 Mode héritage<br><span style="font-size:7px;font-family:sans-serif">1 agent + 2 Pokémon</span>
+-          </button>` : ''}
+-        </div>
+-        <button id="btnImportCancel" style="font-family:var(--font-pixel);font-size:8px;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">
+-          Annuler
+-        </button>
+-      </div>
+-    </div>`;
+-
+-  document.body.appendChild(overlay);
+-  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+-
+-  overlay.querySelector('#btnImportClose')?.addEventListener('click',  () => overlay.remove());
+-  overlay.querySelector('#btnImportCancel')?.addEventListener('click', () => overlay.remove());
+-
+-  overlay.querySelector('#btnImportBackupFirst')?.addEventListener('click', () => {
+-    exportSave();
+-    overlay.querySelector('#btnImportBackupFirst').textContent = '✅ Save actuelle exportée !';
+-    overlay.querySelector('#btnImportBackupFirst').style.color = 'var(--green)';
+-  });
+-
+-  overlay.querySelector('#btnImportFull')?.addEventListener('click', () => {
+-    showConfirm(
+-      `Remplacer la save du slot ${activeSaveSlot + 1} par la save importée de "${gangName}" ?`,
+-      () => {
+-        try {
+-          setState(migrate(raw));
+-          saveState();
+-          overlay.remove();
+-          renderAll();
+-          notify(`✅ Save de "${gangName}" importée et convertie au format actuel.`, 'success');
+-        } catch (err) {
+-          notify('Erreur lors de la conversion — save non-importée.', 'error');
+-          console.error(err);
+-        }
+-      },
+-      null,
+-      { confirmLabel: 'Importer', cancelLabel: 'Annuler' }
+-    );
+-  });
+-
+-  overlay.querySelector('#btnImportHeritage')?.addEventListener('click', () => {
+-    overlay.remove();
+-    openLegacyImportModal(raw);
+-  });
++  return openImportPreviewModalImpl(raw);
+ }
+ 
+ function openLegacyImportModal(legacyData) {
+-  const overlay = document.createElement('div');
+-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px';
+-
+-  const agents = legacyData.agents || [];
+-  const pokemons = legacyData.pokemons || [];
+-
+-  const agentHtml = agents.length
+-    ? agents.map(a => `<label style="display:flex;align-items:center;gap:8px;padding:6px;border-bottom:1px solid var(--border);cursor:pointer">
+-        <input type="radio" name="legacyAgent" value="${a.id}" style="accent-color:var(--gold)">
+-        <img src="${a.sprite || ''}" style="width:32px;height:32px" onerror="this.style.display='none'">
+-        <span style="font-size:10px">${a.name} — Lv.${a.level} (${getAgentRankLabel?.(a) ?? a.title})</span>
+-      </label>`).join('')
+-    : '<div style="color:var(--text-dim);font-size:10px;padding:8px">Aucun agent dans cette save</div>';
+-
+-  const pokeHtml = pokemons.slice(0, 60).map(p => `<label style="display:flex;align-items:center;gap:6px;padding:4px;border-bottom:1px solid var(--border);cursor:pointer">
+-      <input type="checkbox" name="legacyPoke" value="${p.id}" style="accent-color:var(--gold)">
+-      <img src="${pokeSprite(p.species_en, p.shiny)}" style="width:28px;height:28px">
+-      <span style="font-size:9px">${speciesName(p.species_en)} Lv.${p.level} ${'*'.repeat(p.potential)}${p.shiny?' [S]':''}</span>
+-    </label>`).join('') || '<div style="color:var(--text-dim);font-size:10px">Aucun Pokémon</div>';
+-
+-  overlay.innerHTML = `
+-    <div style="background:var(--bg-panel);border:2px solid var(--gold-dim);border-radius:var(--radius);padding:20px;max-width:600px;width:100%;max-height:90vh;overflow-y:auto">
+-      <div style="font-family:var(--font-pixel);font-size:12px;color:var(--gold);margin-bottom:8px">IMPORT HERITAGE</div>
+-      <div style="font-size:10px;color:var(--text-dim);margin-bottom:16px">
+-        Save d'une version antérieure détectée. Tu peux conserver <b style="color:var(--text)">1 agent</b> et <b style="color:var(--text)">2 Pokémon</b>.<br>
+-        Les 2 Pokémon seront placés à la Pension pour pondre un oeuf de départ.
+-      </div>
+-
+-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+-        <div>
+-          <div style="font-family:var(--font-pixel);font-size:9px;color:var(--text-dim);margin-bottom:8px">CHOISIR 1 AGENT</div>
+-          <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);max-height:200px;overflow-y:auto">${agentHtml}</div>
+-        </div>
+-        <div>
+-          <div style="font-family:var(--font-pixel);font-size:9px;color:var(--text-dim);margin-bottom:8px">CHOISIR 2 POKEMON</div>
+-          <div id="legacyPokeCount" style="font-size:9px;color:var(--red);margin-bottom:4px">0/2 sélectionnés</div>
+-          <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);max-height:200px;overflow-y:auto">${pokeHtml}</div>
+-        </div>
+-      </div>
+-
+-      <div style="margin-top:16px;display:flex;gap:8px">
+-        <button id="btnLegacyConfirm" style="flex:1;font-family:var(--font-pixel);font-size:10px;padding:10px;background:var(--bg);border:2px solid var(--gold);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">COMMENCER</button>
+-        <button id="btnLegacyCancel" style="font-family:var(--font-pixel);font-size:10px;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">Annuler</button>
+-      </div>
+-    </div>`;
+-
+-  document.body.appendChild(overlay);
+-
+-  // Limit pokemon checkboxes to 2
+-  overlay.querySelectorAll('input[name="legacyPoke"]').forEach(cb => {
+-    cb.addEventListener('change', () => {
+-      const checked = [...overlay.querySelectorAll('input[name="legacyPoke"]:checked')];
+-      const countEl = document.getElementById('legacyPokeCount');
+-      if (checked.length > 2) { cb.checked = false; return; }
+-      if (countEl) countEl.textContent = `${checked.length}/2 sélectionnés`;
+-    });
+-  });
+-
+-  document.getElementById('btnLegacyCancel')?.addEventListener('click', () => overlay.remove());
+-
+-  document.getElementById('btnLegacyConfirm')?.addEventListener('click', () => {
+-    const agentId = overlay.querySelector('input[name="legacyAgent"]:checked')?.value;
+-    const pokeIds = [...overlay.querySelectorAll('input[name="legacyPoke"]:checked')].map(cb => cb.value);
+-
+-    if (pokeIds.length !== 2) {
+-      notify('Sélectionne exactement 2 Pokémon.'); return;
+-    }
+-
+-    // Build fresh state
+-    const fresh = createDefaultState();
+-    // Transfer gang basics from legacy
+-    fresh.gang.name = legacyData.gang?.name || 'La Gang';
+-    fresh.gang.bossName = legacyData.gang?.bossName || 'Boss';
+-    fresh.gang.bossSprite = legacyData.gang?.bossSprite || 'rocketgrunt';
+-
+-    // Transfer chosen agent
+-    if (agentId) {
+-      const agent = agents.find(a => a.id === agentId);
+-      if (agent) {
+-        agent.team = []; // reset team
+-        agent.pendingPerk = false;
+-        fresh.agents = [agent];
+-      }
+-    }
+-
+-    // Transfer chosen pokemon to pension
+-    const chosenPokes = pokeIds.map(id => pokemons.find(p => p.id === id)).filter(Boolean);
+-    chosenPokes.forEach(p => { p.homesick = true; });
+-    fresh.pokemons = chosenPokes;
+-    fresh.pension.slots = chosenPokes.slice(0, 2).map(p => p.id);
+-    fresh.pension.eggAt = Date.now() + 60000; // first egg in 1 minute
+-
+-    setState(migrate(fresh));
+-    saveState();
+-    overlay.remove();
+-    renderAll();
+-    notify('Nouvelle partie héritée commencée ! Les Pokémon sont à la Pension.', 'gold');
+-    switchTab('tabPC');
+-  });
++  return openLegacyImportModalImpl(legacyData);
+ }
+ 
+ // ════════════════════════════════════════════════════════════════
+@@ -841,365 +631,7 @@ let _sessionStatsBase = null;     // snapshot of state.stats at session start (a
+ 
+ // Chest sprite URL moved to data/assets-data.js
+ 
+-// ── SFX Engine (Web Audio API) ────────────────────────────────
+-const SFX = (() => {
+-  let ctx;
+-  function getCtx() {
+-    if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+-    return ctx;
+-  }
+-  function playTone(freq, duration, type = 'square', volume = 0.15) {
+-    const c = getCtx();
+-    if (c.state === 'suspended') { c.resume().catch(() => {}); return; }
+-    const osc = c.createOscillator();
+-    const gain = c.createGain();
+-    const sfxMult = (state?.settings?.sfxVol ?? 80) / 100;
+-    osc.type = type;
+-    osc.frequency.setValueAtTime(freq, c.currentTime);
+-    gain.gain.setValueAtTime(volume * sfxMult, c.currentTime);
+-    gain.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + duration);
+-    osc.connect(gain);
+-    gain.connect(c.destination);
+-    osc.start();
+-    osc.stop(c.currentTime + duration + 0.05); // +50 ms buffer → élimine le click/scratch à l'arrêt
+-  }
+-  return {
+-    ballThrow() {
+-      // Whoosh sound: descending noise
+-      playTone(800, 0.15, 'sawtooth', 0.08);
+-      setTimeout(() => playTone(400, 0.1, 'sawtooth', 0.06), 80);
+-    },
+-    capture(potential, shiny) {
+-      // Base capture jingle
+-      const base = 520;
+-      playTone(base, 0.12, 'square', 0.12);
+-      setTimeout(() => playTone(base * 1.25, 0.12, 'square', 0.12), 100);
+-      setTimeout(() => playTone(base * 1.5, 0.15, 'square', 0.12), 200);
+-      // Extra notes for high potential
+-      if (potential >= 4) {
+-        setTimeout(() => playTone(base * 2, 0.2, 'square', 0.15), 320);
+-      }
+-      if (potential >= 5 || shiny) {
+-        setTimeout(() => playTone(base * 2.5, 0.25, 'sine', 0.18), 440);
+-        setTimeout(() => playTone(base * 3, 0.3, 'sine', 0.15), 580);
+-      }
+-      if (shiny) {
+-        // Sparkle effect
+-        setTimeout(() => {
+-          for (let i = 0; i < 5; i++) {
+-            setTimeout(() => playTone(1200 + i * 200, 0.08, 'sine', 0.1), i * 60);
+-          }
+-        }, 700);
+-      }
+-    },
+-    error() {
+-      playTone(200, 0.2, 'sawtooth', 0.1);
+-    },
+-    levelUp() {
+-      // Ascending fanfare
+-      playTone(523, 0.1, 'square', 0.1);
+-      setTimeout(() => playTone(659, 0.1, 'square', 0.1), 110);
+-      setTimeout(() => playTone(784, 0.15, 'square', 0.1), 220);
+-      setTimeout(() => playTone(1047, 0.2, 'sine',  0.12), 360);
+-    },
+-    coin() {
+-      // Money sound
+-      playTone(988, 0.06, 'sine', 0.1);
+-      setTimeout(() => playTone(1318, 0.1, 'sine', 0.1), 80);
+-    },
+-    click() {
+-      // UI button click — tick léger
+-      playTone(1200, 0.04, 'square', 0.05);
+-    },
+-    tabSwitch() {
+-      // Changement d'onglet — glissement court
+-      playTone(660, 0.06, 'sine', 0.07);
+-      setTimeout(() => playTone(880, 0.05, 'sine', 0.05), 50);
+-    },
+-    buy() {
+-      // Achat confirmé — coin sound plus grave
+-      playTone(659, 0.08, 'sine', 0.1);
+-      setTimeout(() => playTone(880, 0.12, 'sine', 0.12), 80);
+-    },
+-    unlock() {
+-      // Déverrouillage / découverte — fanfare ascendante
+-      playTone(440, 0.08, 'square', 0.1);
+-      setTimeout(() => playTone(554, 0.08, 'square', 0.1), 100);
+-      setTimeout(() => playTone(659, 0.08, 'square', 0.1), 200);
+-      setTimeout(() => playTone(880, 0.16, 'sine',   0.12), 310);
+-      setTimeout(() => playTone(1108, 0.2, 'sine',   0.1),  450);
+-    },
+-    menuOpen() {
+-      // Ouverture modale / menu
+-      playTone(880, 0.08, 'sine', 0.07);
+-      setTimeout(() => playTone(1100, 0.1, 'sine', 0.06), 80);
+-    },
+-    menuClose() {
+-      // Fermeture modale
+-      playTone(660, 0.07, 'sine', 0.06);
+-      setTimeout(() => playTone(440, 0.09, 'sine', 0.05), 70);
+-    },
+-    chest() {
+-      // Coffre ouvert — effet magique
+-      playTone(660, 0.08, 'square', 0.08);
+-      setTimeout(() => playTone(880, 0.08, 'square', 0.09), 80);
+-      setTimeout(() => playTone(1100, 0.08, 'square', 0.1), 160);
+-      setTimeout(() => {
+-        for (let i = 0; i < 4; i++) {
+-          setTimeout(() => playTone(1200 + i * 180, 0.07, 'sine', 0.07), i * 55);
+-        }
+-      }, 260);
+-    },
+-    notify() {
+-      // Notification — ping doux
+-      playTone(880, 0.07, 'sine', 0.08);
+-      setTimeout(() => playTone(1108, 0.1, 'sine', 0.07), 90);
+-    },
+-    sell() {
+-      // Vente Pokémon
+-      playTone(660, 0.05, 'sine', 0.08);
+-      setTimeout(() => playTone(440, 0.08, 'sawtooth', 0.06), 70);
+-    },
+-    evolve() {
+-      // Évolution — fanfare complète
+-      const notes = [523, 659, 784, 1047, 1319];
+-      notes.forEach((f, i) => setTimeout(() => playTone(f, 0.15, 'square', 0.12), i * 120));
+-      setTimeout(() => {
+-        for (let i = 0; i < 6; i++) setTimeout(() => playTone(1200 + i * 150, 0.1, 'sine', 0.1), i * 60);
+-      }, notes.length * 120 + 100);
+-    },
+-    _enabled() { return state?.settings?.sfxEnabled !== false; },
+-    play(name, ...args) {
+-      if (!this._enabled()) return;
+-      if (state?.settings?.sfxIndividual?.[name] === false) return;
+-      try { this[name]?.(...args); } catch {}
+-    },
+-  };
+-})();
+-
+-// ════════════════════════════════════════════════════════════════
+-//  3b.  MUSIC PLAYER (zone-aware, crossfade progressif)
+-// ════════════════════════════════════════════════════════════════
+-
+-/**
+- * MUSIC_TRACKS — catalogue de toutes les pistes audio.
+- * Ajoutez des pistes ici + placez les fichiers dans game/music/.
+- * Chaque zone référence une clé via sa propriété `music`.
+- *
+- * Structure :
+- *   key:  identifiant unique (référencé dans ZONES[].music)
+- *   file: chemin relatif depuis game/
+- *   loop: true pour boucle continue
+- *   vol:  volume de base 0–1
+- */
+-const MUSIC_TRACKS = {
+-  // ── Base / Routes ─────────────────────────────────────────────
+-  base:        { file: 'music/BGM/First Town.mp3',    loop: true,  vol: 0.45, fr: 'Base du Gang'       },
+-  forest:      { file: 'music/BGM/Route 1.mp3',       loop: true,  vol: 0.50, fr: 'Route'               },
+-  cave:        { file: 'music/BGM/Cave.mp3',           loop: true,  vol: 0.45, fr: 'Caverne'             },
+-  city:        { file: 'music/BGM/Lab.mp3',            loop: true,  vol: 0.50, fr: 'Ville'               },
+-  sea:         { file: 'music/BGM/Introduction.mp3',   loop: true,  vol: 0.45, fr: 'Mer / Bateau'        },
+-  safari:      { file: 'music/BGM/Route 1.mp3',        loop: true,  vol: 0.45, fr: 'Parc Safari'         },
+-  lavender:    { file: 'music/BGM/Cave.mp3',           loop: true,  vol: 0.30, fr: 'Lavanville'          },
+-  tower:       { file: 'music/BGM/Cave.mp3',           loop: true,  vol: 0.28, fr: 'Tour Pokémon'        },
+-  mansion:     { file: 'music/BGM/Cave.mp3',           loop: true,  vol: 0.35, fr: 'Manoir Pokémon'      },
+-  // ── Combat / Arènes ───────────────────────────────────────────
+-  gym:         { file: 'music/BGM/VSTrainer.mp3',      loop: true,  vol: 0.55, fr: 'Arène'               },
+-  rocket:      { file: 'music/BGM/VSRival.mp3',        loop: true,  vol: 0.55, fr: 'Team Rocket'         },
+-  silph:       { file: 'music/BGM/Lab.mp3',            loop: true,  vol: 0.50, fr: 'Sylphe SARL'         },
+-  elite4:      { file: 'music/BGM/VSLegend.mp3',       loop: true,  vol: 0.60, fr: 'Élite 4 / Sommet'    },
+-  // ── Ambiances spéciales ────────────────────────────────────────
+-  casino:      { file: 'music/BGM/MysteryGift.mp3',    loop: true,  vol: 0.55, fr: 'Casino'              },
+-  halloffame:  { file: 'music/BGM/Hall of Fame.mp3',   loop: false, vol: 0.60, fr: 'Tableau d\'Honneur'  },
+-  title:       { file: 'music/BGM/Title.mp3',          loop: true,  vol: 0.50, fr: 'Titre'               },
+-};
+-
+-/**
+- * MusicPlayer — gère la lecture de fond avec crossfade.
+- * Utilise deux éléments <audio> pour un fondu croisé doux.
+- */
+-const MusicPlayer = (() => {
+-  let _trackA = null;   // HTMLAudioElement actif
+-  let _trackB = null;   // HTMLAudioElement en fondu entrant
+-  let _current = null;  // clé du morceau en cours
+-  let _fadeTimer = null;
+-
+-  const FADE_DURATION = 2000; // ms
+-
+-  function _createAudio(src, vol, loop) {
+-    const a = new Audio(src);
+-    a.loop = loop;
+-    a.volume = 0;
+-    a.preload = 'auto';
+-    a.dataset.targetVol = vol;
+-    return a;
+-  }
+-
+-  function _isEnabled() {
+-    return state?.settings?.musicEnabled === true;
+-  }
+-
+-  function _setVol(el, v) {
+-    if (el) el.volume = Math.max(0, Math.min(1, v));
+-  }
+-
+-  function _fade(el, fromVol, toVol, durationMs, onDone) {
+-    const steps = 30;
+-    const dt = durationMs / steps;
+-    const delta = (toVol - fromVol) / steps;
+-    let step = 0;
+-    const id = setInterval(() => {
+-      step++;
+-      _setVol(el, fromVol + delta * step);
+-      if (step >= steps) {
+-        clearInterval(id);
+-        _setVol(el, toVol);
+-        if (onDone) onDone();
+-      }
+-    }, dt);
+-    return id;
+-  }
+-
+-  return {
+-    /**
+-     * Joue la piste `trackId` avec crossfade si une piste est déjà active.
+-     * Ne fait rien si la piste est déjà en cours ou si la musique est désactivée.
+-     */
+-    play(trackId) {
+-      if (!_isEnabled()) return;
+-      if (!trackId || !MUSIC_TRACKS[trackId]) return;
+-      if (_current === trackId) return; // déjà en cours
+-
+-      const def = MUSIC_TRACKS[trackId];
+-      const newAudio = _createAudio(def.file, def.vol, def.loop);
+-      const targetVol = def.vol;
+-
+-      _current = trackId;
+-
+-      if (_trackA && !_trackA.paused) {
+-        // Crossfade : fade out A, fade in B
+-        const oldA = _trackA;
+-        _trackB = newAudio;
+-        _trackB.play().catch(() => {});
+-        _fade(_trackB, 0, targetVol, FADE_DURATION);
+-        _fade(oldA, oldA.volume, 0, FADE_DURATION, () => {
+-          oldA.pause();
+-          oldA.src = '';
+-          _trackA = _trackB;
+-          _trackB = null;
+-        });
+-      } else {
+-        // Pas de piste active — démarre directement avec fade in
+-        if (_trackA) { _trackA.pause(); _trackA.src = ''; }
+-        _trackA = newAudio;
+-        _trackA.play().catch(() => {});
+-        _fade(_trackA, 0, targetVol, FADE_DURATION);
+-      }
+-    },
+-
+-    /** Arrête la musique avec fade out. */
+-    stop() {
+-      if (_trackA) {
+-        const old = _trackA;
+-        _trackA = null;
+-        _current = null;
+-        _fade(old, old.volume, 0, FADE_DURATION / 2, () => {
+-          old.pause(); old.src = '';
+-        });
+-      }
+-    },
+-
+-    /** Appelé lors du changement de zone ouverte ou d'onglet actif. */
+-    updateFromContext() {
+-      if (!_isEnabled()) { this.stop(); return; }
+-
+-      // Priorité 0 : jukebox manuel
+-      if (state?.settings?.jukeboxTrack) {
+-        this.play(state.settings.jukeboxTrack);
+-        return;
+-      }
+-
+-      // Priorité : première zone ouverte qui a une musique définie
+-      for (const zId of (state.openZoneOrder || [])) {
+-        const zone = ZONE_BY_ID[zId];
+-        if (zone?.music) { this.play(zone.music); return; }
+-      }
+-      // Fallback : musique de l'onglet actif
+-      if (activeTab === 'tabGang' || activeTab === 'tabZones') {
+-        this.play('base');
+-      } else {
+-        // Pas de zones ouvertes et onglet neutre → silence progressif
+-        this.stop();
+-      }
+-    },
+-
+-    /** Volume global 0–1 */
+-    setVolume(v) {
+-      if (_trackA) _setVol(_trackA, Math.max(0, Math.min(1, v)) * (parseFloat(_trackA.dataset.targetVol) || 0.5));
+-    },
+-
+-    get current() { return _current; },
+-  };
+-})();
+-
+-/**
+- * JinglePlayer — joue des courts extraits audio (ME) en one-shot.
+- * Ne bloque pas la musique de fond — les deux coexistent.
+- */
+-const JINGLES = {
+-  trainer_encounter: 'music/ME/VSTrainer_Intro.mp3',
+-  wild_encounter:    'music/ME/VSWildPoke_Intro.mp3',
+-  legend_encounter:  'music/ME/VSLegend_Intro.mp3',
+-  rival_encounter:   'music/ME/VSRival_Intro.mp3',
+-  youngster:         'music/ME/Encounter_Youngster.mp3',
+-  mystery_gift:      'music/BGM/MysteryGift.mp3',
+-  low_hp:            'music/ME/lowhp.mp3',
+-  slots_win:         'music/ME/SlotsWin.mp3',
+-  slots_big:         'music/ME/SlotsBigWin.mp3',
+-};
+-
+-const JinglePlayer = (() => {
+-  let _current = null;
+-  function _enabled() { return state?.settings?.musicEnabled === true; }
+-
+-  return {
+-    play(key) {
+-      if (!_enabled()) return;
+-      const src = JINGLES[key];
+-      if (!src) return;
+-      if (_current) { _current.pause(); _current = null; }
+-      const a = new Audio(src);
+-      a.volume = 0.7;
+-      a.play().catch(() => {});
+-      _current = a;
+-      a.addEventListener('ended', () => { _current = null; });
+-    },
+-    stop() { if (_current) { _current.pause(); _current = null; } },
+-  };
+-})();
+-
+-/**
+- * SE (Sound Effects) — sons d'attaque et événements gameplay.
+- * Utilise Audio HTML plutôt que Web Audio pour les fichiers complexes.
+- */
+-const SE_SOUNDS = {
+-  buy:        'music/SE/Charm.mp3',
+-  level_up:   'music/SE/BW2Summary.mp3',
+-  slash:      'music/SE/Slash.mp3',
+-  metronome:  'music/SE/Metronome.mp3',
+-  explosion:  'music/SE/Explosion.mp3',
+-  protect:    'music/SE/Protect.mp3',
+-  flash:      'music/SE/Flash.mp3',
+-};
+-
+-function playSE(key, vol = 0.6) {
+-  if (state?.settings?.sfxEnabled === false) return;
+-  const src = SE_SOUNDS[key];
+-  if (!src) return;
+-  const a = new Audio(src);
+-  a.volume = vol;
+-  a.play().catch(() => {});
+-}
++// ── Audio extracted to modules/ui/audio.js ───────────────────────
+ 
+ // ════════════════════════════════════════════════════════════════
+ //  3c.  DOPAMINE POPUP HELPERS
+@@ -1287,110 +719,11 @@ function showRarePopup(species_en, zoneId) {
+ // ════════════════════════════════════════════════════════════════
+ 
+ function showConfirm(message, onConfirm, onCancel = null, opts = {}) {
+-  const existing = document.getElementById('confirmModal');
+-  if (existing) existing.remove();
+-  SFX.play('menuOpen');
+-
+-  const modal = document.createElement('div');
+-  modal.id = 'confirmModal';
+-  modal.style.cssText = 'position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,.82);display:flex;align-items:center;justify-content:center;';
+-
+-  const danger = opts.danger ? 'var(--red)' : 'var(--gold-dim)';
+-  const confirmLabel = opts.confirmLabel || (opts.lang === 'fr' ? 'Confirmer' : 'Confirm');
+-  const cancelLabel  = opts.cancelLabel  || (opts.lang === 'fr' ? 'Annuler'   : 'Cancel');
+-
+-  modal.innerHTML = `
+-    <div style="background:var(--bg-panel);border:2px solid ${danger};border-radius:var(--radius);padding:24px 28px;max-width:440px;width:90%;display:flex;flex-direction:column;gap:16px">
+-      <div style="font-size:13px;color:var(--text);line-height:1.6">${message}</div>
+-      <div style="display:flex;gap:8px;justify-content:flex-end">
+-        <button id="confirmModalCancel" style="font-family:var(--font-pixel);font-size:9px;padding:8px 16px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">${cancelLabel}</button>
+-        <button id="confirmModalOk" style="font-family:var(--font-pixel);font-size:9px;padding:8px 16px;background:${opts.danger ? 'var(--red-dark)' : 'var(--bg)'};border:1px solid ${danger};border-radius:var(--radius-sm);color:${opts.danger ? '#fff' : 'var(--gold)'};cursor:pointer">${confirmLabel}</button>
+-      </div>
+-    </div>`;
+-
+-  document.body.appendChild(modal);
+-
+-  document.getElementById('confirmModalOk').addEventListener('click', () => { SFX.play('menuClose'); modal.remove(); onConfirm?.(); });
+-  document.getElementById('confirmModalCancel').addEventListener('click', () => { SFX.play('menuClose'); modal.remove(); onCancel?.(); });
+-  modal.addEventListener('click', e => { if (e.target === modal) { SFX.play('menuClose'); modal.remove(); onCancel?.(); } });
++  return showConfirmImpl(message, onConfirm, onCancel, opts);
+ }
+ 
+ function showInfoModal(tabId) {
+-  const INFO = {
+-    tabGang: {
+-      title: '💀 LE GANG',
+-      body: `
+-        <strong>Réputation</strong> — Débloque zones, quêtes et achats. Visible dans la barre en haut à droite.<br><br>
+-        <strong>Argent (₽)</strong> — Les récompenses de combat s'accumulent dans les zones. Récupère-les via le bouton ₽ jaune (un combat est nécessaire).<br><br>
+-        <strong>Boss</strong> — Ton avatar. Assigne jusqu'à <strong>3 Pokémon</strong> à son équipe depuis le PC.<br><br>
+-        <strong>Sac</strong> — Clique sur une Ball pour l'activer. Clique sur un boost pour le lancer. L'incubateur ouvre la gestion des œufs.<br><br>
+-        <span class="dim">Conseil : assigne tes meilleurs Pokémon au Boss pour maximiser tes chances en combat.</span>
+-      `
+-    },
+-    tabAgents: {
+-      title: '👥 AGENTS',
+-      body: `
+-        <strong>CAP (Capture)</strong> — Chance de capturer automatiquement des Pokémon dans les zones non-ouvertes. Plus c'est haut, plus l'agent est efficace.<br><br>
+-        <strong>LCK (Chance)</strong> — Influence la rareté des captures passives et la qualité des récompenses de coffres.<br><br>
+-        <strong>ATK (Combat)</strong> — Puissance en combat automatique. Un agent fort bat des dresseurs difficiles.<br><br>
+-        <strong>Grade</strong> — Grunt → Lieutenant (50+ combats gagnés) → Captain (200+). Chaque grade donne un bonus ATK.<br><br>
+-        <strong>Zone assignée</strong> — L'agent farm passivement : captures, combats contre dresseurs, ouverture de coffres.<br><br>
+-        <span class="dim">Un agent sans zone assignée ne fait rien. Assigne-les toujours !</span>
+-      `
+-    },
+-    tabZones: {
+-      title: '🗺️ ZONES',
+-      body: `
+-        <strong>Zone de capture</strong> (field / safari / water / cave) — Des Pokémon sauvages apparaissent. Agents et Boss capturent automatiquement.<br><br>
+-        <strong>Zone d'arène</strong> (gym / elite) — Uniquement des combats. Récompenses en ₽ et réputation élevées.<br><br>
+-        <strong>Récolte ₽</strong> — Les gains de combat s'accumulent (icône jaune ₽). Clique pour lancer une récolte avec combat défensif.<br><br>
+-        <strong>Maîtrise ★</strong> — Augmente avec les victoires. Améliore les spawns et débloque des dresseurs élites.<br><br>
+-        <strong>Slots d'agents</strong> — Coût en réputation, croissant avec le niveau de la zone.<br><br>
+-        <span class="dim">Les zones dégradées (⚠) n'ont que des combats — remonte ta réputation pour les débloquer.</span>
+-      `
+-    },
+-    tabMarket: {
+-      title: '💰 MARCHÉ',
+-      body: `
+-        <strong>Quêtes horaires</strong> — 3 quêtes Moyennes + 2 Difficiles, réinitialisées toutes les heures. Reroll possible contre 10 rep.<br><br>
+-        <strong>Histoire & Objectifs</strong> — Quêtes permanentes liées à la progression. Complète-les pour des grosses récompenses.<br><br>
+-        <strong>Balls</strong> — Chaque type améliore le potentiel max capturé. Troc (onglet Troc) : 10 PB→1 GB, 10 GB→1 UB, 100 UB⇄1 MB.<br><br>
+-        <strong>Multiplicateur ×1/×5/×10</strong> — Achète en lot depuis la boutique.<br><br>
+-        <strong>Boosts temporaires</strong> — S'activent depuis le Sac dans la fenêtre de zone. Durée 60–90s.<br><br>
+-        <span class="dim">Vends des Pokémon depuis le PC pour financer tes achats.</span>
+-      `
+-    },
+-    tabPC: {
+-      title: '💻 PC',
+-      body: `
+-        <strong>Potentiel ★</strong> — Permanent, détermine le plafond de puissance. ★5 = top tier. Dépend de la Ball utilisée.<br><br>
+-        <strong>Nature</strong> — Chaque nature booste 2 stats et en pénalise 1. <em>Hardy</em> = équilibré.<br><br>
+-        <strong>ATK/DEF/SPD</strong> — Calculées depuis base × nature × niveau × potentiel.<br><br>
+-        <strong>Vente</strong> — Prix = rareté × potentiel × nature. Pas de malus de revente.<br><br>
+-        <strong>Labo</strong> — Fais évoluer tes Pokémon (pierre ou niveau requis).<br><br>
+-        <strong>Pension</strong> — 2 Pokémon compatibles → oeuf. Nécessite un incubateur. Les Pokémon de pension ont le "mal du pays" et ne peuvent pas être vendus.<br><br>
+-        <strong>Oeufs</strong> — Gère tes oeufs en attente d'incubation ou prêts à éclore.<br><br>
+-        <span class="dim">Filtre par rareté, type ou shiny pour retrouver facilement tes Pokémon.</span>
+-      `
+-    },
+-    tabPokedex: {
+-      title: '📖 POKÉDEX',
+-      body: `
+-        <strong>Vu 👁</strong> — Tu as aperçu ce Pokémon dans une zone (spawn visible).<br><br>
+-        <strong>Capturé ✓</strong> — Tu en possèdes au moins un dans ton PC.<br><br>
+-        <strong>Shiny ✨</strong> — Tu as capturé une version chromatique. Chance de base très faible, boostée par l'Aura Shiny.<br><br>
+-        <strong>Progression</strong> — Compléter le Pokédex donne des bonus de réputation et de récompenses de quêtes.<br><br>
+-        <span class="dim">Les légendaires et très rares n'apparaissent que dans des zones spécifiques avec le bon équipement.</span>
+-      `
+-    },
+-  };
+-
+-  const info = INFO[tabId];
+-  if (!info) return;
+-
+-  document.getElementById('infoModalTitle').textContent = info.title;
+-  document.getElementById('infoModalBody').innerHTML = info.body;
+-  document.getElementById('infoModal').classList.add('active');
++  return showInfoModalImpl(tabId);
+ }
+ 
+ // ════════════════════════════════════════════════════════════════
+@@ -2091,117 +1424,6 @@ Object.defineProperty(globalThis, 'activeTab', {
+ });
+ // zoneFilter state is now managed inside modules/ui/zoneSelector.js
+ 
+-function hintLink(label, tabId) {
+-  return `<button onclick="switchTab('${tabId}')" style="font-family:var(--font-pixel);font-size:9px;color:var(--red);background:none;border:none;border-bottom:1px solid var(--red);cursor:pointer;padding:0">${label}</button>`;
+-}
+-
+-function getTabHint(tabId) {
+-  const pc       = state.pokemons.length;
+-  const agents   = state.agents.length;
+-  const money    = state.gang.money;
+-  const bossTeam = state.gang.bossTeam.length;
+-  const hasZone  = openZones.size > 0;
+-
+-  switch (tabId) {
+-    case 'tabGang':
+-      if (!state.gang.initialized) return 'Crée ton gang pour commencer.';
+-      if (bossTeam === 0 && pc === 0) return `Capture des Pokémon dans ${hintLink('Zones', 'tabZones')} puis assigne-en à ton équipe Boss.`;
+-      if (bossTeam === 0) return `Assigne des Pokémon à ton équipe Boss depuis le ${hintLink('PC', 'tabPC')} — clique sur un Pokémon → Équipe.`;
+-      if (!hasZone) return `Ouvre une zone dans ${hintLink('Zones', 'tabZones')} pour explorer et combattre.`;
+-      return `Vitrine : montre tes meilleurs Pokémon. L\'équipe Boss combat quand tu entres en zone.`;
+-    case 'tabAgents':
+-      if (pc === 0) return `Capture des Pokémon en ${hintLink('Zones', 'tabZones')} — tu pourras en recruter comme agents.`;
+-      if (agents === 0) return `Recrute un agent depuis le ${hintLink('PC', 'tabPC')} : clique sur un Pokémon → Recruter Agent. Les agents explorent les zones et ramènent de l'argent automatiquement.`;
+-      if (!hasZone) return `Assigne tes agents à une zone depuis ${hintLink('Zones', 'tabZones')} ou directement ici via le menu déroulant.`;
+-      return `Les agents assignés à une zone génèrent des ₽ toutes les 5 min. Collecte depuis l'onglet ${hintLink('Zones', 'tabZones')}.`;
+-    case 'tabZones':
+-      if (!hasZone) return `Clique sur <b>Route 1</b> puis sur <b>Ouvrir</b> pour explorer ta première zone.`;
+-      if (bossTeam === 0) return `Entre dans une zone avec ton boss — assigne d'abord un Pokémon à ton équipe depuis le ${hintLink('PC', 'tabPC')}.`;
+-      return `Capture des Pokémon, bats des dresseurs. 10 victoires → combats élites. Clique 💰 pour collecter les revenus.`;
+-    case 'tabBag':
+-      return null;
+-    case 'tabMarket':
+-      if (money < 500) return `Tu n'as presque plus d'argent. Bats des dresseurs ou vends des Pokémon en double depuis le ${hintLink('PC', 'tabPC')}.`;
+-      if (!state.inventory.pokeball) return `Achète des Pokéballs (100₽) dans la boutique pour pouvoir capturer des Pokémon.`;
+-      return `Boutique : Pokéballs, objets de boost, incubateurs. Quêtes : missions journalières pour des récompenses.`;
+-    case 'tabPC':
+-      if (pc === 0) return `Ton PC est vide. Capture des Pokémon en ${hintLink('Zones', 'tabZones')} pour les voir ici.`;
+-      if (bossTeam === 0) return `Clique sur un Pokémon → menu → <b>Équipe Boss</b> pour l'ajouter à ton équipe de combat.`;
+-      return `Filtre (Eq/Tr/PS), trie par prix/niveau/potentiel, vends les doublons.`;
+-    case 'tabTraining':
+-      if (pc === 0) return `Capture des Pokémon en ${hintLink('Zones', 'tabZones')} pour les entraîner.`;
+-      return `Place 2 à 6 Pokémon — ils s'affrontent automatiquement toutes les 60s. Gagnant : XP ×1.25, tous gagnent de l'XP.`;
+-    case 'tabLab':
+-      if (pc < 3) return `Capture plusieurs exemplaires du même Pokémon pour les fusionner au Labo et augmenter le Potentiel.`;
+-      return `Potentiel (⭐) = multiplicateur de prix et de stats. Sacrifie des doublons pour monter jusqu'à 5⭐ (max).`;
+-    case 'tabMissions':
+-      return `Missions journalières et hebdomadaires = source de ₽ et d'objets rares. Reviens chaque jour.`;
+-    case 'tabPokedex':
+-      return `Kanto ${getDexKantoCaught()}/${KANTO_DEX_SIZE} · National ${getDexNationalCaught()}/${NATIONAL_DEX_SIZE} · Chromas ${getShinySpeciesCount()} espèces. Explore toutes les zones pour compléter !`;
+-    default:
+-      return null;
+-  }
+-}
+-
+-// ── First-visit contextual hint (non-bloquant, disparaît en 6s ou au clic) ──
+-const _FIRST_VISIT_HINTS = {
+-  tabGang:     { icon: '👑', title: 'Ton Gang', body: 'Ta base d\'opérations. Gère l\'équipe Boss (3 slots sauvegardables), place tes meilleurs Pokémon en vitrine, et débloque des upgrades spéciaux au Marché.' },
+-  tabAgents:   { icon: '👥', title: 'Les Agents', body: 'Assigne-leur une zone → ils capturent et combattent automatiquement, même zones fermées. Chaque agent a un comportement (tout / capture / combat) et une stat de chance qui augmente les potentiels.' },
+-  tabZones:    { icon: '🗺', title: 'Zones', body: 'Ouvre jusqu\'à 6 zones simultanément pour capturer des Pokémon et battre des dresseurs. Les zones fermées avec agent continuent de se jouer en arrière-plan. Ton Boss participe aux combats de toutes les zones ouvertes.' },
+-  tabMarket:   { icon: '🛒', title: 'Marché', body: 'Achète des Pokéballs pour capturer, des incubateurs pour faire éclore des œufs, et plus encore.' },
+-  tabPC:       { icon: '💾', title: 'Le PC', body: 'Tous tes Pokémon sont ici. Assigne-les à ton équipe, à un agent, à la pension ou à la salle d\'entraînement.' },
+-  tabTraining: { icon: '🏋', title: 'Salle d\'entraînement', body: 'Tes Pokémon s\'entraînent automatiquement. Parfait pour monter en niveau des Pokémon que tu n\'utilises pas.' },
+-  tabLab:      { icon: '🔬', title: 'Laboratoire', body: 'Le Potentiel (⭐) multiplie la valeur et les stats d\'un Pokémon. Fusionne des doublons pour monter jusqu\'à 5⭐.' },
+-  tabMissions: { icon: '📋', title: 'Missions', body: 'Objectifs quotidiens et hebdomadaires. Complète-les pour des ₽ et des objets rares.' },
+-  tabPokedex:  { icon: '📖', title: 'Pokédex', body: 'Chaque espèce capturée est enregistrée ici. Vise 151/151 pour tout débloquer.' },
+-};
+-
+-function showFirstVisitHint(tabId) {
+-  const def = _FIRST_VISIT_HINTS[tabId];
+-  if (!def) return;
+-  // Remove any existing hint
+-  document.getElementById('firstVisitHint')?.remove();
+-
+-  const el = document.createElement('div');
+-  el.id = 'firstVisitHint';
+-  el.style.cssText = `
+-    position:fixed;bottom:24px;right:24px;z-index:4000;
+-    background:var(--bg-panel);border:2px solid var(--gold-dim);border-radius:var(--radius);
+-    padding:12px 14px;max-width:260px;box-shadow:0 4px 20px rgba(0,0,0,.6);
+-    animation:fvhIn .3s ease;cursor:pointer;
+-  `;
+-  el.innerHTML = `
+-    <div style="display:flex;align-items:flex-start;gap:10px">
+-      <span style="font-size:20px;flex-shrink:0">${def.icon}</span>
+-      <div>
+-        <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold);margin-bottom:4px">${def.title}</div>
+-        <div style="font-size:10px;color:var(--text-dim);line-height:1.5">${def.body}</div>
+-      </div>
+-      <button style="background:none;border:none;color:var(--text-dim);font-size:14px;cursor:pointer;padding:0;flex-shrink:0;line-height:1" onclick="document.getElementById('firstVisitHint')?.remove()">✕</button>
+-    </div>`;
+-
+-  document.body.appendChild(el);
+-
+-  // Auto-dismiss after 7s
+-  const timer = setTimeout(() => {
+-    el.style.animation = 'fvhOut .3s ease forwards';
+-    setTimeout(() => el.remove(), 300);
+-  }, 7000);
+-  el.addEventListener('click', () => { clearTimeout(timer); el.remove(); });
+-}
+-
+-function renderHint(tabId) {
+-  const bar = document.getElementById('hintBar');
+-  if (!bar) return;
+-  const hint = getTabHint(tabId);
+-  if (hint) {
+-    bar.innerHTML = '&gt;&gt; ' + hint;
+-    bar.style.display = 'block';
+-  } else {
+-    bar.style.display = 'none';
+-  }
+-}
+-
+ // Track which tabs have been seen (first-visit hints)
+ const _visitedTabs = new Set(JSON.parse(sessionStorage.getItem('pg_visited_tabs') || '[]'));
+ 
+@@ -2225,6 +1447,22 @@ function isBallAssistActive() {
+   return Date.now() < _ballAssistUntil;
+ }
+ 
++function hintLink(label, tabId) {
++  return hintLinkImpl(label, tabId);
++}
++
++function getTabHint(tabId) {
++  return getTabHintImpl(tabId);
++}
++
++function showFirstVisitHint(tabId) {
++  return showFirstVisitHintImpl(tabId);
++}
++
++function renderHint(tabId) {
++  return renderHintImpl(tabId);
++}
++
+ // ════════════════════════════════════════════════════════════════
+ // RACCOURCIS CLAVIER GLOBAUX
+ //  1-7 → onglets  |  Échap → ferme modale/fenêtre de zone
+@@ -2364,23 +1602,7 @@ function renderAll() {
+ }
+ 
+ function renderActiveTab() {
+-  switch (activeTab) {
+-    case 'tabGang':     renderGangTab(); break;
+-    case 'tabZones':    renderZonesTab(); break;
+-    case 'tabMarket':   renderMarketTab(); break;
+-    case 'tabPC':       renderPCTab(); break;
+-    case 'tabPokedex':  renderPokedexTab(); break;
+-    case 'tabAgents':   renderAgentsTab(); break;
+-    case 'tabBag':        switchTab('tabMarket'); break;
+-    case 'tabCosmetics':   renderCosmeticsTab(); break;
+-    case 'tabMissions':    renderMissionsTab(); break;
+-    case 'tabBattleLog':   renderBattleLogTab(); break;
+-    case 'tabTraining': pcView = 'training'; switchTab('tabPC'); break;
+-    case 'tabLab':      pcView = 'lab'; switchTab('tabPC'); break;
+-    case 'tabLeaderboard': renderLeaderboardTab(); break;
+-    case 'tabCompte':      renderCompteTab(); break;
+-    case 'tabZone2':       renderZone2Tab(); break;
+-  }
++  return renderActiveTabImpl();
+ }
+ 
+ // ════════════════════════════════════════════════════════════════
+@@ -3189,82 +2411,7 @@ function openRareCandyPicker() {
+ }
+ 
+ function renderBagTab() {
+-  const grid = document.getElementById('bagGrid');
+-  if (!grid) return;
+-
+-  const items = [
+-    { id: 'pokeball',  icon: 'PB', fr: 'Poke Ball',      en: 'Poke Ball',      desc_fr: 'Ball standard',         desc_en: 'Standard ball' },
+-    { id: 'greatball', icon: 'GB', fr: 'Super Ball',      en: 'Great Ball',     desc_fr: 'Meilleur potentiel',    desc_en: 'Better potential' },
+-    { id: 'ultraball', icon: 'UB', fr: 'Hyper Ball',      en: 'Ultra Ball',     desc_fr: 'Excellent potentiel',   desc_en: 'Excellent potential' },
+-    { id: 'duskball',  icon: 'DB', fr: 'Sombre Ball',     en: 'Dusk Ball',      desc_fr: 'Potentiel equilibre',   desc_en: 'Balanced potential' },
+-    { id: 'lure',      icon: 'LR', fr: 'Leurre',          en: 'Lure',           desc_fr: 'x2 spawns 60s',         desc_en: 'x2 spawns 60s',      usable: true },
+-    { id: 'superlure', icon: 'SL', fr: 'Super Leurre',    en: 'Super Lure',     desc_fr: 'x3 spawns 60s',         desc_en: 'x3 spawns 60s',      usable: true },
+-    { id: 'incense',   icon: 'IN', fr: 'Encens Chance',   en: 'Lucky Incense',  desc_fr: '*+1 potentiel 90s',     desc_en: '*+1 potential 90s',  usable: true },
+-    { id: 'rarescope', icon: 'SC', fr: 'Rarioscope',       en: 'Rare Scope',     desc_fr: 'Spawns rares x3 90s',   desc_en: 'Rare spawns x3 90s', usable: true },
+-    { id: 'aura',      icon: 'AU', fr: 'Aura Shiny',       en: 'Shiny Aura',     desc_fr: 'Shiny x5 90s',          desc_en: 'Shiny x5 90s',       usable: true },
+-    { id: 'evostone',  icon: 'EV', fr: 'Pierre Evol.',     en: 'Evo Stone',      desc_fr: 'Evolution par pierre',  desc_en: 'Stone evolution' },
+-    { id: 'rarecandy', icon: 'RC', fr: 'Super Bonbon',     en: 'Rare Candy',     desc_fr: '+1 niveau',              desc_en: '+1 level',          usable: true },
+-    { id: 'masterball',icon: 'MB', fr: 'Master Ball',      en: 'Master Ball',    desc_fr: '***** garanti',         desc_en: '***** guaranteed' },
+-  ];
+-
+-  grid.innerHTML = items.map(item => {
+-    const qty = state.inventory[item.id] || 0;
+-    const name = state.lang === 'fr' ? item.fr : item.en;
+-    const desc = state.lang === 'fr' ? item.desc_fr : item.desc_en;
+-    const active = isBoostActive(item.id);
+-    const remaining = active ? boostRemaining(item.id) : 0;
+-    return `<div class="bag-item" ${active ? 'style="border-color:var(--gold)"' : ''}>
+-      <span class="bag-icon">${itemSprite(item.id)}</span>
+-      <div class="bag-info">
+-        <div class="bag-name">${name}</div>
+-        <div class="bag-qty">x${qty}${active ? ` (${remaining}s)` : ''}</div>
+-        <div class="bag-desc">${desc}</div>
+-      </div>
+-      ${item.usable && qty > 0 ? `<button class="bag-use-btn" data-use-item="${item.id}">${state.lang === 'fr' ? 'Utiliser' : 'Use'}</button>` : ''}
+-    </div>`;
+-  }).join('');
+-
+-  // Active ball selector
+-  grid.innerHTML += `
+-    <div class="bag-item" style="grid-column:1/-1;border-color:var(--gold-dim)">
+-      <span class="bag-icon">🎯</span>
+-      <div class="bag-info">
+-        <div class="bag-name">${state.lang === 'fr' ? 'Ball active' : 'Active Ball'}</div>
+-        <div class="bag-desc">${state.lang === 'fr' ? 'Ball utilisée pour les captures' : 'Ball used for captures'}</div>
+-      </div>
+-      <div style="display:flex;gap:4px;flex-wrap:wrap">
+-        ${Object.entries(BALLS).map(([key, ball]) => `
+-          <button style="font-size:9px;padding:3px 8px;border-radius:4px;cursor:pointer;
+-            background:${state.activeBall === key ? 'var(--red-dark)' : 'var(--bg)'};
+-            border:1px solid ${state.activeBall === key ? 'var(--red)' : 'var(--border)'};
+-            color:var(--text)" data-bag-ball="${key}">
+-            ${state.lang === 'fr' ? ball.fr : ball.en} (${state.inventory[key] || 0})
+-          </button>
+-        `).join('')}
+-      </div>
+-    </div>`;
+-
+-  // Bind use buttons
+-  grid.querySelectorAll('[data-use-item]').forEach(btn => {
+-    btn.addEventListener('click', () => {
+-      const itemId = btn.dataset.useItem;
+-      if (itemId === 'rarecandy') {
+-        openRareCandyPicker();
+-      } else if (activateBoost(itemId)) {
+-        notify(state.lang === 'fr' ? 'Boost activé !' : 'Boost activated!', 'success');
+-      }
+-      renderBagTab();
+-    });
+-  });
+-
+-  // Ball selector
+-  grid.querySelectorAll('[data-bag-ball]').forEach(btn => {
+-    btn.addEventListener('click', () => {
+-      state.activeBall = btn.dataset.bagBall;
+-      saveState();
+-      renderBagTab();
+-    });
+-  });
++  return renderBagTabImpl();
+ }
+ 
+ // ════════════════════════════════════════════════════════════════
+@@ -3377,209 +2524,7 @@ function openHubSlotRepairModal() {
+  * then writes the migrated save to the chosen slot.
+  */
+ function openHubImportModal(raw) {
+-  const overlay = document.createElement('div');
+-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px';
+-
+-  // ── Save preview data ────────────────────────────────────────────────────
+-  const gangName    = raw.gang?.name     ?? '—';
+-  const bossName    = raw.gang?.bossName ?? '—';
+-  const reputation  = (raw.gang?.reputation ?? 0).toLocaleString();
+-  const money       = (raw.gang?.money ?? 0).toLocaleString();
+-  const pokeCount   = (raw.pokemons  || []).length;
+-  const count4star  = (raw.pokemons  || []).filter(p => p.potential === 4).length;
+-  const count4shiny = (raw.pokemons  || []).filter(p => p.potential === 4 && p.shiny).length;
+-  const agentCount  = (raw.agents    || []).length;
+-  const rawDex      = raw.pokedex || {};
+-  const dexKanto    = POKEMON_GEN1.filter(s => !s.hidden && s.dex >= 1 && s.dex <= 151 && rawDex[s.en]?.caught).length;
+-  const dexNat      = POKEMON_GEN1.filter(s => !s.hidden && rawDex[s.en]?.caught).length;
+-  const shinyCount  = POKEMON_GEN1.filter(s => !s.hidden && rawDex[s.en]?.shiny).length;
+-  const savedAt     = raw._savedAt ? new Date(raw._savedAt).toLocaleString('fr-FR') : '—';
+-  const playtime    = raw.playtime  ? formatPlaytime(raw.playtime) : '—';
+-  const schemaVer   = raw._schemaVersion ?? raw.version ?? '?';
+-
+-  // Detect potential orphan zones
+-  const validIds = new Set(ZONES.map(z => z.id));
+-  const orphanZones = Object.keys(raw.zones || {}).filter(id => !validIds.has(id));
+-
+-  // ── Slot picker HTML ─────────────────────────────────────────────────────
+-  const slotHtml = [0, 1, 2].map(i => {
+-    const prev = getSlotPreview(i);
+-    const label = prev
+-      ? `<b style="color:var(--text)">${prev.name}</b> <span style="color:var(--text-dim);font-size:9px">(${prev.pokemon} pkm · ⭐${prev.rep})</span>`
+-      : `<span style="color:#555;font-style:italic">Vide</span>`;
+-    return `<label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;background:var(--bg);transition:border-color .15s" id="hubSlotLabel${i}">
+-      <input type="radio" name="hubTargetSlot" value="${i}" ${i === 0 ? 'checked' : ''} style="accent-color:var(--gold)">
+-      <span style="font-family:var(--font-pixel);font-size:8px;color:var(--gold)">SLOT ${i+1}</span>
+-      <span style="font-size:10px">${label}</span>
+-    </label>`;
+-  }).join('');
+-
+-  // ── Warnings ─────────────────────────────────────────────────────────────
+-  const warnMutation = count4star > 0
+-    ? `<span style="color:#ffa040">${count4star} Pokémon 4★ détectés${count4shiny > 0 ? ` (dont ${count4shiny} ✨ shiny)` : ''} — tous passeront en 5★</span>`
+-    : `<span style="color:var(--text-dim)">Aucun Pokémon 4★ détecté</span>`;
+-  const warnClean = orphanZones.length > 0
+-    ? `<span style="color:#ffa040">${orphanZones.length} zone(s) obsolète(s) supprimée(s)</span>`
+-    : `<span style="color:var(--text-dim)">Aucune zone obsolète</span>`;
+-
+-  overlay.innerHTML = `
+-    <div style="background:var(--bg-panel);border:2px solid #ffa040;border-radius:var(--radius);padding:24px;max-width:640px;width:100%;max-height:92vh;overflow-y:auto;display:flex;flex-direction:column;gap:16px">
+-
+-      <div style="display:flex;justify-content:space-between;align-items:center">
+-        <div style="font-family:var(--font-pixel);font-size:11px;color:#ffa040">📥 Importer une Save</div>
+-        <button id="btnHubImportClose" style="background:none;border:none;color:var(--text-dim);font-size:18px;cursor:pointer">✕</button>
+-      </div>
+-
+-      <!-- Save preview -->
+-      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;display:flex;flex-direction:column;gap:6px">
+-        <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);margin-bottom:4px">SAVE IMPORTÉE</div>
+-        <div style="font-family:var(--font-pixel);font-size:13px;color:var(--red)">${gangName}</div>
+-        <div style="font-size:9px;color:var(--text-dim)">Boss : <span style="color:var(--text)">${bossName}</span></div>
+-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-top:4px">
+-          <div style="font-size:8px;color:var(--text-dim)">🎯 Pokémon <span style="color:var(--text)">${pokeCount}</span></div>
+-          <div style="font-size:8px;color:var(--text-dim)">👤 Agents <span style="color:var(--text)">${agentCount}</span></div>
+-          <div style="font-size:8px;color:var(--text-dim)">⭐ Rép. <span style="color:var(--gold)">${reputation}</span></div>
+-          <div style="font-size:8px;color:var(--text-dim)">₽ <span style="color:var(--text)">${money}</span></div>
+-          <div style="font-size:8px;color:var(--text-dim)">📖 Pokédex Kanto <span style="color:var(--text)">${dexKanto}/151</span> <span style="opacity:.6">(Nat. ${dexNat})</span></div>
+-          <div style="font-size:8px;color:var(--text-dim)">✨ Espèces chroma <span style="color:var(--text)">${shinyCount}</span></div>
+-        </div>
+-        <div style="font-size:7px;color:var(--text-dim);border-top:1px solid var(--border);padding-top:6px;margin-top:2px">
+-          Sauvegardé le ${savedAt} · Temps de jeu : ${playtime} · Schéma v${schemaVer}
+-        </div>
+-      </div>
+-
+-      <!-- Slot picker -->
+-      <div>
+-        <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold);margin-bottom:8px;letter-spacing:1px">SLOT DE DESTINATION</div>
+-        <div style="display:flex;flex-direction:column;gap:6px" id="hubSlotPicker">
+-          ${slotHtml}
+-        </div>
+-      </div>
+-
+-      <!-- Options -->
+-      <div style="display:flex;flex-direction:column;gap:8px">
+-        <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold);letter-spacing:1px">OPTIONS D'IMPORT</div>
+-
+-        <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);cursor:pointer">
+-          <input type="checkbox" id="chkAutoMutation" ${count4star > 0 ? 'checked' : ''} style="margin-top:2px;accent-color:var(--gold)">
+-          <div>
+-            <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text);margin-bottom:3px">⚡ Mutation auto 4★ → 5★</div>
+-            <div style="font-size:9px;color:var(--text-dim)">Améliore tous les Pokémon 4★ en 5★ automatiquement.<br>Priorité : ✨ shiny → niveau → ordre PC. Les shinys ne seront jamais utilisés comme matière première.</div>
+-            <div style="font-size:8px;margin-top:4px">${warnMutation}</div>
+-          </div>
+-        </label>
+-
+-        <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);cursor:pointer">
+-          <input type="checkbox" id="chkCleanObsolete" ${orphanZones.length > 0 ? 'checked' : ''} style="margin-top:2px;accent-color:var(--gold)">
+-          <div>
+-            <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text);margin-bottom:3px">🧹 Nettoyage des données obsolètes</div>
+-            <div style="font-size:9px;color:var(--text-dim)">Supprime les zones, états et environnements qui n'existent plus dans la version actuelle du jeu.<br>Ces données seront remplacées par <i>"information perdue avec le temps"</i>.</div>
+-            <div style="font-size:8px;margin-top:4px">${warnClean}</div>
+-          </div>
+-        </label>
+-      </div>
+-
+-      <!-- Warning -->
+-      <div style="background:rgba(255,140,0,.08);border:1px solid rgba(255,140,0,.3);border-radius:var(--radius-sm);padding:10px;font-size:9px;color:var(--text-dim)">
+-        ⚠ Le slot de destination sera <b style="color:#ffa040">écrasé</b>. Exporte ta save actuelle si tu veux la conserver.
+-      </div>
+-
+-      <!-- Actions -->
+-      <div style="display:flex;gap:8px">
+-        <button id="btnHubImportBackup" style="flex:1;font-family:var(--font-pixel);font-size:8px;padding:10px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">
+-          💾 Exporter ma save actuelle
+-        </button>
+-        <button id="btnHubImportConfirm" style="flex:2;font-family:var(--font-pixel);font-size:9px;padding:10px;background:var(--bg);border:2px solid #ffa040;border-radius:var(--radius-sm);color:#ffa040;cursor:pointer">
+-          📥 Importer dans ce slot
+-        </button>
+-      </div>
+-      <button id="btnHubImportCancel" style="font-family:var(--font-pixel);font-size:8px;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">
+-        Annuler
+-      </button>
+-
+-    </div>`;
+-
+-  document.body.appendChild(overlay);
+-  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+-
+-  overlay.querySelector('#btnHubImportClose')?.addEventListener('click',  () => overlay.remove());
+-  overlay.querySelector('#btnHubImportCancel')?.addEventListener('click', () => overlay.remove());
+-
+-  // Slot label hover effect
+-  overlay.querySelectorAll('#hubSlotPicker label').forEach(lbl => {
+-    lbl.addEventListener('mouseenter', () => lbl.style.borderColor = '#ffa040');
+-    lbl.addEventListener('mouseleave', () => lbl.style.borderColor = 'var(--border)');
+-  });
+-
+-  overlay.querySelector('#btnHubImportBackup')?.addEventListener('click', () => {
+-    exportSave();
+-    const btn = overlay.querySelector('#btnHubImportBackup');
+-    btn.textContent = '✅ Save exportée !';
+-    btn.style.color = 'var(--green)';
+-  });
+-
+-  overlay.querySelector('#btnHubImportConfirm')?.addEventListener('click', () => {
+-    const targetSlot = parseInt(overlay.querySelector('input[name="hubTargetSlot"]:checked')?.value ?? '0');
+-    const doMutation = overlay.querySelector('#chkAutoMutation')?.checked ?? false;
+-    const doClean    = overlay.querySelector('#chkCleanObsolete')?.checked ?? false;
+-
+-    showConfirm(
+-      `Importer la save de <b>${gangName}</b> dans le Slot ${targetSlot + 1} ?<br><span style="color:var(--text-dim);font-size:10px">Le contenu actuel du slot sera effacé.</span>`,
+-      () => {
+-        try {
+-          // Deep clone before mutation
+-          const draft = JSON.parse(JSON.stringify(raw));
+-
+-          // Apply optional steps before migration
+-          let mutated = 0, cleaned = 0;
+-          if (doMutation && draft.pokemons) mutated = applyAutoMutation(draft.pokemons);
+-          if (doClean)                      cleaned  = cleanObsoleteData(draft);
+-
+-          // Full migration to current schema
+-          const migrated = migrate(draft);
+-
+-          // Add cleaned-zone log if relevant
+-          if (doClean && cleaned > 0) {
+-            if (!migrated.behaviourLogs) migrated.behaviourLogs = {};
+-            migrated.behaviourLogs._importCleanedZones = cleaned;
+-            // Add a visible log to pokedex area isn't natural — add a note to notifications array if present
+-            if (!migrated._importNotes) migrated._importNotes = [];
+-            migrated._importNotes.push(`information perdue avec le temps (${cleaned} zone(s) obsolète(s) supprimée(s))`);
+-          }
+-
+-          // Save to the target slot (don't affect current active game)
+-          localStorage.setItem(SAVE_KEYS[targetSlot], JSON.stringify(migrated));
+-
+-          overlay.remove();
+-
+-          // Compose summary message
+-          const parts = [`✅ Save de "${gangName}" importée dans le Slot ${targetSlot + 1}.`];
+-          if (mutated > 0) parts.push(`⚡ ${mutated} Pokémon 4★ → 5★.`);
+-          if (cleaned > 0) parts.push(`🧹 ${cleaned} zone(s) obsolète(s) supprimée(s).`);
+-          parts.push('Clique ▶ sur le slot pour jouer.');
+-          notify(parts.join(' '), 'success');
+-
+-          // Refresh hub slot display if introOverlay is visible
+-          const introSlots = document.getElementById('introSlots');
+-          if (introSlots) {
+-            // Re-trigger showIntro rendering by dispatching a custom event, or simply reload slots
+-            // We call the global renderSlots if accessible — it's locally scoped, so refresh the overlay
+-            const introOverlay = document.getElementById('introOverlay');
+-            if (introOverlay?.classList.contains('active')) {
+-              // Remove active class to reset, then re-show
+-              introOverlay.classList.remove('active');
+-              showIntro();
+-            }
+-          }
+-        } catch (err) {
+-          notify('Erreur lors de l\'importation — save non modifiée.', 'error');
+-          console.error(err);
+-        }
+-      },
+-      null,
+-      { confirmLabel: 'Importer', cancelLabel: 'Annuler' }
+-    );
+-  });
++  return openHubImportModalImpl(raw);
+ }
+ 
+ function showIntro() {
+@@ -4295,54 +3240,75 @@ function _triggerDailyReload() {
+   setTimeout(() => location.reload(true), 500);
+ }
+ 
+-function showMigrationBanner({ from, toLegacyKey, fields }) {
+-  const overlay = document.createElement('div');
+-  overlay.style.cssText = `
+-    position:fixed;inset:0;background:rgba(0,0,0,0.82);z-index:12000;
+-    display:flex;align-items:center;justify-content:center;padding:16px;
+-    animation:fadeIn .3s ease
+-  `;
+-  const fieldsHtml = fields.length
+-    ? `<ul style="margin:8px 0 0 0;padding-left:18px;font-size:9px;color:var(--text-dim);line-height:1.8">
+-        ${fields.map(f => `<li>${f}</li>`).join('')}
+-      </ul>`
+-    : '';
+-  const legacyNote = toLegacyKey
+-    ? `<div style="margin-top:8px;font-size:9px;color:var(--red);background:rgba(255,0,0,.07);padding:6px 8px;border-radius:4px;border-left:2px solid var(--red)">
+-        ⚠ Ancienne sauvegarde détectée (<code style="font-size:9px">${toLegacyKey}</code>).<br>
+-        Convertie et transférée vers le slot actuel. L'ancienne clé a été supprimée.
+-      </div>`
+-    : '';
++function showMigrationBanner(opts) {
++  return showMigrationBannerImpl(opts);
++}
+ 
+-  overlay.innerHTML = `
+-    <div style="background:var(--bg-panel);border:2px solid var(--gold-dim);border-radius:var(--radius);
+-                padding:22px 24px;max-width:420px;width:100%;box-shadow:0 8px 40px rgba(0,0,0,.6)">
+-      <div style="font-family:var(--font-pixel);font-size:11px;color:var(--gold);margin-bottom:4px">
+-        🔄 SAVE MISE À JOUR
+-      </div>
+-      <div style="font-size:10px;color:var(--text-dim);margin-bottom:4px">
+-        Depuis : <span style="color:var(--text)">${from}</span> →
+-        schéma <span style="color:var(--gold)">v${SAVE_SCHEMA_VERSION}</span>
+-      </div>
+-      ${fields.length ? `<div style="font-size:9px;color:var(--text-dim);margin-top:6px">Nouveaux éléments ajoutés :</div>${fieldsHtml}` : ''}
+-      ${legacyNote}
+-      <div style="margin-top:8px;font-size:9px;color:var(--text-dim)">
+-        Ta progression, Pokémon et argent sont intacts. ✅
+-      </div>
+-      <div style="margin-top:16px;text-align:right">
+-        <button id="btnMigrationOk" class="btn-gold" style="padding:6px 20px;font-size:10px">
+-          OK, continuer →
+-        </button>
+-      </div>
+-    </div>`;
++configureModals({
++  getState: () => state,
++  setState,
++  saveState,
++  renderAll,
++  notify,
++  migrate,
++  formatPlaytime,
++  exportSave,
++  createDefaultState,
++  getActiveSaveSlot: () => activeSaveSlot,
++  getSaveKeys: () => SAVE_KEYS,
++  getKantoDexSize: () => KANTO_DEX_SIZE,
++  getNationalDexSize: () => NATIONAL_DEX_SIZE,
++  getSaveSchemaVersion: () => SAVE_SCHEMA_VERSION,
++  getAgentRankLabel: (...args) => globalThis.getAgentRankLabel?.(...args),
++  pokeSprite,
++  speciesName,
++  switchTab,
++  showIntro,
++  applyAutoMutation,
++  cleanObsoleteData,
++  getSlotPreview,
++});
+ 
+-  document.body.appendChild(overlay);
+-  overlay.querySelector('#btnMigrationOk').addEventListener('click', () => {
+-    overlay.remove();
+-    saveState(); // persiste le nouveau schéma
+-  });
+-  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+-}
++configureBagTab({
++  getState: () => state,
++  getActiveTab: () => activeTab,
++  notify,
++  saveState,
++  updateTopBar,
++  switchTab,
++  showConfirm,
++  isBoostActive: (...args) => globalThis.isBoostActive?.(...args),
++  boostRemaining: (...args) => globalThis.boostRemaining?.(...args),
++  activateBoost: (...args) => globalThis.activateBoost?.(...args),
++  itemSprite: (...args) => globalThis.itemSprite?.(...args),
++  openRareCandyPicker,
++  renderPCTab,
++});
++
++configureTabRouter({
++  getState: () => state,
++  getActiveTab: () => activeTab,
++  getOpenZones: () => openZones,
++  switchTab,
++  setPcView: value => { pcView = value; },
++  getDexKantoCaught,
++  getDexNationalCaught,
++  getShinySpeciesCount,
++  getKantoDexSize: () => KANTO_DEX_SIZE,
++  getNationalDexSize: () => NATIONAL_DEX_SIZE,
++  renderGangTab,
++  renderZonesTab,
++  renderMarketTab,
++  renderPCTab,
++  renderPokedexTab,
++  renderAgentsTab,
++  renderCosmeticsTab,
++  renderMissionsTab,
++  renderBattleLogTab,
++  renderLeaderboardTab,
++  renderCompteTab,
++  renderZone2Tab,
++});
+ 
+ // ════════════════════════════════════════════════════════════════
+ // GLOBAL EXPORTS — functions/constants needed by extracted modules
+@@ -4358,7 +3324,7 @@ Object.assign(globalThis, {
+   renderZonesTab, renderGangTab, renderAgentsTab, renderPokemonGrid, renderEggsView, renderGangBasePanel,
+   activateJohtoRegion, renderZone2Tab,
+   // Audio
+-  SFX,
++  SFX, MusicPlayer, JinglePlayer, MUSIC_TRACKS, playTone,
+   // Zone system — logique pure (zoneSystem.js)
+   initZone, spawnInZone, makePokemon, makeTrainerTeam, makeRaidSpawn,
+   getPokemonPower, levelUpPokemon, getZoneAgentSlots,
+@@ -4399,7 +3365,7 @@ Object.assign(globalThis, {
+   // trainingRoom module
+   pokeSprite, tryAutoEvolution,
+   // pension module
+-  showConfirm, renderPCTab, switchTab, showContextMenu,
++  showConfirm, showInfoModal, renderPCTab, switchTab, showContextMenu,
+   openPlayerStatModal, resetPcRenderCache,
+   getMaxPensionSlots, getPensionSlotIds,
+   eggSprite, eggImgTag, EGG_SPRITES,
+diff --git a/modules/ui/agentsTab.js b/modules/ui/agentsTab.js
+index dfa94ae..69b87f1 100644
+--- a/modules/ui/agentsTab.js
++++ b/modules/ui/agentsTab.js
+@@ -1,5 +1,7 @@
+ 'use strict';
+ 
++import { BALL_SPRITES, FALLBACK_TRAINER_SVG } from '../../data/assets-data.js';
++
+ // 18b. UI — AGENTS TAB
+ // ════════════════════════════════════════════════════════════════
+ 
+diff --git a/modules/ui/audio.js b/modules/ui/audio.js
+new file mode 100644
+index 0000000..9c3c615
+--- /dev/null
++++ b/modules/ui/audio.js
+@@ -0,0 +1,382 @@
++'use strict';
++
++// deps:
++// - globalThis.state for audio settings
++// - globalThis.activeTab for context-aware music
++// - classic data global: ZONE_BY_ID
++// - browser Web Audio API and HTMLAudioElement
++
++// ── SFX Engine (Web Audio API) ────────────────────────────────
++function getAudioState() {
++  return globalThis.state || {};
++}
++
++let _playToneImpl = null;
++
++const SFX = (() => {
++  let ctx;
++  function getCtx() {
++    if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
++    return ctx;
++  }
++  function playTone(freq, duration, type = 'square', volume = 0.15) {
++    const c = getCtx();
++    if (c.state === 'suspended') { c.resume().catch(() => {}); return; }
++    const osc = c.createOscillator();
++    const gain = c.createGain();
++    const sfxMult = (getAudioState()?.settings?.sfxVol ?? 80) / 100;
++    osc.type = type;
++    osc.frequency.setValueAtTime(freq, c.currentTime);
++    gain.gain.setValueAtTime(volume * sfxMult, c.currentTime);
++    gain.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + duration);
++    osc.connect(gain);
++    gain.connect(c.destination);
++    osc.start();
++    osc.stop(c.currentTime + duration + 0.05); // +50 ms buffer → élimine le click/scratch à l'arrêt
++  }
++  _playToneImpl = playTone;
++  return {
++    ballThrow() {
++      // Whoosh sound: descending noise
++      playTone(800, 0.15, 'sawtooth', 0.08);
++      setTimeout(() => playTone(400, 0.1, 'sawtooth', 0.06), 80);
++    },
++    capture(potential, shiny) {
++      // Base capture jingle
++      const base = 520;
++      playTone(base, 0.12, 'square', 0.12);
++      setTimeout(() => playTone(base * 1.25, 0.12, 'square', 0.12), 100);
++      setTimeout(() => playTone(base * 1.5, 0.15, 'square', 0.12), 200);
++      // Extra notes for high potential
++      if (potential >= 4) {
++        setTimeout(() => playTone(base * 2, 0.2, 'square', 0.15), 320);
++      }
++      if (potential >= 5 || shiny) {
++        setTimeout(() => playTone(base * 2.5, 0.25, 'sine', 0.18), 440);
++        setTimeout(() => playTone(base * 3, 0.3, 'sine', 0.15), 580);
++      }
++      if (shiny) {
++        // Sparkle effect
++        setTimeout(() => {
++          for (let i = 0; i < 5; i++) {
++            setTimeout(() => playTone(1200 + i * 200, 0.08, 'sine', 0.1), i * 60);
++          }
++        }, 700);
++      }
++    },
++    error() {
++      playTone(200, 0.2, 'sawtooth', 0.1);
++    },
++    levelUp() {
++      // Ascending fanfare
++      playTone(523, 0.1, 'square', 0.1);
++      setTimeout(() => playTone(659, 0.1, 'square', 0.1), 110);
++      setTimeout(() => playTone(784, 0.15, 'square', 0.1), 220);
++      setTimeout(() => playTone(1047, 0.2, 'sine',  0.12), 360);
++    },
++    coin() {
++      // Money sound
++      playTone(988, 0.06, 'sine', 0.1);
++      setTimeout(() => playTone(1318, 0.1, 'sine', 0.1), 80);
++    },
++    click() {
++      // UI button click — tick léger
++      playTone(1200, 0.04, 'square', 0.05);
++    },
++    tabSwitch() {
++      // Changement d'onglet — glissement court
++      playTone(660, 0.06, 'sine', 0.07);
++      setTimeout(() => playTone(880, 0.05, 'sine', 0.05), 50);
++    },
++    buy() {
++      // Achat confirmé — coin sound plus grave
++      playTone(659, 0.08, 'sine', 0.1);
++      setTimeout(() => playTone(880, 0.12, 'sine', 0.12), 80);
++    },
++    unlock() {
++      // Déverrouillage / découverte — fanfare ascendante
++      playTone(440, 0.08, 'square', 0.1);
++      setTimeout(() => playTone(554, 0.08, 'square', 0.1), 100);
++      setTimeout(() => playTone(659, 0.08, 'square', 0.1), 200);
++      setTimeout(() => playTone(880, 0.16, 'sine',   0.12), 310);
++      setTimeout(() => playTone(1108, 0.2, 'sine',   0.1),  450);
++    },
++    menuOpen() {
++      // Ouverture modale / menu
++      playTone(880, 0.08, 'sine', 0.07);
++      setTimeout(() => playTone(1100, 0.1, 'sine', 0.06), 80);
++    },
++    menuClose() {
++      // Fermeture modale
++      playTone(660, 0.07, 'sine', 0.06);
++      setTimeout(() => playTone(440, 0.09, 'sine', 0.05), 70);
++    },
++    chest() {
++      // Coffre ouvert — effet magique
++      playTone(660, 0.08, 'square', 0.08);
++      setTimeout(() => playTone(880, 0.08, 'square', 0.09), 80);
++      setTimeout(() => playTone(1100, 0.08, 'square', 0.1), 160);
++      setTimeout(() => {
++        for (let i = 0; i < 4; i++) {
++          setTimeout(() => playTone(1200 + i * 180, 0.07, 'sine', 0.07), i * 55);
++        }
++      }, 260);
++    },
++    notify() {
++      // Notification — ping doux
++      playTone(880, 0.07, 'sine', 0.08);
++      setTimeout(() => playTone(1108, 0.1, 'sine', 0.07), 90);
++    },
++    sell() {
++      // Vente Pokémon
++      playTone(660, 0.05, 'sine', 0.08);
++      setTimeout(() => playTone(440, 0.08, 'sawtooth', 0.06), 70);
++    },
++    evolve() {
++      // Évolution — fanfare complète
++      const notes = [523, 659, 784, 1047, 1319];
++      notes.forEach((f, i) => setTimeout(() => playTone(f, 0.15, 'square', 0.12), i * 120));
++      setTimeout(() => {
++        for (let i = 0; i < 6; i++) setTimeout(() => playTone(1200 + i * 150, 0.1, 'sine', 0.1), i * 60);
++      }, notes.length * 120 + 100);
++    },
++    _enabled() { return getAudioState()?.settings?.sfxEnabled !== false; },
++    play(name, ...args) {
++      if (!this._enabled()) return;
++      if (getAudioState()?.settings?.sfxIndividual?.[name] === false) return;
++      try { this[name]?.(...args); } catch {}
++    },
++  };
++})();
++
++function playTone(freq, duration, type = 'square', volume = 0.15) {
++  return _playToneImpl?.(freq, duration, type, volume);
++}
++
++// ════════════════════════════════════════════════════════════════
++//  3b.  MUSIC PLAYER (zone-aware, crossfade progressif)
++// ════════════════════════════════════════════════════════════════
++
++/**
++ * MUSIC_TRACKS — catalogue de toutes les pistes audio.
++ * Ajoutez des pistes ici + placez les fichiers dans game/music/.
++ * Chaque zone référence une clé via sa propriété `music`.
++ *
++ * Structure :
++ *   key:  identifiant unique (référencé dans ZONES[].music)
++ *   file: chemin relatif depuis game/
++ *   loop: true pour boucle continue
++ *   vol:  volume de base 0–1
++ */
++const MUSIC_TRACKS = {
++  // ── Base / Routes ─────────────────────────────────────────────
++  base:        { file: 'music/BGM/First Town.mp3',    loop: true,  vol: 0.45, fr: 'Base du Gang'       },
++  forest:      { file: 'music/BGM/Route 1.mp3',       loop: true,  vol: 0.50, fr: 'Route'               },
++  cave:        { file: 'music/BGM/Cave.mp3',           loop: true,  vol: 0.45, fr: 'Caverne'             },
++  city:        { file: 'music/BGM/Lab.mp3',            loop: true,  vol: 0.50, fr: 'Ville'               },
++  sea:         { file: 'music/BGM/Introduction.mp3',   loop: true,  vol: 0.45, fr: 'Mer / Bateau'        },
++  safari:      { file: 'music/BGM/Route 1.mp3',        loop: true,  vol: 0.45, fr: 'Parc Safari'         },
++  lavender:    { file: 'music/BGM/Cave.mp3',           loop: true,  vol: 0.30, fr: 'Lavanville'          },
++  tower:       { file: 'music/BGM/Cave.mp3',           loop: true,  vol: 0.28, fr: 'Tour Pokémon'        },
++  mansion:     { file: 'music/BGM/Cave.mp3',           loop: true,  vol: 0.35, fr: 'Manoir Pokémon'      },
++  // ── Combat / Arènes ───────────────────────────────────────────
++  gym:         { file: 'music/BGM/VSTrainer.mp3',      loop: true,  vol: 0.55, fr: 'Arène'               },
++  rocket:      { file: 'music/BGM/VSRival.mp3',        loop: true,  vol: 0.55, fr: 'Team Rocket'         },
++  silph:       { file: 'music/BGM/Lab.mp3',            loop: true,  vol: 0.50, fr: 'Sylphe SARL'         },
++  elite4:      { file: 'music/BGM/VSLegend.mp3',       loop: true,  vol: 0.60, fr: 'Élite 4 / Sommet'    },
++  // ── Ambiances spéciales ────────────────────────────────────────
++  casino:      { file: 'music/BGM/MysteryGift.mp3',    loop: true,  vol: 0.55, fr: 'Casino'              },
++  halloffame:  { file: 'music/BGM/Hall of Fame.mp3',   loop: false, vol: 0.60, fr: 'Tableau d\'Honneur'  },
++  title:       { file: 'music/BGM/Title.mp3',          loop: true,  vol: 0.50, fr: 'Titre'               },
++};
++
++/**
++ * MusicPlayer — gère la lecture de fond avec crossfade.
++ * Utilise deux éléments <audio> pour un fondu croisé doux.
++ */
++const MusicPlayer = (() => {
++  let _trackA = null;   // HTMLAudioElement actif
++  let _trackB = null;   // HTMLAudioElement en fondu entrant
++  let _current = null;  // clé du morceau en cours
++  let _fadeTimer = null;
++
++  const FADE_DURATION = 2000; // ms
++
++  function _createAudio(src, vol, loop) {
++    const a = new Audio(src);
++    a.loop = loop;
++    a.volume = 0;
++    a.preload = 'auto';
++    a.dataset.targetVol = vol;
++    return a;
++  }
++
++  function _isEnabled() {
++    return getAudioState()?.settings?.musicEnabled === true;
++  }
++
++  function _setVol(el, v) {
++    if (el) el.volume = Math.max(0, Math.min(1, v));
++  }
++
++  function _fade(el, fromVol, toVol, durationMs, onDone) {
++    const steps = 30;
++    const dt = durationMs / steps;
++    const delta = (toVol - fromVol) / steps;
++    let step = 0;
++    const id = setInterval(() => {
++      step++;
++      _setVol(el, fromVol + delta * step);
++      if (step >= steps) {
++        clearInterval(id);
++        _setVol(el, toVol);
++        if (onDone) onDone();
++      }
++    }, dt);
++    return id;
++  }
++
++  return {
++    /**
++     * Joue la piste `trackId` avec crossfade si une piste est déjà active.
++     * Ne fait rien si la piste est déjà en cours ou si la musique est désactivée.
++     */
++    play(trackId) {
++      if (!_isEnabled()) return;
++      if (!trackId || !MUSIC_TRACKS[trackId]) return;
++      if (_current === trackId) return; // déjà en cours
++
++      const def = MUSIC_TRACKS[trackId];
++      const newAudio = _createAudio(def.file, def.vol, def.loop);
++      const targetVol = def.vol;
++
++      _current = trackId;
++
++      if (_trackA && !_trackA.paused) {
++        // Crossfade : fade out A, fade in B
++        const oldA = _trackA;
++        _trackB = newAudio;
++        _trackB.play().catch(() => {});
++        _fade(_trackB, 0, targetVol, FADE_DURATION);
++        _fade(oldA, oldA.volume, 0, FADE_DURATION, () => {
++          oldA.pause();
++          oldA.src = '';
++          _trackA = _trackB;
++          _trackB = null;
++        });
++      } else {
++        // Pas de piste active — démarre directement avec fade in
++        if (_trackA) { _trackA.pause(); _trackA.src = ''; }
++        _trackA = newAudio;
++        _trackA.play().catch(() => {});
++        _fade(_trackA, 0, targetVol, FADE_DURATION);
++      }
++    },
++
++    /** Arrête la musique avec fade out. */
++    stop() {
++      if (_trackA) {
++        const old = _trackA;
++        _trackA = null;
++        _current = null;
++        _fade(old, old.volume, 0, FADE_DURATION / 2, () => {
++          old.pause(); old.src = '';
++        });
++      }
++    },
++
++    /** Appelé lors du changement de zone ouverte ou d'onglet actif. */
++    updateFromContext() {
++      if (!_isEnabled()) { this.stop(); return; }
++
++      // Priorité 0 : jukebox manuel
++      if (getAudioState()?.settings?.jukeboxTrack) {
++        this.play(getAudioState().settings.jukeboxTrack);
++        return;
++      }
++
++      // Priorité : première zone ouverte qui a une musique définie
++      for (const zId of (getAudioState().openZoneOrder || [])) {
++        const zone = ZONE_BY_ID[zId];
++        if (zone?.music) { this.play(zone.music); return; }
++      }
++      // Fallback : musique de l'onglet actif
++      if (globalThis.activeTab === 'tabGang' || globalThis.activeTab === 'tabZones') {
++        this.play('base');
++      } else {
++        // Pas de zones ouvertes et onglet neutre → silence progressif
++        this.stop();
++      }
++    },
++
++    /** Volume global 0–1 */
++    setVolume(v) {
++      if (_trackA) _setVol(_trackA, Math.max(0, Math.min(1, v)) * (parseFloat(_trackA.dataset.targetVol) || 0.5));
++    },
++
++    get current() { return _current; },
++  };
++})();
++
++/**
++ * JinglePlayer — joue des courts extraits audio (ME) en one-shot.
++ * Ne bloque pas la musique de fond — les deux coexistent.
++ */
++const JINGLES = {
++  trainer_encounter: 'music/ME/VSTrainer_Intro.mp3',
++  wild_encounter:    'music/ME/VSWildPoke_Intro.mp3',
++  legend_encounter:  'music/ME/VSLegend_Intro.mp3',
++  rival_encounter:   'music/ME/VSRival_Intro.mp3',
++  youngster:         'music/ME/Encounter_Youngster.mp3',
++  mystery_gift:      'music/BGM/MysteryGift.mp3',
++  low_hp:            'music/ME/lowhp.mp3',
++  slots_win:         'music/ME/SlotsWin.mp3',
++  slots_big:         'music/ME/SlotsBigWin.mp3',
++};
++
++const JinglePlayer = (() => {
++  let _current = null;
++  function _enabled() { return getAudioState()?.settings?.musicEnabled === true; }
++
++  return {
++    play(key) {
++      if (!_enabled()) return;
++      const src = JINGLES[key];
++      if (!src) return;
++      if (_current) { _current.pause(); _current = null; }
++      const a = new Audio(src);
++      a.volume = 0.7;
++      a.play().catch(() => {});
++      _current = a;
++      a.addEventListener('ended', () => { _current = null; });
++    },
++    stop() { if (_current) { _current.pause(); _current = null; } },
++  };
++})();
++
++/**
++ * SE (Sound Effects) — sons d'attaque et événements gameplay.
++ * Utilise Audio HTML plutôt que Web Audio pour les fichiers complexes.
++ */
++const SE_SOUNDS = {
++  buy:        'music/SE/Charm.mp3',
++  level_up:   'music/SE/BW2Summary.mp3',
++  slash:      'music/SE/Slash.mp3',
++  metronome:  'music/SE/Metronome.mp3',
++  explosion:  'music/SE/Explosion.mp3',
++  protect:    'music/SE/Protect.mp3',
++  flash:      'music/SE/Flash.mp3',
++};
++
++function playSE(key, vol = 0.6) {
++  if (getAudioState()?.settings?.sfxEnabled === false) return;
++  const src = SE_SOUNDS[key];
++  if (!src) return;
++  const a = new Audio(src);
++  a.volume = vol;
++  a.play().catch(() => {});
++}
++
++
++
++export { MusicPlayer, JinglePlayer, MUSIC_TRACKS, SE_SOUNDS, SFX, playSE, playTone };
+diff --git a/modules/ui/bagTab.js b/modules/ui/bagTab.js
+new file mode 100644
+index 0000000..e97006f
+--- /dev/null
++++ b/modules/ui/bagTab.js
+@@ -0,0 +1,114 @@
++'use strict';
++
++// deps via configureBagTab(ctx):
++// - getState, getActiveTab, notify, saveState, updateTopBar, switchTab, showConfirm
++// - isBoostActive, boostRemaining, activateBoost, itemSprite, openRareCandyPicker, renderPCTab
++// data imports: BALLS
++
++import { BALLS } from '../../data/economy-data.js';
++
++let bagCtx = {};
++
++function configureBagTab(ctx = {}) {
++  bagCtx = { ...bagCtx, ...ctx };
++}
++
++function callCtx(name, ...args) {
++  return bagCtx[name]?.(...args);
++}
++
++function getState() { return bagCtx.getState?.() ?? globalThis.state ?? {}; }
++function getActiveTab() { return bagCtx.getActiveTab?.() ?? globalThis.activeTab ?? ''; }
++function notify(...args) { return callCtx('notify', ...args); }
++function saveState(...args) { return callCtx('saveState', ...args); }
++function updateTopBar(...args) { return callCtx('updateTopBar', ...args); }
++function isBoostActive(...args) { return callCtx('isBoostActive', ...args); }
++function boostRemaining(...args) { return callCtx('boostRemaining', ...args) ?? 0; }
++function activateBoost(...args) { return callCtx('activateBoost', ...args); }
++function itemSprite(...args) { return callCtx('itemSprite', ...args) ?? ''; }
++function openRareCandyPicker(...args) { return callCtx('openRareCandyPicker', ...args); }
++function renderPCTab(...args) { return callCtx('renderPCTab', ...args); }
++
++function renderBagTab() {
++  const state = getState();
++  const grid = document.getElementById('bagGrid');
++  if (!grid) return;
++
++  const items = [
++    { id: 'pokeball',  icon: 'PB', fr: 'Poke Ball',      en: 'Poke Ball',      desc_fr: 'Ball standard',         desc_en: 'Standard ball' },
++    { id: 'greatball', icon: 'GB', fr: 'Super Ball',      en: 'Great Ball',     desc_fr: 'Meilleur potentiel',    desc_en: 'Better potential' },
++    { id: 'ultraball', icon: 'UB', fr: 'Hyper Ball',      en: 'Ultra Ball',     desc_fr: 'Excellent potentiel',   desc_en: 'Excellent potential' },
++    { id: 'duskball',  icon: 'DB', fr: 'Sombre Ball',     en: 'Dusk Ball',      desc_fr: 'Potentiel equilibre',   desc_en: 'Balanced potential' },
++    { id: 'lure',      icon: 'LR', fr: 'Leurre',          en: 'Lure',           desc_fr: 'x2 spawns 60s',         desc_en: 'x2 spawns 60s',      usable: true },
++    { id: 'superlure', icon: 'SL', fr: 'Super Leurre',    en: 'Super Lure',     desc_fr: 'x3 spawns 60s',         desc_en: 'x3 spawns 60s',      usable: true },
++    { id: 'incense',   icon: 'IN', fr: 'Encens Chance',   en: 'Lucky Incense',  desc_fr: '*+1 potentiel 90s',     desc_en: '*+1 potential 90s',  usable: true },
++    { id: 'rarescope', icon: 'SC', fr: 'Rarioscope',       en: 'Rare Scope',     desc_fr: 'Spawns rares x3 90s',   desc_en: 'Rare spawns x3 90s', usable: true },
++    { id: 'aura',      icon: 'AU', fr: 'Aura Shiny',       en: 'Shiny Aura',     desc_fr: 'Shiny x5 90s',          desc_en: 'Shiny x5 90s',       usable: true },
++    { id: 'evostone',  icon: 'EV', fr: 'Pierre Evol.',     en: 'Evo Stone',      desc_fr: 'Evolution par pierre',  desc_en: 'Stone evolution' },
++    { id: 'rarecandy', icon: 'RC', fr: 'Super Bonbon',     en: 'Rare Candy',     desc_fr: '+1 niveau',              desc_en: '+1 level',          usable: true },
++    { id: 'masterball',icon: 'MB', fr: 'Master Ball',      en: 'Master Ball',    desc_fr: '***** garanti',         desc_en: '***** guaranteed' },
++  ];
++
++  grid.innerHTML = items.map(item => {
++    const qty = state.inventory[item.id] || 0;
++    const name = state.lang === 'fr' ? item.fr : item.en;
++    const desc = state.lang === 'fr' ? item.desc_fr : item.desc_en;
++    const active = isBoostActive(item.id);
++    const remaining = active ? boostRemaining(item.id) : 0;
++    return `<div class="bag-item" ${active ? 'style="border-color:var(--gold)"' : ''}>
++      <span class="bag-icon">${itemSprite(item.id)}</span>
++      <div class="bag-info">
++        <div class="bag-name">${name}</div>
++        <div class="bag-qty">x${qty}${active ? ` (${remaining}s)` : ''}</div>
++        <div class="bag-desc">${desc}</div>
++      </div>
++      ${item.usable && qty > 0 ? `<button class="bag-use-btn" data-use-item="${item.id}">${state.lang === 'fr' ? 'Utiliser' : 'Use'}</button>` : ''}
++    </div>`;
++  }).join('');
++
++  // Active ball selector
++  grid.innerHTML += `
++    <div class="bag-item" style="grid-column:1/-1;border-color:var(--gold-dim)">
++      <span class="bag-icon">🎯</span>
++      <div class="bag-info">
++        <div class="bag-name">${state.lang === 'fr' ? 'Ball active' : 'Active Ball'}</div>
++        <div class="bag-desc">${state.lang === 'fr' ? 'Ball utilisée pour les captures' : 'Ball used for captures'}</div>
++      </div>
++      <div style="display:flex;gap:4px;flex-wrap:wrap">
++        ${Object.entries(BALLS).map(([key, ball]) => `
++          <button style="font-size:9px;padding:3px 8px;border-radius:4px;cursor:pointer;
++            background:${state.activeBall === key ? 'var(--red-dark)' : 'var(--bg)'};
++            border:1px solid ${state.activeBall === key ? 'var(--red)' : 'var(--border)'};
++            color:var(--text)" data-bag-ball="${key}">
++            ${state.lang === 'fr' ? ball.fr : ball.en} (${state.inventory[key] || 0})
++          </button>
++        `).join('')}
++      </div>
++    </div>`;
++
++  // Bind use buttons
++  grid.querySelectorAll('[data-use-item]').forEach(btn => {
++    btn.addEventListener('click', () => {
++      const itemId = btn.dataset.useItem;
++      if (itemId === 'rarecandy') {
++        openRareCandyPicker();
++      } else if (activateBoost(itemId)) {
++        notify(state.lang === 'fr' ? 'Boost activé !' : 'Boost activated!', 'success');
++      }
++      renderBagTab();
++    });
++  });
++
++  // Ball selector
++  grid.querySelectorAll('[data-bag-ball]').forEach(btn => {
++    btn.addEventListener('click', () => {
++      state.activeBall = btn.dataset.bagBall;
++      saveState();
++      renderBagTab();
++    });
++  });
++}
++
++
++
++export { configureBagTab, renderBagTab };
+diff --git a/modules/ui/marketTab.js b/modules/ui/marketTab.js
+index de370a4..2f73849 100644
+--- a/modules/ui/marketTab.js
++++ b/modules/ui/marketTab.js
+@@ -1,5 +1,7 @@
+ 'use strict';
+ 
++import { BALLS, SHOP_ITEMS } from '../../data/economy-data.js';
++
+ // ════════════════════════════════════════════════════════════════
+ // 16.  UI — MARKET TAB
+ // ════════════════════════════════════════════════════════════════
+diff --git a/modules/ui/modals.js b/modules/ui/modals.js
+new file mode 100644
+index 0000000..4d59763
+--- /dev/null
++++ b/modules/ui/modals.js
+@@ -0,0 +1,673 @@
++'use strict';
++
++// deps via configureModals(ctx):
++// - getState, setState, saveState, renderAll, notify, migrate
++// - formatPlaytime, exportSave, createDefaultState, getActiveSaveSlot, getSaveKeys
++// - getKantoDexSize, getNationalDexSize, getSaveSchemaVersion
++// - getAgentRankLabel, pokeSprite, speciesName, switchTab, showIntro
++// - applyAutoMutation, cleanObsoleteData, getSlotPreview
++// classic-script data globals used by import modals: POKEMON_GEN1, ZONES
++
++import { SFX } from './audio.js';
++
++let modalCtx = {};
++
++function configureModals(ctx = {}) {
++  modalCtx = { ...modalCtx, ...ctx };
++}
++
++function callCtx(name, ...args) {
++  return modalCtx[name]?.(...args);
++}
++
++function getState() { return modalCtx.getState?.() ?? globalThis.state ?? {}; }
++function setState(...args) { return callCtx('setState', ...args); }
++function saveState(...args) { return callCtx('saveState', ...args); }
++function renderAll(...args) { return callCtx('renderAll', ...args); }
++function notify(...args) { return callCtx('notify', ...args); }
++function migrate(raw) { return callCtx('migrate', raw) ?? raw; }
++function formatPlaytime(...args) { return callCtx('formatPlaytime', ...args) ?? ''; }
++function exportSave(...args) { return callCtx('exportSave', ...args); }
++function createDefaultState(...args) { return callCtx('createDefaultState', ...args) ?? {}; }
++function getActiveSaveSlot() { return modalCtx.getActiveSaveSlot?.() ?? 0; }
++function getSaveKeys() { return modalCtx.getSaveKeys?.() ?? []; }
++function getKantoDexSize() { return modalCtx.getKantoDexSize?.() ?? 151; }
++function getNationalDexSize() { return modalCtx.getNationalDexSize?.() ?? 151; }
++function getSaveSchemaVersion() { return modalCtx.getSaveSchemaVersion?.() ?? '?'; }
++function getAgentRankLabel(...args) { return callCtx('getAgentRankLabel', ...args); }
++function pokeSprite(...args) { return callCtx('pokeSprite', ...args) ?? ''; }
++function speciesName(value) { return callCtx('speciesName', value) ?? value; }
++function switchTab(...args) { return callCtx('switchTab', ...args); }
++function showIntro(...args) { return callCtx('showIntro', ...args); }
++function applyAutoMutation(...args) { return callCtx('applyAutoMutation', ...args) ?? 0; }
++function cleanObsoleteData(...args) { return callCtx('cleanObsoleteData', ...args) ?? 0; }
++function getSlotPreview(...args) { return callCtx('getSlotPreview', ...args); }
++
++function showConfirm(message, onConfirm, onCancel = null, opts = {}) {
++  const existing = document.getElementById('confirmModal');
++  if (existing) existing.remove();
++  SFX.play('menuOpen');
++
++  const modal = document.createElement('div');
++  modal.id = 'confirmModal';
++  modal.style.cssText = 'position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,.82);display:flex;align-items:center;justify-content:center;';
++
++  const danger = opts.danger ? 'var(--red)' : 'var(--gold-dim)';
++  const confirmLabel = opts.confirmLabel || (opts.lang === 'fr' ? 'Confirmer' : 'Confirm');
++  const cancelLabel  = opts.cancelLabel  || (opts.lang === 'fr' ? 'Annuler'   : 'Cancel');
++
++  modal.innerHTML = `
++    <div style="background:var(--bg-panel);border:2px solid ${danger};border-radius:var(--radius);padding:24px 28px;max-width:440px;width:90%;display:flex;flex-direction:column;gap:16px">
++      <div style="font-size:13px;color:var(--text);line-height:1.6">${message}</div>
++      <div style="display:flex;gap:8px;justify-content:flex-end">
++        <button id="confirmModalCancel" style="font-family:var(--font-pixel);font-size:9px;padding:8px 16px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">${cancelLabel}</button>
++        <button id="confirmModalOk" style="font-family:var(--font-pixel);font-size:9px;padding:8px 16px;background:${opts.danger ? 'var(--red-dark)' : 'var(--bg)'};border:1px solid ${danger};border-radius:var(--radius-sm);color:${opts.danger ? '#fff' : 'var(--gold)'};cursor:pointer">${confirmLabel}</button>
++      </div>
++    </div>`;
++
++  document.body.appendChild(modal);
++
++  document.getElementById('confirmModalOk').addEventListener('click', () => { SFX.play('menuClose'); modal.remove(); onConfirm?.(); });
++  document.getElementById('confirmModalCancel').addEventListener('click', () => { SFX.play('menuClose'); modal.remove(); onCancel?.(); });
++  modal.addEventListener('click', e => { if (e.target === modal) { SFX.play('menuClose'); modal.remove(); onCancel?.(); } });
++}
++
++function showInfoModal(tabId) {
++  const INFO = {
++    tabGang: {
++      title: '💀 LE GANG',
++      body: `
++        <strong>Réputation</strong> — Débloque zones, quêtes et achats. Visible dans la barre en haut à droite.<br><br>
++        <strong>Argent (₽)</strong> — Les récompenses de combat s'accumulent dans les zones. Récupère-les via le bouton ₽ jaune (un combat est nécessaire).<br><br>
++        <strong>Boss</strong> — Ton avatar. Assigne jusqu'à <strong>3 Pokémon</strong> à son équipe depuis le PC.<br><br>
++        <strong>Sac</strong> — Clique sur une Ball pour l'activer. Clique sur un boost pour le lancer. L'incubateur ouvre la gestion des œufs.<br><br>
++        <span class="dim">Conseil : assigne tes meilleurs Pokémon au Boss pour maximiser tes chances en combat.</span>
++      `
++    },
++    tabAgents: {
++      title: '👥 AGENTS',
++      body: `
++        <strong>CAP (Capture)</strong> — Chance de capturer automatiquement des Pokémon dans les zones non-ouvertes. Plus c'est haut, plus l'agent est efficace.<br><br>
++        <strong>LCK (Chance)</strong> — Influence la rareté des captures passives et la qualité des récompenses de coffres.<br><br>
++        <strong>ATK (Combat)</strong> — Puissance en combat automatique. Un agent fort bat des dresseurs difficiles.<br><br>
++        <strong>Grade</strong> — Grunt → Lieutenant (50+ combats gagnés) → Captain (200+). Chaque grade donne un bonus ATK.<br><br>
++        <strong>Zone assignée</strong> — L'agent farm passivement : captures, combats contre dresseurs, ouverture de coffres.<br><br>
++        <span class="dim">Un agent sans zone assignée ne fait rien. Assigne-les toujours !</span>
++      `
++    },
++    tabZones: {
++      title: '🗺️ ZONES',
++      body: `
++        <strong>Zone de capture</strong> (field / safari / water / cave) — Des Pokémon sauvages apparaissent. Agents et Boss capturent automatiquement.<br><br>
++        <strong>Zone d'arène</strong> (gym / elite) — Uniquement des combats. Récompenses en ₽ et réputation élevées.<br><br>
++        <strong>Récolte ₽</strong> — Les gains de combat s'accumulent (icône jaune ₽). Clique pour lancer une récolte avec combat défensif.<br><br>
++        <strong>Maîtrise ★</strong> — Augmente avec les victoires. Améliore les spawns et débloque des dresseurs élites.<br><br>
++        <strong>Slots d'agents</strong> — Coût en réputation, croissant avec le niveau de la zone.<br><br>
++        <span class="dim">Les zones dégradées (⚠) n'ont que des combats — remonte ta réputation pour les débloquer.</span>
++      `
++    },
++    tabMarket: {
++      title: '💰 MARCHÉ',
++      body: `
++        <strong>Quêtes horaires</strong> — 3 quêtes Moyennes + 2 Difficiles, réinitialisées toutes les heures. Reroll possible contre 10 rep.<br><br>
++        <strong>Histoire & Objectifs</strong> — Quêtes permanentes liées à la progression. Complète-les pour des grosses récompenses.<br><br>
++        <strong>Balls</strong> — Chaque type améliore le potentiel max capturé. Troc (onglet Troc) : 10 PB→1 GB, 10 GB→1 UB, 100 UB⇄1 MB.<br><br>
++        <strong>Multiplicateur ×1/×5/×10</strong> — Achète en lot depuis la boutique.<br><br>
++        <strong>Boosts temporaires</strong> — S'activent depuis le Sac dans la fenêtre de zone. Durée 60–90s.<br><br>
++        <span class="dim">Vends des Pokémon depuis le PC pour financer tes achats.</span>
++      `
++    },
++    tabPC: {
++      title: '💻 PC',
++      body: `
++        <strong>Potentiel ★</strong> — Permanent, détermine le plafond de puissance. ★5 = top tier. Dépend de la Ball utilisée.<br><br>
++        <strong>Nature</strong> — Chaque nature booste 2 stats et en pénalise 1. <em>Hardy</em> = équilibré.<br><br>
++        <strong>ATK/DEF/SPD</strong> — Calculées depuis base × nature × niveau × potentiel.<br><br>
++        <strong>Vente</strong> — Prix = rareté × potentiel × nature. Pas de malus de revente.<br><br>
++        <strong>Labo</strong> — Fais évoluer tes Pokémon (pierre ou niveau requis).<br><br>
++        <strong>Pension</strong> — 2 Pokémon compatibles → oeuf. Nécessite un incubateur. Les Pokémon de pension ont le "mal du pays" et ne peuvent pas être vendus.<br><br>
++        <strong>Oeufs</strong> — Gère tes oeufs en attente d'incubation ou prêts à éclore.<br><br>
++        <span class="dim">Filtre par rareté, type ou shiny pour retrouver facilement tes Pokémon.</span>
++      `
++    },
++    tabPokedex: {
++      title: '📖 POKÉDEX',
++      body: `
++        <strong>Vu 👁</strong> — Tu as aperçu ce Pokémon dans une zone (spawn visible).<br><br>
++        <strong>Capturé ✓</strong> — Tu en possèdes au moins un dans ton PC.<br><br>
++        <strong>Shiny ✨</strong> — Tu as capturé une version chromatique. Chance de base très faible, boostée par l'Aura Shiny.<br><br>
++        <strong>Progression</strong> — Compléter le Pokédex donne des bonus de réputation et de récompenses de quêtes.<br><br>
++        <span class="dim">Les légendaires et très rares n'apparaissent que dans des zones spécifiques avec le bon équipement.</span>
++      `
++    },
++  };
++
++  const info = INFO[tabId];
++  if (!info) return;
++
++  document.getElementById('infoModalTitle').textContent = info.title;
++  document.getElementById('infoModalBody').innerHTML = info.body;
++  document.getElementById('infoModal').classList.add('active');
++}
++
++
++
++function openImportPreviewModal(raw) {
++  const overlay = document.createElement('div');
++  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:20000;display:flex;align-items:center;justify-content:center;padding:16px';
++
++  // ── Analyse de la save importée ──────────────────────────────────────────
++  const schemaVer   = raw._schemaVersion ?? raw.version ?? '?';
++  const isLegacy    = !raw.eggs || !raw.pension || !raw.trainingRoom;
++  const isVeryOld   = !raw.gang || !raw.pokemons;
++  const gangName    = raw.gang?.name    ?? '—';
++  const bossName    = raw.gang?.bossName ?? '—';
++  const reputation  = (raw.gang?.reputation ?? 0).toLocaleString();
++  const money       = (raw.gang?.money ?? 0).toLocaleString();
++  const pokeCount   = (raw.pokemons  || []).length;
++  const agentCount  = (raw.agents    || []).length;
++  const _dexRaw     = raw.pokedex || {};
++  const dexKanto    = POKEMON_GEN1.filter(s => !s.hidden && s.dex >= 1 && s.dex <= 151 && _dexRaw[s.en]?.caught).length;
++  const dexCaught   = POKEMON_GEN1.filter(s => !s.hidden && _dexRaw[s.en]?.caught).length;
++  const shinyCount  = POKEMON_GEN1.filter(s => !s.hidden && _dexRaw[s.en]?.shiny).length;
++  const savedAt     = raw._savedAt ? new Date(raw._savedAt).toLocaleString('fr-FR') : '—';
++  const playtime    = raw.playtime  ? formatPlaytime(raw.playtime) : '—';
++
++  // ── Liste des champs qui seront ajoutés/migrés ───────────────────────────
++  const migrations = [];
++  if (!raw.eggs)             migrations.push('Système d\'œufs');
++  if (!raw.pension)          migrations.push('Pension');
++  if (!raw.trainingRoom)     migrations.push('Salle d\'entraînement');
++  if (!raw.missions)         migrations.push('Missions');
++  if (!raw.cosmetics)        migrations.push('Cosmétiques');
++  if (!raw.unlockedTitles)   migrations.push('Titres débloqués');
++  if (raw.gang?.titleC === undefined) migrations.push('Slots de titres (×4)');
++  if (!raw.behaviourLogs)    migrations.push('Logs comportementaux');
++  if (!raw.lab)              migrations.push('Laboratoire');
++  if (!raw.purchases)        migrations.push('Achats spéciaux');
++  if (!raw.eggs && !raw.inventory?.incubator) migrations.push('Inventaire incubateurs');
++  if (raw.settings?.uiScale === undefined) migrations.push('Paramètres UI avancés');
++
++  const migHtml = migrations.length
++    ? migrations.map(m => `<div style="display:flex;gap:6px;align-items:center;font-size:8px;color:var(--text-dim)"><span style="color:var(--green)">✓</span>${m}</div>`).join('')
++    : '<div style="font-size:8px;color:var(--green)">Aucune migration nécessaire — save à jour</div>';
++
++  const versionBadge = isLegacy
++    ? `<span style="font-size:7px;padding:2px 6px;border-radius:8px;background:rgba(255,160,0,.15);border:1px solid #ffa000;color:#ffa000">Version ancienne</span>`
++    : `<span style="font-size:7px;padding:2px 6px;border-radius:8px;background:rgba(0,200,100,.1);border:1px solid var(--green);color:var(--green)">Format compatible</span>`;
++
++  overlay.innerHTML = `
++    <div style="background:var(--bg-panel);border:2px solid var(--gold-dim);border-radius:var(--radius);padding:24px;max-width:620px;width:100%;max-height:90vh;overflow-y:auto;display:flex;flex-direction:column;gap:16px">
++
++      <div style="display:flex;justify-content:space-between;align-items:center">
++        <div style="font-family:var(--font-pixel);font-size:11px;color:var(--gold)">📥 Importer une Save</div>
++        <button id="btnImportClose" style="background:none;border:none;color:var(--text-dim);font-size:18px;cursor:pointer">✕</button>
++      </div>
++
++      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
++
++        <!-- Infos save importée -->
++        <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;display:flex;flex-direction:column;gap:8px">
++          <div style="display:flex;justify-content:space-between;align-items:center">
++            <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim)">SAVE IMPORTÉE</div>
++            ${versionBadge}
++          </div>
++          <div style="font-family:var(--font-pixel);font-size:12px;color:var(--red)">${gangName}</div>
++          <div style="font-size:9px;color:var(--text-dim)">Boss : <span style="color:var(--text)">${bossName}</span></div>
++          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:4px">
++            <div style="font-size:8px;color:var(--text-dim)">🎯 Pokémon <span style="color:var(--text)">${pokeCount}</span></div>
++            <div style="font-size:8px;color:var(--text-dim)">👤 Agents <span style="color:var(--text)">${agentCount}</span></div>
++            <div style="font-size:8px;color:var(--text-dim)">⭐ Rép. <span style="color:var(--gold)">${reputation}</span></div>
++            <div style="font-size:8px;color:var(--text-dim)">₽ <span style="color:var(--text)">${money}</span></div>
++            <div style="font-size:8px;color:var(--text-dim)">📖 Kanto <span style="color:var(--text)">${dexKanto}/${getKantoDexSize()}</span></div>
++            <div style="font-size:8px;color:var(--text-dim)">🌐 National <span style="color:var(--text)">${dexCaught}/${getNationalDexSize()}</span></div>
++            <div style="font-size:8px;color:var(--text-dim)">✨ Espèces chromas <span style="color:var(--text)">${shinyCount}</span></div>
++          </div>
++          <div style="font-size:7px;color:var(--text-dim);border-top:1px solid var(--border);padding-top:6px;margin-top:2px">
++            Sauvegardé le ${savedAt}<br>Temps de jeu : ${playtime} · Schéma v${schemaVer}
++          </div>
++        </div>
++
++        <!-- Champs à migrer -->
++        <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;display:flex;flex-direction:column;gap:6px">
++          <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);margin-bottom:4px">MIGRATION AUTOMATIQUE</div>
++          ${migHtml}
++        </div>
++      </div>
++
++      <!-- Avertissement écrasement -->
++      <div style="background:rgba(204,51,51,.08);border:1px solid rgba(204,51,51,.3);border-radius:var(--radius-sm);padding:10px;font-size:9px;color:var(--text-dim)">
++        ⚠ <b style="color:var(--red)">Import complet</b> : remplacera définitivement la save active (slot ${getActiveSaveSlot() + 1}).
++        Exporte d'abord ta save actuelle si tu veux la conserver.
++      </div>
++
++      <div style="display:flex;flex-direction:column;gap:8px">
++        <button id="btnImportBackupFirst" style="font-family:var(--font-pixel);font-size:8px;padding:8px 12px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer;text-align:left">
++          💾 Exporter ma save actuelle avant d'importer
++        </button>
++        <div style="display:flex;gap:8px">
++          <button id="btnImportFull" style="flex:2;font-family:var(--font-pixel);font-size:9px;padding:12px;background:var(--bg);border:2px solid var(--gold);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">
++            ⚡ Import complet<br><span style="font-size:7px;color:var(--text-dim);font-family:sans-serif">Tous les données migrées automatiquement</span>
++          </button>
++          ${isLegacy ? `<button id="btnImportHeritage" style="flex:1;font-family:var(--font-pixel);font-size:9px;padding:12px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">
++            🏆 Mode héritage<br><span style="font-size:7px;font-family:sans-serif">1 agent + 2 Pokémon</span>
++          </button>` : ''}
++        </div>
++        <button id="btnImportCancel" style="font-family:var(--font-pixel);font-size:8px;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">
++          Annuler
++        </button>
++      </div>
++    </div>`;
++
++  document.body.appendChild(overlay);
++  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
++
++  overlay.querySelector('#btnImportClose')?.addEventListener('click',  () => overlay.remove());
++  overlay.querySelector('#btnImportCancel')?.addEventListener('click', () => overlay.remove());
++
++  overlay.querySelector('#btnImportBackupFirst')?.addEventListener('click', () => {
++    exportSave();
++    overlay.querySelector('#btnImportBackupFirst').textContent = '✅ Save actuelle exportée !';
++    overlay.querySelector('#btnImportBackupFirst').style.color = 'var(--green)';
++  });
++
++  overlay.querySelector('#btnImportFull')?.addEventListener('click', () => {
++    showConfirm(
++      `Remplacer la save du slot ${getActiveSaveSlot() + 1} par la save importée de "${gangName}" ?`,
++      () => {
++        try {
++          setState(migrate(raw));
++          saveState();
++          overlay.remove();
++          renderAll();
++          notify(`✅ Save de "${gangName}" importée et convertie au format actuel.`, 'success');
++        } catch (err) {
++          notify('Erreur lors de la conversion — save non-importée.', 'error');
++          console.error(err);
++        }
++      },
++      null,
++      { confirmLabel: 'Importer', cancelLabel: 'Annuler' }
++    );
++  });
++
++  overlay.querySelector('#btnImportHeritage')?.addEventListener('click', () => {
++    overlay.remove();
++    openLegacyImportModal(raw);
++  });
++}
++
++
++
++function openLegacyImportModal(legacyData) {
++  const overlay = document.createElement('div');
++  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px';
++
++  const agents = legacyData.agents || [];
++  const pokemons = legacyData.pokemons || [];
++
++  const agentHtml = agents.length
++    ? agents.map(a => `<label style="display:flex;align-items:center;gap:8px;padding:6px;border-bottom:1px solid var(--border);cursor:pointer">
++        <input type="radio" name="legacyAgent" value="${a.id}" style="accent-color:var(--gold)">
++        <img src="${a.sprite || ''}" style="width:32px;height:32px" onerror="this.style.display='none'">
++        <span style="font-size:10px">${a.name} — Lv.${a.level} (${getAgentRankLabel?.(a) ?? a.title})</span>
++      </label>`).join('')
++    : '<div style="color:var(--text-dim);font-size:10px;padding:8px">Aucun agent dans cette save</div>';
++
++  const pokeHtml = pokemons.slice(0, 60).map(p => `<label style="display:flex;align-items:center;gap:6px;padding:4px;border-bottom:1px solid var(--border);cursor:pointer">
++      <input type="checkbox" name="legacyPoke" value="${p.id}" style="accent-color:var(--gold)">
++      <img src="${pokeSprite(p.species_en, p.shiny)}" style="width:28px;height:28px">
++      <span style="font-size:9px">${speciesName(p.species_en)} Lv.${p.level} ${'*'.repeat(p.potential)}${p.shiny?' [S]':''}</span>
++    </label>`).join('') || '<div style="color:var(--text-dim);font-size:10px">Aucun Pokémon</div>';
++
++  overlay.innerHTML = `
++    <div style="background:var(--bg-panel);border:2px solid var(--gold-dim);border-radius:var(--radius);padding:20px;max-width:600px;width:100%;max-height:90vh;overflow-y:auto">
++      <div style="font-family:var(--font-pixel);font-size:12px;color:var(--gold);margin-bottom:8px">IMPORT HERITAGE</div>
++      <div style="font-size:10px;color:var(--text-dim);margin-bottom:16px">
++        Save d'une version antérieure détectée. Tu peux conserver <b style="color:var(--text)">1 agent</b> et <b style="color:var(--text)">2 Pokémon</b>.<br>
++        Les 2 Pokémon seront placés à la Pension pour pondre un oeuf de départ.
++      </div>
++
++      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
++        <div>
++          <div style="font-family:var(--font-pixel);font-size:9px;color:var(--text-dim);margin-bottom:8px">CHOISIR 1 AGENT</div>
++          <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);max-height:200px;overflow-y:auto">${agentHtml}</div>
++        </div>
++        <div>
++          <div style="font-family:var(--font-pixel);font-size:9px;color:var(--text-dim);margin-bottom:8px">CHOISIR 2 POKEMON</div>
++          <div id="legacyPokeCount" style="font-size:9px;color:var(--red);margin-bottom:4px">0/2 sélectionnés</div>
++          <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);max-height:200px;overflow-y:auto">${pokeHtml}</div>
++        </div>
++      </div>
++
++      <div style="margin-top:16px;display:flex;gap:8px">
++        <button id="btnLegacyConfirm" style="flex:1;font-family:var(--font-pixel);font-size:10px;padding:10px;background:var(--bg);border:2px solid var(--gold);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">COMMENCER</button>
++        <button id="btnLegacyCancel" style="font-family:var(--font-pixel);font-size:10px;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">Annuler</button>
++      </div>
++    </div>`;
++
++  document.body.appendChild(overlay);
++
++  // Limit pokemon checkboxes to 2
++  overlay.querySelectorAll('input[name="legacyPoke"]').forEach(cb => {
++    cb.addEventListener('change', () => {
++      const checked = [...overlay.querySelectorAll('input[name="legacyPoke"]:checked')];
++      const countEl = document.getElementById('legacyPokeCount');
++      if (checked.length > 2) { cb.checked = false; return; }
++      if (countEl) countEl.textContent = `${checked.length}/2 sélectionnés`;
++    });
++  });
++
++  document.getElementById('btnLegacyCancel')?.addEventListener('click', () => overlay.remove());
++
++  document.getElementById('btnLegacyConfirm')?.addEventListener('click', () => {
++    const agentId = overlay.querySelector('input[name="legacyAgent"]:checked')?.value;
++    const pokeIds = [...overlay.querySelectorAll('input[name="legacyPoke"]:checked')].map(cb => cb.value);
++
++    if (pokeIds.length !== 2) {
++      notify('Sélectionne exactement 2 Pokémon.'); return;
++    }
++
++    // Build fresh state
++    const fresh = createDefaultState();
++    // Transfer gang basics from legacy
++    fresh.gang.name = legacyData.gang?.name || 'La Gang';
++    fresh.gang.bossName = legacyData.gang?.bossName || 'Boss';
++    fresh.gang.bossSprite = legacyData.gang?.bossSprite || 'rocketgrunt';
++
++    // Transfer chosen agent
++    if (agentId) {
++      const agent = agents.find(a => a.id === agentId);
++      if (agent) {
++        agent.team = []; // reset team
++        agent.pendingPerk = false;
++        fresh.agents = [agent];
++      }
++    }
++
++    // Transfer chosen pokemon to pension
++    const chosenPokes = pokeIds.map(id => pokemons.find(p => p.id === id)).filter(Boolean);
++    chosenPokes.forEach(p => { p.homesick = true; });
++    fresh.pokemons = chosenPokes;
++    fresh.pension.slots = chosenPokes.slice(0, 2).map(p => p.id);
++    fresh.pension.eggAt = Date.now() + 60000; // first egg in 1 minute
++
++    setState(migrate(fresh));
++    saveState();
++    overlay.remove();
++    renderAll();
++    notify('Nouvelle partie héritée commencée ! Les Pokémon sont à la Pension.', 'gold');
++    switchTab('tabPC');
++  });
++}
++
++
++
++function openHubImportModal(raw) {
++  const overlay = document.createElement('div');
++  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px';
++
++  // ── Save preview data ────────────────────────────────────────────────────
++  const gangName    = raw.gang?.name     ?? '—';
++  const bossName    = raw.gang?.bossName ?? '—';
++  const reputation  = (raw.gang?.reputation ?? 0).toLocaleString();
++  const money       = (raw.gang?.money ?? 0).toLocaleString();
++  const pokeCount   = (raw.pokemons  || []).length;
++  const count4star  = (raw.pokemons  || []).filter(p => p.potential === 4).length;
++  const count4shiny = (raw.pokemons  || []).filter(p => p.potential === 4 && p.shiny).length;
++  const agentCount  = (raw.agents    || []).length;
++  const rawDex      = raw.pokedex || {};
++  const dexKanto    = POKEMON_GEN1.filter(s => !s.hidden && s.dex >= 1 && s.dex <= 151 && rawDex[s.en]?.caught).length;
++  const dexNat      = POKEMON_GEN1.filter(s => !s.hidden && rawDex[s.en]?.caught).length;
++  const shinyCount  = POKEMON_GEN1.filter(s => !s.hidden && rawDex[s.en]?.shiny).length;
++  const savedAt     = raw._savedAt ? new Date(raw._savedAt).toLocaleString('fr-FR') : '—';
++  const playtime    = raw.playtime  ? formatPlaytime(raw.playtime) : '—';
++  const schemaVer   = raw._schemaVersion ?? raw.version ?? '?';
++
++  // Detect potential orphan zones
++  const validIds = new Set(ZONES.map(z => z.id));
++  const orphanZones = Object.keys(raw.zones || {}).filter(id => !validIds.has(id));
++
++  // ── Slot picker HTML ─────────────────────────────────────────────────────
++  const slotHtml = [0, 1, 2].map(i => {
++    const prev = getSlotPreview(i);
++    const label = prev
++      ? `<b style="color:var(--text)">${prev.name}</b> <span style="color:var(--text-dim);font-size:9px">(${prev.pokemon} pkm · ⭐${prev.rep})</span>`
++      : `<span style="color:#555;font-style:italic">Vide</span>`;
++    return `<label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;background:var(--bg);transition:border-color .15s" id="hubSlotLabel${i}">
++      <input type="radio" name="hubTargetSlot" value="${i}" ${i === 0 ? 'checked' : ''} style="accent-color:var(--gold)">
++      <span style="font-family:var(--font-pixel);font-size:8px;color:var(--gold)">SLOT ${i+1}</span>
++      <span style="font-size:10px">${label}</span>
++    </label>`;
++  }).join('');
++
++  // ── Warnings ─────────────────────────────────────────────────────────────
++  const warnMutation = count4star > 0
++    ? `<span style="color:#ffa040">${count4star} Pokémon 4★ détectés${count4shiny > 0 ? ` (dont ${count4shiny} ✨ shiny)` : ''} — tous passeront en 5★</span>`
++    : `<span style="color:var(--text-dim)">Aucun Pokémon 4★ détecté</span>`;
++  const warnClean = orphanZones.length > 0
++    ? `<span style="color:#ffa040">${orphanZones.length} zone(s) obsolète(s) supprimée(s)</span>`
++    : `<span style="color:var(--text-dim)">Aucune zone obsolète</span>`;
++
++  overlay.innerHTML = `
++    <div style="background:var(--bg-panel);border:2px solid #ffa040;border-radius:var(--radius);padding:24px;max-width:640px;width:100%;max-height:92vh;overflow-y:auto;display:flex;flex-direction:column;gap:16px">
++
++      <div style="display:flex;justify-content:space-between;align-items:center">
++        <div style="font-family:var(--font-pixel);font-size:11px;color:#ffa040">📥 Importer une Save</div>
++        <button id="btnHubImportClose" style="background:none;border:none;color:var(--text-dim);font-size:18px;cursor:pointer">✕</button>
++      </div>
++
++      <!-- Save preview -->
++      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;display:flex;flex-direction:column;gap:6px">
++        <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);margin-bottom:4px">SAVE IMPORTÉE</div>
++        <div style="font-family:var(--font-pixel);font-size:13px;color:var(--red)">${gangName}</div>
++        <div style="font-size:9px;color:var(--text-dim)">Boss : <span style="color:var(--text)">${bossName}</span></div>
++        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-top:4px">
++          <div style="font-size:8px;color:var(--text-dim)">🎯 Pokémon <span style="color:var(--text)">${pokeCount}</span></div>
++          <div style="font-size:8px;color:var(--text-dim)">👤 Agents <span style="color:var(--text)">${agentCount}</span></div>
++          <div style="font-size:8px;color:var(--text-dim)">⭐ Rép. <span style="color:var(--gold)">${reputation}</span></div>
++          <div style="font-size:8px;color:var(--text-dim)">₽ <span style="color:var(--text)">${money}</span></div>
++          <div style="font-size:8px;color:var(--text-dim)">📖 Pokédex Kanto <span style="color:var(--text)">${dexKanto}/151</span> <span style="opacity:.6">(Nat. ${dexNat})</span></div>
++          <div style="font-size:8px;color:var(--text-dim)">✨ Espèces chroma <span style="color:var(--text)">${shinyCount}</span></div>
++        </div>
++        <div style="font-size:7px;color:var(--text-dim);border-top:1px solid var(--border);padding-top:6px;margin-top:2px">
++          Sauvegardé le ${savedAt} · Temps de jeu : ${playtime} · Schéma v${schemaVer}
++        </div>
++      </div>
++
++      <!-- Slot picker -->
++      <div>
++        <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold);margin-bottom:8px;letter-spacing:1px">SLOT DE DESTINATION</div>
++        <div style="display:flex;flex-direction:column;gap:6px" id="hubSlotPicker">
++          ${slotHtml}
++        </div>
++      </div>
++
++      <!-- Options -->
++      <div style="display:flex;flex-direction:column;gap:8px">
++        <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold);letter-spacing:1px">OPTIONS D'IMPORT</div>
++
++        <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);cursor:pointer">
++          <input type="checkbox" id="chkAutoMutation" ${count4star > 0 ? 'checked' : ''} style="margin-top:2px;accent-color:var(--gold)">
++          <div>
++            <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text);margin-bottom:3px">⚡ Mutation auto 4★ → 5★</div>
++            <div style="font-size:9px;color:var(--text-dim)">Améliore tous les Pokémon 4★ en 5★ automatiquement.<br>Priorité : ✨ shiny → niveau → ordre PC. Les shinys ne seront jamais utilisés comme matière première.</div>
++            <div style="font-size:8px;margin-top:4px">${warnMutation}</div>
++          </div>
++        </label>
++
++        <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);cursor:pointer">
++          <input type="checkbox" id="chkCleanObsolete" ${orphanZones.length > 0 ? 'checked' : ''} style="margin-top:2px;accent-color:var(--gold)">
++          <div>
++            <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text);margin-bottom:3px">🧹 Nettoyage des données obsolètes</div>
++            <div style="font-size:9px;color:var(--text-dim)">Supprime les zones, états et environnements qui n'existent plus dans la version actuelle du jeu.<br>Ces données seront remplacées par <i>"information perdue avec le temps"</i>.</div>
++            <div style="font-size:8px;margin-top:4px">${warnClean}</div>
++          </div>
++        </label>
++      </div>
++
++      <!-- Warning -->
++      <div style="background:rgba(255,140,0,.08);border:1px solid rgba(255,140,0,.3);border-radius:var(--radius-sm);padding:10px;font-size:9px;color:var(--text-dim)">
++        ⚠ Le slot de destination sera <b style="color:#ffa040">écrasé</b>. Exporte ta save actuelle si tu veux la conserver.
++      </div>
++
++      <!-- Actions -->
++      <div style="display:flex;gap:8px">
++        <button id="btnHubImportBackup" style="flex:1;font-family:var(--font-pixel);font-size:8px;padding:10px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">
++          💾 Exporter ma save actuelle
++        </button>
++        <button id="btnHubImportConfirm" style="flex:2;font-family:var(--font-pixel);font-size:9px;padding:10px;background:var(--bg);border:2px solid #ffa040;border-radius:var(--radius-sm);color:#ffa040;cursor:pointer">
++          📥 Importer dans ce slot
++        </button>
++      </div>
++      <button id="btnHubImportCancel" style="font-family:var(--font-pixel);font-size:8px;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">
++        Annuler
++      </button>
++
++    </div>`;
++
++  document.body.appendChild(overlay);
++  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
++
++  overlay.querySelector('#btnHubImportClose')?.addEventListener('click',  () => overlay.remove());
++  overlay.querySelector('#btnHubImportCancel')?.addEventListener('click', () => overlay.remove());
++
++  // Slot label hover effect
++  overlay.querySelectorAll('#hubSlotPicker label').forEach(lbl => {
++    lbl.addEventListener('mouseenter', () => lbl.style.borderColor = '#ffa040');
++    lbl.addEventListener('mouseleave', () => lbl.style.borderColor = 'var(--border)');
++  });
++
++  overlay.querySelector('#btnHubImportBackup')?.addEventListener('click', () => {
++    exportSave();
++    const btn = overlay.querySelector('#btnHubImportBackup');
++    btn.textContent = '✅ Save exportée !';
++    btn.style.color = 'var(--green)';
++  });
++
++  overlay.querySelector('#btnHubImportConfirm')?.addEventListener('click', () => {
++    const targetSlot = parseInt(overlay.querySelector('input[name="hubTargetSlot"]:checked')?.value ?? '0');
++    const doMutation = overlay.querySelector('#chkAutoMutation')?.checked ?? false;
++    const doClean    = overlay.querySelector('#chkCleanObsolete')?.checked ?? false;
++
++    showConfirm(
++      `Importer la save de <b>${gangName}</b> dans le Slot ${targetSlot + 1} ?<br><span style="color:var(--text-dim);font-size:10px">Le contenu actuel du slot sera effacé.</span>`,
++      () => {
++        try {
++          // Deep clone before mutation
++          const draft = JSON.parse(JSON.stringify(raw));
++
++          // Apply optional steps before migration
++          let mutated = 0, cleaned = 0;
++          if (doMutation && draft.pokemons) mutated = applyAutoMutation(draft.pokemons);
++          if (doClean)                      cleaned  = cleanObsoleteData(draft);
++
++          // Full migration to current schema
++          const migrated = migrate(draft);
++
++          // Add cleaned-zone log if relevant
++          if (doClean && cleaned > 0) {
++            if (!migrated.behaviourLogs) migrated.behaviourLogs = {};
++            migrated.behaviourLogs._importCleanedZones = cleaned;
++            // Add a visible log to pokedex area isn't natural — add a note to notifications array if present
++            if (!migrated._importNotes) migrated._importNotes = [];
++            migrated._importNotes.push(`information perdue avec le temps (${cleaned} zone(s) obsolète(s) supprimée(s))`);
++          }
++
++          // Save to the target slot (don't affect current active game)
++          localStorage.setItem(getSaveKeys()[targetSlot], JSON.stringify(migrated));
++
++          overlay.remove();
++
++          // Compose summary message
++          const parts = [`✅ Save de "${gangName}" importée dans le Slot ${targetSlot + 1}.`];
++          if (mutated > 0) parts.push(`⚡ ${mutated} Pokémon 4★ → 5★.`);
++          if (cleaned > 0) parts.push(`🧹 ${cleaned} zone(s) obsolète(s) supprimée(s).`);
++          parts.push('Clique ▶ sur le slot pour jouer.');
++          notify(parts.join(' '), 'success');
++
++          // Refresh hub slot display if introOverlay is visible
++          const introSlots = document.getElementById('introSlots');
++          if (introSlots) {
++            // Re-trigger showIntro rendering by dispatching a custom event, or simply reload slots
++            // We call the global renderSlots if accessible — it's locally scoped, so refresh the overlay
++            const introOverlay = document.getElementById('introOverlay');
++            if (introOverlay?.classList.contains('active')) {
++              // Remove active class to reset, then re-show
++              introOverlay.classList.remove('active');
++              showIntro();
++            }
++          }
++        } catch (err) {
++          notify('Erreur lors de l\'importation — save non modifiée.', 'error');
++          console.error(err);
++        }
++      },
++      null,
++      { confirmLabel: 'Importer', cancelLabel: 'Annuler' }
++    );
++  });
++}
++
++
++
++function showMigrationBanner({ from, toLegacyKey, fields }) {
++  const overlay = document.createElement('div');
++  overlay.style.cssText = `
++    position:fixed;inset:0;background:rgba(0,0,0,0.82);z-index:12000;
++    display:flex;align-items:center;justify-content:center;padding:16px;
++    animation:fadeIn .3s ease
++  `;
++  const fieldsHtml = fields.length
++    ? `<ul style="margin:8px 0 0 0;padding-left:18px;font-size:9px;color:var(--text-dim);line-height:1.8">
++        ${fields.map(f => `<li>${f}</li>`).join('')}
++      </ul>`
++    : '';
++  const legacyNote = toLegacyKey
++    ? `<div style="margin-top:8px;font-size:9px;color:var(--red);background:rgba(255,0,0,.07);padding:6px 8px;border-radius:4px;border-left:2px solid var(--red)">
++        ⚠ Ancienne sauvegarde détectée (<code style="font-size:9px">${toLegacyKey}</code>).<br>
++        Convertie et transférée vers le slot actuel. L'ancienne clé a été supprimée.
++      </div>`
++    : '';
++
++  overlay.innerHTML = `
++    <div style="background:var(--bg-panel);border:2px solid var(--gold-dim);border-radius:var(--radius);
++                padding:22px 24px;max-width:420px;width:100%;box-shadow:0 8px 40px rgba(0,0,0,.6)">
++      <div style="font-family:var(--font-pixel);font-size:11px;color:var(--gold);margin-bottom:4px">
++        🔄 SAVE MISE À JOUR
++      </div>
++      <div style="font-size:10px;color:var(--text-dim);margin-bottom:4px">
++        Depuis : <span style="color:var(--text)">${from}</span> →
++        schéma <span style="color:var(--gold)">v${getSaveSchemaVersion()}</span>
++      </div>
++      ${fields.length ? `<div style="font-size:9px;color:var(--text-dim);margin-top:6px">Nouveaux éléments ajoutés :</div>${fieldsHtml}` : ''}
++      ${legacyNote}
++      <div style="margin-top:8px;font-size:9px;color:var(--text-dim)">
++        Ta progression, Pokémon et argent sont intacts. ✅
++      </div>
++      <div style="margin-top:16px;text-align:right">
++        <button id="btnMigrationOk" class="btn-gold" style="padding:6px 20px;font-size:10px">
++          OK, continuer →
++        </button>
++      </div>
++    </div>`;
++
++  document.body.appendChild(overlay);
++  overlay.querySelector('#btnMigrationOk').addEventListener('click', () => {
++    overlay.remove();
++    saveState(); // persiste le nouveau schéma
++  });
++  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
++}
++
++
++
++export {
++  configureModals,
++  openHubImportModal,
++  openImportPreviewModal,
++  openLegacyImportModal,
++  showConfirm,
++  showInfoModal,
++  showMigrationBanner,
++};
+diff --git a/modules/ui/tabRouter.js b/modules/ui/tabRouter.js
+new file mode 100644
+index 0000000..d1030f6
+--- /dev/null
++++ b/modules/ui/tabRouter.js
+@@ -0,0 +1,187 @@
++'use strict';
++
++// deps via configureTabRouter(ctx):
++// - getState, getActiveTab, getOpenZones, switchTab, setPcView
++// - renderGangTab, renderZonesTab, renderMarketTab, renderPCTab, renderPokedexTab,
++//   renderAgentsTab, renderCosmeticsTab, renderMissionsTab, renderBattleLogTab,
++//   renderLeaderboardTab, renderCompteTab, renderZone2Tab
++// - getDexKantoCaught, getDexNationalCaught, getShinySpeciesCount, dex size getters
++// classic-script data globals used by hints: POKEMON_GEN1
++
++let tabRouterCtx = {};
++
++function configureTabRouter(ctx = {}) {
++  tabRouterCtx = { ...tabRouterCtx, ...ctx };
++}
++
++function callCtx(name, ...args) {
++  return tabRouterCtx[name]?.(...args);
++}
++
++function getState() { return tabRouterCtx.getState?.() ?? globalThis.state ?? {}; }
++function getActiveTab() { return tabRouterCtx.getActiveTab?.() ?? globalThis.activeTab ?? ''; }
++function getOpenZones() { return tabRouterCtx.getOpenZones?.() ?? globalThis.openZones ?? new Set(); }
++function switchTab(...args) { return callCtx('switchTab', ...args); }
++function setPcView(value) { return callCtx('setPcView', value); }
++function getDexKantoCaught() { return callCtx('getDexKantoCaught') ?? 0; }
++function getDexNationalCaught() { return callCtx('getDexNationalCaught') ?? 0; }
++function getShinySpeciesCount() { return callCtx('getShinySpeciesCount') ?? 0; }
++function getKantoDexSize() { return callCtx('getKantoDexSize') ?? 151; }
++function getNationalDexSize() { return callCtx('getNationalDexSize') ?? 151; }
++function renderGangTab(...args) { return callCtx('renderGangTab', ...args); }
++function renderZonesTab(...args) { return callCtx('renderZonesTab', ...args); }
++function renderMarketTab(...args) { return callCtx('renderMarketTab', ...args); }
++function renderPCTab(...args) { return callCtx('renderPCTab', ...args); }
++function renderPokedexTab(...args) { return callCtx('renderPokedexTab', ...args); }
++function renderAgentsTab(...args) { return callCtx('renderAgentsTab', ...args); }
++function renderCosmeticsTab(...args) { return callCtx('renderCosmeticsTab', ...args); }
++function renderMissionsTab(...args) { return callCtx('renderMissionsTab', ...args); }
++function renderBattleLogTab(...args) { return callCtx('renderBattleLogTab', ...args); }
++function renderLeaderboardTab(...args) { return callCtx('renderLeaderboardTab', ...args); }
++function renderCompteTab(...args) { return callCtx('renderCompteTab', ...args); }
++function renderZone2Tab(...args) { return callCtx('renderZone2Tab', ...args); }
++
++function hintLink(label, tabId) {
++  return `<button onclick="switchTab('${tabId}')" style="font-family:var(--font-pixel);font-size:9px;color:var(--red);background:none;border:none;border-bottom:1px solid var(--red);cursor:pointer;padding:0">${label}</button>`;
++}
++
++function getTabHint(tabId) {
++  const state = getState();
++  const openZones = getOpenZones();
++  const pc       = state.pokemons.length;
++  const agents   = state.agents.length;
++  const money    = state.gang.money;
++  const bossTeam = state.gang.bossTeam.length;
++  const hasZone  = openZones.size > 0;
++
++  switch (tabId) {
++    case 'tabGang':
++      if (!state.gang.initialized) return 'Crée ton gang pour commencer.';
++      if (bossTeam === 0 && pc === 0) return `Capture des Pokémon dans ${hintLink('Zones', 'tabZones')} puis assigne-en à ton équipe Boss.`;
++      if (bossTeam === 0) return `Assigne des Pokémon à ton équipe Boss depuis le ${hintLink('PC', 'tabPC')} — clique sur un Pokémon → Équipe.`;
++      if (!hasZone) return `Ouvre une zone dans ${hintLink('Zones', 'tabZones')} pour explorer et combattre.`;
++      return `Vitrine : montre tes meilleurs Pokémon. L\'équipe Boss combat quand tu entres en zone.`;
++    case 'tabAgents':
++      if (pc === 0) return `Capture des Pokémon en ${hintLink('Zones', 'tabZones')} — tu pourras en recruter comme agents.`;
++      if (agents === 0) return `Recrute un agent depuis le ${hintLink('PC', 'tabPC')} : clique sur un Pokémon → Recruter Agent. Les agents explorent les zones et ramènent de l'argent automatiquement.`;
++      if (!hasZone) return `Assigne tes agents à une zone depuis ${hintLink('Zones', 'tabZones')} ou directement ici via le menu déroulant.`;
++      return `Les agents assignés à une zone génèrent des ₽ toutes les 5 min. Collecte depuis l'onglet ${hintLink('Zones', 'tabZones')}.`;
++    case 'tabZones':
++      if (!hasZone) return `Clique sur <b>Route 1</b> puis sur <b>Ouvrir</b> pour explorer ta première zone.`;
++      if (bossTeam === 0) return `Entre dans une zone avec ton boss — assigne d'abord un Pokémon à ton équipe depuis le ${hintLink('PC', 'tabPC')}.`;
++      return `Capture des Pokémon, bats des dresseurs. 10 victoires → combats élites. Clique 💰 pour collecter les revenus.`;
++    case 'tabBag':
++      return null;
++    case 'tabMarket':
++      if (money < 500) return `Tu n'as presque plus d'argent. Bats des dresseurs ou vends des Pokémon en double depuis le ${hintLink('PC', 'tabPC')}.`;
++      if (!state.inventory.pokeball) return `Achète des Pokéballs (100₽) dans la boutique pour pouvoir capturer des Pokémon.`;
++      return `Boutique : Pokéballs, objets de boost, incubateurs. Quêtes : missions journalières pour des récompenses.`;
++    case 'tabPC':
++      if (pc === 0) return `Ton PC est vide. Capture des Pokémon en ${hintLink('Zones', 'tabZones')} pour les voir ici.`;
++      if (bossTeam === 0) return `Clique sur un Pokémon → menu → <b>Équipe Boss</b> pour l'ajouter à ton équipe de combat.`;
++      return `Filtre (Eq/Tr/PS), trie par prix/niveau/potentiel, vends les doublons.`;
++    case 'tabTraining':
++      if (pc === 0) return `Capture des Pokémon en ${hintLink('Zones', 'tabZones')} pour les entraîner.`;
++      return `Place 2 à 6 Pokémon — ils s'affrontent automatiquement toutes les 60s. Gagnant : XP ×1.25, tous gagnent de l'XP.`;
++    case 'tabLab':
++      if (pc < 3) return `Capture plusieurs exemplaires du même Pokémon pour les fusionner au Labo et augmenter le Potentiel.`;
++      return `Potentiel (⭐) = multiplicateur de prix et de stats. Sacrifie des doublons pour monter jusqu'à 5⭐ (max).`;
++    case 'tabMissions':
++      return `Missions journalières et hebdomadaires = source de ₽ et d'objets rares. Reviens chaque jour.`;
++    case 'tabPokedex':
++      return `Kanto ${getDexKantoCaught()}/${getKantoDexSize()} · National ${getDexNationalCaught()}/${getNationalDexSize()} · Chromas ${getShinySpeciesCount()} espèces. Explore toutes les zones pour compléter !`;
++    default:
++      return null;
++  }
++}
++
++// ── First-visit contextual hint (non-bloquant, disparaît en 6s ou au clic) ──
++const _FIRST_VISIT_HINTS = {
++  tabGang:     { icon: '👑', title: 'Ton Gang', body: 'Ta base d\'opérations. Gère l\'équipe Boss (3 slots sauvegardables), place tes meilleurs Pokémon en vitrine, et débloque des upgrades spéciaux au Marché.' },
++  tabAgents:   { icon: '👥', title: 'Les Agents', body: 'Assigne-leur une zone → ils capturent et combattent automatiquement, même zones fermées. Chaque agent a un comportement (tout / capture / combat) et une stat de chance qui augmente les potentiels.' },
++  tabZones:    { icon: '🗺', title: 'Zones', body: 'Ouvre jusqu\'à 6 zones simultanément pour capturer des Pokémon et battre des dresseurs. Les zones fermées avec agent continuent de se jouer en arrière-plan. Ton Boss participe aux combats de toutes les zones ouvertes.' },
++  tabMarket:   { icon: '🛒', title: 'Marché', body: 'Achète des Pokéballs pour capturer, des incubateurs pour faire éclore des œufs, et plus encore.' },
++  tabPC:       { icon: '💾', title: 'Le PC', body: 'Tous tes Pokémon sont ici. Assigne-les à ton équipe, à un agent, à la pension ou à la salle d\'entraînement.' },
++  tabTraining: { icon: '🏋', title: 'Salle d\'entraînement', body: 'Tes Pokémon s\'entraînent automatiquement. Parfait pour monter en niveau des Pokémon que tu n\'utilises pas.' },
++  tabLab:      { icon: '🔬', title: 'Laboratoire', body: 'Le Potentiel (⭐) multiplie la valeur et les stats d\'un Pokémon. Fusionne des doublons pour monter jusqu\'à 5⭐.' },
++  tabMissions: { icon: '📋', title: 'Missions', body: 'Objectifs quotidiens et hebdomadaires. Complète-les pour des ₽ et des objets rares.' },
++  tabPokedex:  { icon: '📖', title: 'Pokédex', body: 'Chaque espèce capturée est enregistrée ici. Vise 151/151 pour tout débloquer.' },
++};
++
++function showFirstVisitHint(tabId) {
++  const def = _FIRST_VISIT_HINTS[tabId];
++  if (!def) return;
++  // Remove any existing hint
++  document.getElementById('firstVisitHint')?.remove();
++
++  const el = document.createElement('div');
++  el.id = 'firstVisitHint';
++  el.style.cssText = `
++    position:fixed;bottom:24px;right:24px;z-index:4000;
++    background:var(--bg-panel);border:2px solid var(--gold-dim);border-radius:var(--radius);
++    padding:12px 14px;max-width:260px;box-shadow:0 4px 20px rgba(0,0,0,.6);
++    animation:fvhIn .3s ease;cursor:pointer;
++  `;
++  el.innerHTML = `
++    <div style="display:flex;align-items:flex-start;gap:10px">
++      <span style="font-size:20px;flex-shrink:0">${def.icon}</span>
++      <div>
++        <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold);margin-bottom:4px">${def.title}</div>
++        <div style="font-size:10px;color:var(--text-dim);line-height:1.5">${def.body}</div>
++      </div>
++      <button style="background:none;border:none;color:var(--text-dim);font-size:14px;cursor:pointer;padding:0;flex-shrink:0;line-height:1" onclick="document.getElementById('firstVisitHint')?.remove()">✕</button>
++    </div>`;
++
++  document.body.appendChild(el);
++
++  // Auto-dismiss after 7s
++  const timer = setTimeout(() => {
++    el.style.animation = 'fvhOut .3s ease forwards';
++    setTimeout(() => el.remove(), 300);
++  }, 7000);
++  el.addEventListener('click', () => { clearTimeout(timer); el.remove(); });
++}
++
++function renderHint(tabId) {
++  const bar = document.getElementById('hintBar');
++  if (!bar) return;
++  const hint = getTabHint(tabId);
++  if (hint) {
++    bar.innerHTML = '&gt;&gt; ' + hint;
++    bar.style.display = 'block';
++  } else {
++    bar.style.display = 'none';
++  }
++}
++
++function renderActiveTab() {
++  const activeTab = getActiveTab();
++  switch (activeTab) {
++    case 'tabGang':     renderGangTab(); break;
++    case 'tabZones':    renderZonesTab(); break;
++    case 'tabMarket':   renderMarketTab(); break;
++    case 'tabPC':       renderPCTab(); break;
++    case 'tabPokedex':  renderPokedexTab(); break;
++    case 'tabAgents':   renderAgentsTab(); break;
++    case 'tabBag':        switchTab('tabMarket'); break;
++    case 'tabCosmetics':   renderCosmeticsTab(); break;
++    case 'tabMissions':    renderMissionsTab(); break;
++    case 'tabBattleLog':   renderBattleLogTab(); break;
++    case 'tabTraining': setPcView('training'); switchTab('tabPC'); break;
++    case 'tabLab':      setPcView('lab'); switchTab('tabPC'); break;
++    case 'tabLeaderboard': renderLeaderboardTab(); break;
++    case 'tabCompte':      renderCompteTab(); break;
++    case 'tabZone2':       renderZone2Tab(); break;
++  }
++}
++
++
++
++export {
++  configureTabRouter,
++  getTabHint,
++  hintLink,
++  renderActiveTab,
++  renderHint,
++  showFirstVisitHint,
++};
+-- 
+2.54.0.windows.1
+
