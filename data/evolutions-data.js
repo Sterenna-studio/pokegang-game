@@ -57,7 +57,9 @@ const EVOLUTIONS = [
   ['grimer','muk',38],['koffing','weezing',35],
   ['omanyte','omastar',40],['kabuto','kabutops',40],
   ['dratini','dragonair',30],['dragonair','dragonite',55],
-  ['eevee','vaporeon','item'], // will use the single item for all trade evos
+  ['eevee','vaporeon','item'],
+  ['eevee','jolteon','item'],
+  ['eevee','flareon','item'],
   ['zubat','golbat',22],
 
   // ── Gen 2 : bébés → Gen 1 ───────────────────────────────────────

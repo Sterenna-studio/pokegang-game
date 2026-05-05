@@ -58,7 +58,7 @@
       padding: 10px 0;
       border-bottom: 2px solid var(--border);
       gap: 12px;
-      background: rgba(10, 10, 10, 0.55);
+      background: rgba(10, 10, 10, 0.72);
     }
 
     /* ── Supabase sync indicator ─────────────────────────────────── */
@@ -151,7 +151,7 @@
     /* ── Tab Content ─────────────────────────────────────────────── */
     #tabContent {
       flex: 1;
-      background: var(--bg-panel);
+      background: rgba(10, 10, 10, 0.72);
       border: 1px solid var(--border);
       border-top: none;
       border-radius: 0 0 var(--radius) var(--radius);
