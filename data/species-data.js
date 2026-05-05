@@ -131,7 +131,7 @@ const POKEMON_GEN1 = [
   {en:'mr-mime',fr:'M. Mime',dex:122,types:['Psychic','Fairy'],baseAtk:45,baseDef:65,baseSpd:90,rarity:'rare',moves:['Choc Mental','Mur Lumière','Protection','Psyko']},
   {en:'scyther',fr:'Insécateur',dex:123,types:['Bug','Flying'],baseAtk:110,baseDef:80,baseSpd:105,rarity:'rare',moves:['Tranche','Cru-Aile','Danse Lames','Vive-Attaque']},
   {en:'jynx',fr:'Lippoutou',dex:124,types:['Ice','Psychic'],baseAtk:50,baseDef:35,baseSpd:95,rarity:'rare',moves:['Psyko','Laser Glace','Grobisou','Berceuse']},
-  {en:'electabuzz',fr:'Électabuzz',dex:125,types:['Electric'],baseAtk:83,baseDef:57,baseSpd:105,rarity:'rare',moves:['Tonnerre','Poing Éclair','Vive-Attaque','Cage Éclair']},
+  {en:'electabuzz',fr:'Élektek',dex:125,types:['Electric'],baseAtk:83,baseDef:57,baseSpd:105,rarity:'rare',moves:['Tonnerre','Poing Éclair','Vive-Attaque','Cage Éclair']},
   {en:'magmar',fr:'Magmar',dex:126,types:['Fire'],baseAtk:95,baseDef:57,baseSpd:93,rarity:'rare',moves:['Lance-Flamme','Poing de Feu','Brouillard','Déflagration']},
   {en:'pinsir',fr:'Scarabrute',dex:127,types:['Bug'],baseAtk:125,baseDef:100,baseSpd:85,rarity:'rare',moves:['Plaie-Croix','Guillotine','Tranche','Soumission']},
   {en:'tauros',fr:'Tauros',dex:128,types:['Normal'],baseAtk:100,baseDef:95,baseSpd:110,rarity:'rare',moves:['Plaquage','Séisme','Bélier','Frénésie']},
