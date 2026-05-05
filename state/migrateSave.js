@@ -111,6 +111,31 @@ export function migrateSave(saved, deps) {
   if (merged.gang.titleD      === undefined) merged.gang.titleD      = null;
   // introSeen — false for existing players (they'll get the catch-up popup)
   if (merged.gang.introSeen   === undefined) merged.gang.introSeen   = false;
+  // competition — online PvP system
+  if (!merged.gang.competition || typeof merged.gang.competition !== 'object' || Array.isArray(merged.gang.competition)) {
+    merged.gang.competition = structuredClone(DEFAULT_STATE.gang.competition);
+  } else {
+    const comp = merged.gang.competition;
+    const def  = DEFAULT_STATE.gang.competition;
+    if (!Array.isArray(comp.defenseTeam)) {
+      comp.defenseTeam = [...def.defenseTeam];
+    } else {
+      comp.defenseTeam = Array.from({ length: 6 }, (_, idx) =>
+        comp.defenseTeam[idx] === undefined ? null : comp.defenseTeam[idx],
+      );
+    }
+    if (comp.defenseAgent     === undefined) comp.defenseAgent     = null;
+    if (comp.defenseZone      === undefined) comp.defenseZone      = null;
+    if (comp.defensePublished === undefined) comp.defensePublished  = false;
+    comp.wins = ensureObject(comp.wins, {});
+    if (comp.wins.attack   === undefined) comp.wins.attack   = 0;
+    if (comp.wins.defense  === undefined) comp.wins.defense  = 0;
+    comp.losses = ensureObject(comp.losses, {});
+    if (comp.losses.attack  === undefined) comp.losses.attack  = 0;
+    if (comp.losses.defense === undefined) comp.losses.defense = 0;
+    comp.raidCooldowns = ensureObject(comp.raidCooldowns, {});
+    if (!Array.isArray(comp.pendingRaids)) comp.pendingRaids = [];
+  }
 
   // ── Missions ───────────────────────────────────────────────────────────────────
   if (!merged.missions) merged.missions = structuredClone(DEFAULT_STATE.missions);

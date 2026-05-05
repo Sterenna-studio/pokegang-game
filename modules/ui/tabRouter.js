@@ -4,7 +4,7 @@
 // - getState, getActiveTab, getOpenZones, switchTab, setPcView
 // - renderGangTab, renderZonesTab, renderMarketTab, renderPCTab, renderPokedexTab,
 //   renderAgentsTab, renderCosmeticsTab, renderMissionsTab, renderBattleLogTab,
-//   renderLeaderboardTab, renderCompteTab
+//   renderLeaderboardTab, renderCompteTab, renderGangCompetitionTab
 // - getDexKantoCaught, getDexNationalCaught, getShinySpeciesCount, dex size getters
 // classic-script data globals used by hints: POKEMON_GEN1
 
@@ -39,6 +39,7 @@ function renderMissionsTab(...args) { return callCtx('renderMissionsTab', ...arg
 function renderBattleLogTab(...args) { return callCtx('renderBattleLogTab', ...args); }
 function renderLeaderboardTab(...args) { return callCtx('renderLeaderboardTab', ...args); }
 function renderCompteTab(...args) { return callCtx('renderCompteTab', ...args); }
+function renderGangCompetitionTab(...args) { return callCtx('renderGangCompetitionTab', ...args); }
 
 function hintLink(label, tabId) {
   return `<button onclick="switchTab('${tabId}')" style="font-family:var(--font-pixel);font-size:9px;color:var(--red);background:none;border:none;border-bottom:1px solid var(--red);cursor:pointer;padding:0">${label}</button>`;
@@ -89,6 +90,8 @@ function getTabHint(tabId) {
       return `Missions journalières et hebdomadaires = source de ₽ et d'objets rares. Reviens chaque jour.`;
     case 'tabPokedex':
       return `Kanto ${getDexKantoCaught()}/${getKantoDexSize()} · National ${getDexNationalCaught()}/${getNationalDexSize()} · Chromas ${getShinySpeciesCount()} espèces. Explore toutes les zones pour compléter !`;
+    case 'tabCompetition':
+      return `Défie les gangs adverses pour voler leur réputation. Configure ta défense, puis lance un raid — 1 par heure par cible.`;
     default:
       return null;
   }
@@ -104,7 +107,8 @@ const _FIRST_VISIT_HINTS = {
   tabTraining: { icon: '🏋', title: 'Salle d\'entraînement', body: 'Tes Pokémon s\'entraînent automatiquement. Parfait pour monter en niveau des Pokémon que tu n\'utilises pas.' },
   tabLab:      { icon: '🔬', title: 'Laboratoire', body: 'Le Potentiel (⭐) multiplie la valeur et les stats d\'un Pokémon. Fusionne des doublons pour monter jusqu\'à 5⭐.' },
   tabMissions: { icon: '📋', title: 'Missions', body: 'Objectifs quotidiens et hebdomadaires. Complète-les pour des ₽ et des objets rares.' },
-  tabPokedex:  { icon: '📖', title: 'Pokédex', body: 'Chaque espèce capturée est enregistrée ici. Vise 151/151 pour tout débloquer.' },
+  tabPokedex:   { icon: '📖', title: 'Pokédex', body: 'Chaque espèce capturée est enregistrée ici. Vise 151/151 pour tout débloquer.' },
+  tabCompetition: { icon: '⚔️', title: 'Compétition', body: 'Affronte les gangs des autres joueurs pour leur voler de la réputation. Configure tes 6 Pokémon de défense + 1 agent, puis publie ta base. Lance ensuite des raids — 1 par heure et par cible.' },
 };
 
 function showFirstVisitHint(tabId) {
@@ -170,6 +174,7 @@ function renderActiveTab() {
     case 'tabLab':      setPcView('lab'); switchTab('tabPC'); break;
     case 'tabLeaderboard': renderLeaderboardTab(); break;
     case 'tabCompte':      renderCompteTab(); break;
+    case 'tabCompetition': renderGangCompetitionTab(); break;
   }
 }
 
@@ -182,4 +187,5 @@ export {
   renderActiveTab,
   renderHint,
   showFirstVisitHint,
+  renderGangCompetitionTab,
 };

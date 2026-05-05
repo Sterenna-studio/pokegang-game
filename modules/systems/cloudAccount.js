@@ -1059,8 +1059,12 @@ async function renderCompteTab() {
 
 // ════════════════════════════════════════════════════════════════
 
+function getSupabaseClient() { return _supabase; }
+function getSupaSession()  { return supaSession; }
+
 export {
   configureCloudAccount, initSupabase, supaConfigured, supaCloudSave, supaWriteSnapshot,
   supaUpdateLeaderboard, supaUpdateLeaderboardAnon, renderLeaderboardTab, renderCompteTab,
   updateSupaIndicator, updateSupaTabLabel,
+  getSupabaseClient, getSupaSession,
 };
