@@ -118,6 +118,7 @@ function getMarketSaturation(species) { return callContext('getMarketSaturation'
 function removePokemonFromAllAssignments(...args) { return callContext('removePokemonFromAllAssignments', ...args); }
 function sellPokemon(...args) { return callContext('sellPokemon', ...args); }
 function getPensionSlotIds() { return callContext('getPensionSlotIds') ?? new Set(); }
+function getMaxPensionSlots() { return callContext('getMaxPensionSlots') ?? 2; }
 function openAssignToPicker(...args) { return callContext('openAssignToPicker', ...args); }
 function renderAgentsTab() { return callContext('renderAgentsTab'); }
 function renderGangTab() { return callContext('renderGangTab'); }
@@ -617,9 +618,9 @@ function renderPCTab() {
       switcher.className = 'pc-view-switcher';
       switcher.innerHTML = `
         <button class="pc-view-btn" id="pcBtnGrid" data-pcview="grid">[PC]</button>
+        <button class="pc-view-btn" id="pcBtnPension" data-pcview="pension">[PENSION]</button>
         <button class="pc-view-btn" id="pcBtnTraining" data-pcview="training">[FORMATION]</button>
-        <button class="pc-view-btn" id="pcBtnLab" data-pcview="lab">[LABO]</button>
-        <button class="pc-view-btn" id="pcBtnPension" data-pcview="pension">[PENSION${state.eggs.length ? ` & ${state.eggs.length} 🥚` : ''}]</button>`;
+        <button class="pc-view-btn" id="pcBtnLab" data-pcview="lab">[LABO]</button>`;
       pcLayout.parentNode.insertBefore(switcher, pcLayout);
       switcher.querySelectorAll('.pc-view-btn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -636,7 +637,17 @@ function renderPCTab() {
       btn.classList.toggle('active', btn.dataset.pcview === getPcView());
     });
     const pensionBtn = switcher.querySelector('#pcBtnPension');
-    if (pensionBtn) pensionBtn.textContent = `[PENSION${state.eggs.length ? ` & ${state.eggs.length} 🥚` : ''}]`;
+    if (pensionBtn) {
+      const pensionOcc = getPensionSlotIds().size;
+      const pensionMax = getMaxPensionSlots();
+      pensionBtn.textContent = `[PENSION ${pensionOcc}/${pensionMax}]`;
+    }
+    const trainingBtn = switcher.querySelector('#pcBtnTraining');
+    if (trainingBtn) {
+      const trainOcc = (state.trainingRoom?.pokemon || []).length;
+      const trainMax = 6 + (state.trainingRoom?.extraSlots || 0);
+      trainingBtn.textContent = `[FORMATION ${trainOcc}/${trainMax}]`;
+    }
 
     const subViews = ['trainingInPC', 'labInPC', 'pensionInPC'];
     if (getPcView() === 'training') {
@@ -690,6 +701,17 @@ function renderPCTab() {
     pcGrid.parentNode.insertBefore(pcToolbar, pcGrid);
   }
   if (pcToolbar) {
+    // Compute evo counts across all pokémon in PC
+    const _tbXpEvo   = state.pokemons.filter(pk => {
+      const evos = EVO_BY_SPECIES[pk.species_en];
+      return evos && evos.some(e => e.req !== 'item' && typeof e.req === 'number' && pk.level >= e.req);
+    });
+    const _tbStoneEvo = state.pokemons.filter(pk => {
+      const evos = EVO_BY_SPECIES[pk.species_en];
+      return evos && evos.some(e => e.req === 'item');
+    });
+    const _stoneHave = state.inventory.evostone || 0;
+
     pcToolbar.style.cssText = 'display:flex;align-items:center;gap:8px;padding:4px 0 4px 2px;flex-wrap:wrap';
     pcToolbar.innerHTML = `
       <span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">Grille:</span>
@@ -709,7 +731,8 @@ function renderPCTab() {
         Grouper
       </label>
       <div style="flex:1"></div>
-      <button id="pcBtnSelectPage" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer" title="Sélectionner toute la page (ou Shift+Clic sur les cartes)">☐ Tout</button>
+      ${_tbXpEvo.length > 0 ? `<button id="pcBtnEvoXP" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--green,#4caf50);border-radius:var(--radius-sm);color:var(--green,#4caf50);cursor:pointer" title="Évoluer tous les Pokémon prêts (niveau)">⬆ XP (${_tbXpEvo.length})</button>` : ''}
+      ${_tbStoneEvo.length > 0 ? `<button id="pcBtnEvoStone" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid ${_stoneHave > 0 ? 'var(--gold)' : 'var(--border)'};border-radius:var(--radius-sm);color:${_stoneHave > 0 ? 'var(--gold)' : 'var(--text-dim)'};cursor:pointer" title="Évoluer tous les Pokémon via Pierre (💎×${_stoneHave} dispo)">💎 Pierre (${_tbStoneEvo.length})</button>` : ''}
       <button id="pcBtnBulkSell" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">💸 Vendre max</button>`;
     document.getElementById('pcColsSel')?.addEventListener('change', e => {
       pcGridCols = parseInt(e.target.value); pcPage = 0; renderPokemonGrid(true);
@@ -723,16 +746,11 @@ function renderPCTab() {
       _pcSelectedGroups.clear(); _pcLastClickedIdx = -1;
       renderPokemonGrid(true); renderPokemonDetail();
     });
-    document.getElementById('pcBtnSelectPage')?.addEventListener('click', () => {
-      const cards = [...document.querySelectorAll('#pcGrid .pc-pokemon')];
-      if (!cards.length) return;
-      const allSelected = cards.every(c => pcSelectedIds.has(c.dataset.pkId));
-      if (allSelected) {
-        cards.forEach(c => { pcSelectedIds.delete(c.dataset.pkId); c.classList.remove('multi-selected'); });
-      } else {
-        cards.forEach(c => { pcSelectedIds.add(c.dataset.pkId); c.classList.add('multi-selected'); });
-      }
-      renderPokemonDetail();
+    document.getElementById('pcBtnEvoXP')?.addEventListener('click', () => {
+      _showEvoPreviewPopup(_tbXpEvo, 'xp', pks => _xpBulkEvolve(pks));
+    });
+    document.getElementById('pcBtnEvoStone')?.addEventListener('click', () => {
+      _showEvoPreviewPopup(_tbStoneEvo, 'stone', pks => _stoneBulkEvolve(pks));
     });
     document.getElementById('pcBtnBulkSell')?.addEventListener('click', openBulkSellModal);
   }
@@ -1165,7 +1183,6 @@ function renderPokemonGrid(forceRebuild = false) {
     case 'price':     list.sort((a, b) => calculatePrice(b) - calculatePrice(a)); break;
     case 'recent':    break;
   }
-  if (filter !== 'fav') list.sort((a, b) => (b.favorite ? 1 : 0) - (a.favorite ? 1 : 0));
 
   const pageSize = pcGroupMode ? list.length : (pcGridCols * pcGridRows);
   const totalPages = Math.max(1, Math.ceil(list.length / pageSize));
@@ -1428,6 +1445,135 @@ function _bulkEvolve(evolvable, stoneNeeded, stoneHave) {
   );
 }
 
+// ── XP-only chain evolution (auto-random for multi-path) ──
+function _xpEvolveToMax(pk) {
+  let evolved = false;
+  let sanity = 10;
+  while (sanity-- > 0) {
+    const evos = EVO_BY_SPECIES[pk.species_en];
+    if (!evos || evos.length === 0) break;
+    const candidates = evos.filter(e => e.req !== 'item' && typeof e.req === 'number' && pk.level >= e.req);
+    if (!candidates.length) break;
+    const chosen = candidates[Math.floor(Math.random() * candidates.length)];
+    evolvePokemon(pk, chosen.to);
+    evolved = true;
+  }
+  return evolved;
+}
+
+// ── Bulk XP evo: evolve list, save, refresh ──
+function _xpBulkEvolve(pks) {
+  let count = 0;
+  for (const pk of pks) { if (_xpEvolveToMax(pk)) count++; }
+  saveState(); _pcLastRenderKey = ''; renderPCTab();
+  if (count) notify(`${count} évolution${count > 1 ? 's' : ''} effectuée${count > 1 ? 's' : ''} !`, 'gold');
+}
+
+// ── Bulk Stone evo: evolve list (level then item), save, refresh ──
+function _stoneBulkEvolve(pks) {
+  let count = 0;
+  for (const pk of pks) { if (_evolveToMax(pk)) count++; }
+  saveState(); _pcLastRenderKey = ''; renderPCTab();
+  if (count) notify(`${count} Pokémon évolué${count > 1 ? 's' : ''} !`, 'gold');
+}
+
+// ── Evo stats helper ──
+function _getEvoInfo(pks) {
+  const xpEvolvable = pks.filter(pk => {
+    const evos = EVO_BY_SPECIES[pk.species_en];
+    return evos && evos.some(e => e.req !== 'item' && typeof e.req === 'number' && pk.level >= e.req);
+  });
+  const stoneEvolvable = pks.filter(pk => {
+    const evos = EVO_BY_SPECIES[pk.species_en];
+    return evos && evos.some(e => e.req === 'item');
+  });
+  return { xpEvolvable, stoneEvolvable };
+}
+
+// ── Evolution preview popup ──────────────────────────────────────
+// Shows initial count → cost → final count before committing.
+function _showEvoPreviewPopup(evolvable, type, onConfirm) {
+  if (!evolvable.length) return;
+  const stoneNeeded = type === 'stone' ? evolvable.length : 0;
+  const stoneHave   = state.inventory.evostone || 0;
+  const shortage    = Math.max(0, stoneNeeded - stoneHave);
+  const canBuyMore  = shortage > 0 && state.gang.money >= shortage * 5000;
+  const confirmDisabled = type === 'stone' && shortage > 0 && !canBuyMore;
+  const shinyCount  = evolvable.filter(p => p.shiny).length;
+
+  // Build transition preview (from → to) — first candidate per species pair
+  const transitionMap = {};
+  for (const pk of evolvable) {
+    const evos = EVO_BY_SPECIES[pk.species_en] || [];
+    const candidates = type === 'xp'
+      ? evos.filter(e => e.req !== 'item' && typeof e.req === 'number' && pk.level >= e.req)
+      : evos.filter(e => e.req === 'item');
+    if (!candidates.length) continue;
+    const sample = candidates[0];
+    const key = `${pk.species_en}→${sample.to}`;
+    if (!transitionMap[key]) transitionMap[key] = { from: pk.species_en, to: sample.to, count: 0 };
+    transitionMap[key].count++;
+  }
+
+  const confirmLabel = type === 'stone' && shortage > 0 && canBuyMore
+    ? `Acheter ${shortage} 💎 (${(shortage * 5000).toLocaleString()}₽) + Évoluer`
+    : 'Évoluer !';
+
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;inset:0;z-index:9100;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center';
+  modal.innerHTML = `
+    <div style="background:var(--bg-panel);border:2px solid var(--gold-dim);border-radius:var(--radius);padding:20px;max-width:360px;width:90%;font-family:var(--font-pixel)">
+      <div style="font-size:10px;color:var(--gold);margin-bottom:12px">ÉVOLUTION GROUPÉE — ${type === 'xp' ? '⬆ XP' : '💎 PIERRE'}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;text-align:center">
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px">
+          <div style="font-size:16px;color:var(--text)">${evolvable.length}</div>
+          <div style="font-size:7px;color:var(--text-dim)">INITIAL</div>
+        </div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px">
+          <div style="font-size:13px;color:${type === 'stone' ? (shortage > 0 ? 'var(--red)' : 'var(--gold)') : 'var(--green,#4caf50)'}">
+            ${type === 'stone' ? `💎×${stoneNeeded}` : 'XP ✓'}</div>
+          <div style="font-size:7px;color:var(--text-dim)">${type === 'stone' ? `${stoneHave} dispo` : 'GRATUIT'}</div>
+        </div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px">
+          <div style="font-size:16px;color:var(--green,#4caf50)">${evolvable.length}</div>
+          <div style="font-size:7px;color:var(--text-dim)">FINAL</div>
+        </div>
+      </div>
+      ${shinyCount > 0 ? `<div style="font-size:8px;color:var(--gold);margin-bottom:8px;text-align:center">✨×${shinyCount} chromatique${shinyCount > 1 ? 's' : ''} inclus</div>` : ''}
+      <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">Évolutions prévues :</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;max-height:100px;overflow-y:auto">
+        ${Object.values(transitionMap).map(({ from, to, count }) =>
+          `<div style="display:flex;align-items:center;gap:3px;background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:3px 6px;font-size:8px">
+            <img src="${pokeSprite(from)}" style="width:18px;height:18px">
+            <span style="color:var(--text-dim)">→</span>
+            <img src="${pokeSprite(to)}" style="width:18px;height:18px">
+            <span style="color:var(--text-dim)">×${count}</span>
+          </div>`
+        ).join('')}
+      </div>
+      ${type === 'stone' && shortage > 0 ? `<div style="font-size:8px;margin-bottom:8px;color:${canBuyMore ? 'var(--gold)' : 'var(--red)'}">
+        ${canBuyMore ? `Acheter ${shortage} pierre${shortage > 1 ? 's' : ''} pour ${(shortage * 5000).toLocaleString()}₽` : `Fonds insuffisants — manque ${shortage} pierre${shortage > 1 ? 's' : ''}`}
+      </div>` : ''}
+      <div style="display:flex;gap:8px">
+        <button id="evoPrevCancel" style="flex:1;font-size:8px;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">Annuler</button>
+        <button id="evoPrevConfirm" ${confirmDisabled ? 'disabled' : ''} style="flex:1;font-size:8px;padding:8px;background:var(--bg);border:1px solid ${confirmDisabled ? 'var(--border)' : 'var(--gold)'};border-radius:var(--radius-sm);color:${confirmDisabled ? 'var(--text-dim)' : 'var(--gold)'};cursor:${confirmDisabled ? 'default' : 'pointer'}">${confirmLabel}</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  modal.querySelector('#evoPrevCancel').addEventListener('click', () => modal.remove());
+  modal.querySelector('#evoPrevConfirm').addEventListener('click', () => {
+    if (confirmDisabled) return;
+    modal.remove();
+    if (type === 'stone' && shortage > 0 && canBuyMore) {
+      state.gang.money -= shortage * 5000;
+      state.inventory.evostone = (state.inventory.evostone || 0) + shortage;
+      updateTopBar();
+    }
+    onConfirm(evolvable);
+  });
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+}
+
 function renderPokemonDetail() {
   const panel = document.getElementById('pokemonDetail');
   if (!panel) return;
@@ -1443,6 +1589,8 @@ function renderPokemonDetail() {
     const sellable = allPks.filter(pk => !pk.shiny && !pk.favorite && !tIds.has(pk.id));
     const totalValue = sellable.reduce((s, pk) => s + calculatePrice(pk), 0);
     const shinyCount = allPks.filter(p => p.shiny).length;
+    const { xpEvolvable: gmXpEvo, stoneEvolvable: gmStoneEvo } = _getEvoInfo(allPks);
+    const gmStoneHave = state.inventory.evostone || 0;
 
     panel.innerHTML = `
       <div style="padding:10px;font-family:var(--font-pixel)">
@@ -1454,9 +1602,17 @@ function renderPokemonDetail() {
         </div>
         <div style="font-size:8px;color:var(--text-dim);margin-bottom:8px">
           ${allPks.length} Pokémon au total — ${sellable.length} vendables
-          ${shinyCount > 0 ? `<br><span style="color:var(--gold)">✨×${shinyCount} exclu${shinyCount > 1 ? 's' : ''}</span>` : ''}
+          ${shinyCount > 0 ? `<br><span style="color:var(--gold)">✨×${shinyCount} chromatique${shinyCount > 1 ? 's' : ''} inclus dans évos</span>` : ''}
         </div>
         <div style="display:flex;flex-direction:column;gap:5px">
+          ${gmXpEvo.length > 0 ? `
+          <button id="btnEvoXPGroupMulti" style="width:100%;font-size:9px;padding:6px;background:var(--bg);border:1px solid var(--green,#4caf50);border-radius:var(--radius-sm);color:var(--green,#4caf50);cursor:pointer">
+            ⬆ Évoluer XP (${gmXpEvo.length})
+          </button>` : ''}
+          ${gmStoneEvo.length > 0 ? `
+          <button id="btnEvoStoneGroupMulti" style="width:100%;font-size:9px;padding:6px;background:var(--bg);border:1px solid ${gmStoneHave > 0 ? 'var(--gold)' : 'var(--border)'};border-radius:var(--radius-sm);color:${gmStoneHave > 0 ? 'var(--gold)' : 'var(--text-dim)'};cursor:pointer">
+            💎 Évoluer Pierre (${gmStoneEvo.length}) — ${gmStoneHave} dispo
+          </button>` : ''}
           ${sellable.length > 0 ? `
           <button id="btnSellGroupMulti" style="width:100%;font-size:9px;padding:6px;background:var(--red-dark);border:1px solid var(--red);border-radius:var(--radius-sm);color:var(--text);cursor:pointer">
             Vendre ${sellable.length} Pokémon (${totalValue.toLocaleString()}₽)
@@ -1467,6 +1623,12 @@ function renderPokemonDetail() {
         </div>
       </div>`;
 
+    document.getElementById('btnEvoXPGroupMulti')?.addEventListener('click', () => {
+      _showEvoPreviewPopup(gmXpEvo, 'xp', pks => _xpBulkEvolve(pks));
+    });
+    document.getElementById('btnEvoStoneGroupMulti')?.addEventListener('click', () => {
+      _showEvoPreviewPopup(gmStoneEvo, 'stone', pks => _stoneBulkEvolve(pks));
+    });
     document.getElementById('btnSellGroupMulti')?.addEventListener('click', () => {
       const ids = sellable.map(pk => pk.id);
       showConfirm(`Vendre <b>${ids.length}</b> Pokémon (${[..._pcSelectedGroups].map(sp => speciesName(sp)).join(', ')}) pour <b style="color:var(--gold)">${totalValue.toLocaleString()}₽</b> ?`, () => {
@@ -1502,16 +1664,9 @@ function renderPokemonDetail() {
     const favCount   = pks.filter(pk => pk.favorite).length;
     const allFav     = pks.every(pk => pk.favorite);
 
-    // Evolvable Pokémon analysis
-    const evolvable = pks.filter(pk => {
-      const evos = EVO_BY_SPECIES[pk.species_en];
-      return evos && evos.length > 0;
-    });
-    const itemEvolvable = evolvable.filter(pk =>
-      (EVO_BY_SPECIES[pk.species_en] || []).some(e => e.req === 'item')
-    );
-    const stoneNeeded = itemEvolvable.length;
-    const stoneHave   = state.inventory.evostone || 0;
+    // Evolvable Pokémon analysis (includes shinies — they evolve too)
+    const { xpEvolvable: msXpEvo, stoneEvolvable: msStoneEvo } = _getEvoInfo(pks);
+    const msStoneHave = state.inventory.evostone || 0;
 
     panel.innerHTML = `
       <div style="padding:10px;font-family:var(--font-pixel)">
@@ -1529,10 +1684,16 @@ function renderPokemonDetail() {
             ${allFav ? '☆ Retirer favori (tous)' : `⭐ Marquer favori (${pks.length - favCount} sans fav)`}
           </button>
 
-          <!-- Évoluer -->
-          ${evolvable.length > 0 ? `
-          <button id="btnMultiEvolve" style="width:100%;font-size:9px;padding:6px;background:var(--bg);border:1px solid var(--green,#4caf50);border-radius:var(--radius-sm);color:var(--green,#4caf50);cursor:pointer">
-            ✦ Évoluer (${evolvable.length}) ${stoneNeeded > 0 ? `— 💎×${stoneNeeded}` : ''}
+          <!-- Évoluer XP -->
+          ${msXpEvo.length > 0 ? `
+          <button id="btnMultiEvoXP" style="width:100%;font-size:9px;padding:6px;background:var(--bg);border:1px solid var(--green,#4caf50);border-radius:var(--radius-sm);color:var(--green,#4caf50);cursor:pointer">
+            ⬆ Évoluer XP (${msXpEvo.length})
+          </button>` : ''}
+
+          <!-- Évoluer Pierre -->
+          ${msStoneEvo.length > 0 ? `
+          <button id="btnMultiEvoStone" style="width:100%;font-size:9px;padding:6px;background:var(--bg);border:1px solid ${msStoneHave > 0 ? 'var(--gold)' : 'var(--border)'};border-radius:var(--radius-sm);color:${msStoneHave > 0 ? 'var(--gold)' : 'var(--text-dim)'};cursor:pointer">
+            💎 Évoluer Pierre (${msStoneEvo.length}) — ${msStoneHave} dispo
           </button>` : ''}
 
           <!-- Vente groupée -->
@@ -1560,9 +1721,14 @@ function renderPokemonDetail() {
       _pcLastRenderKey = ''; renderPCTab();
     });
 
-    // Bulk evolve
-    document.getElementById('btnMultiEvolve')?.addEventListener('click', () => {
-      _bulkEvolve(evolvable, stoneNeeded, stoneHave);
+    // XP bulk evolve
+    document.getElementById('btnMultiEvoXP')?.addEventListener('click', () => {
+      _showEvoPreviewPopup(msXpEvo, 'xp', pks => _xpBulkEvolve(pks));
+    });
+
+    // Stone bulk evolve
+    document.getElementById('btnMultiEvoStone')?.addEventListener('click', () => {
+      _showEvoPreviewPopup(msStoneEvo, 'stone', pks => _stoneBulkEvolve(pks));
     });
 
     // Sell
@@ -1976,7 +2142,7 @@ function renderPokemonDetailGroup(species) {
 
   // Potential filter
   const pks = _grpPotFilter ? allPks.filter(p => p.potential === _grpPotFilter) : allPks;
-  // Shinies excluded from group sell — must go through individual sheet
+  // Shinies excluded from group sell — but CAN evolve
   const sellable = pks.filter(p => !p.favorite && !p.shiny && !tIds.has(p.id));
   const totalValue = sellable.reduce((s, p) => s + calculatePrice(p), 0);
   const shinyCount = allPks.filter(p => p.shiny).length;
@@ -1984,6 +2150,8 @@ function renderPokemonDetailGroup(species) {
   const maxLvl = Math.max(...allPks.map(p => p.level));
   const allFav  = pks.length > 0 && pks.every(p => p.favorite);
   const potsPresent = [...new Set(allPks.map(p => p.potential))].sort();
+  const { xpEvolvable: gdXpEvo, stoneEvolvable: gdStoneEvo } = _getEvoInfo(pks);
+  const gdStoneHave = state.inventory.evostone || 0;
 
   panel.innerHTML = `
     <div style="text-align:center;margin-bottom:8px">
@@ -2010,9 +2178,21 @@ function renderPokemonDetailGroup(species) {
         ${allFav ? `☆ Retirer favori (${pks.length})` : `⭐ Marquer favori (${pks.length - pks.filter(p=>p.favorite).length})`}
       </button>
 
+      <!-- Évoluer XP -->
+      ${gdXpEvo.length > 0 ? `
+      <button id="btnGroupEvoXP" style="width:100%;font-family:var(--font-pixel);font-size:8px;padding:5px;background:var(--bg);border:1px solid var(--green,#4caf50);border-radius:var(--radius-sm);color:var(--green,#4caf50);cursor:pointer">
+        ⬆ Évoluer XP (${gdXpEvo.length})
+      </button>` : ''}
+
+      <!-- Évoluer Pierre -->
+      ${gdStoneEvo.length > 0 ? `
+      <button id="btnGroupEvoStone" style="width:100%;font-family:var(--font-pixel);font-size:8px;padding:5px;background:var(--bg);border:1px solid ${gdStoneHave > 0 ? 'var(--gold)' : 'var(--border)'};border-radius:var(--radius-sm);color:${gdStoneHave > 0 ? 'var(--gold)' : 'var(--text-dim)'};cursor:pointer">
+        💎 Évoluer Pierre (${gdStoneEvo.length}) — ${gdStoneHave} dispo
+      </button>` : ''}
+
       <!-- Vente groupée (shinies exclus) -->
       ${sellable.length > 0 ? `
-      <div style="font-size:8px;color:var(--text-dim);text-align:center">${sellable.length} vendables — <span style="color:var(--gold)">${totalValue.toLocaleString()}₽</span>${shinyCount > 0 ? ` <span style="color:var(--gold)">· ✨×${shinyCount} exclu</span>` : ''}</div>
+      <div style="font-size:8px;color:var(--text-dim);text-align:center">${sellable.length} vendables — <span style="color:var(--gold)">${totalValue.toLocaleString()}₽</span>${shinyCount > 0 ? ` <span style="color:var(--gold)">· ✨×${shinyCount} exclu vente</span>` : ''}</div>
       <button id="btnGroupSellAll" style="width:100%;font-family:var(--font-pixel);font-size:8px;padding:5px;background:var(--red-dark);border:1px solid var(--red);border-radius:var(--radius-sm);color:var(--text);cursor:pointer">
         Vendre ${sellable.length} (${totalValue.toLocaleString()}₽)
       </button>` : (shinyCount > 0 ? `<div style="font-size:8px;color:var(--text-dim);text-align:center">✨ Chromatiques non vendables ici</div>` : '')}
@@ -2043,6 +2223,16 @@ function renderPokemonDetailGroup(species) {
     const newFav = !allFav;
     pks.forEach(p => { p.favorite = newFav; });
     saveState(); _pcLastRenderKey = ''; renderPCTab();
+  });
+
+  // Group XP evo
+  document.getElementById('btnGroupEvoXP')?.addEventListener('click', () => {
+    _showEvoPreviewPopup(gdXpEvo, 'xp', evolvePks => _xpBulkEvolve(evolvePks));
+  });
+
+  // Group Stone evo
+  document.getElementById('btnGroupEvoStone')?.addEventListener('click', () => {
+    _showEvoPreviewPopup(gdStoneEvo, 'stone', evolvePks => _stoneBulkEvolve(evolvePks));
   });
 
   document.getElementById('btnGroupSellAll')?.addEventListener('click', () => {
