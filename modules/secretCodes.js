@@ -233,7 +233,7 @@ export const SECRET_CODES = {
       }
       claim();
       globalThis.activateJohtoRegion?.();
-      notify('🗾 Région Johto débloquée ! L\'onglet Johto est maintenant accessible.', 'gold');
+      notify('🗾 Région Johto débloquée ! Le switch Johto est disponible dans Zones.', 'gold');
       globalThis.SFX?.play?.('unlock');
     }
   },

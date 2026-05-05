@@ -718,6 +718,21 @@
       margin-bottom: 8px;
     }
     #zoneFilterTabs { display: flex; gap: 4px; flex-wrap: wrap; }
+    .region-btn {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      transition: all .15s;
+    }
+    .region-btn.active {
+      background: var(--red-dark);
+      border-color: var(--red);
+      color: #fff;
+    }
+    .region-btn:hover:not(.active) {
+      background: var(--bg-hover);
+      color: var(--text);
+    }
     .zone-ftab {
       font-family: var(--font-pixel);
       font-size: 7px;
