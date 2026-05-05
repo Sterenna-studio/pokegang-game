@@ -15,6 +15,26 @@ const _gangCollapsed = { services: false, music: false, appearance: false, stats
 let _statsViewMode = 'session';
 const FABRIC_SHOP_COST = 100_000;
 
+// ── Fabric slider freeze — préserve la scrollbar quand le joueur survole la grille ──
+// Lorsque _fabricFrozen est vrai, renderAppearancePanel détache le slider existant
+// avant de reconstruire le HTML et le réinsère ensuite (scroll intact).
+let _fabricFrozen = false;
+let _fabricFreezeTimer = null;
+function _freezeFabric()  {
+  clearTimeout(_fabricFreezeTimer);
+  _fabricFrozen = true;
+}
+function _thawFabric(delay = 1500) {
+  clearTimeout(_fabricFreezeTimer);
+  _fabricFreezeTimer = setTimeout(() => { _fabricFrozen = false; }, delay);
+}
+function _wireFabricFreeze(sliderEl) {
+  sliderEl.addEventListener('mouseenter', _freezeFabric);
+  sliderEl.addEventListener('mouseleave', () => _thawFabric(1500));
+  sliderEl.addEventListener('touchstart', _freezeFabric, { passive: true });
+  sliderEl.addEventListener('touchend',   () => _thawFabric(3000), { passive: true });
+}
+
 // ── Music panel ───────────────────────────────────────────────────────────────
 function renderMusicPanel(container) {
   const JUKEBOX_TRACKS = [
@@ -80,6 +100,14 @@ function renderMusicPanel(container) {
 
 // ── Appearance panel (backgrounds + pins) ────────────────────────────────────
 function renderAppearancePanel(container) {
+  // ── Détache le slider si le joueur est dessus (évite le reset de scrollbar) ──
+  const _existingSlider = container.querySelector('#fabricSlider');
+  let   _detachedSlider = null;
+  if (_fabricFrozen && _existingSlider) {
+    _detachedSlider = _existingSlider;
+    _existingSlider.remove();         // retiré du DOM, mais conservé en mémoire
+  }
+
   const state         = globalThis.state;
   const unlocked      = new Set(state.cosmetics?.unlockedBgs || []);
   const active        = state.cosmetics?.gameBg || null;
@@ -139,7 +167,7 @@ function renderAppearancePanel(container) {
     const badge   = variant > 1 ? `v${variant}` : '';
     const suffix  = variant > 1 ? ' (alt)' : '';
     return `<div class="cosm-card cosm-fabric-card${isAct ? ' cosm-active' : ''}" data-cosm="${key}" data-fabric-key="${key}"
-      style="position:relative;border:2px solid ${isAct ? 'var(--gold)' : own ? 'var(--green)' : 'var(--border)'};border-radius:var(--radius-sm);padding:6px;cursor:pointer;background:var(--bg-card);width:120px">
+      style="position:relative;border:2px solid ${isAct ? 'var(--gold)' : own ? 'var(--green)' : 'var(--border)'};border-radius:var(--radius-sm);padding:6px;cursor:pointer;background:var(--bg-card);min-width:0">
       <img src="${previewUrl}" style="width:100%;height:110px;object-fit:cover;border-radius:2px;margin-bottom:4px;display:block"
         onerror="this.closest('[data-fabric-key]').style.display='none'">
       ${badge ? `<div style="position:absolute;top:4px;right:4px;font-size:9px;background:rgba(0,0,0,.7);border-radius:3px;padding:1px 4px">${badge}</div>` : ''}
@@ -222,7 +250,7 @@ function renderAppearancePanel(container) {
         style="font-family:var(--font-pixel);font-size:8px;padding:4px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text-dim);cursor:pointer">⭐ Favoris</button>
     </div>
     <div id="fabricSlider"
-      style="display:grid;grid-template-columns:repeat(8,120px);gap:10px;overflow-y:auto;max-height:380px;padding:4px 2px 10px;scrollbar-width:thin">
+      style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;overflow-y:auto;max-height:380px;padding:4px 2px 10px;scrollbar-width:thin">
       ${fabricUnlocked.length > 0
         ? fabricUnlocked.map(_buildFabricCard).join('')
         : '<div style="font-size:9px;color:var(--text-dim);padding:12px;grid-column:1/-1">Capture des Pokémon pour débloquer des fonds tissu !</div>'}
@@ -233,6 +261,20 @@ function renderAppearancePanel(container) {
       📌 PINS <span style="font-size:7px;color:var(--text-dim);font-weight:normal">${activePatches.length}/3 actifs</span>
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">${patchesHtml}</div>`;
+
+  // ── Réinsère le slider détaché (freeze) ou câble le nouveau ──────────────────
+  {
+    const newSlider = container.querySelector('#fabricSlider');
+    if (_detachedSlider && newSlider) {
+      // Le joueur était dessus : on rebranche le slider existant (scroll préservé)
+      newSlider.parentNode.replaceChild(_detachedSlider, newSlider);
+      // Patch les états actifs sans reconstruire
+      _patchActiveFabric(container, active);
+      _wireFabricFreeze(_detachedSlider);
+    } else if (newSlider) {
+      _wireFabricFreeze(newSlider);
+    }
+  }
 
   // ── wallpaper handlers ──
   container.querySelectorAll('.cosm-card:not(.cosm-fabric-card)').forEach(el => {
@@ -306,8 +348,9 @@ function renderAppearancePanel(container) {
       });
     });
   };
+  // N'attache les handlers que sur le nouveau slider (pas sur le slider réinséré frozen)
   const fabricSlider = container.querySelector('#fabricSlider');
-  if (fabricSlider) _bindFabricHandlers(fabricSlider);
+  if (fabricSlider && fabricSlider !== _detachedSlider) _bindFabricHandlers(fabricSlider);
 
   // ── filter buttons ──
   container.querySelectorAll('.fabric-filter-btn').forEach(btn => {
@@ -324,6 +367,8 @@ function renderAppearancePanel(container) {
         ? keys.map(_buildFabricCard).join('')
         : '<div style="font-size:9px;color:var(--text-dim);padding:12px">Aucun fond dans cette catégorie.</div>';
       _bindFabricHandlers(slider);
+      // Re-freeze dès que le contenu change (le mouseenter peut avoir disparu pendant le rebuild)
+      _wireFabricFreeze(slider);
     });
   });
 
