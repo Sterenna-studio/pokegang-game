@@ -8,41 +8,8 @@
 //    state, TITLE_BONUSES, getPokemonPower, getTeamPower, playerStats
 // ════════════════════════════════════════════════════════════════
 //
-// Tables Supabase requises (à créer via SQL Editor) :
-//
-//   CREATE TABLE gang_defenses (
-//     user_id             UUID PRIMARY KEY,
-//     gang_name           TEXT,
-//     boss_name           TEXT,
-//     boss_sprite         TEXT,
-//     reputation_snapshot BIGINT  DEFAULT 0,
-//     defense_pokemon     JSONB,
-//     defense_agent       JSONB,
-//     defense_zone        TEXT,
-//     updated_at          TIMESTAMPTZ DEFAULT now()
-//   );
-//   ALTER TABLE gang_defenses ENABLE ROW LEVEL SECURITY;
-//   CREATE POLICY "gd_read"   ON gang_defenses FOR SELECT USING (true);
-//   CREATE POLICY "gd_insert" ON gang_defenses FOR INSERT WITH CHECK (auth.uid() = user_id);
-//   CREATE POLICY "gd_update" ON gang_defenses FOR UPDATE USING (auth.uid() = user_id);
-//
-//   CREATE TABLE gang_raids (
-//     id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-//     attacker_id       UUID,
-//     defender_id       UUID,
-//     attacker_gang     TEXT,
-//     defender_gang     TEXT,
-//     result            TEXT,
-//     rep_delta         INT   DEFAULT 0,
-//     money_penalty     INT   DEFAULT 0,
-//     defender_snap_rep BIGINT DEFAULT 0,
-//     executed_at       TIMESTAMPTZ DEFAULT now(),
-//     seen_by_defender  BOOLEAN DEFAULT false
-//   );
-//   ALTER TABLE gang_raids ENABLE ROW LEVEL SECURITY;
-//   CREATE POLICY "gr_insert"   ON gang_raids FOR INSERT WITH CHECK (auth.uid() = attacker_id);
-//   CREATE POLICY "gr_read_att" ON gang_raids FOR SELECT USING (auth.uid() = attacker_id OR auth.uid() = defender_id);
-//   CREATE POLICY "gr_update_def" ON gang_raids FOR UPDATE USING (auth.uid() = defender_id);
+// Tables Supabase requises : voir docs/supabase-setup.md et
+// docs/supabase-schema.sql.
 // ════════════════════════════════════════════════════════════════
 
 const RAID_PENALTY      = 100_000;   // pokédollars perdus si raid échoue

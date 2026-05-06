@@ -35,7 +35,7 @@ Un autre serveur statique convient aussi. Le repo n'a pas de `package.json`, don
   - Fonds tissu Original Stitch débloqués par capture (capture = fond normal, capture chroma = variante brodée)
   - Pins/patches décoratifs sur la carte boss (3 actifs max)
   - Jukebox avec musiques débloquées par zone
-- **Compte cloud optionnel** : auth, cloud save et leaderboard via Supabase si configuré.
+- **Compte cloud optionnel** : auth, cloud save, leaderboard et raids en ligne via Supabase si configuré.
 - **LLM optionnel** : dialogues de dresseurs via Ollama, OpenAI ou Anthropic.
 
 ## Navigation
@@ -79,12 +79,19 @@ Le slot actif est stocké dans `pokeforge.activeSlot`. Le schéma courant est ve
 
 `index.html` tente de charger `config.js`, mais le jeu fonctionne sans ce fichier.
 
-Pour activer le compte cloud et le leaderboard, crée localement un `config.js` à la racine avec :
+Pour activer le compte cloud, le leaderboard et les raids en ligne, suis le guide complet :
+
+- [docs/supabase-setup.md](docs/supabase-setup.md)
+- [docs/supabase-schema.sql](docs/supabase-schema.sql)
+
+Crée localement un `config.js` à la racine avec :
 
 ```js
 const SUPABASE_URL = 'https://your-project.supabase.co';
 const SUPABASE_ANON_KEY = 'your-anon-key';
 ```
+
+Ne commit pas `config.js` : il est destiné à rester local.
 
 ## Notes de dev
 

@@ -550,33 +550,7 @@ function _getMonthlyDeltas() {
 
 // ── Anonymous leaderboard push (works with or without auth) ──────
 // Uses a local token as primary key; links user_id when authenticated.
-// SQL schema for the 'leaderboard' table (run once in Supabase SQL editor):
-//
-//   CREATE TABLE leaderboard (
-//     token                TEXT PRIMARY KEY,
-//     user_id              UUID REFERENCES auth.users(id) ON DELETE SET NULL,
-//     gang_name            TEXT,
-//     boss_name            TEXT,
-//     boss_sprite          TEXT,
-//     reputation           BIGINT  DEFAULT 0,
-//     total_caught         INT     DEFAULT 0,
-//     shiny_count          INT     DEFAULT 0,
-//     shiny_species_count  INT     DEFAULT 0,
-//     dex_kanto_count      INT     DEFAULT 0,
-//     dex_national_count   INT     DEFAULT 0,
-//     agents_count         INT     DEFAULT 0,
-//     is_anonymous         BOOLEAN DEFAULT TRUE,
-//     updated_at           TIMESTAMPTZ DEFAULT NOW(),
-//     month_key             TEXT    DEFAULT '',
-//     rep_monthly           BIGINT  DEFAULT 0,
-//     caught_monthly        INT     DEFAULT 0,
-//     shiny_monthly         INT     DEFAULT 0,
-//     shiny_species_monthly INT     DEFAULT 0
-//   );
-//   ALTER TABLE leaderboard ENABLE ROW LEVEL SECURITY;
-//   CREATE POLICY "lb_read"   ON leaderboard FOR SELECT USING (true);
-//   CREATE POLICY "lb_insert" ON leaderboard FOR INSERT WITH CHECK (true);
-//   CREATE POLICY "lb_update" ON leaderboard FOR UPDATE USING (true) WITH CHECK (true);
+// Full Supabase schema: docs/supabase-setup.md and docs/supabase-schema.sql.
 async function supaUpdateLeaderboardAnon() {
   if (!_supabase) return;
   const now = Date.now();
