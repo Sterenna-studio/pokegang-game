@@ -15,9 +15,11 @@ import {
   loadPendingRaids,
   acknowledgeRaids,
   getRaidCooldownMs,
+  getAttackerPower,
   RAID_PENALTY,
   RAID_NO_DEFENSE_PENALTY_MULT,
   REP_STEAL_RATIO,
+  RAID_GOLD_PER_REP,
 } from '../systems/gangCompetition.js';
 
 // ── Helpers locaux ────────────────────────────────────────────────
@@ -404,21 +406,300 @@ async function _loadAndRenderGangs(panelEl) {
   }).join('');
 
   listEl.querySelectorAll('.comp-raid-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const targetUid = btn.dataset.uid;
-      const defData   = gangs.find(g => g.user_id === targetUid);
+    btn.addEventListener('click', () => {
+      const defData = gangs.find(g => g.user_id === btn.dataset.uid);
       if (!defData) return;
-      btn.disabled    = true;
-      btn.textContent = '…';
-      const result = await executeRaid(defData);
+      _openAttackPrepModal(defData, panelEl);
+    });
+  });
+}
+
+// ── Helpers cinématique ───────────────────────────────────────────
+function _repTitle(rep) {
+  if (rep >= 500_000) return 'Seigneur des Ombres';
+  if (rep >= 100_000) return 'Grand Parrain';
+  if (rep >= 50_000)  return 'Caïd de la Région';
+  if (rep >= 20_000)  return 'Chef Redouté';
+  if (rep >= 5_000)   return 'Chef de Quartier';
+  if (rep >= 1_000)   return 'Aspirant Chef';
+  return 'Recrue';
+}
+
+function _hashStr(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
+const _BOSS_TAUNTS = [
+  'Vous osez défier notre gang ?!',
+  'Personne ne nous a jamais résisté.',
+  'Vous regretterez d\'être venus ici.',
+  'Notre territoire ne se négocie pas.',
+  'Préparez-vous à être anéantis !',
+  'Vous n\'avez aucune chance contre nous.',
+  'On a vu des plus forts que vous tomber.',
+];
+
+// ── Modal sélection équipe d'attaque ──────────────────────────────
+function _openAttackPrepModal(defData, panelEl) {
+  const existing = document.getElementById('raid-prep-modal');
+  if (existing) existing.remove();
+
+  const s = state();
+  const agents = [...(s.agents ?? [])].sort((a, b) => _agentPower(b, s) - _agentPower(a, s));
+  const selectedIds = new Set();
+
+  const modal = document.createElement('div');
+  modal.id = 'raid-prep-modal';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:6000;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center';
+
+  function buildHTML() {
+    const power = getAttackerPower([...selectedIds]);
+    const defBossEl = defData.boss_sprite
+      ? `<img src="https://play.pokemonshowdown.com/sprites/gen5/${defData.boss_sprite}.png" style="width:40px;height:40px;image-rendering:pixelated" onerror="this.style.display='none'">`
+      : `<div style="width:40px;height:40px;background:var(--bg);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:20px">👤</div>`;
+
+    const agentRows = agents.map(a => {
+      const sel      = selectedIds.has(a.id);
+      const disabled = !sel && selectedIds.size >= 3;
+      const ap       = _agentPower(a, s);
+      return `<label style="display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:${disabled ? 'not-allowed' : 'pointer'};border-bottom:1px solid var(--border);opacity:${disabled ? '.4' : '1'}">
+        <input type="checkbox" data-agent-id="${a.id}" ${sel ? 'checked' : ''} ${disabled ? 'disabled' : ''} style="accent-color:var(--red);flex-shrink:0">
+        <img src="https://play.pokemonshowdown.com/sprites/gen5/${a.spriteKey ?? ''}.png" style="width:28px;height:28px;image-rendering:pixelated" onerror="this.style.display='none'">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:9px">${a.name}</div>
+          <div style="font-size:8px;color:var(--text-dim)">Lv.${a.level} · ${a.title} · ⚡${_fmtNum(ap)}</div>
+        </div>
+        ${sel ? '<span style="font-size:16px">✓</span>' : ''}
+      </label>`;
+    }).join('');
+
+    return `<div style="background:var(--bg-panel);border:2px solid var(--red);border-radius:var(--radius);padding:20px;max-width:400px;width:94%;display:flex;flex-direction:column;gap:14px;font-family:var(--font-pixel);max-height:88vh;overflow-y:auto">
+      <div style="font-size:11px;color:var(--red)">⚔️ PRÉPARER LE RAID</div>
+
+      <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg);border-radius:var(--radius-sm);border:1px solid var(--border)">
+        ${defBossEl}
+        <div>
+          <div style="font-size:9px;color:var(--gold)">${defData.gang_name}</div>
+          <div style="font-size:8px;color:var(--text-dim)">${defData.boss_name} · ⭐ ${_fmtNum(defData.reputation_snapshot)} rép.</div>
+        </div>
+      </div>
+
+      <div>
+        <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">AGENTS D'ATTAQUE &nbsp;<span style="color:${selectedIds.size === 3 ? 'var(--gold)' : 'var(--text-dim)'}">${selectedIds.size}/3 sélectionnés</span></div>
+        <div style="border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;max-height:200px;overflow-y:auto">
+          ${agents.length
+            ? agentRows
+            : '<div style="padding:12px;font-size:9px;color:var(--text-dim)">Aucun agent recruté.</div>'}
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--bg);border-radius:var(--radius-sm)">
+        <span style="font-size:9px;color:var(--text-dim)">Puissance totale estimée</span>
+        <span style="font-size:10px;color:var(--gold)">⚡ ${_fmtNum(power)}</span>
+      </div>
+
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button id="raidPrepCancel" style="font-size:9px;padding:8px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">Annuler</button>
+        <button id="raidPrepLaunch" style="font-size:9px;padding:8px 18px;background:var(--red);border:none;border-radius:var(--radius-sm);color:#fff;cursor:pointer">⚔️ Lancer le raid</button>
+      </div>
+    </div>`;
+  }
+
+  function refresh() { modal.innerHTML = buildHTML(); bindEvents(); }
+
+  function bindEvents() {
+    modal.querySelectorAll('[data-agent-id]').forEach(cb => {
+      cb.addEventListener('change', () => {
+        if (cb.checked) selectedIds.add(cb.dataset.agentId);
+        else selectedIds.delete(cb.dataset.agentId);
+        refresh();
+      });
+    });
+    modal.querySelector('#raidPrepCancel')?.addEventListener('click', () => modal.remove());
+    modal.querySelector('#raidPrepLaunch')?.addEventListener('click', async () => {
+      const btn = modal.querySelector('#raidPrepLaunch');
+      if (btn) { btn.disabled = true; btn.textContent = '…'; }
+      const agentIds = [...selectedIds];
+      const result   = await executeRaid(defData, agentIds);
+      modal.remove();
       if (result) {
-        globalThis.updateTopBar?.();
-        await _loadAndRenderGangs(panelEl);
+        _openRaidCinematic(defData, agentIds, result, () => {
+          globalThis.updateTopBar?.();
+          _loadAndRenderGangs(panelEl);
+        });
       } else {
-        btn.disabled    = false;
-        btn.textContent = '⚔️ Raider';
+        globalThis.updateTopBar?.();
+        _loadAndRenderGangs(panelEl);
       }
     });
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  }
+
+  modal.innerHTML = buildHTML();
+  document.body.appendChild(modal);
+  bindEvents();
+}
+
+// ── Cinématique de raid ───────────────────────────────────────────
+function _openRaidCinematic(defData, agentIds, result, onDone) {
+  const existing = document.getElementById('raid-cinematic');
+  if (existing) existing.remove();
+
+  const s = state();
+  const myBossSprite    = s.gang.bossSprite ?? '';
+  const myBossName      = s.gang.bossName   ?? 'Boss';
+  const myGangName      = s.gang.name       ?? 'Notre Gang';
+  const defBossSprite   = defData.boss_sprite ?? '';
+  const defBossName     = defData.boss_name   ?? 'Boss';
+  const defGangName     = defData.gang_name   ?? 'Gang Adverse';
+  const defBossTitle    = defData.boss_title  ?? _repTitle(defData.reputation_snapshot ?? 0);
+  const defPokemons     = (defData.defense_pokemon ?? []).filter(Boolean);
+  const selectedAgents  = agentIds.map(id => s.agents?.find(a => a.id === id)).filter(Boolean);
+
+  const taunt = _BOSS_TAUNTS[_hashStr(defBossName) % _BOSS_TAUNTS.length];
+
+  // Taglines narratives
+  const taglines = [];
+  if (selectedAgents.length > 0) {
+    taglines.push(`${selectedAgents.map(a => a.name).join(', ')} se positionnent...`);
+  } else {
+    taglines.push('La gang avance vers la base ennemie...');
+  }
+  taglines.push(`La gang ${defGangName} active sa défense !`);
+  if (defPokemons.length > 0) {
+    const pk     = defPokemons[0];
+    const pkName = globalThis.speciesName?.(pk.species_en) ?? pk.species_en;
+    taglines.push(`${defBossName} envoie ${pkName} au combat !`);
+  }
+  if (result.noDefense) {
+    taglines.push('⚠ La base adverse est sans défense !');
+  } else if (result.defaultDefense) {
+    taglines.push('La défense automatique se déclenche...');
+  }
+  taglines.push(`Puissance attaque : ⚡ ${_fmtNum(result.attackerPower)}`);
+  taglines.push(`Puissance défense : 🛡 ${_fmtNum(result.defenderPower)}`);
+  if (result.attackerWin) {
+    taglines.push('— VICTOIRE ! —');
+    if (result.defaultDefense && RAID_NO_DEFENSE_PENALTY_MULT > 1) taglines.push(`Bonus ×${RAID_NO_DEFENSE_PENALTY_MULT} (défense auto)`);
+    taglines.push(`+${result.repDelta} rép. · +${_fmtNum(result.goldWon)} ₽`);
+  } else {
+    taglines.push('— DÉFAITE... —');
+    taglines.push(`-${_fmtNum(result.moneyPenalty)} ₽`);
+  }
+
+  const overlay = document.createElement('div');
+  overlay.id = 'raid-cinematic';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:7000;background:#08080f;display:flex;flex-direction:column;align-items:center;overflow-y:auto';
+
+  overlay.innerHTML = `
+    <div style="width:100%;max-width:580px;padding:28px 20px;display:flex;flex-direction:column;gap:20px">
+
+      <!-- Header -->
+      <div style="font-family:var(--font-pixel);font-size:8px;color:var(--red);text-align:center;letter-spacing:.18em">⚔ RAID EN COURS ⚔</div>
+
+      <!-- Boss intro -->
+      <div style="display:flex;gap:14px;align-items:flex-start">
+        <div style="flex-shrink:0;text-align:center">
+          ${defBossSprite
+            ? `<img src="https://play.pokemonshowdown.com/sprites/gen5/${defBossSprite}.png" style="width:72px;height:72px;image-rendering:pixelated" onerror="this.style.display='none'">`
+            : `<div style="width:72px;height:72px;background:var(--bg-panel);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:26px">👤</div>`}
+          <div style="font-size:7px;color:var(--text-dim);margin-top:3px;font-family:var(--font-pixel)">${defBossName}</div>
+        </div>
+        <div style="flex:1;background:#0d1119;border:2px solid var(--red);border-radius:8px;border-top-left-radius:2px;padding:12px;position:relative">
+          <div style="position:absolute;left:-10px;top:16px;width:0;height:0;border-top:7px solid transparent;border-bottom:7px solid transparent;border-right:10px solid var(--red)"></div>
+          <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold);margin-bottom:3px">${defBossName}</div>
+          <div style="font-size:8px;color:var(--text-dim);margin-bottom:8px">${defBossTitle} · Chef de ${defGangName}</div>
+          <div style="font-size:9px;color:var(--text);font-style:italic">"${taunt}"</div>
+        </div>
+      </div>
+
+      <!-- VS divider + sprites -->
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="flex:1;height:1px;background:rgba(255,255,255,.1)"></div>
+        <div style="font-family:var(--font-pixel);font-size:10px;color:var(--red);letter-spacing:.1em">VS</div>
+        <div style="flex:1;height:1px;background:rgba(255,255,255,.1)"></div>
+      </div>
+
+      <div style="display:flex;gap:8px;justify-content:space-around;align-items:flex-start">
+        <!-- Attacker side -->
+        <div style="display:flex;flex-direction:column;align-items:center;gap:6px;min-width:120px">
+          <div style="font-size:7px;color:var(--text-dim);font-family:var(--font-pixel);letter-spacing:.06em">VOTRE GANG</div>
+          <div style="display:flex;gap:3px;flex-wrap:wrap;justify-content:center;max-width:150px">
+            ${myBossSprite
+              ? `<img src="https://play.pokemonshowdown.com/sprites/gen5/${myBossSprite}.png" style="width:38px;height:38px;image-rendering:pixelated" onerror="this.style.display='none'" title="${myBossName}">`
+              : `<div style="width:38px;height:38px;background:var(--bg-panel);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:16px">👤</div>`}
+            ${selectedAgents.map(a =>
+              `<img src="https://play.pokemonshowdown.com/sprites/gen5/${a.spriteKey ?? ''}.png" style="width:30px;height:30px;image-rendering:pixelated" onerror="this.style.display='none'" title="${a.name}">`
+            ).join('')}
+          </div>
+          <div style="font-size:7px;color:var(--text-dim)">${myGangName}</div>
+        </div>
+
+        <div style="font-family:var(--font-pixel);font-size:12px;color:rgba(255,255,255,.2);align-self:center">⚔</div>
+
+        <!-- Defender side -->
+        <div style="display:flex;flex-direction:column;align-items:center;gap:6px;min-width:120px">
+          <div style="font-size:7px;color:var(--text-dim);font-family:var(--font-pixel);letter-spacing:.06em">DÉFENSE ADVERSE</div>
+          <div style="display:flex;gap:3px;flex-wrap:wrap;justify-content:center;max-width:150px">
+            ${defPokemons.length > 0
+              ? defPokemons.slice(0, 6).map(p =>
+                  `<img src="${pokeSprite(p.species_en, p.shiny)}" style="width:30px;height:30px;image-rendering:pixelated" title="${p.species_en}">`
+                ).join('')
+              : '<span style="font-size:8px;color:var(--red)">Base vide</span>'}
+          </div>
+          <div style="font-size:7px;color:var(--text-dim)">${defGangName}</div>
+        </div>
+      </div>
+
+      <!-- Combat log -->
+      <div id="cine-log" style="background:#050508;border:1px solid rgba(255,255,255,.08);border-radius:var(--radius-sm);padding:10px 12px;min-height:72px;display:flex;flex-direction:column;gap:3px;font-family:var(--font-pixel);font-size:9px"></div>
+
+      <!-- Result (hidden until log ends) -->
+      <div id="cine-result" style="display:none;text-align:center;padding:18px;background:${result.attackerWin ? 'rgba(76,175,80,.1)' : 'rgba(244,67,54,.1)'};border:2px solid ${result.attackerWin ? 'var(--green)' : 'var(--red)'};border-radius:var(--radius)">
+        <div style="font-family:var(--font-pixel);font-size:18px;color:${result.attackerWin ? 'var(--green)' : 'var(--red)'}">
+          ${result.attackerWin ? '✅ VICTOIRE !' : '❌ DÉFAITE'}
+        </div>
+        <div style="font-size:10px;color:var(--text-dim);margin-top:6px">
+          ${result.attackerWin
+            ? `+${result.repDelta} rép. · +${_fmtNum(result.goldWon)} ₽`
+            : `-${_fmtNum(result.moneyPenalty)} ₽`}
+        </div>
+        <button id="cine-continue" style="margin-top:14px;padding:10px 30px;background:${result.attackerWin ? 'var(--green)' : 'var(--red)'};border:none;border-radius:var(--radius-sm);color:#fff;font-family:var(--font-pixel);font-size:9px;cursor:pointer">Continuer →</button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+
+  const logEl    = overlay.querySelector('#cine-log');
+  const resultEl = overlay.querySelector('#cine-result');
+  let i = 0;
+  const DELAY = 700;
+
+  const timer = setInterval(() => {
+    if (i < taglines.length) {
+      const line      = document.createElement('div');
+      const isResult  = taglines[i].startsWith('— ');
+      const isBonus   = taglines[i].startsWith('+') || taglines[i].startsWith('-');
+      line.style.cssText = isResult
+        ? `color:${result.attackerWin ? '#4caf50' : '#f44336'};font-size:11px;margin-top:2px`
+        : isBonus ? 'color:var(--gold)' : 'color:var(--text-dim)';
+      line.textContent = '> ' + taglines[i];
+      logEl?.appendChild(line);
+      logEl?.scrollTo({ top: logEl.scrollHeight, behavior: 'smooth' });
+      i++;
+    } else {
+      clearInterval(timer);
+      if (resultEl) resultEl.style.display = 'block';
+      resultEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, DELAY);
+
+  overlay.querySelector('#cine-continue')?.addEventListener('click', () => {
+    clearInterval(timer);
+    overlay.remove();
+    onDone?.();
   });
 }
 
