@@ -16,6 +16,7 @@ import {
   acknowledgeRaids,
   getRaidCooldownMs,
   RAID_PENALTY,
+  RAID_NO_DEFENSE_PENALTY_MULT,
   REP_STEAL_RATIO,
 } from '../systems/gangCompetition.js';
 
@@ -31,6 +32,31 @@ function _fmtMs(ms) {
 }
 
 function _fmtNum(n) { return (n ?? 0).toLocaleString('fr-FR'); }
+
+function _agentTeamPower(agent, s = state()) {
+  let power = 0;
+  for (const pkId of (agent?.team || [])) {
+    const p = s.pokemons.find(pk => pk.id === pkId);
+    if (p) power += globalThis.getPokemonPower?.(p) ?? ((p.stats?.atk ?? 0) + (p.stats?.def ?? 0) + (p.stats?.spd ?? 0));
+  }
+  return power;
+}
+
+function _agentPower(agent, s = state()) {
+  if (!agent) return 0;
+  if (globalThis.getAgentCombatPower) return globalThis.getAgentCombatPower(agent);
+  const bonus = 1 + ((globalThis.TITLE_BONUSES ?? {})[agent.title] || 0);
+  return Math.round(((agent.stats?.combat ?? 0) * 10 + _agentTeamPower(agent, s)) * bonus);
+}
+
+function _pickDefaultAgent(s = state()) {
+  return [...(s.agents || [])]
+    .sort((a, b) => {
+      const levelDiff = (b.level ?? 1) - (a.level ?? 1);
+      if (levelDiff !== 0) return levelDiff;
+      return _agentPower(b, s) - _agentPower(a, s);
+    })[0] ?? null;
+}
 
 // ── Entrée principale ─────────────────────────────────────────────
 export async function renderGangCompetitionTab() {
@@ -66,17 +92,23 @@ function _renderDefensePanel(el) {
   if (!el) return;
   const s    = state();
   const comp = s.gang.competition;
+  const hasManualTeam = comp.defenseTeam.some(Boolean);
+  const displayedTeam = hasManualTeam
+    ? comp.defenseTeam
+    : Array.from({ length: 6 }, (_, idx) => s.gang.bossTeam?.[idx] ?? null);
 
-  const teamSlots = comp.defenseTeam.map((id, i) => {
+  const teamSlots = displayedTeam.map((id, i) => {
     const p = id ? s.pokemons.find(pk => pk.id === id) : null;
     if (p) {
       return `<div class="comp-def-slot" data-slot="${i}" style="
-        position:relative;width:52px;height:52px;background:var(--bg);border:2px solid var(--border);
+        position:relative;width:52px;height:52px;background:var(--bg);border:2px solid ${hasManualTeam ? 'var(--border)' : 'var(--gold-dim)'};
         border-radius:var(--radius-sm);cursor:pointer;overflow:hidden;display:flex;align-items:center;justify-content:center
-      " title="${p.species_en} Lv.${p.level}">
+      " title="${p.species_en} Lv.${p.level}${hasManualTeam ? '' : ' · auto Boss'}">
         <img src="${pokeSprite(p.species_en, p.shiny)}" style="width:44px;height:44px;image-rendering:pixelated">
         <div style="position:absolute;bottom:0;left:0;right:0;font-size:7px;text-align:center;background:rgba(0,0,0,.55);color:#fff;padding:1px 0">${p.species_en.slice(0,6)}</div>
-        <button class="comp-def-remove" data-slot="${i}" style="position:absolute;top:0;right:0;background:var(--red);border:none;color:#fff;font-size:8px;line-height:1;padding:1px 3px;cursor:pointer">✕</button>
+        ${hasManualTeam
+          ? `<button class="comp-def-remove" data-slot="${i}" style="position:absolute;top:0;right:0;background:var(--red);border:none;color:#fff;font-size:8px;line-height:1;padding:1px 3px;cursor:pointer">✕</button>`
+          : `<span style="position:absolute;top:1px;right:2px;font-size:6px;color:var(--gold);background:rgba(0,0,0,.65);padding:1px 2px;border-radius:2px">AUTO</span>`}
       </div>`;
     }
     return `<button class="comp-def-add" data-slot="${i}" style="
@@ -85,15 +117,19 @@ function _renderDefensePanel(el) {
     ">+</button>`;
   }).join('');
 
-  const agent = comp.defenseAgent ? s.agents.find(a => a.id === comp.defenseAgent) : null;
+  const explicitAgent = comp.defenseAgent ? s.agents.find(a => a.id === comp.defenseAgent) : null;
+  const defaultAgent = explicitAgent ? null : _pickDefaultAgent(s);
+  const agent = explicitAgent || defaultAgent;
+  const agentDefaulted = !explicitAgent && !!defaultAgent;
   const agentHtml = agent
     ? `<div style="display:flex;align-items:center;gap:8px;padding:6px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm)">
         <img src="https://play.pokemonshowdown.com/sprites/gen5/${agent.spriteKey ?? ''}.png" style="width:32px;height:32px;image-rendering:pixelated" onerror="this.style.display='none'">
         <div style="flex:1;min-width:0">
           <div style="font-size:9px">${agent.name}</div>
-          <div style="font-size:8px;color:var(--text-dim)">Lv.${agent.level} · ${agent.title}</div>
+          <div style="font-size:8px;color:var(--text-dim)">Lv.${agent.level} · ${agent.title}${agentDefaulted ? ' · AUTO' : ''}</div>
         </div>
-        <button id="comp-clear-agent" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:13px">✕</button>
+        <button id="comp-pick-agent" style="background:none;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer;font-size:8px;padding:3px 6px">Changer</button>
+        ${agentDefaulted ? '' : '<button id="comp-clear-agent" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:13px">✕</button>'}
       </div>`
     : `<button id="comp-pick-agent" style="width:100%;padding:7px;background:var(--bg);border:2px dashed var(--border);border-radius:var(--radius-sm);cursor:pointer;color:var(--text-dim);font-size:10px">+ Agent défenseur</button>`;
 
@@ -109,6 +145,7 @@ function _renderDefensePanel(el) {
   el.innerHTML = `
     <div style="background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);padding:14px">
       <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold);margin-bottom:10px">🛡 MA DÉFENSE</div>
+      ${!hasManualTeam || agentDefaulted ? `<div style="font-size:8px;color:var(--gold-dim);margin-bottom:10px">AUTO · Boss + équipe active + agent plus haut Lv.</div>` : ''}
 
       <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">Équipe (6 Pokémon)</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">${teamSlots}</div>
@@ -125,7 +162,7 @@ function _renderDefensePanel(el) {
       <button id="comp-publish-btn" style="
         width:100%;padding:9px;background:var(--red);border:none;border-radius:var(--radius-sm);
         color:#fff;font-family:var(--font-pixel);font-size:8px;cursor:pointer;letter-spacing:.04em
-      ">${comp.defensePublished ? '🔄 Mettre à jour la défense' : '📡 Publier la défense'}</button>
+      ">${comp.defensePublished ? '🔄 Mettre à jour la défense' : (hasManualTeam || explicitAgent ? '📡 Publier la défense' : '📡 Publier la base')}</button>
       ${comp.defensePublished ? `<div style="font-size:8px;color:var(--green);text-align:center;margin-top:5px">✓ Défense en ligne</div>` : ''}
     </div>`;
 
@@ -169,7 +206,10 @@ function _renderDefensePanel(el) {
     btn.textContent = '…';
     const ok = await publishDefense();
     if (ok) _renderDefensePanel(el);
-    else { btn.disabled = false; btn.textContent = '📡 Publier la défense'; }
+    else {
+      btn.disabled = false;
+      btn.textContent = hasManualTeam || explicitAgent ? '📡 Publier la défense' : '📡 Publier la base';
+    }
   });
 }
 
@@ -205,8 +245,9 @@ function _renderStatsPanel(el) {
       <div style="font-size:8px;color:var(--text-dim);line-height:1.8;border-top:1px solid var(--border);padding-top:10px">
         <div>⚔️ <b>1 raid / heure</b> par gang ciblé</div>
         <div>✅ Victoire raid : <b>+${pct}% rép.</b> adversaire + or</div>
-        <div>❌ Défaite raid : <b>-${_fmtNum(RAID_PENALTY)} ₽</b></div>
-        <div>🛡 Défense réussie : <b>+${_fmtNum(RAID_PENALTY)} ₽</b></div>
+        <div>❌ Défaite raid : <b>-${_fmtNum(RAID_PENALTY)} ₽</b> ${RAID_NO_DEFENSE_PENALTY_MULT > 1 ? '(×2 auto/vide)' : ''}</div>
+        <div>⚠️ Défense auto/vide : <b>malus ×${RAID_NO_DEFENSE_PENALTY_MULT}</b> pour le perdant</div>
+        <div>🛡 Défense réussie : <b>+${_fmtNum(RAID_PENALTY)} ₽</b> ${RAID_NO_DEFENSE_PENALTY_MULT > 1 ? '(×2 auto/vide)' : ''}</div>
         <div>📋 Les malus de rép. s'appliquent à la révision</div>
       </div>
     </div>`;
@@ -318,16 +359,25 @@ async function _loadAndRenderGangs(panelEl) {
     const hasPending  = (comp.pendingRaids?.length ?? 0) > 0;
     const canAttack   = !onCooldown && !hasPending;
 
-    const miniPokemons = (g.defense_pokemon ?? []).filter(Boolean).slice(0, 6).map(p =>
-      `<img src="${pokeSprite(p.species_en, p.shiny)}" style="width:24px;height:24px;image-rendering:pixelated" title="${p.species_en} Lv.${p.level}">`
-    ).join('');
+    const defensePokemons = (g.defense_pokemon ?? []).filter(Boolean);
+    const noDefense = defensePokemons.length === 0 && !g.defense_agent;
+    const defaultDefense = noDefense || defensePokemons.some(p => p.defaulted) || !!g.defense_agent?.defaulted;
+    const miniPokemons = defensePokemons.length
+      ? defensePokemons.slice(0, 6).map(p =>
+      `<img src="${pokeSprite(p.species_en, p.shiny)}" style="width:24px;height:24px;image-rendering:pixelated" title="${p.species_en} Lv.${p.level}${p.defaulted ? ' AUTO' : ''}">`
+      ).join('')
+      : `<span style="font-size:8px;color:${noDefense ? 'var(--red)' : 'var(--text-dim)'}">${noDefense ? 'Sans défense' : 'Aucune équipe'}</span>`;
 
     const agentInfo = g.defense_agent
-      ? `<span style="font-size:8px;color:var(--text-dim)">🧑‍✈️ ${g.defense_agent.name} Lv.${g.defense_agent.level}</span>`
+      ? `<span style="font-size:8px;color:var(--text-dim)">🧑‍✈️ ${g.defense_agent.name} Lv.${g.defense_agent.level}${g.defense_agent.defaulted ? ' AUTO' : ''}</span>`
       : '';
 
     const zoneInfo = g.defense_zone
       ? `<span style="font-size:8px;color:var(--text-dim)">🗺 ${g.defense_zone}</span>`
+      : '';
+
+    const noDefenseInfo = defaultDefense
+      ? `<span style="font-size:8px;color:var(--red)">⚠ malus ×${RAID_NO_DEFENSE_PENALTY_MULT} si vaincu</span>`
       : '';
 
     let btnHtml;
@@ -347,7 +397,7 @@ async function _loadAndRenderGangs(panelEl) {
         <div style="font-family:var(--font-pixel);font-size:9px;margin-bottom:2px">${g.gang_name}</div>
         <div style="font-size:8px;color:var(--text-dim);margin-bottom:4px">${g.boss_name} · ⭐ ${_fmtNum(g.reputation_snapshot)} rép.</div>
         <div style="display:flex;gap:2px;flex-wrap:wrap;align-items:center;margin-bottom:3px">${miniPokemons}</div>
-        <div style="display:flex;gap:8px;">${agentInfo}${zoneInfo}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">${agentInfo}${zoneInfo}${noDefenseInfo}</div>
       </div>
       <div style="flex-shrink:0">${btnHtml}</div>
     </div>`;

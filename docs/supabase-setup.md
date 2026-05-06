@@ -67,10 +67,10 @@ After running the SQL and creating `config.js`:
 2. Go to `Compte`.
 3. Create an account or sign in.
 4. Trigger a save and confirm no Supabase error is shown.
-5. Open `Raids`, choose a defense team, and publish the defense.
+5. Open `Raids`, publish the base directly or choose a manual defense team first.
 6. In Supabase Table Editor, verify rows appear in `player_saves`, `leaderboard`, and `gang_defenses`.
 
-The PvP list only shows real opponents if at least two different authenticated users have published defenses.
+The PvP list only shows real opponents if at least two different authenticated users have published bases.
 
 ## Reference
 
