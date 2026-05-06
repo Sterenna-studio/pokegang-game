@@ -1918,8 +1918,10 @@ function executeCombat() {
     globalThis.applyCombatResult({ win, reward, repGain }, teamIds, spawnWithZone);
     if (win) {
       const z = state.zones[zoneId]; if (z) z.combatsWon = (z.combatsWon || 0) + 1;
-      // Si c'était un event combat, la zone repasse idle dès la victoire
-      if (spawnWithZone.isSpecial) globalThis.clearZoneActivity(zoneId);
+      if (spawnWithZone.isSpecial) {
+        if (spawnWithZone.event) globalThis.activateEvent(zoneId, spawnWithZone.event);
+        globalThis.clearZoneActivity(zoneId);
+      }
     }
 
     const zoneDef = ZONE_BY_ID[zoneId];

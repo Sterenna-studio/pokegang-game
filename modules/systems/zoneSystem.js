@@ -16,7 +16,7 @@
 //    SFX
 //
 //  Classic-script globals accessed by bare name:
-//    ZONE_BY_ID, ZONES, SPECIES_BY_EN, SPECIAL_EVENTS, CHEST_LOOT
+//    ZONE_BY_ID, ZONES, ZONE_JOHTO_BY_ID, SPECIES_BY_EN, SPECIAL_EVENTS, CHEST_LOOT
 //  ES module imports:
 //    TRAINER_TYPES (from data/trainers-data.js)
 //  ES module globals (exposed on globalThis by app.js):
@@ -47,6 +47,20 @@ function setZoneActivity(zoneId, mode, opts = {}) {
 
 function clearZoneActivity(zoneId) {
   delete zoneActivity[zoneId];
+}
+
+function isJohtoZone(zoneId) {
+  return typeof ZONE_JOHTO_BY_ID !== 'undefined' && !!ZONE_JOHTO_BY_ID[zoneId];
+}
+
+function getEligibleSpecialEvents(zoneId) {
+  const state = globalThis.state;
+  const zoneIsJohto = isJohtoZone(zoneId);
+  return SPECIAL_EVENTS.filter(ev =>
+    state.gang.reputation >= ev.minRep &&
+    (!ev.zoneIds || ev.zoneIds.includes(zoneId)) &&
+    (!ev.region || ev.region !== 'johto' || zoneIsJohto)
+  );
 }
 
 // Purge les entrées expirées — appelé à chaque tick de spawn
@@ -288,10 +302,7 @@ function spawnInZone(zoneId) {
   // 2. Special event — exclusif : ne peut spawner que si la zone est idle
   const canEvent = mastery >= 1;
   if (canEvent && r < chestChance + 0.08 && getZoneActivityMode(zoneId) === 'idle') {
-    const eligible = SPECIAL_EVENTS.filter(ev =>
-      state.gang.reputation >= ev.minRep &&
-      (!ev.zoneIds || ev.zoneIds.includes(zoneId)) // zone-specific filter
-    );
+    const eligible = getEligibleSpecialEvents(zoneId);
     if (eligible.length > 0) {
       const event = globalThis.pick(eligible);
       // Marquer la zone comme en événement AVANT de retourner
@@ -471,7 +482,7 @@ function rollChestLoot(zoneId, passive = false) {
     }
     case 'event': {
       // Trigger a random event
-      const eligible = SPECIAL_EVENTS.filter(ev => state.gang.reputation >= ev.minRep);
+      const eligible = getEligibleSpecialEvents(zoneId);
       if (eligible.length > 0 && zone) {
         const event = globalThis.pick(eligible);
         activateEvent(zoneId, event);

@@ -237,6 +237,7 @@ const POKEMON_GEN1 = [
   {en:'snubbull',fr:'Snubbull',dex:209,types:['Fairy'],baseAtk:80,baseDef:50,baseSpd:30,rarity:'uncommon',moves:['Morsure','Tranche','Rugissement','Éclat Magique']},
   {en:'granbull',fr:'Granbull',dex:210,types:['Fairy'],baseAtk:120,baseDef:75,baseSpd:45,rarity:'rare',moves:['Morsure','Tranche','Plaquage','Éclat Magique']},
   {en:'qwilfish',fr:'Qwilfish',dex:211,types:['Water','Poison'],baseAtk:95,baseDef:85,baseSpd:85,rarity:'rare',moves:['Hydrocanon','Acide','Dard-Venin','Surf']},
+  {en:'shuckle',fr:'Caratroc',dex:213,types:['Bug','Rock'],baseAtk:10,baseDef:230,baseSpd:5,rarity:'rare',moves:['Roulade','Ligotage','Toxik','Repos']},
   {en:'heracross',fr:'Scarhino',dex:214,types:['Bug','Fighting'],baseAtk:125,baseDef:75,baseSpd:85,rarity:'rare',moves:['Mégacorne','Tranche','Coup Bas','Vive-Attaque']},
   {en:'sneasel',fr:'Farfuret',dex:215,types:['Dark','Ice'],baseAtk:95,baseDef:55,baseSpd:115,rarity:'rare',moves:['Tranche','Griffe','Laser Glace','Vive-Attaque']},
   {en:'teddiursa',fr:'Teddiursa',dex:216,types:['Normal'],baseAtk:80,baseDef:50,baseSpd:40,rarity:'uncommon',moves:['Griffe','Tranche','Charge','Rugissement']},
