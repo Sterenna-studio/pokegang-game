@@ -483,6 +483,80 @@ function addBattleLogEntry(entry) {
   });
 }
 
+function openProtectedSpeciesModal() {
+  const existing = document.getElementById('protectedSpeciesModal');
+  if (existing) existing.remove();
+
+  // Build unique species list from owned pokémon, sorted by name
+  const owned = [...new Set(state.pokemons.map(p => p.species_en))].sort((a, b) => {
+    const na = speciesName(a), nb = speciesName(b);
+    return na.localeCompare(nb);
+  });
+
+  const modal = document.createElement('div');
+  modal.id = 'protectedSpeciesModal';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,.82);display:flex;align-items:center;justify-content:center;';
+
+  function buildHTML() {
+    const protected_ = state.settings?.protectedSpecies || [];
+    const rows = owned.map(sp_en => {
+      const isProtected = protected_.includes(sp_en);
+      const sp = SPECIES_BY_EN[sp_en];
+      const rarityCol = { common:'#aaa', uncommon:'#5be06c', rare:'#5b9be0', very_rare:'#c05be0', legendary:'#ffcc5a' }[sp?.rarity] || '#aaa';
+      return `<label style="display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:var(--radius-sm);cursor:pointer;${isProtected ? 'background:rgba(255,255,255,.05)' : ''}">
+        <input type="checkbox" data-species="${sp_en}" ${isProtected ? 'checked' : ''} style="accent-color:var(--gold);flex-shrink:0">
+        <span style="font-size:9px;flex:1">${speciesName(sp_en)}</span>
+        <span style="font-size:8px;color:${rarityCol}">${sp?.rarity === 'legendary' ? '🌟' : ''}</span>
+      </label>`;
+    }).join('');
+
+    const count = protected_.filter(s => owned.includes(s)).length;
+    return `<div style="background:var(--bg-panel);border:2px solid var(--border);border-radius:var(--radius);padding:20px 22px;max-width:340px;width:92%;display:flex;flex-direction:column;gap:12px;font-family:var(--font-pixel)">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div style="font-size:12px;color:var(--text)">🛡 Espèces protégées</div>
+        <div style="font-size:8px;color:var(--text-dim)">${count} / ${owned.length}</div>
+      </div>
+      <div style="font-size:8px;color:var(--text-dim);line-height:1.5">Ces espèces ne seront <b>jamais</b> vendues automatiquement (agent, œufs, vente masse).</div>
+      <div style="max-height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:2px;padding-right:4px">
+        ${owned.length > 0 ? rows : '<div style="font-size:9px;color:var(--text-dim);text-align:center;padding:20px">Aucun Pokémon dans le PC.</div>'}
+      </div>
+      <div style="display:flex;gap:6px;justify-content:flex-end">
+        <button id="psmClearAll" style="font-size:9px;padding:6px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">Tout retirer</button>
+        <button id="psmClose" style="font-size:9px;padding:6px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);cursor:pointer">Fermer</button>
+      </div>
+    </div>`;
+  }
+
+  function refresh() { modal.innerHTML = buildHTML(); bindEvents(); }
+
+  function bindEvents() {
+    modal.querySelectorAll('[data-species]').forEach(cb => {
+      cb.addEventListener('change', () => {
+        if (!state.settings.protectedSpecies) state.settings.protectedSpecies = [];
+        if (cb.checked) {
+          if (!state.settings.protectedSpecies.includes(cb.dataset.species))
+            state.settings.protectedSpecies.push(cb.dataset.species);
+        } else {
+          state.settings.protectedSpecies = state.settings.protectedSpecies.filter(s => s !== cb.dataset.species);
+        }
+        saveState();
+        refresh();
+      });
+    });
+    document.getElementById('psmClearAll')?.addEventListener('click', () => {
+      state.settings.protectedSpecies = [];
+      saveState();
+      refresh();
+    });
+    document.getElementById('psmClose')?.addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  }
+
+  modal.innerHTML = buildHTML();
+  document.body.appendChild(modal);
+  bindEvents();
+}
+
 function openBulkSellModal() {
   const existing = document.getElementById('bulkSellModal');
   if (existing) existing.remove();
@@ -494,21 +568,30 @@ function openBulkSellModal() {
   const pensionIds  = getPensionSlotIds();
 
   // Default filter state
-  let potFilter    = new Set([1, 2]);    // potentials to sell
-  let keepBest     = true;               // keep ≥1 top-potential per species
-  let keepFav      = true;
-  let keepTeam     = true;              // covers team + training + pension
+  let potFilter       = new Set([1, 2]); // potentials to sell
+  let keepBest        = true;            // keep ≥1 top-potential per species
+  let keepFav         = true;
+  let keepTeam        = true;            // covers team + training + pension
+  let keepShiny       = true;            // keep shinies by default
+  let keepLegendary   = true;            // keep legendaries by default
 
   function computeSellList() {
+    const protectedSpecies = new Set(state.settings?.protectedSpecies || []);
     return state.pokemons.filter(pk => {
-      if (pk.shiny)                              return false;
+      if (keepShiny && pk.shiny)                 return false;
       if (!potFilter.has(pk.potential))          return false;
       if (keepFav  && pk.favorite)               return false;
+      if (protectedSpecies.has(pk.species_en))   return false;
       if (keepTeam && (teamIds.has(pk.id) || trainingIds.has(pk.id) || pensionIds.has(pk.id))) return false;
+      if (keepLegendary) {
+        const sp = SPECIES_BY_EN[pk.species_en];
+        if (sp?.rarity === 'legendary')          return false;
+      }
       if (keepBest) {
         // Keep this pokémon if it is the top-potential non-shiny non-protected of its species
         const best = state.pokemons
-          .filter(p => p.species_en === pk.species_en && !p.shiny
+          .filter(p => p.species_en === pk.species_en
+            && !(keepShiny && p.shiny)
             && !teamIds.has(p.id) && !trainingIds.has(p.id) && !pensionIds.has(p.id))
           .reduce((a, b) => (b.potential > a.potential ? b : a), pk);
         if (pk.id === best.id) return false;
@@ -552,9 +635,13 @@ function openBulkSellModal() {
           <input type="checkbox" id="bsmKeepTeam" ${keepTeam ? 'checked' : ''} style="accent-color:var(--gold)">
           Garder équipes / entraînement / pension
         </label>
-        <label style="display:flex;align-items:center;gap:6px;cursor:default;font-size:9px;opacity:.55">
-          <input type="checkbox" checked disabled style="accent-color:var(--gold)">
-          ✨ Garder les chromatiques (toujours)
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:9px">
+          <input type="checkbox" id="bsmKeepShiny" ${keepShiny ? 'checked' : ''} style="accent-color:var(--gold)">
+          ✨ Garder les chromatiques
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:9px">
+          <input type="checkbox" id="bsmKeepLegendary" ${keepLegendary ? 'checked' : ''} style="accent-color:var(--gold)">
+          🌟 Garder les légendaires
         </label>
       </div>
 
@@ -584,9 +671,11 @@ function openBulkSellModal() {
         refresh();
       });
     });
-    document.getElementById('bsmKeepBest')?.addEventListener('change',  e => { keepBest  = e.target.checked; refresh(); });
-    document.getElementById('bsmKeepFav')?.addEventListener('change',   e => { keepFav   = e.target.checked; refresh(); });
-    document.getElementById('bsmKeepTeam')?.addEventListener('change',  e => { keepTeam  = e.target.checked; refresh(); });
+    document.getElementById('bsmKeepBest')?.addEventListener('change',      e => { keepBest      = e.target.checked; refresh(); });
+    document.getElementById('bsmKeepFav')?.addEventListener('change',       e => { keepFav       = e.target.checked; refresh(); });
+    document.getElementById('bsmKeepTeam')?.addEventListener('change',      e => { keepTeam      = e.target.checked; refresh(); });
+    document.getElementById('bsmKeepShiny')?.addEventListener('change',     e => { keepShiny     = e.target.checked; refresh(); });
+    document.getElementById('bsmKeepLegendary')?.addEventListener('change', e => { keepLegendary = e.target.checked; refresh(); });
     document.getElementById('bsmCancel')?.addEventListener('click', () => modal.remove());
     document.getElementById('bsmSell')?.addEventListener('click', () => {
       const list = computeSellList();
@@ -594,7 +683,7 @@ function openBulkSellModal() {
       const total = list.reduce((s, pk) => s + calculatePrice(pk), 0);
       modal.remove();
       showConfirm(
-        `Vendre <b>${list.length}</b> Pokémon pour <b style="color:var(--gold)">${total.toLocaleString()}₽</b> ?<br><span style="color:var(--text-dim);font-size:10px">Shinies et favoris exclus.</span>`,
+        `Vendre <b>${list.length}</b> Pokémon pour <b style="color:var(--gold)">${total.toLocaleString()}₽</b> ?`,
         () => { sellPokemon(list.map(pk => pk.id)); _pcLastRenderKey = ''; updateTopBar(); renderPCTab(); },
         null, { confirmLabel: 'Vendre', cancelLabel: 'Annuler', danger: true }
       );
@@ -733,6 +822,7 @@ function renderPCTab() {
       <div style="flex:1"></div>
       ${_tbXpEvo.length > 0 ? `<button id="pcBtnEvoXP" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--green,#4caf50);border-radius:var(--radius-sm);color:var(--green,#4caf50);cursor:pointer" title="Évoluer tous les Pokémon prêts (niveau)">⬆ XP (${_tbXpEvo.length})</button>` : ''}
       ${_tbStoneEvo.length > 0 ? `<button id="pcBtnEvoStone" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid ${_stoneHave > 0 ? 'var(--gold)' : 'var(--border)'};border-radius:var(--radius-sm);color:${_stoneHave > 0 ? 'var(--gold)' : 'var(--text-dim)'};cursor:pointer" title="Évoluer tous les Pokémon via Pierre (💎×${_stoneHave} dispo)">💎 Pierre (${_tbStoneEvo.length})</button>` : ''}
+      ${(() => { const n = (state.settings?.protectedSpecies||[]).length; return `<button id="pcBtnProtected" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid ${n>0?'var(--green)':'var(--border)'};border-radius:var(--radius-sm);color:${n>0?'var(--green)':'var(--text-dim)'};cursor:pointer" title="Espèces protégées des ventes auto">🛡 Protégés${n>0?` (${n})`:''}</button>`; })()}
       <button id="pcBtnBulkSell" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">💸 Vendre max</button>`;
     document.getElementById('pcColsSel')?.addEventListener('change', e => {
       pcGridCols = parseInt(e.target.value); pcPage = 0; renderPokemonGrid(true);
@@ -752,6 +842,7 @@ function renderPCTab() {
     document.getElementById('pcBtnEvoStone')?.addEventListener('click', () => {
       _showEvoPreviewPopup(_tbStoneEvo, 'stone', pks => _stoneBulkEvolve(pks));
     });
+    document.getElementById('pcBtnProtected')?.addEventListener('click', openProtectedSpeciesModal);
     document.getElementById('pcBtnBulkSell')?.addEventListener('click', openBulkSellModal);
   }
 
@@ -2841,7 +2932,7 @@ export {
   resetPcSelection, resetPcRenderCache, setPcPage,
   filterPCBySpecies, showContextMenu, closeContextMenu,
   pushFeedEvent, renderEventsTab, addBattleLogEntry,
-  openBulkSellModal, tryAutoIncubate, hatchEgg, renderEggsView,
+  openBulkSellModal, openProtectedSpeciesModal, tryAutoIncubate, hatchEgg, renderEggsView,
   renderPCTab, renderPokemonGrid, renderPokemonDetail,
   renderPokemonDetailGroup, renderPokemonHistory,
   openDexAssistant, renderDexDetail, checkPlayerStatPoints, openPlayerStatModal,

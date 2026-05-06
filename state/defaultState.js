@@ -133,6 +133,7 @@ export const DEFAULT_STATE = {
       potentials: [],
       allowShiny: false,
     },
+    protectedSpecies: [],  // species_en never auto-sold by any system
   },
   log: [],
   marketSales: {},

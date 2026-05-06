@@ -194,11 +194,14 @@ function assignAgentToZone(agentId, zoneId) {
 
 // ── Auto-sell on agent capture ────────────────────────────────────
 // Returns true and sells if the auto-sell purchase is active and the
-// Pokémon matches the configured filter. Shinies are always excluded.
+// Pokémon matches the configured filter.
 function _autoSellCaptured(pokemon) {
   const state = globalThis.state;
   if (!state.purchases?.autoSellAgent) return false;
   if (state.purchases?.autoSellAgentEnabled === false) return false;
+  if (pokemon.favorite) return false;
+  const protected_ = state.settings?.protectedSpecies || [];
+  if (protected_.includes(pokemon.species_en)) return false;
   // Shinies always protected unless explicitly unprotected per-species in Pokédex
   if (pokemon.shiny && !state.pokedex?.[pokemon.species_en]?.shinyUnprotected) return false;
   const cfg = state.settings?.autoSellAgent;

@@ -138,6 +138,9 @@ function _autoSellHatched(pokemon) {
   const state = globalThis.state;
   if (!state.purchases?.autoSellEggs) return false;
   if (state.purchases.autoSellEggsEnabled === false) return false;
+  if (pokemon.favorite) return false;
+  const protected_ = state.settings?.protectedSpecies || [];
+  if (protected_.includes(pokemon.species_en)) return false;
   const cfg = state.settings?.autoSellEggs || {};
   if (pokemon.shiny && !cfg.allowShiny) return false;
   if (cfg.mode === 'by_potential') {
