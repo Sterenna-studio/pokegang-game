@@ -103,7 +103,7 @@ const ZONES_JOHTO = [
     gymLeader:'whitney', gymType:'normal', xpBonus:1.8 },
 
   { id:'ecruteak_gym',    fr:'Ecorussie',            en:'Ecruteak City',     rep:400,  spawnRate:0.05, type:'city',
-    pool:['gastly','haunter','gengar','misdreavus','duskull','shuppet','banette','sableye','murkrow'],
+    pool:['gastly','haunter','gengar','misdreavus','murkrow','zubat','golbat','rattata','raticate'],
     trainers:['channeler','psychic'], eliteTrainer:'morty', investCost:8000,
     gymLeader:'morty', gymType:'ghost', xpBonus:2.0,
     ghostZone: true },
@@ -114,7 +114,7 @@ const ZONES_JOHTO = [
     gymLeader:'chuck', gymType:'fighting', xpBonus:2.0 },
 
   { id:'olivine_gym',     fr:'Oliville',             en:'Olivine City',      rep:560,  spawnRate:0.06, type:'city',
-    pool:['magnemite','magneton','forretress','steelix','scizor','skarmory','onix','aron'],
+    pool:['magnemite','magneton','forretress','steelix','scizor','skarmory','onix'],
     trainers:['sailor','supernerd','acetrainer'], eliteTrainer:'jasmine', investCost:12000,
     gymLeader:'jasmine', gymType:'steel', xpBonus:2.2 },
 

@@ -2934,6 +2934,16 @@ let _playerWasActive = false; // set by saveState(); consumed by the 2h leaderbo
 // JOHTO — Extension régionale
 // ════════════════════════════════════════════════════════════════
 
+function registerJohtoSpecialEvents() {
+  if (typeof SPECIAL_EVENTS === 'undefined' || typeof SPECIAL_EVENTS_JOHTO === 'undefined') return;
+  const existingEventIds = new Set(SPECIAL_EVENTS.map(ev => ev.id));
+  SPECIAL_EVENTS_JOHTO.forEach(ev => {
+    if (existingEventIds.has(ev.id)) return;
+    SPECIAL_EVENTS.push({ ...ev, region: 'johto' });
+    existingEventIds.add(ev.id);
+  });
+}
+
 function activateJohtoRegion() {
   // Garder les systèmes legacy compatibles sans polluer la liste Kanto affichée.
   if (!ZONES.find(z => z.id === 'route29')) {
@@ -2941,6 +2951,7 @@ function activateJohtoRegion() {
     ZONES_JOHTO.forEach(z => { ZONE_BY_ID[z.id] = z; });
     Object.assign(ZONE_MUSIC_MAP, ZONE_MUSIC_MAP_JOHTO);
   }
+  registerJohtoSpecialEvents();
   state.purchases.johtoUnlocked = true;
   globalThis._zsel_setActiveRegion?.('kanto');
   if (activeTab === 'tabZones') renderZonesTab();
