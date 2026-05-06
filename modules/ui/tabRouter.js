@@ -108,7 +108,7 @@ const _FIRST_VISIT_HINTS = {
   tabLab:      { icon: '🔬', title: 'Laboratoire', body: 'Le Potentiel (⭐) multiplie la valeur et les stats d\'un Pokémon. Fusionne des doublons pour monter jusqu\'à 5⭐.' },
   tabMissions: { icon: '📋', title: 'Missions', body: 'Objectifs quotidiens et hebdomadaires. Complète-les pour des ₽ et des objets rares.' },
   tabPokedex:   { icon: '📖', title: 'Pokédex', body: 'Chaque espèce capturée est enregistrée ici. Vise 151/151 pour tout débloquer.' },
-  tabCompetition: { icon: '⚔️', title: 'Compétition', body: 'Affronte les gangs des autres joueurs pour leur voler de la réputation. Configure tes 6 Pokémon de défense + 1 agent, puis publie ta base. Lance ensuite des raids — 1 par heure et par cible.' },
+  tabCompetition: { icon: '⚔️', title: 'Compétition', body: 'Affronte les gangs des autres joueurs pour leur voler de la réputation. Configure une défense ou publie ta base avec la sélection auto Boss + agent plus haut Lv. Lance ensuite des raids — 1 par heure et par cible.' },
 };
 
 function showFirstVisitHint(tabId) {

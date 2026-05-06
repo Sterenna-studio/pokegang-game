@@ -13,6 +13,7 @@
 // ════════════════════════════════════════════════════════════════
 
 const RAID_PENALTY      = 100_000;   // pokédollars perdus si raid échoue
+const RAID_NO_DEFENSE_PENALTY_MULT = 2; // défense auto/vide : malus doublé pour le perdant
 const REP_STEAL_RATIO   = 0.05;      // 5% de la réputation snapshot
 const RAID_GOLD_PER_REP = 200;       // gold par point de rép volée
 const RAID_COOLDOWN_MS  = 60 * 60 * 1000; // 1 heure par cible
@@ -36,6 +37,70 @@ function _defPokemonPower(p) {
   return Math.round(p.stats.atk + p.stats.def + p.stats.spd);
 }
 
+function _agentPower(agent, teamPower = 0) {
+  if (!agent) return 0;
+  const TITLE_BONUSES = globalThis.TITLE_BONUSES ?? {};
+  const stats = agent.stats ?? {};
+  const bonus = 1 + (TITLE_BONUSES[agent.title] || 0);
+  return Math.round(((stats.combat ?? 0) * 10 + (teamPower || 0)) * bonus);
+}
+
+function _agentTeamPower(agent, state = getState()) {
+  let teamPower = 0;
+  for (const pkId of (agent?.team || [])) {
+    const p = state.pokemons?.find(pk => pk.id === pkId);
+    if (p) teamPower += globalThis.getPokemonPower?.(p) ?? _defPokemonPower(p);
+  }
+  return teamPower;
+}
+
+function _pickDefaultAgent(state = getState()) {
+  return [...(state.agents || [])]
+    .sort((a, b) => {
+      const levelDiff = (b.level ?? 1) - (a.level ?? 1);
+      if (levelDiff !== 0) return levelDiff;
+      return _agentPower(b, _agentTeamPower(b, state)) - _agentPower(a, _agentTeamPower(a, state));
+    })[0] ?? null;
+}
+
+function _snapshotAgent(agent, state = getState(), { defaulted = false } = {}) {
+  if (!agent) return null;
+  const teamPower = _agentTeamPower(agent, state);
+  return {
+    id:        agent.id,
+    name:      agent.name,
+    sprite:    agent.spriteKey ?? '',
+    stats:     { combat: agent.stats?.combat ?? 0 },
+    level:     agent.level ?? 1,
+    title:     agent.title ?? 'grunt',
+    teamPower,
+    power:     _agentPower(agent, teamPower),
+    defaulted,
+  };
+}
+
+function _explicitDefenseIds(comp) {
+  return (comp?.defenseTeam || []).filter(Boolean);
+}
+
+function _defaultDefenseIds(state = getState()) {
+  return [...new Set((state.gang?.bossTeam || []).filter(Boolean))].slice(0, 6);
+}
+
+function _effectiveDefenseIds(state = getState()) {
+  const explicit = _explicitDefenseIds(state.gang?.competition);
+  return explicit.length ? explicit.slice(0, 6) : _defaultDefenseIds(state);
+}
+
+function _hasPublishedDefense(defData) {
+  return (defData?.defense_pokemon || []).filter(Boolean).length > 0 || !!defData?.defense_agent;
+}
+
+function _isDefaultDefense(defData) {
+  if (!_hasPublishedDefense(defData)) return true;
+  return (defData?.defense_pokemon || []).some(p => p?.defaulted) || !!defData?.defense_agent?.defaulted;
+}
+
 // ── Puissance de défense calculée depuis les données stockées ─────
 function _defenderPower(defData) {
   let power = 0;
@@ -44,9 +109,7 @@ function _defenderPower(defData) {
   }
   const agent = defData.defense_agent;
   if (agent) {
-    const TITLE_BONUSES = globalThis.TITLE_BONUSES ?? {};
-    const bonus = 1 + (TITLE_BONUSES[agent.title] || 0);
-    power += Math.round((agent.stats.combat * 10 + (agent.teamPower || 0)) * bonus);
+    power += agent.power ?? _agentPower(agent, agent.teamPower || 0);
   }
   return power;
 }
@@ -55,15 +118,26 @@ function _defenderPower(defData) {
 function _attackerPower() {
   const state = getState();
   const bossTeamPower = globalThis.getTeamPower?.(state.gang.bossTeam) ?? 0;
+  const defaultAgent = _pickDefaultAgent(state);
+  const agentPower = defaultAgent
+    ? (globalThis.getAgentCombatPower?.(defaultAgent) ?? _agentPower(defaultAgent, _agentTeamPower(defaultAgent, state)))
+    : 0;
   const ps = state.playerStats;
   const combatStat = (ps?.baseStats?.combat ?? 10) + (ps?.allocatedStats?.combat ?? 0);
-  return bossTeamPower + combatStat * 10;
+  return bossTeamPower + agentPower + combatStat * 10;
 }
 
 // ── Résolution PvP ────────────────────────────────────────────────
 export function resolveRaidCombat(defData) {
   const aPow = _attackerPower();
   const dPow = _defenderPower(defData);
+  if (aPow <= 0 && dPow <= 0) {
+    return {
+      attackerWin: false,
+      attackerPower: 0,
+      defenderPower: 0,
+    };
+  }
   const aRoll = aPow * (0.85 + Math.random() * 0.30);
   const dRoll = dPow * (0.85 + Math.random() * 0.30);
   return {
@@ -77,38 +151,22 @@ export function resolveRaidCombat(defData) {
 export function buildDefensePayload() {
   const state = getState();
   const comp  = state.gang.competition;
-  const TITLE_BONUSES = globalThis.TITLE_BONUSES ?? {};
 
-  const pokemons = comp.defenseTeam.map(id => {
+  const hasExplicitTeam = _explicitDefenseIds(comp).length > 0;
+  const defenseIds = _effectiveDefenseIds(state);
+  const pokemons = defenseIds.map(id => {
     if (!id) return null;
     const p = state.pokemons.find(pk => pk.id === id);
     if (!p) return null;
     const stats = p.stats ?? globalThis.calculateStats?.(p) ?? { atk: 0, def: 0, spd: 0 };
-    return { id: p.id, species_en: p.species_en, level: p.level, shiny: p.shiny ?? false, potential: p.potential ?? 1, stats: { atk: stats.atk, def: stats.def, spd: stats.spd } };
+    return { id: p.id, species_en: p.species_en, level: p.level, shiny: p.shiny ?? false, potential: p.potential ?? 1, stats: { atk: stats.atk, def: stats.def, spd: stats.spd }, defaulted: !hasExplicitTeam };
   });
 
-  let agentPayload = null;
-  if (comp.defenseAgent) {
-    const agent = state.agents.find(a => a.id === comp.defenseAgent);
-    if (agent) {
-      let teamPower = 0;
-      for (const pkId of (agent.team || [])) {
-        const p = state.pokemons.find(pk => pk.id === pkId);
-        if (p) teamPower += globalThis.getPokemonPower?.(p) ?? 0;
-      }
-      const bonus = 1 + (TITLE_BONUSES[agent.title] || 0);
-      agentPayload = {
-        id:        agent.id,
-        name:      agent.name,
-        sprite:    agent.spriteKey ?? '',
-        stats:     { combat: agent.stats?.combat ?? 0 },
-        level:     agent.level ?? 1,
-        title:     agent.title ?? 'grunt',
-        teamPower,
-        power:     Math.round((agent.stats?.combat * 10 + teamPower) * bonus),
-      };
-    }
-  }
+  const explicitAgent = comp.defenseAgent
+    ? state.agents.find(a => a.id === comp.defenseAgent)
+    : null;
+  const defaultAgent = explicitAgent ? null : _pickDefaultAgent(state);
+  const agentPayload = _snapshotAgent(explicitAgent || defaultAgent, state, { defaulted: !explicitAgent && !!defaultAgent });
 
   return {
     gang_name:           state.gang.name,
@@ -129,10 +187,9 @@ export async function publishDefense() {
 
   const state   = getState();
   const comp    = state.gang.competition;
-  const hasAny  = comp.defenseTeam.some(id => id !== null);
-  if (!hasAny) { notify('Assigne au moins un Pokémon à la défense.', 'error'); return false; }
 
   const payload = buildDefensePayload();
+  const hasAny  = _hasPublishedDefense(payload);
   try {
     const { error } = await db.from('gang_defenses').upsert({
       user_id:   session.user.id,
@@ -142,7 +199,7 @@ export async function publishDefense() {
     if (error) { notify('Erreur publication : ' + error.message, 'error'); return false; }
     comp.defensePublished = true;
     saveState();
-    notify('Défense publiée !', 'success');
+    notify(hasAny ? 'Défense publiée !' : 'Base publiée sans défense.', hasAny ? 'success' : 'gold');
     return true;
   } catch (e) {
     notify('Erreur réseau lors de la publication.', 'error');
@@ -195,9 +252,13 @@ export async function executeRaid(defData) {
   }
 
   const { attackerWin, attackerPower, defenderPower } = resolveRaidCombat(defData);
+  const noDefense = !_hasPublishedDefense(defData);
+  const defaultDefense = _isDefaultDefense(defData);
   const snapRep  = defData.reputation_snapshot ?? 0;
-  const repDelta = attackerWin ? Math.max(1, Math.floor(snapRep * REP_STEAL_RATIO)) : 0;
+  const baseRepDelta = Math.max(1, Math.floor(snapRep * REP_STEAL_RATIO));
+  const repDelta = attackerWin ? baseRepDelta * (defaultDefense ? RAID_NO_DEFENSE_PENALTY_MULT : 1) : 0;
   const goldWon  = attackerWin ? repDelta * RAID_GOLD_PER_REP : 0;
+  const moneyPenalty = attackerWin ? 0 : RAID_PENALTY * (defaultDefense ? RAID_NO_DEFENSE_PENALTY_MULT : 1);
   const result   = attackerWin ? 'attacker_win' : 'defender_win';
 
   try {
@@ -208,7 +269,7 @@ export async function executeRaid(defData) {
       defender_gang:     defData.gang_name,
       result,
       rep_delta:         repDelta,
-      money_penalty:     attackerWin ? 0 : RAID_PENALTY,
+      money_penalty:     moneyPenalty,
       defender_snap_rep: snapRep,
     });
     if (error) { notify('Erreur enregistrement raid : ' + error.message, 'error'); return null; }
@@ -226,15 +287,17 @@ export async function executeRaid(defData) {
     state.gang.reputation = (state.gang.reputation ?? 0) + repDelta;
     state.gang.money      = (state.gang.money ?? 0) + goldWon;
     comp.wins.attack      = (comp.wins.attack ?? 0) + 1;
-    notify(`Raid réussi ! +${repDelta} rép. +${goldWon.toLocaleString('fr-FR')} ₽`, 'success');
+    const bonus = defaultDefense ? ` ×${RAID_NO_DEFENSE_PENALTY_MULT}` : '';
+    notify(`Raid réussi${bonus} ! +${repDelta} rép. +${goldWon.toLocaleString('fr-FR')} ₽`, 'success');
   } else {
-    state.gang.money  = Math.max(0, (state.gang.money ?? 0) - RAID_PENALTY);
+    state.gang.money  = Math.max(0, (state.gang.money ?? 0) - moneyPenalty);
     comp.losses.attack = (comp.losses.attack ?? 0) + 1;
-    notify(`Raid échoué — défense trop forte. -${RAID_PENALTY.toLocaleString('fr-FR')} ₽`, 'error');
+    const reason = noDefense ? 'base vide' : 'défense trop forte';
+    notify(`Raid échoué — ${reason}. -${moneyPenalty.toLocaleString('fr-FR')} ₽`, 'error');
   }
 
   saveState();
-  return { attackerWin, attackerPower, defenderPower, repDelta, goldWon };
+  return { attackerWin, attackerPower, defenderPower, repDelta, goldWon, noDefense, defaultDefense, moneyPenalty };
 }
 
 // ── Charger les raids subis non vus ──────────────────────────────
@@ -317,4 +380,10 @@ export function getRaidCooldownMs(targetUserId) {
   return Math.max(0, RAID_COOLDOWN_MS - (Date.now() - last));
 }
 
-export { RAID_PENALTY, REP_STEAL_RATIO, RAID_GOLD_PER_REP, RAID_COOLDOWN_MS };
+export {
+  RAID_PENALTY,
+  RAID_NO_DEFENSE_PENALTY_MULT,
+  REP_STEAL_RATIO,
+  RAID_GOLD_PER_REP,
+  RAID_COOLDOWN_MS,
+};
