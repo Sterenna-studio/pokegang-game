@@ -96,6 +96,7 @@ const TYPE_CHART = {
   Dragon:   { Dragon:2, Steel:0.5, Fairy:0 },
   Dark:     { Psychic:2, Ghost:2, Fighting:0.5, Dark:0.5, Fairy:0.5 },
   Steel:    { Ice:2, Rock:2, Fairy:2, Fire:0.5, Water:0.5, Electric:0.5, Steel:0.5 },
+  Fairy:    { Fighting:2, Dragon:2, Dark:2, Fire:0.5, Poison:0.5, Steel:0.5 },
 };
 
 function getTypeEffectiveness(atkType, defTypes) {
@@ -108,10 +109,13 @@ function calcCombatHp(stats, level) {
   return Math.max(10, Math.floor(stats.def * 1.5 + level * 2 + 10));
 }
 
-/** Dégâts infligés — formule inspirée Gen, × 4 pour un rythme de 3-8 tours */
-function calcCombatDamage(atk, def, level, typeMod = 1.0) {
+// Exported so other modules (agent, zoneSystem) can use it for coverage calculations
+globalThis.getTypeEffectiveness = getTypeEffectiveness;
+
+/** Dégâts infligés — formule Gen 3-5, × 4 pour un rythme de 3-8 tours */
+function calcCombatDamage(atk, def, level, basePower = 60, typeMod = 1.0, stab = 1, crit = 1) {
   const rand = 0.85 + Math.random() * 0.15;
-  return Math.max(1, Math.floor(((2 * level / 5 + 2) * 60 * (atk / Math.max(1, def)) / 50 + 2) * typeMod * rand * 4));
+  return Math.max(1, Math.floor(((2 * level / 5 + 2) * basePower * (atk / Math.max(1, def)) / 50 + 2) * typeMod * stab * crit * rand * 4));
 }
 
 // ── Zone Income Collection ─────────────────────────────────────
@@ -1969,14 +1973,23 @@ function executeCombat() {
     for (const t of gangTrainers) {
       const slot = getActiveGang(t);
       if (!slot || slot.hp <= 0) continue;
-      const sp      = SPECIES_BY_EN[slot.pk.species_en];
-      const atkType = sp?.types?.[0] || 'Normal';
-      const typeMod = getTypeEffectiveness(atkType, eTypes);
-      const dmg     = calcCombatDamage(slot.pk.stats.atk, eDef, slot.pk.level, typeMod);
-      curEnemy.hp  -= dmg;
-      const move    = slot.pk.moves?.[Math.floor(Math.random() * (slot.pk.moves?.length || 1))] || 'Attaque';
-      const effTag  = typeMod >= 2 ? ' <b style="color:var(--gold)">Super eff!</b>' : typeMod <= 0.5 && typeMod > 0 ? ' <i style="color:var(--text-dim)">Peu eff…</i>' : typeMod === 0 ? ' <i>Aucun effet</i>' : '';
-      logMsg(`<b style="color:var(--gold)">${globalThis.speciesName(slot.pk.species_en)}</b> → <i>${move}</i> <b style="color:var(--red)">−${dmg}</b>${effTag}`);
+      const sp = SPECIES_BY_EN[slot.pk.species_en];
+      const allMoves = slot.pk.moves || [];
+      const damagingMoves = allMoves.filter(m => (MOVES_DATA?.[m]?.basePower || 0) > 0);
+      const moveName = damagingMoves.length > 0
+        ? damagingMoves[Math.floor(Math.random() * damagingMoves.length)]
+        : (allMoves[0] || 'Attaque');
+      const moveData  = MOVES_DATA?.[moveName];
+      const basePower = moveData?.basePower || 60;
+      const atkType   = moveData?.type || sp?.types?.[0] || 'Normal';
+      const stab      = (sp?.types || []).includes(atkType) ? 1.5 : 1;
+      const crit      = Math.random() < (1 / 24) ? 1.5 : 1;
+      const typeMod   = getTypeEffectiveness(atkType, eTypes);
+      const dmg       = calcCombatDamage(slot.pk.stats.atk, eDef, slot.pk.level, basePower, typeMod, stab, crit);
+      curEnemy.hp    -= dmg;
+      const critTag   = crit > 1 ? ' <b style="color:var(--gold)">Critique!</b>' : '';
+      const effTag    = typeMod >= 2 ? ' <b style="color:var(--gold)">Super eff!</b>' : typeMod <= 0.5 && typeMod > 0 ? ' <i style="color:var(--text-dim)">Peu eff…</i>' : typeMod === 0 ? ' <i>Aucun effet</i>' : '';
+      logMsg(`<b style="color:var(--gold)">${globalThis.speciesName(slot.pk.species_en)}</b> → <i>${moveName}</i> <b style="color:var(--red)">−${dmg}</b>${effTag}${critTag}`);
       showFloatDmg(spawnEl, dmg, true);
       shakeEl(spawnEl);
       if (curEnemy.hp <= 0) { curEnemy.hp = 0; break; }
@@ -2006,15 +2019,25 @@ function executeCombat() {
         if (s && s.hp > 0) { targetT = t; targetS = s; break; }
       }
       if (targetS) {
-        const eSp2    = SPECIES_BY_EN[attacker.pk.species_en];
-        const atkType2 = eSp2?.types?.[0] || 'Normal';
-        const dTypes  = SPECIES_BY_EN[targetS.pk.species_en]?.types || ['Normal'];
-        const typeMod2 = getTypeEffectiveness(atkType2, dTypes);
-        const eAtk    = attacker.stats?.atk ?? attacker.pk.stats?.atk ?? 50;
-        const dmg2    = calcCombatDamage(eAtk, targetS.pk.stats.def, attacker.pk.level, typeMod2);
-        targetS.hp   -= dmg2;
-        const effTag2 = typeMod2 >= 2 ? ' <b style="color:var(--gold)">Super eff!</b>' : typeMod2 <= 0.5 && typeMod2 > 0 ? ' <i style="color:var(--text-dim)">Peu eff…</i>' : '';
-        logMsg(`<b style="color:var(--red)">${globalThis.speciesName(attacker.pk.species_en)}</b> → <b>${globalThis.speciesName(targetS.pk.species_en)}</b> <b style="color:var(--red)">−${dmg2}</b>${effTag2}`);
+        const eSp2      = SPECIES_BY_EN[attacker.pk.species_en];
+        const eAllMoves = attacker.pk.moves || [];
+        const eDmgMoves = eAllMoves.filter(m => (MOVES_DATA?.[m]?.basePower || 0) > 0);
+        const eMoveName = eDmgMoves.length > 0
+          ? eDmgMoves[Math.floor(Math.random() * eDmgMoves.length)]
+          : (eAllMoves[0] || 'Attaque');
+        const eMoveData  = MOVES_DATA?.[eMoveName];
+        const eBasePower = eMoveData?.basePower || 60;
+        const atkType2   = eMoveData?.type || eSp2?.types?.[0] || 'Normal';
+        const eStab      = (eSp2?.types || []).includes(atkType2) ? 1.5 : 1;
+        const eCrit      = Math.random() < (1 / 24) ? 1.5 : 1;
+        const dTypes     = SPECIES_BY_EN[targetS.pk.species_en]?.types || ['Normal'];
+        const typeMod2   = getTypeEffectiveness(atkType2, dTypes);
+        const eAtk       = attacker.stats?.atk ?? attacker.pk.stats?.atk ?? 50;
+        const dmg2       = calcCombatDamage(eAtk, targetS.pk.stats.def, attacker.pk.level, eBasePower, typeMod2, eStab, eCrit);
+        targetS.hp      -= dmg2;
+        const eCritTag2  = eCrit > 1 ? ' <b style="color:var(--gold)">Critique!</b>' : '';
+        const effTag2    = typeMod2 >= 2 ? ' <b style="color:var(--gold)">Super eff!</b>' : typeMod2 <= 0.5 && typeMod2 > 0 ? ' <i style="color:var(--text-dim)">Peu eff…</i>' : '';
+        logMsg(`<b style="color:var(--red)">${globalThis.speciesName(attacker.pk.species_en)}</b> → <b>${globalThis.speciesName(targetS.pk.species_en)}</b> <i>${eMoveName}</i> <b style="color:var(--red)">−${dmg2}</b>${effTag2}${eCritTag2}`);
         showFloatDmg(targetT.domEl, dmg2, false);
         shakeEl(targetT.domEl);
 
