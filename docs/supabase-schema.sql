@@ -275,6 +275,7 @@ alter table public.gang_defenses add column if not exists reputation_snapshot bi
 alter table public.gang_defenses add column if not exists defense_pokemon jsonb not null default '[]'::jsonb;
 alter table public.gang_defenses add column if not exists defense_agent jsonb;
 alter table public.gang_defenses add column if not exists defense_zone text;
+alter table public.gang_defenses add column if not exists boss_title text;
 alter table public.gang_defenses add column if not exists updated_at timestamptz not null default now();
 
 alter table public.gang_defenses enable row level security;

@@ -115,21 +115,32 @@ function _defenderPower(defData) {
 }
 
 // ── Puissance d'attaque du joueur local ───────────────────────────
-function _attackerPower() {
+// agentIds: array d'IDs d'agents sélectionnés (null = fallback agent auto)
+function _attackerPower(agentIds = null) {
   const state = getState();
   const bossTeamPower = globalThis.getTeamPower?.(state.gang.bossTeam) ?? 0;
-  const defaultAgent = _pickDefaultAgent(state);
-  const agentPower = defaultAgent
-    ? (globalThis.getAgentCombatPower?.(defaultAgent) ?? _agentPower(defaultAgent, _agentTeamPower(defaultAgent, state)))
-    : 0;
   const ps = state.playerStats;
   const combatStat = (ps?.baseStats?.combat ?? 10) + (ps?.allocatedStats?.combat ?? 0);
+  let agentPower = 0;
+  if (agentIds && agentIds.length > 0) {
+    for (const id of agentIds) {
+      const agent = state.agents?.find(a => a.id === id);
+      if (agent) agentPower += globalThis.getAgentCombatPower?.(agent) ?? _agentPower(agent, _agentTeamPower(agent, state));
+    }
+  } else {
+    const defaultAgent = _pickDefaultAgent(state);
+    agentPower = defaultAgent
+      ? (globalThis.getAgentCombatPower?.(defaultAgent) ?? _agentPower(defaultAgent, _agentTeamPower(defaultAgent, state)))
+      : 0;
+  }
   return bossTeamPower + agentPower + combatStat * 10;
 }
 
+export function getAttackerPower(agentIds = null) { return _attackerPower(agentIds); }
+
 // ── Résolution PvP ────────────────────────────────────────────────
-export function resolveRaidCombat(defData) {
-  const aPow = _attackerPower();
+export function resolveRaidCombat(defData, agentIds = null) {
+  const aPow = _attackerPower(agentIds);
   const dPow = _defenderPower(defData);
   if (aPow <= 0 && dPow <= 0) {
     return {
@@ -172,6 +183,7 @@ export function buildDefensePayload() {
     gang_name:           state.gang.name,
     boss_name:           state.gang.bossName,
     boss_sprite:         state.gang.bossSprite ?? '',
+    boss_title:          [state.gang.titleA, state.gang.titleB].filter(Boolean).join(' · ') || null,
     reputation_snapshot: state.gang.reputation,
     defense_pokemon:     pokemons,
     defense_agent:       agentPayload,
@@ -217,7 +229,7 @@ export async function loadGangList() {
   try {
     let q = db
       .from('gang_defenses')
-      .select('user_id, gang_name, boss_name, boss_sprite, reputation_snapshot, defense_pokemon, defense_agent, defense_zone, updated_at')
+      .select('user_id, gang_name, boss_name, boss_sprite, boss_title, reputation_snapshot, defense_pokemon, defense_agent, defense_zone, updated_at')
       .order('reputation_snapshot', { ascending: false })
       .limit(20);
     const { data, error } = await q;
@@ -229,7 +241,7 @@ export async function loadGangList() {
 }
 
 // ── Exécuter un raid ──────────────────────────────────────────────
-export async function executeRaid(defData) {
+export async function executeRaid(defData, agentIds = null) {
   const db      = getSupabaseClient();
   const session = getSupaSession();
   if (!db || !session) { notify('Connexion requise pour raider.', 'error'); return null; }
@@ -251,7 +263,7 @@ export async function executeRaid(defData) {
     return null;
   }
 
-  const { attackerWin, attackerPower, defenderPower } = resolveRaidCombat(defData);
+  const { attackerWin, attackerPower, defenderPower } = resolveRaidCombat(defData, agentIds);
   const noDefense = !_hasPublishedDefense(defData);
   const defaultDefense = _isDefaultDefense(defData);
   const snapRep  = defData.reputation_snapshot ?? 0;
@@ -387,3 +399,4 @@ export {
   RAID_GOLD_PER_REP,
   RAID_COOLDOWN_MS,
 };
+
