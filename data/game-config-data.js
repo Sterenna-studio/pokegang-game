@@ -9,7 +9,7 @@ const NATURES = {
   adamant: { fr:'Rigide',   en:'Adamant', atk:1.1, def:1,   spd:0.9 },
   calm:    { fr:'Calme',    en:'Calm',    atk:1,   def:1.1, spd:0.9 },
   modest:  { fr:'Modeste',  en:'Modest',  atk:0.9, def:1,   spd:1.1 },
-  careful: { fr:'Prudent',  en:'Careful', atk:1,   def:1.1, spd:0.9 },
+  careful: { fr:'Prudent', en:'Careful', atk:1,   def:1.1, spd:0.9 },
   naive:   { fr:'Naïf',     en:'Naive',   atk:1,   def:0.9, spd:1.1 },
 };
 const NATURE_KEYS = Object.keys(NATURES);
@@ -30,10 +30,14 @@ const BOSS_SPRITES = [
   'roxanne','brawly','wattson','flannery','norman','winona','tate','liza','juan',
   // Hoenn Elite Four + Champion
   'sidney','phoebe','glacia','drake','steven','wallace',
+  // Hoenn gang/faction bosses
+  'archieGen3','archieGen6','maxieGen3','maxieGen6','matt','shelly','courtney','tabitha',
   // Sinnoh Gym Leaders
   'roark','gardenia','maylene','fantina','byron','candice','volkner',
   // Sinnoh Elite Four + Champion
   'aaron','bertha','flint','lucian','cynthia',
+  // Sinnoh gang/faction bosses
+  'cyrus','mars','jupiter','saturn','charon',
   // Unova
   'n','ghetsis','iris','drayden','cheren','bianca','colress',
 ];
@@ -51,6 +55,15 @@ const AGENT_SPRITES = [
   'juggler','burglar','channeler','birdkeeper','cueball','tamer','rocker',
   // Kanto/Johto misc
   'cooltrainer','cooltrainerf','pokefan','pokefanf',
+  // Hoenn / Gen 3 — gangs rivaux, économie, terrain
+  'aquaGruntM','aquaGruntF','magmaGruntM','magmaGruntF',
+  'aquaGruntMGen3','aquaGruntFGen3','magmaGruntMGen3','magmaGruntFGen3',
+  'collectorGen3','interviewersGen3','richBoyGen3','engineerGen3','burglarGen3',
+  'pokemonRangerGen3','pokemonRangerFGen3','triathleteBikerMGen3','triathleteRunnerMGen3','triathleteSwimmerMGen3',
+  // Sinnoh / Gen 4 — Galactic, police, logistique, vétérans
+  'galacticGruntM','galacticGruntF','policemanGen4','workerGen4','scientistGen4','collectorGen4',
+  'cyclistGen4','cyclistFGen4','burglarGen4','richBoyGen4','socialiteGen4',
+  'veteranGen4','veteranFGen4','battleGirlGen4','reporterGen4',
   // Forces de l'ordre
   'pokemonranger','pokemonrangerf','policeman',
 ];
