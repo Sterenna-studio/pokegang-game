@@ -425,6 +425,34 @@ function checkPromotion(agent) {
   }
 }
 
+// Type-coverage multiplier: bonus/malus (0.7–1.4) based on how well the player's
+// pokemon moves match up against the enemy team's types. Uses MOVES_DATA (classic-script
+// global) and getTypeEffectiveness exported from zoneWindows.js.
+function _typeCoverageMult(playerPks, enemyPks) {
+  const getEff = globalThis.getTypeEffectiveness;
+  if (!getEff || typeof MOVES_DATA === 'undefined') return 1;
+  const enemyTypes = enemyPks.flatMap(ep => SPECIES_BY_EN[ep.species_en]?.types || ['Normal']);
+  if (enemyTypes.length === 0) return 1;
+  let total = 0, count = 0;
+  for (const pk of playerPks) {
+    const sp = SPECIES_BY_EN[pk.species_en];
+    const dmgMoves = (pk.moves || []).filter(m => (MOVES_DATA[m]?.basePower || 0) > 0);
+    if (dmgMoves.length === 0) { total += 1; count++; continue; }
+    let best = 0;
+    for (const m of dmgMoves) {
+      const mType = MOVES_DATA[m].type;
+      const stab = (sp?.types || []).includes(mType) ? 1.5 : 1;
+      const avgEff = enemyTypes.reduce((s, et) => s + getEff(mType, [et]), 0) / enemyTypes.length;
+      const mult = avgEff * stab;
+      if (mult > best) best = mult;
+    }
+    total += best;
+    count++;
+  }
+  const raw = count > 0 ? total / count : 1;
+  return Math.min(1.4, Math.max(0.7, raw));
+}
+
 function getAgentCombatPower(agent) {
   const state = globalThis.state;
   const TITLE_BONUSES = globalThis.TITLE_BONUSES;
@@ -547,7 +575,11 @@ function resolveBackgroundSpawnForZone(zoneId) {
     let enemyPower = 0;
     for (const t of enemyTeam) enemyPower += (t.stats?.atk || 0) + (t.stats?.def || 0) + (t.stats?.spd || 0);
 
-    const pRoll = agentPower * (0.8 + Math.random() * 0.4);
+    // Type coverage bonus/malus from actual move matchups
+    const playerPks = combatAgents.flatMap(a => a.team.map(id => state.pokemons.find(pk => pk.id === id)).filter(Boolean));
+    const covMult = _typeCoverageMult(playerPks, enemyTeam);
+
+    const pRoll = agentPower * covMult * (0.8 + Math.random() * 0.4);
     const eRoll = enemyPower * (0.8 + Math.random() * 0.4);
     const win = pRoll >= eRoll;
 

@@ -681,6 +681,33 @@ function tryCapture(zoneId, speciesEN, bonusPotential = 0) {
   return pokemon;
 }
 
+// Type-coverage multiplier: bonus/malus (0.7–1.4) based on how well the player's
+// pokemon moves match up against the enemy team's types.
+function _typeCoverageMult(playerPks, enemyPks) {
+  const getEff = globalThis.getTypeEffectiveness;
+  if (!getEff || typeof MOVES_DATA === 'undefined') return 1;
+  const enemyTypes = enemyPks.flatMap(ep => SPECIES_BY_EN[ep.species_en]?.types || ['Normal']);
+  if (enemyTypes.length === 0) return 1;
+  let total = 0, count = 0;
+  for (const pk of playerPks) {
+    const sp = SPECIES_BY_EN[pk.species_en];
+    const dmgMoves = (pk.moves || []).filter(m => (MOVES_DATA[m]?.basePower || 0) > 0);
+    if (dmgMoves.length === 0) { total += 1; count++; continue; }
+    let best = 0;
+    for (const m of dmgMoves) {
+      const mType = MOVES_DATA[m].type;
+      const stab = (sp?.types || []).includes(mType) ? 1.5 : 1;
+      const avgEff = enemyTypes.reduce((s, et) => s + getEff(mType, [et]), 0) / enemyTypes.length;
+      const mult = avgEff * stab;
+      if (mult > best) best = mult;
+    }
+    total += best;
+    count++;
+  }
+  const raw = count > 0 ? total / count : 1;
+  return Math.min(1.4, Math.max(0.7, raw));
+}
+
 // Rep par combat : +1 dresseur normal / +10 spécial (arène, Elite 4, persos d'histoire) / -5 en cas de défaite
 function getCombatRepGain(trainerKey, win) {
   if (!win) return -5;
@@ -694,8 +721,9 @@ function resolveCombat(playerTeamIds, trainerData) {
   for (const t of trainerData.team) {
     enemyPower += (t.stats.atk + t.stats.def + t.stats.spd);
   }
-  // Add some randomness (±20%)
-  const pRoll = playerPower * (0.8 + Math.random() * 0.4);
+  const playerPks = playerTeamIds.map(id => state.pokemons.find(pk => pk.id === id)).filter(Boolean);
+  const covMult = _typeCoverageMult(playerPks, trainerData.team);
+  const pRoll = playerPower * covMult * (0.8 + Math.random() * 0.4);
   const eRoll = enemyPower * (0.8 + Math.random() * 0.4);
   const win = pRoll >= eRoll;
   const reward = win ? Math.min(globalThis.MAX_COMBAT_REWARD, globalThis.randInt(trainerData.trainer.reward[0], trainerData.trainer.reward[1])) : 0;
@@ -867,11 +895,13 @@ function triggerGymRaid(zoneId, isAuto) {
 
   if (isAuto) {
     // Auto-fight via agent power
-    const agentPower = state.agents.filter(a => a.assignedZone === zoneId)
-      .reduce((s, a) => s + globalThis.getAgentCombatPower(a), 0);
+    const raidAgents = state.agents.filter(a => a.assignedZone === zoneId);
+    const agentPower = raidAgents.reduce((s, a) => s + globalThis.getAgentCombatPower(a), 0);
+    const playerPks = raidAgents.flatMap(a => a.team.map(id => state.pokemons.find(pk => pk.id === id)).filter(Boolean));
     let enemyPower = 0;
     for (const t of team) enemyPower += (t.stats.atk + t.stats.def + t.stats.spd);
-    const win = agentPower * (0.8 + Math.random() * 0.4) >= enemyPower * (0.8 + Math.random() * 0.4);
+    const covMult = _typeCoverageMult(playerPks, team);
+    const win = agentPower * covMult * (0.8 + Math.random() * 0.4) >= enemyPower * (0.8 + Math.random() * 0.4);
     if (win) {
       const reward = Math.min(globalThis.MAX_COMBAT_REWARD, globalThis.randInt(raidTrainer.reward[0], raidTrainer.reward[1]));
       zs.pendingIncome = (zs.pendingIncome || 0) + reward;
