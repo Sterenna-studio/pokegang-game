@@ -23,6 +23,7 @@ const ZONES_JOHTO = [
 
   // ══ QUARTIER GÉNÉRAL JOHTO (base gang Johto — toujours ouverte) ══
   { id:'johto_gang_hq',   fr:'Planque de New Bark',  en:'New Bark Hideout',  rep:0,    spawnRate:0,    type:'gang_park',
+    zoneLevelBonus:0,
     pool:[], trainers:[], investCost:0,
     desc_fr:'Votre planque à New Bark Town. Point de départ de la conquête de Johto.',
     desc_en:'Your hideout in New Bark Town. Starting point of the Johto conquest.' },
@@ -30,18 +31,22 @@ const ZONES_JOHTO = [
   // ══ ROUTES & NATURE ══
 
   { id:'route29',         fr:'Route 29',             en:'Route 29',          rep:0,    spawnRate:0.07, type:'route',
+    zoneLevelBonus:20,
     pool:['sentret','hoothoot','hoppip','mareep','rattata','pidgey','caterpie','weedle'],
     trainers:['youngster','lass'], eliteTrainer:'acetrainer', investCost:0 },
 
   { id:'route30_31',      fr:'Routes 30 & 31',       en:'Routes 30 & 31',    rep:20,   spawnRate:0.07, type:'route',
+    zoneLevelBonus:21,
     pool:['ledyba','spinarak','caterpie','metapod','weedle','kakuna','hoothoot','noctowl','bellsprout','hoppip'],
     trainers:['youngster','lass','bugcatcher'], eliteTrainer:'acetrainer', investCost:1500 },
 
   { id:'dark_cave',       fr:'Grotte Sombre',        en:'Dark Cave',         rep:80,   spawnRate:0.05, type:'route',
+    zoneLevelBonus:22,
     pool:['zubat','geodude','wobbuffet','dunsparce','graveler','golbat','teddiursa','ursaring'],
     trainers:['hiker','camper'], eliteTrainer:'hiker', investCost:3000 },
 
   { id:'ilex_forest',     fr:'Forêt de Viridis',     en:'Ilex Forest',       rep:180,  spawnRate:0.08, type:'route',
+    zoneLevelBonus:25,
     pool:['caterpie','metapod','butterfree','oddish','psyduck','slowpoke','hoothoot','noctowl','aipom','yanma'],
     rarePool:[
       {en:'celebi', w:1},
@@ -53,10 +58,12 @@ const ZONES_JOHTO = [
     ghostZone: false },
 
   { id:'route36_37',      fr:'Routes 36 & 37',       en:'Routes 36 & 37',    rep:280,  spawnRate:0.07, type:'route',
+    zoneLevelBonus:28,
     pool:['girafarig','stantler','snubbull','growlithe','vulpix','tauros','miltank','hoppip','skiploom'],
     trainers:['youngster','lass','picnicker','camper'], eliteTrainer:'acetrainer', investCost:5000 },
 
   { id:'mt_mortar',       fr:'Mont Mortier',         en:'Mt. Mortar',        rep:380,  spawnRate:0.04, type:'route',
+    zoneLevelBonus:31,
     pool:['machop','machoke','geodude','graveler','zubat','golbat','rattata','marill','tyrogue'],
     rarePool:[
       {en:'tyrogue', w:2},
@@ -66,18 +73,22 @@ const ZONES_JOHTO = [
     trainers:['hiker','blackbelt'], eliteTrainer:'blackbelt', investCost:8000 },
 
   { id:'route42_43',      fr:'Routes 42 & 43',       en:'Routes 42 & 43',    rep:480,  spawnRate:0.06, type:'route',
+    zoneLevelBonus:34,
     pool:['marill','flaaffy','ampharos','mareep','aipom','tauros','miltank','drowzee','hypno'],
     trainers:['picnicker','camper','swimmer'], eliteTrainer:'acetrainer', investCost:9000 },
 
   { id:'ice_path',        fr:'Chemin Glacé',         en:'Ice Path',          rep:650,  spawnRate:0.04, type:'route',
+    zoneLevelBonus:39,
     pool:['swinub','piloswine','jynx','sneasel','delibird','zubat','golbat','wobbuffet'],
     trainers:['hiker','blackbelt'], eliteTrainer:'pryce', investCost:15000 },
 
   { id:'route44_45_46',   fr:'Routes 44, 45 & 46',   en:'Routes 44, 45 & 46',rep:700,  spawnRate:0.05, type:'route',
+    zoneLevelBonus:40,
     pool:['weepinbell','victreebel','tangela','pinsir','scyther','heracross','dratini','dragonair'],
     trainers:['picnicker','camper','acetrainer'], eliteTrainer:'acetrainer', investCost:20000 },
 
   { id:'mt_silver_johto', fr:'Mont Argenté (versant Johto)', en:'Mt. Silver (Johto Side)', rep:1100, spawnRate:0.03, type:'route',
+    zoneLevelBonus:52,
     pool:['dragonite','gyarados','snorlax','lapras','pikachu','chansey','larvitar','pupitar'],
     rarePool:[
       {en:'tyranitar', w:1},
@@ -88,47 +99,56 @@ const ZONES_JOHTO = [
   // ══ VILLES / ARÈNES ══
 
   { id:'violet_gym',      fr:'Ecorfeuil',            en:'Violet City',       rep:50,   spawnRate:0.06, type:'city',
+    zoneLevelBonus:22,
     pool:['pidgey','spearow','hoothoot','noctowl','doduo','farfetchd','togetic','aerodactyl'],
     trainers:['youngster','lass','camper'], eliteTrainer:'falkner', investCost:1500,
     gymLeader:'falkner', gymType:'flying', xpBonus:1.5 },
 
   { id:'azalea_gym',      fr:'Azalée',               en:'Azalea Town',       rep:150,  spawnRate:0.06, type:'city',
+    zoneLevelBonus:24,
     pool:['caterpie','metapod','weedle','kakuna','spinarak','ledyba','scyther','pinsir','heracross'],
     trainers:['bugcatcher','youngster','lass'], eliteTrainer:'bugsy', investCost:3000,
     gymLeader:'bugsy', gymType:'bug', xpBonus:1.5 },
 
   { id:'goldenrod_gym',   fr:'Doublonville',         en:'Goldenrod City',    rep:250,  spawnRate:0.06, type:'city',
+    zoneLevelBonus:27,
     pool:['clefairy','snubbull','granbull','jigglypuff','wigglytuff','meowth','persian','eevee','miltank'],
     trainers:['lass','beauty','youngster'], eliteTrainer:'whitney', investCost:5000,
     gymLeader:'whitney', gymType:'normal', xpBonus:1.8 },
 
   { id:'ecruteak_gym',    fr:'Ecorussie',            en:'Ecruteak City',     rep:400,  spawnRate:0.05, type:'city',
+    zoneLevelBonus:32,
     pool:['gastly','haunter','gengar','misdreavus','murkrow','zubat','golbat','rattata','raticate'],
     trainers:['channeler','psychic'], eliteTrainer:'morty', investCost:8000,
     gymLeader:'morty', gymType:'ghost', xpBonus:2.0,
     ghostZone: true },
 
   { id:'cianwood_gym',    fr:'Acajou',               en:'Cianwood City',     rep:500,  spawnRate:0.06, type:'city',
+    zoneLevelBonus:35,
     pool:['machop','machoke','machamp','poliwag','poliwhirl','poliwrath','mankey','primeape','hitmonlee','hitmonchan'],
     trainers:['blackbelt','hiker','sailor'], eliteTrainer:'chuck', investCost:10000,
     gymLeader:'chuck', gymType:'fighting', xpBonus:2.0 },
 
   { id:'olivine_gym',     fr:'Oliville',             en:'Olivine City',      rep:560,  spawnRate:0.06, type:'city',
+    zoneLevelBonus:36,
     pool:['magnemite','magneton','forretress','steelix','scizor','skarmory','onix'],
     trainers:['sailor','supernerd','acetrainer'], eliteTrainer:'jasmine', investCost:12000,
     gymLeader:'jasmine', gymType:'steel', xpBonus:2.2 },
 
   { id:'mahogany_gym',    fr:'Acajou',               en:'Mahogany Town',     rep:650,  spawnRate:0.06, type:'city',
+    zoneLevelBonus:39,
     pool:['seel','dewgong','shellder','cloyster','swinub','piloswine','sneasel','delibird','lapras','jynx'],
     trainers:['hiker','youngster','acetrainer'], eliteTrainer:'pryce', investCost:15000,
     gymLeader:'pryce', gymType:'ice', xpBonus:2.3 },
 
   { id:'blackthorn_gym',  fr:'Saquedenave',          en:'Blackthorn City',   rep:800,  spawnRate:0.06, type:'city',
+    zoneLevelBonus:43,
     pool:['dratini','dragonair','dragonite','horsea','seadra','kingdra','magikarp','gyarados','aerodactyl'],
     trainers:['acetrainer','blackbelt'], eliteTrainer:'clair', investCost:25000,
     gymLeader:'clair', gymType:'dragon', xpBonus:2.8 },
 
   { id:'indigo_johto',    fr:'Plateau Indigo (Johto)',en:'Indigo Plateau (Johto)', rep:1000, spawnRate:0.06, type:'city',
+    zoneLevelBonus:49,
     pool:['dragonite','gyarados','espeon','umbreon','alakazam','machamp','gengar','blissey','heracross'],
     trainers:['acetrainer','acetrainerf','pokemonranger'], eliteTrainer:'lance', investCost:50000,
     gymLeader:'lance', gymType:'mixed', xpBonus:3.0 },
@@ -136,10 +156,12 @@ const ZONES_JOHTO = [
   // ══ LIEUX SPÉCIAUX ══
 
   { id:'slowpoke_well',   fr:'Puits Ramoloss',       en:'Slowpoke Well',     rep:130,  spawnRate:0.05, type:'special',
+    zoneLevelBonus:24,
     pool:['slowpoke','slowbro','slowking','zubat','golbat','psyduck','golduck','magikarp','wooper','quagsire'],
     trainers:['rocketgrunt','rocketgruntf','supernerd'], eliteTrainer:'proton', investCost:3000 },
 
   { id:'ruins_of_alph',   fr:'Ruines d\'Alph',       en:'Ruins of Alph',     rep:200,  spawnRate:0.04, type:'special',
+    zoneLevelBonus:26,
     pool:['unown','geodude','graveler','natu','xatu','smeargle','sudowoodo'],
     rarePool:[
       {en:'unown', w:10},
@@ -150,6 +172,7 @@ const ZONES_JOHTO = [
     trainers:['psychic','supernerd'], eliteTrainer:'psychic', investCost:5000 },
 
   { id:'national_park',   fr:'Parc National',        en:'National Park',     rep:270,  spawnRate:0.08, type:'special',
+    zoneLevelBonus:28,
     pool:['caterpie','metapod','butterfree','weedle','kakuna','beedrill','paras','parasect','scyther','pinsir','heracross','yanma','venonat','venomoth'],
     rarePool:[
       {en:'scyther', w:3}, {en:'pinsir', w:3}, {en:'heracross', w:2},
@@ -158,6 +181,7 @@ const ZONES_JOHTO = [
     trainers:['bugcatcher','youngster','lass','picnicker'], eliteTrainer:'bugsy', investCost:5000 },
 
   { id:'burned_tower',    fr:'Tour Cramée',          en:'Burned Tower',      rep:380,  spawnRate:0.04, type:'special',
+    zoneLevelBonus:31,
     pool:['koffing','weezing','growlithe','arcanine','vulpix','ninetales','magmar','rapidash','rattata','raticate'],
     rarePool:[
       {en:'raikou',  w:1},
@@ -169,16 +193,19 @@ const ZONES_JOHTO = [
     ghostZone: true },
 
   { id:'team_rocket_hq',  fr:'QG Team Rocket Mahogany', en:'Team Rocket HQ Mahogany', rep:620, spawnRate:0.05, type:'special',
+    zoneLevelBonus:38,
     unlockItem:'rocket_hq_keycard',
     pool:['electrode','voltorb','koffing','weezing','rattata','raticate','ditto','porygon','porygon2'],
     trainers:['rocketgrunt','rocketgruntf','scientist','archer','ariana','proton'], eliteTrainer:'archer', investCost:20000 },
 
   { id:'radio_tower',     fr:'Tour Radio Doublonville', en:'Goldenrod Radio Tower', rep:700, spawnRate:0.05, type:'special',
+    zoneLevelBonus:40,
     unlockItem:'rocket_uniform',
     pool:['electrode','voltorb','magneton','porygon','porygon2','ditto'],
     trainers:['rocketgrunt','rocketgruntf','scientist','archer','ariana','proton','policeman'], eliteTrainer:'giovanni', investCost:30000 },
 
   { id:'dragons_den',     fr:'Antre du Dragon',      en:'Dragon\'s Den',     rep:850,  spawnRate:0.04, type:'special',
+    zoneLevelBonus:45,
     pool:['dratini','dragonair','dragonite','kingdra','gyarados','horsea','seadra','magikarp','lapras'],
     rarePool:[
       {en:'dragonite', w:1},
@@ -187,6 +214,7 @@ const ZONES_JOHTO = [
     trainers:['acetrainer','blackbelt'], eliteTrainer:'clair', investCost:25000 },
 
   { id:'safari_johto',    fr:'Parc Safari de Johto', en:'Johto Safari Zone', rep:450,  spawnRate:0.07, type:'special',
+    zoneLevelBonus:33,
     pool:['tauros','miltank','stantler','girafarig','heracross','nidoran-f','nidoran-m','kangaskhan','dratini'],
     rarePool:[
       // Ultra-rare (starters johto, évolutions)
@@ -206,16 +234,19 @@ const ZONES_JOHTO = [
     trainers:['acetrainer','pokemonranger'], eliteTrainer:'jasmine', investCost:15000 },
 
   { id:'whirl_islands',   fr:'Îles Tourbillon',      en:'Whirl Islands',     rep:900,  spawnRate:0.04, type:'special',
+    zoneLevelBonus:46,
     pool:['lugia','politoed','slowking','kingdra','tentacruel','dewgong','lapras','seadra','starmie','tentacool','golduck','psyduck'],
     trainers:['swimmer','acetrainer'], eliteTrainer:'lorelei', investCost:45000,
     unlockItem:'tourbillon_permit' },
 
   { id:'tin_tower',       fr:'Tour Carillon',        en:'Tin Tower',         rep:950,  spawnRate:0.04, type:'special',
+    zoneLevelBonus:48,
     pool:['ho-oh','espeon','umbreon','blissey','crobat','bellossom','clefable','wigglytuff','chansey','snorlax','pichu','cleffa'],
     trainers:['acetrainer','psychic'], eliteTrainer:'lance', investCost:45000,
     unlockItem:'carillon_permit' },
 
   { id:'mt_silver_summit',fr:'Mont Argenté — Sommet',en:'Mt. Silver — Summit',rep:1200, spawnRate:0.03, type:'special',
+    zoneLevelBonus:55,
     pool:['dragonite','pikachu','snorlax','lapras','gyarados','espeon','blissey','chansey'],
     rarePool:[
       {en:'mewtwo', w:1},

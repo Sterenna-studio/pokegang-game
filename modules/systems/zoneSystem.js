@@ -20,7 +20,7 @@
 //  ES module imports:
 //    TRAINER_TYPES (from data/trainers-data.js)
 //  ES module globals (exposed on globalThis by app.js):
-//    GYM_ORDER
+//    GYM_ORDER, JOHTO_GYM_ORDER
 // ════════════════════════════════════════════════════════════════
 
 import { TRAINER_TYPES } from '../../data/trainers-data.js';
@@ -135,10 +135,18 @@ function isZoneUnlocked(zoneId) {
   if (zone.unlockItem && !state.purchases?.[zone.unlockItem]) return false;
   // Cities (gyms) require sequential unlock: previous city must be defeated
   if (zone.type === 'city') {
-    const idx = globalThis.GYM_ORDER.indexOf(zoneId);
-    if (idx > 0) {
-      const prevId = globalThis.GYM_ORDER[idx - 1];
-      if (!state.zones[prevId]?.gymDefeated) return false;
+    const johtoIdx = globalThis.JOHTO_GYM_ORDER?.indexOf(zoneId) ?? -1;
+    if (johtoIdx >= 0) {
+      if (johtoIdx > 0) {
+        const prevId = globalThis.JOHTO_GYM_ORDER[johtoIdx - 1];
+        if (!state.zones[prevId]?.gymDefeated) return false;
+      }
+    } else {
+      const idx = globalThis.GYM_ORDER.indexOf(zoneId);
+      if (idx > 0) {
+        const prevId = globalThis.GYM_ORDER[idx - 1];
+        if (!state.zones[prevId]?.gymDefeated) return false;
+      }
     }
   }
   return true;
@@ -200,7 +208,7 @@ function makeTrainerTeam(zone, trainerKey, forcedSize, masteryLevel = 1) {
   for (let i = 0; i < teamSize; i++) {
     const sp = globalThis.pick(zone.pool);
     const baseLevel = globalThis.randInt(5 + trainer.diff * 3, 10 + trainer.diff * 5);
-    const level = Math.min(100, baseLevel + scaling.levelBonus);
+    const level = Math.min(100, baseLevel + (zone.zoneLevelBonus || 0) + scaling.levelBonus);
     const potential = Math.min(5, 2 + scaling.potentialBoost);
     const stats = globalThis.calculateStats({ species_en: sp, level, nature: 'hardy', potential });
     // Multiplier les stats offensives/défensives selon le scaling
@@ -812,12 +820,20 @@ function checkForNewlyUnlockedZones(prevRep) {
   const newZones = ZONES.filter(z => {
     if (!z.rep || z.rep === 0) return false;
     if (z.unlockItem && !state.purchases?.[z.unlockItem]) return false;
-    // Cities require previous city to be defeated
+    // Cities require previous city to be defeated (Kanto or Johto order)
     if (z.type === 'city') {
-      const idx = globalThis.GYM_ORDER.indexOf(z.id);
-      if (idx > 0) {
-        const prevId = globalThis.GYM_ORDER[idx - 1];
-        if (!state.zones[prevId]?.gymDefeated) return false;
+      const johtoIdx = globalThis.JOHTO_GYM_ORDER?.indexOf(z.id) ?? -1;
+      if (johtoIdx >= 0) {
+        if (johtoIdx > 0) {
+          const prevId = globalThis.JOHTO_GYM_ORDER[johtoIdx - 1];
+          if (!state.zones[prevId]?.gymDefeated) return false;
+        }
+      } else {
+        const idx = globalThis.GYM_ORDER.indexOf(z.id);
+        if (idx > 0) {
+          const prevId = globalThis.GYM_ORDER[idx - 1];
+          if (!state.zones[prevId]?.gymDefeated) return false;
+        }
       }
     }
     return prevRep < z.rep && state.gang.reputation >= z.rep;
