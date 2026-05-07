@@ -46,4 +46,18 @@ const TITLES = [
   { id:'triade_chroma',   label:'Triade Chromatique',  category:'shiny_special', shinyType:'starters' },    // 3 starters shiny
   { id:'seigneur_chroma', label:'Seigneur Chromatique',category:'shiny_special', shinyType:'legendaries' }, // tous légendaires shiny
   { id:'dresseur_chroma', label:'Dresseur Chromatique',category:'shiny_special', shinyType:'full_dex' },    // tous pokémon shiny
+  // Chromatiques légendaires individuels (un titre par légendaire shiny)
+  { id:'chroma_articuno', label:'Voile de Givre',         category:'shiny_special', shinyType:'species', speciesReq:'articuno' },
+  { id:'chroma_zapdos',   label:'Éclair Doré',            category:'shiny_special', shinyType:'species', speciesReq:'zapdos'   },
+  { id:'chroma_moltres',  label:'Cendres de Phénix',      category:'shiny_special', shinyType:'species', speciesReq:'moltres'  },
+  { id:'chroma_mewtwo',   label:'Clone Émeraude',         category:'shiny_special', shinyType:'species', speciesReq:'mewtwo'   },
+  { id:'chroma_mew',      label:'Fantôme Azur',           category:'shiny_special', shinyType:'species', speciesReq:'mew'      },
+  { id:'chroma_lugia',    label:'Gardien Doré',           category:'shiny_special', shinyType:'species', speciesReq:'lugia'    },
+  { id:'chroma_hooh',     label:'Arc-en-Ciel Éternel',    category:'shiny_special', shinyType:'species', speciesReq:'ho-oh'    },
+  { id:'chroma_raikou',   label:'Tonnerre Arctique',      category:'shiny_special', shinyType:'species', speciesReq:'raikou'   },
+  { id:'chroma_entei',    label:'Brasier Sombre',         category:'shiny_special', shinyType:'species', speciesReq:'entei'    },
+  { id:'chroma_suicune',  label:'Cristal Rose',           category:'shiny_special', shinyType:'species', speciesReq:'suicune'  },
+  { id:'chroma_celebi',   label:'Fée du Passé',           category:'shiny_special', shinyType:'species', speciesReq:'celebi'   },
+  // Collection (débloqués en possédant un ensemble d'espèces)
+  { id:'seigneur_cieux',  label:'Seigneur des Cieux',     category:'collection', speciesReq:['articuno','zapdos','moltres'] }, // les 3 oiseaux légendaires
 ];

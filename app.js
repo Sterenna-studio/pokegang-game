@@ -980,6 +980,12 @@ function checkTitleUnlocks() {
         unlock = POKEMON_GEN1.filter(s => s.rarity === 'legendary' && !s.hidden).every(s => state.pokedex[s.en]?.shiny);
       } else if (t.shinyType === 'full_dex') {
         unlock = POKEMON_GEN1.filter(s => !s.hidden).every(s => state.pokedex[s.en]?.shiny);
+      } else if (t.shinyType === 'species') {
+        unlock = !!(state.pokedex[t.speciesReq]?.shiny);
+      }
+    } else if (t.category === 'collection') {
+      if (Array.isArray(t.speciesReq)) {
+        unlock = t.speciesReq.every(s => state.pokedex[s]?.caught);
       }
     }
     if (unlock) { unlocked.add(t.id); newOnes.push(t); }
@@ -1091,7 +1097,7 @@ function openTitleModal() {
   const categories = {
     rep:'Réputation', type_capture:'Type', stat:'Exploit',
     shop:'Boutique', special:'Spécial',
-    pokedex:'Pokédex', shiny_special:'Chromatique'
+    pokedex:'Pokédex', shiny_special:'Chromatique', collection:'Collection'
   };
 
   let _activeSlot = 0; // index into SLOT_DEFS
@@ -1141,7 +1147,21 @@ function openTitleModal() {
           else if (t.category === 'stat') hint = `${t.countReq}× ${t.statReq}`;
           else if (t.category === 'shop') hint = `${(t.shopPrice||0).toLocaleString()}₽`;
           else if (t.category === 'pokedex') hint = t.dexType === 'kanto' ? 'Compléter le Pokédex Kanto (151)' : 'Compléter tout le Pokédex';
-          else if (t.category === 'shiny_special') hint = t.shinyType === 'starters' ? '3 starters chromatiques' : t.shinyType === 'legendaries' ? 'Tous légendaires chromatiques' : 'Pokédex chromatique complet';
+          else if (t.category === 'shiny_special') {
+            if (t.shinyType === 'starters') hint = '3 starters chromatiques';
+            else if (t.shinyType === 'legendaries') hint = 'Tous légendaires chromatiques';
+            else if (t.shinyType === 'full_dex') hint = 'Pokédex chromatique complet';
+            else if (t.shinyType === 'species') {
+              const spFr = POKEMON_GEN1.find(s => s.en === t.speciesReq)?.fr || t.speciesReq;
+              hint = `✨ ${spFr} chromatique`;
+            }
+          }
+          else if (t.category === 'collection') {
+            if (Array.isArray(t.speciesReq)) {
+              const names = t.speciesReq.map(s => POKEMON_GEN1.find(p => p.en === s)?.fr || s).join(', ');
+              hint = `Capturer : ${names}`;
+            }
+          }
           else hint = '???';
         }
         const assigned = slotIdx >= 0;
