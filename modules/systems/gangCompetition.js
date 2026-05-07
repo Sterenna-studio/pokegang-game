@@ -16,6 +16,7 @@ const RAID_PENALTY      = 100_000;   // pokédollars perdus si raid échoue
 const RAID_NO_DEFENSE_PENALTY_MULT = 2; // défense auto/vide : malus doublé pour le perdant
 const REP_STEAL_RATIO   = 0.05;      // 5% de la réputation snapshot
 const RAID_GOLD_PER_REP = 200;       // gold par point de rép volée
+const RAID_GOLD_MAX     = 1_000_000; // plafond d'or par raid (1M)
 const RAID_COOLDOWN_MS  = 60 * 60 * 1000; // 1 heure par cible
 
 let _ctx = {};
@@ -269,7 +270,7 @@ export async function executeRaid(defData, agentIds = null) {
   const snapRep  = defData.reputation_snapshot ?? 0;
   const baseRepDelta = Math.max(1, Math.floor(snapRep * REP_STEAL_RATIO));
   const repDelta = attackerWin ? baseRepDelta * (defaultDefense ? RAID_NO_DEFENSE_PENALTY_MULT : 1) : 0;
-  const goldWon  = attackerWin ? repDelta * RAID_GOLD_PER_REP : 0;
+  const goldWon  = attackerWin ? Math.min(repDelta * RAID_GOLD_PER_REP, RAID_GOLD_MAX) : 0;
   const moneyPenalty = attackerWin ? 0 : RAID_PENALTY * (defaultDefense ? RAID_NO_DEFENSE_PENALTY_MULT : 1);
   const result   = attackerWin ? 'attacker_win' : 'defender_win';
 
@@ -397,6 +398,7 @@ export {
   RAID_NO_DEFENSE_PENALTY_MULT,
   REP_STEAL_RATIO,
   RAID_GOLD_PER_REP,
+  RAID_GOLD_MAX,
   RAID_COOLDOWN_MS,
 };
 
