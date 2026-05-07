@@ -58,6 +58,33 @@ const TITLES = [
   { id:'chroma_entei',    label:'Brasier Sombre',         category:'shiny_special', shinyType:'species', speciesReq:'entei'    },
   { id:'chroma_suicune',  label:'Cristal Rose',           category:'shiny_special', shinyType:'species', speciesReq:'suicune'  },
   { id:'chroma_celebi',   label:'Fée du Passé',           category:'shiny_special', shinyType:'species', speciesReq:'celebi'   },
-  // Collection (débloqués en possédant un ensemble d'espèces)
-  { id:'seigneur_cieux',  label:'Seigneur des Cieux',     category:'collection', speciesReq:['articuno','zapdos','moltres'] }, // les 3 oiseaux légendaires
+  // ── Collection chromatique de groupe (shinyType:'collection') ─────────────────────
+  // Trio des Oiseaux Légendaires chromatiques (demandé explicitement)
+  { id:'triumvirat_celeste',  label:'Triumvirat Céleste',      category:'shiny_special', shinyType:'collection', speciesReq:['articuno','zapdos','moltres'] },
+  // Trio des Bêtes Sacrées chromatiques
+  { id:'triade_sacree',       label:'Triade Sacrée',           category:'shiny_special', shinyType:'collection', speciesReq:['raikou','entei','suicune'] },
+  // Duo Céleste chromatique (Lugia + Ho-Oh)
+  { id:'aube_crepuscule',     label:'Aube et Crépuscule',      category:'shiny_special', shinyType:'collection', speciesReq:['lugia','ho-oh'] },
+  // Starters Johto chromatiques
+  { id:'triade_johto_chroma', label:'Triade de Johto',         category:'shiny_special', shinyType:'collection', speciesReq:['chikorita','cyndaquil','totodile'] },
+  // Tous les starters (Kanto + Johto) chromatiques
+  { id:'legende_origines',    label:'Légende des Origines',    category:'shiny_special', shinyType:'collection', speciesReq:['bulbasaur','charmander','squirtle','chikorita','cyndaquil','totodile'] },
+  // Famille Évoli chromatique complète
+  { id:'spectre_prismatique', label:'Spectre Prismatique',     category:'shiny_special', shinyType:'collection', speciesReq:['eevee','vaporeon','jolteon','flareon','espeon','umbreon'] },
+  // Fossiles chromatiques
+  { id:'archeologue_ombre',   label:'Archéologue de l\'Ombre', category:'shiny_special', shinyType:'collection', speciesReq:['omanyte','omastar','kabuto','kabutops','aerodactyl'] },
+  // Lignée Dragon chromatique
+  { id:'elu_dragon_chroma',   label:'Élu du Dragon',           category:'shiny_special', shinyType:'collection', speciesReq:['dratini','dragonair','dragonite','kingdra'] },
+
+  // ── Collection (possession, pas forcément chromatique) ────────────────────────────
+  { id:'seigneur_cieux',      label:'Seigneur des Cieux',      category:'collection', speciesReq:['articuno','zapdos','moltres'] },
+  { id:'maitre_betes',        label:'Maître des Bêtes Sacrées',category:'collection', speciesReq:['raikou','entei','suicune'] },
+  { id:'gardien_deux_mondes', label:'Gardien des Deux Mondes', category:'collection', speciesReq:['lugia','ho-oh'] },
+  { id:'starters_kanto',      label:'Triplette de Kanto',      category:'collection', speciesReq:['bulbasaur','charmander','squirtle'] },
+  { id:'starters_johto',      label:'Triplette de Johto',      category:'collection', speciesReq:['chikorita','cyndaquil','totodile'] },
+  { id:'tous_starters',       label:'Grand Dresseur',          category:'collection', speciesReq:['bulbasaur','charmander','squirtle','chikorita','cyndaquil','totodile'] },
+  { id:'famille_evoli',       label:'Famille Évoli',           category:'collection', speciesReq:['eevee','vaporeon','jolteon','flareon','espeon','umbreon'] },
+  { id:'paleontologue',       label:'Paléontologue',           category:'collection', speciesReq:['omanyte','omastar','kabuto','kabutops','aerodactyl'] },
+  { id:'lignee_dragon',       label:'Seigneur du Dragon',      category:'collection', speciesReq:['dratini','dragonair','dragonite','kingdra'] },
+  { id:'chasseur_legendes',   label:'Chasseur de Légendes',    category:'collection', speciesReq:['articuno','zapdos','moltres','mewtwo','mew','lugia','ho-oh','raikou','entei','suicune','celebi'] },
 ];
