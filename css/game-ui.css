@@ -1927,6 +1927,107 @@
     #rarePopup .rare-sprite { image-rendering: pixelated; width: 40px; height: 40px; }
 
     /* ── Zone Unlock Popup ───────────────────────────────────────── */
+    /* ── Johto Unlock Modal ──────────────────────────────────────── */
+    #johtoUnlockModal {
+      position: fixed;
+      inset: 0;
+      z-index: 9998;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,.75);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .4s ease;
+    }
+    #johtoUnlockModal.show { opacity: 1; pointer-events: auto; }
+    .johto-unlock-box {
+      background: #060d06;
+      border: 1px solid #2a4a2a;
+      border-radius: var(--radius);
+      padding: 26px 30px 22px;
+      max-width: 400px;
+      width: 93%;
+      position: relative;
+      box-shadow: 0 0 60px rgba(0,180,60,.12), 0 0 120px rgba(0,0,0,.9);
+      animation: pop .3s ease;
+    }
+    .johto-stamp {
+      display: inline-block;
+      font-family: var(--font-pixel);
+      font-size: 7px;
+      color: #cc3333;
+      border: 1px solid #aa2222;
+      padding: 2px 8px;
+      letter-spacing: 3px;
+      transform: rotate(-1.5deg);
+      opacity: .85;
+      margin-bottom: 14px;
+    }
+    .johto-title {
+      font-family: var(--font-pixel);
+      font-size: 10px;
+      color: var(--gold);
+      margin-bottom: 16px;
+    }
+    .johto-message {
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      color: #7aaa7a;
+      line-height: 1.75;
+      border-left: 2px solid #1e3a1e;
+      padding-left: 13px;
+      margin-bottom: 14px;
+    }
+    .johto-message p { margin: 0 0 8px 0; }
+    .johto-message p:last-child { margin-bottom: 0; }
+    .johto-message em { color: var(--gold); font-style: normal; }
+    .johto-sender {
+      font-family: 'Courier New', monospace;
+      font-size: 10px;
+      color: #446644;
+      text-align: right;
+      font-style: italic;
+      margin-bottom: 20px;
+    }
+    .johto-btns { display: flex; gap: 10px; justify-content: flex-end; }
+    #johtoAcceptBtn {
+      background: #0f2a0f;
+      color: #88cc88;
+      border: 1px solid #2a5a2a;
+      border-radius: var(--radius-sm);
+      padding: 8px 16px;
+      font-family: var(--font-pixel);
+      font-size: 8px;
+      cursor: pointer;
+      transition: all .15s;
+    }
+    #johtoAcceptBtn:hover { background: #1a4a1a; color: #aaeaaa; border-color: #3a7a3a; }
+    #johtoDismissBtn {
+      background: transparent;
+      color: var(--text-dim);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 8px 14px;
+      font-family: var(--font-pixel);
+      font-size: 8px;
+      cursor: pointer;
+      transition: color .15s;
+    }
+    #johtoDismissBtn:hover { color: var(--text); }
+
+    /* ── Region switcher locked / available states ────────────────── */
+    .region-btn-locked { opacity: .45; cursor: default !important; }
+    .region-btn-available {
+      border-color: var(--gold) !important;
+      color: var(--gold) !important;
+      animation: regionAvailPulse 1.8s ease-in-out infinite;
+    }
+    @keyframes regionAvailPulse {
+      0%,100% { box-shadow: 0 0 0 0 rgba(255,204,90,.5); }
+      50%      { box-shadow: 0 0 0 5px rgba(255,204,90,.0); }
+    }
+
     #zoneUnlockPopup {
       position: fixed;
       inset: 0;

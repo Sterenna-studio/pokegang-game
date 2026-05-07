@@ -786,6 +786,10 @@ function applyCombatResult(result, playerTeamIds, trainerData) {
         globalThis.notify(`🏆 ${combatZone.fr} — Champion vaincu ! La voie est libre.`, 'gold');
         // Déclenche la vérification de nouvelles zones débloquées par la séquence
         setTimeout(() => checkForNewlyUnlockedZones(state.gang.reputation - 0.001), 600);
+        // Vérifie si l'offre Johto doit être déclenchée (après la victoire au Plateau Indigo)
+        if (trainerData.zoneId === 'indigo_plateau') {
+          setTimeout(() => globalThis.checkJohtoUnlock?.(), 2500);
+        }
       }
       if (trainerData.isGymRaid) {
         zs.gymRaidLastFight = Date.now();

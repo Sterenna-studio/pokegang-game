@@ -547,8 +547,13 @@ let _zonesViewMode = 'fog';
 function renderZonesTab() {
   const switcher = document.getElementById('regionSwitcher');
   if (switcher) {
-    const johtoUnlocked = !!globalThis.state?.purchases?.johtoUnlocked;
-    switcher.style.display = johtoUnlocked ? 'flex' : 'none';
+    // Always visible — Johto button shows locked/available/active states
+    switcher.style.display = 'flex';
+    const state = globalThis.state;
+    const johtoUnlocked = !!state?.purchases?.johtoUnlocked;
+    const johtoQualified = !johtoUnlocked &&
+      !!state?.zones?.['indigo_plateau']?.gymDefeated &&
+      (state?.gang?.reputation || 0) >= 500;
 
     if (!johtoUnlocked && _zwActiveRegion() !== 'kanto') {
       globalThis._zsel_setActiveRegion?.('kanto');
@@ -559,6 +564,18 @@ function renderZonesTab() {
       switcher.querySelectorAll('.region-btn').forEach(btn => {
         btn.addEventListener('click', () => {
           const region = btn.dataset.region;
+          const jUnlocked = !!globalThis.state?.purchases?.johtoUnlocked;
+          if (region === 'johto' && !jUnlocked) {
+            // Show unlock offer if qualified, otherwise hint at the requirement
+            const jQual = !!globalThis.state?.zones?.['indigo_plateau']?.gymDefeated &&
+              (globalThis.state?.gang?.reputation || 0) >= 500;
+            if (jQual) {
+              globalThis.showJohtoUnlockModal?.();
+            } else {
+              globalThis.notify('🔒 Johto — Vainquez le Champion Lance au Plateau Indigo d\'abord !', 'error');
+            }
+            return;
+          }
           globalThis._zsel_setActiveRegion?.(region);
           switcher.querySelectorAll('.region-btn').forEach(b => {
             b.classList.toggle('active', b.dataset.region === region);
@@ -568,10 +585,25 @@ function renderZonesTab() {
       });
     }
 
+    // Update button visual state on every render
     const activeRegion = _zwActiveRegion();
-    switcher.querySelectorAll('.region-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.region === activeRegion);
-    });
+    const johtoBtn = switcher.querySelector('[data-region="johto"]');
+    if (johtoBtn) {
+      johtoBtn.classList.remove('active', 'region-btn-locked', 'region-btn-available');
+      if (johtoUnlocked) {
+        johtoBtn.classList.toggle('active', activeRegion === 'johto');
+        johtoBtn.textContent = 'Johto';
+      } else if (johtoQualified) {
+        johtoBtn.classList.add('region-btn-available');
+        johtoBtn.textContent = 'Johto ✉';
+        johtoBtn.title = 'Un message vous attend — cliquez pour découvrir';
+      } else {
+        johtoBtn.classList.add('region-btn-locked');
+        johtoBtn.textContent = 'Johto 🔒';
+        johtoBtn.title = 'Vainquez le Champion Lance au Plateau Indigo pour débloquer';
+      }
+    }
+    switcher.querySelector('[data-region="kanto"]')?.classList.toggle('active', activeRegion === 'kanto' || !johtoUnlocked);
   }
 
   _zsRenderSelector();

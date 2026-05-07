@@ -2984,6 +2984,20 @@ function activateJohtoRegion() {
   saveState();
 }
 
+function showJohtoUnlockModal() {
+  const modal = document.getElementById('johtoUnlockModal');
+  if (!modal) return;
+  modal.classList.add('show');
+}
+
+function checkJohtoUnlock() {
+  if (state.purchases?.johtoUnlocked) return;
+  if (!state.zones?.['indigo_plateau']?.gymDefeated) return;
+  if (state.gang.reputation < 500) return;
+  // Affiche l'offre cinématique après un bref délai dramatique
+  setTimeout(() => showJohtoUnlockModal(), 1800);
+}
+
 function startGameLoop() {
   // Guard: only start once — prevents interval accumulation on hot-reload
   if (_gameLoopStarted) return;
@@ -3289,7 +3303,8 @@ Object.assign(globalThis, {
   updateTopBar, tryAutoIncubate,
   renderMarketTab, renderMissionsTab, renderCosmeticsTab, renderBattleLogTab, renderLabTab,
   renderZonesTab, renderGangTab, renderAgentsTab, renderPokemonGrid, renderEggsView, renderGangBasePanel,
-  activateJohtoRegion, renderGangCompetitionTab,
+  activateJohtoRegion, showJohtoUnlockModal, checkJohtoUnlock,
+  renderGangCompetitionTab,
   // Audio
   SFX, MusicPlayer, JinglePlayer, MUSIC_TRACKS, playTone,
   // Zone system — logique pure (zoneSystem.js)
@@ -3682,6 +3697,27 @@ function boot() {
     if (e.target.id === 'zoneUnlockPopup') { e.target.classList.remove('show'); _processZoneUnlockQueue(); }
   });
 
+  // Johto unlock modal bindings
+  document.getElementById('johtoAcceptBtn')?.addEventListener('click', () => {
+    document.getElementById('johtoUnlockModal')?.classList.remove('show');
+    activateJohtoRegion();
+    // Switch directly to Johto after accepting
+    globalThis._zsel_setActiveRegion?.('johto');
+    document.querySelectorAll('#regionSwitcher .region-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.region === 'johto');
+    });
+    switchTab('tabZones');
+    notify('🌏 Johto débloqué ! Bienvenue à New Bark Town, Parrain...', 'gold');
+  });
+  document.getElementById('johtoDismissBtn')?.addEventListener('click', () => {
+    document.getElementById('johtoUnlockModal')?.classList.remove('show');
+    // The offer stays available via the Johto button in the region switcher
+    notify('📡 L\'offre reste disponible — appuyez sur le bouton Johto quand vous serez prêt.', '');
+  });
+  document.getElementById('johtoUnlockModal')?.addEventListener('click', e => {
+    if (e.target.id === 'johtoUnlockModal') e.target.classList.remove('show');
+  });
+
   // Apply cosmetics (bg theme)
   applyCosmetics();
 
@@ -3749,6 +3785,11 @@ function boot() {
 
   // Start game loop
   startGameLoop();
+
+  // Check if Johto offer should be presented at this session
+  if (!state.purchases?.johtoUnlocked) {
+    setTimeout(() => checkJohtoUnlock(), 4000);
+  }
 
   // Catch-up starter gift: existing players who never saw the Giovanni intro
   if (state.gang?.initialized && !state.gang?.introSeen) {
