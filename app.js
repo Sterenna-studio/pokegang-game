@@ -982,6 +982,8 @@ function checkTitleUnlocks() {
         unlock = POKEMON_GEN1.filter(s => !s.hidden).every(s => state.pokedex[s.en]?.shiny);
       } else if (t.shinyType === 'species') {
         unlock = !!(state.pokedex[t.speciesReq]?.shiny);
+      } else if (t.shinyType === 'collection') {
+        unlock = Array.isArray(t.speciesReq) && t.speciesReq.every(s => state.pokedex[s]?.shiny);
       }
     } else if (t.category === 'collection') {
       if (Array.isArray(t.speciesReq)) {
@@ -1154,6 +1156,10 @@ function openTitleModal() {
             else if (t.shinyType === 'species') {
               const spFr = POKEMON_GEN1.find(s => s.en === t.speciesReq)?.fr || t.speciesReq;
               hint = `✨ ${spFr} chromatique`;
+            }
+            else if (t.shinyType === 'collection') {
+              const names = (t.speciesReq || []).map(s => POKEMON_GEN1.find(p => p.en === s)?.fr || s).join(', ');
+              hint = `✨ Chromatiques : ${names}`;
             }
           }
           else if (t.category === 'collection') {
