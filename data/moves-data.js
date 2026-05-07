@@ -35,6 +35,7 @@ const MOVES_DATA = {
   'Claquoir':          { type: 'Normal',   basePower: 40,  category: 'physical' },
   'Coup Bas':          { type: 'Fighting', basePower: 60,  category: 'physical' },
   "Coup d'Boue":       { type: 'Ground',   basePower: 20,  category: 'special'  },
+  "Coup d'Boule":      { type: 'Normal',   basePower: 70,  category: 'physical' },
   'Coupe':             { type: 'Normal',   basePower: 50,  category: 'physical' },
   'Croc de Mort':      { type: 'Normal',   basePower: 80,  category: 'physical' },
   'Crocs Venin':       { type: 'Poison',   basePower: 50,  category: 'physical' },
@@ -42,7 +43,6 @@ const MOVES_DATA = {
   'Cyclone':           { type: 'Normal',   basePower: 0,   category: 'status'   },
   'Câlinerie':         { type: 'Normal',   basePower: 0,   category: 'status'   },
   // D
-  'Danse Fleur':       { type: 'Grass',    basePower: 0,   category: 'status'   },
   'Danse Lames':       { type: 'Normal',   basePower: 0,   category: 'status'   },
   'Danse-Flamme':      { type: 'Fire',     basePower: 0,   category: 'status'   },
   'Danse-Fleur':       { type: 'Grass',    basePower: 0,   category: 'status'   },
@@ -155,7 +155,6 @@ const MOVES_DATA = {
   'Tonnerre':          { type: 'Electric', basePower: 90,  category: 'special'  },
   'Torgnoles':         { type: 'Normal',   basePower: 80,  category: 'physical' },
   'Tornade':           { type: 'Flying',   basePower: 55,  category: 'special'  },
-  'Toxic':             { type: 'Poison',   basePower: 0,   category: 'status'   },
   'Toxik':             { type: 'Poison',   basePower: 0,   category: 'status'   },
   "Tranch'Herbe":      { type: 'Grass',    basePower: 55,  category: 'physical' },
   'Tranche':           { type: 'Normal',   basePower: 70,  category: 'physical' },

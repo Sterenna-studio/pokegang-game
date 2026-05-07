@@ -169,14 +169,14 @@ const POKEMON_GEN1 = [
   {en:'tyrogue',fr:'Debugant',dex:236,types:['Fighting'],baseAtk:35,baseDef:35,baseSpd:35,rarity:'rare',moves:['Coup Bas','Tranche','Ticket','Rugissement']},
 
   // ── Évolutions Gen 2 de Pokémon Gen 1 ───────────────────────────
-  {en:'crobat',fr:'Nostenfer',dex:169,types:['Poison','Flying'],baseAtk:90,baseDef:80,baseSpd:130,rarity:'rare',moves:['Vampigraine','Tranche','Cru-Aile','Toxic']},
-  {en:'bellossom',fr:'Joliflor',dex:182,types:['Grass'],baseAtk:80,baseDef:95,baseSpd:50,rarity:'rare',moves:['Tranch\'Herbe','Danse Fleur','Poudre Toxik','Soin']},
+  {en:'crobat',fr:'Nostenfer',dex:169,types:['Poison','Flying'],baseAtk:90,baseDef:80,baseSpd:130,rarity:'rare',moves:['Vampirisme','Tranche','Cru-Aile','Toxik']},
+  {en:'bellossom',fr:'Joliflor',dex:182,types:['Grass'],baseAtk:80,baseDef:95,baseSpd:50,rarity:'rare',moves:['Tranch\'Herbe','Danse-Fleur','Poudre Toxik','Soin']},
   {en:'politoed',fr:'Tarpaud',dex:186,types:['Water'],baseAtk:75,baseDef:75,baseSpd:70,rarity:'rare',moves:['Surf','Hydrocanon','Blizzard','Rugissement']},
   {en:'slowking',fr:'Roigada',dex:199,types:['Water','Psychic'],baseAtk:75,baseDef:80,baseSpd:30,rarity:'rare',moves:['Surf','Psyko','Blizzard','Amnésie']},
   {en:'steelix',fr:'Steelix',dex:208,types:['Steel','Ground'],baseAtk:85,baseDef:200,baseSpd:30,rarity:'very_rare',moves:['Séisme','Tranche','Tonnerre','Griffe de Fer']},
   {en:'scizor',fr:'Cizayox',dex:212,types:['Bug','Steel'],baseAtk:130,baseDef:100,baseSpd:65,rarity:'very_rare',moves:['Tranche','Balle Graine','Vive-Attaque','Danse Lames']},
   {en:'espeon',fr:'Mentali',dex:196,types:['Psychic'],baseAtk:130,baseDef:60,baseSpd:110,rarity:'very_rare',moves:['Psyko','Choc Mental','Laser Glace','Rugissement']},
-  {en:'umbreon',fr:'Noctali',dex:197,types:['Dark'],baseAtk:65,baseDef:110,baseSpd:65,rarity:'very_rare',moves:['Tranche','Morsure','Rugissement','Rugissement']},
+  {en:'umbreon',fr:'Noctali',dex:197,types:['Dark'],baseAtk:65,baseDef:110,baseSpd:65,rarity:'very_rare',moves:['Tranche','Morsure','Rugissement','Poursuite']},
   {en:'kingdra',fr:'Hyporoi',dex:230,types:['Water','Dragon'],baseAtk:95,baseDef:95,baseSpd:85,rarity:'very_rare',moves:['Hydrocanon','Draco-Rage','Surf','Blizzard']},
   {en:'blissey',fr:'Leuphorie',dex:242,types:['Normal'],baseAtk:10,baseDef:10,baseSpd:55,rarity:'very_rare',moves:['Soin','Boul\'Armure','Météores','Chant']},
 
