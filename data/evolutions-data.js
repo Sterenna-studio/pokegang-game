@@ -62,6 +62,35 @@ const EVOLUTIONS = [
   ['eevee','flareon','item'],
   ['zubat','golbat',22],
 
+  // ── Gen 2 : Starters Johto ──────────────────────────────────────
+  ['chikorita','bayleef',16],['bayleef','meganium',32],
+  ['cyndaquil','quilava',14],['quilava','typhlosion',36],
+  ['totodile','croconaw',18],['croconaw','feraligatr',30],
+
+  // ── Gen 2 : Nouvelles lignes d'évolution ────────────────────────
+  ['sentret','furret',15],
+  ['hoothoot','noctowl',20],
+  ['ledyba','ledian',18],
+  ['spinarak','ariados',22],
+  ['chinchou','lanturn',27],
+  ['togepi','togetic','item'],
+  ['natu','xatu',25],
+  ['mareep','flaaffy',15],['flaaffy','ampharos',30],
+  ['marill','azumarill',18],
+  ['hoppip','skiploom',18],['skiploom','jumpluff',27],
+  ['sunkern','sunflora','item'],
+  ['wooper','quagsire',20],
+  ['pineco','forretress',31],
+  ['snubbull','granbull',23],
+  ['teddiursa','ursaring',30],
+  ['slugma','magcargo',38],
+  ['swinub','piloswine',33],
+  ['remoraid','octillery',25],
+  ['houndour','houndoom',24],
+  ['phanpy','donphan',25],
+  ['larvitar','pupitar',30],['pupitar','tyranitar',55],
+  ['porygon','porygon2','item'],
+
   // ── Gen 2 : bébés → Gen 1 ───────────────────────────────────────
   ['pichu','pikachu',10],
   ['cleffa','clefairy',5],
