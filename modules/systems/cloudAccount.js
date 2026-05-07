@@ -783,15 +783,17 @@ async function _loadLeaderboardTable() {
       const updAgo = myRow.updated_at ? _lbAgo(new Date(myRow.updated_at)) : '?';
       const isSameMonth = myRow.month_key === currentMonth;
       if (isMonthly) {
-        const repM = isSameMonth ? (myRow.rep_monthly           || 0) : 0;
-        const capM = isSameMonth ? (myRow.caught_monthly        || 0) : 0;
-        const shM  = isSameMonth ? (myRow.shiny_species_monthly || 0) : 0;
+        const repM = isSameMonth ? (myRow.rep_monthly           ?? 0) : 0;
+        const capM = isSameMonth ? (myRow.caught_monthly        ?? 0) : 0;
+        const shM  = isSameMonth ? (myRow.shiny_species_monthly ?? 0) : 0;
+        const _s   = (n) => (n > 0 ? '+' : '') + n.toLocaleString('fr-FR');
+        const repColor = repM < 0 ? 'var(--red)' : 'var(--text-dim)';
         myEntryEl.innerHTML = `
           <span style="color:var(--gold);font-family:var(--font-pixel);font-size:9px">${myRow.gang_name}</span>
           <span style="margin-left:12px">Rang <b style="color:var(--gold)">${myRank}</b></span>
-          <span style="margin-left:12px;color:var(--text-dim)">⭐ +${repM.toLocaleString('fr-FR')} rép.</span>
-          <span style="margin-left:12px;color:var(--text-dim)">🎯 +${capM.toLocaleString('fr-FR')}</span>
-          <span style="margin-left:12px;color:var(--text-dim)">✨ +${shM}</span>
+          <span style="margin-left:12px;color:${repColor}">⭐ ${_s(repM)} rép.</span>
+          <span style="margin-left:12px;color:var(--text-dim)">🎯 ${_s(capM)}</span>
+          <span style="margin-left:12px;color:var(--text-dim)">✨ ${_s(shM)}</span>
           <span style="margin-left:auto;font-size:8px;opacity:.6">${isSameMonth ? `maj ${updAgo}` : 'pas encore de données ce mois'}</span>`;
       } else {
         myEntryEl.innerHTML = `
@@ -819,7 +821,9 @@ async function _loadLeaderboardTable() {
 
   const MEDALS = ['🥇','🥈','🥉'];
   const sortLabel = SORT_LABELS[_lbSortBy] || '⭐ Rép.';
-  const monthlyPrefix = isMonthly ? '+' : '';
+  // Sign helper: prepends '+' for positive, nothing for negative (already has '-')
+  const _sign = (n) => (typeof n === 'number' && n > 0) ? '+' : '';
+  const _fmt  = (n) => typeof n === 'number' ? (_sign(n) + n.toLocaleString('fr-FR')) : String(n ?? 0);
 
   tableEl.innerHTML = `
     <div style="display:grid;grid-template-columns:36px 1fr auto;border-bottom:1px solid var(--border);padding:6px 10px;font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">
@@ -836,12 +840,15 @@ async function _loadLeaderboardTable() {
       const sprite = p.boss_sprite
         ? `<img src="https://play.pokemonshowdown.com/sprites/gen5/${p.boss_sprite}.png" style="width:32px;height:32px;image-rendering:pixelated" onerror="this.style.display='none'">`
         : `<div style="width:32px;height:32px;background:var(--bg);border-radius:4px"></div>`;
-      const val = p[col] ?? 0;
-      const valStr = monthlyPrefix + (typeof val === 'number' ? val.toLocaleString('fr-FR') : val);
+      const val    = p[col] ?? 0;
+      const valStr = isMonthly ? _fmt(val) : (typeof val === 'number' ? val.toLocaleString('fr-FR') : String(val ?? 0));
+      const valColor = isMonthly && val < 0 ? 'var(--red)' : 'var(--gold)';
       const ago = p.updated_at ? _lbAgo(new Date(p.updated_at)) : '';
+      const shM  = p.shiny_species_monthly ?? 0;
+      const capM = p.caught_monthly        ?? 0;
       const secLine = isMonthly
-        ? `✨ +${p.shiny_species_monthly||0}   🎯 +${p.caught_monthly||0}`
-        : `✨ ${p.shiny_species_count||0}   📖 ${p.dex_kanto_count||0}/151`;
+        ? `✨ ${_fmt(shM)}   🎯 ${_fmt(capM)}`
+        : `✨ ${p.shiny_species_count ?? 0}   📖 ${p.dex_kanto_count ?? 0}/151`;
       return `<div style="display:grid;grid-template-columns:36px auto 1fr auto;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid var(--border);background:${isMe ? 'rgba(255,204,90,.07)' : ''};border-left:3px solid ${isMe ? 'var(--gold)' : 'transparent'}">
         <span style="text-align:center">${medal}</span>
         ${sprite}
@@ -850,7 +857,7 @@ async function _loadLeaderboardTable() {
           <div style="font-size:8px;color:var(--text-dim);margin-top:1px">${p.boss_name || ''}${ago ? ` · ${ago}` : ''}</div>
         </div>
         <div style="text-align:right;flex-shrink:0">
-          <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">${valStr}</div>
+          <div style="font-family:var(--font-pixel);font-size:9px;color:${valColor}">${valStr}</div>
           <div style="font-size:8px;color:var(--text-dim);margin-top:2px">${secLine}</div>
         </div>
       </div>`;
