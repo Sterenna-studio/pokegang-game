@@ -62,7 +62,10 @@ const COSMETIC_BGS = {
   theme_midnight:{ fr:'Minuit',        cost:3000,  gradient:'linear-gradient(145deg,#020204 0%,#060610 50%,#000004 100%)', type:'gradient' },
 };
 
-// Sequential gym unlock order
+// Sequential gym unlock order — Kanto
 const GYM_ORDER = ['pewter_gym','cerulean_gym','celadon_gym','fuchsia_gym','saffron_gym','cinnabar_gym','indigo_plateau'];
 
-export { ZONE_BG_URL, GYM_ORDER };
+// Sequential gym unlock order — Johto
+const JOHTO_GYM_ORDER = ['violet_gym','azalea_gym','goldenrod_gym','ecruteak_gym','cianwood_gym','olivine_gym','mahogany_gym','blackthorn_gym','indigo_johto'];
+
+export { ZONE_BG_URL, GYM_ORDER, JOHTO_GYM_ORDER };

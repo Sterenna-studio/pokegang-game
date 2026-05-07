@@ -37,6 +37,19 @@ const SHOP_ITEMS = [
     fr:'Permis Carillon',   en:'Bell Tower Permit',
     desc_fr:'50× Arcenci\'Aile requis → Tour Carillon (Ho-Oh)',
     desc_en:'50× Rainbow Wing required → Bell Tower (Ho-Oh)' },
+  // ── Zones Johto spéciales ──
+  { id:'rocket_hq_keycard', qty:1, cost:80000,  icon:'🔑',
+    fr:'Badge QG Rocket',   en:'Rocket HQ Keycard',
+    desc_fr:'Accès au QG de la Team Rocket à Acajou',
+    desc_en:'Access to Team Rocket HQ in Mahogany Town' },
+  { id:'rocket_uniform',    qty:1, cost:120000, icon:'👔',
+    fr:'Uniforme Rocket',   en:'Rocket Uniform',
+    desc_fr:'Déguisement infiltrant la Tour Radio de Doublonville',
+    desc_en:'Disguise to infiltrate Goldenrod Radio Tower' },
+  { id:'silver_permit',     qty:1, cost:200000, icon:'🗻',
+    fr:'Permis Mont Argenté',en:'Mt. Silver Permit',
+    desc_fr:'Accès au sommet du Mont Argenté — Red vous attend',
+    desc_en:'Access to Mt. Silver Summit — Red awaits' },
 ];
 // Note: 'scientist' s'achète depuis l'onglet Gang ou Labo (carte avec sprite), pas au Marché.
 

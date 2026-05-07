@@ -129,7 +129,7 @@ import { getDexDesc, buildSpeciesNameMaps } from './data/dex-helpers.js';
 import { BALLS, SHOP_ITEMS, MYSTERY_EGG_BASE_COST, MYSTERY_EGG_POOL, MYSTERY_EGG_HATCH_MS, POTENTIAL_MULT, BASE_PRICE, getMysteryEggCost as computeMysteryEggCost } from './data/economy-data.js';
 import { NATURES, NATURE_KEYS, BOSS_SPRITES, AGENT_NAMES_M, AGENT_NAMES_F, AGENT_SPRITES, AGENT_PERSONALITIES, TITLE_REQUIREMENTS, TITLE_BONUSES, AGENT_RANK_LABELS, RANK_CHAIN } from './data/game-config-data.js';
 import { I18N } from './data/i18n-data.js';
-import { ZONE_BG_URL, GYM_ORDER } from './data/zones-config-data.js';
+import { ZONE_BG_URL, GYM_ORDER, JOHTO_GYM_ORDER } from './data/zones-config-data.js';
 import { HOURLY_QUEST_REROLL_COST, BOOST_DURATIONS } from './data/gameplay-config-data.js';
 import { SPECIAL_TRAINER_KEYS, MAX_COMBAT_REWARD } from './data/combat-config-data.js';
 import { FALLBACK_TRAINER_SVG, FALLBACK_POKEMON_SVG, BALL_SPRITES, ITEM_SPRITE_URLS, CHEST_SPRITE_URL } from './data/assets-data.js';
@@ -3320,7 +3320,7 @@ Object.assign(globalThis, {
   // Data constants
   POKEMON_GEN1, SPECIES_BY_EN, EVO_BY_SPECIES, POT_UPGRADE_COSTS,
   ZONES, ZONE_BY_ID, getBaseSpecies,
-  GYM_ORDER,
+  GYM_ORDER, JOHTO_GYM_ORDER,
   MISSIONS, HOURLY_QUEST_POOL, HOURLY_QUEST_REROLL_COST,
   BASE_PRICE, POTENTIAL_MULT, NATURES, BALLS, MYSTERY_EGG_POOL,
   MAX_COMBAT_REWARD, BALL_SPRITES, FALLBACK_TRAINER_SVG,
