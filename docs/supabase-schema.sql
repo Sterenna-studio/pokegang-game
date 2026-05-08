@@ -263,7 +263,7 @@ create table if not exists public.gang_defenses (
   boss_sprite         text,
   reputation_snapshot bigint      not null default 0,
   defense_pokemon     jsonb       not null default '[]'::jsonb,
-  defense_agent       jsonb,
+  defense_agent       jsonb, -- array of up to 3 defender agents; legacy rows may contain a single object
   defense_zone        text,
   updated_at          timestamptz not null default now()
 );
@@ -320,7 +320,7 @@ create table if not exists public.gang_raids (
   attacker_gang     text        not null default 'Team ???',
   defender_gang     text        not null default 'Team ???',
   result            text        not null,
-  rep_delta         integer     not null default 0,
+  rep_delta         integer     not null default 0, -- legacy audit field; PvP raids no longer change reputation
   money_penalty     integer     not null default 0,
   defender_snap_rep bigint      not null default 0,
   executed_at       timestamptz not null default now(),

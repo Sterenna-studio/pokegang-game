@@ -31,7 +31,7 @@ The schema creates every table currently used by the frontend:
 - `save_snapshots`: recent restore points
 - `players`: authenticated account stats row
 - `leaderboard`: public all-time/monthly leaderboard
-- `gang_defenses`: published PvP defenses
+- `gang_defenses`: published PvP defenses, including the Boss team and up to three defender agents in `defense_agent`
 - `gang_raids`: PvP raid records and defender acknowledgements
 
 The SQL is written to be rerunnable for normal updates: it uses `create table if not exists`, adds missing columns, enables RLS, drops/recreates the expected policies, and creates useful indexes.

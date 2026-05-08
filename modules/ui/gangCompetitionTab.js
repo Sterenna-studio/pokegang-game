@@ -15,11 +15,13 @@ import {
   loadPendingRaids,
   acknowledgeRaids,
   getRaidCooldownMs,
-  getAttackerPower,
+  getRaidPreview,
   RAID_PENALTY,
   RAID_NO_DEFENSE_PENALTY_MULT,
   REP_STEAL_RATIO,
   RAID_GOLD_PER_REP,
+  RAID_GOLD_MAX,
+  PVP_AGENT_SLOTS,
 } from '../systems/gangCompetition.js';
 
 // ── Helpers locaux ────────────────────────────────────────────────
@@ -52,12 +54,46 @@ function _agentPower(agent, s = state()) {
 }
 
 function _pickDefaultAgent(s = state()) {
+  return _pickDefaultAgents(1, s)[0] ?? null;
+}
+
+function _pickDefaultAgents(count = PVP_AGENT_SLOTS, s = state()) {
   return [...(s.agents || [])]
     .sort((a, b) => {
       const levelDiff = (b.level ?? 1) - (a.level ?? 1);
       if (levelDiff !== 0) return levelDiff;
       return _agentPower(b, s) - _agentPower(a, s);
-    })[0] ?? null;
+    })
+    .slice(0, count);
+}
+
+function _effectiveAttackAgentIds(agentIds = [], s = state()) {
+  const ids = Array.isArray(agentIds) ? agentIds.filter(Boolean) : [];
+  if (ids.length > 0) return ids;
+  return _pickDefaultAgents(PVP_AGENT_SLOTS, s).map(a => a.id);
+}
+
+function _defenseAgentsFromData(defData) {
+  const raw = defData?.defense_agent;
+  if (Array.isArray(raw)) return raw.filter(Boolean).slice(0, PVP_AGENT_SLOTS);
+  return raw ? [raw] : [];
+}
+
+function _getManualDefenseAgentIds(comp) {
+  if (Array.isArray(comp?.defenseAgents)) {
+    return Array.from({ length: PVP_AGENT_SLOTS }, (_, idx) => comp.defenseAgents[idx] ?? null);
+  }
+  const legacy = comp?.defenseAgent ?? null;
+  return Array.from({ length: PVP_AGENT_SLOTS }, (_, idx) => idx === 0 ? legacy : null);
+}
+
+function _getDisplayedDefenseAgentIds(s = state()) {
+  const manual = _getManualDefenseAgentIds(s.gang?.competition);
+  const used = new Set(manual.filter(Boolean));
+  const fallback = _pickDefaultAgents(PVP_AGENT_SLOTS, s)
+    .map(a => a.id)
+    .filter(id => !used.has(id));
+  return manual.map(id => id || fallback.shift() || null);
 }
 
 // ── Entrée principale ─────────────────────────────────────────────
@@ -119,21 +155,25 @@ function _renderDefensePanel(el) {
     ">+</button>`;
   }).join('');
 
-  const explicitAgent = comp.defenseAgent ? s.agents.find(a => a.id === comp.defenseAgent) : null;
-  const defaultAgent = explicitAgent ? null : _pickDefaultAgent(s);
-  const agent = explicitAgent || defaultAgent;
-  const agentDefaulted = !explicitAgent && !!defaultAgent;
-  const agentHtml = agent
-    ? `<div style="display:flex;align-items:center;gap:8px;padding:6px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm)">
-        <img src="https://play.pokemonshowdown.com/sprites/gen5/${agent.spriteKey ?? ''}.png" style="width:32px;height:32px;image-rendering:pixelated" onerror="this.style.display='none'">
-        <div style="flex:1;min-width:0">
-          <div style="font-size:9px">${agent.name}</div>
-          <div style="font-size:8px;color:var(--text-dim)">Lv.${agent.level} · ${agent.title}${agentDefaulted ? ' · AUTO' : ''}</div>
-        </div>
-        <button id="comp-pick-agent" style="background:none;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer;font-size:8px;padding:3px 6px">Changer</button>
-        ${agentDefaulted ? '' : '<button id="comp-clear-agent" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:13px">✕</button>'}
-      </div>`
-    : `<button id="comp-pick-agent" style="width:100%;padding:7px;background:var(--bg);border:2px dashed var(--border);border-radius:var(--radius-sm);cursor:pointer;color:var(--text-dim);font-size:10px">+ Agent défenseur</button>`;
+  const manualAgentIds = _getManualDefenseAgentIds(comp);
+  const displayedAgentIds = _getDisplayedDefenseAgentIds(s);
+  const hasManualAgents = manualAgentIds.some(Boolean);
+  const agentHtml = displayedAgentIds.map((id, i) => {
+    const agent = id ? s.agents.find(a => a.id === id) : null;
+    const agentDefaulted = !!agent && manualAgentIds[i] !== id;
+    if (!agent) {
+      return `<button class="comp-pick-agent" data-slot="${i}" style="width:100%;padding:7px;background:var(--bg);border:2px dashed var(--border);border-radius:var(--radius-sm);cursor:pointer;color:var(--text-dim);font-size:10px">+ Agent DEF ${i + 1}</button>`;
+    }
+    return `<div style="display:flex;align-items:center;gap:8px;padding:6px;background:var(--bg);border:1px solid ${agentDefaulted ? 'var(--gold-dim)' : 'var(--border)'};border-radius:var(--radius-sm)">
+      <img src="https://play.pokemonshowdown.com/sprites/gen5/${agent.spriteKey ?? ''}.png" style="width:32px;height:32px;image-rendering:pixelated" onerror="this.style.display='none'">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:9px">${i + 1}. ${agent.name}</div>
+        <div style="font-size:8px;color:var(--text-dim)">Lv.${agent.level} · ${agent.title} · ⚡${_fmtNum(_agentPower(agent, s))}${agentDefaulted ? ' · AUTO' : ''}</div>
+      </div>
+      <button class="comp-pick-agent" data-slot="${i}" style="background:none;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer;font-size:8px;padding:3px 6px">Changer</button>
+      ${agentDefaulted ? '' : `<button class="comp-clear-agent" data-slot="${i}" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:13px">✕</button>`}
+    </div>`;
+  }).join('');
 
   const zones = globalThis.ZONES ?? [];
   const unlockedZones = zones.filter(z => {
@@ -147,13 +187,13 @@ function _renderDefensePanel(el) {
   el.innerHTML = `
     <div style="background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);padding:14px">
       <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold);margin-bottom:10px">🛡 MA DÉFENSE</div>
-      ${!hasManualTeam || agentDefaulted ? `<div style="font-size:8px;color:var(--gold-dim);margin-bottom:10px">AUTO · Boss + équipe active + agent plus haut Lv.</div>` : ''}
+      ${!hasManualTeam || !hasManualAgents ? `<div style="font-size:8px;color:var(--gold-dim);margin-bottom:10px">AUTO · Boss + équipe active + top ${PVP_AGENT_SLOTS} agents si un slot est vide.</div>` : ''}
 
       <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">Équipe (6 Pokémon)</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">${teamSlots}</div>
 
-      <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">Agent défenseur</div>
-      <div style="margin-bottom:12px">${agentHtml}</div>
+      <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">Agents défenseurs (${PVP_AGENT_SLOTS})</div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">${agentHtml}</div>
 
       <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">Zone d'arène</div>
       <select id="comp-zone-select" style="width:100%;padding:6px 8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:9px;margin-bottom:12px">
@@ -164,7 +204,7 @@ function _renderDefensePanel(el) {
       <button id="comp-publish-btn" style="
         width:100%;padding:9px;background:var(--red);border:none;border-radius:var(--radius-sm);
         color:#fff;font-family:var(--font-pixel);font-size:8px;cursor:pointer;letter-spacing:.04em
-      ">${comp.defensePublished ? '🔄 Mettre à jour la défense' : (hasManualTeam || explicitAgent ? '📡 Publier la défense' : '📡 Publier la base')}</button>
+      ">${comp.defensePublished ? '🔄 Mettre à jour la défense' : (hasManualTeam || hasManualAgents ? '📡 Publier la défense' : '📡 Publier la base')}</button>
       ${comp.defensePublished ? `<div style="font-size:8px;color:var(--green);text-align:center;margin-top:5px">✓ Défense en ligne</div>` : ''}
     </div>`;
 
@@ -188,12 +228,19 @@ function _renderDefensePanel(el) {
     });
   });
 
-  el.querySelector('#comp-pick-agent')?.addEventListener('click', () => _openAgentPicker(el));
-  el.querySelector('#comp-clear-agent')?.addEventListener('click', () => {
-    state().gang.competition.defenseAgent = null;
-    state().gang.competition.defensePublished = false;
-    saveState();
-    _renderDefensePanel(el);
+  el.querySelectorAll('.comp-pick-agent').forEach(btn => {
+    btn.addEventListener('click', () => _openAgentPicker(el, parseInt(btn.dataset.slot)));
+  });
+  el.querySelectorAll('.comp-clear-agent').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const comp = state().gang.competition;
+      if (!Array.isArray(comp.defenseAgents)) comp.defenseAgents = _getManualDefenseAgentIds(comp);
+      comp.defenseAgents[parseInt(btn.dataset.slot)] = null;
+      comp.defenseAgent = comp.defenseAgents.find(Boolean) ?? null;
+      comp.defensePublished = false;
+      saveState();
+      _renderDefensePanel(el);
+    });
   });
 
   el.querySelector('#comp-zone-select')?.addEventListener('change', e => {
@@ -210,7 +257,7 @@ function _renderDefensePanel(el) {
     if (ok) _renderDefensePanel(el);
     else {
       btn.disabled = false;
-      btn.textContent = hasManualTeam || explicitAgent ? '📡 Publier la défense' : '📡 Publier la base';
+      btn.textContent = hasManualTeam || hasManualAgents ? '📡 Publier la défense' : '📡 Publier la base';
     }
   });
 }
@@ -246,11 +293,12 @@ function _renderStatsPanel(el) {
       </div>
       <div style="font-size:8px;color:var(--text-dim);line-height:1.8;border-top:1px solid var(--border);padding-top:10px">
         <div>⚔️ <b>1 raid / heure</b> par gang ciblé</div>
-        <div>✅ Victoire raid : <b>+${pct}% rép.</b> adversaire + or</div>
+        <div>✅ Victoire raid : <b>or uniquement</b>, aucune réputation volée</div>
+        <div>💰 Butin : base <b>${pct}% rép. adverse × ${_fmtNum(RAID_GOLD_PER_REP)} ₽</b>, max ${_fmtNum(RAID_GOLD_MAX)} ₽</div>
         <div>❌ Défaite raid : <b>-${_fmtNum(RAID_PENALTY)} ₽</b> ${RAID_NO_DEFENSE_PENALTY_MULT > 1 ? '(×2 auto/vide)' : ''}</div>
         <div>⚠️ Défense auto/vide : <b>malus ×${RAID_NO_DEFENSE_PENALTY_MULT}</b> pour le perdant</div>
         <div>🛡 Défense réussie : <b>+${_fmtNum(RAID_PENALTY)} ₽</b> ${RAID_NO_DEFENSE_PENALTY_MULT > 1 ? '(×2 auto/vide)' : ''}</div>
-        <div>📋 Les malus de rép. s'appliquent à la révision</div>
+        <div>⭐ Réputation PvP : <b>inchangée</b> côté attaquant et défenseur</div>
       </div>
     </div>`;
 }
@@ -288,7 +336,7 @@ async function _renderPendingRaidsPanel(el) {
       const ts   = new Date(r.executed_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
       const delta = won
         ? `<span style="color:var(--green)">+${_fmtNum(r.money_penalty)} ₽</span>`
-        : `<span style="color:var(--red)">-${r.rep_delta} rép.</span>`;
+        : `<span style="color:var(--gold-dim)">Rép. intacte</span>`;
       return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
         <span style="font-size:16px">${won ? '🛡' : '💀'}</span>
         <div style="flex:1;min-width:0">
@@ -362,16 +410,20 @@ async function _loadAndRenderGangs(panelEl) {
     const canAttack   = !onCooldown && !hasPending;
 
     const defensePokemons = (g.defense_pokemon ?? []).filter(Boolean);
-    const noDefense = defensePokemons.length === 0 && !g.defense_agent;
-    const defaultDefense = noDefense || defensePokemons.some(p => p.defaulted) || !!g.defense_agent?.defaulted;
+    const defenseAgents = _defenseAgentsFromData(g);
+    const noDefense = defensePokemons.length === 0 && defenseAgents.length === 0;
+    const defaultDefense = noDefense || defensePokemons.some(p => p.defaulted) || defenseAgents.some(a => a.defaulted);
+    const preview = getRaidPreview(g);
     const miniPokemons = defensePokemons.length
       ? defensePokemons.slice(0, 6).map(p =>
       `<img src="${pokeSprite(p.species_en, p.shiny)}" style="width:24px;height:24px;image-rendering:pixelated" title="${p.species_en} Lv.${p.level}${p.defaulted ? ' AUTO' : ''}">`
       ).join('')
       : `<span style="font-size:8px;color:${noDefense ? 'var(--red)' : 'var(--text-dim)'}">${noDefense ? 'Sans défense' : 'Aucune équipe'}</span>`;
 
-    const agentInfo = g.defense_agent
-      ? `<span style="font-size:8px;color:var(--text-dim)">🧑‍✈️ ${g.defense_agent.name} Lv.${g.defense_agent.level}${g.defense_agent.defaulted ? ' AUTO' : ''}</span>`
+    const powerInfo = `<span style="font-size:8px;color:var(--gold-dim)">🛡 ${_fmtNum(preview.defenderPower)}</span>`;
+
+    const agentInfo = defenseAgents.length
+      ? `<span style="font-size:8px;color:var(--text-dim)">🧑‍✈️ ${defenseAgents.map(a => `${a.name} Lv.${a.level}${a.defaulted ? ' AUTO' : ''}`).join(' · ')}</span>`
       : '';
 
     const zoneInfo = g.defense_zone
@@ -399,7 +451,7 @@ async function _loadAndRenderGangs(panelEl) {
         <div style="font-family:var(--font-pixel);font-size:9px;margin-bottom:2px">${g.gang_name}</div>
         <div style="font-size:8px;color:var(--text-dim);margin-bottom:4px">${g.boss_name} · ⭐ ${_fmtNum(g.reputation_snapshot)} rép.</div>
         <div style="display:flex;gap:2px;flex-wrap:wrap;align-items:center;margin-bottom:3px">${miniPokemons}</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">${agentInfo}${zoneInfo}${noDefenseInfo}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">${powerInfo}${agentInfo}${zoneInfo}${noDefenseInfo}</div>
       </div>
       <div style="flex-shrink:0">${btnHtml}</div>
     </div>`;
@@ -448,21 +500,31 @@ function _openAttackPrepModal(defData, panelEl) {
 
   const s = state();
   const agents = [...(s.agents ?? [])].sort((a, b) => _agentPower(b, s) - _agentPower(a, s));
-  const selectedIds = new Set();
+  const selectedIds = new Set(agents.slice(0, PVP_AGENT_SLOTS).map(a => a.id));
 
   const modal = document.createElement('div');
   modal.id = 'raid-prep-modal';
   modal.style.cssText = 'position:fixed;inset:0;z-index:6000;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center';
 
   function buildHTML() {
-    const power = getAttackerPower([...selectedIds]);
+    const selectedAgentIds = [...selectedIds];
+    const effectiveAgentIds = _effectiveAttackAgentIds(selectedAgentIds, s);
+    const fallbackAgent = selectedAgentIds.length === 0 && effectiveAgentIds.length > 0
+      ? s.agents?.find(a => a.id === effectiveAgentIds[0])
+      : null;
+    const preview = getRaidPreview(defData, selectedAgentIds);
+    const power = preview.attackerPower;
+    const ratio = preview.defenderPower > 0 ? preview.attackerPower / preview.defenderPower : Infinity;
+    const matchupLabel = preview.defenderPower <= 0 ? 'Base vulnérable' : ratio >= 1.15 ? 'Avantage' : ratio >= 0.85 ? 'Équilibré' : 'Risque';
+    const matchupColor = preview.defenderPower <= 0 || ratio >= 1.15 ? 'var(--green)' : ratio >= 0.85 ? 'var(--gold)' : 'var(--red)';
+    const goldCap = preview.goldOnWin >= RAID_GOLD_MAX ? ' · plafond' : '';
     const defBossEl = defData.boss_sprite
       ? `<img src="https://play.pokemonshowdown.com/sprites/gen5/${defData.boss_sprite}.png" style="width:40px;height:40px;image-rendering:pixelated" onerror="this.style.display='none'">`
       : `<div style="width:40px;height:40px;background:var(--bg);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:20px">👤</div>`;
 
     const agentRows = agents.map(a => {
       const sel      = selectedIds.has(a.id);
-      const disabled = !sel && selectedIds.size >= 3;
+      const disabled = !sel && selectedIds.size >= PVP_AGENT_SLOTS;
       const ap       = _agentPower(a, s);
       return `<label style="display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:${disabled ? 'not-allowed' : 'pointer'};border-bottom:1px solid var(--border);opacity:${disabled ? '.4' : '1'}">
         <input type="checkbox" data-agent-id="${a.id}" ${sel ? 'checked' : ''} ${disabled ? 'disabled' : ''} style="accent-color:var(--red);flex-shrink:0">
@@ -487,17 +549,38 @@ function _openAttackPrepModal(defData, panelEl) {
       </div>
 
       <div>
-        <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">AGENTS D'ATTAQUE &nbsp;<span style="color:${selectedIds.size === 3 ? 'var(--gold)' : 'var(--text-dim)'}">${selectedIds.size}/3 sélectionnés</span></div>
+        <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">AGENTS D'ATTAQUE &nbsp;<span style="color:${selectedIds.size === PVP_AGENT_SLOTS ? 'var(--gold)' : 'var(--text-dim)'}">${selectedIds.size}/${PVP_AGENT_SLOTS} sélectionnés</span></div>
         <div style="border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;max-height:200px;overflow-y:auto">
           ${agents.length
             ? agentRows
-            : '<div style="padding:12px;font-size:9px;color:var(--text-dim)">Aucun agent recruté.</div>'}
+            : '<div style="padding:12px;font-size:9px;color:var(--text-dim)">Aucun agent recruté. Les agents DEF adverses bloqueront le raid.</div>'}
         </div>
+        ${fallbackAgent ? `<div style="font-size:8px;color:var(--gold-dim);margin-top:6px">AUTO · ${fallbackAgent.name} sera engagé si aucune case n'est cochée.</div>` : ''}
       </div>
 
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--bg);border-radius:var(--radius-sm)">
-        <span style="font-size:9px;color:var(--text-dim)">Puissance totale estimée</span>
-        <span style="font-size:10px;color:var(--gold)">⚡ ${_fmtNum(power)}</span>
+      <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:center;padding:8px 10px;background:var(--bg);border-radius:var(--radius-sm)">
+        <div>
+          <div style="font-size:8px;color:var(--text-dim)">Attaque</div>
+          <div style="font-size:10px;color:var(--gold)">⚡ ${_fmtNum(power)}</div>
+        </div>
+        <div>
+          <div style="font-size:8px;color:var(--text-dim)">Défense</div>
+          <div style="font-size:10px;color:var(--gold-dim)">🛡 ${_fmtNum(preview.defenderPower)}</div>
+        </div>
+        <div style="font-size:9px;color:${matchupColor};text-align:right">${matchupLabel}</div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:8px;color:var(--text-dim)">
+        <div style="background:rgba(76,175,80,.08);border:1px solid rgba(76,175,80,.25);border-radius:var(--radius-sm);padding:8px">
+          <div style="color:var(--green);margin-bottom:3px">Victoire</div>
+          <div>+${_fmtNum(preview.goldOnWin)} ₽${goldCap}</div>
+          <div>Réputation inchangée</div>
+        </div>
+        <div style="background:rgba(244,67,54,.08);border:1px solid rgba(244,67,54,.25);border-radius:var(--radius-sm);padding:8px">
+          <div style="color:var(--red);margin-bottom:3px">Défaite</div>
+          <div>-${_fmtNum(preview.moneyPenaltyOnLoss)} ₽</div>
+          <div>${preview.defaultDefense ? `malus ×${RAID_NO_DEFENSE_PENALTY_MULT}` : 'défense manuelle'}</div>
+        </div>
       </div>
 
       <div style="display:flex;gap:8px;justify-content:flex-end">
@@ -556,7 +639,9 @@ function _openRaidCinematic(defData, agentIds, result, onDone) {
   const defGangName     = defData.gang_name   ?? 'Gang Adverse';
   const defBossTitle    = defData.boss_title  ?? _repTitle(defData.reputation_snapshot ?? 0);
   const defPokemons     = (defData.defense_pokemon ?? []).filter(Boolean);
-  const selectedAgents  = agentIds.map(id => s.agents?.find(a => a.id === id)).filter(Boolean);
+  const defAgents       = _defenseAgentsFromData(defData);
+  const effectiveAgentIds = _effectiveAttackAgentIds(agentIds, s);
+  const selectedAgents  = effectiveAgentIds.map(id => s.agents?.find(a => a.id === id)).filter(Boolean);
 
   const taunt = _BOSS_TAUNTS[_hashStr(defBossName) % _BOSS_TAUNTS.length];
 
@@ -568,10 +653,8 @@ function _openRaidCinematic(defData, agentIds, result, onDone) {
     taglines.push('La gang avance vers la base ennemie...');
   }
   taglines.push(`La gang ${defGangName} active sa défense !`);
-  if (defPokemons.length > 0) {
-    const pk     = defPokemons[0];
-    const pkName = globalThis.speciesName?.(pk.species_en) ?? pk.species_en;
-    taglines.push(`${defBossName} envoie ${pkName} au combat !`);
+  if (defAgents.length > 0) {
+    taglines.push(`${defAgents.length} agent${defAgents.length > 1 ? 's' : ''} DEF barrent la route.`);
   }
   if (result.noDefense) {
     taglines.push('⚠ La base adverse est sans défense !');
@@ -580,13 +663,29 @@ function _openRaidCinematic(defData, agentIds, result, onDone) {
   }
   taglines.push(`Puissance attaque : ⚡ ${_fmtNum(result.attackerPower)}`);
   taglines.push(`Puissance défense : 🛡 ${_fmtNum(result.defenderPower)}`);
+  for (const duel of (result.duels || [])) {
+    taglines.push(`${duel.attacker.name} affronte ${duel.defender.name} (${_fmtNum(duel.attackerPower)} vs ${_fmtNum(duel.defenderPower)})`);
+    taglines.push(duel.attackerWin ? `${duel.defender.name} tombe.` : `${duel.attacker.name} est hors combat.`);
+  }
+  if (result.finalBattle?.skipped) {
+    taglines.push('Tous les agents du raid sont neutralisés avant le Boss.');
+  } else if (result.finalBattle) {
+    if (defPokemons.length > 0) {
+      const pk     = defPokemons[0];
+      const pkName = globalThis.speciesName?.(pk.species_en) ?? pk.species_en;
+      taglines.push(`${defBossName} engage son équipe Boss avec ${pkName}.`);
+    }
+    taglines.push(`Combat final Boss : ⚡ ${_fmtNum(result.finalBattle.attackerPower)} vs 🛡 ${_fmtNum(result.finalBattle.defenderPower)}`);
+  }
   if (result.attackerWin) {
     taglines.push('— VICTOIRE ! —');
     if (result.defaultDefense && RAID_NO_DEFENSE_PENALTY_MULT > 1) taglines.push(`Bonus ×${RAID_NO_DEFENSE_PENALTY_MULT} (défense auto)`);
-    taglines.push(`+${result.repDelta} rép. · +${_fmtNum(result.goldWon)} ₽`);
+    taglines.push(`+${_fmtNum(result.goldWon)} ₽`);
+    taglines.push('Réputation inchangée.');
   } else {
     taglines.push('— DÉFAITE... —');
     taglines.push(`-${_fmtNum(result.moneyPenalty)} ₽`);
+    taglines.push('Réputation inchangée.');
   }
 
   const overlay = document.createElement('div');
@@ -647,7 +746,10 @@ function _openRaidCinematic(defData, agentIds, result, onDone) {
               ? defPokemons.slice(0, 6).map(p =>
                   `<img src="${pokeSprite(p.species_en, p.shiny)}" style="width:30px;height:30px;image-rendering:pixelated" title="${p.species_en}">`
                 ).join('')
-              : '<span style="font-size:8px;color:var(--red)">Base vide</span>'}
+              : `<span style="font-size:8px;color:var(--red)">${defAgents.length ? 'Boss sans équipe' : 'Base vide'}</span>`}
+            ${defAgents.map(a =>
+              `<img src="https://play.pokemonshowdown.com/sprites/gen5/${a.sprite ?? ''}.png" style="width:30px;height:30px;image-rendering:pixelated" onerror="this.style.display='none'" title="${a.name}">`
+            ).join('')}
           </div>
           <div style="font-size:7px;color:var(--text-dim)">${defGangName}</div>
         </div>
@@ -663,8 +765,8 @@ function _openRaidCinematic(defData, agentIds, result, onDone) {
         </div>
         <div style="font-size:10px;color:var(--text-dim);margin-top:6px">
           ${result.attackerWin
-            ? `+${result.repDelta} rép. · +${_fmtNum(result.goldWon)} ₽`
-            : `-${_fmtNum(result.moneyPenalty)} ₽`}
+            ? `+${_fmtNum(result.goldWon)} ₽ · réputation inchangée`
+            : `-${_fmtNum(result.moneyPenalty)} ₽ · réputation inchangée`}
         </div>
         <button id="cine-continue" style="margin-top:14px;padding:10px 30px;background:${result.attackerWin ? 'var(--green)' : 'var(--red)'};border:none;border-radius:var(--radius-sm);color:#fff;font-family:var(--font-pixel);font-size:9px;cursor:pointer">Continuer →</button>
       </div>
@@ -769,24 +871,28 @@ function _openPokePicker(slotIndex) {
 }
 
 // ── Picker Agent pour défense ─────────────────────────────────────
-function _openAgentPicker(defPanelEl) {
+function _openAgentPicker(defPanelEl, slotIndex = 0) {
   const existing = document.getElementById('comp-agent-picker-modal');
   if (existing) existing.remove();
 
   const s      = state();
   const agents = s.agents ?? [];
+  const manual = _getManualDefenseAgentIds(s.gang.competition);
+  const usedElsewhere = new Set(manual.filter((id, idx) => id && idx !== slotIndex));
 
   if (!agents.length) { notify('Aucun agent recruté.', 'error'); return; }
 
   const rows = agents.map(a => {
+    const disabled = usedElsewhere.has(a.id);
     return `<div class="comp-ap-row" data-id="${a.id}" style="
-      display:flex;align-items:center;gap:8px;padding:8px 10px;cursor:pointer;border-bottom:1px solid var(--border)
+      display:flex;align-items:center;gap:8px;padding:8px 10px;cursor:${disabled ? 'not-allowed' : 'pointer'};border-bottom:1px solid var(--border);opacity:${disabled ? '.45' : '1'}
     ">
       <img src="https://play.pokemonshowdown.com/sprites/gen5/${a.spriteKey ?? ''}.png" style="width:32px;height:32px;image-rendering:pixelated" onerror="this.style.display='none'">
       <div style="flex:1;min-width:0">
         <div style="font-size:9px">${a.name}</div>
         <div style="font-size:8px;color:var(--text-dim)">Lv.${a.level} · ${a.title} · Combat ${a.stats?.combat ?? 0}</div>
       </div>
+      ${disabled ? '<span style="font-size:8px;color:var(--red)">Déjà en DEF</span>' : ''}
     </div>`;
   }).join('');
 
@@ -796,7 +902,7 @@ function _openAgentPicker(defPanelEl) {
   modal.innerHTML = `
     <div style="background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);width:320px;max-height:60vh;display:flex;flex-direction:column">
       <div style="display:flex;align-items:center;padding:12px 14px;border-bottom:1px solid var(--border)">
-        <span style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">Choisir un agent défenseur</span>
+        <span style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">Slot DEF ${slotIndex + 1} — Choisir un agent</span>
         <button id="comp-ap-close" style="margin-left:auto;background:none;border:none;color:var(--text-dim);font-size:16px;cursor:pointer">✕</button>
       </div>
       <div style="overflow-y:auto;flex:1">${rows}</div>
@@ -809,8 +915,12 @@ function _openAgentPicker(defPanelEl) {
 
   modal.querySelectorAll('.comp-ap-row').forEach(row => {
     row.addEventListener('click', () => {
-      state().gang.competition.defenseAgent = row.dataset.id;
-      state().gang.competition.defensePublished = false;
+      if (usedElsewhere.has(row.dataset.id)) return;
+      const comp = state().gang.competition;
+      if (!Array.isArray(comp.defenseAgents)) comp.defenseAgents = _getManualDefenseAgentIds(comp);
+      comp.defenseAgents[slotIndex] = row.dataset.id;
+      comp.defenseAgent = comp.defenseAgents.find(Boolean) ?? null;
+      comp.defensePublished = false;
       saveState();
       modal.remove();
       if (defPanelEl) _renderDefensePanel(defPanelEl);

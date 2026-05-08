@@ -125,7 +125,14 @@ export function migrateSave(saved, deps) {
         comp.defenseTeam[idx] === undefined ? null : comp.defenseTeam[idx],
       );
     }
-    if (comp.defenseAgent     === undefined) comp.defenseAgent     = null;
+    if (!Array.isArray(comp.defenseAgents)) {
+      comp.defenseAgents = comp.defenseAgent ? [comp.defenseAgent, null, null] : [...def.defenseAgents];
+    } else {
+      comp.defenseAgents = Array.from({ length: 3 }, (_, idx) =>
+        comp.defenseAgents[idx] === undefined ? null : comp.defenseAgents[idx],
+      );
+    }
+    comp.defenseAgent = comp.defenseAgents.find(Boolean) ?? null;
     if (comp.defenseZone      === undefined) comp.defenseZone      = null;
     if (comp.defensePublished === undefined) comp.defensePublished  = false;
     comp.wins = ensureObject(comp.wins, {});
