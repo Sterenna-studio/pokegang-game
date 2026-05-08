@@ -43,6 +43,7 @@ export const DEFAULT_STATE = {
     introSeen: false,   // true once the Giovanni intro (or catch-up gift) has been completed
     competition: {
       defenseTeam: [null, null, null, null, null, null],
+      defenseAgents: [null, null, null],
       defenseAgent: null,
       defenseZone: null,
       defensePublished: false,
