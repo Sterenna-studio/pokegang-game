@@ -44,8 +44,8 @@ Access model:
 
 - `player_saves`, `save_snapshots`, `players`: authenticated users can only read/write their own rows.
 - `leaderboard`: public read and public write are enabled because the current game supports anonymous leaderboard rows using a local browser token.
-- `gang_defenses`: public read, authenticated players write only their own published defense.
-- `gang_raids`: authenticated attackers can insert raids; attackers and defenders can read their raids; defenders can only update `seen_by_defender` to acknowledge raids.
+- `gang_defenses`: public read, authenticated players write only their own published defense. The `defense_agent` column stores a JSON array of up to 3 defender agents; legacy rows can still contain a single object and are handled by the app.
+- `gang_raids`: authenticated attackers can insert raids; attackers and defenders can read their raids; defenders can only update `seen_by_defender` to acknowledge raids. PvP raids do not transfer reputation anymore, only money rewards and penalties are recorded.
 
 Important tradeoff: the current anonymous leaderboard is not anti-cheat. A browser client can write leaderboard rows. If this needs to be hardened, move leaderboard writes to a Supabase Edge Function or server endpoint and keep only reads public.
 
@@ -67,8 +67,9 @@ After running the SQL and creating `config.js`:
 2. Go to `Compte`.
 3. Create an account or sign in.
 4. Trigger a save and confirm no Supabase error is shown.
-5. Open `Raids`, publish the base directly or choose a manual defense team first.
+5. Open `Raids`, publish the base directly or choose a manual defense team first. The defense setup now expects up to 3 defender agents in addition to the Boss team.
 6. In Supabase Table Editor, verify rows appear in `player_saves`, `leaderboard`, and `gang_defenses`.
+7. Confirm a raid record stores `rep_delta = 0` and only money is transferred on raid results.
 
 The PvP list only shows real opponents if at least two different authenticated users have published bases.
 

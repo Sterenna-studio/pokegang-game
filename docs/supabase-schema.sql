@@ -254,6 +254,8 @@ create index if not exists leaderboard_updated_idx on public.leaderboard(updated
 
 -- ============================================================================
 -- PvP gang competition: published defenses.
+-- defense_agent stores up to 3 defender agents in JSON form.
+-- Legacy single-agent rows are still accepted by the frontend.
 -- ============================================================================
 
 create table if not exists public.gang_defenses (
@@ -311,6 +313,8 @@ create index if not exists gang_defenses_updated_idx on public.gang_defenses(upd
 
 -- ============================================================================
 -- PvP gang competition: raid log and defender acknowledgements.
+-- Raids no longer transfer reputation. `rep_delta` is retained as a legacy
+-- audit field so older rows and app code can coexist during migration.
 -- ============================================================================
 
 create table if not exists public.gang_raids (
