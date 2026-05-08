@@ -187,12 +187,12 @@ function _renderDefensePanel(el) {
   el.innerHTML = `
     <div style="background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);padding:14px">
       <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold);margin-bottom:10px">🛡 MA DÉFENSE</div>
-      ${!hasManualTeam || !hasManualAgents ? `<div style="font-size:8px;color:var(--gold-dim);margin-bottom:10px">AUTO · Boss + équipe active + top ${PVP_AGENT_SLOTS} agents si un slot est vide.</div>` : ''}
+      ${!hasManualTeam || !hasManualAgents ? `<div style="font-size:8px;color:var(--gold-dim);margin-bottom:10px">AUTO · Boss + ${PVP_AGENT_SLOTS} agents DEF les plus forts si un slot est vide.</div>` : ''}
 
       <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">Équipe (6 Pokémon)</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">${teamSlots}</div>
 
-      <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">Agents défenseurs (${PVP_AGENT_SLOTS})</div>
+      <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">Agents défenseurs (${PVP_AGENT_SLOTS} slots + Boss)</div>
       <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">${agentHtml}</div>
 
       <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">Zone d'arène</div>
@@ -555,7 +555,7 @@ function _openAttackPrepModal(defData, panelEl) {
             ? agentRows
             : '<div style="padding:12px;font-size:9px;color:var(--text-dim)">Aucun agent recruté. Les agents DEF adverses bloqueront le raid.</div>'}
         </div>
-        ${fallbackAgent ? `<div style="font-size:8px;color:var(--gold-dim);margin-top:6px">AUTO · ${fallbackAgent.name} sera engagé si aucune case n'est cochée.</div>` : ''}
+        ${fallbackAgent ? `<div style="font-size:8px;color:var(--gold-dim);margin-top:6px">AUTO · ${fallbackAgent.name} entre en jeu si aucun agent n'est sélectionné.</div>` : ''}
       </div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:center;padding:8px 10px;background:var(--bg);border-radius:var(--radius-sm)">
