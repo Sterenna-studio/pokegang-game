@@ -91,7 +91,7 @@ function getTabHint(tabId) {
     case 'tabPokedex':
       return `Kanto ${getDexKantoCaught()}/${getKantoDexSize()} · National ${getDexNationalCaught()}/${getNationalDexSize()} · Chromas ${getShinySpeciesCount()} espèces. Explore toutes les zones pour compléter !`;
     case 'tabCompetition':
-      return `Défie les gangs adverses pour voler leur réputation. Configure ta défense, puis lance un raid — 1 par heure par cible.`;
+      return `Défie les gangs adverses. Côté défense, publie 3 agents DEF + le Boss. Côté attaque, envoie jusqu'à 3 agents en raid : les combats s'enchaînent un à un avant le Boss.`;
     default:
       return null;
   }
@@ -108,7 +108,7 @@ const _FIRST_VISIT_HINTS = {
   tabLab:      { icon: '🔬', title: 'Laboratoire', body: 'Le Potentiel (⭐) multiplie la valeur et les stats d\'un Pokémon. Fusionne des doublons pour monter jusqu\'à 5⭐.' },
   tabMissions: { icon: '📋', title: 'Missions', body: 'Objectifs quotidiens et hebdomadaires. Complète-les pour des ₽ et des objets rares.' },
   tabPokedex:   { icon: '📖', title: 'Pokédex', body: 'Chaque espèce capturée est enregistrée ici. Vise 151/151 pour tout débloquer.' },
-  tabCompetition: { icon: '⚔️', title: 'Compétition', body: 'Affronte les gangs des autres joueurs pour leur voler de la réputation. Configure une défense ou publie ta base avec la sélection auto Boss + agent plus haut Lv. Lance ensuite des raids — 1 par heure et par cible.' },
+  tabCompetition: { icon: '⚔️', title: 'Compétition', body: `Affronte les gangs des autres joueurs avec des raids séquentiels : 3 agents DEF plus le Boss en face, jusqu'à 3 attaquants envoyés au combat, puis le Boss adverse prend le relais.` },
 };
 
 function showFirstVisitHint(tabId) {
