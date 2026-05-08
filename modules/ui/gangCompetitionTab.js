@@ -23,6 +23,7 @@ import {
   RAID_GOLD_PER_REP,
   RAID_GOLD_MAX,
   PVP_AGENT_SLOTS,
+  PVP_BOSS_TEAM_SLOTS,
 } from '../systems/gangCompetition.js';
 
 // ── Helpers locaux ────────────────────────────────────────────────
@@ -171,29 +172,25 @@ function _renderDefensePanel(el) {
   if (!el) return;
   const s    = state();
   const comp = s.gang.competition;
-  const hasManualTeam = comp.defenseTeam.some(Boolean);
-  const displayedTeam = hasManualTeam
-    ? comp.defenseTeam
-    : Array.from({ length: 6 }, (_, idx) => s.gang.bossTeam?.[idx] ?? null);
+  const bossTeamIds = Array.from({ length: PVP_BOSS_TEAM_SLOTS }, (_, idx) => s.gang.bossTeam?.[idx] ?? null);
+  const hasBossTeam = bossTeamIds.some(Boolean);
 
-  const teamSlots = displayedTeam.map((id, i) => {
+  const teamSlots = bossTeamIds.map((id, i) => {
     const p = id ? s.pokemons.find(pk => pk.id === id) : null;
     if (p) {
-      return `<div class="comp-def-slot" data-slot="${i}" style="
-        position:relative;width:52px;height:52px;background:var(--bg);border:2px solid ${hasManualTeam ? 'var(--border)' : 'var(--gold-dim)'};
-        border-radius:var(--radius-sm);cursor:pointer;overflow:hidden;display:flex;align-items:center;justify-content:center
-      " title="${p.species_en} Lv.${p.level}${hasManualTeam ? '' : ' · auto Boss'}">
+      return `<div class="comp-boss-slot" data-slot="${i}" style="
+        position:relative;width:52px;height:52px;background:var(--bg);border:2px solid var(--gold-dim);
+        border-radius:var(--radius-sm);overflow:hidden;display:flex;align-items:center;justify-content:center
+      " title="${p.species_en} Lv.${p.level} · Boss">
         <img src="${pokeSprite(p.species_en, p.shiny)}" style="width:44px;height:44px;image-rendering:pixelated">
         <div style="position:absolute;bottom:0;left:0;right:0;font-size:7px;text-align:center;background:rgba(0,0,0,.55);color:#fff;padding:1px 0">${p.species_en.slice(0,6)}</div>
-        ${hasManualTeam
-          ? `<button class="comp-def-remove" data-slot="${i}" style="position:absolute;top:0;right:0;background:var(--red);border:none;color:#fff;font-size:8px;line-height:1;padding:1px 3px;cursor:pointer">✕</button>`
-          : `<span style="position:absolute;top:1px;right:2px;font-size:6px;color:var(--gold);background:rgba(0,0,0,.65);padding:1px 2px;border-radius:2px">AUTO</span>`}
+        <span style="position:absolute;top:1px;right:2px;font-size:6px;color:var(--gold);background:rgba(0,0,0,.65);padding:1px 2px;border-radius:2px">BOSS</span>
       </div>`;
     }
-    return `<button class="comp-def-add" data-slot="${i}" style="
+    return `<div class="comp-boss-slot empty" data-slot="${i}" style="
       width:52px;height:52px;background:var(--bg);border:2px dashed var(--border);
-      border-radius:var(--radius-sm);cursor:pointer;color:var(--text-dim);font-size:18px
-    ">+</button>`;
+      border-radius:var(--radius-sm);color:var(--text-dim);font-size:18px;display:flex;align-items:center;justify-content:center
+    " title="Slot Boss vide">+</div>`;
   }).join('');
 
   const manualAgentIds = _getManualDefenseAgentIds(comp);
@@ -228,10 +225,11 @@ function _renderDefensePanel(el) {
   el.innerHTML = `
     <div style="background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);padding:14px">
       <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold);margin-bottom:10px">🛡 MA DÉFENSE</div>
-      ${!hasManualTeam || !hasManualAgents ? `<div style="font-size:8px;color:var(--gold-dim);margin-bottom:10px">AUTO · Boss + ${PVP_AGENT_SLOTS} agents DEF les plus forts si un slot est vide.</div>` : ''}
+      ${!hasManualAgents ? `<div style="font-size:8px;color:var(--gold-dim);margin-bottom:10px">AUTO · Les agents DEF les plus forts remplacent les slots vides.</div>` : ''}
 
-      <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">Équipe (6 Pokémon)</div>
+      <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">Équipe Boss (${PVP_BOSS_TEAM_SLOTS} Pokémon)</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">${teamSlots}</div>
+      ${!hasBossTeam ? `<div style="font-size:8px;color:var(--red);margin-top:-6px;margin-bottom:12px">Aucun Pokémon dans l'équipe Boss.</div>` : ''}
 
       <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">Agents défenseurs (${PVP_AGENT_SLOTS} slots + Boss)</div>
       <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">${agentHtml}</div>
@@ -245,29 +243,9 @@ function _renderDefensePanel(el) {
       <button id="comp-publish-btn" style="
         width:100%;padding:9px;background:var(--red);border:none;border-radius:var(--radius-sm);
         color:#fff;font-family:var(--font-pixel);font-size:8px;cursor:pointer;letter-spacing:.04em
-      ">${comp.defensePublished ? '🔄 Mettre à jour la défense' : (hasManualTeam || hasManualAgents ? '📡 Publier la défense' : '📡 Publier la base')}</button>
+      ">${comp.defensePublished ? '🔄 Mettre à jour la défense' : (hasManualAgents ? '📡 Publier la défense' : '📡 Publier la base')}</button>
       ${comp.defensePublished ? `<div style="font-size:8px;color:var(--green);text-align:center;margin-top:5px">✓ Défense en ligne</div>` : ''}
     </div>`;
-
-  // Événements slots
-  el.querySelectorAll('.comp-def-add').forEach(btn => {
-    btn.addEventListener('click', () => _openPokePicker(parseInt(btn.dataset.slot)));
-  });
-  el.querySelectorAll('.comp-def-slot').forEach(div => {
-    div.addEventListener('click', e => {
-      if (!e.target.classList.contains('comp-def-remove'))
-        _openPokePicker(parseInt(div.dataset.slot));
-    });
-  });
-  el.querySelectorAll('.comp-def-remove').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      state().gang.competition.defenseTeam[parseInt(btn.dataset.slot)] = null;
-      state().gang.competition.defensePublished = false;
-      saveState();
-      _renderDefensePanel(el);
-    });
-  });
 
   el.querySelectorAll('.comp-pick-agent').forEach(btn => {
     btn.addEventListener('click', () => _openAgentPicker(el, parseInt(btn.dataset.slot)));
@@ -298,7 +276,7 @@ function _renderDefensePanel(el) {
     if (ok) _renderDefensePanel(el);
     else {
       btn.disabled = false;
-      btn.textContent = hasManualTeam || hasManualAgents ? '📡 Publier la défense' : '📡 Publier la base';
+      btn.textContent = hasManualAgents ? '📡 Publier la défense' : '📡 Publier la base';
     }
   });
 }
@@ -453,11 +431,11 @@ async function _loadAndRenderGangs(panelEl) {
     const defensePokemons = (g.defense_pokemon ?? []).filter(Boolean);
     const defenseAgents = _defenseAgentsFromData(g);
     const noDefense = defensePokemons.length === 0 && defenseAgents.length === 0;
-    const defaultDefense = noDefense || defensePokemons.some(p => p.defaulted) || defenseAgents.some(a => a.defaulted);
+    const defaultDefense = noDefense || defenseAgents.some(a => a.defaulted);
     const preview = getRaidPreview(g);
     const miniPokemons = defensePokemons.length
-      ? defensePokemons.slice(0, 6).map(p =>
-      `<img src="${pokeSprite(p.species_en, p.shiny)}" style="width:24px;height:24px;image-rendering:pixelated" title="${p.species_en} Lv.${p.level}${p.defaulted ? ' AUTO' : ''}">`
+      ? defensePokemons.slice(0, PVP_BOSS_TEAM_SLOTS).map(p =>
+      `<img src="${pokeSprite(p.species_en, p.shiny)}" style="width:24px;height:24px;image-rendering:pixelated" title="${p.species_en} Lv.${p.level}">`
       ).join('')
       : `<span style="font-size:8px;color:${noDefense ? 'var(--red)' : 'var(--text-dim)'}">${noDefense ? 'Sans défense' : 'Aucune équipe'}</span>`;
 
@@ -784,7 +762,7 @@ function _openRaidCinematic(defData, agentIds, result, onDone) {
           <div style="font-size:7px;color:var(--text-dim);font-family:var(--font-pixel);letter-spacing:.06em">DÉFENSE ADVERSE</div>
           <div style="display:flex;gap:3px;flex-wrap:wrap;justify-content:center;max-width:150px">
             ${defPokemons.length > 0
-              ? defPokemons.slice(0, 6).map(p =>
+              ? defPokemons.slice(0, PVP_BOSS_TEAM_SLOTS).map(p =>
                   `<img src="${pokeSprite(p.species_en, p.shiny)}" style="width:30px;height:30px;image-rendering:pixelated" title="${p.species_en}">`
                 ).join('')
               : `<span style="font-size:8px;color:var(--red)">${defAgents.length ? 'Boss sans équipe' : 'Base vide'}</span>`}
@@ -843,71 +821,6 @@ function _openRaidCinematic(defData, agentIds, result, onDone) {
     clearInterval(timer);
     overlay.remove();
     onDone?.();
-  });
-}
-
-// ── Picker Pokémon pour slot défense ─────────────────────────────
-function _openPokePicker(slotIndex) {
-  const existing = document.getElementById('comp-poke-picker-modal');
-  if (existing) existing.remove();
-
-  const s = state();
-  const used = new Set(s.gang.competition.defenseTeam.filter(Boolean));
-
-  const sorted = [...s.pokemons]
-    .sort((a, b) => {
-      const pa = (a.stats?.atk ?? 0) + (a.stats?.def ?? 0) + (a.stats?.spd ?? 0);
-      const pb = (b.stats?.atk ?? 0) + (b.stats?.def ?? 0) + (b.stats?.spd ?? 0);
-      return pb - pa;
-    });
-
-  const rows = sorted.map(p => {
-    const power = (p.stats?.atk ?? 0) + (p.stats?.def ?? 0) + (p.stats?.spd ?? 0);
-    const isUsed = used.has(p.id);
-    return `<div class="comp-pp-row" data-id="${p.id}" style="
-      display:flex;align-items:center;gap:8px;padding:6px 10px;cursor:pointer;
-      background:${isUsed ? 'rgba(255,0,0,.08)' : ''};
-      border-bottom:1px solid var(--border);
-      opacity:${isUsed ? '.5' : '1'};
-    ">
-      <img src="${pokeSprite(p.species_en, p.shiny)}" style="width:32px;height:32px;image-rendering:pixelated">
-      <div style="flex:1;min-width:0">
-        <div style="font-size:9px">${p.species_en}${p.shiny ? ' ✨' : ''}</div>
-        <div style="font-size:8px;color:var(--text-dim)">Lv.${p.level} · ${p.potential ?? 1}⭐ · ⚡${power}</div>
-      </div>
-      ${isUsed ? '<span style="font-size:8px;color:var(--red)">Déjà assigné</span>' : ''}
-    </div>`;
-  }).join('');
-
-  const modal = document.createElement('div');
-  modal.id = 'comp-poke-picker-modal';
-  modal.style.cssText = `
-    position:fixed;inset:0;z-index:5000;display:flex;align-items:center;justify-content:center;
-    background:rgba(0,0,0,.6)`;
-  modal.innerHTML = `
-    <div style="background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);width:360px;max-height:70vh;display:flex;flex-direction:column">
-      <div style="display:flex;align-items:center;padding:12px 14px;border-bottom:1px solid var(--border)">
-        <span style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">Slot ${slotIndex + 1} — Choisir un Pokémon</span>
-        <button id="comp-pp-close" style="margin-left:auto;background:none;border:none;color:var(--text-dim);font-size:16px;cursor:pointer">✕</button>
-      </div>
-      <div style="overflow-y:auto;flex:1">${rows}</div>
-    </div>`;
-
-  document.body.appendChild(modal);
-
-  modal.querySelector('#comp-pp-close')?.addEventListener('click', () => modal.remove());
-  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
-
-  modal.querySelectorAll('.comp-pp-row').forEach(row => {
-    row.addEventListener('click', () => {
-      const id = row.dataset.id;
-      state().gang.competition.defenseTeam[slotIndex] = id;
-      state().gang.competition.defensePublished = false;
-      saveState();
-      modal.remove();
-      const defPanel = document.querySelector('#comp-defense-panel');
-      if (defPanel) _renderDefensePanel(defPanel);
-    });
   });
 }
 
