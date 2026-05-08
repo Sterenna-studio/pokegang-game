@@ -297,8 +297,6 @@ export const JinglePlayer = (() => {
 
 // ── SE (fichiers audio) ─────────────────────────────────────────────────────────
 export const SE_SOUNDS = {
-  buy:       'music/SE/Charm.mp3',
-  level_up:  'music/SE/BW2Summary.mp3',
   slash:     'music/SE/Slash.mp3',
   metronome: 'music/SE/Metronome.mp3',
   explosion: 'music/SE/Explosion.mp3',
