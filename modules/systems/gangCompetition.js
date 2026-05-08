@@ -19,6 +19,7 @@ const RAID_GOLD_PER_REP = 200;       // gold par point de base de butin
 const RAID_GOLD_MAX     = 1_000_000; // plafond d'or par raid (1M)
 const RAID_COOLDOWN_MS  = 60 * 60 * 1000; // 1 heure par cible
 const PVP_AGENT_SLOTS   = 3;
+const PVP_BOSS_TEAM_SLOTS = 3;
 
 let _ctx = {};
 
@@ -108,17 +109,12 @@ function _snapshotAgent(agent, state = getState(), { defaulted = false } = {}) {
   };
 }
 
-function _explicitDefenseIds(comp) {
-  return (comp?.defenseTeam || []).filter(Boolean);
-}
-
 function _defaultDefenseIds(state = getState()) {
-  return [...new Set((state.gang?.bossTeam || []).filter(Boolean))].slice(0, 6);
+  return [...new Set((state.gang?.bossTeam || []).filter(Boolean))].slice(0, PVP_BOSS_TEAM_SLOTS);
 }
 
 function _effectiveDefenseIds(state = getState()) {
-  const explicit = _explicitDefenseIds(state.gang?.competition);
-  return explicit.length ? explicit.slice(0, 6) : _defaultDefenseIds(state);
+  return _defaultDefenseIds(state);
 }
 
 function _explicitDefenseAgentIds(comp) {
@@ -166,13 +162,13 @@ function _hasPublishedDefense(defData) {
 
 function _isDefaultDefense(defData) {
   if (!_hasPublishedDefense(defData)) return true;
-  return (defData?.defense_pokemon || []).some(p => p?.defaulted) || _defenseAgentsFromData(defData).some(a => a?.defaulted);
+  return _defenseAgentsFromData(defData).some(a => a?.defaulted);
 }
 
 // ── Puissance de défense calculée depuis les données stockées ─────
 function _defensePokemonPower(defData) {
   let power = 0;
-  for (const p of (defData?.defense_pokemon || [])) {
+  for (const p of (defData?.defense_pokemon || []).filter(Boolean).slice(0, PVP_BOSS_TEAM_SLOTS)) {
     power += _defPokemonPower(p);
   }
   return power;
@@ -336,14 +332,13 @@ export function buildDefensePayload() {
   const state = getState();
   const comp  = state.gang.competition;
 
-  const hasExplicitTeam = _explicitDefenseIds(comp).length > 0;
   const defenseIds = _effectiveDefenseIds(state);
   const pokemons = defenseIds.map(id => {
     if (!id) return null;
     const p = state.pokemons.find(pk => pk.id === id);
     if (!p) return null;
-    return _snapshotPokemon(p, { defaulted: !hasExplicitTeam });
-  });
+    return _snapshotPokemon(p);
+  }).filter(Boolean);
 
   const explicitAgentIds = _explicitDefenseAgentIds(comp);
   const explicitAgentSet = new Set(explicitAgentIds);
@@ -611,4 +606,5 @@ export {
   RAID_GOLD_MAX,
   RAID_COOLDOWN_MS,
   PVP_AGENT_SLOTS,
+  PVP_BOSS_TEAM_SLOTS,
 };

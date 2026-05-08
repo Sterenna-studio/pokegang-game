@@ -31,7 +31,7 @@ The schema creates every table currently used by the frontend:
 - `save_snapshots`: recent restore points
 - `players`: authenticated account stats row
 - `leaderboard`: public all-time/monthly leaderboard
-- `gang_defenses`: published PvP defenses, including the Boss team and up to three defender agents in `defense_agent`
+- `gang_defenses`: published PvP defenses, including the active 3-Pokémon Boss team and up to three defender agents in `defense_agent`
 - `gang_raids`: PvP raid records and defender acknowledgements
 
 The SQL is written to be rerunnable for normal updates: it uses `create table if not exists`, adds missing columns, enables RLS, drops/recreates the expected policies, and creates useful indexes.
@@ -67,7 +67,7 @@ After running the SQL and creating `config.js`:
 2. Go to `Compte`.
 3. Create an account or sign in.
 4. Trigger a save and confirm no Supabase error is shown.
-5. Open `Raids`, publish the base directly or choose a manual defense team first. The defense setup now expects up to 3 defender agents in addition to the Boss team.
+5. Open `Raids`, set the active Boss team in `Gang` if needed, then publish the base. The defense uses the 3-Pokémon Boss team plus up to 3 defender agents.
 6. In Supabase Table Editor, verify rows appear in `player_saves`, `leaderboard`, and `gang_defenses`.
 7. Confirm a raid record stores `rep_delta = 0` and only money is transferred on raid results.
 

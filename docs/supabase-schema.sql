@@ -254,6 +254,7 @@ create index if not exists leaderboard_updated_idx on public.leaderboard(updated
 
 -- ============================================================================
 -- PvP gang competition: published defenses.
+-- defense_pokemon stores the active 3-Pokemon Boss team snapshot.
 -- defense_agent stores up to 3 defender agents in JSON form.
 -- Legacy single-agent rows are still accepted by the frontend.
 -- ============================================================================
