@@ -10,6 +10,7 @@
 
 import {
   publishDefense,
+  purgeLegacyDefenseData,
   loadGangList,
   executeRaid,
   loadPendingRaids,
@@ -29,6 +30,17 @@ function state()     { return globalThis.state; }
 function notify(...a){ return globalThis.notify?.(...a); }
 function saveState() { return globalThis.saveState?.(); }
 function pokeSprite(en, shiny) { return globalThis.pokeSprite?.(en, shiny) ?? ''; }
+function showConfirm(message, onConfirm, opts = {}) {
+  if (typeof globalThis.showConfirm === 'function') {
+    return globalThis.showConfirm(message, onConfirm, null, opts);
+  }
+  const plain = String(message).replace(/<[^>]*>/g, ' ');
+  if (typeof globalThis.confirm === 'function') {
+    if (globalThis.confirm(plain)) return onConfirm?.();
+    return undefined;
+  }
+  return onConfirm?.();
+}
 
 function _fmtMs(ms) {
   const m = Math.ceil(ms / 60_000);
@@ -107,9 +119,16 @@ export async function renderGangCompetitionTab() {
 
   tab.innerHTML = `
     <div style="padding:16px;max-width:900px">
-      <div style="font-family:var(--font-pixel);font-size:12px;color:var(--red);margin-bottom:16px">
-        ⚔️ COMPÉTITION DE GANGS
-        ${pendingCount > 0 ? `<span style="margin-left:12px;background:var(--red);color:#fff;font-size:8px;padding:2px 7px;border-radius:99px;vertical-align:middle">${pendingCount} raid${pendingCount > 1 ? 's' : ''} à voir</span>` : ''}
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+        <div style="font-family:var(--font-pixel);font-size:12px;color:var(--red);margin-right:auto">
+          ⚔️ COMPÉTITION DE GANGS
+          ${pendingCount > 0 ? `<span style="margin-left:12px;background:var(--red);color:#fff;font-size:8px;padding:2px 7px;border-radius:99px;vertical-align:middle">${pendingCount} raid${pendingCount > 1 ? 's' : ''} à voir</span>` : ''}
+        </div>
+        <button id="comp-purge-legacy-defense" title="Purger l'ancienne défense publiée et recharger le module" style="
+          font-family:var(--font-pixel);font-size:7px;padding:6px 9px;background:var(--bg);
+          border:1px solid var(--red);border-radius:var(--radius-sm);color:var(--red);
+          cursor:pointer;letter-spacing:.02em
+        ">⟳ Rafraîchir / purger défense</button>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
         <div id="comp-defense-panel"></div>
@@ -119,10 +138,32 @@ export async function renderGangCompetitionTab() {
       <div id="comp-gangs-panel" style="margin-top:16px"></div>
     </div>`;
 
+  _bindLegacyDefensePurge(tab);
   _renderDefensePanel(tab.querySelector('#comp-defense-panel'));
   _renderStatsPanel(tab.querySelector('#comp-stats-panel'));
   await _renderPendingRaidsPanel(tab.querySelector('#comp-raids-panel'));
   await _renderGangListPanel(tab.querySelector('#comp-gangs-panel'));
+}
+
+function _bindLegacyDefensePurge(tab) {
+  const btn = tab.querySelector('#comp-purge-legacy-defense');
+  if (!btn) return;
+
+  btn.addEventListener('click', () => {
+    showConfirm(
+      `Purger l'ancienne défense de gang ?<br><span style="color:var(--text-dim);font-size:10px">La défense locale sera vidée et la défense publiée en ligne sera supprimée si le compte Supabase est connecté. Les stats de raids restent intactes.</span>`,
+      () => {
+        void (async () => {
+          btn.disabled = true;
+          btn.textContent = '…';
+          await purgeLegacyDefenseData();
+          await renderGangCompetitionTab();
+          globalThis.updateTopBar?.();
+        })();
+      },
+      { danger: true, confirmLabel: 'Purger', cancelLabel: 'Annuler' },
+    );
+  });
 }
 
 // ── Panneau setup défense ─────────────────────────────────────────
