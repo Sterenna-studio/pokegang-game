@@ -151,6 +151,15 @@ function _defenseAgentsFromData(defData) {
   return raw ? [raw] : [];
 }
 
+function _clearLocalDefense(comp) {
+  if (!comp) return;
+  comp.defenseTeam = [null, null, null, null, null, null];
+  comp.defenseAgents = Array.from({ length: PVP_AGENT_SLOTS }, () => null);
+  comp.defenseAgent = null;
+  comp.defenseZone = null;
+  comp.defensePublished = false;
+}
+
 function _hasPublishedDefense(defData) {
   return (defData?.defense_pokemon || []).filter(Boolean).length > 0 || _defenseAgentsFromData(defData).length > 0;
 }
@@ -383,6 +392,46 @@ export async function publishDefense() {
     notify('Erreur réseau lors de la publication.', 'error');
     return false;
   }
+}
+
+// ── Purger l'ancienne défense publiée ────────────────────────────
+export async function purgeLegacyDefenseData() {
+  const state = getState();
+  const comp = state.gang?.competition;
+  if (!comp) {
+    notify('Module compétition introuvable.', 'error');
+    return { ok: false, localPurged: false, remotePurged: false };
+  }
+
+  _clearLocalDefense(comp);
+
+  const db = getSupabaseClient();
+  const session = getSupaSession();
+  if (!db || !session) {
+    saveState();
+    notify('Défense locale purgée. Connexion Supabase requise pour purger la défense en ligne.', 'gold');
+    return { ok: true, localPurged: true, remotePurged: false };
+  }
+
+  try {
+    const { error } = await db
+      .from('gang_defenses')
+      .delete()
+      .eq('user_id', session.user.id);
+    if (error) {
+      saveState();
+      notify('Défense locale purgée, mais purge en ligne impossible : ' + error.message, 'error');
+      return { ok: false, localPurged: true, remotePurged: false, error };
+    }
+  } catch (error) {
+    saveState();
+    notify('Défense locale purgée, mais erreur réseau pendant la purge en ligne.', 'error');
+    return { ok: false, localPurged: true, remotePurged: false, error };
+  }
+
+  saveState();
+  notify('Ancienne défense purgée. Republie une défense neuve.', 'success');
+  return { ok: true, localPurged: true, remotePurged: true };
 }
 
 // ── Charger la liste des gangs adverses ──────────────────────────
