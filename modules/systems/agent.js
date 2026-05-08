@@ -3,6 +3,8 @@
 //  Extracted from app.js
 // ════════════════════════════════════════════════════════════════
 
+import { resolveTrainerCombat } from './zoneCombat.js';
+
 // ── REWORK FLAG ──────────────────────────────────────────────────
 // La montée de niveau des agents est temporairement gelée pendant
 // le rework du système. Les agents accumulent de l'XP normalement
@@ -465,6 +467,97 @@ function getAgentCombatPower(agent) {
   return Math.round((agent.stats.combat * 10 + teamPower) * bonus);
 }
 
+function _zoneCombatAgents(zoneId, { isRaid = false, preferredAgent = null } = {}) {
+  const state = globalThis.state;
+  const preferredId = preferredAgent?.id ?? null;
+  return [...(state.agents || [])]
+    .filter(agent => agent.assignedZone === zoneId)
+    .filter(agent => isRaid ? agent.autoRaid !== false : agent.autoCombat !== false)
+    .sort((a, b) => {
+      if (a.id === preferredId) return -1;
+      if (b.id === preferredId) return 1;
+      return getAgentCombatPower(b) - getAgentCombatPower(a);
+    })
+    .slice(0, 3);
+}
+
+function _combatTeamIdsForAgents(agentIds = []) {
+  const state = globalThis.state;
+  const ids = [];
+  for (const id of state.gang?.bossTeam || []) {
+    if (id) ids.push(id);
+  }
+  for (const agentId of agentIds) {
+    const agent = state.agents.find(a => a.id === agentId);
+    for (const id of agent?.team || []) {
+      if (id) ids.push(id);
+    }
+  }
+  return [...new Set(ids)].filter(id => state.pokemons.some(pokemon => pokemon.id === id));
+}
+
+function _trainerCombatLogLines(result, mainAgentName, trainerName, reward, repGain) {
+  const lines = [];
+  for (const duel of result.duels || []) {
+    lines.push(`${duel.attacker.name} vs ${duel.defender.name}: ${duel.attackerWin ? 'win' : 'loss'}`);
+  }
+  if (result.finalBattle?.skipped) {
+    lines.push('Boss battle skipped: attackers defeated');
+  } else if (result.finalBattle) {
+    lines.push(`Boss battle: ${result.finalBattle.attackerWin ? 'win' : 'loss'} (${result.finalBattle.attackerPower}/${result.finalBattle.defenderPower})`);
+  }
+  lines.push(result.attackerWin
+    ? `${mainAgentName} a battu ${trainerName}. +${reward}₽ +${repGain}rep`
+    : `${mainAgentName} a perdu contre ${trainerName}.`);
+  return lines;
+}
+
+function _applyResolvedAgentCombat(zoneId, spawnObj, combatAgents, result) {
+  const state = globalThis.state;
+  const agentIds = combatAgents.map(agent => agent.id);
+  const teamIds = _combatTeamIdsForAgents(agentIds);
+  const trainerData = { ...spawnObj, zoneId };
+  const trainer = trainerData.trainer || {};
+  const rewardRange = trainer.reward || [10, 50];
+  const reward = result.attackerWin
+    ? Math.min(globalThis.MAX_COMBAT_REWARD, globalThis.randInt(rewardRange[0], rewardRange[1]))
+    : 0;
+  const repGain = globalThis.getCombatRepGain(trainerData.trainerKey || trainerData.trainer?.sprite, result.attackerWin);
+  const mainAgent = combatAgents[0];
+  const trainerName = trainer.fr || trainer.en || trainerData.trainerKey || 'dresseur';
+
+  globalThis.applyCombatResult({ win: result.attackerWin, reward, repGain }, teamIds, trainerData);
+
+  if (result.attackerWin) {
+    const zoneState = state.zones[zoneId];
+    if (zoneState) zoneState.combatsWon = (zoneState.combatsWon || 0) + 1;
+    const xpEach = Math.round((10 + (trainer.diff || 1) * 5) * 0.75);
+    for (const agent of combatAgents) {
+      agent.combatsWon = (agent.combatsWon || 0) + 1;
+      grantAgentXP(agent, xpEach);
+    }
+    if (mainAgent?.notifyCaptures !== false) globalThis.notify(`⚔️ ${mainAgent.name} +${reward}₽ +${repGain}rep`, 'success');
+    globalThis.addLog(globalThis.t('agent_win', { agent: mainAgent?.name || 'Agent' }));
+  } else {
+    if (mainAgent?.notifyCaptures !== false) globalThis.notify(`💀 ${mainAgent?.name || 'Agent'} — défaite`, 'error');
+    globalThis.addLog(globalThis.t('agent_lose', { agent: mainAgent?.name || 'Agent' }));
+  }
+
+  globalThis.addBattleLogEntry?.({
+    ts: Date.now(),
+    zoneName: `[BG] ${mainAgent?.name || 'Agent'} — ${ZONE_BY_ID[zoneId]?.fr || zoneId}`,
+    win: result.attackerWin,
+    reward,
+    repGain,
+    lines: _trainerCombatLogLines(result, mainAgent?.name || 'Agent', trainerName, reward, repGain),
+    trainerKey: trainerData.trainerKey,
+    isAgent: true,
+  });
+
+  globalThis.saveState?.();
+  return { reward, repGain };
+}
+
 // ── Résolution background d'un spawn pour une zone fermée ────────
 // Appelé par backgroundZoneTimers (app.js) au vrai spawnRate de la zone.
 // Génère un spawn et le résout silencieusement via les agents assignés.
@@ -563,80 +656,11 @@ function resolveBackgroundSpawnForZone(zoneId) {
   // ── Dresseur / Raid ──────────────────────────────────────────
   } else if (entry.type === 'trainer' || entry.type === 'raid') {
     const isRaid = entry.type === 'raid';
-    const combatAgents = agents.filter(a => isRaid ? a.autoRaid !== false : a.autoCombat !== false);
+    const combatAgents = _zoneCombatAgents(zoneId, { isRaid });
     if (combatAgents.length === 0) return false;
 
-    // Puissance combinée de tous les agents de combat dans la zone
-    const agentPower = combatAgents.reduce((s, a) => s + getAgentCombatPower(a), 0);
-    // Puissance ennemie (raid = tous les trainers, normal = team directe)
-    const enemyTeam = entry.type === 'raid'
-      ? (entry.raidTrainers || []).flatMap(rt => rt.team || [])
-      : (entry.team || []);
-    let enemyPower = 0;
-    for (const t of enemyTeam) enemyPower += (t.stats?.atk || 0) + (t.stats?.def || 0) + (t.stats?.spd || 0);
-
-    // Type coverage bonus/malus from actual move matchups
-    const playerPks = combatAgents.flatMap(a => a.team.map(id => state.pokemons.find(pk => pk.id === id)).filter(Boolean));
-    const covMult = _typeCoverageMult(playerPks, enemyTeam);
-
-    const pRoll = agentPower * covMult * (0.8 + Math.random() * 0.4);
-    const eRoll = enemyPower * (0.8 + Math.random() * 0.4);
-    const win = pRoll >= eRoll;
-
-    // Extraire trainer + trainerKey selon type (trainer direct ou premier dresseur du raid)
-    const trainerEntry = entry.type === 'raid' ? (entry.raidTrainers?.[0] || {}) : entry;
-    const trainer    = trainerEntry.trainer || entry.trainer;
-    const trainerKey = trainerEntry.key    || entry.trainerKey;
-    const mainAgent  = combatAgents[0];
-
-    if (win) {
-      const reward  = Math.min(globalThis.MAX_COMBAT_REWARD, globalThis.randInt(trainer?.reward?.[0] || 10, trainer?.reward?.[1] || 50));
-      const repGain = globalThis.getCombatRepGain(trainerKey, true);
-      const zs      = globalThis.initZone(zoneId);
-      zs.pendingIncome = (zs.pendingIncome || 0) + reward;
-      state.stats.totalMoneyEarned += reward;
-      state.gang.reputation += repGain;
-      state.stats.totalFights++;
-      state.stats.totalFightsWon++;
-      zs.combatsWon = (zs.combatsWon || 0) + 1;
-      const xpEach = Math.round((10 + (trainer?.diff || 1) * 5) * 0.75);
-      for (const a of combatAgents) {
-        a.combatsWon = (a.combatsWon || 0) + 1;
-        grantAgentXP(a, xpEach);
-        for (const pkId of a.team) {
-          const p = state.pokemons.find(pk => pk.id === pkId);
-          if (p) {
-            const didLevel = globalThis.levelUpPokemon(p, xpEach);
-            if (didLevel && a.notifyCaptures !== false) {
-              globalThis.notify(`📈 ${globalThis.speciesName(p.species_en)} Lv.${p.level}`, 'success');
-            }
-          }
-        }
-      }
-      if (trainerKey === 'rocketgrunt' || trainerKey === 'rocketgruntf' || trainerKey === 'giovanni') state.stats.rocketDefeated++;
-      if (trainerKey === 'blue') state.stats.blueDefeated = (state.stats.blueDefeated || 0) + 1;
-      if (mainAgent.notifyCaptures !== false) globalThis.notify(`⚔️ ${mainAgent.name} +${reward}₽ +${repGain}rep`, 'success');
-      globalThis.addLog(globalThis.t('agent_win', { agent: mainAgent.name }));
-      globalThis.addBattleLogEntry({
-        ts: Date.now(),
-        zoneName: `[BG] ${mainAgent.name} — ${ZONE_BY_ID[zoneId]?.fr || zoneId}`,
-        win: true, reward, repGain,
-        lines: [`${mainAgent.name} a battu un dresseur. +${reward}₽ +${repGain}rep`],
-        trainerKey, isAgent: true,
-      });
-    } else {
-      state.stats.totalFights++;
-      state.gang.reputation = Math.max(0, state.gang.reputation - 5);
-      if (mainAgent.notifyCaptures !== false) globalThis.notify(`💀 ${mainAgent.name} — défaite`, 'error');
-      globalThis.addLog(globalThis.t('agent_lose', { agent: mainAgent.name }));
-      globalThis.addBattleLogEntry({
-        ts: Date.now(),
-        zoneName: `[BG] ${mainAgent.name} — ${ZONE_BY_ID[zoneId]?.fr || zoneId}`,
-        win: false, reward: 0, repGain: 0,
-        lines: [`${mainAgent.name} a perdu un combat.`],
-        trainerKey, isAgent: true,
-      });
-    }
+    const result = resolveTrainerCombat({ ...entry, zoneId }, combatAgents.map(agent => agent.id));
+    _applyResolvedAgentCombat(zoneId, entry, combatAgents, result);
     changed = true;
 
   // ── Coffre ───────────────────────────────────────────────────
@@ -877,32 +901,40 @@ function agentCaptureVisibleSpawn(agent, zoneId, spawnObj) {
   }, 380);
 }
 
-// Agent auto-fights a trainer — opens inline combat and auto-executes
+// Agent auto-fights a trainer silently with the same resolver as manual zone combat.
 function agentAutoCombat(zoneId, spawnObj, agent) {
-  // Don't start if a combat is already running
-  if (globalThis.currentCombat) return;
+  // Don't steal a spawn while the player is already in a manual combat.
+  if (globalThis.currentCombat) {
+    spawnObj._agentClaimed = false;
+    return;
+  }
+  const isRaid = spawnObj.type === 'raid' || spawnObj.isRaid;
+  const combatAgents = _zoneCombatAgents(zoneId, { isRaid, preferredAgent: agent });
+  if (combatAgents.length === 0) {
+    spawnObj._agentClaimed = false;
+    return;
+  }
+
   // Show VS badge on the spawn element
   const _win = document.getElementById(`zw-${zoneId}`);
   const _vp  = _win?.querySelector('.zone-viewport');
   const _el  = _vp?.querySelector(`[data-spawn-id="${spawnObj.id}"]`);
   if (_el) globalThis._addVSBadge(_el);
-  // Open combat popup (same as player click)
-  globalThis.openCombatPopup(zoneId, spawnObj);
-  // Auto-execute after a brief delay so the player can see it
+
   setTimeout(() => {
-    if (!globalThis.currentCombat) return;
-    globalThis.executeCombat();
-    // Auto-close after showing result
-    setTimeout(() => {
-      const arena = document.getElementById('battleArena');
-      if (arena && arena.classList.contains('active')) {
-        globalThis.closeCombatPopup();
-        globalThis.removeSpawn(zoneId, spawnObj.id);
-        globalThis.updateTopBar();
-        if (globalThis.activeTab === 'tabGang') globalThis.renderGangTab();
-      }
-    }, 1500);
-  }, 800);
+    if (globalThis.currentCombat) {
+      spawnObj._agentClaimed = false;
+      return;
+    }
+    const result = resolveTrainerCombat({ ...spawnObj, zoneId }, combatAgents.map(a => a.id));
+    _applyResolvedAgentCombat(zoneId, spawnObj, combatAgents, result);
+    globalThis.removeSpawn(zoneId, spawnObj.id);
+    globalThis.updateTopBar();
+    globalThis.updateZoneTimers?.(zoneId);
+    globalThis.refreshZoneIncomeTile?.(zoneId);
+    globalThis.updateZoneButtons?.();
+    if (globalThis.activeTab === 'tabGang') globalThis.renderGangTab();
+  }, 360);
 }
 
 // Agent opens a chest

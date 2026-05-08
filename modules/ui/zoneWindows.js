@@ -34,6 +34,10 @@ import {
   updateZoneButtons     as _zsUpdateButtons,
 } from './zoneSelector.js';
 import { TRAINER_TYPES } from '../../data/trainers-data.js';
+import {
+  getTrainerCombatPreview,
+  resolveTrainerCombat,
+} from '../systems/zoneCombat.js';
 
 // ── Module-level state ────────────────────────────────────────
 const zoneNextSpawn = {}; // zoneId -> { countdown, lastSpawnType }
@@ -1736,6 +1740,95 @@ function buildPlayerTeamForZone(zoneId) {
   return allAllyIds.map(id => state.pokemons.find(p => p.id === id)).filter(Boolean);
 }
 
+function getZoneCombatAgentIds(zoneId) {
+  const state = globalThis.state;
+  const assigned = (state.agents || []).filter(agent => agent.assignedZone === zoneId);
+  const candidates = assigned.length ? assigned : (state.agents || []);
+  return [...candidates]
+    .sort((a, b) => (globalThis.getAgentCombatPower?.(b) ?? 0) - (globalThis.getAgentCombatPower?.(a) ?? 0))
+    .slice(0, 3)
+    .map(agent => agent.id);
+}
+
+function buildTrainerCombatTeamIds(agentIds = []) {
+  const state = globalThis.state;
+  const teamIds = [];
+  for (const id of state.gang?.bossTeam || []) {
+    if (id) teamIds.push(id);
+  }
+  for (const agentId of agentIds) {
+    const agent = state.agents?.find(a => a.id === agentId);
+    for (const id of agent?.team || []) {
+      if (id) teamIds.push(id);
+    }
+  }
+  return [...new Set(teamIds)].filter(id => state.pokemons?.some(pokemon => pokemon.id === id));
+}
+
+function getTrainerCombatEnemyCount(spawnObj) {
+  if ((spawnObj?.isRaid || spawnObj?.type === 'raid') && Array.isArray(spawnObj.raidTrainers)) {
+    return spawnObj.raidTrainers.reduce((sum, entry) => sum + (entry.team?.length || 0), 0);
+  }
+  return (spawnObj?.team || []).filter(Boolean).length;
+}
+
+function fmtCombatNum(value) {
+  return Math.round(value || 0).toLocaleString('fr-FR');
+}
+
+function trainerCombatName(spawnObj) {
+  const state = globalThis.state;
+  return state.lang === 'fr'
+    ? (spawnObj.trainer?.fr ?? spawnObj.trainerKey ?? '???')
+    : (spawnObj.trainer?.en ?? spawnObj.trainerKey ?? '???');
+}
+
+function buildTrainerCombatTaglines(spawnObj, result, reward, repGain) {
+  const trainerName = trainerCombatName(spawnObj);
+  const taglines = [];
+  const attackerNames = (result.attackers || []).map(agent => agent.name);
+  const enemyCount = getTrainerCombatEnemyCount(spawnObj);
+
+  taglines.push(attackerNames.length
+    ? `${attackerNames.join(', ')} se positionnent.`
+    : 'Aucun agent ne tient la ligne.');
+  taglines.push(`${trainerName} aligne ${enemyCount} Pokémon.`);
+  taglines.push(`Puissance attaque : ⚡ ${fmtCombatNum(result.attackerPower)}`);
+  taglines.push(`Puissance défense : 🛡 ${fmtCombatNum(result.defenderPower)} (${result.trainerType})`);
+
+  for (const duel of result.duels || []) {
+    taglines.push(`${duel.attacker.name} affronte ${duel.defender.name} (${fmtCombatNum(duel.attackerPower)} vs ${fmtCombatNum(duel.defenderPower)})`);
+    taglines.push(duel.attackerWin
+      ? `${duel.defender.name} est neutralisé.`
+      : `${duel.attacker.name} est K.O.`);
+  }
+
+  if (result.finalBattle?.skipped) {
+    taglines.push('Tous les agents tombent avant que le Boss intervienne.');
+  } else if (result.finalBattle) {
+    if ((result.finalBattle.defenderPower || 0) <= 0) {
+      taglines.push(`${globalThis.state.gang?.bossName || 'Boss'} securise la zone.`);
+    } else {
+      const firstPokemon = result.finalBattle.defenderTeam?.[0];
+      const firstName = firstPokemon?.species_en
+        ? (globalThis.speciesName?.(firstPokemon.species_en) ?? firstPokemon.species_en)
+        : "l'equipe adverse";
+      taglines.push(`${globalThis.state.gang?.bossName || 'Boss'} engage l'equipe Boss contre ${firstName}.`);
+      taglines.push(`Combat final Boss : ⚡ ${fmtCombatNum(result.finalBattle.attackerPower)} vs 🛡 ${fmtCombatNum(result.finalBattle.defenderPower)}`);
+    }
+  }
+
+  if (result.attackerWin) {
+    taglines.push('— VICTOIRE ! —');
+    taglines.push(`+${fmtCombatNum(reward)} ₽ · +${fmtCombatNum(repGain)} rép`);
+  } else {
+    taglines.push('— DÉFAITE... —');
+    taglines.push('Aucun loot récupéré.');
+  }
+
+  return taglines;
+}
+
 // ════════════════════════════════════════════════════════════════
 // Combat Popup
 // ════════════════════════════════════════════════════════════════
@@ -1743,6 +1836,11 @@ function buildPlayerTeamForZone(zoneId) {
 function openCombatPopup(zoneId, spawnObj) {
   const state = globalThis.state;
   if (currentCombat) return;
+  const agentIds = getZoneCombatAgentIds(zoneId);
+  if (agentIds.length === 0) {
+    globalThis.notify('Aucun agent disponible pour ce combat !', 'error');
+    return;
+  }
   const available = buildPlayerTeamForZone(zoneId);
   if (available.length === 0) {
     globalThis.notify('Aucun Pokémon disponible !');
@@ -1757,7 +1855,9 @@ function openCombatPopup(zoneId, spawnObj) {
   const trainerName = state.lang === 'fr'
     ? (spawnObj.trainer?.fr ?? spawnObj.trainerKey ?? '???')
     : (spawnObj.trainer?.en ?? spawnObj.trainerKey ?? '???');
-  const dialogue = globalThis.getTrainerDialogue();
+  const spawnWithZone = { ...spawnObj, zoneId };
+  const teamIds = buildTrainerCombatTeamIds(agentIds);
+  const preview = getTrainerCombatPreview(spawnWithZone, agentIds);
 
   // ── Build gang trainers ──────────────────────────────────────
   const mkPkSlot = pk => ({ pk, maxHp: calcCombatHp(pk.stats, pk.level), hp: calcCombatHp(pk.stats, pk.level) });
@@ -1809,7 +1909,21 @@ function openCombatPopup(zoneId, spawnObj) {
   // ── Find spawn element (enemy's existing DOM element) ─────────
   const spawnEl = viewport.querySelector(`[data-spawn-id="${spawnObj.id}"]`);
 
-  currentCombat = { zoneId, spawnObj, viewport, spawnEl, playerTeam: available, gangTrainers, enemyTrainers, enemyPool };
+  currentCombat = {
+    zoneId,
+    spawnObj,
+    spawnWithZone,
+    viewport,
+    spawnEl,
+    playerTeam: available,
+    teamIds,
+    agentIds,
+    gangTrainers,
+    enemyTrainers,
+    enemyPool,
+    combatStarted: false,
+    timers: [],
+  };
   globalThis.currentCombat = currentCombat;
 
   // ── HP overlays + Pokémon sprites on existing zone sprites ─────
@@ -1847,12 +1961,14 @@ function openCombatPopup(zoneId, spawnObj) {
   hud.className = 'zone-combat-hud zone-combat-hud-minimal';
   hud.id = `zchud-${zoneId}`;
   hud.innerHTML = `
-    <span class="zchud-vs">⚔ ${trainerName} <span style="color:var(--text-dim);font-size:7px">${enemyPool.length} Pok.</span></span>
+    <span class="zchud-vs">⚔ ${trainerName} <span style="color:var(--text-dim);font-size:7px">${enemyPool.length} Pok. · ⚡${fmtCombatNum(preview.attackerPower)} / 🛡${fmtCombatNum(preview.defenderPower)}</span></span>
+    <div class="zchud-log" id="zchud-log-${zoneId}" style="font-size:8px;color:var(--text-dim);max-height:74px;overflow:hidden;display:flex;flex-direction:column;gap:2px;margin:4px 0"></div>
     <button class="zchud-flee" id="zchud-flee-${zoneId}">Fuir</button>`;
   viewport.appendChild(hud);
 
   // ── Auto-start + flee ─────────────────────────────────────────
   const autoCombatTimer = setTimeout(executeCombat, 600);
+  currentCombat.timers.push(autoCombatTimer);
   document.getElementById(`zchud-flee-${zoneId}`)?.addEventListener('click', () => {
     clearTimeout(autoCombatTimer);
     closeCombatPopup();
@@ -1862,6 +1978,109 @@ function openCombatPopup(zoneId, spawnObj) {
 function executeCombat() {
   const state = globalThis.state;
   if (!currentCombat) return;
+  if (currentCombat.combatStarted) return;
+  currentCombat.combatStarted = true;
+
+  {
+  const { zoneId, spawnObj, spawnWithZone, spawnEl, teamIds, agentIds, enemyPool } = currentCombat;
+  const logEl = document.getElementById(`zchud-log-${zoneId}`);
+  const combatLogLines = [];
+  const trainerReward = spawnWithZone.trainer?.reward || [10, 50];
+  const result = resolveTrainerCombat(spawnWithZone, agentIds);
+  const reward = result.attackerWin
+    ? Math.min(globalThis.MAX_COMBAT_REWARD, globalThis.randInt(trainerReward[0], trainerReward[1]))
+    : 0;
+  const repGain = globalThis.getCombatRepGain(spawnWithZone.trainerKey || spawnWithZone.trainer?.sprite, result.attackerWin);
+
+  globalThis.applyCombatResult({ win: result.attackerWin, reward, repGain }, teamIds, spawnWithZone);
+  if (result.attackerWin) {
+    const zoneState = state.zones[zoneId];
+    if (zoneState) zoneState.combatsWon = (zoneState.combatsWon || 0) + 1;
+    if (spawnWithZone.isSpecial) {
+      if (spawnWithZone.event) globalThis.activateEvent(zoneId, spawnWithZone.event);
+      globalThis.clearZoneActivity?.(zoneId);
+    }
+  } else {
+    globalThis.notify(`Défaite contre ${trainerCombatName(spawnWithZone)} — aucun loot.`, 'error');
+  }
+  globalThis.saveState?.();
+
+  const taglines = buildTrainerCombatTaglines(spawnWithZone, result, reward, repGain);
+  const zoneDef = ZONE_BY_ID[zoneId];
+  const zName = zoneDef ? (state.lang === 'fr' ? zoneDef.fr : zoneDef.en) : zoneId;
+  globalThis.pushFeedEvent?.({
+    category: 'combat',
+    title: result.attackerWin
+      ? `Victoire — ${spawnWithZone.trainer?.fr || spawnWithZone.trainerKey} +${reward}₽ +${repGain}rep`
+      : `Défaite — ${spawnWithZone.trainer?.fr || spawnWithZone.trainerKey}`,
+    detail: `Zone: ${zName} · ${result.duels.length} duel${result.duels.length > 1 ? 's' : ''} · ${enemyPool.length} Pok. adverses`,
+    win: result.attackerWin,
+    combatLog: taglines.slice(),
+  });
+
+  function queueTimer(fn, ms) {
+    const timer = setTimeout(fn, ms);
+    currentCombat?.timers?.push(timer);
+    return timer;
+  }
+
+  function logLine(text, kind = '') {
+    combatLogLines.push(text);
+    if (!logEl) return;
+    const line = document.createElement('div');
+    line.className = 'zchud-line';
+    line.textContent = `> ${text}`;
+    if (kind === 'result') {
+      line.style.color = result.attackerWin ? 'var(--gold)' : 'var(--red)';
+      line.style.fontWeight = '700';
+    } else if (kind === 'loot') {
+      line.style.color = 'var(--gold)';
+    } else {
+      line.style.color = 'var(--text-dim)';
+    }
+    logEl.appendChild(line);
+    while (logEl.children.length > 7) logEl.firstChild.remove();
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  function doClose() {
+    closeCombatPopup();
+    removeSpawn(zoneId, spawnObj.id);
+    globalThis.updateTopBar();
+    updateZoneTimers(zoneId);
+    if (globalThis.activeTab === 'tabGang') globalThis.renderGangTab();
+  }
+
+  if (spawnEl) {
+    spawnEl.classList.add(result.attackerWin ? 'caught' : 'failed');
+    spawnEl.style.opacity = result.attackerWin ? '0.45' : '0.75';
+  }
+
+  let index = 0;
+  const delay = 560;
+  function nextLine() {
+    if (!currentCombat || currentCombat.zoneId !== zoneId) return;
+    if (index < taglines.length) {
+      const text = taglines[index++];
+      const kind = text.startsWith('— ') ? 'result' : (text.startsWith('+') || text.includes('Aucun loot')) ? 'loot' : '';
+      logLine(text, kind);
+      queueTimer(nextLine, delay);
+      return;
+    }
+
+    const hudEl = document.getElementById(`zchud-${zoneId}`);
+    const fleeBtn = hudEl?.querySelector('.zchud-flee');
+    if (fleeBtn) {
+      fleeBtn.textContent = 'Fermer';
+      fleeBtn.onclick = doClose;
+    }
+    queueTimer(doClose, 1800);
+  }
+
+  queueTimer(nextLine, 120);
+  return;
+  }
+
   const { zoneId, spawnObj, viewport, spawnEl, playerTeam, gangTrainers, enemyPool } = currentCombat;
   const logEl = document.getElementById(`zchud-log-${zoneId}`);
   const spawnWithZone = { ...spawnObj, zoneId };
@@ -2095,13 +2314,14 @@ function executeCombat() {
 function closeCombatPopup() {
   if (currentCombat) {
     const { zoneId, viewport, spawnEl } = currentCombat;
+    for (const timer of currentCombat.timers || []) clearTimeout(timer);
     const win = document.getElementById(`zw-${zoneId}`);
     document.getElementById(`zchud-${zoneId}`)?.remove();
     viewport?.querySelectorAll('.combat-hp-overlay').forEach(el => el.remove());
     win?.querySelectorAll('.combat-hp-overlay').forEach(el => el.remove());
     win?.querySelectorAll('.combat-sent-pk').forEach(el => el.remove());
     if (spawnEl) spawnEl.style.animation = '';
-    for (const t of currentCombat.gangTrainers) {
+    for (const t of currentCombat.gangTrainers || []) {
       if (t.domEl) t.domEl.style.opacity = '';
     }
     _refreshRaidBtn(zoneId);

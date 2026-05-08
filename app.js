@@ -41,6 +41,11 @@ import {
   getSupaSession,
 } from './modules/systems/cloudAccount.js';
 import { configureGangCompetition } from './modules/systems/gangCompetition.js';
+import {
+  configureZoneCombat,
+  resolveTrainerCombat,
+  getTrainerCombatPreview,
+} from './modules/systems/zoneCombat.js';
 import { renderGangCompetitionTab } from './modules/ui/gangCompetitionTab.js';
 import {
   MusicPlayer,
@@ -3481,7 +3486,7 @@ Object.assign(globalThis, {
   // Zone system — logique pure (zoneSystem.js)
   initZone, spawnInZone, makePokemon, makeTrainerTeam, makeRaidSpawn,
   getPokemonPower, levelUpPokemon, getZoneAgentSlots,
-  getCombatRepGain, resolveCombat, applyCombatResult,
+  getCombatRepGain, resolveCombat, resolveTrainerCombat, getTrainerCombatPreview, applyCombatResult,
   addBattleLogEntry, pushFeedEvent, rollChestLoot,
   triggerGymRaid, investInZone,
   tryCapture, calculateStats, showCaptureBurst,
@@ -3623,6 +3628,12 @@ configureGangCompetition({
   slimPokemon,
   getSupabaseClient,
   getSupaSession,
+});
+
+configureZoneCombat({
+  getState: () => state,
+  getPokemonPower,
+  getTeamPower,
 });
 
 configurePcPokedex({
