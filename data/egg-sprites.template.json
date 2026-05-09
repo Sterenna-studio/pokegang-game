@@ -1,0 +1,17 @@
+{
+  "meta": {
+    "source": "external-egg-sprites",
+    "version": 1,
+    "basePath": "assets/eggs/species/"
+  },
+  "species": {
+    "bulbasaur": "bulbasaur.png",
+    "pikachu": "pikachu.png",
+    "chewtle": "chewtle.png"
+  },
+  "fallbacks": {
+    "default": "assets/eggs/fallback/common.png",
+    "rare": "assets/eggs/fallback/rare.png",
+    "event": "assets/eggs/fallback/event.png"
+  }
+}
