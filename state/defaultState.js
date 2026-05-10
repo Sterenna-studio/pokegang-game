@@ -1,11 +1,11 @@
 'use strict';
 
 // ── Version identique à app.js ────────────────────────────────────────────────
-export const APP_VERSION = '2.2.0';
-export const GAME_VERSION = 'v0.1 — pre-alpha';
+export const APP_VERSION = '2.3.0';
+export const GAME_VERSION = 'v0.2 — pre-alpha';
 
 // Incrémenter à chaque ajout de champ majeur pour déclencher le banner migration.
-export const SAVE_SCHEMA_VERSION = 8;
+export const SAVE_SCHEMA_VERSION = 9;
 
 export const SAVE_KEYS = ['pokeforge.v6', 'pokeforge.v6.s2', 'pokeforge.v6.s3'];
 
