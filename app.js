@@ -132,7 +132,7 @@ import { MISSIONS, HOURLY_QUEST_POOL } from './data/missions-data.js';
 import { TRAINER_TYPES } from './data/trainers-data.js';
 import { getDexDesc, buildSpeciesNameMaps } from './data/dex-helpers.js';
 import { BALLS, SHOP_ITEMS, MYSTERY_EGG_BASE_COST, MYSTERY_EGG_POOL, MYSTERY_EGG_HATCH_MS, POTENTIAL_MULT, BASE_PRICE, getMysteryEggCost as computeMysteryEggCost } from './data/economy-data.js';
-import { NATURES, NATURE_KEYS, BOSS_SPRITES, AGENT_NAMES_M, AGENT_NAMES_F, AGENT_SPRITES, AGENT_PERSONALITIES, TITLE_REQUIREMENTS, TITLE_BONUSES, AGENT_RANK_LABELS, RANK_CHAIN } from './data/game-config-data.js';
+import { NATURES, NATURE_KEYS, BOSS_SPRITES, AGENT_NAMES_M, AGENT_NAMES_F, AGENT_SPRITES, AGENT_PERSONALITIES, TITLE_REQUIREMENTS, TITLE_BONUSES, AGENT_RANK_LABELS, RANK_CHAIN, AGENT_PERKS } from './data/game-config-data.js';
 import { I18N } from './data/i18n-data.js';
 import { ZONE_BG_URL, GYM_ORDER, JOHTO_GYM_ORDER } from './data/zones-config-data.js';
 import { HOURLY_QUEST_REROLL_COST, BOOST_DURATIONS } from './data/gameplay-config-data.js';
@@ -3517,7 +3517,7 @@ Object.assign(globalThis, {
   BASE_PRICE, POTENTIAL_MULT, NATURES, BALLS, MYSTERY_EGG_POOL,
   MAX_COMBAT_REWARD, BALL_SPRITES, FALLBACK_TRAINER_SVG,
   AGENT_NAMES_M, AGENT_NAMES_F, AGENT_SPRITES, AGENT_PERSONALITIES,
-  TITLE_REQUIREMENTS, TITLE_BONUSES, AGENT_RANK_LABELS, RANK_CHAIN,
+  TITLE_REQUIREMENTS, TITLE_BONUSES, AGENT_RANK_LABELS, RANK_CHAIN, AGENT_PERKS,
   // sessionObjectives module
   isZoneUnlocked,
   BOOST_DURATIONS, ITEM_SPRITE_URLS,
@@ -3949,6 +3949,27 @@ function boot() {
 
   // Start game loop
   startGameLoop();
+
+  // ── Migration système d'atouts agents (une seule fois) ──────────────────────
+  // Si des agents existent et que la migration n'a pas encore été faite,
+  // on affiche la vision de Darkrai puis on convertit l'XP.
+  if (state.agents?.length > 0 && !state.purchases?.agentPerkMigrated) {
+    setTimeout(() => {
+      globalThis.openDarkraiMigrationPopup?.(() => {
+        globalThis.migrateAgentPerkSystem?.();
+        // Notifier les atouts en attente de choix
+        const pending = state.agents.filter(a => a.pendingPerkChoice);
+        if (pending.length > 0) {
+          notify(`🎖 ${pending.length} agent(s) ont un atout à choisir — onglet Agents`, 'gold');
+        }
+        renderAll();
+      });
+    }, 1500);
+  } else if (!state.purchases?.agentPerkMigrated) {
+    // Pas d'agents existants → marquer directement comme migré
+    if (!state.purchases) state.purchases = {};
+    state.purchases.agentPerkMigrated = true;
+  }
 
   // Check if Johto offer should be presented at this session
   if (!state.purchases?.johtoUnlocked) {

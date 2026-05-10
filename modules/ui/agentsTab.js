@@ -196,6 +196,35 @@ function renderAgentsTab() {
           </div>`
       }
 
+      <!-- Atouts (perks) -->
+      ${(() => {
+        const perks   = a.perks || [];
+        const pending = a.pendingPerkChoice;
+        const AGENT_PERKS = globalThis.AGENT_PERKS || [];
+        const nextPerk = Math.ceil((a.level + 1) / (globalThis.PERK_EVERY || 10)) * (globalThis.PERK_EVERY || 10);
+        const perkIcons = perks.map(pid => {
+          const p = AGENT_PERKS.find(x => x.id === pid);
+          return p ? `<span title="${p.fr} — ${p.desc}" style="cursor:default">${p.icon}</span>` : '';
+        }).join('');
+        if (pending) {
+          return `<button class="agent-perk-choose-btn" data-agent-id="${a.id}"
+            style="width:100%;margin-top:6px;font-family:var(--font-pixel);font-size:7px;padding:6px;
+                   background:rgba(157,111,255,.15);border:2px solid #9d6fff;border-radius:var(--radius-sm);
+                   color:#9d6fff;cursor:pointer;animation:pulse 1.6s infinite">
+            🎖 ATOUT DISPONIBLE — Choisir
+          </button>`;
+        }
+        if (perks.length === 0) {
+          return `<div style="font-size:8px;color:var(--text-dim);margin-top:4px;text-align:center;opacity:.5">
+            Atout au Lv.${nextPerk}</div>`;
+        }
+        return `<div style="margin-top:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">ATOUTS :</span>
+          <span style="display:flex;gap:4px;font-size:15px">${perkIcons}</span>
+          ${pending ? '' : `<span style="font-size:8px;color:var(--text-dim);opacity:.6">· Lv.${nextPerk}</span>`}
+        </div>`;
+      })()}
+
       <label class="agent-notify-toggle">
         <input type="checkbox" class="agent-notify-cb" data-agent-id="${a.id}" ${a.notifyCaptures !== false ? 'checked' : ''}>
         ${a.notifyCaptures !== false ? '🔔' : '🔕'} Notifications
@@ -329,6 +358,11 @@ function renderAgentsTab() {
       const cfg = BEHAVIOR_FLAGS.find(f => f.key === flag);
       notify(`Tous les agents → ${cfg?.label || flag} ${val ? 'ON' : 'OFF'}`, val ? 'success' : '');
     });
+  });
+
+  // Perk choice button
+  grid.querySelectorAll('.agent-perk-choose-btn').forEach(btn => {
+    btn.addEventListener('click', () => globalThis.openPerkChoiceModal?.(btn.dataset.agentId));
   });
 
   // Stat modal per agent — route to nature modal if not yet defined
