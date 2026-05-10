@@ -77,67 +77,70 @@ function showInfoModal(tabId) {
     tabGang: {
       title: '💀 LE GANG',
       body: `
-        <strong>Réputation</strong> — Débloque zones, quêtes et achats. Visible dans la barre en haut à droite.<br><br>
-        <strong>Argent (₽)</strong> — Les récompenses de combat s'accumulent dans les zones. Récupère-les via le bouton ₽ jaune (un combat est nécessaire).<br><br>
-        <strong>Boss</strong> — Ton avatar. Assigne jusqu'à <strong>3 Pokémon</strong> à son équipe depuis le PC.<br><br>
-        <strong>Sac</strong> — Clique sur une Ball pour l'activer. Clique sur un boost pour le lancer. L'incubateur ouvre la gestion des œufs.<br><br>
-        <span class="dim">Conseil : assigne tes meilleurs Pokémon au Boss pour maximiser tes chances en combat.</span>
+        <strong>Réputation</strong> — Ressource clé. Débloque zones, agents supplémentaires, achats spéciaux. Barre en haut à droite.<br><br>
+        <strong>Argent (₽)</strong> — Les récompenses de combat s'accumulent dans les zones. Collecte via l'icône ₽ dorée ou automatiquement via tes agents.<br><br>
+        <strong>Boss</strong> — Ton avatar. Assigne jusqu'à <strong>3 Pokémon</strong> à son équipe depuis le PC pour renforcer les combats.<br><br>
+        <strong>Sac</strong> — Balls actives, boosts temporaires, incubateurs. Clique une Ball pour l'activer comme Ball par défaut.<br><br>
+        <strong>Cosmétiques</strong> — Personnalise l'apparence du boss et du gang (déblocable via achats spéciaux).<br><br>
+        <span class="dim">Conseil : plus ta réputation est haute, plus les zones et agents disponibles sont puissants.</span>
       `
     },
     tabAgents: {
       title: '👥 AGENTS',
       body: `
-        <strong>CAP (Capture)</strong> — Chance de capturer automatiquement des Pokémon dans les zones non-ouvertes. Plus c'est haut, plus l'agent est efficace.<br><br>
-        <strong>LCK (Chance)</strong> — Influence la rareté des captures passives et la qualité des récompenses de coffres.<br><br>
-        <strong>ATK (Combat)</strong> — Puissance en combat automatique. Un agent fort bat des dresseurs difficiles.<br><br>
-        <strong>Grade</strong> — Grunt → Lieutenant (50+ combats gagnés) → Captain (200+). Chaque grade donne un bonus ATK.<br><br>
-        <strong>Zone assignée</strong> — L'agent farm passivement : captures, combats contre dresseurs, ouverture de coffres.<br><br>
-        <span class="dim">Un agent sans zone assignée ne fait rien. Assigne-les toujours !</span>
+        <strong>Niveau</strong> — Toute la puissance d'un agent. Monte en gagnant des combats et en capturant des Pokémon. Plafond : 100.<br><br>
+        <strong>Atouts (Perks)</strong> — Tous les 10 niveaux, l'agent débloque un atout permanent parmi 3 propositions. 150 atouts disponibles : affinités de type, radar shiny, bonus XP, revenus passifs…<br><br>
+        <strong>Épreuve de Darkrai</strong> — Reroll le sprite et la personnalité d'un agent (50 000₽). Niveau, atouts et grade conservés.<br><br>
+        <strong>Grade</strong> — Grunt → Sergent (Lv.25) → Lieutenant (Lv.50) → Commandant (Lv.75) → Élite / Général (Lv.100). Chaque grade booste la puissance en combat.<br><br>
+        <strong>Zone assignée</strong> — L'agent farme passivement en background au vrai rythme de la zone : captures, combats, coffres.<br><br>
+        <strong>Cap à 10</strong> — Les agents au-delà du 10e slot nécessitent un déblocage payant (coût croissant).<br><br>
+        <span class="dim">Un agent sans zone assignée ne fait rien. Les agents de haut niveau avec de bons atouts font une différence énorme.</span>
       `
     },
     tabZones: {
       title: '🗺️ ZONES',
       body: `
-        <strong>Zone de capture</strong> (field / safari / water / cave) — Des Pokémon sauvages apparaissent. Agents et Boss capturent automatiquement.<br><br>
-        <strong>Zone d'arène</strong> (gym / elite) — Uniquement des combats. Récompenses en ₽ et réputation élevées.<br><br>
-        <strong>Récolte ₽</strong> — Les gains de combat s'accumulent (icône jaune ₽). Clique pour lancer une récolte avec combat défensif.<br><br>
-        <strong>Maîtrise ★</strong> — Augmente avec les victoires. Améliore les spawns et débloque des dresseurs élites.<br><br>
-        <strong>Slots d'agents</strong> — Coût en réputation, croissant avec le niveau de la zone.<br><br>
-        <span class="dim">Les zones dégradées (⚠) n'ont que des combats — remonte ta réputation pour les débloquer.</span>
+        <strong>Zone ouverte</strong> — Fenêtre visible, spawns interactifs. Tu peux capturer et combattre manuellement. Le timer tourne au rythme de la zone.<br><br>
+        <strong>Zone fermée + agent</strong> — Simulation silencieuse en background au vrai rythme de spawn. L'agent capture, combat et ouvre les coffres automatiquement.<br><br>
+        <strong>Zone inactive</strong> — Aucun agent assigné, rien ne se passe.<br><br>
+        <strong>Maîtrise ★</strong> — S'accumule avec les victoires dans la zone. Améliore les spawns et débloque des dresseurs d'élite.<br><br>
+        <strong>Raids hostiles</strong> — Un gang adverse peut attaquer tes zones tenues. Tes agents défendent automatiquement.<br><br>
+        <strong>Slots d'agents</strong> — Améliore la zone pour augmenter le nombre d'agents assignables.<br><br>
+        <span class="dim">Une zone fermée avec un bon agent est souvent plus efficace qu'une zone ouverte sans attention.</span>
       `
     },
     tabMarket: {
       title: '💰 MARCHÉ',
       body: `
-        <strong>Quêtes horaires</strong> — 3 quêtes Moyennes + 2 Difficiles, réinitialisées toutes les heures. Reroll possible contre 10 rep.<br><br>
-        <strong>Histoire & Objectifs</strong> — Quêtes permanentes liées à la progression. Complète-les pour des grosses récompenses.<br><br>
-        <strong>Balls</strong> — Chaque type améliore le potentiel max capturé. Troc (onglet Troc) : 10 PB→1 GB, 10 GB→1 UB, 100 UB⇄1 MB.<br><br>
-        <strong>Multiplicateur ×1/×5/×10</strong> — Achète en lot depuis la boutique.<br><br>
-        <strong>Boosts temporaires</strong> — S'activent depuis le Sac dans la fenêtre de zone. Durée 60–90s.<br><br>
-        <span class="dim">Vends des Pokémon depuis le PC pour financer tes achats.</span>
+        <strong>Quêtes horaires</strong> — 3 Moyennes + 2 Difficiles, réinitialisées chaque heure. Reroll possible contre 10 REP.<br><br>
+        <strong>Objectifs de session</strong> — Quêtes courtes actives pendant ta session. Récompenses immédiates.<br><br>
+        <strong>Balls</strong> — Chaque type améliore le potentiel max des captures. Poké Ball → Super → Hyper → Master Ball (probabiliste pour les légendaires).<br><br>
+        <strong>Boosts temporaires</strong> — Activés depuis le Sac dans la fenêtre de zone. Durée 60–120s. Double XP, double loot, radar shiny…<br><br>
+        <strong>Achats spéciaux</strong> — Déblocables à la réputation : auto-vente, cosmétiques, slots supplémentaires.<br><br>
+        <span class="dim">Vends des Pokémon depuis le PC pour financer tes achats. Les rares et ★5 valent beaucoup plus.</span>
       `
     },
     tabPC: {
       title: '💻 PC',
       body: `
-        <strong>Potentiel ★</strong> — Permanent, détermine le plafond de puissance. ★5 = top tier. Dépend de la Ball utilisée.<br><br>
-        <strong>Nature</strong> — Chaque nature booste 2 stats et en pénalise 1. <em>Hardy</em> = équilibré.<br><br>
-        <strong>ATK/DEF/SPD</strong> — Calculées depuis base × nature × niveau × potentiel.<br><br>
-        <strong>Vente</strong> — Prix = rareté × potentiel × nature. Pas de malus de revente.<br><br>
-        <strong>Labo</strong> — Fais évoluer tes Pokémon (pierre ou niveau requis).<br><br>
-        <strong>Pension</strong> — 2 Pokémon compatibles → oeuf. Nécessite un incubateur. Les Pokémon de pension ont le "mal du pays" et ne peuvent pas être vendus.<br><br>
-        <strong>Oeufs</strong> — Gère tes oeufs en attente d'incubation ou prêts à éclore.<br><br>
-        <span class="dim">Filtre par rareté, type ou shiny pour retrouver facilement tes Pokémon.</span>
+        <strong>Potentiel ★</strong> — Permanent. Détermine le plafond de puissance du Pokémon. ★5 = tier S. Dépend de la Ball utilisée à la capture.<br><br>
+        <strong>Nature</strong> — Chaque nature multiplie 2 stats et en pénalise 1. <em>Hardy</em> = neutre. Impacte ATK, DEF, SPD.<br><br>
+        <strong>Évolution</strong> — Via le Labo. Certaines évolutions nécessitent un niveau minimum, d'autres une pierre. Les stats augmentent significativement.<br><br>
+        <strong>Pension</strong> — 2 Pokémon compatibles produisent un œuf (incubateur requis). L'œuf hérite du potentiel des parents.<br><br>
+        <strong>Salle d'entraînement</strong> — Monte en niveau des Pokémon passifs. Coût en ₽ croissant avec le niveau.<br><br>
+        <strong>Vente</strong> — Prix = rareté × potentiel × nature. Pas de malus à la revente.<br><br>
+        <span class="dim">Filtre par rareté, type ou ★ pour retrouver tes meilleurs Pokémon rapidement.</span>
       `
     },
     tabPokedex: {
       title: '📖 POKÉDEX',
       body: `
-        <strong>Vu 👁</strong> — Tu as aperçu ce Pokémon dans une zone (spawn visible).<br><br>
+        <strong>Vu 👁</strong> — Ce Pokémon est apparu dans une zone (spawn visible ou background).<br><br>
         <strong>Capturé ✓</strong> — Tu en possèdes au moins un dans ton PC.<br><br>
-        <strong>Shiny ✨</strong> — Tu as capturé une version chromatique. Chance de base très faible, boostée par l'Aura Shiny.<br><br>
-        <strong>Progression</strong> — Compléter le Pokédex donne des bonus de réputation et de récompenses de quêtes.<br><br>
-        <span class="dim">Les légendaires et très rares n'apparaissent que dans des zones spécifiques avec le bon équipement.</span>
+        <strong>Shiny ✨</strong> — Version chromatique capturée. Chance de base très faible — boostée par les atouts Radar Shiny et les boosts temporaires.<br><br>
+        <strong>Progression</strong> — Compléter le Pokédex Kanto donne des REP et débloques. Gen 2 (Johto) débloquée à haut niveau de réputation.<br><br>
+        <strong>Stats du joueur</strong> — Capture assez de Pokémon d'une espèce pour débloquer des bonus permanents (via le Pokédex étendu).<br><br>
+        <span class="dim">Légendaires et très rares n'apparaissent que dans des zones spécifiques à haute maîtrise.</span>
       `
     },
   };
