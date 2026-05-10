@@ -5,11 +5,58 @@
 
 import { resolveTrainerCombat } from './zoneCombat.js';
 
-// ── REWORK FLAG ──────────────────────────────────────────────────
-// La montée de niveau des agents est temporairement gelée pendant
-// le rework du système. Les agents accumulent de l'XP normalement
-// mais ne peuvent plus monter de niveau ni respec.
-const AGENT_LEVEL_FREEZE = true;
+// ── Système d'atouts (perks) ──────────────────────────────────────
+// Toutes les PERK_EVERY niveaux, l'agent peut choisir un atout parmi 3.
+const PERK_EVERY = 10;
+
+// Retourne la somme des bonus d'un type donné pour un agent.
+// effectType = 'capture_type' | 'shiny' | 'combat' | 'chest_loot' | 'money'
+//              'capture_potential' | 'ball_recovery' | 'encounter_rare' | 'trainer_debuff'
+// subtype (optionnel) = type Pokémon 'fire','water', etc.
+function getAgentPerkBonus(agent, effectType, subtype) {
+  if (!agent?.perks?.length) return 0;
+  const AGENT_PERKS = globalThis.AGENT_PERKS || [];
+  return agent.perks.reduce((total, perkId) => {
+    const perk = AGENT_PERKS.find(p => p.id === perkId);
+    if (!perk) return total;
+    const parts = perk.effect.split(':');
+    if (parts[0] !== effectType) return total;
+    if (subtype && parts.length === 3 && parts[1] !== subtype) return total;
+    return total + parseFloat(parts[parts.length - 1]);
+  }, 0);
+}
+
+// Pioche 3 perks aléatoires que l'agent ne possède pas encore.
+function _rollThreePerks(agent) {
+  const AGENT_PERKS = globalThis.AGENT_PERKS || [];
+  const owned  = new Set(agent.perks || []);
+  const pool   = AGENT_PERKS.filter(p => !owned.has(p.id));
+  if (pool.length === 0) return AGENT_PERKS.slice(0, 3); // fallback
+  const picks  = [];
+  const copy   = [...pool];
+  while (picks.length < 3 && copy.length > 0) {
+    const i = Math.floor(Math.random() * copy.length);
+    picks.push(copy.splice(i, 1)[0]);
+  }
+  return picks;
+}
+
+// Vérifie si l'agent vient de franchir un palier de perk.
+function _checkPerkThreshold(agent) {
+  if (!agent.perks) agent.perks = [];
+  const perksDue = Math.floor(agent.level / PERK_EVERY);
+  const perksOwned = agent.perks.length + (agent.pendingPerkChoice ? 1 : 0);
+  if (perksDue > perksOwned) {
+    agent.pendingPerkChoice = true;
+    globalThis.notify(`🎖 ${agent.name} a gagné un nouvel atout ! (Lv.${agent.level})`, 'gold');
+    // Déclenche la modale si possible (tab agents actif)
+    setTimeout(() => {
+      if (globalThis.activeTab === 'tabAgents') {
+        openPerkChoiceModal(agent.id);
+      }
+    }, 600);
+  }
+}
 
 // Courbe en paliers : ×10 tous les 5 agents.
 //   Agents  1- 5 :       5 000₽
@@ -242,15 +289,18 @@ function captureXP(species_en, potential, shiny) {
 
 function grantAgentXP(agent, amount) {
   agent.xp += amount;
-  if (AGENT_LEVEL_FREEZE) return; // niveau gelé pendant rework
-  const needed = agent.level * 30;
-  while (agent.xp >= needed && agent.level < 100) {
-    agent.xp -= needed;
+  const prevLevel = agent.level;
+  const needed = () => agent.level * 30;
+  while (agent.xp >= needed() && agent.level < 100) {
+    agent.xp -= needed();
     agent.level++;
     agent.statPoints = (agent.statPoints || 0) + 3;
-    globalThis.notify(`📈 ${agent.name} Lv.${agent.level} — 3 pts de stat disponibles !`, 'gold');
   }
-  checkPromotion(agent);
+  if (agent.level > prevLevel) {
+    globalThis.notify(`📈 ${agent.name} Lv.${agent.level} — 3 pts de stat disponibles !`, 'gold');
+    _checkPerkThreshold(agent);
+    checkPromotion(agent);
+  }
 }
 
 // Respec stats : rend tous les pts distribués, coûte 1 000 000₽
@@ -524,8 +574,10 @@ function _applyResolvedAgentCombat(zoneId, spawnObj, combatAgents, result) {
   const trainerData = { ...spawnObj, zoneId };
   const trainer = trainerData.trainer || {};
   const rewardRange = trainer.reward || [10, 50];
+  const mainAgentForMoney = combatAgents[0];
+  const moneyPerkBonus = getAgentPerkBonus(mainAgentForMoney, 'money');
   const reward = result.attackerWin
-    ? Math.min(globalThis.MAX_COMBAT_REWARD, globalThis.randInt(rewardRange[0], rewardRange[1]))
+    ? Math.min(globalThis.MAX_COMBAT_REWARD, Math.round(globalThis.randInt(rewardRange[0], rewardRange[1]) * (1 + moneyPerkBonus)))
     : 0;
   const repGain = globalThis.getCombatRepGain(trainerData.trainerKey || trainerData.trainer?.sprite, result.attackerWin);
   const mainAgent = combatAgents[0];
@@ -606,12 +658,29 @@ function resolveBackgroundSpawnForZone(zoneId) {
     const pokemon = globalThis.makePokemon(entry.species_en, zoneId, ball);
     if (!pokemon) return false;
 
-    // Crit de capture basé sur la stat CAP
-    const isCrit = Math.random() < (capturer.stats.capture || 0) / 100;
-    if (isCrit) {
-      pokemon.potential = Math.min(5, (pokemon.potential || 1) + 1);
+    // ── Bonus perk : type affinité → modifie la chance de shiny et potentiel ──
+    const sp       = globalThis.SPECIES_BY_EN?.[entry.species_en];
+    const pkType   = (sp?.types?.[0] || '').toLowerCase();
+    const typeBonus      = getAgentPerkBonus(capturer, 'capture_type', pkType);
+    const shinyBonus     = getAgentPerkBonus(capturer, 'shiny');
+    const potentialBonus = getAgentPerkBonus(capturer, 'capture_potential');
+    const ballRecovProb  = getAgentPerkBonus(capturer, 'ball_recovery');
+
+    // Réappliquer la chance shiny si le perk augmente la probabilité
+    if (shinyBonus > 0 && !pokemon.shiny && Math.random() < shinyBonus * 0.002) {
+      pokemon.shiny = true;
     }
-    state.inventory[ball]--;
+
+    // Crit de capture basé sur la stat CAP + affinité de type
+    const isCrit = Math.random() < (capturer.stats.capture || 0) / 100 + typeBonus * 0.3;
+    if (isCrit || potentialBonus > 0) {
+      pokemon.potential = Math.min(5, (pokemon.potential || 1) + 1 + Math.floor(potentialBonus));
+    }
+
+    // Ball recovery : perk récupère la ball (probabiliste)
+    if (Math.random() >= ballRecovProb) {
+      state.inventory[ball]--;
+    }
     state.pokemons.push(pokemon);
     state.stats.totalCaught++;
     _autoSellCaptured(pokemon);
@@ -795,6 +864,202 @@ function passiveAgentTick() {
     globalThis.updateTopBar();
     if (globalThis.activeTab === 'tabGang') globalThis.renderGangTab();
   }
+}
+
+// ── Modale de choix d'atout ──────────────────────────────────────────────────
+function openPerkChoiceModal(agentId) {
+  const state = globalThis.state;
+  const agent = state.agents.find(a => a.id === agentId);
+  if (!agent || !agent.pendingPerkChoice) return;
+
+  const picks = _rollThreePerks(agent);
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:9800;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center;padding:16px';
+
+  const cardsHtml = picks.map(perk => `
+    <div class="perk-pick-card" data-perk-id="${perk.id}"
+      style="flex:1;min-width:130px;max-width:170px;background:var(--bg-card);border:2px solid var(--border);
+             border-radius:var(--radius);padding:14px 10px;cursor:pointer;text-align:center;
+             display:flex;flex-direction:column;align-items:center;gap:8px;
+             transition:border-color .15s,box-shadow .15s">
+      <div style="font-size:28px;line-height:1">${perk.icon}</div>
+      <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">${perk.fr}</div>
+      <div style="font-size:8px;color:var(--text-dim);line-height:1.4">${perk.desc}</div>
+      <button class="perk-pick-btn" data-perk-id="${perk.id}"
+        style="margin-top:auto;font-family:var(--font-pixel);font-size:8px;padding:5px 12px;
+               background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);
+               color:var(--gold);cursor:pointer;width:100%">Choisir</button>
+    </div>`).join('');
+
+  overlay.innerHTML = `
+    <div style="background:var(--bg-panel);border:2px solid var(--gold);border-radius:var(--radius);
+                padding:22px;max-width:560px;width:100%;display:flex;flex-direction:column;gap:16px">
+      <div style="text-align:center">
+        <div style="font-family:var(--font-pixel);font-size:11px;color:var(--gold);margin-bottom:6px">
+          🎖 ATOUT — ${agent.name} · Lv.${agent.level}
+        </div>
+        <div style="font-size:8px;color:var(--text-dim)">Choisissez un atout permanent pour cet agent</div>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">${cardsHtml}</div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+
+  // Hover
+  overlay.querySelectorAll('.perk-pick-card').forEach(card => {
+    card.addEventListener('mouseenter', () => { card.style.borderColor = 'var(--gold)'; card.style.boxShadow = '0 0 12px rgba(255,200,0,.25)'; });
+    card.addEventListener('mouseleave', () => { card.style.borderColor = 'var(--border)'; card.style.boxShadow = ''; });
+  });
+
+  // Pick
+  overlay.querySelectorAll('.perk-pick-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const perkId = btn.dataset.perkId;
+      if (!agent.perks) agent.perks = [];
+      agent.perks.push(perkId);
+      agent.pendingPerkChoice = false;
+      const perk = picks.find(p => p.id === perkId);
+      globalThis.notify(`🎖 ${agent.name} — Atout : ${perk?.fr || perkId}`, 'gold');
+      globalThis.saveState();
+      overlay.remove();
+      globalThis.renderAgentsTab?.();
+    });
+  });
+}
+
+// ── Migration XP → nouveau système de niveaux + atouts ───────────────────────
+// Appelé une seule fois au boot si state.purchases.agentPerkMigrated !== true.
+// Convertit l'XP accumulée pendant le freeze en niveaux réels + attribue
+// automatiquement les atouts correspondants (choix aléatoire, déterministe
+// basé sur le nom de l'agent pour la reproductibilité).
+function migrateAgentPerkSystem() {
+  const state = globalThis.state;
+  if (state.purchases?.agentPerkMigrated) return false; // déjà fait
+
+  const AGENT_PERKS = globalThis.AGENT_PERKS || [];
+  let anyChange = false;
+
+  for (const agent of state.agents) {
+    if (!agent.perks) agent.perks = [];
+    if (agent.pendingPerkChoice === undefined) agent.pendingPerkChoice = false;
+
+    // Totaliser l'XP : XP déjà "brûlée" pour atteindre le niveau courant
+    // + XP accumulée pendant le freeze
+    const xpForCurrentLevel = 15 * agent.level * (agent.level - 1);
+    const totalXP = xpForCurrentLevel + (agent.xp || 0);
+
+    // Calculer le niveau réel correspondant (formule inverse : level*(level-1) = totalXP/15)
+    // x² - x - totalXP/15 = 0 → x = (1 + sqrt(1 + 4*totalXP/15)) / 2
+    const rawLevel = Math.floor((1 + Math.sqrt(1 + 4 * totalXP / 15)) / 2);
+    const newLevel = Math.max(agent.level, Math.min(99, rawLevel));
+
+    // XP résiduelle au nouveau niveau
+    const xpUsed = 15 * newLevel * (newLevel - 1);
+    agent.xp     = Math.max(0, totalXP - xpUsed);
+    agent.level  = newLevel;
+    agent.statPoints = (agent.statPoints || 0) + (newLevel - (agent.level || 1)) * 3;
+
+    // Atouts automatiques pour les paliers déjà franchis
+    const perksEarned = Math.floor(newLevel / PERK_EVERY);
+    const perksNeeded = perksEarned - agent.perks.length;
+    if (perksNeeded > 0) {
+      // Seed déterministe basé sur le nom de l'agent (évite randomisation à chaque chargement)
+      const rng = _seededRng(agent.name + agent.id);
+      const pool = [...AGENT_PERKS];
+      for (let i = 0; i < perksNeeded; i++) {
+        const available = pool.filter(p => !agent.perks.includes(p.id));
+        if (available.length === 0) break;
+        const pick = available[Math.floor(rng() * available.length)];
+        agent.perks.push(pick.id);
+      }
+    }
+
+    // Si le niveau atteint un palier non encore couvert → pendingPerkChoice
+    if (Math.floor(newLevel / PERK_EVERY) > agent.perks.length) {
+      agent.pendingPerkChoice = true;
+    }
+
+    checkPromotion(agent);
+    anyChange = true;
+  }
+
+  if (!state.purchases) state.purchases = {};
+  state.purchases.agentPerkMigrated = true;
+  if (anyChange) globalThis.saveState();
+  return anyChange;
+}
+
+// Générateur pseudo-aléatoire simple (mulberry32) — seed = chaîne de caractères.
+function _seededRng(seedStr) {
+  let h = 0;
+  for (let i = 0; i < seedStr.length; i++) {
+    h = Math.imul(31, h) + seedStr.charCodeAt(i) | 0;
+  }
+  return function() {
+    h |= 0; h = h + 0x6D2B79F5 | 0;
+    let t = Math.imul(h ^ h >>> 15, 1 | h);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+// ── Popup narratif Darkrai ────────────────────────────────────────────────────
+// Affiché une seule fois pour expliquer la migration au joueur.
+function openDarkraiMigrationPopup(onDone) {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = `
+    position:fixed;inset:0;z-index:10000;
+    background:radial-gradient(ellipse at center, #0d0320 0%, #000 100%);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:20px;overflow:hidden`;
+
+  // Étoiles de fond
+  const stars = Array.from({length:40}, () => {
+    const x = Math.random()*100, y = Math.random()*100, s = 0.5+Math.random()*1.5;
+    return `<div style="position:absolute;left:${x}%;top:${y}%;width:${s}px;height:${s}px;background:#fff;border-radius:50%;opacity:${0.3+Math.random()*0.5};animation:twinkle ${1+Math.random()*2}s infinite alternate"></div>`;
+  }).join('');
+
+  overlay.innerHTML = `
+    <style>
+      @keyframes twinkle { from{opacity:.2} to{opacity:.8} }
+      @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+      @keyframes fadeIn { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:none} }
+    </style>
+    <div style="position:absolute;inset:0;overflow:hidden;pointer-events:none">${stars}</div>
+    <div style="position:relative;text-align:center;max-width:480px;animation:fadeIn .8s ease">
+      <img src="https://play.pokemonshowdown.com/sprites/gen5ani/darkrai.gif"
+           style="width:96px;height:96px;image-rendering:pixelated;animation:float 3s ease-in-out infinite;margin-bottom:12px"
+           onerror="this.style.display='none'">
+      <div style="font-family:var(--font-pixel);font-size:10px;color:#9d6fff;letter-spacing:2px;margin-bottom:16px">
+        — VISION DE DARKRAI —
+      </div>
+      <div style="font-size:11px;color:#ccc;line-height:1.8;margin-bottom:20px;font-style:italic">
+        Dans les brumes du Pays des Rêves, le Boss entrevoit<br>
+        le véritable potentiel de ses agents.<br><br>
+        <span style="color:#fff">L'expérience accumulée dans l'ombre révèle<br>
+        des talents cachés — des <span style="color:#9d6fff">atouts mystiques</span><br>
+        que seuls les plus dévoués ont développés.</span>
+      </div>
+      <div style="font-size:9px;color:#666;margin-bottom:20px">
+        L'XP de vos agents a été convertie en niveaux.<br>
+        Chaque palier de 10 niveaux révèle un <span style="color:#9d6fff">atout permanent</span>.
+      </div>
+      <button id="darkraiAwake"
+        style="font-family:var(--font-pixel);font-size:9px;padding:10px 28px;
+               background:linear-gradient(135deg,#4a1a8a,#6a2ab0);
+               border:1px solid #9d6fff;border-radius:var(--radius-sm);
+               color:#fff;cursor:pointer;letter-spacing:1px">
+        ✦ S'ÉVEILLER ✦
+      </button>
+    </div>`;
+
+  document.body.appendChild(overlay);
+  overlay.querySelector('#darkraiAwake').addEventListener('click', () => {
+    overlay.style.transition = 'opacity .5s';
+    overlay.style.opacity = '0';
+    setTimeout(() => { overlay.remove(); onDone?.(); }, 500);
+  });
 }
 
 // Agent automation tick — agents interact with VISIBLE spawns in zone windows
@@ -1152,6 +1417,12 @@ Object.assign(globalThis, {
   respecAgentStats,
   openAgentStatModal,
   openAgentNatureModal,
+  // ── Perk system ──
+  getAgentPerkBonus,
+  openPerkChoiceModal,
+  migrateAgentPerkSystem,
+  openDarkraiMigrationPopup,
+  PERK_EVERY,
 });
 
 export {};

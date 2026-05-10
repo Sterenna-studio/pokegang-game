@@ -105,4 +105,39 @@ const AGENT_RANK_LABELS = {
 // Chaîne ordonnée des grades (hors élite/général qui sont des variantes du dernier palier)
 const RANK_CHAIN = ['grunt', 'sergent', 'lieutenant', 'commandant'];
 
-export { NATURES, NATURE_KEYS, BOSS_SPRITES, AGENT_NAMES_M, AGENT_NAMES_F, AGENT_SPRITES, AGENT_PERSONALITIES, TITLE_REQUIREMENTS, TITLE_BONUSES, AGENT_RANK_LABELS, RANK_CHAIN };
+// ── Atouts d'agent (perks) ─────────────────────────────────────────────────────
+// Toutes les 10 niveaux, l'agent peut choisir un atout parmi 3 propositions.
+// effect : "type:valeur" ou "type:sous-type:valeur"
+//   capture_type:<pokéType>:<bonus%>  → % de chance supplémentaire de capturer ce type
+//   shiny:<bonus%>                    → % multiplicatif de chance shiny
+//   combat:<bonus%>                   → % puissance de combat
+//   chest_loot:<bonus%>               → % loot coffres supplémentaire
+//   money:<bonus%>                    → % argent des combats
+//   capture_potential:<n>             → +n étoiles potentiel sur capture
+//   ball_recovery:<prob>              → probabilité de récupérer la ball après capture
+//   encounter_rare:<bonus%>           → % chance de spawn rare
+const AGENT_PERKS = [
+  // ── Affinités de types ──
+  { id:'fire_affinity',    fr:'Instinct du Feu',     icon:'🔥', desc:'+30% capture Feu',        effect:'capture_type:fire:0.30'    },
+  { id:'water_affinity',   fr:'Instinct de l\'Eau',  icon:'💧', desc:'+30% capture Eau',        effect:'capture_type:water:0.30'   },
+  { id:'grass_affinity',   fr:'Instinct Plante',     icon:'🌿', desc:'+30% capture Plante',     effect:'capture_type:grass:0.30'   },
+  { id:'electric_affinity',fr:'Instinct Électrik',   icon:'⚡', desc:'+30% capture Électrik',   effect:'capture_type:electric:0.30'},
+  { id:'psychic_eye',      fr:'Vision Psionique',    icon:'🔮', desc:'+30% capture Psy',        effect:'capture_type:psychic:0.30' },
+  { id:'ghost_affinity',   fr:'Instinct Spectre',    icon:'👻', desc:'+30% capture Spectre',    effect:'capture_type:ghost:0.30'   },
+  { id:'dragon_pact',      fr:'Pacte du Dragon',     icon:'🐉', desc:'+40% capture Dragon',     effect:'capture_type:dragon:0.40'  },
+  { id:'ice_touch',        fr:'Contact Glace',       icon:'❄️', desc:'+30% capture Glace',      effect:'capture_type:ice:0.30'     },
+  { id:'dark_instinct',    fr:'Instinct des Ténèbres',icon:'🌑',desc:'+30% capture Ténèbres',   effect:'capture_type:dark:0.30'    },
+  // ── Qualité des rencontres ──
+  { id:'lucky_find',       fr:'Sixième Sens',        icon:'⭐', desc:'+25% rencontres rares',   effect:'encounter_rare:0.25'       },
+  { id:'shiny_radar',      fr:'Radar Shiny',         icon:'✨', desc:'+100% chance shiny',      effect:'shiny:1.00'                },
+  { id:'potential_eye',    fr:'Œil du Potentiel',    icon:'👁', desc:'+1 ★ sur chaque capture', effect:'capture_potential:1'       },
+  { id:'ball_recovery',    fr:'Récup. Poké Ball',    icon:'🟣', desc:'20% récupérer la ball',   effect:'ball_recovery:0.20'        },
+  // ── Combat ──
+  { id:'combat_focus',     fr:'Concentration',       icon:'⚔️', desc:'+25% puissance de combat', effect:'combat:0.25'              },
+  { id:'intimidation',     fr:'Intimidation',        icon:'😤', desc:'-15% difficulté dresseurs',effect:'trainer_debuff:0.15'      },
+  // ── Économie ──
+  { id:'treasure_hunter',  fr:'Chasseur de Trésors', icon:'📦', desc:'+50% loot des coffres',   effect:'chest_loot:0.50'           },
+  { id:'money_sense',      fr:'Flair du Fric',       icon:'💰', desc:'+30% argent des combats', effect:'money:0.30'                },
+];
+
+export { NATURES, NATURE_KEYS, BOSS_SPRITES, AGENT_NAMES_M, AGENT_NAMES_F, AGENT_SPRITES, AGENT_PERSONALITIES, TITLE_REQUIREMENTS, TITLE_BONUSES, AGENT_RANK_LABELS, RANK_CHAIN, AGENT_PERKS };
