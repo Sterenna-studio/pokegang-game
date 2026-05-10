@@ -43,9 +43,9 @@ function _defPokemonPower(p) {
 function _agentPower(agent, teamPower = 0) {
   if (!agent) return 0;
   const TITLE_BONUSES = globalThis.TITLE_BONUSES ?? {};
-  const stats = agent.stats ?? {};
   const bonus = 1 + (TITLE_BONUSES[agent.title] || 0);
-  return Math.round(((stats.combat ?? 0) * 10 + (teamPower || 0)) * bonus);
+  // Level-based power: 15 pts/level (mirrors getAgentCombatPower in agent.js)
+  return Math.round(((agent.level ?? 1) * 15 + (teamPower || 0)) * bonus);
 }
 
 function _agentTeamPower(agent, state = getState()) {
@@ -195,10 +195,8 @@ function _attackAgentSnapshots(agentIds = null, state = getState()) {
 function _attackerPower(agentIds = null) {
   const state = getState();
   const bossTeamPower = globalThis.getTeamPower?.(state.gang.bossTeam) ?? 0;
-  const ps = state.playerStats;
-  const combatStat = (ps?.baseStats?.combat ?? 10) + (ps?.allocatedStats?.combat ?? 0);
   const agentPower = _attackAgentSnapshots(agentIds, state).reduce((sum, agent) => sum + (agent.power ?? 0), 0);
-  return bossTeamPower + agentPower + combatStat * 10;
+  return bossTeamPower + agentPower;
 }
 
 export function getAttackerPower(agentIds = null) { return _attackerPower(agentIds); }
@@ -270,10 +268,8 @@ function _resolveAgentDuel(attacker, defender) {
 
 function _bossAttackPower(state, survivingAgents) {
   const bossTeamPower = globalThis.getTeamPower?.(state.gang.bossTeam) ?? 0;
-  const ps = state.playerStats;
-  const combatStat = (ps?.baseStats?.combat ?? 10) + (ps?.allocatedStats?.combat ?? 0);
   const agentPower = survivingAgents.reduce((sum, agent) => sum + _agentBattlePower(agent), 0);
-  return Math.round(bossTeamPower + agentPower + combatStat * 10);
+  return Math.round(bossTeamPower + agentPower);
 }
 
 // ── Résolution PvP ────────────────────────────────────────────────
