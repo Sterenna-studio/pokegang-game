@@ -520,9 +520,10 @@ function eggImgTag(egg, ready = false, style = '') {
     const sp = SPECIES_BY_EN[egg.species_en];
     const dex = sp?.dex;
     if (dex) {
-      const pokeos = `https://s3.pokeos.com/pokeos-uploads/forgotten-dex/eggs/${dex}-animegg.png`;
-      // onerror chain: PokéOS → rarity fallback → BW generic
-      return `<img src="${pokeos}" style="${baseStyle}" onerror="if(!this._f1){this._f1=1;this.src='${fallback}'}else if(!this._f2){this._f2=1;this.src='${bwFallback}'}">`;
+      const pokeos     = `https://s3.pokeos.com/pokeos-uploads/forgotten-dex/eggs/${dex}-animegg.png`;
+      const showdown   = window.getEggSpriteUrl?.(egg.species_en) ?? fallback;
+      // onerror chain: PokéOS → Showdown/manifest → rarity fallback → BW generic
+      return `<img src="${pokeos}" style="${baseStyle}" onerror="if(!this._f1){this._f1=1;this.src='${showdown}'}else if(!this._f2){this._f2=1;this.src='${fallback}'}else if(!this._f3){this._f3=1;this.src='${bwFallback}'}">`;
     }
   }
   // Generic / mystery egg — single fallback to BW generic
@@ -3922,8 +3923,9 @@ function boot() {
       loadItemSprites(),
       loadTrainerGroups().then(data => _buildTrainerIndex(data)),
       loadZoneTrainerPools(),
+      typeof loadEggSprites === 'function' ? loadEggSprites() : Promise.resolve(),
     ]).then(results => {
-      const labels = ['pokemon-sprites', 'item-sprites', 'trainer-sprites', 'zone-trainer-pools'];
+      const labels = ['pokemon-sprites', 'item-sprites', 'trainer-sprites', 'zone-trainer-pools', 'egg-sprites'];
       results.forEach((r, i) => {
         if (r.status === 'rejected') console.warn(`[Sprites] Échec chargement ${labels[i]} :`, r.reason);
       });
