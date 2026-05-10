@@ -86,9 +86,6 @@ function rollNewAgent() {
     const idx = Math.floor(Math.random() * pool.length);
     personality.push(pool.splice(idx, 1)[0]);
   }
-  const baseCapture = globalThis.randInt(3, 18);
-  const baseCombat  = globalThis.randInt(3, 18);
-  const baseLuck    = globalThis.randInt(1, 12);
   return {
     id: `ag-${globalThis.uid()}`,
     name,
@@ -98,10 +95,6 @@ function rollNewAgent() {
     level: 1,
     xp: 0,
     combatsWon: 0,
-    stats:          { capture: baseCapture, combat: baseCombat, luck: baseLuck },
-    baseStats:      { capture: baseCapture, combat: baseCombat, luck: baseLuck },
-    allocatedStats: { capture: 0, combat: 0, luck: 0 },
-    statPoints: 0,
     natureDefined: true,
     preferredBall: 'pokeball',
     behavior: 'all', // 'all' | 'capture' | 'combat'
@@ -109,8 +102,9 @@ function rollNewAgent() {
     team: [],
     assignedZone: null,
     notifyCaptures: true,
-    perkLevels: [],
-    pendingPerk: false,
+    perks: [],
+    pendingPerkChoice: false,
+    legacyLocked: false,
   };
 }
 
@@ -136,12 +130,6 @@ function openAgentRecruitModal(onAfterRecruit) {
 
   const candidates = [rollNewAgent(), rollNewAgent(), rollNewAgent()];
 
-  const TITLE_FR = { grunt:'Grunt', sergent:'Sergent', lieutenant:'Lieutenant', commandant:'Commandant', elite:'Élite', general:'Général' };
-  function statBar(val, max = 20) {
-    const pct = Math.round(Math.min(val / max, 1) * 100);
-    return `<div style="height:4px;background:var(--bg);border-radius:2px;width:80px;overflow:hidden"><div style="height:100%;width:${pct}%;background:var(--gold)"></div></div>`;
-  }
-
   const cardsHtml = candidates.map((ag, i) => `
     <div class="recruit-card" data-idx="${i}" style="
       flex:1;min-width:140px;max-width:190px;
@@ -151,21 +139,8 @@ function openAgentRecruitModal(onAfterRecruit) {
       cursor:pointer;transition:border-color .15s,box-shadow .15s">
       <img src="${ag.sprite}" style="width:48px;height:48px;image-rendering:pixelated">
       <div style="font-family:var(--font-pixel);font-size:10px;color:var(--text);text-align:center">${ag.name}</div>
-      <div style="font-size:8px;color:var(--text-dim)">${ag.personality.map(p => p.fr || p).join(' · ')}</div>
-      <div style="display:flex;flex-direction:column;gap:4px;width:100%;margin-top:2px">
-        <div style="display:flex;justify-content:space-between;align-items:center;font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">
-          <span>ATK</span>${statBar(ag.stats.combat)}
-          <span style="color:var(--text)">${ag.stats.combat}</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">
-          <span>CAP</span>${statBar(ag.stats.capture)}
-          <span style="color:var(--text)">${ag.stats.capture}</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">
-          <span>LCK</span>${statBar(ag.stats.luck, 12)}
-          <span style="color:var(--text)">${ag.stats.luck}</span>
-        </div>
-      </div>
+      <div style="font-size:8px;color:var(--text-dim);text-align:center">${ag.personality.map(p => p.fr || p).join(' · ')}</div>
+      <div style="font-size:8px;color:var(--text-dim);opacity:.7;font-family:var(--font-pixel);text-align:center">Lv.1 · Grunt</div>
       <button class="recruit-pick-btn" data-idx="${i}" style="
         margin-top:4px;font-family:var(--font-pixel);font-size:8px;
         padding:5px 14px;background:var(--bg);border:1px solid var(--gold-dim);
@@ -288,133 +263,23 @@ function captureXP(species_en, potential, shiny) {
 }
 
 function grantAgentXP(agent, amount) {
-  agent.xp += amount;
+  if (agent.legacyLocked) return; // locked agents don't earn XP
+  // Perk: xp_bonus — multiplicateur d'XP
+  const xpMult = 1 + getAgentPerkBonus(agent, 'xp_bonus');
+  agent.xp += Math.round(amount * xpMult);
   const prevLevel = agent.level;
   const needed = () => agent.level * 30;
   while (agent.xp >= needed() && agent.level < 100) {
     agent.xp -= needed();
     agent.level++;
-    agent.statPoints = (agent.statPoints || 0) + 3;
   }
   if (agent.level > prevLevel) {
-    globalThis.notify(`📈 ${agent.name} Lv.${agent.level} — 3 pts de stat disponibles !`, 'gold');
+    globalThis.notify(`📈 ${agent.name} Lv.${agent.level} !`, 'gold');
     _checkPerkThreshold(agent);
     checkPromotion(agent);
   }
 }
 
-// Respec stats : rend tous les pts distribués, coûte 1 000 000₽
-function respecAgentStats(agentId) {
-  if (AGENT_LEVEL_FREEZE) {
-    globalThis.notify('Respec indisponible — système en cours de rework', 'error');
-    return;
-  }
-  const state = globalThis.state;
-  const agent = state.agents.find(a => a.id === agentId);
-  if (!agent) return;
-  const RESPEC_COST = 1_000_000;
-  if (state.gang.money < RESPEC_COST) {
-    globalThis.notify('Pas assez de PokéDollars ! (1 000 000₽ requis)', 'error');
-    return;
-  }
-  globalThis.showConfirm(
-    `Réattribuer les stats de <b>${agent.name}</b> pour <b>1 000 000₽</b> ?<br><span style="color:var(--text-dim);font-size:11px">Tous les pts distribués seront récupérés. Les stats de base restent inchangées.</span>`,
-    () => {
-      state.gang.money -= RESPEC_COST;
-      // Total points ever earned = 3 per level (level 1 = 0 pts, level 50 = 147 pts, etc.)
-      agent.statPoints    = Math.max(0, ((agent.level || 1) - 1) * 3);
-      agent.allocatedStats = { capture: 0, combat: 0, luck: 0 };
-      // Restore stats to base
-      agent.stats = { ...agent.baseStats };
-      globalThis.saveState();
-      globalThis.notify(`✅ Stats de ${agent.name} réinitialisées — ${agent.statPoints} pts à distribuer`, 'success');
-      globalThis.renderAgentsTab?.();
-      // Open stat modal immediately
-      openAgentStatModal(agentId);
-    },
-    null,
-    { confirmLabel: 'Réattribuer', cancelLabel: 'Annuler', danger: true }
-  );
-}
-
-// Modal d'attribution des pts de stat
-function openAgentStatModal(agentId) {
-  const state  = globalThis.state;
-  const agent  = state.agents.find(a => a.id === agentId);
-  if (!agent) return;
-
-  const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:10000;display:flex;align-items:center;justify-content:center';
-
-  function render() {
-    const alloc   = agent.allocatedStats || { capture: 0, combat: 0, luck: 0 };
-    const pts     = agent.statPoints || 0;
-    const stats   = [
-      { key: 'combat',  label: '⚔️ ATK (combat)',   color: '#e05c5c' },
-      { key: 'capture', label: '🎯 CAP (capture)',   color: '#7eb8f7' },
-      { key: 'luck',    label: '🍀 LCK (chance)',    color: '#6ecf8a' },
-    ];
-    overlay.innerHTML = `
-      <div style="background:var(--bg-panel);border:2px solid var(--gold);border-radius:var(--radius);padding:24px;width:320px;max-width:96vw">
-        <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold);margin-bottom:4px">📊 STAT POINTS</div>
-        <div style="font-size:9px;color:var(--text-dim);margin-bottom:16px">${agent.name} — Lv.${agent.level}</div>
-        <div style="font-family:var(--font-pixel);font-size:9px;margin-bottom:14px;color:${pts > 0 ? 'var(--gold)' : 'var(--text-dim)'}">
-          Points disponibles : <b style="font-size:12px">${pts}</b>
-        </div>
-        ${stats.map(s => {
-          const base  = (agent.baseStats?.[s.key] || 0);
-          const added = (alloc[s.key] || 0);
-          const total = base + added;
-          return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
-            <div style="flex:1;font-size:9px;color:${s.color}">${s.label}</div>
-            <button data-stat="${s.key}" data-dir="-10" title="-10" style="padding:0 5px;height:22px;border:1px solid var(--border);background:var(--bg);color:var(--text-dim);border-radius:4px;cursor:pointer;font-size:8px;line-height:1" ${added < 10 ? 'disabled' : ''}>−10</button>
-            <button data-stat="${s.key}" data-dir="-1"  title="-1"  style="width:22px;height:22px;border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:4px;cursor:pointer;font-size:13px;line-height:1" ${added <= 0 ? 'disabled' : ''}>−</button>
-            <div style="min-width:48px;text-align:center;font-family:var(--font-pixel);font-size:10px">
-              <span style="color:${s.color};font-size:12px">${total}</span>
-              ${added > 0 ? `<span style="font-size:7px;color:var(--gold)"> (+${added})</span>` : ''}
-            </div>
-            <button data-stat="${s.key}" data-dir="1"  title="+1"  style="width:22px;height:22px;border:1px solid var(--gold);background:rgba(255,204,90,.08);color:var(--gold);border-radius:4px;cursor:pointer;font-size:13px;line-height:1" ${pts <= 0 ? 'disabled' : ''}>+</button>
-            <button data-stat="${s.key}" data-dir="10" title="+10" style="padding:0 5px;height:22px;border:1px solid var(--gold);background:rgba(255,204,90,.08);color:var(--gold);border-radius:4px;cursor:pointer;font-size:8px;line-height:1" ${pts < 10 ? 'disabled' : ''}>+10</button>
-          </div>`;
-        }).join('')}
-        <div style="display:flex;gap:8px;margin-top:18px">
-          <button id="statModalConfirm" style="flex:1;padding:9px;background:var(--gold);color:#000;border:none;border-radius:var(--radius-sm);font-family:var(--font-pixel);font-size:8px;cursor:pointer">CONFIRMER</button>
-          <button id="statModalCancel" style="flex:1;padding:9px;background:var(--bg);border:1px solid var(--border);color:var(--text-dim);border-radius:var(--radius-sm);font-family:var(--font-pixel);font-size:8px;cursor:pointer">FERMER</button>
-        </div>
-      </div>`;
-
-    overlay.querySelectorAll('[data-stat][data-dir]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const s    = btn.dataset.stat;
-        const dir  = parseInt(btn.dataset.dir);
-        const step = Math.abs(dir);
-        const alloc = agent.allocatedStats || { capture: 0, combat: 0, luck: 0 };
-        if (dir > 0) {
-          const canAdd = Math.min(step, agent.statPoints);
-          alloc[s]        += canAdd;
-          agent.statPoints -= canAdd;
-        } else {
-          const canSub = Math.min(step, alloc[s]);
-          alloc[s]        -= canSub;
-          agent.statPoints += canSub;
-        }
-        agent.stats[s]   = (agent.baseStats?.[s] || 0) + alloc[s];
-        agent.allocatedStats = alloc;
-        render();
-      });
-    });
-    overlay.querySelector('#statModalConfirm')?.addEventListener('click', () => {
-      globalThis.saveState();
-      overlay.remove();
-      globalThis.renderAgentsTab?.();
-    });
-    overlay.querySelector('#statModalCancel')?.addEventListener('click', () => overlay.remove());
-  }
-
-  render();
-  document.body.appendChild(overlay);
-  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
-}
 
 // Retourne le label d'affichage du grade d'un agent (avec nom de gang pour élite/général)
 function getAgentRankLabel(agent) {
@@ -519,7 +384,8 @@ function getAgentCombatPower(agent) {
     const p = state.pokemons.find(pk => pk.id === pkId);
     if (p) teamPower += globalThis.getPokemonPower(p);
   }
-  return Math.round((agent.stats.combat * 10 + teamPower) * bonus);
+  // Level-based power: 15 pts/level replaces the old stats.combat * 10
+  return Math.round((agent.level * 15 + teamPower) * bonus);
 }
 
 function _zoneCombatAgents(zoneId, { isRaid = false, preferredAgent = null } = {}) {
@@ -661,18 +527,22 @@ function resolveBackgroundSpawnForZone(zoneId) {
     // ── Bonus perk : type affinité → modifie la chance de shiny et potentiel ──
     const sp       = globalThis.SPECIES_BY_EN?.[entry.species_en];
     const pkType   = (sp?.types?.[0] || '').toLowerCase();
-    const typeBonus      = getAgentPerkBonus(capturer, 'capture_type', pkType);
-    const shinyBonus     = getAgentPerkBonus(capturer, 'shiny');
-    const potentialBonus = getAgentPerkBonus(capturer, 'capture_potential');
-    const ballRecovProb  = getAgentPerkBonus(capturer, 'ball_recovery');
+    const pkRarity = sp?.rarity || 'common';
+    const typeBonus        = getAgentPerkBonus(capturer, 'capture_type', pkType)
+                           + getAgentPerkBonus(capturer, 'capture_type', 'all');
+    const shinyBonus       = getAgentPerkBonus(capturer, 'shiny')
+                           + getAgentPerkBonus(capturer, 'shiny_type', pkType);
+    const rarityBonus      = getAgentPerkBonus(capturer, 'capture_rarity', pkRarity);
+    const potentialBonus   = getAgentPerkBonus(capturer, 'capture_potential') + rarityBonus;
+    const ballRecovProb    = getAgentPerkBonus(capturer, 'ball_recovery');
 
     // Réappliquer la chance shiny si le perk augmente la probabilité
     if (shinyBonus > 0 && !pokemon.shiny && Math.random() < shinyBonus * 0.002) {
       pokemon.shiny = true;
     }
 
-    // Crit de capture basé sur la stat CAP + affinité de type
-    const isCrit = Math.random() < (capturer.stats.capture || 0) / 100 + typeBonus * 0.3;
+    // Crit de capture basé sur le niveau + affinité de type (remplace stats.capture)
+    const isCrit = Math.random() < capturer.level / 200 + typeBonus * 0.3;
     if (isCrit || potentialBonus > 0) {
       pokemon.potential = Math.min(5, (pokemon.potential || 1) + 1 + Math.floor(potentialBonus));
     }
@@ -742,6 +612,11 @@ function resolveBackgroundSpawnForZone(zoneId) {
     state.stats.chestsOpened = (state.stats.chestsOpened || 0) + 1;
     const loot = globalThis.rollChestLoot(zoneId, true);
     const mainAgent = agents[0];
+    // Perk: passive_income — revenu supplémentaire à chaque coffre
+    const passiveIncome = agents.reduce((sum, a) => sum + getAgentPerkBonus(a, 'passive_income'), 0);
+    if (passiveIncome > 0) {
+      state.gang.money = (state.gang.money || 0) + passiveIncome;
+    }
     if (mainAgent?.notifyCaptures !== false) globalThis.notify(`📦 ${mainAgent.name} — ${loot.msg}`, loot.type);
     changed = true;
 
@@ -788,8 +663,8 @@ function _resolveOccupiedZoneRaid(zoneId, agents) {
   const zone    = globalThis.ZONE_BY_ID?.[zoneId];
   if (!zone) return;
 
-  // Puissance de défense = somme des stats combat des agents présents
-  const defensePower = agents.reduce((acc, a) => acc + (a.stats?.combat || 0), 0);
+  // Puissance de défense = somme des niveaux × 5 (remplace stats.combat)
+  const defensePower = agents.reduce((acc, a) => acc + (a.level || 1) * 5, 0);
 
   // Puissance d'attaque = difficulté de zone × facteur aléatoire (0.7 – 1.4)
   const zoneDiff     = globalThis.getZoneDifficulty?.(zoneId) ?? 1;
@@ -940,9 +815,13 @@ function migrateAgentPerkSystem() {
   const AGENT_PERKS = globalThis.AGENT_PERKS || [];
   let anyChange = false;
 
-  for (const agent of state.agents) {
+  for (let agIdx = 0; agIdx < state.agents.length; agIdx++) {
+    const agent = state.agents[agIdx];
     if (!agent.perks) agent.perks = [];
     if (agent.pendingPerkChoice === undefined) agent.pendingPerkChoice = false;
+    // Ensure new fields exist
+    if (agent.legacyLocked === undefined) agent.legacyLocked = agIdx >= 10;
+    agent.natureDefined = true; // remove old nature modal requirement
 
     // Totaliser l'XP : XP déjà "brûlée" pour atteindre le niveau courant
     // + XP accumulée pendant le freeze
@@ -958,7 +837,6 @@ function migrateAgentPerkSystem() {
     const xpUsed = 15 * newLevel * (newLevel - 1);
     agent.xp     = Math.max(0, totalXP - xpUsed);
     agent.level  = newLevel;
-    agent.statPoints = (agent.statPoints || 0) + (newLevel - (agent.level || 1)) * 3;
 
     // Atouts automatiques pour les paliers déjà franchis
     const perksEarned = Math.floor(newLevel / PERK_EVERY);
@@ -1083,8 +961,8 @@ function agentTick() {
     const spawns = zoneSpawns[zoneId];
     if (!spawns || spawns.length === 0) continue;
     if (zoneDone.has(zoneId)) continue; // one action per zone per tick
-    // Chance to act this tick based on agent capture stat (higher = more active)
-    const actChance = 0.5 + agent.stats.capture / 60;
+    // Chance to act this tick based on agent level (higher = more active)
+    const actChance = Math.min(0.95, 0.4 + agent.level / 100);
     if (Math.random() > actChance) continue;
 
     // Priority: raids > trainers > pokemon > chests — filtered by agent behavior flags
@@ -1185,8 +1063,8 @@ function agentCaptureVisibleSpawn(agent, zoneId, spawnObj) {
     globalThis._agentCaptureCtx = null;
     state.activeBall = prevBall;
     if (caught) {
-      // Luck reroll for agents
-      if (agent.stats.luck > 8 && caught.potential < 3 && Math.random() < 0.3) {
+      // Luck reroll for higher-level agents (replaces stats.luck check)
+      if (agent.level >= 20 && caught.potential < 3 && Math.random() < agent.level / 100) {
         caught.potential = globalThis.randInt(3, 5);
         caught.stats = globalThis.calculateStats(caught);
       }
@@ -1284,96 +1162,138 @@ function agentOpenChest(agent, zoneId, spawnObj) {
 
 // (Agent capture animation is now handled by agentCaptureVisibleSpawn above)
 
-// ── Nature profonde (agents migrés sans baseStats d'origine) ─────
-// Génère 3 profils de nature : chaque profil révèle 1 stat, les 2 autres sont masquées.
-// Après le choix, les baseStats sont posées, les statPoints accumulés sont accordés,
-// puis le modal d'attribution s'ouvre directement.
-function openAgentNatureModal(agentId) {
+// ── Épreuve de Darkrai — re-roll sprite et personnalité ─────────────────────
+// Conserve : nom, niveau, XP, atouts, grade, équipe, zone assignée.
+// Re-roll   : sprite, spriteKey, personality.
+const DARKRAI_TRIAL_COST = 50_000;
+
+function openDarkraiTrial(agentId) {
   const state = globalThis.state;
   const agent = state.agents.find(a => a.id === agentId);
-  if (!agent || agent.natureDefined) return;
+  if (!agent) return;
 
-  const R  = (min, max) => globalThis.randInt(min, max);
-  // 3 profils orientés : combattant / captureur / chanceux
-  const profiles = [
-    { combat: R(12, 20), capture: R(3, 11),  luck: R(1, 8),   revealed: 'combat',  icon:'⚔️',  label:'Combattant' },
-    { combat: R(3, 11),  capture: R(12, 20), luck: R(1, 8),   revealed: 'capture', icon:'🎯',  label:'Chasseur'   },
-    { combat: R(4, 13),  capture: R(4, 13),  luck: R(10, 18), revealed: 'luck',    icon:'🍀',  label:'Chanceux'   },
-  ];
-
-  // Mélanger aléatoirement pour éviter que l'ordre révèle toujours le même
-  for (let i = profiles.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [profiles[i], profiles[j]] = [profiles[j], profiles[i]];
+  if ((state.gang?.money || 0) < DARKRAI_TRIAL_COST) {
+    globalThis.notify(`Fonds insuffisants (${DARKRAI_TRIAL_COST.toLocaleString()}₽ requis)`, 'error');
+    return;
   }
 
-  const STAT_LABELS = { combat:'ATK', capture:'CAP', luck:'LCK' };
-  const STAT_COLORS = { combat:'#e05c5c', capture:'#7eb8f7', luck:'#6ecf8a' };
+  const AGENT_SPRITES      = globalThis.AGENT_SPRITES || [];
+  const AGENT_PERSONALITIES = globalThis.AGENT_PERSONALITIES || [];
+
+  // Générer 3 candidats (sprite + personnalité) différents du profil actuel
+  const candidates = [];
+  for (let i = 0; i < 3; i++) {
+    let sprite;
+    do { sprite = AGENT_SPRITES[Math.floor(Math.random() * AGENT_SPRITES.length)]; }
+    while (sprite === agent.spriteKey && AGENT_SPRITES.length > 1);
+    const pool = [...AGENT_PERSONALITIES];
+    const personality = [];
+    for (let j = 0; j < 2; j++) {
+      const idx = Math.floor(Math.random() * pool.length);
+      personality.push(pool.splice(idx, 1)[0]);
+    }
+    candidates.push({ sprite, spriteUrl: globalThis.trainerSprite(sprite), personality });
+  }
 
   const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:10001;display:flex;align-items:center;justify-content:center;padding:16px';
-
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.93);z-index:9900;display:flex;align-items:center;justify-content:center;padding:16px';
   overlay.innerHTML = `
-    <div style="background:var(--bg-panel);border:2px solid var(--gold);border-radius:var(--radius);padding:24px;max-width:500px;width:100%">
-      <div style="font-family:var(--font-pixel);font-size:11px;color:var(--gold);margin-bottom:6px">🌟 NATURE PROFONDE</div>
-      <div style="font-size:10px;color:var(--text-dim);margin-bottom:20px">
-        <b style="color:var(--text)">${agent.name}</b> n'a pas encore révélé sa vraie nature.<br>
-        Choisis l'une de ses trois essences — les statistiques de base seront définitivement posées.
+    <div style="background:var(--bg-panel);border:2px solid #9d6fff;border-radius:var(--radius);
+                padding:22px;max-width:520px;width:100%;display:flex;flex-direction:column;gap:14px">
+      <div style="text-align:center">
+        <img src="https://play.pokemonshowdown.com/sprites/gen5ani/darkrai.gif"
+             style="width:56px;image-rendering:pixelated;animation:float 3s ease-in-out infinite"
+             onerror="this.style.display='none'">
+        <div style="font-family:var(--font-pixel);font-size:10px;color:#9d6fff;margin-top:6px">ÉPREUVE DE DARKRAI</div>
+        <div style="font-size:8px;color:var(--text-dim);margin-top:4px">
+          ${agent.name} entre dans les rêves de Darkrai — choisissez son nouveau profil.
+          <br>Coût : <span style="color:var(--gold)">${DARKRAI_TRIAL_COST.toLocaleString()}₽</span>
+        </div>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px">
-        ${profiles.map((p, i) => {
-          const rev = p.revealed;
-          const revVal = p[rev];
-          const slots = ['combat','capture','luck'].map(s =>
-            s === rev
-              ? `<div style="margin:4px 0;font-size:10px;color:${STAT_COLORS[s]}"><b>${STAT_LABELS[s]} ${revVal}</b></div>`
-              : `<div style="margin:4px 0;font-size:10px;color:var(--text-dim)">${STAT_LABELS[s]} <b style="letter-spacing:2px">???</b></div>`
-          ).join('');
-          return `<button data-nature-idx="${i}" style="
-            background:var(--bg-card);border:2px solid var(--border);border-radius:var(--radius);
-            padding:14px 10px;cursor:pointer;text-align:center;transition:border-color .15s;
-            display:flex;flex-direction:column;align-items:center;gap:6px">
-            <div style="font-size:22px">${p.icon}</div>
-            <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text)">${p.label}</div>
-            <div style="margin-top:4px">${slots}</div>
-          </button>`;
-        }).join('')}
+      <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+        ${candidates.map((c, i) => `
+          <div class="darkrai-cand" data-idx="${i}"
+            style="flex:1;min-width:120px;max-width:150px;background:var(--bg-card);border:2px solid var(--border);
+                   border-radius:var(--radius);padding:12px 8px;text-align:center;cursor:pointer;
+                   display:flex;flex-direction:column;align-items:center;gap:6px;transition:border-color .15s">
+            <img src="${c.spriteUrl}" style="width:48px;height:48px;image-rendering:pixelated">
+            <div style="font-size:8px;color:var(--text-dim)">${c.personality.map(p => p.fr || p).join(' · ')}</div>
+            <button class="darkrai-pick" data-idx="${i}"
+              style="font-family:var(--font-pixel);font-size:7px;padding:4px 10px;
+                     background:var(--bg);border:1px solid #9d6fff;border-radius:var(--radius-sm);
+                     color:#9d6fff;cursor:pointer;width:100%">Choisir</button>
+          </div>`).join('')}
       </div>
-      <div style="font-size:8px;color:var(--text-dim);text-align:center;opacity:.7">
-        Ce choix est définitif. Les statistiques masquées seront révélées après ta sélection.
+      <div style="text-align:center">
+        <button id="darkraiCancel" style="font-family:var(--font-pixel);font-size:8px;padding:5px 16px;
+          background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);
+          color:var(--text-dim);cursor:pointer">Annuler</button>
       </div>
     </div>`;
 
-  // Hover effect
-  overlay.querySelectorAll('[data-nature-idx]').forEach(btn => {
-    btn.addEventListener('mouseenter', () => btn.style.borderColor = 'var(--gold)');
-    btn.addEventListener('mouseleave', () => btn.style.borderColor = 'var(--border)');
+  document.body.appendChild(overlay);
+
+  overlay.querySelectorAll('.darkrai-cand').forEach(card => {
+    card.addEventListener('mouseenter', () => { card.style.borderColor = '#9d6fff'; });
+    card.addEventListener('mouseleave', () => { card.style.borderColor = 'var(--border)'; });
+  });
+
+  overlay.querySelectorAll('.darkrai-pick').forEach(btn => {
     btn.addEventListener('click', () => {
-      const chosen = profiles[parseInt(btn.dataset.natureIdx)];
-
-      // Set definitive baseStats
-      agent.baseStats      = { combat: chosen.combat, capture: chosen.capture, luck: chosen.luck };
-      agent.stats          = { combat: chosen.combat, capture: chosen.capture, luck: chosen.luck };
-      agent.allocatedStats = { combat: 0, capture: 0, luck: 0 };
-      agent.natureDefined  = true;
-      // Grant all accumulated stat points: 3 per level earned
-      agent.statPoints     = Math.max(0, ((agent.level || 1) - 1) * 3);
-
+      const c = candidates[parseInt(btn.dataset.idx)];
+      state.gang.money -= DARKRAI_TRIAL_COST;
+      agent.sprite    = c.spriteUrl;
+      agent.spriteKey = c.sprite;
+      agent.personality = c.personality;
+      agent.natureDefined = true;
       globalThis.saveState();
+      globalThis.notify(`✦ ${agent.name} a traversé l'épreuve de Darkrai !`, 'gold');
       overlay.remove();
-
-      // Reveal + notify
-      globalThis.notify(
-        `✨ ${agent.name} — Nature ${chosen.label} révélée ! ATK ${chosen.combat} / CAP ${chosen.capture} / LCK ${chosen.luck} · ${agent.statPoints} pts à distribuer`,
-        'gold'
-      );
       globalThis.renderAgentsTab?.();
-      // Open stat modal immediately so points can be spent
-      openAgentStatModal(agentId);
+      globalThis.updateTopBar?.();
     });
   });
 
-  document.body.appendChild(overlay);
+  overlay.querySelector('#darkraiCancel')?.addEventListener('click', () => overlay.remove());
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+}
+
+// ── Déverrouillage d'un agent bloqué (slot 10+) ──────────────────────────────
+// Coût = getAgentRecruitCost() au moment du déverrouillage (basé sur la position dans la liste).
+function getAgentUnlockCost(agentIndex) {
+  const tier = Math.floor(agentIndex / 5);
+  return 5_000 * Math.pow(10, tier);
+}
+
+function unlockAgent(agentId) {
+  const state = globalThis.state;
+  const idx   = state.agents.findIndex(a => a.id === agentId);
+  const agent = state.agents[idx];
+  if (!agent || !agent.legacyLocked) return;
+
+  const cost = getAgentUnlockCost(idx);
+  if ((state.gang?.money || 0) < cost) {
+    globalThis.notify(`Fonds insuffisants (${cost.toLocaleString()}₽ requis)`, 'error');
+    return;
+  }
+
+  globalThis.showConfirm?.(
+    `Débloquer <b>${agent.name}</b> pour <b>${cost.toLocaleString()}₽</b> ?<br>
+     <span style="color:var(--text-dim);font-size:10px">
+       De nos jours, le management coûte cher…<br>
+       Cet agent rejoindra pleinement votre organisation.
+     </span>`,
+    () => {
+      state.gang.money -= cost;
+      agent.legacyLocked = false;
+      globalThis.saveState();
+      globalThis.notify(`✅ ${agent.name} intègre officiellement votre organisation !`, 'success');
+      globalThis.renderAgentsTab?.();
+      globalThis.updateTopBar?.();
+    },
+    null,
+    { confirmLabel: 'Débloquer', cancelLabel: 'Annuler' }
+  );
 }
 
 // ── Rattrapage des ticks agents quand le joueur revient sur la page ─────────────
@@ -1399,6 +1319,8 @@ document.addEventListener('visibilitychange', () => {
 
 Object.assign(globalThis, {
   getAgentRecruitCost,
+  getAgentUnlockCost,
+  unlockAgent,
   rollNewAgent,
   recruitAgent,
   openAgentRecruitModal,
@@ -1414,14 +1336,12 @@ Object.assign(globalThis, {
   agentCaptureVisibleSpawn,
   agentAutoCombat,
   agentOpenChest,
-  respecAgentStats,
-  openAgentStatModal,
-  openAgentNatureModal,
   // ── Perk system ──
   getAgentPerkBonus,
   openPerkChoiceModal,
   migrateAgentPerkSystem,
   openDarkraiMigrationPopup,
+  openDarkraiTrial,
   PERK_EVERY,
 });
 

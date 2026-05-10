@@ -267,10 +267,8 @@ function resolveAgentDuel(attacker, defender) {
 function bossAttackPower(state, survivingAgents) {
   const bossTeamIds = (state.gang?.bossTeam || []).filter(Boolean).slice(0, ZONE_BOSS_TEAM_SLOTS);
   const bossTeamPower = getTeamPower(bossTeamIds, state);
-  const playerStats = state.playerStats;
-  const combatStat = (playerStats?.baseStats?.combat ?? 10) + (playerStats?.allocatedStats?.combat ?? 0);
   const survivingPower = survivingAgents.reduce((sum, agent) => sum + Math.round(agent?.power ?? 0), 0);
-  return Math.round(bossTeamPower + survivingPower + combatStat * 10);
+  return Math.round(bossTeamPower + survivingPower);
 }
 
 function attackerPreviewPower(agentIds = null, state = getState()) {
