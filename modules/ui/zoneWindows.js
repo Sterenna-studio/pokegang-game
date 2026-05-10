@@ -759,6 +759,18 @@ globalThis._refreshZoneStatsView = () => {
   }
 };
 
+// Rang minimum requis par nombre de zones simultanées ouvertes.
+// Zone 1 : libre. Zone 2 : sergent. Zone 3 : lieutenant. Zone 4 : commandant. Etc.
+const _ZONE_RANK_REQ  = ['', 'sergent', 'lieutenant', 'commandant', 'elite', 'general'];
+const _ZONE_RANK_FR   = { sergent:'Sergent', lieutenant:'Lieutenant', commandant:'Commandant', elite:'Élite', general:'Général' };
+const _ZONE_RANK_ORD  = { grunt:0, sergent:1, lieutenant:2, commandant:3, elite:4, general:5 };
+
+function _maxAgentRank(state) {
+  return state.agents.reduce((best, a) => {
+    return (_ZONE_RANK_ORD[a.title] ?? 0) > (_ZONE_RANK_ORD[best] ?? 0) ? a.title : best;
+  }, 'grunt');
+}
+
 function openZoneWindow(zoneId) {
   const state     = globalThis.state;
   const openZones = globalThis.openZones;
@@ -766,6 +778,22 @@ function openZoneWindow(zoneId) {
 
   // Guard : si déjà ouverte, ne rien faire
   if (openZones.has(zoneId)) { _zsRefreshTile(zoneId); return; }
+
+  // ── Prérequis sergent : chaque zone supplémentaire exige un rang supérieur ──
+  const currentOpen = openZones.size;   // nb de zones déjà ouvertes
+  if (currentOpen >= 1) {
+    const neededRank = _ZONE_RANK_REQ[currentOpen]; // ex. index 1 → 'sergent'
+    if (neededRank) {
+      const bestRank = _maxAgentRank(state);
+      if ((_ZONE_RANK_ORD[bestRank] ?? 0) < (_ZONE_RANK_ORD[neededRank] ?? 0)) {
+        globalThis.notify(
+          `🔒 Zone ${currentOpen + 1} : promouvez un agent au rang ${_ZONE_RANK_FR[neededRank]} pour l'ouvrir`,
+          'error'
+        );
+        return;
+      }
+    }
+  }
 
   openZones.add(zoneId);
   // Le timer unifié existe peut-être déjà (zone avait des agents) → startActiveZone est idempotent.
