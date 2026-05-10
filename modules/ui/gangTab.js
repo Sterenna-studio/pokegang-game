@@ -13,6 +13,20 @@
 
 const _gangCollapsed = { services: false, music: false, appearance: false, stats: false };
 let _statsViewMode = 'session';
+
+// ── Render guard — évite les rechargements intempestifs du tab Gang ──
+// _gangTabLocked : posé par les pickers/modals ouverts sur ce tab
+// _gangTabTimer  : debounce 80 ms pour regrouper les appels rapides successifs
+let _gangTabLocked = false;
+let _gangTabTimer  = null;
+
+export function lockGangTab()   { _gangTabLocked = true; }
+export function unlockGangTab() {
+  _gangTabLocked = false;
+  // Ré-render différé si des appels ont été absorbés pendant le lock
+  if (_gangTabPendingRender) { _gangTabPendingRender = false; renderGangTab(); }
+}
+let _gangTabPendingRender = false;
 const FABRIC_SHOP_COST = 100_000;
 
 // ── Fabric slider freeze — préserve la scrollbar quand le joueur survole la grille ──
@@ -598,6 +612,12 @@ function _patchPinCards(container, activePatches) {
 
 // ── Main Gang tab ─────────────────────────────────────────────────────────────
 function renderGangTab() {
+  if (_gangTabLocked) { _gangTabPendingRender = true; return; }
+  if (_gangTabTimer) { clearTimeout(_gangTabTimer); _gangTabTimer = null; }
+  _gangTabTimer = setTimeout(() => { _gangTabTimer = null; _doRenderGangTab(); }, 80);
+}
+
+function _doRenderGangTab() {
   const tab = document.getElementById('tabGang');
   if (!tab) return;
 
@@ -971,5 +991,9 @@ function renderGangTab() {
   if (appearanceEl) renderAppearancePanel(appearanceEl);
 }
 
-Object.assign(globalThis, { _gtab_renderGangTab: renderGangTab });
-export {};
+Object.assign(globalThis, {
+  _gtab_renderGangTab: renderGangTab,
+  lockGangTab,
+  unlockGangTab,
+});
+export { lockGangTab, unlockGangTab };

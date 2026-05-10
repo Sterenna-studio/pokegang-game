@@ -13,6 +13,7 @@
   let _itemSprites      = null;
   let _trainerGroups    = null;
   let _zoneTrainerPools = null;
+  let _eggSprites       = null;
 
   async function loadPokemonSprites() {
     if (_pokemonSprites) return _pokemonSprites;
@@ -44,6 +45,23 @@
     if (!res.ok) throw new Error("Impossible de charger zone-trainer-pools.json");
     _zoneTrainerPools = await res.json();
     return _zoneTrainerPools;
+  }
+
+  async function loadEggSprites() {
+    if (_eggSprites) return _eggSprites;
+    const res = await fetch("data/egg-sprites.json");
+    if (!res.ok) throw new Error("Impossible de charger egg-sprites.json");
+    _eggSprites = await res.json();
+    return _eggSprites;
+  }
+
+  // Retourne l'URL du sprite d'œuf pour une espèce donnée.
+  // Format Showdown : basePath + species[en] + ".png"
+  function getEggSpriteUrl(speciesEn) {
+    if (!_eggSprites) return null;
+    const base    = _eggSprites.meta?.basePath ?? 'https://play.pokemonshowdown.com/sprites/';
+    const path    = _eggSprites.species?.[speciesEn] ?? _eggSprites.fallback ?? 'gen5/eggs/egg';
+    return base + path + '.png';
   }
 
   function getPokemonEntry(id) {
@@ -94,11 +112,13 @@
   window.loadItemSprites      = loadItemSprites;
   window.loadTrainerGroups    = loadTrainerGroups;
   window.loadZoneTrainerPools = loadZoneTrainerPools;
+  window.loadEggSprites       = loadEggSprites;
   window.getPokemonEntry      = getPokemonEntry;
   window.getPokemonSprite     = getPokemonSprite;
   window.getItemSprite        = getItemSprite;
   window.getTrainerSprite     = getTrainerSprite;
   window.getFactionSpriteList = getFactionSpriteList;
+  window.getEggSpriteUrl      = getEggSpriteUrl;
   window.pickRandom           = pickRandom;
   window.pickTrainerForZone   = pickTrainerForZone;
 })();
