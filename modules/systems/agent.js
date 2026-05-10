@@ -11,13 +11,18 @@ import { resolveTrainerCombat } from './zoneCombat.js';
 // mais ne peuvent plus monter de niveau ni respec.
 const AGENT_LEVEL_FREEZE = true;
 
-// Exponential cost scaling: 5k → 20k → 80k → 320k → 1.28M → …
+// Courbe en paliers : ×10 tous les 5 agents.
+//   Agents  1- 5 :       5 000₽
+//   Agents  6-10 :      50 000₽
+//   Agents 11-15 :     500 000₽
+//   Agents 16-20 :   5 000 000₽
+//   Agents 21-25 :  50 000 000₽
+// → frein naturel en mid/late-game, early accessible pour expérimenter.
 function getAgentRecruitCost() {
   const state = globalThis.state;
-  const n = state.agents.length;
-  const base = Math.round(5000 * Math.pow(4, n));
-  // Au-dessus de 1M : palier linéaire = N millions (N = nb agents actuels)
-  return base > 1_000_000 ? n * 1_000_000 : base;
+  const n     = state.agents.length;
+  const tier  = Math.floor(n / 5);          // palier (0, 1, 2, …)
+  return 5_000 * Math.pow(10, tier);
 }
 
 function rollNewAgent() {
@@ -696,7 +701,61 @@ function resolveBackgroundSpawnForZone(zoneId) {
     if (globalThis.activeTab === 'tabGang') globalThis.renderGangTab();
   }
 
+  // ── Raid hostile sur zone occupée ────────────────────────────────────────────
+  // Probabilité par tick (≈ 1 % / spawn → rare mais remarqué)
+  const OCCUPIED_RAID_CHANCE = 0.01;
+  if (Math.random() < OCCUPIED_RAID_CHANCE && agents.length > 0) {
+    _resolveOccupiedZoneRaid(zoneId, agents);
+  }
+
   return changed;
+}
+
+// ── Raid hostile sur zone occupée ────────────────────────────────────────────
+// Un gang adverse attaque silencieusement une zone tenue par vos agents.
+// Résultat : victoire (bonus) ou défaite (perte de ₽ modérée) selon les forces.
+function _resolveOccupiedZoneRaid(zoneId, agents) {
+  const state   = globalThis.state;
+  const zone    = globalThis.ZONE_BY_ID?.[zoneId];
+  if (!zone) return;
+
+  // Puissance de défense = somme des stats combat des agents présents
+  const defensePower = agents.reduce((acc, a) => acc + (a.stats?.combat || 0), 0);
+
+  // Puissance d'attaque = difficulté de zone × facteur aléatoire (0.7 – 1.4)
+  const zoneDiff     = globalThis.getZoneDifficulty?.(zoneId) ?? 1;
+  const attackPower  = Math.round(zoneDiff * 10 * (0.7 + Math.random() * 0.7));
+
+  const zoneName  = zone.fr || zoneId;
+  const won       = defensePower >= attackPower;
+
+  if (won) {
+    // Victoire : bonus réputation + petit loot
+    const repGain = Math.round(zoneDiff * (1 + Math.random()));
+    state.gang.reputation = Math.min(100, (state.gang.reputation || 0) + repGain);
+    const moneyGain = Math.round(zoneDiff * 200 * (1 + Math.random()));
+    state.gang.money = (state.gang.money || 0) + moneyGain;
+    globalThis.notify(`🛡 Raid repoussé sur ${zoneName} ! +${repGain} REP +${moneyGain.toLocaleString()}₽`, 'gold');
+    globalThis.pushFeedEvent?.({
+      category: 'raid',
+      title: `Raid repoussé — ${zoneName}`,
+      detail: `Défense ${defensePower} vs Attaque ${attackPower} · +${repGain} REP`,
+      win: true,
+    });
+  } else {
+    // Défaite : perte d'argent modérée (jamais de perte de pokemon ni d'agent)
+    const moneyLoss = Math.round(Math.min(state.gang.money * 0.03, zoneDiff * 500));
+    state.gang.money = Math.max(0, (state.gang.money || 0) - moneyLoss);
+    globalThis.notify(`⚠️ Raid ennemi sur ${zoneName} ! −${moneyLoss.toLocaleString()}₽`, 'error');
+    globalThis.pushFeedEvent?.({
+      category: 'raid',
+      title: `Raid subi — ${zoneName}`,
+      detail: `Défense ${defensePower} vs Attaque ${attackPower} · −${moneyLoss.toLocaleString()}₽`,
+      win: false,
+    });
+  }
+  globalThis.saveState();
+  globalThis.updateTopBar?.();
 }
 
 // ── Passive agent tick (toutes les 10s) ──────────────────────────
@@ -739,9 +798,16 @@ function passiveAgentTick() {
 }
 
 // Agent automation tick — agents interact with VISIBLE spawns in zone windows
+// Compteur de ticks sautés quand la page est masquée (utilisé pour le rattrapage).
+let _hiddenAgentTicks = 0;
+
 function agentTick() {
   const state = globalThis.state;
   if (!state.settings.autoCombat) return; // auto-combat off = agents idle
+
+  // Page en arrière-plan → on ne touche pas au DOM, on compte juste les ticks
+  if (document.hidden) { _hiddenAgentTicks++; return; }
+
   const openZones = globalThis.openZones;
   const zoneSpawns = globalThis.zoneSpawns;
   const zoneDone = new Set(); // track zones already processed this tick
@@ -1044,6 +1110,27 @@ function openAgentNatureModal(agentId) {
 
   document.body.appendChild(overlay);
 }
+
+// ── Rattrapage des ticks agents quand le joueur revient sur la page ─────────────
+// On simule les ticks manqués (state-only, pas de DOM) puis on rafraîchit une fois.
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden || _hiddenAgentTicks === 0) return;
+  const toProcess = Math.min(_hiddenAgentTicks, 30); // cap : 30 ticks ≈ 60 s max
+  _hiddenAgentTicks = 0;
+  const state = globalThis.state;
+  if (!state?.settings?.autoCombat) return;
+  // Pour chaque tick manqué on résout en background les zones avec agents
+  for (let i = 0; i < toProcess; i++) {
+    for (const agent of state.agents) {
+      if (agent.assignedZone && !globalThis.openZones?.has(agent.assignedZone)) {
+        globalThis.resolveBackgroundSpawnForZone?.(agent.assignedZone);
+      }
+    }
+  }
+  // Un seul rafraîchissement UI après tout le rattrapage
+  globalThis.updateTopBar?.();
+  if (globalThis.activeTab === 'tabGang') globalThis.renderGangTab?.();
+});
 
 Object.assign(globalThis, {
   getAgentRecruitCost,
