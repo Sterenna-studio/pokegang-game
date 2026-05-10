@@ -971,6 +971,15 @@ function startActiveZone(zoneId) {
   if (!zone || !zone.spawnRate) return;
   const interval = Math.round(1000 / zone.spawnRate);
   zoneTimers[zoneId] = setInterval(() => {
+    // Page en arrière-plan : on résout silencieusement uniquement les zones sans fenêtre ouverte.
+    // Les zones ouvertes (visuelles) ne génèrent pas de nouveaux spawns DOM quand la page est masquée.
+    if (document.hidden) {
+      if (!globalThis.openZones?.has(zoneId)) {
+        globalThis.resolveBackgroundSpawnForZone?.(zoneId);
+      }
+      // Zone ouverte + page masquée → aucun spawn visuel, la queue s'accumule à la réouverture
+      return;
+    }
     if (globalThis.openZones?.has(zoneId)) {
       globalThis.tickZoneSpawn?.(zoneId);               // mode visuel
     } else {
