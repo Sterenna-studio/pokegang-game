@@ -15,18 +15,34 @@ const _gangCollapsed = { services: false, music: false, appearance: false, stats
 let _statsViewMode = 'session';
 
 // ── Render guard — évite les rechargements intempestifs du tab Gang ──
-// _gangTabLocked : posé par les pickers/modals ouverts sur ce tab
-// _gangTabTimer  : debounce 80 ms pour regrouper les appels rapides successifs
-let _gangTabLocked = false;
-let _gangTabTimer  = null;
+// _gangTabLocked        : posé par les pickers/modals ouverts sur ce tab
+// _gangTabTimer         : debounce 80 ms pour regrouper les appels rapides successifs
+// _gangTabPendingRender : render différé (lock actif ou focus dans le tab)
+// _gangFocusOutWired    : listener focusout déjà posé (évite les doublons)
+let _gangTabLocked        = false;
+let _gangTabTimer         = null;
+let _gangTabPendingRender = false;
+let _gangFocusOutWired    = false;
 
 export function lockGangTab()   { _gangTabLocked = true; }
 export function unlockGangTab() {
   _gangTabLocked = false;
-  // Ré-render différé si des appels ont été absorbés pendant le lock
   if (_gangTabPendingRender) { _gangTabPendingRender = false; renderGangTab(); }
 }
-let _gangTabPendingRender = false;
+
+// Pose un listener focusout unique sur le tab pour déclencher le render différé
+// dès que l'utilisateur quitte l'input actif.
+function _ensureGangFocusOutHandler(tab) {
+  if (_gangFocusOutWired) return;
+  _gangFocusOutWired = true;
+  tab.addEventListener('focusout', function onFocusOut(e) {
+    // Ignorer si le focus reste dans le tab (ex: passer d'un range à un bouton)
+    if (tab.contains(e.relatedTarget)) return;
+    _gangFocusOutWired = false;
+    tab.removeEventListener('focusout', onFocusOut);
+    if (_gangTabPendingRender) { _gangTabPendingRender = false; renderGangTab(); }
+  });
+}
 const FABRIC_SHOP_COST = 100_000;
 
 // ── Fabric slider freeze — préserve la scrollbar quand le joueur survole la grille ──
@@ -614,12 +630,28 @@ function _patchPinCards(container, activePatches) {
 function renderGangTab() {
   if (_gangTabLocked) { _gangTabPendingRender = true; return; }
   if (_gangTabTimer) { clearTimeout(_gangTabTimer); _gangTabTimer = null; }
-  _gangTabTimer = setTimeout(() => { _gangTabTimer = null; _doRenderGangTab(); }, 80);
+  _gangTabTimer = setTimeout(() => {
+    _gangTabTimer = null;
+    // Ne pas reconstruire le DOM si l'utilisateur a le focus sur un input/range/select
+    // (évite de reset les sliders, radios, dropdowns en cours d'interaction)
+    const focused = document.activeElement;
+    const tab = document.getElementById('tabGang');
+    if (focused && tab?.contains(focused) && ['INPUT', 'SELECT', 'TEXTAREA'].includes(focused.tagName)) {
+      _gangTabPendingRender = true;
+      _ensureGangFocusOutHandler(tab);
+      return;
+    }
+    _doRenderGangTab();
+  }, 80);
 }
 
 function _doRenderGangTab() {
   const tab = document.getElementById('tabGang');
   if (!tab) return;
+
+  // Sauvegarder les positions de scroll avant reconstruction
+  const _savedTabScroll  = tab.scrollTop;
+  const _savedCosmScroll = tab.querySelector('#gangAppearanceContainer')?.scrollTop ?? 0;
 
   const state      = globalThis.state;
   const g          = state.gang;
@@ -774,6 +806,9 @@ function _doRenderGangTab() {
 
     <div style="margin-top:16px;text-align:center;font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);letter-spacing:1px;opacity:.5">${globalThis.GAME_VERSION || ''}</div>
   </div>`;
+
+  // Restaurer le scroll du tab immédiatement après reconstruction
+  tab.scrollTop = _savedTabScroll;
 
   // Collapsible toggles
   tab.querySelectorAll('.gang-collapsible-header').forEach(header => {
@@ -988,7 +1023,11 @@ function _doRenderGangTab() {
   const musicEl = tab.querySelector('#gangMusicContainer');
   if (musicEl) renderMusicPanel(musicEl);
   const appearanceEl = tab.querySelector('#gangAppearanceContainer');
-  if (appearanceEl) renderAppearancePanel(appearanceEl);
+  if (appearanceEl) {
+    renderAppearancePanel(appearanceEl);
+    // Restaurer le scroll du carousel apparence après reconstruction
+    if (_savedCosmScroll) appearanceEl.scrollTop = _savedCosmScroll;
+  }
 }
 
 Object.assign(globalThis, {
