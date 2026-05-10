@@ -3923,8 +3923,9 @@ function boot() {
       loadItemSprites(),
       loadTrainerGroups().then(data => _buildTrainerIndex(data)),
       loadZoneTrainerPools(),
+      typeof loadEggSprites === 'function' ? loadEggSprites() : Promise.resolve(),
     ]).then(results => {
-      const labels = ['pokemon-sprites', 'item-sprites', 'trainer-sprites', 'zone-trainer-pools'];
+      const labels = ['pokemon-sprites', 'item-sprites', 'trainer-sprites', 'zone-trainer-pools', 'egg-sprites'];
       results.forEach((r, i) => {
         if (r.status === 'rejected') console.warn(`[Sprites] Échec chargement ${labels[i]} :`, r.reason);
       });
