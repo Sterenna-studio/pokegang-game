@@ -996,4 +996,3 @@ Object.assign(globalThis, {
   lockGangTab,
   unlockGangTab,
 });
-export { lockGangTab, unlockGangTab };
