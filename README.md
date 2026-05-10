@@ -37,6 +37,7 @@ Un autre serveur statique convient aussi. Le repo n'a pas de `package.json`, don
   - Jukebox avec musiques débloquées par zone
 - **Compte cloud optionnel** : auth, cloud save, leaderboard et raids en ligne via Supabase si configuré.
 - **LLM optionnel** : dialogues de dresseurs via Ollama, OpenAI ou Anthropic.
+- **Roadmap œufs** : base de manifest et plan d'intégration documentés pour un futur système de sprites d'œufs.
 
 ## Navigation
 
@@ -64,6 +65,8 @@ Un autre serveur statique convient aussi. Le repo n'a pas de `package.json`, don
 | `modules/ui/` | Composants UI extraits : zoneWindows, zoneSelector, pcPokedex, gangBase, settingsModal, sprites |
 | `state/` | defaultState, migrations et sérialisation |
 | `tools/zone-editor.html` | Outil visuel pour inspecter/modifier les zones |
+| `docs/egg-sprites-integration.md` | Plan d'intégration des sprites d'œufs |
+| `data/egg-sprites.template.json` | Exemple de manifest pour mapper `species_en -> sprite d'œuf` |
 
 ## Sauvegarde
 
@@ -99,3 +102,4 @@ Ne commit pas `config.js` : il est destiné à rester local.
 - Les modules extraits communiquent avec `app.js` via `globalThis` : app.js expose ses fonctions dessus, les modules enregistrent les leurs via `Object.assign(globalThis, { _prefix_fn: fn })`.
 - Quand un champ d'état est ajouté : mettre à jour `DEFAULT_STATE` dans `app.js` **et** `state/defaultState.js`, puis ajouter une garde de migration dans `app.js` et `state/migrateSave.js`.
 - Les sprites Showdown et Original Stitch n'envoient pas d'en-têtes CORS — ne pas ajouter `crossorigin="anonymous"` sur ces images.
+- Pour les futurs sprites d'œufs, préférer un import local + manifest JSON plutôt qu'un hotlink externe.
