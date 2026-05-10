@@ -58,16 +58,9 @@ function renderAgentsTab() {
   const unlockedZones = ZONES.filter(z => isZoneUnlocked(z.id));
   const RECRUIT_COST  = getAgentRecruitCost();
 
-  // ── Player stat card ────────────────────────────────────────────
-  const ps      = state.playerStats || {};
-  const psBase  = ps.baseStats  || { combat: 10, capture: 10, luck: 5 };
-  const psAlloc = ps.allocatedStats || { combat: 0, capture: 0, luck: 0 };
-  const psPts   = ps.statPoints || 0;
-  const psAtk   = (psBase.combat  || 0) + (psAlloc.combat  || 0);
-  const psCap   = (psBase.capture || 0) + (psAlloc.capture || 0);
-  const psLck   = (psBase.luck    || 0) + (psAlloc.luck    || 0);
-  const PLAYER_STAT_POINT_EVERY = 25;
-  const playerTotalPoints = Math.floor((state.stats?.totalCaught || 0) / PLAYER_STAT_POINT_EVERY);
+  // ── Boss card (simplifié — plus de stats brutes) ─────────────────
+  const bossRep   = state.gang.reputation || 0;
+  const bossTitle = typeof getBossFullTitle === 'function' ? getBossFullTitle() : '';
 
   let html = `
     <div class="agent-card-full" style="border-color:var(--gold)" id="playerStatCard">
@@ -75,17 +68,11 @@ function renderAgentsTab() {
         ${state.gang.bossSprite ? `<img src="${trainerSprite(state.gang.bossSprite)}" alt="Boss" style="width:44px;height:44px;image-rendering:pixelated">` : '<div style="width:44px;height:44px;background:var(--bg-card);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:20px">👤</div>'}
         <div class="agent-meta">
           <div class="agent-name" style="color:var(--gold)">${state.gang.bossName || 'Boss'}</div>
-          <div class="agent-title" style="color:var(--gold)">Chef de gang</div>
-          <div style="font-size:8px;color:var(--text-dim)">Pts gagnés : ${playerTotalPoints} · Distribués : ${playerTotalPoints - psPts} · Disponibles : <b style="color:var(--gold)">${psPts}</b></div>
+          <div class="agent-title" style="color:var(--gold)">${bossTitle || 'Chef de gang'}</div>
+          <div style="font-size:8px;color:var(--text-dim)">
+            ${state.pokemons.length} Pokémon · ${state.agents.filter(a => !a.legacyLocked).length} agents actifs · REP ${bossRep}
+          </div>
         </div>
-      </div>
-      <div class="agent-stats-row">
-        <span title="Base: ${psBase.combat}">ATK ${psAtk}${psAlloc.combat > 0 ? ` <small style="color:var(--gold)">(+${psAlloc.combat})</small>` : ''}</span>
-        <span title="Base: ${psBase.capture}">CAP ${psCap}${psAlloc.capture > 0 ? ` <small style="color:var(--gold)">(+${psAlloc.capture})</small>` : ''}</span>
-        <span title="Base: ${psBase.luck}">LCK ${psLck}${psAlloc.luck > 0 ? ` <small style="color:var(--gold)">(+${psAlloc.luck})</small>` : ''}</span>
-      </div>
-      <div style="display:flex;gap:6px;margin-top:6px">
-        <button id="btnPlayerStatModal" style="flex:1;font-family:var(--font-pixel);font-size:7px;padding:4px;background:rgba(255,204,90,.1);border:1px solid var(--gold);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">📊 Attribuer les stats${psPts > 0 ? ` (${psPts} pts)` : ''}</button>
       </div>
     </div>`;
 
@@ -101,10 +88,10 @@ function renderAgentsTab() {
   </div>`;
 
   // ── Agent cards ─────────────────────────────────────────────────
-  for (const a of state.agents) {
+  for (let agIdx = 0; agIdx < state.agents.length; agIdx++) {
+    const a = state.agents[agIdx];
     const xpNeeded = a.level * 30;
     const xpPct    = Math.min(100, (a.xp / xpNeeded) * 100);
-    const alloc    = a.allocatedStats || { capture: 0, combat: 0, luck: 0 };
     const zoneOptions = unlockedZones.map(z =>
       `<option value="${z.id}" ${a.assignedZone === z.id ? 'selected' : ''}>${state.lang === 'fr' ? z.fr : z.en}</option>`
     ).join('');
@@ -135,7 +122,33 @@ function renderAgentsTab() {
     };
     const bhBtns = _bhBtn('autoCombat','⚔️','Combat') + _bhBtn('autoRaid','💣','Raid') + _bhBtn('autoCapture','🎯','Capture');
 
-    const statPts = a.statPoints || 0;
+    // ── Carte verrouillée (agents au-delà du 10e slot) ──────────────
+    if (a.legacyLocked) {
+      const unlockCost = globalThis.getAgentUnlockCost?.(agIdx) ?? 0;
+      html += `<div class="agent-card-full" data-agent-id="${a.id}"
+        style="opacity:.55;position:relative;border-color:var(--border);overflow:hidden">
+        <div style="position:absolute;inset:0;background:rgba(0,0,0,.45);z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:12px">
+          <div style="font-size:28px">🔒</div>
+          <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);text-align:center">
+            De nos jours, le management coûte cher…
+          </div>
+          <button class="agent-unlock-btn" data-agent-id="${a.id}"
+            style="font-family:var(--font-pixel);font-size:8px;padding:7px 14px;
+                   background:rgba(255,204,90,.1);border:1px solid var(--gold-dim);
+                   border-radius:var(--radius-sm);color:var(--gold);cursor:pointer;z-index:2">
+            Débloquer — ${unlockCost.toLocaleString()}₽
+          </button>
+        </div>
+        <div class="agent-header" style="filter:blur(2px)">
+          <img src="${a.sprite}" alt="${a.name}" onerror="this.src='${FALLBACK_TRAINER_SVG}';this.onerror=null">
+          <div class="agent-meta">
+            <div style="font-family:var(--font-pixel);font-size:9px">${a.name}</div>
+            <div style="font-size:8px;color:var(--text-dim)">Lv.${a.level} · ${getAgentRankLabel(a)}</div>
+          </div>
+        </div>
+      </div>`;
+      continue;
+    }
 
     const cosmUnlockedAgent = state.purchases?.cosmeticsPanel;
     html += `<div class="agent-card-full" data-agent-id="${a.id}">
@@ -153,11 +166,6 @@ function renderAgentsTab() {
           <button class="agent-card-rename" data-agent-id="${a.id}" title="Renommer (2 000₽)" style="font-size:10px;padding:2px 5px;background:var(--bg);border:1px solid var(--border);border-radius:3px;cursor:pointer;color:var(--text-dim)">✏</button>
           <button class="agent-card-sprite" data-agent-id="${a.id}" title="Changer sprite (5 000₽)" style="font-size:10px;padding:2px 5px;background:var(--bg);border:1px solid var(--border);border-radius:3px;cursor:pointer;color:var(--text-dim)">🎨</button>
         </div>` : ''}
-      </div>
-      <div class="agent-stats-row">
-        <span title="Base: ${a.baseStats?.combat ?? a.stats.combat}">ATK ${a.stats.combat}${alloc.combat > 0 ? ` <small style="color:var(--gold)">(+${alloc.combat})</small>` : ''}</span>
-        <span title="Base: ${a.baseStats?.capture ?? a.stats.capture}">CAP ${a.stats.capture}${alloc.capture > 0 ? ` <small style="color:var(--gold)">(+${alloc.capture})</small>` : ''}</span>
-        <span title="Base: ${a.baseStats?.luck ?? a.stats.luck}">LCK ${a.stats.luck}${alloc.luck > 0 ? ` <small style="color:var(--gold)">(+${alloc.luck})</small>` : ''}</span>
       </div>
 
       <!-- Ball selector -->
@@ -181,20 +189,13 @@ function renderAgentsTab() {
       <div class="agent-team-slots">${teamSlots}</div>
       <div class="agent-personality">${a.personality.join(', ')}</div>
 
-      <!-- Stat points & respec -->
-      ${!a.natureDefined
-        ? `<div style="margin-top:6px">
-            <button data-agent-statmodal="${a.id}" style="width:100%;font-family:var(--font-pixel);font-size:7px;padding:6px;background:rgba(224,92,92,.12);border:2px solid #e05c5c;border-radius:var(--radius-sm);color:#e05c5c;cursor:pointer;animation:pulse 1.6s infinite">
-              🌟 DÉFINIR SA NATURE PROFONDE
-            </button>
-          </div>`
-        : `<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
-            <button data-agent-statmodal="${a.id}" style="flex:1;font-family:var(--font-pixel);font-size:7px;padding:4px;background:${statPts > 0 ? 'rgba(255,204,90,.12)' : 'var(--bg)'};border:1px solid ${statPts > 0 ? 'var(--gold)' : 'var(--border)'};border-radius:var(--radius-sm);color:${statPts > 0 ? 'var(--gold)' : 'var(--text-dim)'};cursor:pointer">
-              📊 Stats${statPts > 0 ? ` (${statPts} pts !)` : ''}
-            </button>
-            <button data-agent-respec="${a.id}" title="Réattribuer les stats (1 000 000₽)" style="font-family:var(--font-pixel);font-size:7px;padding:4px 8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">🔄 Respec</button>
-          </div>`
-      }
+      <!-- Épreuve de Darkrai -->
+      <button class="agent-darkrai-btn" data-agent-id="${a.id}"
+        style="width:100%;margin-top:6px;font-family:var(--font-pixel);font-size:7px;padding:4px 8px;
+               background:rgba(157,111,255,.08);border:1px solid rgba(157,111,255,.4);
+               border-radius:var(--radius-sm);color:#9d6fff;cursor:pointer">
+        ✦ Épreuve de Darkrai — 50 000₽
+      </button>
 
       <!-- Atouts (perks) -->
       ${(() => {
@@ -365,24 +366,18 @@ function renderAgentsTab() {
     btn.addEventListener('click', () => globalThis.openPerkChoiceModal?.(btn.dataset.agentId));
   });
 
-  // Stat modal per agent — route to nature modal if not yet defined
-  grid.querySelectorAll('[data-agent-statmodal]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const agentId = btn.dataset.agentStatmodal;
-      const agent   = state.agents.find(a => a.id === agentId);
-      if (!agent) return;
-      if (!agent.natureDefined) openAgentNatureModal(agentId);
-      else                      openAgentStatModal(agentId);
+  // Darkrai trial button
+  grid.querySelectorAll('.agent-darkrai-btn').forEach(btn => {
+    btn.addEventListener('click', () => globalThis.openDarkraiTrial?.(btn.dataset.agentId));
+  });
+
+  // Unlock button for legacy-locked agents
+  grid.querySelectorAll('.agent-unlock-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      globalThis.unlockAgent?.(btn.dataset.agentId);
     });
   });
-
-  // Respec per agent
-  grid.querySelectorAll('[data-agent-respec]').forEach(btn => {
-    btn.addEventListener('click', () => respecAgentStats(btn.dataset.agentRespec));
-  });
-
-  // Player stat modal
-  document.getElementById('btnPlayerStatModal')?.addEventListener('click', openPlayerStatModal);
 
   // Right-click context menu on agent cards
   grid.querySelectorAll('.agent-card-full[data-agent-id]').forEach(card => {
