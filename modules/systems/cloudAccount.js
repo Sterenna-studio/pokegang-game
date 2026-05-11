@@ -350,22 +350,41 @@ async function supaCheckCloudLoad() {
   } catch { return; }
   if (error || !data) return;
 
-  const cloudTs = new Date(data.saved_at).getTime();
-  const localTs = state._savedAt || 0;
-  if (cloudTs > localTs) {
-    const fmt = new Date(cloudTs).toLocaleString('fr-FR');
-    showConfirm(
-      `Une sauvegarde cloud plus récente existe (${fmt}).<br>Charger la sauvegarde cloud ? <span style="color:var(--text-dim);font-size:11px">(La save locale sera remplacée)</span>`,
-      () => {
-        setState(migrate(data.state));
-        saveState();
-        renderAll();
-        notify('Sauvegarde cloud chargée !', 'success');
-      },
-      null,
-      { confirmLabel: 'Charger', cancelLabel: 'Ignorer' }
-    );
-  }
+  const cloudTs  = new Date(data.saved_at).getTime();
+  const localTs  = state._savedAt || 0;
+  if (cloudTs <= localTs) return; // local is already up-to-date
+
+  const cloudRep  = data.state?.gang?.reputation  || 0;
+  const localRep  = state.gang?.reputation         || 0;
+  const cloudPkm  = (data.state?.pokemons?.length) || 0;
+  const localPkm  = (state.pokemons?.length)        || 0;
+  const fmt       = new Date(cloudTs).toLocaleString('fr-FR');
+
+  // Si le cloud a significativement moins de progression → ignorer silencieusement
+  // (évite d'écraser une save avancée avec un état vide ou early)
+  const cloudScore = cloudRep + cloudPkm * 10;
+  const localScore = localRep + localPkm * 10;
+  if (cloudScore < localScore * 0.5) return;
+
+  const repDiff   = cloudRep - localRep;
+  const repLine   = repDiff >= 0
+    ? `<span style="color:var(--gold)">⭐ ${cloudRep.toLocaleString()}</span> (${repDiff >= 0 ? '+' : ''}${repDiff.toLocaleString()} vs local)`
+    : `<span style="color:var(--red)">⭐ ${cloudRep.toLocaleString()}</span> (<b>−${Math.abs(repDiff).toLocaleString()}</b> vs local)`;
+
+  showConfirm(
+    `☁ Save cloud du <b>${fmt}</b><br>
+     ${repLine}<br>
+     <span style="color:var(--text-dim);font-size:10px">${cloudPkm} Pokémon · Slot ${getActiveSaveSlot() + 1}</span><br>
+     <span style="color:var(--text-dim);font-size:10px">La save locale sera remplacée.</span>`,
+    () => {
+      setState(migrate(data.state));
+      saveState();
+      renderAll();
+      notify('Sauvegarde cloud chargée !', 'success');
+    },
+    null,
+    { confirmLabel: 'Charger le cloud', cancelLabel: 'Garder le local' }
+  );
 }
 
 async function supaForceCloudLoad() {
