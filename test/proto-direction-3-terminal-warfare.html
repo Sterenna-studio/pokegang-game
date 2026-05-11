@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pokegang Proto 03 — Terminal Warfare</title>
+  <link rel="stylesheet" href="./proto.css" />
+</head>
+<body class="proto-body">
+  <div class="proto-titlebar">
+    <div><strong>Pokegang UI Proto 03</strong> — Terminal Warfare</div>
+    <div>Direction : plus identitaire / plus agressive / centre de contrôle criminel</div>
+  </div>
+
+  <div class="proto-shell">
+    <aside class="proto-sidebar">
+      <div class="logo-block">
+        <div class="logo-kicker">Territorial network</div>
+        <div class="logo-title">PG//DOMINION</div>
+        <div class="logo-sub">Version la plus marquée visuellement. Moins neutre, plus “guerre de territoire Pokémon”.</div>
+      </div>
+
+      <div class="nav-section-title">Canaux</div>
+      <div class="nav-list">
+        <a class="nav-item active" href="#"><span>Front</span><span class="nav-badge">A</span></a>
+        <a class="nav-item" href="#"><span>Captures</span><span class="nav-badge">312</span></a>
+        <a class="nav-item" href="#"><span>Réseau agents</span><span class="nav-badge">18</span></a>
+        <a class="nav-item" href="#"><span>Marché noir</span><span class="nav-badge">↑</span></a>
+        <a class="nav-item" href="#"><span>Archives PC</span><span class="nav-badge">486</span></a>
+      </div>
+
+      <div class="nav-section-title">Surveillance</div>
+      <div class="nav-list">
+        <a class="nav-item" href="#"><span>Région Kanto</span><span class="nav-badge">09</span></a>
+        <a class="nav-item" href="#"><span>Région Johto</span><span class="nav-badge">03</span></a>
+        <a class="nav-item" href="#"><span>Gym leaders</span><span class="nav-badge">6/8</span></a>
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="log-kicker">Code rouge</div>
+        <div class="log-title">2 zones menacées</div>
+        <div class="log-text">Cette version met l'accent sur les alertes, les fronts et les lignes d'opération plutôt que sur une simple navigation d'app.</div>
+      </div>
+    </aside>
+
+    <main class="proto-main">
+      <section class="hero-card" style="background: linear-gradient(180deg, rgba(209,31,49,0.18), rgba(255,255,255,0.01)); border-color: rgba(255,77,87,0.24);">
+        <div class="hero-grid">
+          <div>
+            <h1 class="hero-title">Kanto n'est pas un menu. C'est un territoire à tenir.</h1>
+            <div class="hero-text">Cette direction cherche à faire sentir que Pokegang n'est pas seulement un idle de capture, mais aussi un jeu d'emprise. Les zones ont un statut, les agents tiennent le terrain, et le boss intervient quand la ligne craque.</div>
+            <div class="hero-actions">
+              <button class="btn btn-primary">Reprendre la Tour Pokémon</button>
+              <button class="btn btn-ghost">Déployer un sergent</button>
+            </div>
+          </div>
+          <div class="hero-visual">
+            <div class="row-between"><strong>État du front</strong><span class="tag red">Instable</span></div>
+            <div class="wire-map">
+              <span class="node" style="left:22%; top:26%"></span>
+              <span class="node" style="left:40%; top:46%"></span>
+              <span class="node safe" style="left:60%; top:34%"></span>
+              <span class="node safe" style="left:72%; top:58%"></span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel-card">
+        <div class="section-title-row">
+          <div>
+            <h2 class="section-title">Lignes d'opération</h2>
+            <div class="section-sub">Des blocs plus marqués, plus orientés guerre / contrôle / pression</div>
+          </div>
+          <span class="tag red">Territorial core</span>
+        </div>
+        <div class="alert-grid">
+          <article class="zone-card hot">
+            <div class="zone-meta"><span class="tag red">Perdue</span><span class="tag">Reprise requise</span></div>
+            <h3 class="zone-title">Tour Pokémon</h3>
+            <div class="zone-desc">La zone n'est plus productive. Elle reste verrouillée tant qu'une victoire n'a pas été obtenue.</div>
+            <div class="progress"><span style="width:18%"></span></div>
+            <div class="zone-footer"><span class="muted">État actuel</span><strong>Effondrée</strong></div>
+          </article>
+          <article class="zone-card hot">
+            <div class="zone-meta"><span class="tag red">Contestée</span><span class="tag">Rare ++</span></div>
+            <h3 class="zone-title">Route Victoire</h3>
+            <div class="zone-desc">Zone tardive avec récompenses élevées. Une présence boss ponctuelle donne enfin du poids au terme domination.</div>
+            <div class="progress"><span style="width:44%"></span></div>
+            <div class="zone-footer"><span class="muted">Pression adverse</span><strong>Élevée</strong></div>
+          </article>
+          <article class="zone-card">
+            <div class="zone-meta"><span class="tag green">Occupée</span><span class="tag">Forêt</span></div>
+            <h3 class="zone-title">Forêt de Jade</h3>
+            <div class="zone-desc">Zone maîtrisée. Le gang y a installé une cellule durable avec bonus de capture et sécurité élevée.</div>
+            <div class="progress"><span style="width:90%"></span></div>
+            <div class="zone-footer"><span class="muted">Doctrine locale</span><strong>Stable</strong></div>
+          </article>
+          <article class="zone-card">
+            <div class="zone-meta"><span class="tag">Ville</span><span class="tag">Commerce</span></div>
+            <h3 class="zone-title">Céladopole</h3>
+            <div class="zone-desc">Le contrôle de ville donne surtout de la marge économique et de l'influence plutôt que du pur débit de captures.</div>
+            <div class="progress"><span style="width:53%"></span></div>
+            <div class="zone-footer"><span class="muted">Influence</span><strong>Moyenne</strong></div>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <aside class="proto-right">
+      <section class="panel-card">
+        <div class="section-title-row"><h2 class="section-title">Commandement</h2><span class="tag">Boss live</span></div>
+        <div class="agent-list">
+          <div class="agent-item"><div class="row-between"><strong>Muten Rock</strong><span class="tag red">Intervention</span></div><div class="log-text">Disponible pour reprendre une zone, répondre à un raid ou lancer une opération spéciale.</div></div>
+          <div class="agent-item"><div class="row-between"><strong>Spirit</strong><span class="tag">Sergent</span></div><div class="log-text">Route Victoire · cellule sous pression · besoin de renfort</div></div>
+          <div class="agent-item"><div class="row-between"><strong>Dr. Sorn</strong><span class="tag">Grunt</span></div><div class="log-text">Cellule forêt · rendement stable · chasse chroma active</div></div>
+        </div>
+      </section>
+
+      <section class="panel-card">
+        <div class="section-title-row"><h2 class="section-title">Journal du front</h2><span class="tag red">urgent</span></div>
+        <div class="log-list">
+          <div class="log-item alert"><div class="log-kicker">Attaque</div><div class="log-title">Tour Pokémon reprise par un groupe adverse</div><div class="log-text">Les revenus de la zone sont tombés à zéro. Reprise requise par victoire.</div></div>
+          <div class="log-item"><div class="log-kicker">Reconnaissance</div><div class="log-title">Ombre légendaire détectée</div><div class="log-text">Îles Écume — probabilité de drop Argent'Aile active.</div></div>
+          <div class="log-item"><div class="log-kicker">Économie</div><div class="log-title">Marché noir sous tension</div><div class="log-text">Survente sur les espèces communes, hausse sur insecte / vol / psy.</div></div>
+        </div>
+      </section>
+    </aside>
+  </div>
+</body>
+</html>
