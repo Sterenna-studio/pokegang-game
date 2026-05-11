@@ -3,19 +3,21 @@
 // ── Pokémon — création, stats, évolution, montée de niveau ──────────────────
 //
 // Dépendances classiques (bare name — classic <script> globals) :
-//   NATURE_KEYS, BALLS, SPECIES_BY_EN, EVO_BY_SPECIES, NATURES
+//   SPECIES_BY_EN (data/species-data.js), EVO_BY_SPECIES (data/evolutions-data.js)
 //
-// Dépendances globalThis :
+// Dépendances globalThis (ES module imports dans app.js) :
+//   NATURE_KEYS, BALLS, NATURES  ← pas des classic scripts !
 //   state, pick, uid, randInt, isBoostActive, calculatePrice, speciesName,
 //   notify, saveState, SFX, playSE, _npanel_push,
 //   resetPcRenderCache, renderPCTab, activeTab, showEvolutionChoicePopup
 
 function rollNature() {
-  return pick(NATURE_KEYS);
+  return globalThis.pick?.(globalThis.NATURE_KEYS);
 }
 
 function rollPotential(ballType) {
-  const dist = BALLS[ballType]?.potential || BALLS.pokeball.potential;
+  const BALLS = globalThis.BALLS || {};
+  const dist = BALLS[ballType]?.potential || BALLS.pokeball?.potential || [];
   const r = Math.random() * 100;
   let acc = 0;
   let result = 1;
@@ -48,7 +50,8 @@ function rollMoves(speciesEN) {
 function calculateStats(pokemon) {
   const sp = SPECIES_BY_EN[pokemon.species_en];
   if (!sp) return { atk: 10, def: 10, spd: 10 };
-  const nat = NATURES[pokemon.nature] || NATURES.hardy;
+  const NATURES = globalThis.NATURES || {};
+  const nat = NATURES[pokemon.nature] || NATURES.hardy || { atk: 1, def: 1, spd: 1 };
   const potMult = 1 + pokemon.potential * 0.1;
   const lvlMult = 1 + pokemon.level / 100;
   return {
