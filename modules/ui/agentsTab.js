@@ -5,43 +5,6 @@ import { BALL_SPRITES, FALLBACK_TRAINER_SVG } from '../../data/assets-data.js';
 // 18b. UI — AGENTS TAB
 // ════════════════════════════════════════════════════════════════
 
-function renderAgentPerkModal(agentId) {
-  const agent = state.agents.find(a => a.id === agentId);
-  if (!agent) return;
-
-  const overlay = document.createElement('div');
-  overlay.className = 'perk-modal-overlay';
-  overlay.innerHTML = `
-    <div class="perk-modal-box">
-      <div class="perk-modal-title">${agent.name} — PERK Lv.${agent.level}</div>
-      <div style="font-size:10px;color:var(--text-dim);margin-bottom:12px">Choisis une amelioration :</div>
-      <div class="perk-modal-btns">
-        <button class="perk-modal-btn" data-perk="combat">+3 ATK</button>
-        <button class="perk-modal-btn" data-perk="capture">+3 CAP</button>
-        <button class="perk-modal-btn" data-perk="luck">+3 LCK</button>
-      </div>
-    </div>`;
-
-  document.body.appendChild(overlay);
-
-  overlay.querySelectorAll('[data-perk]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const stat = btn.dataset.perk;
-      agent.stats[stat] = (agent.stats[stat] || 0) + 3;
-      if (!agent.perkLevels) agent.perkLevels = [];
-      agent.perkLevels.push({ level: agent.level, stat });
-      agent.pendingPerk = false;
-      saveState();
-      overlay.remove();
-      renderAgentsTab();
-    });
-  });
-
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) overlay.remove();
-  });
-}
-
 const AGENT_BALLS = ['pokeball','greatball','ultraball','duskball','masterball'];
 const AGENT_BALL_LABELS = { pokeball:'Poké Ball', greatball:'Super Ball', ultraball:'Hyper Ball', duskball:'Sombre Ball', masterball:'Master Ball' };
 // Behavior flag config (used for global "tout" buttons)
@@ -58,49 +21,11 @@ function renderAgentsTab() {
   const unlockedZones = ZONES.filter(z => isZoneUnlocked(z.id));
   const RECRUIT_COST  = getAgentRecruitCost();
 
-  // ── Bannière Épreuve de Darkrai (panel-level) ─────────────────────
-  // Affichée si au moins un agent actif n'est pas encore converti.
-  const needsDarkraiConversion = state.agents.some(a => !a.darkraiConverted && !a.legacyLocked);
-
-  // ── Boss card (simplifié — plus de stats brutes) ─────────────────
+  // ── Boss card ────────────────────────────────────────────────────
   const bossRep   = state.gang.reputation || 0;
   const bossTitle = typeof getBossFullTitle === 'function' ? getBossFullTitle() : '';
 
-  let html = '';
-
-  if (needsDarkraiConversion) {
-    html += `
-    <div id="darkraiBanner" style="
-      grid-column:1/-1;
-      background:linear-gradient(135deg,rgba(30,0,60,.95),rgba(10,0,30,.95));
-      border:2px solid #9d6fff;border-radius:var(--radius);
-      padding:16px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;
-      box-shadow:0 0 20px rgba(157,111,255,.3)">
-      <img src="https://play.pokemonshowdown.com/sprites/gen5ani/darkrai.gif"
-           style="width:64px;image-rendering:pixelated;animation:float 3s ease-in-out infinite;flex-shrink:0"
-           onerror="this.style.display='none'">
-      <div style="flex:1;min-width:180px">
-        <div style="font-family:var(--font-pixel);font-size:10px;color:#9d6fff;letter-spacing:1px;margin-bottom:6px">
-          ✦ ÉPREUVE DE DARKRAI ✦
-        </div>
-        <div style="font-size:9px;color:#ccc;line-height:1.6;margin-bottom:10px">
-          Des agents de votre organisation n'ont pas encore été évalués par Darkrai.<br>
-          La transformation leur révèle leur <span style="color:#9d6fff">atout de nature</span> — le talent
-          forgé dans l'ombre de vos combats.
-        </div>
-        <button id="btnRunDarkraiConversion"
-          style="font-family:var(--font-pixel);font-size:9px;padding:8px 20px;
-                 background:linear-gradient(135deg,#4a1a8a,#6a2ab0);
-                 border:1px solid #9d6fff;border-radius:var(--radius-sm);
-                 color:#fff;cursor:pointer;letter-spacing:1px;
-                 box-shadow:0 0 8px rgba(157,111,255,.4)">
-          ✦ Lancer l'Épreuve — Transformer tous les agents
-        </button>
-      </div>
-    </div>`;
-  }
-
-  html += `
+  let html = `
     <div class="agent-card-full" style="border-color:var(--gold)" id="playerStatCard">
       <div class="agent-header">
         ${state.gang.bossSprite ? `<img src="${trainerSprite(state.gang.bossSprite)}" alt="Boss" style="width:44px;height:44px;image-rendering:pixelated">` : '<div style="width:44px;height:44px;background:var(--bg-card);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:20px">👤</div>'}
@@ -228,41 +153,6 @@ function renderAgentsTab() {
       <div class="agent-team-slots">${teamSlots}</div>
       <div class="agent-personality">${a.personality.join(', ')}</div>
 
-      <!-- Atouts (perks) — icônes Pokémon à la place des emojis -->
-      ${(() => {
-        const perks   = a.perks || [];
-        const pending = a.pendingPerkChoice;
-        const AGENT_PERKS_TAB = globalThis.AGENT_PERKS || [];
-        const nextPerk = Math.ceil((a.level + 1) / (globalThis.PERK_EVERY || 10)) * (globalThis.PERK_EVERY || 10);
-        const perkIcons = perks.map(pid => {
-          const p = AGENT_PERKS_TAB.find(x => x.id === pid);
-          if (!p) return '';
-          const sp = globalThis.getPerkPokemon?.(p) || 'ditto';
-          const isShiny = p.effect.startsWith('shiny:') || p.effect.startsWith('shiny_type:');
-          const src = pokeIcon(sp);
-          return `<img src="${src}" title="${p.fr} — ${p.desc}"
-                    style="width:22px;height:22px;image-rendering:pixelated;cursor:help${isShiny ? ';filter:drop-shadow(0 0 3px var(--gold))' : ''}"
-                    onerror="this.style.display='none'">`;
-        }).join('');
-        if (pending) {
-          return `<button class="agent-perk-choose-btn" data-agent-id="${a.id}"
-            style="width:100%;margin-top:6px;font-family:var(--font-pixel);font-size:7px;padding:6px;
-                   background:rgba(157,111,255,.15);border:2px solid #9d6fff;border-radius:var(--radius-sm);
-                   color:#9d6fff;cursor:pointer;animation:pulse 1.6s infinite">
-            ATOUT DISPONIBLE — Choisir
-          </button>`;
-        }
-        if (perks.length === 0) {
-          return `<div style="font-size:8px;color:var(--text-dim);margin-top:4px;text-align:center;opacity:.5">
-            Atout au Lv.${nextPerk}</div>`;
-        }
-        return `<div style="margin-top:6px;display:flex;align-items:center;gap:4px;flex-wrap:wrap">
-          <span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">ATOUTS :</span>
-          <span style="display:flex;gap:2px;align-items:center">${perkIcons}</span>
-          ${pending ? '' : `<span style="font-size:8px;color:var(--text-dim);opacity:.6">· Lv.${nextPerk}</span>`}
-        </div>`;
-      })()}
-
       <label class="agent-notify-toggle">
         <input type="checkbox" class="agent-notify-cb" data-agent-id="${a.id}" ${a.notifyCaptures !== false ? 'checked' : ''}>
         ${a.notifyCaptures !== false ? '🔔' : '🔕'} Notifications
@@ -270,17 +160,16 @@ function renderAgentsTab() {
     </div>`;
   }
 
-  // Recruit button — tous les slots ont un coût (courbe progressive)
+  // Recruit button
   html += `<div class="agent-card-full" id="btnRecruitAgentFull"
     style="display:flex;align-items:center;justify-content:center;cursor:pointer;min-height:120px;
-           border:2px dashed rgba(157,111,255,.5)">
+           border:2px dashed var(--border)">
     <div style="text-align:center">
-      <img src="https://play.pokemonshowdown.com/sprites/gen5ani/darkrai.gif"
-           style="width:40px;image-rendering:pixelated" onerror="this.style.display='none'">
-      <div style="font-family:var(--font-pixel);font-size:8px;color:#9d6fff;margin-top:5px">
-        ÉPREUVE DE DARKRAI
+      <div style="font-size:22px;margin-bottom:6px">+</div>
+      <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim)">
+        RECRUTER UN AGENT
       </div>
-      <div style="font-size:9px;color:#9d6fff;margin-top:3px">
+      <div style="font-size:9px;color:var(--gold);margin-top:3px">
         Agent ${state.agents.length + 1} — ${RECRUIT_COST.toLocaleString()}₽
       </div>
     </div>
@@ -403,16 +292,6 @@ function renderAgentsTab() {
       const cfg = BEHAVIOR_FLAGS.find(f => f.key === flag);
       notify(`Tous les agents → ${cfg?.label || flag} ${val ? 'ON' : 'OFF'}`, val ? 'success' : '');
     });
-  });
-
-  // Perk choice button
-  grid.querySelectorAll('.agent-perk-choose-btn').forEach(btn => {
-    btn.addEventListener('click', () => globalThis.openPerkChoiceModal?.(btn.dataset.agentId));
-  });
-
-  // Panel-level Darkrai conversion button
-  document.getElementById('btnRunDarkraiConversion')?.addEventListener('click', () => {
-    globalThis.runBulkDarkraiConversion?.();
   });
 
   // Unlock button for legacy-locked agents
@@ -571,5 +450,5 @@ function renderAgentTree(container) {
     </div>`;
 }
 
-Object.assign(globalThis, { renderAgentsTab, renderAgentTree, renderAgentPerkModal });
-export { renderAgentsTab, renderAgentTree, renderAgentPerkModal };
+Object.assign(globalThis, { renderAgentsTab, renderAgentTree });
+export { renderAgentsTab, renderAgentTree };

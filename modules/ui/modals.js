@@ -89,12 +89,10 @@ function showInfoModal(tabId) {
       title: '👥 AGENTS',
       body: `
         <strong>Niveau</strong> — Toute la puissance d'un agent. Monte en gagnant des combats et en capturant des Pokémon. Plafond : 100.<br><br>
-        <strong>Atouts (Perks)</strong> — Tous les 10 niveaux, l'agent débloque un atout permanent parmi 3 propositions. 150 atouts disponibles : affinités de type, radar shiny, bonus XP, revenus passifs…<br><br>
-        <strong>Épreuve de Darkrai</strong> — Reroll le sprite et la personnalité d'un agent (50 000₽). Niveau, atouts et grade conservés.<br><br>
         <strong>Grade</strong> — Grunt → Sergent (Lv.25) → Lieutenant (Lv.50) → Commandant (Lv.75) → Élite / Général (Lv.100). Chaque grade booste la puissance en combat.<br><br>
         <strong>Zone assignée</strong> — L'agent farme passivement en background au vrai rythme de la zone : captures, combats, coffres.<br><br>
         <strong>Cap à 10</strong> — Les agents au-delà du 10e slot nécessitent un déblocage payant (coût croissant).<br><br>
-        <span class="dim">Un agent sans zone assignée ne fait rien. Les agents de haut niveau avec de bons atouts font une différence énorme.</span>
+        <span class="dim">Un agent sans zone assignée ne fait rien. Un agent de haut grade avec une bonne équipe fait une différence significative en combat.</span>
       `
     },
     tabZones: {
