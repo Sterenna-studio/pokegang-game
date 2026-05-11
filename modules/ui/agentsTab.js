@@ -234,11 +234,22 @@ function renderAgentsTab() {
   }
 
   // Recruit button
-  html += `<div class="agent-card-full" style="display:flex;align-items:center;justify-content:center;cursor:pointer;border:2px dashed var(--border-light);min-height:120px" id="btnRecruitAgentFull">
+  const isFreeSlot = state.agents.filter(a => !a.legacyLocked).length < 5
+                  || state.agents.length < 5;
+  const recruitIsPaid = RECRUIT_COST > 0;
+  html += `<div class="agent-card-full" id="btnRecruitAgentFull"
+    style="display:flex;align-items:center;justify-content:center;cursor:pointer;min-height:120px;
+           border:2px dashed ${recruitIsPaid ? 'rgba(157,111,255,.5)' : 'var(--border-light)'}">
     <div style="text-align:center">
-      <div style="font-size:28px">➕</div>
-      <div style="font-family:var(--font-pixel);font-size:9px;color:var(--text);margin-top:6px">Recruter</div>
-      <div style="font-size:10px;color:var(--gold)">₽ ${RECRUIT_COST.toLocaleString()}</div>
+      ${recruitIsPaid
+        ? `<img src="https://play.pokemonshowdown.com/sprites/gen5ani/darkrai.gif"
+               style="width:40px;image-rendering:pixelated" onerror="this.style.display='none'">
+           <div style="font-family:var(--font-pixel);font-size:8px;color:#9d6fff;margin-top:5px">ÉPREUVE DE DARKRAI</div>
+           <div style="font-size:9px;color:#9d6fff;margin-top:3px">${RECRUIT_COST.toLocaleString()}₽</div>`
+        : `<div style="font-size:28px">➕</div>
+           <div style="font-family:var(--font-pixel);font-size:9px;color:var(--text);margin-top:6px">Recruter</div>
+           <div style="font-size:9px;color:var(--gold);margin-top:2px">Gratuit · Slot ${state.agents.length + 1}/5</div>`
+      }
     </div>
   </div>`;
 

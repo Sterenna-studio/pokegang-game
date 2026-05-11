@@ -58,18 +58,18 @@ function _checkPerkThreshold(agent) {
   }
 }
 
-// Courbe en paliers : ×10 tous les 5 agents.
-//   Agents  1- 5 :       5 000₽
-//   Agents  6-10 :      50 000₽
-//   Agents 11-15 :     500 000₽
-//   Agents 16-20 :   5 000 000₽
-//   Agents 21-25 :  50 000 000₽
-// → frein naturel en mid/late-game, early accessible pour expérimenter.
+// Courbe d'accès aux agents :
+//   Slots  1– 5 : GRATUIT  (les 5 premiers slots sont offerts)
+//   Slots  6–10 :  50 000₽  via Épreuve de Darkrai
+//   Slots 11–15 : 500 000₽  via Épreuve de Darkrai
+//   Slots 16–20 : 5 000 000₽ via Épreuve de Darkrai
+//   …×10 tous les 5 agents suivants
+// Le recrutement simple (gratuit) est remplacé par l'Épreuve de Darkrai dès le 6e agent.
 function getAgentRecruitCost() {
-  const state = globalThis.state;
-  const n     = state.agents.length;
-  const tier  = Math.floor(n / 5);          // palier (0, 1, 2, …)
-  return 5_000 * Math.pow(10, tier);
+  const n = globalThis.state.agents.length;
+  if (n < 5) return 0;                                          // slots 1-5 gratuits
+  const tier = Math.floor((n - 5) / 5);                        // 0, 1, 2, …
+  return 5_000 * Math.pow(10, tier + 1);                       // 50k, 500k, 5M, …
 }
 
 function rollNewAgent() {
@@ -120,20 +120,27 @@ function recruitAgent(agentData) {
 
 function openAgentRecruitModal(onAfterRecruit) {
   const state = globalThis.state;
-  const SFX = globalThis.SFX;
-  const cost = getAgentRecruitCost();
-  if (state.gang.money < cost) {
-    globalThis.notify(state.lang === 'fr' ? 'Pas assez d\'argent !' : 'Not enough money!');
-    SFX.play('error')
+  const SFX   = globalThis.SFX;
+  const cost  = getAgentRecruitCost();
+  const isPaid = cost > 0;
+
+  if (isPaid && (state.gang?.money || 0) < cost) {
+    globalThis.notify('Fonds insuffisants pour l\'Épreuve de Darkrai !', 'error');
+    SFX?.play('error');
     return;
   }
 
   const candidates = [rollNewAgent(), rollNewAgent(), rollNewAgent()];
 
+  // ── Cartes candidats ─────────────────────────────────────────────────────
+  const borderColor  = isPaid ? '#9d6fff' : 'var(--border)';
+  const accentColor  = isPaid ? '#9d6fff' : 'var(--gold)';
+  const btnLabel     = isPaid ? '✦ Choisir' : 'Recruter';
+
   const cardsHtml = candidates.map((ag, i) => `
     <div class="recruit-card" data-idx="${i}" style="
       flex:1;min-width:140px;max-width:190px;
-      background:var(--bg-card);border:1px solid var(--border);
+      background:var(--bg-card);border:2px solid ${borderColor};
       border-radius:var(--radius);padding:12px 10px;
       display:flex;flex-direction:column;align-items:center;gap:8px;
       cursor:pointer;transition:border-color .15s,box-shadow .15s">
@@ -143,22 +150,37 @@ function openAgentRecruitModal(onAfterRecruit) {
       <div style="font-size:8px;color:var(--text-dim);opacity:.7;font-family:var(--font-pixel);text-align:center">Lv.1 · Grunt</div>
       <button class="recruit-pick-btn" data-idx="${i}" style="
         margin-top:4px;font-family:var(--font-pixel);font-size:8px;
-        padding:5px 14px;background:var(--bg);border:1px solid var(--gold-dim);
-        border-radius:var(--radius-sm);color:var(--gold);cursor:pointer;width:100%">
-        Recruter
+        padding:5px 14px;background:var(--bg);border:1px solid ${accentColor};
+        border-radius:var(--radius-sm);color:${accentColor};cursor:pointer;width:100%">
+        ${btnLabel}
       </button>
     </div>`).join('');
 
+  // ── En-tête selon le mode (gratuit vs Darkrai) ────────────────────────────
+  const headerHtml = isPaid ? `
+    <div style="text-align:center">
+      <img src="https://play.pokemonshowdown.com/sprites/gen5ani/darkrai.gif"
+           style="width:52px;image-rendering:pixelated;animation:float 3s ease-in-out infinite"
+           onerror="this.style.display='none'">
+      <div style="font-family:var(--font-pixel);font-size:10px;color:#9d6fff;margin-top:6px;letter-spacing:1px">
+        ✦ ÉPREUVE DE DARKRAI ✦
+      </div>
+      <div style="font-size:8px;color:var(--text-dim);margin-top:4px">
+        Slot ${state.agents.length + 1} — Seul Darkrai peut révéler le prochain agent.<br>
+        Coût : <span style="color:#9d6fff;font-family:var(--font-pixel)">${cost.toLocaleString()}₽</span>
+      </div>
+    </div>` : `
+    <div style="font-family:var(--font-pixel);font-size:11px;color:var(--gold);text-align:center">
+      ★ RECRUTEMENT — Slot ${state.agents.length + 1} / 5 gratuits
+    </div>`;
+
+  const borderStyle = isPaid ? '2px solid #9d6fff' : '2px solid var(--gold-dim)';
+
   const modal = document.createElement('div');
-  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;z-index:9999';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.82);display:flex;align-items:center;justify-content:center;z-index:9999';
   modal.innerHTML = `
-    <div style="background:var(--bg-panel);border:2px solid var(--gold-dim);border-radius:var(--radius);padding:20px;max-width:640px;width:96%;display:flex;flex-direction:column;gap:14px">
-      <div style="font-family:var(--font-pixel);font-size:11px;color:var(--gold);text-align:center">
-        ★ RECRUTEMENT — Choisissez un candidat
-      </div>
-      <div style="font-size:8px;color:var(--text-dim);text-align:center;font-family:var(--font-pixel)">
-        Coût : ${cost.toLocaleString()}₽ — Trois candidats disponibles
-      </div>
+    <div style="background:var(--bg-panel);border:${borderStyle};border-radius:var(--radius);padding:20px;max-width:640px;width:96%;display:flex;flex-direction:column;gap:14px">
+      ${headerHtml}
       <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">${cardsHtml}</div>
       <div style="text-align:center">
         <button id="recruitCancelBtn" style="font-family:var(--font-pixel);font-size:8px;padding:6px 16px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">Annuler</button>
@@ -168,8 +190,10 @@ function openAgentRecruitModal(onAfterRecruit) {
 
   // Hover highlight
   modal.querySelectorAll('.recruit-card').forEach(card => {
-    card.addEventListener('mouseenter', () => { card.style.borderColor = 'var(--gold-dim)'; card.style.boxShadow = '0 0 10px rgba(255,204,90,.2)'; });
-    card.addEventListener('mouseleave', () => { card.style.borderColor = 'var(--border)'; card.style.boxShadow = ''; });
+    const hoverColor = isPaid ? '#9d6fff' : 'var(--gold-dim)';
+    const hoverGlow  = isPaid ? 'rgba(157,111,255,.25)' : 'rgba(255,204,90,.2)';
+    card.addEventListener('mouseenter', () => { card.style.borderColor = hoverColor; card.style.boxShadow = `0 0 10px ${hoverGlow}`; });
+    card.addEventListener('mouseleave', () => { card.style.borderColor = borderColor; card.style.boxShadow = ''; });
   });
 
   // Pick
@@ -178,14 +202,15 @@ function openAgentRecruitModal(onAfterRecruit) {
       const idx = parseInt(btn.dataset.idx);
       state.gang.money -= cost;
       recruitAgent(candidates[idx]);
-      globalThis.notify(`${state.lang === 'fr' ? 'Recruté' : 'Recruited'}: ${candidates[idx].name}!`, 'gold');
+      const verb = isPaid ? `✦ ${candidates[idx].name} a survécu à l'Épreuve de Darkrai !` : `Recruté : ${candidates[idx].name} !`;
+      globalThis.notify(verb, 'gold');
       globalThis.updateTopBar();
       modal.remove();
       onAfterRecruit?.();
     });
   });
 
-  document.getElementById('recruitCancelBtn').addEventListener('click', () => modal.remove());
+  modal.querySelector('#recruitCancelBtn').addEventListener('click', () => modal.remove());
   modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
 }
 
@@ -819,8 +844,8 @@ function migrateAgentPerkSystem() {
     const agent = state.agents[agIdx];
     if (!agent.perks) agent.perks = [];
     if (agent.pendingPerkChoice === undefined) agent.pendingPerkChoice = false;
-    // Ensure new fields exist
-    if (agent.legacyLocked === undefined) agent.legacyLocked = agIdx >= 10;
+    // Ensure new fields exist — slots 1-5 gratuits, 6+ verrouillés
+    if (agent.legacyLocked === undefined) agent.legacyLocked = agIdx >= 5;
     agent.natureDefined = true; // remove old nature modal requirement
 
     // Totaliser l'XP : XP déjà "brûlée" pour atteindre le niveau courant
@@ -1258,11 +1283,12 @@ function openDarkraiTrial(agentId) {
   overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
 }
 
-// ── Déverrouillage d'un agent bloqué (slot 10+) ──────────────────────────────
-// Coût = getAgentRecruitCost() au moment du déverrouillage (basé sur la position dans la liste).
+// ── Déverrouillage d'un agent bloqué (slot 6+) ───────────────────────────────
+// Même formule que getAgentRecruitCost, basée sur la position du slot.
 function getAgentUnlockCost(agentIndex) {
-  const tier = Math.floor(agentIndex / 5);
-  return 5_000 * Math.pow(10, tier);
+  if (agentIndex < 5) return 0;
+  const tier = Math.floor((agentIndex - 5) / 5);
+  return 5_000 * Math.pow(10, tier + 1);
 }
 
 function unlockAgent(agentId) {
