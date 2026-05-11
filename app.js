@@ -2208,12 +2208,14 @@ Object.assign(globalThis, {
   // Audio
   SFX, MusicPlayer, JinglePlayer, MUSIC_TRACKS, playTone,
   // Zone system — logique pure (zoneSystem.js)
-  initZone, spawnInZone, makePokemon, makeTrainerTeam, makeRaidSpawn,
-  getPokemonPower, levelUpPokemon, getZoneAgentSlots,
+  // makePokemon, getPokemonPower, levelUpPokemon, calculateStats, tryAutoEvolution
+  //   → set by modules/systems/pokemon.js (stubs in app.js must NOT overwrite)
+  initZone, spawnInZone, makeTrainerTeam, makeRaidSpawn,
+  getZoneAgentSlots,
   getCombatRepGain, resolveCombat, resolveTrainerCombat, getTrainerCombatPreview, applyCombatResult,
   addBattleLogEntry, pushFeedEvent, rollChestLoot,
   triggerGymRaid, investInZone,
-  tryCapture, calculateStats, showCaptureBurst,
+  tryCapture, showCaptureBurst,
   checkForNewlyUnlockedZones, showZoneUnlockPopup, _processZoneUnlockQueue,
   startActiveZone, stopActiveZone, pauseZoneIfIdle, syncActiveZones,
   startBackgroundZone, stopBackgroundZone, syncBackgroundZones, // aliases
@@ -2245,7 +2247,8 @@ Object.assign(globalThis, {
   isZoneUnlocked,
   BOOST_DURATIONS, ITEM_SPRITE_URLS,
   // trainingRoom module
-  pokeSprite, tryAutoEvolution,
+  // tryAutoEvolution → set by modules/systems/pokemon.js
+  pokeSprite,
   // pension module
   renderBagTab,
   showConfirm, showInfoModal, renderPCTab, switchTab, showContextMenu,
@@ -2263,15 +2266,17 @@ Object.assign(globalThis, {
   // openTeamPicker, openAssignToPicker, openRareCandyPicker — set by modules/ui/pickers.js
   pokemonDisplayName, sanitizeSpriteName,
   getDexKantoCaught, getDexJohtoCaught, getDexNationalCaught, getShinySpeciesCount,
-  getBossFullTitle, getTitleLabel,
+  // getBossFullTitle, getTitleLabel → set by modules/systems/titles.js
   KANTO_DEX_SIZE, JOHTO_DEX_SIZE, NATIONAL_DEX_SIZE, COSMETIC_BGS,
-  // Fabric BG unlock helper — used by capture modules
-  _unlockFabricBg,
+  // Fabric BG unlock helper
+  // _unlockFabricBg, applyCosmetics, openNameModal, openSpritePicker
+  //   → set by modules/ui/cosmetics.js (stubs must NOT overwrite)
   FABRIC_SPECIES, PATCH_PIDS, fabricBgUrl, fabricEmbUrl, patchUrl,
   // gangTab module
-  applyCosmetics, MusicPlayer, MUSIC_TRACKS, GAME_VERSION,
-  pokeIcon, openBossEditModal, openTitleModal, openShowcasePicker,
-  openTeamPickerModal, showEvoPreviewModal, openNameModal, openSpritePicker,
+  // openTitleModal → set by modules/systems/titles.js
+  MusicPlayer, MUSIC_TRACKS, GAME_VERSION,
+  pokeIcon, openBossEditModal, openShowcasePicker,
+  openTeamPickerModal, showEvoPreviewModal,
   // hubModals module — needs these from app.js scope
   BOSS_SPRITES, SAVE_KEYS, MAX_HISTORY,
   formatPlaytime, getTotalBalls, getSlotPreview,
