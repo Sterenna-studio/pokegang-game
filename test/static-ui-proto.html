@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pokegang Static UI Proto</title>
+  <link rel="stylesheet" href="./proto.css" />
+</head>
+<body class="proto-body">
+  <div class="proto-titlebar">
+    <div><strong>Pokegang static UI proto</strong> — synthèse des 3 directions</div>
+    <div>Desktop first · rouge/noir · centre de commandement</div>
+  </div>
+
+  <div class="proto-shell">
+    <aside class="proto-sidebar">
+      <div class="logo-block">
+        <div class="logo-kicker">Pokegang control room</div>
+        <div class="logo-title">Pokegang</div>
+        <div class="logo-sub">Proto statique pensé pour rapprocher l'UI de la fantasy réelle du jeu : contrôle territorial, captures, vente et interventions du boss.</div>
+      </div>
+
+      <div class="nav-section-title">Modules jeu</div>
+      <div class="nav-list">
+        <a class="nav-item active" href="#"><span>Zones</span><span class="nav-badge">zoneSystem</span></a>
+        <a class="nav-item" href="#"><span>PC / Pokédex</span><span class="nav-badge">pcPokedex</span></a>
+        <a class="nav-item" href="#"><span>Agents</span><span class="nav-badge">agent</span></a>
+        <a class="nav-item" href="#"><span>Marché</span><span class="nav-badge">market</span></a>
+        <a class="nav-item" href="#"><span>Gang</span><span class="nav-badge">gangBase</span></a>
+        <a class="nav-item" href="#"><span>Missions</span><span class="nav-badge">missions</span></a>
+        <a class="nav-item" href="#"><span>Compte cloud</span><span class="nav-badge">cloud</span></a>
+      </div>
+
+      <div class="nav-section-title">Raccourcis</div>
+      <div class="nav-list">
+        <a class="nav-item" href="#"><span>Scanner chroma</span><span class="nav-badge">ON</span></a>
+        <a class="nav-item" href="#"><span>Vente auto</span><span class="nav-badge">AUTO</span></a>
+        <a class="nav-item" href="#"><span>Log combat</span><span class="nav-badge">LIVE</span></a>
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="log-kicker">Direction visée</div>
+        <div class="log-title">Idle manager territorial</div>
+        <div class="log-text">Le layout assume que le cœur de Pokegang est la domination de zones, la capture de masse, la chasse rare/chroma et la vente.</div>
+      </div>
+    </aside>
+
+    <main class="proto-main">
+      <section class="topbar">
+        <div class="stat-card"><div class="stat-label">Gang cash</div><div class="stat-value">1.82M₽</div><div class="stat-sub">Ventes = moteur principal</div></div>
+        <div class="stat-card"><div class="stat-label">Réputation</div><div class="stat-value">24 100</div><div class="stat-sub">Objectif : contrôle Johto</div></div>
+        <div class="stat-card"><div class="stat-label">Captures today</div><div class="stat-value">1 284</div><div class="stat-sub">7 rares · 2 chroma</div></div>
+        <div class="stat-card"><div class="stat-label">Présence zone</div><div class="stat-value">10 / 14</div><div class="stat-sub">2 contestées · 1 perdue</div></div>
+      </section>
+
+      <section class="hero-card">
+        <div class="hero-grid">
+          <div>
+            <h1 class="hero-title">Vue générale du réseau du gang</h1>
+            <div class="hero-text">Cette version statique essaye d'utiliser les vrais blocs du projet sans tout recoder : topbar pour l'état global, centre pour les zones et l'activité, droite pour les logs et la hiérarchie. L'idée est de vérifier si cette lecture rend Pokegang plus compréhensible qu'une succession d'onglets séparés.</div>
+            <div class="hero-actions">
+              <button class="btn btn-primary">Ouvrir une zone active</button>
+              <button class="btn btn-ghost">Voir le PC</button>
+              <button class="btn btn-ghost">Marché</button>
+            </div>
+          </div>
+          <div class="hero-visual">
+            <div class="row-between">
+              <div>
+                <div class="log-kicker">Front principal</div>
+                <div class="log-title">Kanto / Johto en surveillance</div>
+              </div>
+              <span class="tag red">3 alertes</span>
+            </div>
+            <div class="wire-map">
+              <span class="node safe" style="left:16%; top:20%"></span>
+              <span class="node safe" style="left:31%; top:37%"></span>
+              <span class="node" style="left:49%; top:26%"></span>
+              <span class="node safe" style="left:61%; top:51%"></span>
+              <span class="node" style="left:76%; top:41%"></span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel-card">
+        <div class="section-title-row">
+          <div>
+            <h2 class="section-title">Zones actives / silencieuses</h2>
+            <div class="section-sub">Pensé pour coller à `zoneSystem`, aux fenêtres de zones et à la simulation d'agents</div>
+          </div>
+          <span class="tag">Kanto</span>
+        </div>
+        <div class="zone-grid">
+          <article class="zone-card hot">
+            <div class="zone-meta"><span class="tag red">Fenêtre ouverte</span><span class="tag">Montagne</span><span class="tag">Rare ++</span></div>
+            <h3 class="zone-title">Route Victoire</h3>
+            <div class="zone-desc">Zone active à l'écran. Sert de démonstration pour le futur panneau de combat/événement boss sans imposer tout le jeu en mode manuel.</div>
+            <div class="progress"><span style="width:58%"></span></div>
+            <div class="zone-footer"><span class="muted">Pression</span><strong>58%</strong></div>
+          </article>
+          <article class="zone-card">
+            <div class="zone-meta"><span class="tag green">Silencieuse</span><span class="tag">Forêt</span><span class="tag">Chroma +</span></div>
+            <h3 class="zone-title">Forêt de Jade</h3>
+            <div class="zone-desc">Zone exploitée par agent. Lecture simple : rendement, stabilité, spécialisation, alerte éventuelle.</div>
+            <div class="progress"><span style="width:86%"></span></div>
+            <div class="zone-footer"><span class="muted">Contrôle</span><strong>86%</strong></div>
+          </article>
+          <article class="zone-card hot">
+            <div class="zone-meta"><span class="tag red">Perdue</span><span class="tag">Reprise</span></div>
+            <h3 class="zone-title">Tour Pokémon</h3>
+            <div class="zone-desc">Cette carte illustre bien la future logique contestée → perdue → reprise par victoire, au lieu d'un simple timer passif.</div>
+            <div class="progress"><span style="width:21%"></span></div>
+            <div class="zone-footer"><span class="muted">État</span><strong>Bloquée</strong></div>
+          </article>
+          <article class="zone-card">
+            <div class="zone-meta"><span class="tag">Ville</span><span class="tag">Marché</span></div>
+            <h3 class="zone-title">Safrania</h3>
+            <div class="zone-desc">Moins bonne en volume brut, mais utile pour les espèces de valeur et la progression d'influence.</div>
+            <div class="progress"><span style="width:49%"></span></div>
+            <div class="zone-footer"><span class="muted">Valeur vente</span><strong>+14%</strong></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="panel-card">
+        <div class="section-title-row"><h2 class="section-title">Commandes rapides</h2><span class="tag red">proto</span></div>
+        <div class="card-grid">
+          <div class="mini-card"><div class="log-kicker">PC</div><div class="log-title">Gestion de masse</div><div class="log-text">Ce bloc pourrait ouvrir directement un PC revu, avec filtres, vente de masse et groupes plus lisibles.</div></div>
+          <div class="mini-card"><div class="log-kicker">Marché</div><div class="log-title">Fluctuation</div><div class="log-text">Affichage direct des espèces/types en hausse pour donner plus de valeur à la vente.</div></div>
+          <div class="mini-card"><div class="log-kicker">Gang</div><div class="log-title">Hiérarchie</div><div class="log-text">Rappel rapide des sergents / lieutenants / commandants disponibles pour l'occupation avancée des zones.</div></div>
+          <div class="mini-card"><div class="log-kicker">Missions</div><div class="log-title">Objectifs session</div><div class="log-text">Un vrai bon endroit pour éviter le creux early après le premier agent.</div></div>
+        </div>
+      </section>
+    </main>
+
+    <aside class="proto-right">
+      <section class="panel-card">
+        <div class="section-title-row"><h2 class="section-title">Réseau agents</h2><span class="tag">18</span></div>
+        <div class="agent-list">
+          <div class="agent-item"><div class="row-between"><strong>Spirit</strong><span class="tag">Sergent</span></div><div class="log-text">Route Victoire · spécialiste montagne · 31 captures / h</div></div>
+          <div class="agent-item"><div class="row-between"><strong>Sniky</strong><span class="tag">Lieutenant</span></div><div class="log-text">Forêt de Jade · spécialiste forêt · 34 captures / h</div></div>
+          <div class="agent-item"><div class="row-between"><strong>Gabylon</strong><span class="tag">Grunt</span></div><div class="log-text">Safrania · rendement moyen · bonne valeur de vente</div></div>
+        </div>
+      </section>
+
+      <section class="panel-card">
+        <div class="section-title-row"><h2 class="section-title">Feed / log / alertes</h2><span class="tag red">live</span></div>
+        <div class="log-list">
+          <div class="log-item alert"><div class="log-kicker">Raid</div><div class="log-title">Route Victoire demande le boss</div><div class="log-text">Une intervention pourrait transformer le combat en moment fort sans faire du combat le moteur principal du jeu.</div></div>
+          <div class="log-item"><div class="log-kicker">Capture</div><div class="log-title">Abra chromatique détecté</div><div class="log-text">Safrania — valeur très haute, bonne cible de vente ou de collection.</div></div>
+          <div class="log-item"><div class="log-kicker">Économie</div><div class="log-title">Prix insecte en hausse</div><div class="log-text">Le marché récompense la spécialisation de forêt sur la prochaine heure.</div></div>
+        </div>
+      </section>
+    </aside>
+  </div>
+</body>
+</html>
