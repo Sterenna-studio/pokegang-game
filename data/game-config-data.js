@@ -105,22 +105,6 @@ const AGENT_RANK_LABELS = {
 // Chaîne ordonnée des grades (hors élite/général qui sont des variantes du dernier palier)
 const RANK_CHAIN = ['grunt', 'sergent', 'lieutenant', 'commandant'];
 
-// ── Atouts d'agent (perks) ─────────────────────────────────────────────────────
-// Toutes les 10 niveaux, l'agent peut choisir un atout parmi 3 propositions.
-// effect : "type:valeur" ou "type:sous-type:valeur"
-//   capture_type:<type>:<rate>    → +% capture ce type
-//   shiny:<rate>                  → +% chance shiny global
-//   shiny_type:<type>:<rate>      → +% chance shiny pour ce type uniquement
-//   combat:<rate>                 → +% puissance combat
-//   chest_loot:<rate>             → +% loot coffres
-//   money:<rate>                  → +% argent des combats
-//   capture_potential:<n>         → +n ★ sur capture
-//   ball_recovery:<prob>          → probabilité de récupérer la ball
-//   encounter_rare:<rate>         → +% chance spawn rare/légendaire
-//   trainer_debuff:<rate>         → -% difficulté dresseurs
-//   xp_bonus:<rate>               → +% XP gagné par l'agent
-//   capture_rarity:<rarity>:<rate>→ +% capture spécifique à une rareté
-//   passive_income:<amount>       → ₽ par resolve de zone
 const AGENT_PERKS = [
   // ══ A. AFFINITÉ CAPTURE PAR TYPE (18) ══════════════════════════════════
   { id:'cap_fire',      fr:'Instinct du Feu',        icon:'🔥', desc:'+30% capture Feu',       effect:'capture_type:fire:0.30'      },
@@ -295,22 +279,4 @@ const AGENT_PERKS = [
   { id:'final_form',    fr:'Forme Finale',            icon:'💥', desc:'+50% tous bonus de niveau', effect:'xp_bonus:0.50'              },
 ];
 
-// ── Perk de nature par personnalité ────────────────────────────────────────────
-// Chaque personnalité est liée à une perk "signature" — priorité aux perks combat.
-// Utilisé par l'Épreuve de Darkrai pour assigner automatiquement la perk de nature.
-const PERSONALITY_PERK_MAP = {
-  loyal:    'zone_guardian',   // combat:0.20 — Gardien de Zone
-  nervous:  'first_strike',   // combat:0.20 — Attaque Surprise
-  reckless: 'berserker',      // combat:0.35 — Berserker
-  calm:     'strategist',     // combat:0.20 — Stratège
-  cunning:  'opportunist',    // combat:0.30 — Opportuniste
-  lazy:     'chest_basic',    // chest_loot:0.25 — Fouilleur
-  fierce:   'combat_master',  // combat:0.40 — Maîtrise du Combat
-  quiet:    'lone_wolf',      // combat:0.30 — Loup Solitaire
-  greedy:   'bounty_hunter',  // money:0.40 — Chasseur de Primes
-  brave:    'combat_focus',   // combat:0.25 — Concentration
-  curious:  'lucky_find',     // encounter_rare:0.25 — Sixième Sens
-  stubborn: 'resilience',     // combat:0.15 — Résilience
-};
-
-export { NATURES, NATURE_KEYS, BOSS_SPRITES, AGENT_NAMES_M, AGENT_NAMES_F, AGENT_SPRITES, AGENT_PERSONALITIES, TITLE_REQUIREMENTS, TITLE_BONUSES, AGENT_RANK_LABELS, RANK_CHAIN, AGENT_PERKS, PERSONALITY_PERK_MAP };
+export { NATURES, NATURE_KEYS, BOSS_SPRITES, AGENT_NAMES_M, AGENT_NAMES_F, AGENT_SPRITES, AGENT_PERSONALITIES, TITLE_REQUIREMENTS, TITLE_BONUSES, AGENT_RANK_LABELS, RANK_CHAIN, AGENT_PERKS };

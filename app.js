@@ -115,7 +115,13 @@ import './modules/ui/notifPanel.js';
 import './modules/ui/zoneWindows.js';
 import './modules/ui/gangBase.js';
 import './modules/ui/gangTab.js';
+import './modules/systems/johto.js';
+import './modules/ui/pickers.js';
 import { configureIntro, openGiovanniIntro, openStarterGiftPopup } from './modules/ui/intro.js';
+import './modules/systems/pokemon.js';
+import './modules/systems/titles.js';
+import './modules/ui/cosmetics.js';
+import './modules/ui/hubModals.js';
 import {
   renderZoneSelector    as _zsRenderSelector,
   refreshZoneTile       as _zsRefreshTile,
@@ -132,7 +138,7 @@ import { MISSIONS, HOURLY_QUEST_POOL } from './data/missions-data.js';
 import { TRAINER_TYPES } from './data/trainers-data.js';
 import { getDexDesc, buildSpeciesNameMaps } from './data/dex-helpers.js';
 import { BALLS, SHOP_ITEMS, MYSTERY_EGG_BASE_COST, MYSTERY_EGG_POOL, MYSTERY_EGG_HATCH_MS, POTENTIAL_MULT, BASE_PRICE, getMysteryEggCost as computeMysteryEggCost } from './data/economy-data.js';
-import { NATURES, NATURE_KEYS, BOSS_SPRITES, AGENT_NAMES_M, AGENT_NAMES_F, AGENT_SPRITES, AGENT_PERSONALITIES, TITLE_REQUIREMENTS, TITLE_BONUSES, AGENT_RANK_LABELS, RANK_CHAIN, AGENT_PERKS, PERSONALITY_PERK_MAP } from './data/game-config-data.js';
+import { NATURES, NATURE_KEYS, BOSS_SPRITES, AGENT_NAMES_M, AGENT_NAMES_F, AGENT_SPRITES, AGENT_PERSONALITIES, TITLE_REQUIREMENTS, TITLE_BONUSES, AGENT_RANK_LABELS, RANK_CHAIN, AGENT_PERKS } from './data/game-config-data.js';
 import { I18N } from './data/i18n-data.js';
 import { ZONE_BG_URL, GYM_ORDER, JOHTO_GYM_ORDER } from './data/zones-config-data.js';
 import { HOURLY_QUEST_REROLL_COST, BOOST_DURATIONS } from './data/gameplay-config-data.js';
@@ -221,6 +227,19 @@ function t(key, vars = {}) {
 // ── Save slot (runtime mutable) ───────────────────────────────────────────────
 let activeSaveSlot = Math.min(2, parseInt(localStorage.getItem('pokeforge.activeSlot') || '0'));
 let SAVE_KEY = SAVE_KEYS[activeSaveSlot];
+
+// Expose activeSaveSlot as a live getter/setter on globalThis so extracted modules can read it
+Object.defineProperty(globalThis, 'activeSaveSlot', {
+  get: () => activeSaveSlot,
+  set: v => { activeSaveSlot = v; },
+  configurable: true,
+});
+
+function setActiveSaveSlotValue(idx, opts = {}) {
+  activeSaveSlot = idx;
+  SAVE_KEY = SAVE_KEYS[idx];
+  if (opts?.persist) localStorage.setItem('pokeforge.activeSlot', String(idx));
+}
 
 // Résultat de migration exposé au boot pour afficher le banner
 let _migrationResult = null; // null | { from: string, fields: string[] }
@@ -737,192 +756,21 @@ function showInfoModal(tabId) {
 }
 
 // ════════════════════════════════════════════════════════════════
-//  4.  POKEMON MODULE
+//  4.  POKEMON MODULE  (extracted → modules/systems/pokemon.js)
 // ════════════════════════════════════════════════════════════════
 
-function rollNature() { return pick(NATURE_KEYS); }
-
-function rollPotential(ballType) {
-  const dist = BALLS[ballType]?.potential || BALLS.pokeball.potential;
-  const r = Math.random() * 100;
-  let acc = 0;
-  let result = 1;
-  for (let i = 0; i < dist.length; i++) {
-    acc += dist[i];
-    if (r < acc) { result = i + 1; break; }
-  }
-  // Lucky Incense: +1 potential (capped at 5)
-  if (isBoostActive('incense') && result < 5) result++;
-  return result;
-}
-
-function rollShiny() {
-  // Shiny Aura: x5 rate (1/40 instead of 1/200) ; Chroma Charm: ×2 permanent
-  let rate = isBoostActive('aura') ? 0.025 : 0.005;
-  if (state?.purchases?.chromaCharm) rate *= 2;
-  return Math.random() < rate;
-}
-
-function rollMoves(speciesEN) {
-  const sp = SPECIES_BY_EN[speciesEN];
-  if (!sp) return ['Charge', 'Griffe'];
-  const pool = [...sp.moves];
-  // Shuffle and pick 2 unique (or as many as available)
-  for (let i = pool.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [pool[i], pool[j]] = [pool[j], pool[i]];
-  }
-  const unique = [...new Set(pool)];
-  return unique.slice(0, 2);
-}
-
-function calculateStats(pokemon) {
-  const sp = SPECIES_BY_EN[pokemon.species_en];
-  if (!sp) return { atk: 10, def: 10, spd: 10 };
-  const nat = NATURES[pokemon.nature] || NATURES.hardy;
-  const potMult = 1 + pokemon.potential * 0.1;
-  const lvlMult = 1 + pokemon.level / 100;
-  return {
-    atk: Math.round(sp.baseAtk * potMult * nat.atk * lvlMult),
-    def: Math.round(sp.baseDef * potMult * nat.def * lvlMult),
-    spd: Math.round(sp.baseSpd * potMult * nat.spd * lvlMult),
-  };
-}
-
-function makePokemon(speciesEN, zoneId, ballType = 'pokeball') {
-  const sp = SPECIES_BY_EN[speciesEN];
-  if (!sp) return null;
-  const nature = rollNature();
-  const potential = rollPotential(ballType);
-  const shiny = rollShiny();
-  const level = randInt(3, 12);
-  const pokemon = {
-    id: `pk-${uid()}`,
-    species_fr: sp.fr,
-    species_en: sp.en,
-    dex: sp.dex,
-    level,
-    xp: 0,
-    nature,
-    potential,
-    shiny,
-    moves: rollMoves(speciesEN),
-    capturedIn: zoneId,
-    stats: {},
-    assignedTo: null,
-    cooldown: 0,
-    history: [],
-    favorite: false,
-  };
-  pokemon.stats = calculateStats(pokemon);
-  // Initial history entry
-  pokemon.history.push({ type: 'captured', ts: Date.now(), zone: zoneId, ball: ballType });
-  // Track most expensive obtained
-  const obtainedValue = calculatePrice(pokemon);
-  if (!state.stats.mostExpensiveObtained || obtainedValue > (state.stats.mostExpensiveObtained.price || 0)) {
-    state.stats.mostExpensiveObtained = { name: speciesName(pokemon.species_en), price: obtainedValue };
-  }
-  return pokemon;
-}
-
-function getPokemonPower(pokemon) {
-  const s = pokemon.stats;
-  return Math.round((s.atk + s.def + s.spd) * (pokemon.homesick ? 0.75 : 1));
-}
-
-// → Moved to data/evolutions-data.js
-function checkEvolution(pokemon) {
-  const evos = EVO_BY_SPECIES[pokemon.species_en];
-  if (!evos) return null;
-  // Collect all valid level-based evolutions (multi-evo = random pick)
-  const valid = evos.filter(e => e.req !== 'item' && typeof e.req === 'number' && pokemon.level >= e.req);
-  if (valid.length === 0) return null;
-  return valid[Math.floor(Math.random() * valid.length)];
-}
-
-function evolvePokemon(pokemon, targetEN) {
-  const sp = SPECIES_BY_EN[targetEN];
-  if (!sp) return false;
-  const oldName = speciesName(pokemon.species_en);
-  pokemon.species_en = sp.en;
-  pokemon.species_fr = sp.fr;
-  pokemon.dex = sp.dex;
-  pokemon.stats = calculateStats(pokemon);
-  pokemon.moves = rollMoves(sp.en);
-  if (pokemon.history) {
-    pokemon.history.push({ type: 'evolved', ts: Date.now(), from: oldName, to: speciesName(sp.en) });
-  }
-  // Update pokedex
-  if (!state.pokedex[sp.en]) {
-    state.pokedex[sp.en] = { seen: true, caught: true, shiny: pokemon.shiny, count: 1 };
-  } else {
-    state.pokedex[sp.en].caught = true;
-    state.pokedex[sp.en].count++;
-    if (pokemon.shiny) state.pokedex[sp.en].shiny = true;
-  }
-  showPokemonLevelPopup(pokemon, pokemon.level);
-  notify(`${oldName} ${state.lang === 'fr' ? 'évolue en' : 'evolved into'} ${speciesName(sp.en)} !`, 'gold');
-  SFX.play('evolve'); // Evolution fanfare
-  saveState();
-  return true;
-}
-
-function tryAutoEvolution(pokemon) {
-  const evos = EVO_BY_SPECIES[pokemon.species_en];
-  if (!evos) return false;
-  const valid = evos.filter(e => e.req !== 'item' && typeof e.req === 'number' && pokemon.level >= e.req);
-  if (valid.length === 0) return false;
-
-  if (valid.length === 1 || state.settings?.autoEvoChoice) {
-    // Single choice or auto mode: pick immediately
-    evolvePokemon(pokemon, valid[Math.floor(Math.random() * valid.length)].to);
-    return true;
-  }
-
-  // Multiple choices + manual mode: show card popup
-  showEvolutionChoicePopup(pokemon, valid, targetEN => {
-    evolvePokemon(pokemon, targetEN);
-    resetPcRenderCache();
-    if (activeTab === 'tabPC') renderPCTab();
-  });
-  return false; // evolution pending user choice
-}
-
-function showPokemonLevelPopup(pokemon, newLevel) {
-  // Routed to notification panel — no more overlapping floating divs
-  globalThis._npanel_push?.({
-    category: 'levelup',
-    title:    `${speciesName(pokemon.species_en)} → Lv.${newLevel} !`,
-    type:     'gold',
-  });
-}
-
-function levelUpPokemon(pokemon, xpGain) {
-  pokemon.xp += xpGain;
-  const xpNeeded = pokemon.level * 20;
-  let leveled = false;
-  while (pokemon.xp >= xpNeeded && pokemon.level < 100) {
-    pokemon.xp -= xpNeeded;
-    pokemon.level++;
-    leveled = true;
-    if (pokemon.history) {
-      pokemon.history.push({ type: 'levelup', ts: Date.now(), level: pokemon.level });
-    }
-  }
-  if (leveled) {
-    pokemon.stats = calculateStats(pokemon);
-    tryAutoEvolution(pokemon);
-    // Show popup only for boss team / active training (not passive background XP spam)
-    const isBossTeam = state.gang.bossTeam.includes(pokemon.id);
-    const isInTraining = state.trainingRoom?.pokemon?.includes(pokemon.id);
-    if (isBossTeam || isInTraining) {
-      playSE('level_up', 0.5);
-      showPokemonLevelPopup(pokemon, pokemon.level);
-      SFX.play('levelUp')
-    }
-  }
-  return leveled;
-}
+function rollNature(...a)         { return globalThis.rollNature?.(...a); }
+function rollPotential(...a)      { return globalThis.rollPotential?.(...a); }
+function rollShiny(...a)          { return globalThis.rollShiny?.(...a); }
+function rollMoves(...a)          { return globalThis.rollMoves?.(...a); }
+function calculateStats(...a)     { return globalThis.calculateStats?.(...a); }
+function makePokemon(...a)        { return globalThis.makePokemon?.(...a); }
+function getPokemonPower(...a)    { return globalThis.getPokemonPower?.(...a); }
+function checkEvolution(...a)     { return globalThis.checkEvolution?.(...a); }
+function evolvePokemon(...a)      { return globalThis.evolvePokemon?.(...a); }
+function tryAutoEvolution(...a)   { return globalThis.tryAutoEvolution?.(...a); }
+function showPokemonLevelPopup(...a) { return globalThis.showPokemonLevelPopup?.(...a); }
+function levelUpPokemon(...a)     { return globalThis.levelUpPokemon?.(...a); }
 
 // ════════════════════════════════════════════════════════════════
 //  5.  ZONE MODULE
@@ -932,342 +780,18 @@ function levelUpPokemon(pokemon, xpGain) {
 // slot 2 → 2000₽, slot 3 → 6000₽, etc.
 const ZONE_SLOT_COSTS = [2000, 6000, 15000, 50000, 150000]; // base costs (₽)
 
-// → Moved to data/titles-data.js
+// ════════════════════════════════════════════════════════════════
+//  5b.  TITLES MODULE  (extracted → modules/systems/titles.js)
+// ════════════════════════════════════════════════════════════════
+
+// LIAISONS — also kept as local const for legacy callers inside app.js
 const LIAISONS = ['', 'de', "de l'", 'du', 'des', 'à', 'et', '&', 'alias', 'dit'];
 
-function getTitleLabel(titleId) {
-  return TITLES.find(t => t.id === titleId)?.label || '';
-}
-
-function getBossFullTitle() {
-  const t1 = getTitleLabel(state.gang.titleA);
-  const t2 = getTitleLabel(state.gang.titleB);
-  const lia = state.gang.titleLiaison || '';
-  if (!t1 && !t2) return 'Recrue';
-  if (t1 && !t2) return t1;
-  if (!t1 && t2) return t2;
-  return `${t1}${lia ? ' ' + lia : ''} ${t2}`;
-}
-
-function checkTitleUnlocks() {
-  const unlocked = new Set(state.unlockedTitles || []);
-  const newOnes = [];
-  for (const t of TITLES) {
-    if (unlocked.has(t.id)) continue;
-    let unlock = false;
-    if (t.category === 'rep') {
-      unlock = state.gang.reputation >= t.repReq;
-    } else if (t.category === 'type_capture') {
-      const count = state.pokemons.filter(p => {
-        const sp = POKEMON_GEN1.find(s => s.en === p.species_en);
-        return sp?.types?.includes(t.typeReq);
-      }).length;
-      unlock = count >= t.countReq;
-    } else if (t.category === 'stat') {
-      unlock = (state.stats[t.statReq] || 0) >= t.countReq;
-    } else if (t.category === 'special' && t.id === 'fondateur') {
-      unlock = true; // toujours débloqué
-    } else if (t.category === 'special' && t.id === 'glitcheur') {
-      unlock = state.pokemons.some(p => p.species_en === 'missingno');
-    } else if (t.category === 'pokedex') {
-      if (t.dexType === 'kanto') {
-        const kantoCount = POKEMON_GEN1.filter(s => !s.hidden && s.dex >= 1 && s.dex <= 151 && state.pokedex[s.en]?.caught).length;
-        const kantoTotal = POKEMON_GEN1.filter(s => !s.hidden && s.dex >= 1 && s.dex <= 151).length;
-        unlock = kantoCount >= kantoTotal;
-      } else if (t.dexType === 'full') {
-        const fullCount = POKEMON_GEN1.filter(s => !s.hidden && state.pokedex[s.en]?.caught).length;
-        const fullTotal = POKEMON_GEN1.filter(s => !s.hidden).length;
-        unlock = fullCount >= fullTotal;
-      }
-    } else if (t.category === 'shiny_special') {
-      if (t.shinyType === 'starters') {
-        unlock = ['bulbasaur','charmander','squirtle'].every(s => state.pokedex[s]?.shiny);
-      } else if (t.shinyType === 'legendaries') {
-        unlock = POKEMON_GEN1.filter(s => s.rarity === 'legendary' && !s.hidden).every(s => state.pokedex[s.en]?.shiny);
-      } else if (t.shinyType === 'full_dex') {
-        unlock = POKEMON_GEN1.filter(s => !s.hidden).every(s => state.pokedex[s.en]?.shiny);
-      } else if (t.shinyType === 'species') {
-        unlock = !!(state.pokedex[t.speciesReq]?.shiny);
-      } else if (t.shinyType === 'collection') {
-        unlock = Array.isArray(t.speciesReq) && t.speciesReq.every(s => state.pokedex[s]?.shiny);
-      }
-    } else if (t.category === 'collection') {
-      if (Array.isArray(t.speciesReq)) {
-        unlock = t.speciesReq.every(s => state.pokedex[s]?.caught);
-      }
-    }
-    if (unlock) { unlocked.add(t.id); newOnes.push(t); }
-  }
-  if (newOnes.length > 0) {
-    state.unlockedTitles = [...unlocked];
-    // Set default titleA to best rep title
-    if (!state.gang.titleA) state.gang.titleA = state.unlockedTitles[0] || 'recrue';
-    newOnes.forEach(t => notify(`🏆 Titre débloqué : "${t.label}" !`, 'gold'));
-    saveState();
-  }
-}
-
-function updateDiscovery() {
-  if (!state.settings.discoveryMode) {
-    // Tout visible — aucune restriction
-    ['tabMarket','tabPokedex','tabMissions','tabAgents','tabBattleLog','tabCosmetics'].forEach(id => {
-      const btn = document.querySelector(`[data-tab="${id}"]`);
-      if (btn) btn.style.display = '';
-    });
-    return;
-  }
-
-  const dexCaught = Object.values(state.pokedex).filter(e => e.caught).length;
-  const totalFightsWon = state.stats?.totalFightsWon || 0;
-
-  // Marché : débloqué quand 0 balls pour la première fois
-  if (!state.discoveryProgress.marketUnlocked) {
-    const totalBalls = getTotalBalls();
-    if (totalBalls === 0) {
-      state.discoveryProgress.marketUnlocked = true;
-      saveState();
-      notify('🏪 Le Marché est maintenant accessible ! Achète des Balls pour continuer.', 'gold');
-    }
-  }
-
-  // Pokédex : débloqué quand 5+ espèces capturées
-  if (!state.discoveryProgress.pokedexUnlocked && dexCaught >= 5) {
-    state.discoveryProgress.pokedexUnlocked = true;
-    saveState();
-    notify('📖 Le Pokédex est maintenant accessible !', 'gold');
-  }
-
-  // Agents : débloqué quand 3+ combats gagnés
-  if (!state.discoveryProgress.agentsUnlocked && totalFightsWon >= 3) {
-    state.discoveryProgress.agentsUnlocked = true;
-    saveState();
-    notify('👥 Les Agents sont maintenant accessibles ! Assigne des Pokémon pour récolter en automatique.', 'gold');
-  }
-
-  // Missions : débloqué quand 10+ combats gagnés
-  if (!state.discoveryProgress.missionsUnlocked && totalFightsWon >= 10) {
-    state.discoveryProgress.missionsUnlocked = true;
-    saveState();
-    notify('📋 Les Missions sont maintenant accessibles !', 'gold');
-  }
-
-  // Log de combat : débloqué quand 15+ combats gagnés
-  if (!state.discoveryProgress.battleLogUnlocked && totalFightsWon >= 15) {
-    state.discoveryProgress.battleLogUnlocked = true;
-    saveState();
-    notify('⚔ Le Log de combat est maintenant accessible !', 'gold');
-  }
-
-  // Cosmétiques : débloqué quand 30+ combats gagnés
-  if (!state.discoveryProgress.cosmeticsUnlocked && totalFightsWon >= 30) {
-    state.discoveryProgress.cosmeticsUnlocked = true;
-    saveState();
-    notify('🎨 Les Cosmétiques sont maintenant accessibles !', 'gold');
-  }
-
-  // Appliquer la visibilité
-  // PC (Pokémon) : TOUJOURS visible, jamais masqué
-  const pcBtn = document.querySelector('[data-tab="tabPC"]');
-  if (pcBtn) pcBtn.style.display = '';
-
-  const marketBtn = document.querySelector('[data-tab="tabMarket"]');
-  if (marketBtn) marketBtn.style.display = state.discoveryProgress.marketUnlocked ? '' : 'none';
-
-  const dexBtn = document.querySelector('[data-tab="tabPokedex"]');
-  if (dexBtn) dexBtn.style.display = state.discoveryProgress.pokedexUnlocked ? '' : 'none';
-
-  const agentsBtn = document.querySelector('[data-tab="tabAgents"]');
-  if (agentsBtn) agentsBtn.style.display = state.discoveryProgress.agentsUnlocked ? '' : 'none';
-
-  const missionsBtn = document.querySelector('[data-tab="tabMissions"]');
-  if (missionsBtn) missionsBtn.style.display = state.discoveryProgress.missionsUnlocked ? '' : 'none';
-
-  const battleLogBtn = document.querySelector('[data-tab="tabBattleLog"]');
-  if (battleLogBtn) battleLogBtn.style.display = state.discoveryProgress.battleLogUnlocked ? '' : 'none';
-
-  const cosmeticsBtn = document.querySelector('[data-tab="tabCosmetics"]');
-  if (cosmeticsBtn) cosmeticsBtn.style.display = state.discoveryProgress.cosmeticsUnlocked ? '' : 'none';
-}
-
-function openTitleModal() {
-  const unlocked = new Set(state.unlockedTitles || []);
-  const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:9700;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;padding:16px';
-
-  // Slot colors: 1=gold, 2=red, 3=cyan, 4=violet
-  const SLOT_DEFS = [
-    { key:'titleA', label:'Titre 1', color:'var(--gold)',     bg:'rgba(255,204,90,.15)' },
-    { key:'titleB', label:'Titre 2', color:'var(--red)',      bg:'rgba(204,51,51,.15)' },
-    { key:'titleC', label:'Badge 1', color:'#4fc3f7',         bg:'rgba(79,195,247,.12)' },
-    { key:'titleD', label:'Badge 2', color:'#ce93d8',         bg:'rgba(206,147,216,.12)' },
-  ];
-
-  const categories = {
-    rep:'Réputation', type_capture:'Type', stat:'Exploit',
-    shop:'Boutique', special:'Spécial',
-    pokedex:'Pokédex', shiny_special:'Chromatique', collection:'Collection'
-  };
-
-  let _activeSlot = 0; // index into SLOT_DEFS
-
-  const renderModal = () => {
-    const slots = SLOT_DEFS.map(s => state.gang[s.key]);
-    const lia = state.gang.titleLiaison || '';
-    const activeSlotDef = SLOT_DEFS[_activeSlot];
-
-    const liaOptions = LIAISONS.map(l => `<option value="${l}" ${l === lia ? 'selected' : ''}>${l || '(aucun)'}</option>`).join('');
-
-    // ── Slot selector buttons ──────────────────────────────────
-    const slotBtns = SLOT_DEFS.map((s, i) => {
-      const isActive = i === _activeSlot;
-      const val = slots[i];
-      const lbl = val ? getTitleLabel(val) : '—';
-      return `<button class="slot-sel-btn" data-slot="${i}"
-        style="flex:1;font-family:var(--font-pixel);font-size:7px;padding:5px 4px;border-radius:var(--radius-sm);cursor:pointer;
-               background:${isActive ? s.bg : 'var(--bg)'};
-               border:2px solid ${isActive ? s.color : 'var(--border)'};
-               color:${isActive ? s.color : 'var(--text-dim)'}">
-        ${s.label}<br><span style="font-size:6px;opacity:.8">${lbl}</span>
-      </button>`;
-    }).join('');
-
-    // ── Liaison row (only relevant for titleA+titleB) ──────────
-    const liaRow = `<div style="display:flex;gap:6px;align-items:center;justify-content:center;flex-wrap:wrap;margin-top:6px">
-      <span style="font-size:8px;color:var(--text-dim)">Liaison :</span>
-      <select id="titleLiaison" style="background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:3px;font-size:8px;padding:2px 4px">${liaOptions}</select>
-      <button id="btnClearTitles" style="font-size:7px;padding:2px 6px;background:var(--bg);border:1px solid var(--border);border-radius:3px;color:var(--text-dim);cursor:pointer">Tout effacer</button>
-    </div>`;
-
-    let titlesHtml = '';
-    for (const [cat, catLabel] of Object.entries(categories)) {
-      const group = TITLES.filter(t => t.category === cat);
-      if (group.length === 0) continue;
-      titlesHtml += `<div style="margin-bottom:12px">
-        <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px">${catLabel}</div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px">`;
-      for (const t of group) {
-        const isUnlocked = unlocked.has(t.id);
-        const slotIdx = slots.findIndex(s => s === t.id);
-        let hint = '';
-        if (!isUnlocked) {
-          if (t.category === 'rep') hint = `⭐ ${t.repReq} rep`;
-          else if (t.category === 'type_capture') hint = `${t.countReq}× type ${t.typeReq}`;
-          else if (t.category === 'stat') hint = `${t.countReq}× ${t.statReq}`;
-          else if (t.category === 'shop') hint = `${(t.shopPrice||0).toLocaleString()}₽`;
-          else if (t.category === 'pokedex') hint = t.dexType === 'kanto' ? 'Compléter le Pokédex Kanto (151)' : 'Compléter tout le Pokédex';
-          else if (t.category === 'shiny_special') {
-            if (t.shinyType === 'starters') hint = '3 starters chromatiques';
-            else if (t.shinyType === 'legendaries') hint = 'Tous légendaires chromatiques';
-            else if (t.shinyType === 'full_dex') hint = 'Pokédex chromatique complet';
-            else if (t.shinyType === 'species') {
-              const spFr = POKEMON_GEN1.find(s => s.en === t.speciesReq)?.fr || t.speciesReq;
-              hint = `✨ ${spFr} chromatique`;
-            }
-            else if (t.shinyType === 'collection') {
-              const names = (t.speciesReq || []).map(s => POKEMON_GEN1.find(p => p.en === s)?.fr || s).join(', ');
-              hint = `✨ Chromatiques : ${names}`;
-            }
-          }
-          else if (t.category === 'collection') {
-            if (Array.isArray(t.speciesReq)) {
-              const names = t.speciesReq.map(s => POKEMON_GEN1.find(p => p.en === s)?.fr || s).join(', ');
-              hint = `Capturer : ${names}`;
-            }
-          }
-          else hint = '???';
-        }
-        const assigned = slotIdx >= 0;
-        const assignedColor = assigned ? SLOT_DEFS[slotIdx].color : '';
-        const assignedBg    = assigned ? SLOT_DEFS[slotIdx].bg    : '';
-        const style = isUnlocked
-          ? `background:${assigned ? assignedBg : 'var(--bg-card)'};border:1px solid ${assigned ? assignedColor : 'var(--border)'};color:${assigned ? assignedColor : 'var(--text)'};cursor:pointer`
-          : 'background:var(--bg);border:1px solid var(--border);color:var(--text-dim);opacity:.4;cursor:not-allowed';
-        const badge = assigned ? ` <span style="font-size:6px;opacity:.7">${SLOT_DEFS[slotIdx].label}</span>` : '';
-        titlesHtml += `<div class="title-chip ${isUnlocked ? 'title-unlocked' : 'title-locked'}" data-title-id="${t.id}"
-          style="font-family:var(--font-pixel);font-size:8px;padding:4px 8px;border-radius:var(--radius-sm);${style}"
-          title="${isUnlocked ? (assigned ? `Slot: ${SLOT_DEFS[slotIdx].label} — Cliquer pour retirer` : `Assigner au ${activeSlotDef.label}`) : hint}">
-          ${t.label}${badge}
-        </div>`;
-      }
-      titlesHtml += '</div></div>';
-    }
-
-    // Current title preview
-    const mainTitle = getBossFullTitle();
-    const tC = getTitleLabel(state.gang.titleC);
-    const tD = getTitleLabel(state.gang.titleD);
-    const badgesPreview = [tC, tD].filter(Boolean).map((b, i) => {
-      const color = i === 0 ? '#4fc3f7' : '#ce93d8';
-      return `<span style="font-family:var(--font-pixel);font-size:7px;padding:2px 6px;border-radius:10px;border:1px solid ${color};color:${color}">${b}</span>`;
-    }).join('');
-
-    overlay.innerHTML = `
-      <div style="background:var(--bg-panel);border:2px solid var(--gold);border-radius:var(--radius);padding:20px;max-width:600px;width:100%;max-height:85vh;display:flex;flex-direction:column;gap:12px;overflow:hidden">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <div style="font-family:var(--font-pixel);font-size:11px;color:var(--gold)">🏆 Titres</div>
-          <button id="btnCloseTitleModal" style="background:none;border:none;color:var(--text-dim);font-size:18px;cursor:pointer">✕</button>
-        </div>
-        <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;text-align:center">
-          <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold-dim);margin-bottom:4px">${mainTitle}</div>
-          ${badgesPreview ? `<div style="display:flex;gap:6px;justify-content:center;margin-bottom:4px">${badgesPreview}</div>` : ''}
-          ${liaRow}
-        </div>
-        <div style="display:flex;gap:6px">
-          <span style="font-size:8px;color:var(--text-dim);align-self:center;white-space:nowrap">Slot actif :</span>
-          ${slotBtns}
-        </div>
-        <div style="font-size:8px;color:var(--text-dim);text-align:center">
-          Clic → Assigner au <span style="color:${activeSlotDef.color}">${activeSlotDef.label}</span> &nbsp;|&nbsp; Clic sur badge → Retirer
-        </div>
-        <div style="overflow-y:auto;flex:1">${titlesHtml}</div>
-      </div>`;
-
-    overlay.querySelector('#btnCloseTitleModal')?.addEventListener('click', () => overlay.remove());
-    overlay.querySelector('#titleLiaison')?.addEventListener('change', e => {
-      state.gang.titleLiaison = e.target.value;
-      saveState(); renderModal();
-      if (activeTab === 'tabGang') renderGangTab();
-    });
-    overlay.querySelector('#btnClearTitles')?.addEventListener('click', () => {
-      state.gang.titleA = 'recrue'; state.gang.titleB = null;
-      state.gang.titleC = null;    state.gang.titleD = null;
-      saveState(); renderModal();
-      if (activeTab === 'tabGang') renderGangTab();
-    });
-
-    // Slot selector clicks
-    overlay.querySelectorAll('.slot-sel-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        _activeSlot = Number(btn.dataset.slot);
-        renderModal();
-      });
-    });
-
-    // Title chip clicks
-    overlay.querySelectorAll('.title-unlocked').forEach(chip => {
-      chip.addEventListener('click', () => {
-        const id = chip.dataset.titleId;
-        const slotKey = SLOT_DEFS[_activeSlot].key;
-        // If already in this slot → deselect
-        if (state.gang[slotKey] === id) {
-          state.gang[slotKey] = _activeSlot === 0 ? 'recrue' : null;
-        } else {
-          // Remove from any other slot first (avoid duplicates)
-          for (const s of SLOT_DEFS) {
-            if (state.gang[s.key] === id) state.gang[s.key] = s.key === 'titleA' ? null : null;
-          }
-          state.gang[slotKey] = id;
-        }
-        saveState(); renderModal();
-        if (activeTab === 'tabGang') renderGangTab();
-      });
-    });
-  };
-
-  document.body.appendChild(overlay);
-  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
-  renderModal();
-}
+function getTitleLabel(...a)      { return globalThis.getTitleLabel?.(...a); }
+function getBossFullTitle(...a)   { return globalThis.getBossFullTitle?.(...a); }
+function checkTitleUnlocks(...a)  { return globalThis.checkTitleUnlocks?.(...a); }
+function updateDiscovery(...a)    { return globalThis.updateDiscovery?.(...a); }
+function openTitleModal(...a)     { return globalThis.openTitleModal?.(...a); }
 
 function getZoneSlotCost(zoneId, slotIndex) { return globalThis._zsys_getZoneSlotCost(zoneId, slotIndex); }
 
@@ -1638,178 +1162,14 @@ function renderActiveTab() {
 }
 
 // ════════════════════════════════════════════════════════════════
-//  COSMETICS
+//  COSMETICS  (extracted → modules/ui/cosmetics.js)
 // ════════════════════════════════════════════════════════════════
 
-function _resolveFabricBgUrl(bgKey) {
-  // bgKey = 'fabric_{pid}' | 'fabric_{pid}_v2'
-  const m = bgKey.match(/^fabric_(\d+)(?:_v(\d+))?$/);
-  if (!m) return null;
-  const pid     = parseInt(m[1], 10);
-  const variant = m[2] ? parseInt(m[2], 10) : 1;
-  return fabricBgUrl(pid, variant);
-}
-
-function applyCosmetics() {
-  const bgKey = state.cosmetics?.gameBg;
-  const bg = bgKey ? COSMETIC_BGS[bgKey] : null;
-  const isFabric = bgKey && bgKey.startsWith('fabric_');
-  const _bgTargets = [document.documentElement, document.body];
-  if (bg?.type === 'image') {
-    _bgTargets.forEach(el => {
-      el.style.backgroundImage = `url('${bg.url}')`;
-      el.style.backgroundSize = 'cover';
-      el.style.backgroundAttachment = 'fixed';
-      el.style.backgroundPosition = 'center';
-      el.style.backgroundRepeat = 'no-repeat';
-    });
-    document.documentElement.style.setProperty('--bg', 'rgba(10,10,10,0.72)');
-    document.documentElement.style.setProperty('--bg-card', 'rgba(20,20,20,0.70)');
-    document.documentElement.style.setProperty('--bg-panel', 'rgba(26,26,26,0.70)');
-    document.documentElement.style.setProperty('--bg-hover', 'rgba(34,34,34,0.80)');
-  } else if (bg?.type === 'gradient') {
-    _bgTargets.forEach(el => {
-      el.style.backgroundImage = bg.gradient;
-      el.style.backgroundSize = 'cover';
-      el.style.backgroundAttachment = 'fixed';
-      el.style.backgroundPosition = 'center';
-      el.style.backgroundRepeat = 'no-repeat';
-    });
-    document.documentElement.style.setProperty('--bg', '#0a0a0a');
-    document.documentElement.style.setProperty('--bg-card', '#141414');
-    document.documentElement.style.setProperty('--bg-panel', '#1a1a1a');
-    document.documentElement.style.setProperty('--bg-hover', '#222');
-  } else if (isFabric) {
-    const url = _resolveFabricBgUrl(bgKey);
-    if (url) {
-      const fMode    = state.cosmetics?.fabricMode    || 'repeat';
-      const fSize    = state.cosmetics?.fabricSize    ?? 320;
-      _bgTargets.forEach(el => {
-        el.style.backgroundImage = `url('${url}')`;
-        el.style.backgroundAttachment = 'fixed';
-        if (fMode === 'full') {
-          el.style.backgroundSize     = 'cover';
-          el.style.backgroundRepeat   = 'no-repeat';
-          el.style.backgroundPosition = 'center';
-        } else {
-          el.style.backgroundSize     = `${fSize}px`;
-          el.style.backgroundRepeat   = 'repeat';
-          el.style.backgroundPosition = 'top left';
-        }
-      });
-    }
-    const alpha = ((state.cosmetics?.fabricOpacity ?? 72) / 100).toFixed(2);
-    document.documentElement.style.setProperty('--bg',       `rgba(10,10,10,${alpha})`);
-    document.documentElement.style.setProperty('--bg-card',  `rgba(20,20,20,${alpha})`);
-    document.documentElement.style.setProperty('--bg-panel', `rgba(26,26,26,${alpha})`);
-    document.documentElement.style.setProperty('--bg-hover', 'rgba(34,34,34,0.80)');
-  } else {
-    _bgTargets.forEach(el => { el.style.backgroundImage = ''; });
-    document.documentElement.style.setProperty('--bg', '#0a0a0a');
-    document.documentElement.style.setProperty('--bg-card', '#141414');
-    document.documentElement.style.setProperty('--bg-panel', '#1a1a1a');
-    document.documentElement.style.setProperty('--bg-hover', '#222');
-  }
-}
-
-function _unlockFabricBg(dexNum, isShiny) {
-  if (!dexNum || dexNum <= 0) return;
-  const spec = FABRIC_SPECIES.find(s => s[0] === dexNum);
-  if (!spec) return;
-  const unlocked = state.cosmetics.unlockedBgs || [];
-  const add = (key) => { if (!unlocked.includes(key)) unlocked.push(key); };
-  add(`fabric_${dexNum}`);
-  if (spec[2] >= 2) add(`fabric_${dexNum}_v2`);
-  state.cosmetics.unlockedBgs = unlocked;
-}
-
-// ── In-game text input modal — replaces all browser prompt() calls ────────
-// opts: { title, placeholder, current, maxLength, cost, confirmLabel, onConfirm }
-function openNameModal(opts = {}) {
-  const {
-    title        = 'Entrer un nom',
-    placeholder  = '',
-    current      = '',
-    maxLength    = 16,
-    cost         = 0,
-    confirmLabel = 'Confirmer',
-    onConfirm    = () => {},
-  } = opts;
-
-  const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:9600;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;';
-  overlay.innerHTML = `
-    <div style="background:var(--bg-panel);border:2px solid var(--gold-dim);border-radius:var(--radius);padding:20px;max-width:340px;width:92%;display:flex;flex-direction:column;gap:12px">
-      <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold)">${title}</div>
-      <input id="nameModalInput" type="text" maxlength="${maxLength}" placeholder="${placeholder}"
-        value="${current.replace(/"/g,'&quot;')}"
-        style="padding:9px 12px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text);font-size:12px;outline:none;width:100%;box-sizing:border-box">
-      ${cost ? `<div style="font-size:8px;color:var(--text-dim);font-family:var(--font-pixel)">Coût : <span style="color:var(--gold)">${cost.toLocaleString()}₽</span> &nbsp;·&nbsp; Solde : ${(state.gang.money||0).toLocaleString()}₽</div>` : ''}
-      <div style="display:flex;gap:8px">
-        <button id="nameModalConfirm" style="flex:1;font-family:var(--font-pixel);font-size:9px;padding:9px;background:var(--red);border:none;border-radius:var(--radius-sm);color:#fff;cursor:pointer">${confirmLabel}</button>
-        <button id="nameModalCancel" style="font-family:var(--font-pixel);font-size:9px;padding:9px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">Annuler</button>
-      </div>
-    </div>`;
-  document.body.appendChild(overlay);
-
-  const input   = overlay.querySelector('#nameModalInput');
-  const confirm = overlay.querySelector('#nameModalConfirm');
-  const cancel  = overlay.querySelector('#nameModalCancel');
-
-  input.focus();
-  input.select();
-
-  const submit = () => {
-    const val = input.value.trim().slice(0, maxLength);
-    if (!val) { input.style.borderColor = 'var(--red)'; return; }
-    overlay.remove();
-    onConfirm(val);
-  };
-
-  confirm.addEventListener('click', submit);
-  cancel.addEventListener('click',  () => overlay.remove());
-  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
-  input.addEventListener('keydown', e => {
-    if (e.key === 'Enter') submit();
-    if (e.key === 'Escape') overlay.remove();
-  });
-}
-
-function openSpritePicker(currentSprite, callback) {
-  const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:5000;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;';
-  overlay.innerHTML = `
-    <div style="background:var(--bg-panel);border:2px solid var(--gold-dim);border-radius:var(--radius);padding:16px;max-width:500px;width:95%;display:flex;flex-direction:column;gap:12px">
-      <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold)">Choisir un sprite</div>
-      <div style="display:flex;flex-wrap:wrap;gap:8px;max-height:280px;overflow-y:auto" id="spritePickerGrid">
-        ${BOSS_SPRITES.map(s => `
-          <div class="spr-opt" data-spr="${s}" style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px;border:2px solid ${s === currentSprite ? 'var(--gold)' : 'var(--border)'};border-radius:4px;cursor:pointer;background:var(--bg-card)">
-            <img src="${trainerSprite(s)}" style="width:36px;height:36px;image-rendering:pixelated">
-            <span style="font-size:7px;color:var(--text-dim)">${s}</span>
-          </div>`).join('')}
-      </div>
-      <div style="display:flex;gap:8px;justify-content:flex-end">
-        <button id="spritePickerCancel" style="font-family:var(--font-pixel);font-size:9px;padding:6px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">Annuler</button>
-        <button id="spritePickerConfirm" style="font-family:var(--font-pixel);font-size:9px;padding:6px 12px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">Confirmer</button>
-      </div>
-    </div>`;
-  document.body.appendChild(overlay);
-
-  let selectedSpr = currentSprite || BOSS_SPRITES[0];
-  overlay.querySelectorAll('.spr-opt').forEach(el => {
-    el.addEventListener('click', () => {
-      overlay.querySelectorAll('.spr-opt').forEach(o => o.style.borderColor = 'var(--border)');
-      el.style.borderColor = 'var(--gold)';
-      selectedSpr = el.dataset.spr;
-    });
-  });
-
-  document.getElementById('spritePickerCancel').addEventListener('click', () => overlay.remove());
-  document.getElementById('spritePickerConfirm').addEventListener('click', () => {
-    overlay.remove();
-    if (selectedSpr) callback(selectedSpr);
-  });
-}
+function _resolveFabricBgUrl(...a) { return globalThis._resolveFabricBgUrl?.(...a); }
+function applyCosmetics(...a)      { return globalThis.applyCosmetics?.(...a); }
+function _unlockFabricBg(...a)     { return globalThis._unlockFabricBg?.(...a); }
+function openNameModal(...a)       { return globalThis.openNameModal?.(...a); }
+function openSpritePicker(...a)    { return globalThis.openSpritePicker?.(...a); }
 
 function renderCosmeticsPanel(_container) {
   // Moved to modules/ui/gangTab.js → renderAppearancePanel / renderMusicPanel
@@ -2139,197 +1499,9 @@ function exportGangImage()      { return globalThis._gbase_exportGangImage(); }
 
 // ── Team Picker Modal ────────────────────────────────────────
 // type: 'boss' | 'agent', targetId: agentId or null for boss
-function openTeamPicker(type, targetId, onDone) {
-  // Get all already-assigned IDs
-  const assignedIds = new Set([...state.gang.bossTeam]);
-  for (const a of state.agents) a.team.forEach(id => assignedIds.add(id));
-  const available = state.pokemons
-    .filter(p => !assignedIds.has(p.id))
-    .sort((a, b) => getPokemonPower(b) - getPokemonPower(a));
-
-  if (available.length === 0) {
-    notify(state.lang === 'fr' ? 'Aucun Pokémon disponible' : 'No Pokémon available');
-    return;
-  }
-
-  // Create modal overlay
-  const overlay = document.createElement('div');
-  overlay.id = 'teamPickerOverlay';
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:3000;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;animation:fadeIn .2s ease';
-
-  const targetLabel = type === 'boss'
-    ? (state.lang === 'fr' ? 'Équipe du Boss' : 'Boss Team')
-    : (state.agents.find(a => a.id === targetId)?.name || 'Agent');
-
-  let listHtml = available.slice(0, 30).map(p => {
-    const power = getPokemonPower(p);
-    return `<div class="picker-pokemon" data-pick-id="${p.id}" style="display:flex;align-items:center;gap:8px;padding:8px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s">
-      <img src="${pokeSprite(p.species_en, p.shiny)}" style="width:40px;height:40px">
-      <div style="flex:1;min-width:0">
-        <div style="font-size:12px">${speciesName(p.species_en)} ${'★'.repeat(p.potential)}${p.shiny ? ' ✨' : ''}</div>
-        <div style="font-size:10px;color:var(--text-dim)">Lv.${p.level} — PC: ${power}</div>
-      </div>
-    </div>`;
-  }).join('');
-
-  overlay.innerHTML = `<div style="background:var(--bg-panel);border:2px solid var(--border);border-radius:var(--radius);width:90%;max-width:400px;max-height:70vh;display:flex;flex-direction:column">
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:2px solid var(--border)">
-      <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold)">${state.lang === 'fr' ? 'Choisir un Pokémon' : 'Choose a Pokémon'} → ${targetLabel}</div>
-      <button id="btnClosePicker" style="background:none;border:none;color:var(--text-dim);font-size:20px;cursor:pointer;line-height:1">&times;</button>
-    </div>
-    <div style="padding:6px 10px;border-bottom:1px solid var(--border)">
-      <input id="pickerSearch" type="text" placeholder="Filtrer..." style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:11px;padding:4px 8px;box-sizing:border-box">
-    </div>
-    <div id="pickerList" style="overflow-y:auto;flex:1">${listHtml}</div>
-  </div>`;
-
-  document.body.appendChild(overlay);
-
-  // Close
-  overlay.querySelector('#btnClosePicker').addEventListener('click', () => overlay.remove());
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
-
-  // Pick handler
-  overlay.querySelectorAll('[data-pick-id]').forEach(el => {
-    el.addEventListener('click', () => {
-      const pkId = el.dataset.pickId;
-      const pk = state.pokemons.find(p => p.id === pkId);
-      if (!pk) return;
-      if (type === 'boss') {
-        if (state.gang.bossTeam.length < 3) {
-          removePokemonFromAllAssignments(pkId);
-          state.gang.bossTeam.push(pkId);
-          if (state.gang.bossTeamSlots) state.gang.bossTeamSlots[state.gang.activeBossTeamSlot || 0] = [...state.gang.bossTeam];
-        }
-      } else {
-        const agent = state.agents.find(a => a.id === targetId);
-        if (agent && agent.team.length < 3) {
-          agent.team.push(pkId);
-        }
-      }
-      saveState();
-      overlay.remove();
-      notify(`${speciesName(pk.species_en)} → ${targetLabel}`, 'success');
-      if (onDone) onDone();
-    });
-  });
-
-  // Search filter
-  const searchInput = overlay.querySelector('#pickerSearch');
-  const pickerList = overlay.querySelector('#pickerList');
-  if (searchInput && pickerList) {
-    const bindPickHandlers = (container) => {
-      container.querySelectorAll('[data-pick-id]').forEach(el => {
-        el.addEventListener('click', () => {
-          const pkId = el.dataset.pickId;
-          const pk = state.pokemons.find(p => p.id === pkId);
-          if (!pk) return;
-          if (type === 'boss') {
-            if (state.gang.bossTeam.length < 3) {
-              removePokemonFromAllAssignments(pkId);
-              state.gang.bossTeam.push(pkId);
-              if (state.gang.bossTeamSlots) state.gang.bossTeamSlots[state.gang.activeBossTeamSlot || 0] = [...state.gang.bossTeam];
-            }
-          } else {
-            const agent = state.agents.find(a => a.id === targetId);
-            if (agent && agent.team.length < 3) agent.team.push(pkId);
-          }
-          saveState();
-          overlay.remove();
-          notify(`${speciesName(pk.species_en)} → ${targetLabel}`, 'success');
-          if (onDone) onDone();
-        });
-      });
-    };
-    searchInput.addEventListener('input', () => {
-      const q = searchInput.value.toLowerCase();
-      const filtered = q ? available.filter(p => speciesName(p.species_en).toLowerCase().includes(q)) : available;
-      pickerList.innerHTML = filtered.slice(0, 50).map(p => {
-        const power = getPokemonPower(p);
-        return `<div class="picker-pokemon" data-pick-id="${p.id}" style="display:flex;align-items:center;gap:8px;padding:8px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s">
-          <img src="${pokeSprite(p.species_en, p.shiny)}" style="width:40px;height:40px">
-          <div style="flex:1;min-width:0">
-            <div style="font-size:12px">${speciesName(p.species_en)} ${'★'.repeat(p.potential)}${p.shiny ? ' ✨' : ''}</div>
-            <div style="font-size:10px;color:var(--text-dim)">Lv.${p.level} — PC: ${power}</div>
-          </div>
-        </div>`;
-      }).join('');
-      bindPickHandlers(pickerList);
-    });
-  }
-}
-
-// Assign a pokemon to a team from PC (shows picker for destination)
-function openAssignToPicker(pokemonId) {
-  const pk = state.pokemons.find(p => p.id === pokemonId);
-  if (!pk) return;
-
-  // Check if already assigned
-  const assignedIds = new Set([...state.gang.bossTeam]);
-  for (const a of state.agents) a.team.forEach(id => assignedIds.add(id));
-  if (assignedIds.has(pokemonId)) {
-    notify(state.lang === 'fr' ? 'Déjà dans une équipe !' : 'Already in a team!');
-    return;
-  }
-
-  // Build list of destinations (Boss + all agents with < 3 team members)
-  const destinations = [];
-  if (state.gang.bossTeam.length < 3) {
-    destinations.push({ type: 'boss', id: null, label: state.gang.bossName + ' (Boss)', sprite: state.gang.bossSprite ? trainerSprite(state.gang.bossSprite) : null });
-  }
-  for (const a of state.agents) {
-    if (a.team.length < 3) {
-      destinations.push({ type: 'agent', id: a.id, label: a.name, sprite: a.sprite });
-    }
-  }
-
-  if (destinations.length === 0) {
-    notify(state.lang === 'fr' ? 'Toutes les équipes sont pleines !' : 'All teams are full!');
-    return;
-  }
-
-  const overlay = document.createElement('div');
-  overlay.id = 'teamPickerOverlay';
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:3000;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;animation:fadeIn .2s ease';
-
-  let listHtml = destinations.map(d => `
-    <div class="picker-dest" data-dest-type="${d.type}" data-dest-id="${d.id || ''}" style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s">
-      ${d.sprite ? `<img src="${d.sprite}" style="width:40px;height:40px;image-rendering:pixelated">` : '<div style="width:40px;height:40px;background:var(--bg);border-radius:4px;display:flex;align-items:center;justify-content:center">👤</div>'}
-      <div style="font-size:12px">${d.label}</div>
-      <div style="font-size:10px;color:var(--text-dim);margin-left:auto">${d.type === 'boss' ? state.gang.bossTeam.length : state.agents.find(a => a.id === d.id)?.team.length || 0}/3</div>
-    </div>
-  `).join('');
-
-  overlay.innerHTML = `<div style="background:var(--bg-panel);border:2px solid var(--border);border-radius:var(--radius);width:90%;max-width:360px;max-height:60vh;display:flex;flex-direction:column">
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:2px solid var(--border)">
-      <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold)">${speciesName(pk.species_en)} → ?</div>
-      <button id="btnClosePicker" style="background:none;border:none;color:var(--text-dim);font-size:20px;cursor:pointer;line-height:1">&times;</button>
-    </div>
-    <div style="overflow-y:auto;flex:1">${listHtml}</div>
-  </div>`;
-
-  document.body.appendChild(overlay);
-  overlay.querySelector('#btnClosePicker').addEventListener('click', () => overlay.remove());
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
-
-  overlay.querySelectorAll('.picker-dest').forEach(el => {
-    el.addEventListener('click', () => {
-      const destType = el.dataset.destType;
-      const destId = el.dataset.destId;
-      if (destType === 'boss') {
-        if (state.gang.bossTeam.length < 3) { removePokemonFromAllAssignments(pokemonId); state.gang.bossTeam.push(pokemonId); }
-      } else {
-        const agent = state.agents.find(a => a.id === destId);
-        if (agent && agent.team.length < 3) agent.team.push(pokemonId);
-      }
-      saveState();
-      overlay.remove();
-      const destLabel = destType === 'boss' ? state.gang.bossName : (state.agents.find(a => a.id === destId)?.name || 'Agent');
-      notify(`${speciesName(pk.species_en)} → ${destLabel}`, 'success');
-      renderPCTab();
-    });
-  });
-}
+// ── Pickers — extraits vers modules/ui/pickers.js ────────────────────────────
+function openTeamPicker(type, targetId, onDone) { globalThis.openTeamPicker?.(type, targetId, onDone); }
+function openAssignToPicker(pokemonId)           { globalThis.openAssignToPicker?.(pokemonId); }
 
 // ── Zone timers, spawn, combat — delegated to modules/ui/zoneWindows.js ──────
 // Module-level state (zoneNextSpawn, zoneSpawnHistory, currentCombat) live in the module.
@@ -2373,182 +1545,17 @@ function _refreshRaidBtn(zoneId)                                   { return glob
 // 18d. UI — BAG TAB
 // ════════════════════════════════════════════════════════════════
 
-function openRareCandyPicker() {
-  if ((state.inventory.rarecandy || 0) <= 0) return;
-
-  // Build candidate list: team pokemon first, then others, all below lv100
-  const teamIds = new Set([...state.gang.bossTeam]);
-  for (const a of state.agents) a.team.forEach(id => teamIds.add(id));
-
-  const candidates = state.pokemons
-    .filter(p => p.level < 100)
-    .sort((a, b) => {
-      const aTeam = teamIds.has(a.id) ? 1 : 0;
-      const bTeam = teamIds.has(b.id) ? 1 : 0;
-      if (bTeam !== aTeam) return bTeam - aTeam;
-      return getPokemonPower(b) - getPokemonPower(a);
-    });
-
-  if (candidates.length === 0) {
-    notify(state.lang === 'fr' ? 'Tous les Pokémon sont au max !' : 'All Pokémon are maxed!');
-    return;
-  }
-
-  const overlay = document.createElement('div');
-  overlay.id = 'rareCandyOverlay';
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:3000;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;animation:fadeIn .2s ease';
-
-  const listHtml = candidates.slice(0, 25).map(p => {
-    const inTeam = teamIds.has(p.id);
-    return `<div class="picker-pokemon" data-candy-id="${p.id}" style="display:flex;align-items:center;gap:8px;padding:8px;border-bottom:1px solid var(--border);cursor:pointer">
-      <img src="${pokeSprite(p.species_en, p.shiny)}" style="width:40px;height:40px">
-      <div style="flex:1">
-        <div style="font-size:12px">${inTeam ? '[EQ] ' : ''}${speciesName(p.species_en)} ${'*'.repeat(p.potential)}${p.shiny ? ' [S]' : ''}</div>
-        <div style="font-size:10px;color:var(--text-dim)">Lv.${p.level} → Lv.~${Math.min(100, p.level + 5)}</div>
-      </div>
-      ${inTeam ? '<span style="font-size:9px;color:var(--green)">Équipe</span>' : ''}
-    </div>`;
-  }).join('');
-
-  overlay.innerHTML = `<div style="background:var(--bg-panel);border:2px solid var(--gold);border-radius:var(--radius);width:90%;max-width:380px;max-height:70vh;display:flex;flex-direction:column">
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:2px solid var(--border)">
-      <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold)">🍬 Super Bonbon — stock: ${state.inventory.rarecandy}</div>
-      <button id="btnCloseCandy" style="background:none;border:none;color:var(--text-dim);font-size:20px;cursor:pointer">&times;</button>
-    </div>
-    <div style="overflow-y:auto;flex:1">${listHtml}</div>
-  </div>`;
-
-  document.body.appendChild(overlay);
-  overlay.querySelector('#btnCloseCandy').addEventListener('click', () => overlay.remove());
-  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
-
-  overlay.querySelectorAll('[data-candy-id]').forEach(el => {
-    el.addEventListener('mouseenter', () => { el.style.background = 'var(--bg-hover)'; });
-    el.addEventListener('mouseleave', () => { el.style.background = ''; });
-    el.addEventListener('click', () => {
-      if ((state.inventory.rarecandy || 0) <= 0) { overlay.remove(); return; }
-      const p = state.pokemons.find(pk => pk.id === el.dataset.candyId);
-      if (!p) return;
-      const oldLv = p.level;
-      state.inventory.rarecandy--;
-      if (p.level < 100) { p.level++; p.xp = 0; p.stats = calculateStats(p); tryAutoEvolution(p); }
-      saveState();
-      notify(`🍬 ${speciesName(p.species_en)} Lv.${oldLv} → Lv.${p.level}`, 'gold');
-      overlay.remove();
-      renderBagTab();
-      if (activeTab === 'tabPC') renderPCTab();
-      updateTopBar();
-    });
-  });
-}
+function openRareCandyPicker() { globalThis.openRareCandyPicker?.(); }
 
 function renderBagTab() {
   return renderBagTabImpl();
 }
 
 // ════════════════════════════════════════════════════════════════
-// 19.  UI — INTRO OVERLAY
+// 19.  UI — INTRO OVERLAY + HUB MODALS  (extracted → modules/ui/hubModals.js)
 // ════════════════════════════════════════════════════════════════
 
-/**
- * Hub-screen slot repair modal.
- * Lets the user pick a slot and re-applies migrate() + cleanups on it.
- */
-function openHubSlotRepairModal() {
-  const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px';
-
-  const slotHtml = [0, 1, 2].map(i => {
-    const prev = getSlotPreview(i);
-    const label = prev
-      ? `<b style="color:var(--text)">${prev.name}</b> <span style="color:var(--text-dim);font-size:9px">(${prev.pokemon} pkm · ⭐${prev.rep})</span>`
-      : `<span style="color:#555;font-style:italic">Vide</span>`;
-    return `<label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;background:var(--bg);${!prev ? 'opacity:.4;pointer-events:none' : ''}">
-      <input type="radio" name="repairTargetSlot" value="${i}" ${i === activeSaveSlot ? 'checked' : ''} ${!prev ? 'disabled' : ''} style="accent-color:#ffa000">
-      <span style="font-family:var(--font-pixel);font-size:8px;color:#ffa000">SLOT ${i+1}</span>
-      <span style="font-size:10px">${label}</span>
-    </label>`;
-  }).join('');
-
-  overlay.innerHTML = `
-    <div style="background:var(--bg-panel);border:2px solid #ffa000;border-radius:var(--radius);padding:24px;max-width:480px;width:100%;display:flex;flex-direction:column;gap:14px">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <div style="font-family:var(--font-pixel);font-size:11px;color:#ffa000">🔧 Réparer un slot</div>
-        <button id="btnRepairSlotClose" style="background:none;border:none;color:var(--text-dim);font-size:18px;cursor:pointer">✕</button>
-      </div>
-      <div style="font-size:9px;color:var(--text-dim);line-height:1.5">
-        Réapplique toutes les migrations, corrige les champs manquants et nettoie les incohérences.
-        <b style="color:var(--text)">Tes données ne seront pas effacées.</b>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:6px">${slotHtml}</div>
-      <div style="display:flex;gap:8px;margin-top:4px">
-        <button id="btnRepairSlotConfirm" style="flex:1;font-family:var(--font-pixel);font-size:9px;padding:10px;background:var(--bg);border:2px solid #ffa000;border-radius:var(--radius-sm);color:#ffa000;cursor:pointer">
-          🔧 Réparer ce slot
-        </button>
-        <button id="btnRepairSlotCancel" style="font-family:var(--font-pixel);font-size:8px;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">
-          Annuler
-        </button>
-      </div>
-    </div>`;
-
-  document.body.appendChild(overlay);
-  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
-  overlay.querySelector('#btnRepairSlotClose')?.addEventListener('click',  () => overlay.remove());
-  overlay.querySelector('#btnRepairSlotCancel')?.addEventListener('click', () => overlay.remove());
-
-  overlay.querySelector('#btnRepairSlotConfirm')?.addEventListener('click', () => {
-    const targetSlot = parseInt(overlay.querySelector('input[name="repairTargetSlot"]:checked')?.value ?? activeSaveSlot);
-    const raw = localStorage.getItem(SAVE_KEYS[targetSlot]);
-    if (!raw) { notify('Slot vide — rien à réparer.', 'error'); overlay.remove(); return; }
-
-    showConfirm(`Réparer le Slot ${targetSlot + 1} ?<br><span style="color:var(--text-dim);font-size:10px">Toutes les migrations seront réappliquées. Données intactes.</span>`, () => {
-      try {
-        const parsed = JSON.parse(raw);
-        // Re-run migrate
-        const fixed = migrate(parsed);
-        // Trim histories
-        let histTrimmed = 0;
-        for (const p of fixed.pokemons || []) {
-          if (p.history && p.history.length > MAX_HISTORY) {
-            histTrimmed += p.history.length - MAX_HISTORY;
-            p.history = p.history.slice(-MAX_HISTORY);
-          }
-        }
-        // Ghost IDs
-        const allIds = new Set((fixed.pokemons || []).map(p => p.id));
-        fixed.gang.bossTeam = (fixed.gang.bossTeam || []).filter(id => allIds.has(id));
-        if (fixed.pension?.slots) fixed.pension.slots = fixed.pension.slots.filter(id => allIds.has(id));
-        if (fixed.trainingRoom?.pokemon) fixed.trainingRoom.pokemon = fixed.trainingRoom.pokemon.filter(id => allIds.has(id));
-        // Invalid title slots
-        const allTitleIds = new Set((TITLES || []).map(t => t.id));
-        ['titleA','titleB','titleC','titleD'].forEach(slot => {
-          if (fixed.gang[slot] && !allTitleIds.has(fixed.gang[slot])) fixed.gang[slot] = null;
-        });
-
-        localStorage.setItem(SAVE_KEYS[targetSlot], JSON.stringify(fixed));
-
-        // If we just repaired the active slot, reload state
-        if (targetSlot === activeSaveSlot) {
-          setState(fixed);
-          saveState();
-        }
-
-        overlay.remove();
-        notify(`✅ Slot ${targetSlot + 1} réparé.${histTrimmed > 0 ? ` ${histTrimmed} entrées d'historique nettoyées.` : ''}`, 'success');
-
-        // Refresh hub
-        const introOverlay = document.getElementById('introOverlay');
-        if (introOverlay?.classList.contains('active')) {
-          introOverlay.classList.remove('active');
-          showIntro();
-        }
-      } catch (err) {
-        notify('Erreur lors de la réparation — slot non modifié.', 'error');
-        console.error(err);
-      }
-    }, null, { confirmLabel: 'Réparer', cancelLabel: 'Annuler' });
-  });
-}
+function openHubSlotRepairModal(...a) { return globalThis.openHubSlotRepairModal?.(...a); }
 
 /**
  * Hub-screen import modal.
@@ -2845,92 +1852,11 @@ function showIntro() {
 }
 
 // ════════════════════════════════════════════════════════════════
-// 19b. BOSS SPRITE VALIDATOR — detect broken sprite on save load
+// 19b. BOSS SPRITE VALIDATOR  (extracted → modules/ui/hubModals.js)
 // ════════════════════════════════════════════════════════════════
 
-function checkBossSpriteValidity() {
-  if (!state.gang.initialized || !state.gang.bossSprite) return;
-  const url = trainerSprite(state.gang.bossSprite);
-  const testImg = new Image();
-  testImg.onload = () => {}; // fine
-  testImg.onerror = () => {
-    // Sprite is broken — show picker modal
-    showBossSpriteRepairModal();
-  };
-  testImg.src = url + '?v=' + Date.now(); // cache-bust
-}
-
-function showBossSpriteRepairModal() {
-  // Avoid opening twice
-  if (document.getElementById('spriteRepairModal')) return;
-
-  const modal = document.createElement('div');
-  modal.id = 'spriteRepairModal';
-  modal.style.cssText = `
-    position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.85);
-    display:flex;align-items:center;justify-content:center;
-  `;
-
-  const spriteOptionsHtml = BOSS_SPRITES.map(s =>
-    `<div class="sprite-option" data-sprite="${s}" style="
-      display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px;
-      border:2px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;
-      background:var(--bg-card);transition:border-color .15s;min-width:60px
-    ">
-      <img src="${trainerSprite(s)}" style="width:44px;height:44px;image-rendering:pixelated"
-           onerror="this.parentElement.style.display='none'">
-      <span style="font-family:var(--font-pixel);font-size:6px;color:var(--text-dim)">${s}</span>
-    </div>`
-  ).join('');
-
-  modal.innerHTML = `
-    <div style="background:var(--bg-panel);border:2px solid var(--red);border-radius:var(--radius);padding:24px;max-width:600px;width:90%;max-height:80vh;display:flex;flex-direction:column;gap:16px">
-      <div style="font-family:var(--font-pixel);font-size:12px;color:var(--gold)">⚠ Sprite invalide</div>
-      <div style="font-size:13px;color:var(--text-dim)">
-        ${state.lang === 'fr'
-          ? `Le sprite "<b style="color:var(--text)">${state.gang.bossSprite}</b>" est introuvable. Choisis un nouveau sprite pour ton Boss :`
-          : `The sprite "<b style="color:var(--text)">${state.gang.bossSprite}</b>" could not be found. Pick a new sprite for your Boss:`
-        }
-      </div>
-      <div style="display:flex;flex-wrap:wrap;gap:6px;overflow-y:auto;max-height:320px;padding:4px">
-        ${spriteOptionsHtml}
-      </div>
-      <button id="spriteRepairConfirm" style="
-        font-family:var(--font-pixel);font-size:10px;padding:10px 20px;
-        background:var(--red-dark);border:1px solid var(--red);border-radius:var(--radius);
-        color:var(--text);cursor:pointer;align-self:center
-      ">${state.lang === 'fr' ? 'Confirmer' : 'Confirm'}</button>
-    </div>
-  `;
-
-  document.body.appendChild(modal);
-
-  let selected = BOSS_SPRITES[0];
-
-  // Selection logic
-  modal.querySelectorAll('.sprite-option').forEach(opt => {
-    opt.addEventListener('click', () => {
-      modal.querySelectorAll('.sprite-option').forEach(o => o.style.borderColor = 'var(--border)');
-      opt.style.borderColor = 'var(--gold)';
-      selected = opt.dataset.sprite;
-    });
-  });
-  // Auto-select first visible
-  const firstVisible = modal.querySelector('.sprite-option');
-  if (firstVisible) firstVisible.style.borderColor = 'var(--gold)';
-
-  document.getElementById('spriteRepairConfirm').addEventListener('click', () => {
-    state.gang.bossSprite = selected;
-    saveState();
-    modal.remove();
-    // Refresh boss sprite displays
-    document.querySelectorAll('[data-boss-sprite-img]').forEach(img => {
-      img.src = trainerSprite(selected);
-    });
-    renderAll();
-    notify(state.lang === 'fr' ? 'Sprite mis à jour !' : 'Sprite updated!', 'success');
-  });
-}
+function checkBossSpriteValidity(...a)   { return globalThis.checkBossSpriteValidity?.(...a); }
+function showBossSpriteRepairModal(...a) { return globalThis.showBossSpriteRepairModal?.(...a); }
 
 // ════════════════════════════════════════════════════════════════
 // 20.  UI — SETTINGS MODAL
@@ -2966,214 +1892,11 @@ let _playerWasActive = false; // set by saveState(); consumed by the 2h leaderbo
 // JOHTO — Extension régionale
 // ════════════════════════════════════════════════════════════════
 
-function registerJohtoSpecialEvents() {
-  if (typeof SPECIAL_EVENTS === 'undefined' || typeof SPECIAL_EVENTS_JOHTO === 'undefined') return;
-  const existingEventIds = new Set(SPECIAL_EVENTS.map(ev => ev.id));
-  SPECIAL_EVENTS_JOHTO.forEach(ev => {
-    if (existingEventIds.has(ev.id)) return;
-    SPECIAL_EVENTS.push({ ...ev, region: 'johto' });
-    existingEventIds.add(ev.id);
-  });
-}
+// ── Johto — extraite vers modules/systems/johto.js ───────────────────────────
+function activateJohtoRegion() { globalThis.activateJohtoRegion?.(); }
 
-function activateJohtoRegion() {
-  // Garder les systèmes legacy compatibles sans polluer la liste Kanto affichée.
-  if (!ZONES.find(z => z.id === 'route29')) {
-    ZONES.push(...ZONES_JOHTO);
-    ZONES_JOHTO.forEach(z => { ZONE_BY_ID[z.id] = z; });
-    Object.assign(ZONE_MUSIC_MAP, ZONE_MUSIC_MAP_JOHTO);
-  }
-  registerJohtoSpecialEvents();
-  state.purchases.johtoUnlocked = true;
-  globalThis._zsel_setActiveRegion?.('kanto');
-  if (activeTab === 'tabZones') renderZonesTab();
-  saveState();
-}
-
-function showJohtoUnlockModal() {
-  if (state.purchases?.johtoUnlocked) return;
-  if (document.getElementById('johto-intro-overlay')) return; // already open
-
-  const archerSprite = trainerSprite('archer');
-  const bossName = state.gang?.bossName || 'Parrain';
-
-  const MESSAGE =
-    `« J'ai entendu parler de vous, ${bossName}.\n\n` +
-    `Le Plateau Indigo est tombé. Votre réputation a traversé le Détroit Tohjo.\n\n` +
-    `Notre organisation traverse une période... difficile. ` +
-    `Les territoires de Johto sont vacants. Les Bêtes Sacrées rôdent sans maître. ` +
-    `Lugia dort dans les Îles Tourbillon. Ho-Oh attend un gardien digne de lui.\n\n` +
-    `Une opportunité unique — pour ceux qui savent saisir leur chance.\n\n` +
-    `Johto vous tend les bras. »`;
-
-  // ── Overlay ─────────────────────────────────────────────────────
-  const overlay = document.createElement('div');
-  overlay.id = 'johto-intro-overlay';
-  overlay.style.cssText = `
-    position:fixed;inset:0;z-index:8100;
-    background:linear-gradient(160deg,#06100a 0%,#0a150d 45%,#080f0c 100%);
-    display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
-    font-family:var(--font-system,sans-serif);
-    overflow:hidden;opacity:0;transition:opacity .4s ease;
-  `;
-  overlay.innerHTML = `
-    <div style="position:absolute;inset:0;pointer-events:none;
-      background:radial-gradient(ellipse at 50% 20%,rgba(20,160,80,.06) 0%,transparent 60%),
-                 radial-gradient(ellipse at 80% 75%,rgba(0,80,60,.05) 0%,transparent 50%)"></div>
-    <div id="ji-stage" style="position:absolute;inset:0;display:flex;flex-direction:column;
-      align-items:center;justify-content:flex-end;padding:0 16px 0;"></div>`;
-  document.body.appendChild(overlay);
-  requestAnimationFrame(() => { overlay.style.opacity = '1'; });
-
-  const stage = overlay.querySelector('#ji-stage');
-
-  // ── Portrait ─────────────────────────────────────────────────────
-  const portrait = document.createElement('div');
-  portrait.style.cssText = `
-    position:absolute;top:0;left:50%;transform:translateX(-50%);
-    width:100%;max-width:560px;
-    display:flex;align-items:flex-start;justify-content:center;
-    padding-top:32px;pointer-events:none;
-  `;
-  portrait.innerHTML = `
-    <div style="position:relative;text-align:center">
-      <img src="${archerSprite}"
-        style="width:140px;height:140px;image-rendering:pixelated;
-               filter:drop-shadow(0 8px 28px rgba(20,160,80,.4));
-               animation:ji-bob 2.8s ease-in-out infinite"
-        onerror="this.style.opacity='.25'">
-      <div style="position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);
-        width:80px;height:10px;
-        background:radial-gradient(ellipse,rgba(0,0,0,.5) 0%,transparent 70%);
-        filter:blur(3px)"></div>
-    </div>`;
-  overlay.appendChild(portrait);
-
-  // ── Dialog box ───────────────────────────────────────────────────
-  const dialog = document.createElement('div');
-  dialog.style.cssText = `
-    width:100%;max-width:560px;
-    background:rgba(4,10,8,.96);
-    border:2px solid rgba(20,120,70,.55);
-    border-radius:8px;
-    padding:16px 18px 18px;
-    margin-bottom:24px;
-    box-shadow:0 -4px 32px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,255,255,.03);
-    position:relative;
-  `;
-  dialog.innerHTML = `
-    <div style="font-family:var(--font-pixel,monospace);font-size:7px;
-      color:rgba(40,200,100,.85);letter-spacing:.8px;text-transform:uppercase;
-      margin-bottom:8px">Archer — QG Johto</div>
-    <div id="ji-text" style="font-size:14px;color:#ddeedd;line-height:1.7;min-height:46px;
-      white-space:pre-wrap"></div>
-    <div id="ji-actions" style="margin-top:16px;display:none;
-      justify-content:flex-end;gap:10px"></div>
-    <div id="ji-cursor" style="position:absolute;bottom:14px;right:16px;
-      font-size:10px;color:rgba(40,200,100,.65);
-      animation:ji-blink 1s ease-in-out infinite;display:none">▶</div>`;
-  stage.appendChild(dialog);
-
-  // ── CSS animations ────────────────────────────────────────────────
-  const style = document.createElement('style');
-  style.textContent = `
-    @keyframes ji-bob   { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
-    @keyframes ji-blink { 0%,100%{opacity:.7} 50%{opacity:.15} }
-    @keyframes ji-fadein{ from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
-    #ji-stage > div { animation:ji-fadein .3s ease }
-    .ji-btn-accept {
-      font-family:var(--font-pixel,monospace);font-size:10px;
-      padding:10px 20px;border-radius:6px;border:none;cursor:pointer;
-      background:rgba(20,120,60,.9);color:#aaffcc;
-      border:1px solid rgba(40,180,90,.6);
-      transition:background .15s,transform .1s;
-    }
-    .ji-btn-accept:hover { background:rgba(30,160,80,.9);color:#ccffdd; }
-    .ji-btn-accept:active { transform:scale(.97) }
-    .ji-btn-dismiss {
-      font-family:var(--font-pixel,monospace);font-size:9px;
-      padding:8px 14px;border-radius:6px;cursor:pointer;
-      background:transparent;color:rgba(255,255,255,.4);
-      border:1px solid rgba(255,255,255,.12);
-      transition:color .15s,border-color .15s;
-    }
-    .ji-btn-dismiss:hover { color:rgba(255,255,255,.7);border-color:rgba(255,255,255,.3); }
-  `;
-  document.head.appendChild(style);
-
-  // ── Typewriter ────────────────────────────────────────────────────
-  const textEl   = dialog.querySelector('#ji-text');
-  const actionsEl = dialog.querySelector('#ji-actions');
-  const cursor   = dialog.querySelector('#ji-cursor');
-  let _tw = null;
-
-  function _typewrite(text, onDone) {
-    textEl.textContent = '';
-    let i = 0;
-    cursor.style.display = 'none';
-    _tw = setInterval(() => {
-      textEl.textContent += text[i++];
-      if (i >= text.length) {
-        clearInterval(_tw);
-        cursor.style.display = 'block';
-        onDone?.();
-      }
-    }, 18);
-  }
-
-  // Skip to end on click
-  dialog.addEventListener('click', () => {
-    if (_tw) {
-      clearInterval(_tw);
-      _tw = null;
-      textEl.textContent = MESSAGE;
-      cursor.style.display = 'block';
-      _showActions();
-    }
-  }, { once: true });
-
-  function _showActions() {
-    cursor.style.display = 'none';
-    actionsEl.style.display = 'flex';
-    actionsEl.innerHTML = `
-      <button class="ji-btn-dismiss" id="ji-dismiss">Pas encore...</button>
-      <button class="ji-btn-accept"  id="ji-accept">→ Traverser vers Johto</button>`;
-
-    actionsEl.querySelector('#ji-accept').addEventListener('click', () => {
-      _close();
-      activateJohtoRegion();
-      globalThis._zsel_setActiveRegion?.('johto');
-      document.querySelectorAll('#regionSwitcher .region-btn').forEach(b => {
-        b.classList.toggle('active', b.dataset.region === 'johto');
-      });
-      switchTab('tabZones');
-      notify('🌏 Johto débloqué ! Bienvenue à New Bark Town, Parrain...', 'gold');
-    });
-
-    actionsEl.querySelector('#ji-dismiss').addEventListener('click', () => {
-      _close();
-      notify('📡 L\'offre reste disponible — bouton Johto ✉ dans les zones.', '');
-    });
-  }
-
-  function _close() {
-    if (_tw) clearInterval(_tw);
-    overlay.style.transition = 'opacity .35s ease';
-    overlay.style.opacity = '0';
-    setTimeout(() => { overlay.remove(); style.remove(); }, 360);
-  }
-
-  // Start typewriter after a short entrance pause
-  setTimeout(() => _typewrite(MESSAGE, _showActions), 400);
-}
-
-function checkJohtoUnlock() {
-  if (state.purchases?.johtoUnlocked) return;
-  if (!state.zones?.['indigo_plateau']?.gymDefeated) return;
-  if (state.gang.reputation < 500) return;
-  // Affiche l'offre cinématique après un bref délai dramatique
-  setTimeout(() => showJohtoUnlockModal(), 1800);
-}
+function showJohtoUnlockModal() { globalThis.showJohtoUnlockModal?.(); }
+function checkJohtoUnlock()     { globalThis.checkJohtoUnlock?.(); }
 
 function startGameLoop() {
   // Guard: only start once — prevents interval accumulation on hot-reload
@@ -3480,7 +2203,7 @@ Object.assign(globalThis, {
   updateTopBar, tryAutoIncubate,
   renderMarketTab, renderMissionsTab, renderCosmeticsTab, renderBattleLogTab, renderLabTab,
   renderZonesTab, renderGangTab, renderAgentsTab, renderPokemonGrid, renderEggsView, renderGangBasePanel,
-  activateJohtoRegion, showJohtoUnlockModal, checkJohtoUnlock,
+  // activateJohtoRegion, showJohtoUnlockModal, checkJohtoUnlock — set by modules/systems/johto.js
   renderGangCompetitionTab,
   // Audio
   SFX, MusicPlayer, JinglePlayer, MUSIC_TRACKS, playTone,
@@ -3517,13 +2240,14 @@ Object.assign(globalThis, {
   BASE_PRICE, POTENTIAL_MULT, NATURES, BALLS, MYSTERY_EGG_POOL,
   MAX_COMBAT_REWARD, BALL_SPRITES, FALLBACK_TRAINER_SVG,
   AGENT_NAMES_M, AGENT_NAMES_F, AGENT_SPRITES, AGENT_PERSONALITIES,
-  TITLE_REQUIREMENTS, TITLE_BONUSES, AGENT_RANK_LABELS, RANK_CHAIN, AGENT_PERKS, PERSONALITY_PERK_MAP,
+  TITLE_REQUIREMENTS, TITLE_BONUSES, AGENT_RANK_LABELS, RANK_CHAIN, AGENT_PERKS,
   // sessionObjectives module
   isZoneUnlocked,
   BOOST_DURATIONS, ITEM_SPRITE_URLS,
   // trainingRoom module
   pokeSprite, tryAutoEvolution,
   // pension module
+  renderBagTab,
   showConfirm, showInfoModal, renderPCTab, switchTab, showContextMenu,
   openPlayerStatModal, resetPcRenderCache,
   getMaxPensionSlots, getPensionSlotIds,
@@ -3536,7 +2260,7 @@ Object.assign(globalThis, {
   refreshZoneIncomeTile: _refreshZoneIncomeTile,
   updateZoneButtons: _updateZoneButtons,
   // gangBase module — helpers needed by modules/ui/gangBase.js
-  openTeamPicker, openRareCandyPicker,
+  // openTeamPicker, openAssignToPicker, openRareCandyPicker — set by modules/ui/pickers.js
   pokemonDisplayName, sanitizeSpriteName,
   getDexKantoCaught, getDexJohtoCaught, getDexNationalCaught, getShinySpeciesCount,
   getBossFullTitle, getTitleLabel,
@@ -3548,6 +2272,11 @@ Object.assign(globalThis, {
   applyCosmetics, MusicPlayer, MUSIC_TRACKS, GAME_VERSION,
   pokeIcon, openBossEditModal, openTitleModal, openShowcasePicker,
   openTeamPickerModal, showEvoPreviewModal, openNameModal, openSpritePicker,
+  // hubModals module — needs these from app.js scope
+  BOSS_SPRITES, SAVE_KEYS, MAX_HISTORY,
+  formatPlaytime, getTotalBalls, getSlotPreview,
+  setActiveSaveSlotValue,
+  showIntro,
 });
 
 configureSecretCodes({
