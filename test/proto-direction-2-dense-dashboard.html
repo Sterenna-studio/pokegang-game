@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pokegang Proto 02 — Dense Dashboard</title>
+  <link rel="stylesheet" href="./proto.css" />
+</head>
+<body class="proto-body">
+  <div class="proto-titlebar">
+    <div><strong>Pokegang UI Proto 02</strong> — Dense Dashboard</div>
+    <div>Direction : plus gestion / chiffres / optimisation</div>
+  </div>
+
+  <div class="proto-shell">
+    <aside class="proto-sidebar">
+      <div class="logo-block">
+        <div class="logo-kicker">Ops board</div>
+        <div class="logo-title">Pokegang / OPS</div>
+        <div class="logo-sub">Version plus compacte, pensée pour les joueurs qui veulent lire vite les rendements, l'économie et l'occupation.</div>
+      </div>
+      <div class="nav-list">
+        <a class="nav-item active" href="#"><span>Dashboard</span><span class="nav-badge">Live</span></a>
+        <a class="nav-item" href="#"><span>Zones</span><span class="nav-badge">12</span></a>
+        <a class="nav-item" href="#"><span>PC</span><span class="nav-badge">486</span></a>
+        <a class="nav-item" href="#"><span>Agents</span><span class="nav-badge">18</span></a>
+        <a class="nav-item" href="#"><span>Marché</span><span class="nav-badge">▲</span></a>
+        <a class="nav-item" href="#"><span>Gang</span><span class="nav-badge">HQ</span></a>
+      </div>
+      <div class="sidebar-footer">
+        <div class="log-kicker">Focus du jour</div>
+        <div class="log-title">Chasse chroma</div>
+        <div class="log-text">Canaliser les agents sur les biomes forêt et montagne pour monter la pression sur Insécateur, Onix et Minidraco.</div>
+      </div>
+    </aside>
+
+    <main class="proto-main">
+      <section class="topbar">
+        <div class="stat-card"><div class="stat-label">Cash total</div><div class="stat-value">918k₽</div><div class="stat-sub">Liquidités exploitables</div></div>
+        <div class="stat-card"><div class="stat-label">Vente / heure</div><div class="stat-value">142k₽</div><div class="stat-sub">Marché actuellement favorable</div></div>
+        <div class="stat-card"><div class="stat-label">Capture / heure</div><div class="stat-value">312</div><div class="stat-sub">12 zones en rotation</div></div>
+        <div class="stat-card"><div class="stat-label">Risque moyen</div><div class="stat-value">34%</div><div class="stat-sub">2 fronts instables</div></div>
+      </section>
+
+      <section class="panel-card">
+        <div class="section-title-row">
+          <div>
+            <h2 class="section-title">Vue macro</h2>
+            <div class="section-sub">Un dashboard dense pour piloter l'économie et la pression territoriale</div>
+          </div>
+          <span class="tag">Mode gestion</span>
+        </div>
+        <div class="card-grid">
+          <div class="mini-card">
+            <div class="log-kicker">Économie</div>
+            <table class="table-lite">
+              <tr><th>Flux</th><th>Valeur</th></tr>
+              <tr><td>Ventes</td><td>+142k₽ / h</td></tr>
+              <tr><td>Combats</td><td>+18k₽ / h</td></tr>
+              <tr><td>Entretien gang</td><td>-11k₽ / h</td></tr>
+              <tr><td>Balance</td><td><strong>+149k₽ / h</strong></td></tr>
+            </table>
+          </div>
+          <div class="mini-card">
+            <div class="log-kicker">Chasse</div>
+            <table class="table-lite">
+              <tr><th>Cible</th><th>Pression chroma</th></tr>
+              <tr><td>Insécateur</td><td>4.8%</td></tr>
+              <tr><td>Minidraco</td><td>2.1%</td></tr>
+              <tr><td>Abra</td><td>3.4%</td></tr>
+              <tr><td>Évoli</td><td>1.8%</td></tr>
+            </table>
+          </div>
+          <div class="mini-card">
+            <div class="log-kicker">Occupation</div>
+            <table class="table-lite">
+              <tr><th>État</th><th>Nb</th></tr>
+              <tr><td>Exploitée</td><td>5</td></tr>
+              <tr><td>Occupée</td><td>4</td></tr>
+              <tr><td>Contestée</td><td>2</td></tr>
+              <tr><td>Perdue</td><td>1</td></tr>
+            </table>
+          </div>
+          <div class="mini-card">
+            <div class="log-kicker">Hiérarchie</div>
+            <table class="table-lite">
+              <tr><th>Grade</th><th>Nb</th></tr>
+              <tr><td>Sergents</td><td>3</td></tr>
+              <tr><td>Lieutenants</td><td>1</td></tr>
+              <tr><td>Commandants</td><td>0</td></tr>
+              <tr><td>Grunts</td><td>14</td></tr>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel-card">
+        <div class="section-title-row"><h2 class="section-title">Zones — rendement vs risque</h2><span class="tag red">alpha fit</span></div>
+        <div class="zone-grid">
+          <article class="zone-card"><div class="row-between"><strong>Route 1</strong><span class="tag green">Stable</span></div><div class="zone-desc">Faible danger, rendement bas, bonne base pour nouveaux agents.</div><div class="progress"><span style="width:91%"></span></div><div class="zone-footer"><span class="muted">Output</span><strong>22 captures / h</strong></div></article>
+          <article class="zone-card hot"><div class="row-between"><strong>Îles Écume</strong><span class="tag red">Risque 58%</span></div><div class="zone-desc">Danger élevé, meilleure table rareté eau / glace, ombre légendaire possible.</div><div class="progress"><span style="width:64%"></span></div><div class="zone-footer"><span class="muted">Output</span><strong>38 captures / h</strong></div></article>
+          <article class="zone-card"><div class="row-between"><strong>Safrania</strong><span class="tag">Ville</span></div><div class="zone-desc">Influence difficile mais forte valeur moyenne de revente.</div><div class="progress"><span style="width:51%"></span></div><div class="zone-footer"><span class="muted">Rendement</span><strong>+12% prix psy</strong></div></article>
+          <article class="zone-card hot"><div class="row-between"><strong>Route Victoire</strong><span class="tag red">Contestée</span></div><div class="zone-desc">Très bon pool rare, très forte pression, bon emplacement pour événement boss.</div><div class="progress"><span style="width:42%"></span></div><div class="zone-footer"><span class="muted">Rendement</span><strong>Rare ++</strong></div></article>
+        </div>
+      </section>
+    </main>
+
+    <aside class="proto-right">
+      <section class="panel-card">
+        <div class="section-title-row"><h2 class="section-title">Alertes / décisions</h2><span class="tag">3 ouvertes</span></div>
+        <div class="log-list">
+          <div class="log-item alert"><div class="log-title">Décision marché</div><div class="log-text">Les types Vol et Eau sont en hausse. Réorienter la vente automatique sur ces familles donnerait une meilleure marge.</div></div>
+          <div class="log-item"><div class="log-title">Agent à promouvoir</div><div class="log-text">Spirit passe Sergent dans 2 400 XP. Permettrait d'ouvrir un deuxième niveau d'occupation sur une zone à fort rendement.</div></div>
+          <div class="log-item"><div class="log-title">Chasse ciblée</div><div class="log-text">La pression chroma d'Abra commence à devenir intéressante. La zone la plus rentable pour ça reste Safrania.</div></div>
+        </div>
+      </section>
+      <section class="panel-card">
+        <div class="section-title-row"><h2 class="section-title">Journal compact</h2><span class="tag red">feed</span></div>
+        <div class="mini-list">
+          <div class="log-item"><div class="log-kicker">07:12</div><div class="log-text">Vente automatique : 14 captures vendues · +18 200₽</div></div>
+          <div class="log-item"><div class="log-kicker">07:15</div><div class="log-text">Îles Écume : rencontre rare confirmée</div></div>
+          <div class="log-item"><div class="log-kicker">07:17</div><div class="log-text">Route Victoire : pression adverse +1</div></div>
+        </div>
+      </section>
+    </aside>
+  </div>
+</body>
+</html>
