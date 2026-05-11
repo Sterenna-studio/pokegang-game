@@ -9,6 +9,98 @@ import { resolveTrainerCombat } from './zoneCombat.js';
 // Toutes les PERK_EVERY niveaux, l'agent peut choisir un atout parmi 3.
 const PERK_EVERY = 10;
 
+// ── Slots d'équipe par grade ───────────────────────────────────────
+// grunt:1, sergent:2, lieutenant:3, commandant:4, élite:5, général:6
+const TEAM_SLOTS_BY_RANK = {
+  grunt: 1, sergent: 2, lieutenant: 3, commandant: 4, elite: 5, general: 6,
+};
+function getAgentTeamSlots(agent) {
+  return TEAM_SLOTS_BY_RANK[agent?.title] ?? 1;
+}
+
+// ── Pokémon représentatif d'une perk ──────────────────────────────
+// Remplace les emojis d'icône — retourne un species_en pour pokeIcon.
+function getPerkPokemon(perk) {
+  if (!perk) return 'ditto';
+  const parts = (perk.effect || '').split(':');
+  const effectType = parts[0];
+  const subtype    = parts.length >= 3 ? parts[1] : null;
+
+  const TYPE_POKEMON = {
+    fire:'charmander', water:'squirtle', grass:'bulbasaur',
+    electric:'pikachu', psychic:'abra', ghost:'gastly',
+    dark:'umbreon', dragon:'dratini', ice:'jynx',
+    normal:'eevee', fighting:'machop', flying:'pidgey',
+    poison:'ekans', ground:'diglett', rock:'geodude',
+    bug:'caterpie', steel:'magnemite', fairy:'clefairy',
+  };
+
+  if ((effectType === 'capture_type' || effectType === 'shiny_type') && subtype && TYPE_POKEMON[subtype]) {
+    return TYPE_POKEMON[subtype];
+  }
+
+  const EFFECT_POKEMON = {
+    combat:            'machamp',
+    shiny:             'ditto',
+    capture_rarity:    'chansey',
+    capture_potential: 'clefairy',
+    ball_recovery:     'electrode',
+    encounter_rare:    'lapras',
+    trainer_debuff:    'haunter',
+    xp_bonus:          'magikarp',
+    passive_income:    'meowth',
+    chest_loot:        'snorlax',
+    money:             'persian',
+  };
+
+  return EFFECT_POKEMON[effectType] || 'ditto';
+}
+
+// ── Conversion Darkrai ─────────────────────────────────────────────
+// Assigne la perk de nature de l'agent (basée sur ses personnalités).
+// Priorité aux perks de type combat. Marque l'agent comme converti.
+function convertAgentToDarkrai(agent) {
+  if (agent.darkraiConverted) return;
+  const PERSONALITY_PERK_MAP = globalThis.PERSONALITY_PERK_MAP || {};
+  const AGENT_PERKS = globalThis.AGENT_PERKS || [];
+
+  const personalities = agent.personality || [];
+  const candidateIds  = personalities.map(p => PERSONALITY_PERK_MAP[p]).filter(Boolean);
+
+  // Préférer une perk de type combat
+  const combatIds = candidateIds.filter(id => {
+    const perk = AGENT_PERKS.find(p => p.id === id);
+    return perk && perk.effect.startsWith('combat:');
+  });
+
+  const chosenId = combatIds[0] || candidateIds[0] || null;
+
+  if (!agent.perks) agent.perks = [];
+  if (chosenId && !agent.perks.includes(chosenId)) {
+    agent.perks = [chosenId, ...agent.perks]; // perk de nature en premier
+  }
+
+  agent.darkraiConverted = true;
+}
+
+// Lance la conversion Darkrai pour tous les agents non encore convertis.
+function runBulkDarkraiConversion() {
+  const state = globalThis.state;
+  const agents = state.agents || [];
+  const unconverted = agents.filter(a => !a.darkraiConverted && !a.legacyLocked);
+  if (unconverted.length === 0) {
+    globalThis.notify('Tous les agents sont déjà convertis !', '');
+    return;
+  }
+  for (const agent of unconverted) {
+    convertAgentToDarkrai(agent);
+  }
+  globalThis.saveState();
+  const n = unconverted.length;
+  globalThis.notify(`✦ ${n} agent${n > 1 ? 's transformés' : ' transformé'} par Darkrai !`, 'gold');
+  globalThis.renderAgentsTab?.();
+}
+
 // Retourne la somme des bonus d'un type donné pour un agent.
 // effectType = 'capture_type' | 'shiny' | 'combat' | 'chest_loot' | 'money'
 //              'capture_potential' | 'ball_recovery' | 'encounter_rare' | 'trainer_debuff'
@@ -86,6 +178,16 @@ function rollNewAgent() {
     const idx = Math.floor(Math.random() * pool.length);
     personality.push(pool.splice(idx, 1)[0]);
   }
+  // Assigner la perk de nature dès la création (Épreuve de Darkrai intégrée)
+  const PERSONALITY_PERK_MAP = globalThis.PERSONALITY_PERK_MAP || {};
+  const AGENT_PERKS_LIST = globalThis.AGENT_PERKS || [];
+  const candidateIds = personality.map(p => PERSONALITY_PERK_MAP[p]).filter(Boolean);
+  const combatIds    = candidateIds.filter(id => {
+    const perk = AGENT_PERKS_LIST.find(p => p.id === id);
+    return perk && perk.effect.startsWith('combat:');
+  });
+  const naturePerkId = combatIds[0] || candidateIds[0] || null;
+
   return {
     id: `ag-${globalThis.uid()}`,
     name,
@@ -96,13 +198,14 @@ function rollNewAgent() {
     xp: 0,
     combatsWon: 0,
     natureDefined: true,
+    darkraiConverted: true,
     preferredBall: 'pokeball',
     behavior: 'all', // 'all' | 'capture' | 'combat'
     personality,
     team: [],
     assignedZone: null,
     notifyCaptures: true,
-    perks: [],
+    perks: naturePerkId ? [naturePerkId] : [],
     pendingPerkChoice: false,
     legacyLocked: false,
   };
@@ -777,20 +880,25 @@ function openPerkChoiceModal(agentId) {
   const overlay = document.createElement('div');
   overlay.style.cssText = 'position:fixed;inset:0;z-index:9800;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center;padding:16px';
 
-  const cardsHtml = picks.map(perk => `
+  const cardsHtml = picks.map(perk => {
+    const perkSpecies = getPerkPokemon(perk);
+    const isShiny = perk.effect.startsWith('shiny:') || perk.effect.startsWith('shiny_type:');
+    const perkSrc = globalThis.pokeIcon?.(perkSpecies) || globalThis.pokeSprite?.(perkSpecies, isShiny) || '';
+    return `
     <div class="perk-pick-card" data-perk-id="${perk.id}"
       style="flex:1;min-width:130px;max-width:170px;background:var(--bg-card);border:2px solid var(--border);
              border-radius:var(--radius);padding:14px 10px;cursor:pointer;text-align:center;
              display:flex;flex-direction:column;align-items:center;gap:8px;
              transition:border-color .15s,box-shadow .15s">
-      <div style="font-size:28px;line-height:1">${perk.icon}</div>
+      <img src="${perkSrc}" alt="${perkSpecies}" style="width:36px;height:36px;image-rendering:pixelated${isShiny ? ';filter:drop-shadow(0 0 4px var(--gold))' : ''}">
       <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">${perk.fr}</div>
       <div style="font-size:8px;color:var(--text-dim);line-height:1.4">${perk.desc}</div>
       <button class="perk-pick-btn" data-perk-id="${perk.id}"
         style="margin-top:auto;font-family:var(--font-pixel);font-size:8px;padding:5px 12px;
                background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);
                color:var(--gold);cursor:pointer;width:100%">Choisir</button>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 
   overlay.innerHTML = `
     <div style="background:var(--bg-panel);border:2px solid var(--gold);border-radius:var(--radius);
@@ -847,6 +955,7 @@ function migrateAgentPerkSystem() {
     // Ensure new fields exist — slots 1-5 gratuits, 6+ verrouillés
     if (agent.legacyLocked === undefined) agent.legacyLocked = agIdx >= 5;
     agent.natureDefined = true; // remove old nature modal requirement
+    if (agent.darkraiConverted === undefined) agent.darkraiConverted = false; // will be set by panel button
 
     // Totaliser l'XP : XP déjà "brûlée" pour atteindre le niveau courant
     // + XP accumulée pendant le freeze
@@ -1369,6 +1478,11 @@ Object.assign(globalThis, {
   openDarkraiMigrationPopup,
   openDarkraiTrial,
   PERK_EVERY,
+  // ── Darkrai conversion ──
+  getAgentTeamSlots,
+  getPerkPokemon,
+  convertAgentToDarkrai,
+  runBulkDarkraiConversion,
 });
 
 export {};

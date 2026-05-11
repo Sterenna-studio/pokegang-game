@@ -295,4 +295,22 @@ const AGENT_PERKS = [
   { id:'final_form',    fr:'Forme Finale',            icon:'💥', desc:'+50% tous bonus de niveau', effect:'xp_bonus:0.50'              },
 ];
 
-export { NATURES, NATURE_KEYS, BOSS_SPRITES, AGENT_NAMES_M, AGENT_NAMES_F, AGENT_SPRITES, AGENT_PERSONALITIES, TITLE_REQUIREMENTS, TITLE_BONUSES, AGENT_RANK_LABELS, RANK_CHAIN, AGENT_PERKS };
+// ── Perk de nature par personnalité ────────────────────────────────────────────
+// Chaque personnalité est liée à une perk "signature" — priorité aux perks combat.
+// Utilisé par l'Épreuve de Darkrai pour assigner automatiquement la perk de nature.
+const PERSONALITY_PERK_MAP = {
+  loyal:    'zone_guardian',   // combat:0.20 — Gardien de Zone
+  nervous:  'first_strike',   // combat:0.20 — Attaque Surprise
+  reckless: 'berserker',      // combat:0.35 — Berserker
+  calm:     'strategist',     // combat:0.20 — Stratège
+  cunning:  'opportunist',    // combat:0.30 — Opportuniste
+  lazy:     'chest_basic',    // chest_loot:0.25 — Fouilleur
+  fierce:   'combat_master',  // combat:0.40 — Maîtrise du Combat
+  quiet:    'lone_wolf',      // combat:0.30 — Loup Solitaire
+  greedy:   'bounty_hunter',  // money:0.40 — Chasseur de Primes
+  brave:    'combat_focus',   // combat:0.25 — Concentration
+  curious:  'lucky_find',     // encounter_rare:0.25 — Sixième Sens
+  stubborn: 'resilience',     // combat:0.15 — Résilience
+};
+
+export { NATURES, NATURE_KEYS, BOSS_SPRITES, AGENT_NAMES_M, AGENT_NAMES_F, AGENT_SPRITES, AGENT_PERSONALITIES, TITLE_REQUIREMENTS, TITLE_BONUSES, AGENT_RANK_LABELS, RANK_CHAIN, AGENT_PERKS, PERSONALITY_PERK_MAP };
