@@ -304,7 +304,7 @@ html, body {
   z-index: 1;
   line-height: 1;
 }
-.zone-name-block { z-index: 1; text-align: right; }
+.zone-name-block { z-index: 1; text-align: right; flex: 1; }
 .zone-name {
   font-family: var(--font-cond);
   font-size: 17px;
@@ -314,12 +314,6 @@ html, body {
   text-transform: uppercase;
   letter-spacing: .5px;
   text-shadow: 0 1px 4px rgba(0,0,0,.8);
-}
-.zone-sub {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  color: rgba(255,255,255,.5);
-  margin-top: 1px;
 }
 
 /* type badge */
@@ -334,6 +328,20 @@ html, body {
 .type-route  { background: var(--green-dim);  color: var(--green);  border: 1px solid #1a4a28; }
 .type-ville  { background: var(--blue-dim);   color: var(--blue);   border: 1px solid #1a2a5a; }
 .type-spec   { background: var(--purple-dim); color: var(--purple); border: 1px solid #2a1a5a; }
+
+/* pool sprites in art */
+.zone-pool-sprites {
+  display: flex;
+  gap: 1px;
+  align-items: center;
+  z-index: 1;
+}
+.zone-pool-sprites img {
+  width: 28px; height: 28px;
+  image-rendering: pixelated;
+  opacity: .55;
+  filter: drop-shadow(0 0 3px rgba(0,0,0,.9));
+}
 
 /* card body */
 .zone-body {
@@ -396,19 +404,11 @@ html, body {
   color: var(--text-dim);
   line-height: 1.2;
 }
-.zone-cap-entry .poke-dot {
-  width: 6px; height: 6px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
 .zone-cap-entry .poke-name { color: var(--text); }
 .zone-cap-entry .poke-stars { color: var(--gold); font-size: 9px; }
-.zone-cap-entry.shiny .poke-name { color: #ffaaff; }
 
 /* rep progress bar (locked zones) */
-.zone-rep-bar {
-  margin-top: 2px;
-}
+.zone-rep-bar { margin-top: 2px; }
 .zone-rep-label {
   display: flex;
   justify-content: space-between;
@@ -418,15 +418,8 @@ html, body {
   margin-bottom: 3px;
 }
 .zone-rep-label .req { color: var(--gold); }
-.rep-track {
-  height: 3px;
-  background: var(--border);
-  overflow: hidden;
-}
-.rep-fill {
-  height: 100%;
-  background: linear-gradient(to right, var(--red-dim), var(--red));
-}
+.rep-track { height: 3px; background: var(--border); overflow: hidden; }
+.rep-fill  { height: 100%; background: linear-gradient(to right, var(--red-dim), var(--red)); }
 
 /* card actions */
 .zone-actions {
@@ -446,31 +439,13 @@ html, body {
   text-align: center;
   text-transform: uppercase;
 }
-.btn-open {
-  background: var(--red);
-  border-color: var(--red-bright);
-  color: #fff;
-}
+.btn-open { background: var(--red); border-color: var(--red-bright); color: #fff; }
 .btn-open:hover { background: var(--red-bright); box-shadow: 0 0 10px var(--red-glow); }
-.btn-open.active-state {
-  background: transparent;
-  border-color: var(--red);
-  color: var(--red);
-}
+.btn-open.active-state { background: transparent; border-color: var(--red); color: var(--red); }
 .btn-open.active-state:hover { background: rgba(204,17,17,.1); }
-.btn-assign {
-  background: transparent;
-  border-color: var(--border-light);
-  color: var(--text-dim);
-}
+.btn-assign { background: transparent; border-color: var(--border-light); color: var(--text-dim); }
 .btn-assign:hover { border-color: var(--text-dim); color: var(--text); }
-.btn-locked {
-  background: transparent;
-  border-color: var(--border);
-  color: var(--text-dimmer);
-  cursor: not-allowed;
-  flex: 2;
-}
+.btn-locked { background: transparent; border-color: var(--border); color: var(--text-dimmer); cursor: not-allowed; flex: 2; }
 
 /* ═══════════════════════════════════════════════════════════
    RIGHT SIDEBAR
@@ -484,11 +459,7 @@ html, body {
   overflow: hidden;
   flex-shrink: 0;
 }
-
-.sidebar-section {
-  border-bottom: 1px solid var(--border);
-}
-
+.sidebar-section { border-bottom: 1px solid var(--border); }
 .sidebar-header {
   padding: 7px 12px;
   font-family: var(--font-pixel);
@@ -527,11 +498,9 @@ html, body {
   transition: background var(--transition);
 }
 .feed-entry:hover { background: var(--bg-card-h); }
-.feed-entry.new {
-  animation: feed-flash .6s ease;
-}
+.feed-entry.new { animation: feed-flash .6s ease; }
 @keyframes feed-flash {
-  0% { background: rgba(204,17,17,.15); }
+  0%   { background: rgba(204,17,17,.15); }
   100% { background: transparent; }
 }
 
@@ -542,11 +511,14 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
   flex-shrink: 0;
+  overflow: hidden;
 }
+.feed-dot img   { width: 28px; height: 28px; image-rendering: pixelated; }
 .feed-dot.shiny { border-color: #7a4a7a; background: #110811; }
-.feed-dot.combat { border-color: var(--red-dim); background: rgba(204,17,17,.05); }
+.feed-dot.combat{ border-color: var(--red-dim); background: rgba(204,17,17,.05); font-size:14px; }
+.feed-dot.chest { border-color: var(--gold-dim); background: rgba(255,204,90,.05); font-size:14px; }
+.feed-dot.sys   { font-size: 12px; }
 
 .feed-info { flex: 1; min-width: 0; }
 .feed-name {
@@ -583,11 +555,7 @@ html, body {
   gap: 1px;
   background: var(--border);
 }
-.stat-cell {
-  background: var(--bg-card);
-  padding: 8px;
-  text-align: center;
-}
+.stat-cell { background: var(--bg-card); padding: 8px; text-align: center; }
 .stat-val {
   font-family: var(--font-mono);
   font-size: 15px;
@@ -613,6 +581,7 @@ html, body {
   gap: 6px;
   padding: 10px 12px;
   align-items: center;
+  flex-wrap: wrap;
 }
 .team-slot {
   flex: 1;
@@ -628,9 +597,10 @@ html, body {
   cursor: pointer;
   transition: border-color var(--transition);
   padding: 4px;
+  overflow: hidden;
 }
 .team-slot:hover { border-color: var(--border-light); }
-.team-slot .t-icon { font-size: 22px; line-height: 1; }
+.team-slot img   { width: 36px; height: 36px; image-rendering: pixelated; }
 .team-slot .t-name {
   font-family: var(--font-mono);
   font-size: 7px;
@@ -655,7 +625,6 @@ html, body {
   display: flex;
   z-index: 100;
 }
-
 .tab-item {
   flex: 1;
   display: flex;
@@ -671,10 +640,7 @@ html, body {
 }
 .tab-item:last-child { border-right: none; }
 .tab-item:hover { background: var(--bg-card-h); }
-.tab-item.active {
-  background: rgba(204,17,17,.08);
-  border-bottom: 2px solid var(--red);
-}
+.tab-item.active { background: rgba(204,17,17,.08); border-bottom: 2px solid var(--red); }
 .tab-item.active::before {
   content: '';
   position: absolute;
@@ -683,7 +649,7 @@ html, body {
   background: var(--red);
   box-shadow: 0 0 8px var(--red-glow);
 }
-.tab-icon { font-size: 16px; line-height: 1; }
+.tab-icon  { font-size: 16px; line-height: 1; }
 .tab-label {
   font-family: var(--font-pixel);
   font-size: 5.5px;
@@ -709,7 +675,7 @@ html, body {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   SCANLINE OVERLAY (atmosphere)
+   SCANLINE OVERLAY
 ═══════════════════════════════════════════════════════════ */
 body::after {
   content: '';
@@ -718,17 +684,12 @@ body::after {
   pointer-events: none;
   z-index: 9999;
   background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 2px,
-    rgba(0,0,0,.03) 2px,
-    rgba(0,0,0,.03) 4px
+    0deg, transparent, transparent 2px,
+    rgba(0,0,0,.03) 2px, rgba(0,0,0,.03) 4px
   );
 }
 
-/* ═══════════════════════════════════════════════════════════
-   HIDDEN PANEL STATES (tab switching)
-═══════════════════════════════════════════════════════════ */
+/* tab panels */
 .tab-panel { display: none; }
 .tab-panel.active { display: flex; flex: 1; overflow: hidden; }
 
@@ -741,68 +702,63 @@ body::after {
   gap: 12px;
   color: var(--text-dimmer);
 }
-.placeholder-panel .ph-icon { font-size: 40px; opacity: .3; }
-.placeholder-panel .ph-label {
-  font-family: var(--font-pixel);
-  font-size: 9px;
-  letter-spacing: 2px;
-  color: var(--text-dimmer);
-}
-.placeholder-panel .ph-sub {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-dimmer);
-}
+.placeholder-panel .ph-icon  { font-size: 40px; opacity: .3; }
+.placeholder-panel .ph-label { font-family: var(--font-pixel); font-size: 9px; letter-spacing: 2px; color: var(--text-dimmer); }
+.placeholder-panel .ph-sub   { font-family: var(--font-mono);  font-size: 11px; color: var(--text-dimmer); }
 
-/* ═══════════════════════════════════════════════════════════
-   ART BACKGROUNDS FOR ZONES
-═══════════════════════════════════════════════════════════ */
-.art-route1   { background: linear-gradient(135deg, #0d1f0d 0%, #1a3a1a 100%); }
-.art-jade     { background: linear-gradient(135deg, #0a1a0a 0%, #0d2a0d 100%); }
-.art-argenta  { background: linear-gradient(135deg, #0d0d20 0%, #1a1a3a 100%); }
-.art-mont     { background: linear-gradient(135deg, #1a1a1a 0%, #2a2020 100%); }
-.art-carmin   { background: linear-gradient(135deg, #200d0d 0%, #3a1a1a 100%); }
-.art-parmanie { background: linear-gradient(135deg, #0d101f 0%, #1a1d3a 100%); }
-.art-safari   { background: linear-gradient(135deg, #1a140a 0%, #2a2010 100%); }
-.art-indigo   { background: linear-gradient(135deg, #180d20 0%, #2a1a3a 100%); }
+/* no-save banner */
+#no-save-banner {
+  display: none;
+  position: fixed;
+  top: calc(var(--topbar-h) + var(--filter-h) + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1a1200;
+  border: 1px solid var(--gold-dim);
+  color: var(--gold);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 5px 14px;
+  z-index: 90;
+  pointer-events: none;
+  white-space: nowrap;
+}
 </style>
 </head>
 
 <body>
 
-<!-- ═══════════════════════════════════════════════
-     TOPBAR
-═══════════════════════════════════════════════════ -->
+<!-- ══ TOPBAR ══════════════════════════════════════════════════ -->
 <header id="topbar">
   <div class="topbar-logo">
     POKEGANG
-    <span>KANTO OPS v0.2</span>
+    <span id="topbar-sub">KANTO OPS v0.2</span>
   </div>
 
   <div class="topbar-divider"></div>
 
   <div class="topbar-metrics">
-    <div class="metric-chip rep">⭐ <span class="val">847</span> REP</div>
+    <div class="metric-chip rep">⭐ <span class="val" id="m-rep">—</span> REP</div>
     <div class="metric-sep">·</div>
-    <div class="metric-chip money">₽ <span class="val">2 341 500</span></div>
+    <div class="metric-chip money">₽ <span class="val" id="m-money">—</span></div>
     <div class="metric-sep">·</div>
-    <div class="metric-chip cap">🎯 <span class="val">1 204</span> captures</div>
+    <div class="metric-chip cap">🎯 <span class="val" id="m-cap">—</span> captures</div>
     <div class="metric-sep">·</div>
-    <div class="metric-chip shiny">✨ <span class="val">3</span> shiny</div>
+    <div class="metric-chip shiny">✨ <span class="val" id="m-shiny">—</span> shiny</div>
   </div>
 
   <div class="topbar-right">
-    <div class="save-chip"><div class="save-dot"></div> SAUVÉ</div>
-    <button class="icon-btn" title="Paramètres">⚙</button>
-    <button class="icon-btn" title="Notifications">🔔</button>
+    <div class="save-chip" id="save-chip">
+      <div class="save-dot" id="save-dot"></div>
+      <span id="save-label">SAUVÉ</span>
+    </div>
+    <button class="icon-btn">⚙</button>
+    <button class="icon-btn">🔔</button>
   </div>
 </header>
 
-<!-- ═══════════════════════════════════════════════
-     FILTER BAR
-═══════════════════════════════════════════════════ -->
+<!-- ══ FILTER BAR ═══════════════════════════════════════════════ -->
 <div id="filterbar">
-  <!-- Type tabs -->
   <button class="type-tab active" data-type="all">ALL</button>
   <button class="type-tab" data-type="route">ROUTES</button>
   <button class="type-tab" data-type="ville">VILLES</button>
@@ -810,545 +766,485 @@ body::after {
 
   <div class="filter-sep"></div>
 
-  <!-- Status pills -->
-  <button class="status-pill active-open" data-status="open">🟢 OUVERTES (3)</button>
-  <button class="status-pill active-auto" data-status="auto">🤖 AUTO (5)</button>
-  <button class="status-pill active-lock" data-status="locked">🔒 VERROUILLÉES (4)</button>
+  <button class="status-pill active-open" data-status="open">🟢 OUVERTES (<span id="cnt-open">0</span>)</button>
+  <button class="status-pill active-auto" data-status="auto">🤖 AUTO (<span id="cnt-auto">0</span>)</button>
+  <button class="status-pill active-lock" data-status="locked">🔒 LOCK (<span id="cnt-lock">0</span>)</button>
 </div>
 
-<!-- ═══════════════════════════════════════════════
-     MAIN SHELL
-═══════════════════════════════════════════════════ -->
+<div id="no-save-banner">⚠ Aucune sauvegarde — affichage démo</div>
+
+<!-- ══ SHELL ════════════════════════════════════════════════════ -->
 <div id="shell">
 
-  <!-- ── ZONES TAB PANEL ── -->
+  <!-- ZONES panel -->
   <div class="tab-panel active" id="panel-zones">
 
-    <!-- Main grid -->
     <div id="main-area">
-      <div id="zones-grid">
+      <div id="zones-grid"><!-- JS --></div>
+    </div>
 
-        <!-- ─── ZONE: Route 1 — OUVERTE ──────────────────── -->
-        <div class="zone-card is-open" data-type="route" data-status="open">
-          <div class="zone-art art-route1">
-            <div class="zone-art-icon">🌿</div>
-            <div class="zone-name-block">
-              <div class="zone-name">Route 1</div>
-              <span class="zone-type type-route">ROUTE</span>
-            </div>
-          </div>
-          <div class="zone-body">
-            <div class="zone-status-row">
-              <div class="status-badge badge-open">● OUVERTE</div>
-              <div class="zone-agents">👥 <span class="count">2</span></div>
-              <div class="zone-timer">⏱ 00:08</div>
-            </div>
-            <div class="zone-captures">
-              <div class="zone-cap-entry">
-                <div class="poke-dot" style="background:#4488ff"></div>
-                <span class="poke-name">Rattata</span>
-                <span class="poke-stars">★★★</span>
-                <span style="margin-left:auto;font-size:9px">Yuna</span>
-              </div>
-              <div class="zone-cap-entry">
-                <div class="poke-dot" style="background:#aaaa44"></div>
-                <span class="poke-name">Ronflex</span>
-                <span class="poke-stars">★★★★</span>
-                <span style="margin-left:auto;font-size:9px">Yuna</span>
-              </div>
-            </div>
-          </div>
-          <div class="zone-actions">
-            <button class="btn-zone btn-open active-state">FERMER</button>
-            <button class="btn-zone btn-assign">ASSIGNER</button>
-          </div>
-        </div>
-
-        <!-- ─── ZONE: Forêt de Jade — AUTO ──────────────── -->
-        <div class="zone-card" data-type="route" data-status="auto">
-          <div class="zone-art art-jade">
-            <div class="zone-art-icon">🌲</div>
-            <div class="zone-name-block">
-              <div class="zone-name">Forêt de Jade</div>
-              <span class="zone-type type-route">ROUTE</span>
-            </div>
-          </div>
-          <div class="zone-body">
-            <div class="zone-status-row">
-              <div class="status-badge badge-auto">🤖 AUTO</div>
-              <div class="zone-agents">👥 <span class="count">1</span></div>
-              <div class="zone-timer">⏱ 00:23</div>
-            </div>
-            <div class="zone-captures">
-              <div class="zone-cap-entry">
-                <div class="poke-dot" style="background:#44cc44"></div>
-                <span class="poke-name">Chenipan</span>
-                <span class="poke-stars">★★</span>
-                <span style="margin-left:auto;font-size:9px">Marco</span>
-              </div>
-              <div class="zone-cap-entry shiny">
-                <div class="poke-dot" style="background:#ffaaff"></div>
-                <span class="poke-name">✨ Papilusion</span>
-                <span class="poke-stars">★★★★★</span>
-                <span style="margin-left:auto;font-size:9px">Marco</span>
-              </div>
-            </div>
-          </div>
-          <div class="zone-actions">
-            <button class="btn-zone btn-open">OUVRIR</button>
-            <button class="btn-zone btn-assign">ASSIGNER</button>
-          </div>
-        </div>
-
-        <!-- ─── ZONE: Azuria City — OUVERTE ─────────────── -->
-        <div class="zone-card is-open" data-type="ville" data-status="open">
-          <div class="zone-art art-argenta">
-            <div class="zone-art-icon">🏛</div>
-            <div class="zone-name-block">
-              <div class="zone-name">Azuria City</div>
-              <span class="zone-type type-ville">VILLE</span>
-            </div>
-          </div>
-          <div class="zone-body">
-            <div class="zone-status-row">
-              <div class="status-badge badge-open">● OUVERTE</div>
-              <div class="zone-agents">👥 <span class="count">3</span></div>
-              <div class="zone-timer">⏱ 00:41</div>
-            </div>
-            <div class="zone-captures">
-              <div class="zone-cap-entry">
-                <div class="poke-dot" style="background:#4488ff"></div>
-                <span class="poke-name">Tentacool</span>
-                <span class="poke-stars">★★★</span>
-                <span style="margin-left:auto;font-size:9px">Sara</span>
-              </div>
-              <div class="zone-cap-entry">
-                <div class="poke-dot" style="background:#ff8844"></div>
-                <span class="poke-name">Kangaskhan</span>
-                <span class="poke-stars">★★★★</span>
-                <span style="margin-left:auto;font-size:9px">Sara</span>
-              </div>
-            </div>
-          </div>
-          <div class="zone-actions">
-            <button class="btn-zone btn-open active-state">FERMER</button>
-            <button class="btn-zone btn-assign">ASSIGNER</button>
-          </div>
-        </div>
-
-        <!-- ─── ZONE: Mont Sélénite — AUTO ──────────────── -->
-        <div class="zone-card" data-type="route" data-status="auto">
-          <div class="zone-art art-mont">
-            <div class="zone-art-icon">⛰️</div>
-            <div class="zone-name-block">
-              <div class="zone-name">Mt. Sélénite</div>
-              <span class="zone-type type-route">ROUTE</span>
-            </div>
-          </div>
-          <div class="zone-body">
-            <div class="zone-status-row">
-              <div class="status-badge badge-auto">🤖 AUTO</div>
-              <div class="zone-agents">👥 <span class="count">2</span></div>
-              <div class="zone-timer">⏱ 01:12</div>
-            </div>
-            <div class="zone-captures">
-              <div class="zone-cap-entry">
-                <div class="poke-dot" style="background:#aaaaaa"></div>
-                <span class="poke-name">Onix</span>
-                <span class="poke-stars">★★★★</span>
-                <span style="margin-left:auto;font-size:9px">Rex</span>
-              </div>
-              <div class="zone-cap-entry">
-                <div class="poke-dot" style="background:#cc8844"></div>
-                <span class="poke-name">Machoc</span>
-                <span class="poke-stars">★★</span>
-                <span style="margin-left:auto;font-size:9px">Rex</span>
-              </div>
-            </div>
-          </div>
-          <div class="zone-actions">
-            <button class="btn-zone btn-open">OUVRIR</button>
-            <button class="btn-zone btn-assign">ASSIGNER</button>
-          </div>
-        </div>
-
-        <!-- ─── ZONE: Parmanie City — OUVERTE ───────────── -->
-        <div class="zone-card is-open" data-type="ville" data-status="open">
-          <div class="zone-art art-parmanie">
-            <div class="zone-art-icon">🏙️</div>
-            <div class="zone-name-block">
-              <div class="zone-name">Parmanie City</div>
-              <span class="zone-type type-ville">VILLE</span>
-            </div>
-          </div>
-          <div class="zone-body">
-            <div class="zone-status-row">
-              <div class="status-badge badge-open">● OUVERTE</div>
-              <div class="zone-agents">👥 <span class="count">2</span></div>
-              <div class="zone-timer">⏱ 00:05</div>
-            </div>
-            <div class="zone-captures">
-              <div class="zone-cap-entry">
-                <div class="poke-dot" style="background:#4444cc"></div>
-                <span class="poke-name">Lippoutou</span>
-                <span class="poke-stars">★★★</span>
-                <span style="margin-left:auto;font-size:9px">Nadia</span>
-              </div>
-              <div class="zone-cap-entry">
-                <div class="poke-dot" style="background:#cc44cc"></div>
-                <span class="poke-name">Smogo</span>
-                <span class="poke-stars">★★★</span>
-                <span style="margin-left:auto;font-size:9px">Nadia</span>
-              </div>
-            </div>
-          </div>
-          <div class="zone-actions">
-            <button class="btn-zone btn-open active-state">FERMER</button>
-            <button class="btn-zone btn-assign">ASSIGNER</button>
-          </div>
-        </div>
-
-        <!-- ─── ZONE: Carmin-sur-Mer — AUTO ─────────────── -->
-        <div class="zone-card" data-type="ville" data-status="auto">
-          <div class="zone-art art-carmin">
-            <div class="zone-art-icon">🌊</div>
-            <div class="zone-name-block">
-              <div class="zone-name">Carmin-sur-Mer</div>
-              <span class="zone-type type-ville">VILLE</span>
-            </div>
-          </div>
-          <div class="zone-body">
-            <div class="zone-status-row">
-              <div class="status-badge badge-auto">🤖 AUTO</div>
-              <div class="zone-agents">👥 <span class="count">1</span></div>
-              <div class="zone-timer">⏱ 00:54</div>
-            </div>
-            <div class="zone-captures">
-              <div class="zone-cap-entry">
-                <div class="poke-dot" style="background:#4488ff"></div>
-                <span class="poke-name">Hypotrempe</span>
-                <span class="poke-stars">★★★★</span>
-                <span style="margin-left:auto;font-size:9px">Yuna</span>
-              </div>
-              <div class="zone-cap-entry">
-                <div class="poke-dot" style="background:#ff4444"></div>
-                <span class="poke-name">Magmar</span>
-                <span class="poke-stars">★★★</span>
-                <span style="margin-left:auto;font-size:9px">Yuna</span>
-              </div>
-            </div>
-          </div>
-          <div class="zone-actions">
-            <button class="btn-zone btn-open">OUVRIR</button>
-            <button class="btn-zone btn-assign">ASSIGNER</button>
-          </div>
-        </div>
-
-        <!-- ─── ZONE: Safari Zone — VERROUILLÉE ─────────── -->
-        <div class="zone-card is-locked" data-type="spec" data-status="locked">
-          <div class="zone-art art-safari">
-            <div class="zone-art-icon">🦁</div>
-            <div class="zone-name-block">
-              <div class="zone-name">Zone Safari</div>
-              <span class="zone-type type-spec">SPÉCIALE</span>
-            </div>
-          </div>
-          <div class="zone-body">
-            <div class="zone-status-row">
-              <div class="status-badge badge-locked">🔒 VERROUILLÉE</div>
-            </div>
-            <div class="zone-rep-bar">
-              <div class="zone-rep-label">
-                <span>Réputation requise</span>
-                <span class="req">847 / 1200 ⭐</span>
-              </div>
-              <div class="rep-track">
-                <div class="rep-fill" style="width:70%"></div>
-              </div>
-            </div>
-          </div>
-          <div class="zone-actions">
-            <button class="btn-zone btn-locked" disabled>VERROUILLÉE — 1 200 REP</button>
-          </div>
-        </div>
-
-        <!-- ─── ZONE: Plateau Indigo — VERROUILLÉE ────────── -->
-        <div class="zone-card is-locked" data-type="spec" data-status="locked">
-          <div class="zone-art art-indigo">
-            <div class="zone-art-icon">🏆</div>
-            <div class="zone-name-block">
-              <div class="zone-name">Plateau Indigo</div>
-              <span class="zone-type type-spec">SPÉCIALE</span>
-            </div>
-          </div>
-          <div class="zone-body">
-            <div class="zone-status-row">
-              <div class="status-badge badge-locked">🔒 VERROUILLÉE</div>
-            </div>
-            <div class="zone-rep-bar">
-              <div class="zone-rep-label">
-                <span>Réputation requise</span>
-                <span class="req">847 / 5000 ⭐</span>
-              </div>
-              <div class="rep-track">
-                <div class="rep-fill" style="width:17%"></div>
-              </div>
-            </div>
-          </div>
-          <div class="zone-actions">
-            <button class="btn-zone btn-locked" disabled>VERROUILLÉE — 5 000 REP</button>
-          </div>
-        </div>
-
-      </div><!-- /zones-grid -->
-    </div><!-- /main-area -->
-
-    <!-- ── RIGHT SIDEBAR ── -->
     <aside id="sidebar">
 
-      <!-- Feed -->
+      <!-- Activity feed -->
       <div class="sidebar-section" style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden">
         <div class="sidebar-header">
-          ACTIVITÉ AGENTS
-          <span class="badge-count" id="feed-count">12</span>
+          ACTIVITÉ
+          <span class="badge-count" id="feed-count">0</span>
         </div>
-        <div id="feed-list">
-
-          <div class="feed-entry new">
-            <div class="feed-dot shiny">✨</div>
-            <div class="feed-info">
-              <div class="feed-name shiny">Papilusion</div>
-              <div class="feed-detail"><span class="feed-stars">★★★★★</span> · Marco · Forêt</div>
-            </div>
-            <div class="feed-time">juste</div>
-          </div>
-
-          <div class="feed-entry">
-            <div class="feed-dot">🦋</div>
-            <div class="feed-info">
-              <div class="feed-name">Kangaskhan</div>
-              <div class="feed-detail"><span class="feed-stars">★★★★</span> · Sara · Azuria</div>
-            </div>
-            <div class="feed-time">1m</div>
-          </div>
-
-          <div class="feed-entry">
-            <div class="feed-dot combat">⚔️</div>
-            <div class="feed-info">
-              <div class="feed-name" style="color:var(--green)">Victoire</div>
-              <div class="feed-detail">Nadia — +340₽ +2 REP · Parmanie</div>
-            </div>
-            <div class="feed-time">2m</div>
-          </div>
-
-          <div class="feed-entry">
-            <div class="feed-dot">🐚</div>
-            <div class="feed-info">
-              <div class="feed-name">Hypotrempe</div>
-              <div class="feed-detail"><span class="feed-stars">★★★★</span> · Yuna · Carmin</div>
-            </div>
-            <div class="feed-time">3m</div>
-          </div>
-
-          <div class="feed-entry">
-            <div class="feed-dot">🪨</div>
-            <div class="feed-info">
-              <div class="feed-name">Onix</div>
-              <div class="feed-detail"><span class="feed-stars">★★★★</span> · Rex · Mt. Sélénite</div>
-            </div>
-            <div class="feed-time">4m</div>
-          </div>
-
-          <div class="feed-entry">
-            <div class="feed-dot combat">⚔️</div>
-            <div class="feed-info">
-              <div class="feed-name" style="color:var(--red-bright)">Défaite</div>
-              <div class="feed-detail">Rex — Lt. Surge · Mt. Sélénite</div>
-            </div>
-            <div class="feed-time">5m</div>
-          </div>
-
-          <div class="feed-entry">
-            <div class="feed-dot">💤</div>
-            <div class="feed-info">
-              <div class="feed-name">Ronflex</div>
-              <div class="feed-detail"><span class="feed-stars">★★★★</span> · Yuna · Route 1</div>
-            </div>
-            <div class="feed-time">6m</div>
-          </div>
-
-          <div class="feed-entry">
-            <div class="feed-dot">📦</div>
-            <div class="feed-info">
-              <div class="feed-name" style="color:var(--gold)">Coffre</div>
-              <div class="feed-detail">Marco — +1 200₽ · Forêt</div>
-            </div>
-            <div class="feed-time">8m</div>
-          </div>
-
-          <div class="feed-entry">
-            <div class="feed-dot">🔥</div>
-            <div class="feed-info">
-              <div class="feed-name">Magmar</div>
-              <div class="feed-detail"><span class="feed-stars">★★★</span> · Yuna · Carmin</div>
-            </div>
-            <div class="feed-time">10m</div>
-          </div>
-
-        </div>
+        <div id="feed-list"></div>
       </div>
 
-      <!-- Session stats -->
+      <!-- Stats -->
       <div class="sidebar-section">
-        <div class="sidebar-header">SESSION</div>
+        <div class="sidebar-header">TOTAUX</div>
         <div class="stats-grid">
           <div class="stat-cell">
-            <span class="stat-val green">+84</span>
+            <span class="stat-val green" id="s-cap">—</span>
             <span class="stat-lbl">CAPTURES</span>
           </div>
           <div class="stat-cell">
-            <span class="stat-val gold">+41K₽</span>
-            <span class="stat-lbl">REVENUS</span>
+            <span class="stat-val gold" id="s-money">—</span>
+            <span class="stat-lbl">ARGENT</span>
           </div>
           <div class="stat-cell">
-            <span class="stat-val red">27W</span>
-            <span class="stat-lbl">COMBATS</span>
+            <span class="stat-val red" id="s-wins">—</span>
+            <span class="stat-lbl">VICTOIRES</span>
           </div>
         </div>
       </div>
 
       <!-- Boss team -->
       <div class="sidebar-section">
-        <div class="sidebar-header">ÉQUIPE BOSS</div>
-        <div class="boss-team-row">
-          <div class="team-slot">
-            <div class="t-icon">🦎</div>
-            <div class="t-name">Dracaufeu</div>
-            <div class="t-stars">★★★★★</div>
-          </div>
-          <div class="team-slot">
-            <div class="t-icon">🐢</div>
-            <div class="t-name">Tortank</div>
-            <div class="t-stars">★★★★</div>
-          </div>
-          <div class="team-slot">
-            <div class="t-icon">🌿</div>
-            <div class="t-name">Florizarre</div>
-            <div class="t-stars">★★★★</div>
-          </div>
-          <div class="team-slot" style="border-color:var(--border);opacity:.4;font-size:18px;color:var(--text-dimmer)">
-            <div class="t-icon" style="font-size:16px;opacity:.4">+</div>
-            <div class="t-name">vide</div>
-          </div>
-        </div>
+        <div class="sidebar-header" id="boss-header">ÉQUIPE BOSS</div>
+        <div class="boss-team-row" id="boss-team-row"><!-- JS --></div>
       </div>
 
     </aside>
   </div><!-- /panel-zones -->
 
-  <!-- ── OTHER TAB PANELS (placeholders) ── -->
+  <!-- Placeholder panels -->
   <div class="tab-panel" id="panel-pc">
-    <div class="placeholder-panel">
-      <div class="ph-icon">💾</div>
-      <div class="ph-label">PC — POKÉMON</div>
-      <div class="ph-sub">Grille, filtres, Pokédex, pension, labo</div>
-    </div>
+    <div class="placeholder-panel"><div class="ph-icon">💾</div><div class="ph-label">PC — POKÉMON</div><div class="ph-sub">Grille, filtres, Pokédex, pension, labo</div></div>
   </div>
-
   <div class="tab-panel" id="panel-agents">
-    <div class="placeholder-panel">
-      <div class="ph-icon">👥</div>
-      <div class="ph-label">AGENTS</div>
-      <div class="ph-sub">Recrutement, assignation, grades</div>
-    </div>
+    <div class="placeholder-panel"><div class="ph-icon">👥</div><div class="ph-label">AGENTS</div><div class="ph-sub">Recrutement, assignation, grades</div></div>
   </div>
-
   <div class="tab-panel" id="panel-marche">
-    <div class="placeholder-panel">
-      <div class="ph-icon">🛒</div>
-      <div class="ph-label">MARCHÉ</div>
-      <div class="ph-sub">Boutique, vente, boosts, incubateur</div>
-    </div>
+    <div class="placeholder-panel"><div class="ph-icon">🛒</div><div class="ph-label">MARCHÉ</div><div class="ph-sub">Boutique, vente, boosts, incubateur</div></div>
   </div>
-
   <div class="tab-panel" id="panel-gang">
-    <div class="placeholder-panel">
-      <div class="ph-icon">💀</div>
-      <div class="ph-label">GANG</div>
-      <div class="ph-sub">Boss, vitrine, titres, compétition</div>
-    </div>
+    <div class="placeholder-panel"><div class="ph-icon">💀</div><div class="ph-label">GANG</div><div class="ph-sub">Boss, vitrine, titres, compétition</div></div>
   </div>
-
   <div class="tab-panel" id="panel-missions">
-    <div class="placeholder-panel">
-      <div class="ph-icon">📋</div>
-      <div class="ph-label">MISSIONS</div>
-      <div class="ph-sub">Objectifs horaires / journaliers / hebdo</div>
-    </div>
+    <div class="placeholder-panel"><div class="ph-icon">📋</div><div class="ph-label">MISSIONS</div><div class="ph-sub">Objectifs horaires / journaliers / hebdo</div></div>
   </div>
-
   <div class="tab-panel" id="panel-combats">
-    <div class="placeholder-panel">
-      <div class="ph-icon">⚔</div>
-      <div class="ph-label">BATTLE LOG</div>
-      <div class="ph-sub">Historique des combats et captures</div>
-    </div>
+    <div class="placeholder-panel"><div class="ph-icon">⚔</div><div class="ph-label">BATTLE LOG</div><div class="ph-sub">Historique des combats et captures</div></div>
   </div>
-
   <div class="tab-panel" id="panel-compte">
-    <div class="placeholder-panel">
-      <div class="ph-icon">☁</div>
-      <div class="ph-label">COMPTE</div>
-      <div class="ph-sub">Cloud save, leaderboard, auth</div>
-    </div>
+    <div class="placeholder-panel"><div class="ph-icon">☁</div><div class="ph-label">COMPTE</div><div class="ph-sub">Cloud save, leaderboard, auth</div></div>
   </div>
 
 </div><!-- /shell -->
 
-<!-- ═══════════════════════════════════════════════
-     BOTTOM TAB BAR
-═══════════════════════════════════════════════════ -->
+<!-- ══ BOTTOM TAB BAR ════════════════════════════════════════════ -->
 <nav id="tabbar">
   <div class="tab-item active" data-tab="zones">
-    <div class="tab-icon">🗺</div>
-    <div class="tab-label">ZONES</div>
-    <div class="tab-badge">3</div>
+    <div class="tab-icon">🗺</div><div class="tab-label">ZONES</div>
+    <div class="tab-badge" id="badge-open">0</div>
   </div>
-  <div class="tab-item" data-tab="pc">
-    <div class="tab-icon">💾</div>
-    <div class="tab-label">PC</div>
-  </div>
-  <div class="tab-item" data-tab="agents">
-    <div class="tab-icon">👥</div>
-    <div class="tab-label">AGENTS</div>
-  </div>
-  <div class="tab-item" data-tab="marche">
-    <div class="tab-icon">🛒</div>
-    <div class="tab-label">MARCHÉ</div>
-  </div>
-  <div class="tab-item" data-tab="gang">
-    <div class="tab-icon">💀</div>
-    <div class="tab-label">GANG</div>
-  </div>
-  <div class="tab-item" data-tab="missions">
-    <div class="tab-icon">📋</div>
-    <div class="tab-label">MISSIONS</div>
-    <div class="tab-badge">2</div>
-  </div>
-  <div class="tab-item" data-tab="combats">
-    <div class="tab-icon">⚔</div>
-    <div class="tab-label">COMBATS</div>
-  </div>
-  <div class="tab-item" data-tab="compte">
-    <div class="tab-icon">☁</div>
-    <div class="tab-label">COMPTE</div>
-  </div>
+  <div class="tab-item" data-tab="pc"><div class="tab-icon">💾</div><div class="tab-label">PC</div></div>
+  <div class="tab-item" data-tab="agents"><div class="tab-icon">👥</div><div class="tab-label">AGENTS</div></div>
+  <div class="tab-item" data-tab="marche"><div class="tab-icon">🛒</div><div class="tab-label">MARCHÉ</div></div>
+  <div class="tab-item" data-tab="gang"><div class="tab-icon">💀</div><div class="tab-label">GANG</div></div>
+  <div class="tab-item" data-tab="missions"><div class="tab-icon">📋</div><div class="tab-label">MISSIONS</div></div>
+  <div class="tab-item" data-tab="combats"><div class="tab-icon">⚔</div><div class="tab-label">COMBATS</div></div>
+  <div class="tab-item" data-tab="compte"><div class="tab-icon">☁</div><div class="tab-label">COMPTE</div></div>
 </nav>
 
+<!-- ══ DATA — loaded as classic scripts (expose ZONES, POKEMON_GEN1…) ══ -->
+<script src="../data/zones-data.js"></script>
+<script src="../data/species-data.js"></script>
+<script src="../data/game-config-data.js"></script>
+
 <script>
-/* ═══════════════════════════════════════════════
-   TAB SWITCHING
-═══════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════════════════
+   PROTO — GAME DATA BRIDGE
+   · Reads localStorage save (pokeforge.v6)
+   · Uses ZONES + POKEMON_GEN1 from the data scripts above
+   · Falls back to demo data when no save is found
+   · Must be served via http:// for data files to load (py -m http.server 8080)
+══════════════════════════════════════════════════════════════════ */
+
+// ── 1. Read save ────────────────────────────────────────────────
+let S = null, hasSave = false;
+try {
+  const raw = localStorage.getItem('pokeforge.v6');
+  if (raw) { S = JSON.parse(raw); hasSave = true; }
+} catch (e) {}
+
+if (!hasSave) document.getElementById('no-save-banner').style.display = 'block';
+
+// ── 2. Unpack state ─────────────────────────────────────────────
+const rep         = S?.gang?.reputation    ?? 0;
+const money       = S?.gang?.money         ?? 5000;
+const gangName    = S?.gang?.name          ?? '';
+const bossName    = S?.gang?.bossName      ?? '';
+const agents      = S?.agents              ?? [];
+const pokemons    = S?.pokemons            ?? [];
+const actLog      = S?.log                 ?? [];
+const stats       = S?.stats               ?? {};
+const totalCaught = stats.totalCaught      ?? 0;
+const shinyCaught = stats.shinyCaught      ?? 0;
+const fightsWon   = stats.totalFightsWon   ?? 0;
+const activeBossSlot = S?.gang?.activeBossTeamSlot ?? 0;
+const bossTeamIds    = S?.gang?.bossTeamSlots?.[activeBossSlot]
+                    ?? S?.gang?.bossTeam
+                    ?? [];
+
+// ── 3. Sprite helpers (Showdown gen5 — no CORS header needed for <img>) ──
+const SD = 'https://play.pokemonshowdown.com/sprites';
+
+function pokeUrl(speciesEn, shiny) {
+  if (!speciesEn) return '';
+  // Normalise: farfetch'd → farfetchd, nidoran-f stays, mr. mime → mrmime
+  const n = speciesEn.toLowerCase()
+    .replace(/['’]/g, '')
+    .replace(/\.\s*/g, '')
+    .replace(/\s+/g, '-');
+  return `${SD}/${shiny ? 'gen5-shiny' : 'gen5'}/${n}.png`;
+}
+
+function trainerUrl(key) {
+  return key ? `${SD}/trainers/${key}.png` : '';
+}
+
+function starsHtml(n) { return '★'.repeat(Math.min(5, Math.max(1, n || 1))); }
+
+function frNameOf(en) {
+  if (!en || typeof POKEMON_GEN1 === 'undefined') return en || '';
+  return POKEMON_GEN1.find(p => p.en === en)?.fr ?? en;
+}
+
+// ── 4. Zone metadata ─────────────────────────────────────────────
+const ZONE_ICON = {
+  gang_park:'🏴', route1:'🌿', viridian_forest:'🌲', mt_moon:'⛰️',
+  diglett_cave:'🕳️', rock_tunnel:'🪨', pokemon_tower:'🏚️', power_plant:'⚡',
+  seafoam_islands:'🧊', victory_road:'🗡️', unknown_cave:'❓',
+  pallet_garden:'🌸', route2:'🌾', route3:'🌄', route4:'🌊',
+  pewter_gym:'⚙️', cerulean_gym:'💧', celadon_gym:'🌸', fuchsia_gym:'☣️',
+  saffron_gym:'🔮', cinnabar_gym:'🔥', indigo_plateau:'🏆',
+  safari_zone:'🦁', celadon_casino:'🎰', silph_co:'🏢',
+};
+const ZONE_GRAD = {
+  route:   'linear-gradient(135deg,#0d1f0d,#1a3a1a)',
+  city:    'linear-gradient(135deg,#0d0d20,#1a1a3a)',
+  special: 'linear-gradient(135deg,#180d20,#2a1a3a)',
+  gang_park:'linear-gradient(135deg,#1a0808,#3a1010)',
+};
+const TYPE_LABEL = { route:'ROUTE', city:'VILLE', special:'SPÉCIALE' };
+const TYPE_CLS   = { route:'type-route', city:'type-ville', special:'type-spec' };
+
+// ── 5. Build one zone card (returns HTML string) ─────────────────
+function buildCard(zone, za, status) {
+  const locked = status === 'locked';
+  const isOpen = status === 'open';
+  const icon   = ZONE_ICON[zone.id] ?? '🗺';
+  const grad   = ZONE_GRAD[zone.type] ?? ZONE_GRAD.route;
+  const tcls   = TYPE_CLS[zone.type]   ?? 'type-route';
+  const tlbl   = TYPE_LABEL[zone.type] ?? 'ZONE';
+  const dt     = zone.type === 'city' ? 'ville' : zone.type === 'route' ? 'route' : 'spec';
+  const cls    = `zone-card${isOpen ? ' is-open' : ''}${locked ? ' is-locked' : ''}`;
+
+  // Status badge
+  const badge = isOpen   ? `<div class="status-badge badge-open">● OUVERTE</div>`
+              : status==='auto' ? `<div class="status-badge badge-auto">🤖 AUTO</div>`
+              : locked   ? `<div class="status-badge badge-locked">🔒 VERROUILLÉE</div>`
+              :             `<div class="status-badge" style="color:var(--text-dimmer);border:1px solid var(--border)">— INACTIVE</div>`;
+
+  // Agent badge
+  const agentBadge = !locked && za.length > 0
+    ? `<div class="zone-agents">👥 <span class="count">${za.length}</span></div>` : '';
+
+  // Timer
+  const ts = Math.floor(Math.random()*85+5);
+  const timerBadge = !locked
+    ? `<div class="zone-timer zone-tmr">⏱ 00:${String(ts).padStart(2,'0')}</div>` : '';
+
+  // Body
+  let body = '';
+  if (locked) {
+    const pct = Math.min(99, Math.floor((rep / zone.rep) * 100));
+    body = `<div class="zone-rep-bar">
+      <div class="zone-rep-label">
+        <span>Réputation requise</span>
+        <span class="req">${rep.toLocaleString('fr-FR')} / ${zone.rep.toLocaleString('fr-FR')} ⭐</span>
+      </div>
+      <div class="rep-track"><div class="rep-fill" style="width:${pct}%"></div></div>
+    </div>`;
+  } else {
+    // Two sample Pokémon from zone pool
+    const pool = zone.pool ?? [];
+    const picks = pool.length >= 2
+      ? [pool[Math.floor(Math.random()*pool.length)], pool[Math.floor(Math.random()*pool.length)]]
+      : pool.slice(0, 2);
+    const lines = picks.map((en, i) => {
+      const fr  = frNameOf(en);
+      const st  = starsHtml(Math.floor(Math.random()*3)+2);
+      const ag  = za[i % Math.max(1, za.length)];
+      return `<div class="zone-cap-entry">
+        <img src="${pokeUrl(en)}" width="20" height="20"
+             style="image-rendering:pixelated;flex-shrink:0"
+             onerror="this.style.visibility='hidden'">
+        <span class="poke-name">${fr}</span>
+        <span class="poke-stars">${st}</span>
+        ${ag ? `<span style="margin-left:auto;font-size:9px;color:var(--text-dim)">${ag.name}</span>` : ''}
+      </div>`;
+    }).join('');
+    body = `<div class="zone-captures">${lines}</div>`;
+  }
+
+  // Pool preview (up to 3 sprites)
+  const preview = (zone.pool ?? []).slice(0, 3).map(en =>
+    `<img src="${pokeUrl(en)}" width="28" height="28"
+          style="image-rendering:pixelated;opacity:.55;filter:drop-shadow(0 0 3px #000)"
+          onerror="this.style.display='none'">`
+  ).join('');
+
+  // Buttons
+  const btns = locked
+    ? `<button class="btn-zone btn-locked" disabled>VERROUILLÉE — ${zone.rep.toLocaleString('fr-FR')} REP</button>`
+    : `<button class="btn-zone btn-open${isOpen ? ' active-state' : ''}">${isOpen?'FERMER':'OUVRIR'}</button>
+       <button class="btn-zone btn-assign">ASSIGNER</button>`;
+
+  return `<div class="${cls}" data-type="${dt}" data-status="${status}">
+    <div class="zone-art" style="background:${grad}">
+      <div class="zone-art-icon">${icon}</div>
+      <div class="zone-name-block">
+        <div class="zone-name">${zone.fr}</div>
+        <span class="zone-type ${tcls}">${tlbl}</span>
+      </div>
+      <div style="display:flex;gap:1px;align-items:center;z-index:1">${preview}</div>
+    </div>
+    <div class="zone-body">
+      <div class="zone-status-row">${badge}${agentBadge}${timerBadge}</div>
+      ${body}
+    </div>
+    <div class="zone-actions">${btns}</div>
+  </div>`;
+}
+
+// ── 6. Render zone grid ──────────────────────────────────────────
+function renderGrid() {
+  const grid = document.getElementById('zones-grid');
+
+  if (typeof ZONES === 'undefined') {
+    grid.innerHTML = `<div style="color:var(--text-dim);padding:20px;font-family:var(--font-mono);font-size:11px;grid-column:1/-1">
+      Données de zones non chargées.<br>Lancer depuis http:// (py -m http.server 8080).</div>`;
+    return;
+  }
+
+  let nOpen = 0, nAuto = 0, nLock = 0;
+  const cards = [];
+
+  ZONES.filter(z => z.id !== 'gang_park').forEach(z => {
+    const za     = agents.filter(a => a.assignedZone === z.id);
+    const locked = rep < z.rep;
+    let status;
+    if (locked)               { status = 'locked';   nLock++; }
+    else if (za.length > 0 && nOpen < 3) { status = 'open'; nOpen++; }
+    else if (za.length > 0)  { status = 'auto';    nAuto++; }
+    else                      { status = 'inactive';          }
+    cards.push(buildCard(z, za, status));
+  });
+
+  grid.innerHTML = cards.join('');
+
+  // Update pill counts
+  document.getElementById('cnt-open').textContent = nOpen;
+  document.getElementById('cnt-auto').textContent = nAuto;
+  document.getElementById('cnt-lock').textContent = nLock;
+  const badge = document.getElementById('badge-open');
+  badge.textContent = nOpen;
+  badge.style.display = nOpen > 0 ? '' : 'none';
+
+  // Wire open/close buttons
+  grid.querySelectorAll('.btn-open').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const card   = btn.closest('.zone-card');
+      const nowOpen = card.classList.toggle('is-open');
+      btn.textContent = nowOpen ? 'FERMER' : 'OUVRIR';
+      btn.classList.toggle('active-state', nowOpen);
+      const sb = card.querySelector('.status-badge');
+      if (sb) {
+        sb.className = 'status-badge ' + (nowOpen ? 'badge-open' : 'badge-auto');
+        sb.textContent = nowOpen ? '● OUVERTE' : '🤖 AUTO';
+      }
+    });
+  });
+}
+
+// ── 7. Render topbar ─────────────────────────────────────────────
+function renderTopbar() {
+  document.getElementById('m-rep').textContent   = rep.toLocaleString('fr-FR');
+  document.getElementById('m-money').textContent = money.toLocaleString('fr-FR');
+  document.getElementById('m-cap').textContent   = totalCaught.toLocaleString('fr-FR');
+  document.getElementById('m-shiny').textContent = shinyCaught;
+
+  if (gangName && gangName !== 'Team ???')
+    document.getElementById('topbar-sub').textContent = gangName.toUpperCase();
+
+  if (hasSave && S?._savedAt) {
+    const ago = Math.floor((Date.now() - S._savedAt) / 60000);
+    document.getElementById('save-label').textContent =
+      ago < 1 ? 'SAUVÉ' : ago < 60 ? `il y a ${ago}m` : `il y a ${Math.floor(ago/60)}h`;
+  } else if (!hasSave) {
+    const chip = document.getElementById('save-chip');
+    chip.style.cssText = 'display:flex;align-items:center;gap:4px;padding:3px 8px;border:1px solid var(--border);background:transparent;font-family:var(--font-mono);font-size:10px;color:var(--text-dim)';
+    document.getElementById('save-dot').style.background = 'var(--text-dim)';
+    document.getElementById('save-label').textContent = 'DÉMO';
+  }
+}
+
+// ── 8. Render stats ───────────────────────────────────────────────
+function renderStats() {
+  document.getElementById('s-cap').textContent =
+    totalCaught >= 1000 ? Math.floor(totalCaught/1000)+'K' : String(totalCaught);
+  document.getElementById('s-money').textContent =
+    money >= 1000000 ? Math.floor(money/1000000)+'M₽' :
+    money >= 1000    ? Math.floor(money/1000)+'K₽' : money+'₽';
+  document.getElementById('s-wins').textContent = fightsWon+'W';
+}
+
+// ── 9. Render boss team ───────────────────────────────────────────
+function renderBossTeam() {
+  const row  = document.getElementById('boss-team-row');
+  if (bossName && bossName !== 'Boss')
+    document.getElementById('boss-header').textContent = bossName.toUpperCase();
+
+  const team = bossTeamIds
+    .map(id => pokemons.find(p => p.id === id))
+    .filter(Boolean)
+    .slice(0, 6);
+
+  const DEMO = [
+    {en:'charizard', stars:5}, {en:'blastoise', stars:4}, {en:'gengar', stars:4},
+  ];
+  const src = team.length > 0
+    ? team.map(p => ({ en: p.species_en ?? '', fr: p.species_fr ?? frNameOf(p.species_en), stars: p.potential ?? 3, shiny: p.shiny }))
+    : DEMO.map(d => ({ en: d.en, fr: frNameOf(d.en), stars: d.stars, shiny: false }));
+
+  row.innerHTML = src.map(p => `
+    <div class="team-slot" title="${p.fr}${p.shiny?'✨':''}">
+      <img src="${pokeUrl(p.en, p.shiny)}" alt="${p.fr}" onerror="this.style.visibility='hidden'">
+      <div class="t-name">${p.shiny?'✨':''}${p.fr}</div>
+      <div class="t-stars">${starsHtml(p.stars)}</div>
+    </div>`).join('') + (src.length < 6
+      ? `<div class="team-slot" style="opacity:.3"><div style="font-size:18px;color:var(--text-dimmer)">+</div><div class="t-name">vide</div></div>`
+      : '');
+}
+
+// ── 10. Feed ─────────────────────────────────────────────────────
+let feedCount = 0;
+
+function ageStr(ts) {
+  const s = Math.floor((Date.now() - ts) / 1000);
+  return s < 60 ? 'juste' : s < 3600 ? Math.floor(s/60)+'m' : s < 86400 ? Math.floor(s/3600)+'h' : Math.floor(s/86400)+'j';
+}
+
+function feedEntryEl(msg, ts, isNew) {
+  const el  = document.createElement('div');
+  el.className = 'feed-entry' + (isNew ? ' new' : '');
+  const low = msg.toLowerCase();
+  const isCap   = low.includes('capture') || msg.includes('★') || msg.includes('✨');
+  const isWin   = low.includes('victoire') || low.includes('gagn') || (low.includes('combat') && !low.includes('défaite'));
+  const isChest = low.includes('coffre');
+  const isShiny = msg.includes('✨') || low.includes('chroma');
+
+  // Try to match Pokémon name for sprite
+  let sprEn = null;
+  if (isCap && typeof POKEMON_GEN1 !== 'undefined') {
+    for (const sp of POKEMON_GEN1) {
+      if (msg.includes(sp.fr) || msg.includes(sp.en)) { sprEn = sp.en; break; }
+    }
+  }
+
+  let dot = '';
+  if (sprEn)      dot = `<div class="feed-dot${isShiny?' shiny':''}"><img src="${pokeUrl(sprEn, isShiny)}" alt=""></div>`;
+  else if (isWin)   dot = `<div class="feed-dot combat">⚔</div>`;
+  else if (isChest) dot = `<div class="feed-dot chest">📦</div>`;
+  else              dot = `<div class="feed-dot sys">📋</div>`;
+
+  const nameColor = isWin ? 'var(--green)' : isShiny ? '#ffaaff' : '';
+  // Strip leading "Agent — " prefix if present
+  const display = msg.replace(/^[^—–:]+[—–:]\s*/, '').slice(0, 38);
+  const detail  = msg.length > 38 ? msg.slice(0, 38)+'…' : '';
+  const age     = ageStr(ts);
+
+  el.innerHTML = `${dot}
+    <div class="feed-info">
+      <div class="feed-name" style="color:${nameColor}">${display}</div>
+      <div class="feed-detail">${detail || age}</div>
+    </div>
+    <div class="feed-time">${age}</div>`;
+  return el;
+}
+
+function renderFeedFromSave() {
+  if (!actLog.length) return;
+  const list = document.getElementById('feed-list');
+  actLog.slice(0, 30).forEach(({ msg, ts }) => list.appendChild(feedEntryEl(msg, ts, false)));
+  feedCount = actLog.length;
+  document.getElementById('feed-count').textContent = feedCount;
+}
+
+// Demo entries — use real species names from POKEMON_GEN1
+const GEN1 = (typeof POKEMON_GEN1 !== 'undefined') ? POKEMON_GEN1 : [];
+const DEMO_AGENTS = agents.length > 0 ? agents.map(a => a.name)
+                  : ['Marco','Yuna','Rex','Nadia','Jin'];
+const DEMO_ZONES  = (typeof ZONES !== 'undefined')
+  ? ZONES.filter(z => z.id !== 'gang_park' && rep >= z.rep).map(z => z.fr).slice(0, 8)
+  : ['Route 1','Forêt de Jade','Azuria','Mt. Sélénite'];
+
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+function injectDemo() {
+  const sp    = GEN1.length ? pick(GEN1) : { en:'pikachu', fr:'Pikachu' };
+  const agent = pick(DEMO_AGENTS.length ? DEMO_AGENTS : ['Agent']);
+  const zone  = pick(DEMO_ZONES.length  ? DEMO_ZONES  : ['Zone']);
+  const stars = Math.floor(Math.random()*4)+1;
+  const shiny = Math.random() < 0.03;
+  const fight = Math.random() < 0.18;
+  const chest = Math.random() < 0.08;
+
+  let msg;
+  if (fight) {
+    const won = Math.random() < 0.7;
+    msg = won
+      ? `${agent} — victoire · +${Math.floor(Math.random()*500+100)}₽ +${Math.floor(Math.random()*3+1)} REP · ${zone}`
+      : `${agent} — défaite combat · ${zone}`;
+  } else if (chest) {
+    msg = `${agent} — coffre · +${Math.floor(Math.random()*1500+200)}₽ · ${zone}`;
+  } else {
+    const st = '★'.repeat(stars);
+    msg = shiny
+      ? `✨ ${agent} — capture chromatique : ${sp.fr} ${st} · ${zone}`
+      : `${agent} — capture : ${sp.fr} ${st} · ${zone}`;
+  }
+
+  const list = document.getElementById('feed-list');
+  list.insertBefore(feedEntryEl(msg, Date.now(), true), list.firstChild);
+  while (list.children.length > 25) list.removeChild(list.lastChild);
+
+  feedCount++;
+  document.getElementById('feed-count').textContent = feedCount;
+}
+
+// Inject at a slower rate if real log data exists
+const DEMO_INTERVAL = actLog.length > 5 ? 11000 : 4200;
+setInterval(() => injectDemo(), DEMO_INTERVAL + Math.random() * 3000);
+
+// ── 11. TAB SWITCHING ─────────────────────────────────────────────
 document.querySelectorAll('.tab-item').forEach(tab => {
   tab.addEventListener('click', () => {
     const id = tab.dataset.tab;
@@ -1360,125 +1256,57 @@ document.querySelectorAll('.tab-item').forEach(tab => {
   });
 });
 
-/* ═══════════════════════════════════════════════
-   TYPE FILTER TABS
-═══════════════════════════════════════════════ */
+// ── 12. TYPE FILTER ────────────────────────────────────────────────
 document.querySelectorAll('.type-tab').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.type-tab').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    const type = btn.dataset.type;
-    filterCards();
+    applyFilters();
   });
 });
 
-/* ═══════════════════════════════════════════════
-   STATUS PILLS — toggle individual filters
-═══════════════════════════════════════════════ */
-const activeStatuses = new Set(['open', 'auto', 'locked']);
-
+// ── 13. STATUS PILLS ──────────────────────────────────────────────
+const visStatuses = new Set(['open','auto','locked','inactive']);
 document.querySelectorAll('.status-pill').forEach(pill => {
   pill.addEventListener('click', () => {
     const s = pill.dataset.status;
-    if (activeStatuses.has(s)) {
-      activeStatuses.delete(s);
-      pill.style.opacity = '.4';
-    } else {
-      activeStatuses.add(s);
-      pill.style.opacity = '1';
-    }
-    filterCards();
+    if (visStatuses.has(s)) { visStatuses.delete(s); pill.style.opacity = '.4'; }
+    else                    { visStatuses.add(s);    pill.style.opacity = '1';  }
+    applyFilters();
   });
 });
 
-function filterCards() {
-  const activeType = document.querySelector('.type-tab.active')?.dataset.type || 'all';
+function applyFilters() {
+  const t = document.querySelector('.type-tab.active')?.dataset.type || 'all';
   document.querySelectorAll('.zone-card').forEach(card => {
-    const matchType   = activeType === 'all' || card.dataset.type === activeType;
-    const matchStatus = activeStatuses.has(card.dataset.status);
-    card.style.display = (matchType && matchStatus) ? '' : 'none';
+    const okType   = t === 'all' || card.dataset.type === t;
+    const okStatus = visStatuses.has(card.dataset.status);
+    card.style.display = (okType && okStatus) ? '' : 'none';
   });
 }
 
-/* ═══════════════════════════════════════════════
-   ZONE CARD — OPEN/CLOSE TOGGLE
-═══════════════════════════════════════════════ */
-document.querySelectorAll('.btn-open').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const card = btn.closest('.zone-card');
-    const isOpen = card.classList.toggle('is-open');
-    btn.textContent = isOpen ? 'FERMER' : 'OUVRIR';
-    if (isOpen) {
-      btn.classList.add('active-state');
-    } else {
-      btn.classList.remove('active-state');
-    }
-  });
-});
-
-/* ═══════════════════════════════════════════════
-   TIMER TICK — updates visible timers
-═══════════════════════════════════════════════ */
-function tickTimers() {
-  document.querySelectorAll('.zone-timer').forEach(el => {
-    const text = el.textContent.replace('⏱ ', '');
-    const parts = text.split(':');
-    if (parts.length !== 2) return;
-    let m = parseInt(parts[0], 10);
-    let s = parseInt(parts[1], 10);
-    s--;
-    if (s < 0) { s = Math.floor(Math.random() * 59 + 5); m = Math.max(0, m - 1) || 0; }
+// ── 14. TIMER TICK ─────────────────────────────────────────────────
+setInterval(() => {
+  document.querySelectorAll('.zone-tmr').forEach(el => {
+    const p = el.textContent.replace('⏱ ','').split(':');
+    if (p.length !== 2) return;
+    let s = parseInt(p[1], 10) - 1;
+    let m = parseInt(p[0], 10);
+    if (s < 0) { s = Math.floor(Math.random()*55+5); m = 0; }
     el.textContent = `⏱ ${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
   });
-}
-setInterval(tickTimers, 1000);
+}, 1000);
 
-/* ═══════════════════════════════════════════════
-   FEED — auto-inject new entries periodically
-═══════════════════════════════════════════════ */
-const FAKE_MONS = [
-  {n:'Dracolosse',c:'#ff6644',s:'★★★★★'}, {n:'Alakazam',c:'#cc88ff',s:'★★★★'},
-  {n:'Nidoking',c:'#8855bb',s:'★★★'}, {n:'Electhor',c:'#ffcc00',s:'★★★★★'},
-  {n:'Sulfura',c:'#ff8800',s:'★★★★★'}, {n:'Artikodin',c:'#88ccff',s:'★★★★'},
-  {n:'Stari',c:'#ffaaff',s:'★★★'}, {n:'Lokhlass',c:'#4488cc',s:'★★★★'},
-];
-const FAKE_AGENTS = ['Yuna','Marco','Sara','Rex','Nadia'];
-const FAKE_ZONES  = ['Route 1','Forêt','Azuria','Mt. Sélénite','Parmanie','Carmin'];
+// ── 15. INIT ───────────────────────────────────────────────────────
+renderTopbar();
+renderGrid();
+renderStats();
+renderBossTeam();
+renderFeedFromSave();
 
-let feedCount = 12;
-
-function pushFeedEntry() {
-  const mon = FAKE_MONS[Math.floor(Math.random() * FAKE_MONS.length)];
-  const agent = FAKE_AGENTS[Math.floor(Math.random() * FAKE_AGENTS.length)];
-  const zone  = FAKE_ZONES[Math.floor(Math.random() * FAKE_ZONES.length)];
-  const isShiny = Math.random() < 0.04;
-
-  const entry = document.createElement('div');
-  entry.className = 'feed-entry new';
-
-  const dotClass = isShiny ? 'feed-dot shiny' : 'feed-dot';
-  const nameClass = isShiny ? 'feed-name shiny' : 'feed-name';
-  const nameText = isShiny ? `✨ ${mon.n}` : mon.n;
-
-  entry.innerHTML = `
-    <div class="${dotClass}" style="background:${isShiny ? '' : mon.c};font-size:14px">${isShiny ? '✨' : '🔴'}</div>
-    <div class="feed-info">
-      <div class="${nameClass}">${nameText}</div>
-      <div class="feed-detail"><span class="feed-stars">${mon.s}</span> · ${agent} · ${zone}</div>
-    </div>
-    <div class="feed-time">juste</div>`;
-
-  const list = document.getElementById('feed-list');
-  list.insertBefore(entry, list.firstChild);
-
-  // Keep max 20 entries
-  while (list.children.length > 20) list.removeChild(list.lastChild);
-
-  feedCount++;
-  document.getElementById('feed-count').textContent = feedCount;
-}
-
-setInterval(pushFeedEntry, 4500 + Math.random() * 3000);
+// Seed two live entries immediately
+setTimeout(injectDemo, 500);
+setTimeout(injectDemo, 1600);
 </script>
 
 </body>
