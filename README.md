@@ -48,7 +48,7 @@ Chaque zone peut être investie pour augmenter son nombre de slots d'agents et d
 - **5 types de balls** : Poké Ball, Super Ball, Hyper Ball, Sombre Ball, Master Ball — chacune avec une distribution de **potentiel (1–5 ★)** différente.
 - **Potentiel** : qualité permanente du Pokémon (1–5 étoiles). Influence sa valeur marchande et sa puissance au combat.
 - **Raretés** : `common` · `uncommon` · `rare` · `very_rare` · `legendary` — distribuées par zone et par spawn pool.
-- **Shiny** : probabilité de base très faible, boostable par items, perks agents et Chroma Charm.
+- **Shiny** : probabilité de base très faible, boostable par items et Chroma Charm.
 - **Boosts temporaires (90 s)** :
   - Leurre / Super Leurre — ×2 ou ×3 spawns
   - Encens Chance — +1 potentiel sur la prochaine capture
@@ -62,9 +62,9 @@ Chaque zone peut être investie pour augmenter son nombre de slots d'agents et d
 
 Les agents sont le cœur de l'automatisation. Ils agissent dans les zones ouvertes et tournent en arrière-plan dans les zones fermées.
 
-#### Recrutement — Épreuve de Darkrai
+#### Recrutement
 
-Tous les agents sont recrutés via l'**Épreuve de Darkrai** : 3 candidats aléatoires, chacun avec sprite, personnalité et perk de nature. Le joueur choisit celui qu'il veut garder.
+3 candidats aléatoires sont proposés à chaque recrutement (sprite + personnalité). Le joueur choisit celui qu'il veut garder.
 
 Courbe de coût progressive :
 
@@ -80,8 +80,6 @@ Courbe de coût progressive :
 | 8–15 | 3M → 10M (+1M/agent) |
 | 16+ | 20M, 30M, 40M… (+10M/agent) |
 
-Les agents recrutés avant la mise à jour v0.2 peuvent être convertis via le bouton **Épreuve de Darkrai** en haut du panel Agents (s'affiche uniquement si des agents non convertis sont détectés dans la sauvegarde).
-
 #### Progression et grades
 
 Les agents gagnent de l'XP à chaque action (capture, combat, coffre). Formule de level-up : `XP nécessaire = level × 30`.
@@ -96,45 +94,6 @@ Les agents gagnent de l'XP à chaque action (capture, combat, coffre). Formule d
 | Général [gang] | 100 | 6 |
 
 La **puissance de combat** d'un agent = `level × 15 + puissance de son équipe Pokémon`.
-
-#### Perks (atouts)
-
-Toutes les **10 niveaux**, l'agent débloque un choix parmi 3 perks tirées aléatoirement dans un pool de **150 atouts permanents** répartis en 11 groupes :
-
-| Groupe | Exemples d'effets |
-|---|---|
-| A — Affinité type (×18) | +30% capture Feu, +40% capture Dragon… |
-| B — Radar shiny type (×18) | +60–100% chance shiny par type |
-| C — Capture par rareté (×7) | +15% Commun → +80% Légendaire |
-| D — Qualité de capture (×8) | +1★ sur capture, récupération de ball… |
-| E — Combat (×20) | +15–40% puissance, -25% difficulté dresseur… |
-| F — Économie (×20) | +20–60% argent, revenus passifs par action… |
-| G — Découverte (×16) | +25–80% rencontres rares et légendaires |
-| H — Utilité & XP (×15) | +20–100% XP agent, polyvalence |
-| I — Spécialiste de zone (×9) | Bonus ciblés par type de terrain |
-| J — Atouts spéciaux Darkrai (×12) | Perks puissantes réservées aux agents éprouvés |
-| K — Bonus hybrides (×7) | Combinaisons combat + capture ou XP |
-
-Les icônes de perks affichent des **sprites Pokémon thématiques** (pas d'emoji) : Machamp pour le combat, Meowth pour l'argent, Ditto pour les shiny, etc.
-
-#### Perk de nature (Darkrai)
-
-Chaque personnalité est liée à une perk signature, priorité aux perks de combat :
-
-| Personnalité | Perk | Effet |
-|---|---|---|
-| fierce | Maîtrise du Combat | +40% combat |
-| reckless | Berserker | +35% combat |
-| cunning | Opportuniste | +30% combat |
-| quiet | Loup Solitaire | +30% combat |
-| brave | Concentration | +25% combat |
-| loyal | Gardien de Zone | +20% combat |
-| nervous | Attaque Surprise | +20% combat |
-| calm | Stratège | +20% combat |
-| stubborn | Résilience | +15% combat |
-| lazy | Fouilleur | +25% coffres |
-| greedy | Chasseur de Primes | +40% argent dresseurs |
-| curious | Sixième Sens | +25% rencontres rares |
 
 #### Comportements automatiques
 
@@ -170,7 +129,7 @@ Chaque agent a 3 flags indépendants activables : **Combat · Raid · Capture**.
 |---|---|
 | ₽ (argent) | Combats, ventes, coffres, revenus passifs agents |
 | Réputation | Défaite de dresseurs, raids, progression de zone |
-| Poké Balls | Boutique, coffres, récupération via perks |
+| Poké Balls | Boutique, coffres |
 | Items boost | Boutique (Leurre, Rarioscope, Aura Shiny…) |
 | Pierre Évol. | Boutique — déclenche une évolution manuelle |
 | Super Bonbon | Boutique — +1 niveau immédiat |
@@ -204,7 +163,7 @@ Les onglets se débloquent progressivement selon les actions du joueur (premier 
 |---|---|
 | **Zones** | Carte de Kanto (fogmap), fenêtres de jeu actif, spawns en temps réel |
 | **PC** | Grille Pokémon (filtres, tri, détails), pension, salle de formation, laboratoire, Pokédex |
-| **Agents** | Recrutement, gestion, assignation aux zones, perks, grades |
+| **Agents** | Recrutement, gestion, assignation aux zones, grades |
 | **Marché** | Boutique items & balls, vente auto, boosts, incubateur |
 | **Gang** | Boss, vitrine, équipe, titres, compétition, cosmétiques, stats |
 | **Missions** | Objectifs horaires / journaliers / hebdomadaires |
@@ -229,7 +188,7 @@ data/
   zones-data.js             Définitions des zones (pool de spawns, musique, type)
   species-data.js           POKEMON_GEN1, SPECIES_BY_EN (Kanto + Johto)
   evolutions-data.js        Chaînes d'évolution
-  game-config-data.js       Grades, perks (150), PERSONALITY_PERK_MAP, natures
+  game-config-data.js       Grades, natures, config agents
   economy-data.js           Prix balls, items boutique, œufs
   combat-config-data.js     Dresseurs spéciaux, récompenses combat max
   gameplay-config-data.js   Durées boosts, coûts de reroll
@@ -237,7 +196,7 @@ data/
   assets-data.js            URLs sprites balls, SVG fallback
 
 modules/systems/
-  agent.js                  Recrutement, progression, perks, Darkrai, background zones
+  agent.js                  Recrutement, progression, grades, background zones
   zoneCombat.js             Résolution combat (tour par tour, type coverage)
   gangCompetition.js        Attaque/défense inter-gangs
   market.js                 Boutique, vente auto, boosts
@@ -252,7 +211,7 @@ modules/systems/
   zoneSystem.js             Timers de spawn, investissements de zone
 
 modules/ui/
-  agentsTab.js              Onglet Agents (cartes, perks, bannière Darkrai)
+  agentsTab.js              Onglet Agents (cartes, assignation, grades)
   zoneSelector.js           Fogmap Kanto (carte des zones)
   zoneWindows.js            Fenêtres de zone actives
   gangTab.js                Onglet Gang
@@ -337,7 +296,7 @@ Dialogues de dresseurs générés à la volée. Providers supportés : **Ollama*
 Object.assign(globalThis, { saveState, notify, state, pokeSprite, ... });
 
 // Les modules enregistrent les leurs
-Object.assign(globalThis, { renderAgentsTab, openPerkChoiceModal, ... });
+Object.assign(globalThis, { renderAgentsTab, renderGangTab, ... });
 ```
 
 ### Ajouter un champ d'état
