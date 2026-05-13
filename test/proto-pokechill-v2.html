@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>POKEGANG — Proto UI V2</title>
+  <style>
+    :root {
+      --bg: #080808;
+      --panel: #111111;
+      --line: #262626;
+      --text: #e6e6e6;
+      --muted: #8a8a8a;
+      --red: #cc1111;
+      --red-bright: #e63535;
+      --red-soft: rgba(204,17,17,.12);
+      --steel: #1a1d24;
+      --gold: #ffcc5a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: linear-gradient(180deg, #0a0a0b 0%, #080808 100%);
+      color: var(--text);
+      font-family: Inter, Arial, sans-serif;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+    .wrap {
+      width: min(1200px, 100%);
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.01));
+      box-shadow: 0 24px 80px rgba(0,0,0,.45);
+      border-radius: 18px;
+      overflow: hidden;
+    }
+    .top {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 18px 22px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(204,17,17,.12), rgba(255,255,255,0));
+    }
+    .title {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+    }
+    .sub {
+      margin-top: 6px;
+      color: var(--muted);
+      line-height: 1.5;
+      max-width: 70ch;
+    }
+    .badge {
+      align-self: start;
+      padding: 8px 12px;
+      border: 1px solid rgba(230,53,53,.35);
+      background: var(--red-soft);
+      color: #ffd5d5;
+      border-radius: 999px;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .14em;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1.1fr .9fr;
+      gap: 0;
+    }
+    .panel {
+      padding: 24px;
+      border-right: 1px solid var(--line);
+    }
+    .panel:last-child { border-right: 0; }
+    h2 {
+      margin: 0 0 12px;
+      font-size: 18px;
+      letter-spacing: -0.02em;
+    }
+    ul {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+    li strong { color: var(--text); }
+    .cta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+    .cta {
+      padding: 10px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--text);
+      font-weight: 600;
+    }
+    .cta.primary {
+      background: linear-gradient(180deg, var(--red-bright), var(--red));
+      border-color: rgba(255,255,255,.08);
+    }
+    .note {
+      margin-top: 18px;
+      padding: 14px 16px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,204,90,.22);
+      background: rgba(255,204,90,.06);
+      color: #f4ddb0;
+      line-height: 1.6;
+    }
+    .footer {
+      padding: 16px 22px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 13px;
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    code {
+      color: var(--gold);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: 1fr; }
+      .panel { border-right: 0; border-bottom: 1px solid var(--line); }
+      .panel:last-child { border-bottom: 0; }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="top">
+      <div>
+        <div class="title">Proto UI V2 — base de travail Pokegang</div>
+        <div class="sub">Ce fichier remplace la future base de travail de l'ancien proto inspiré PokéChill. Il sert de nouveau point d'entrée pour une V2 centrée sur le <strong>zone gangbase</strong>, la <strong>possession de zone</strong> et une DA plus spécifiquement <strong>Pokegang</strong>.</div>
+      </div>
+      <div class="badge">v2 target</div>
+    </section>
+
+    <section class="grid">
+      <div class="panel">
+        <h2>Ce que la V2 doit tester</h2>
+        <ul>
+          <li><strong>Panel principal centré</strong> sur le zone gangbase</li>
+          <li><strong>CTA clairs</strong> : ouvrir, assigner, intervenir, reprendre, vendre, surveiller</li>
+          <li><strong>Possession de zone</strong> comme variable pivot</li>
+          <li><strong>Panneau Gang</strong> avec vraies cartes d'identité pour les agents</li>
+          <li><strong>Lecture territoriale</strong> plus forte que simple dashboard d'app</li>
+        </ul>
+        <div class="cta-row">
+          <button class="cta primary">Construire le panel central</button>
+          <button class="cta">Designer les cartes agents</button>
+          <button class="cta">Tester la possession</button>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Notes de transition</h2>
+        <ul>
+          <li>L'ancien proto reste une <strong>référence historique</strong> pour la densité et la structure</li>
+          <li>Le travail suivant doit se faire sur <code>test/proto-pokechill-v2.html</code></li>
+          <li>La suite logique est une vraie maquette V2 branchée autant que possible sur le vocabulaire et les modules actuels du jeu</li>
+        </ul>
+        <div class="note">
+          Reco : garder l'ancien fichier comme archive de direction, puis pousser les futures itérations sur ce nouveau chemin pour éviter de mélanger la V1 inspirée et la V2 recentrée sur Pokegang.
+        </div>
+      </div>
+    </section>
+
+    <section class="footer">
+      <div>Issue liée : <code>#37</code></div>
+      <div>Prochaine étape : vraie maquette V2 + nouvelle DA + centre zone gangbase</div>
+    </section>
+  </main>
+</body>
+</html>
