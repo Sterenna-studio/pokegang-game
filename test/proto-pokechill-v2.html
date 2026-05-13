@@ -6,179 +6,754 @@
   <title>POKEGANG — Proto UI V2</title>
   <style>
     :root {
-      --bg: #080808;
-      --panel: #111111;
-      --line: #262626;
-      --text: #e6e6e6;
-      --muted: #8a8a8a;
-      --red: #cc1111;
-      --red-bright: #e63535;
-      --red-soft: rgba(204,17,17,.12);
-      --steel: #1a1d24;
+      --bg: #070708;
+      --bg-soft: #0d0f13;
+      --panel: #111318;
+      --panel-2: #151821;
+      --line: rgba(255,255,255,.08);
+      --line-strong: rgba(230,53,53,.26);
+      --text: #f0f1f3;
+      --muted: #9aa0aa;
+      --muted-2: #6f7682;
+      --red: #c81426;
+      --red-bright: #ef4250;
+      --red-soft: rgba(200,20,38,.14);
       --gold: #ffcc5a;
+      --green: #49c17d;
+      --blue: #4d8fff;
+      --steel: #1b2029;
+      --shadow: 0 24px 80px rgba(0,0,0,.42);
+      --radius: 20px;
+      --radius-sm: 14px;
     }
+
     * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      min-height: 100vh;
-      background: linear-gradient(180deg, #0a0a0b 0%, #080808 100%);
-      color: var(--text);
-      font-family: Inter, Arial, sans-serif;
+    html, body { margin: 0; min-height: 100%; background: radial-gradient(circle at top, #191015 0%, #0a0a0c 44%, #060607 100%); color: var(--text); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    body { padding: 16px; }
+
+    .shell {
+      width: min(1600px, 100%);
+      margin: 0 auto;
       display: grid;
-      place-items: center;
-      padding: 24px;
+      grid-template-columns: 260px 1fr 360px;
+      gap: 16px;
+      min-height: calc(100vh - 32px);
     }
-    .wrap {
-      width: min(1200px, 100%);
+
+    .sidebar,
+    .main,
+    .rightbar {
       border: 1px solid var(--line);
-      background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.01));
-      box-shadow: 0 24px 80px rgba(0,0,0,.45);
-      border-radius: 18px;
+      border-radius: 24px;
+      background: linear-gradient(180deg, rgba(255,255,255,.028), rgba(255,255,255,.012));
+      box-shadow: var(--shadow);
       overflow: hidden;
+      min-width: 0;
     }
-    .top {
+
+    .sidebar {
       display: flex;
+      flex-direction: column;
+      padding: 18px;
+      background: linear-gradient(180deg, rgba(200,20,38,.12), rgba(255,255,255,.015));
+    }
+
+    .brand {
+      padding: 16px;
+      border-radius: 18px;
+      border: 1px solid var(--line-strong);
+      background: linear-gradient(180deg, rgba(200,20,38,.18), rgba(255,255,255,.015));
+      margin-bottom: 18px;
+    }
+    .brand-kicker {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .22em;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .brand-title {
+      font-size: 30px;
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: -.04em;
+    }
+    .brand-sub {
+      margin-top: 10px;
+      color: var(--muted);
+      line-height: 1.55;
+      font-size: 14px;
+    }
+
+    .nav-title {
+      margin: 14px 0 8px;
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .22em;
+    }
+    .nav-list { display: flex; flex-direction: column; gap: 8px; }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      border: 1px solid rgba(255,255,255,.04);
+      border-radius: 14px;
+      background: rgba(255,255,255,.02);
+      color: var(--text);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .nav-item.active {
+      background: linear-gradient(180deg, rgba(200,20,38,.18), rgba(200,20,38,.08));
+      border-color: var(--line-strong);
+    }
+    .nav-badge {
+      min-width: 28px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.06);
+      color: var(--muted);
+      font-size: 12px;
+      text-align: center;
+    }
+
+    .sidebar-note {
+      margin-top: auto;
+      padding: 14px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: rgba(0,0,0,.25);
+    }
+
+    .main {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .topbar {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0,1fr));
+      gap: 12px;
+    }
+    .metric {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.015));
+      padding: 14px 16px;
+    }
+    .metric-label {
+      font-size: 12px;
+      color: var(--muted);
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    .metric-value {
+      font-size: 28px;
+      font-weight: 900;
+      letter-spacing: -.04em;
+      line-height: 1;
+    }
+    .metric-sub { margin-top: 8px; color: var(--muted); font-size: 13px; }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.4fr .9fr;
+      gap: 16px;
+      align-items: stretch;
+    }
+
+    .zone-gangbase {
+      border: 1px solid var(--line-strong);
+      border-radius: 24px;
+      background:
+        linear-gradient(180deg, rgba(200,20,38,.16), rgba(255,255,255,.015)),
+        radial-gradient(circle at top right, rgba(239,66,80,.18), transparent 35%);
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .zone-head {
+      display: flex;
+      align-items: flex-start;
       justify-content: space-between;
       gap: 16px;
-      padding: 18px 22px;
-      border-bottom: 1px solid var(--line);
-      background: linear-gradient(180deg, rgba(204,17,17,.12), rgba(255,255,255,0));
     }
-    .title {
-      font-size: 28px;
-      font-weight: 800;
-      letter-spacing: -0.03em;
-    }
-    .sub {
-      margin-top: 6px;
-      color: var(--muted);
-      line-height: 1.5;
-      max-width: 70ch;
-    }
-    .badge {
-      align-self: start;
-      padding: 8px 12px;
-      border: 1px solid rgba(230,53,53,.35);
-      background: var(--red-soft);
-      color: #ffd5d5;
-      border-radius: 999px;
-      font-size: 12px;
+    .zone-kicker {
+      font-size: 11px;
       text-transform: uppercase;
-      letter-spacing: .14em;
-    }
-    .grid {
-      display: grid;
-      grid-template-columns: 1.1fr .9fr;
-      gap: 0;
-    }
-    .panel {
-      padding: 24px;
-      border-right: 1px solid var(--line);
-    }
-    .panel:last-child { border-right: 0; }
-    h2 {
-      margin: 0 0 12px;
-      font-size: 18px;
-      letter-spacing: -0.02em;
-    }
-    ul {
-      margin: 0;
-      padding-left: 18px;
+      letter-spacing: .22em;
       color: var(--muted);
-      line-height: 1.7;
+      margin-bottom: 8px;
     }
-    li strong { color: var(--text); }
-    .cta-row {
-      display: flex;
-      flex-wrap: wrap;
+    .zone-title {
+      font-size: 38px;
+      font-weight: 900;
+      line-height: .95;
+      letter-spacing: -.05em;
+      margin: 0;
+    }
+    .zone-sub {
+      margin-top: 10px;
+      color: var(--muted);
+      line-height: 1.6;
+      max-width: 60ch;
+    }
+
+    .pill-row { display: flex; flex-wrap: wrap; gap: 8px; }
+    .pill {
+      padding: 7px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.03);
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    .pill.red { background: rgba(200,20,38,.16); color: #ffd9dc; border-color: rgba(239,66,80,.28); }
+    .pill.green { background: rgba(73,193,125,.12); color: #ddffec; border-color: rgba(73,193,125,.24); }
+    .pill.gold { background: rgba(255,204,90,.12); color: #ffe9b1; border-color: rgba(255,204,90,.22); }
+
+    .possession-wrap {
+      display: grid;
+      grid-template-columns: 190px 1fr;
+      gap: 18px;
+      align-items: center;
+    }
+    .possession-ring {
+      width: 170px;
+      height: 170px;
+      border-radius: 50%;
+      background: conic-gradient(var(--red-bright) 0 78%, rgba(255,255,255,.06) 78% 100%);
+      display: grid;
+      place-items: center;
+      position: relative;
+      margin-inline: auto;
+      box-shadow: 0 0 0 10px rgba(200,20,38,.08);
+    }
+    .possession-ring::before {
+      content: "";
+      position: absolute;
+      inset: 16px;
+      border-radius: 50%;
+      background: radial-gradient(circle at top, rgba(255,255,255,.06), #0c0f14 55%, #090a0c 100%);
+      border: 1px solid rgba(255,255,255,.06);
+    }
+    .possession-core {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+    }
+    .possession-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .18em;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .possession-value {
+      font-size: 40px;
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: -.05em;
+    }
+    .possession-state {
+      margin-top: 8px;
+      color: #ffdadd;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .zone-factors {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
       gap: 10px;
-      margin-top: 18px;
+    }
+    .factor {
+      padding: 14px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.02);
+    }
+    .factor-kicker {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .18em;
+      margin-bottom: 8px;
+    }
+    .factor-value { font-size: 22px; font-weight: 800; letter-spacing: -.03em; }
+    .factor-sub { margin-top: 6px; color: var(--muted); font-size: 13px; }
+
+    .cta-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0,1fr));
+      gap: 10px;
     }
     .cta {
-      padding: 10px 14px;
-      border-radius: 12px;
+      min-height: 50px;
+      border-radius: 16px;
       border: 1px solid var(--line);
-      background: var(--panel);
+      background: rgba(255,255,255,.03);
       color: var(--text);
-      font-weight: 600;
+      font-weight: 700;
+      font-size: 14px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 0 14px;
     }
     .cta.primary {
       background: linear-gradient(180deg, var(--red-bright), var(--red));
       border-color: rgba(255,255,255,.08);
     }
-    .note {
-      margin-top: 18px;
-      padding: 14px 16px;
-      border-radius: 14px;
-      border: 1px solid rgba(255,204,90,.22);
-      background: rgba(255,204,90,.06);
-      color: #f4ddb0;
-      line-height: 1.6;
-    }
-    .footer {
-      padding: 16px 22px;
-      border-top: 1px solid var(--line);
-      color: var(--muted);
-      font-size: 13px;
+
+    .quick-events {
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: linear-gradient(180deg, rgba(255,255,255,.028), rgba(255,255,255,.012));
+      padding: 18px;
       display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .panel-title-row {
+      display: flex;
+      align-items: center;
       justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 2px;
+    }
+    .panel-title { margin: 0; font-size: 20px; letter-spacing: -.03em; }
+    .panel-sub { color: var(--muted); font-size: 13px; }
+    .event-card {
+      padding: 14px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.02);
+    }
+    .event-card.hot { border-color: rgba(239,66,80,.28); background: rgba(200,20,38,.11); }
+    .event-kicker { font-size: 11px; text-transform: uppercase; letter-spacing: .18em; color: var(--muted); margin-bottom: 6px; }
+    .event-title { font-weight: 800; margin-bottom: 6px; }
+    .event-text { color: var(--muted); line-height: 1.5; font-size: 14px; }
+
+    .section {
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: linear-gradient(180deg, rgba(255,255,255,.028), rgba(255,255,255,.012));
+      padding: 18px;
+    }
+
+    .zones-strip {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0,1fr));
+      gap: 12px;
+    }
+    .mini-zone {
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255,255,255,.02);
+    }
+    .mini-zone.hot { border-color: rgba(239,66,80,.28); }
+    .mini-zone h3 { margin: 8px 0 6px; font-size: 20px; }
+    .mini-zone p { margin: 0; color: var(--muted); line-height: 1.5; font-size: 14px; min-height: 40px; }
+    .progress {
+      margin: 12px 0 8px;
+      height: 10px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: rgba(255,255,255,.05);
+    }
+    .progress > span {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #861621, var(--red-bright));
+    }
+    .mini-row { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
+    .mini-row .muted { color: var(--muted); }
+
+    .rightbar {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
       gap: 16px;
+    }
+
+    .tabs {
+      display: inline-flex;
+      gap: 8px;
       flex-wrap: wrap;
     }
-    code {
-      color: var(--gold);
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    .tab {
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.03);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .12em;
     }
-    @media (max-width: 900px) {
-      .grid { grid-template-columns: 1fr; }
-      .panel { border-right: 0; border-bottom: 1px solid var(--line); }
-      .panel:last-child { border-bottom: 0; }
+    .tab.active { background: rgba(200,20,38,.16); color: #ffd6da; border-color: rgba(239,66,80,.28); }
+
+    .agent-list { display: flex; flex-direction: column; gap: 12px; }
+    .agent-card {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255,255,255,.02);
+      padding: 14px;
+      display: grid;
+      grid-template-columns: 62px 1fr;
+      gap: 12px;
+      align-items: start;
+    }
+    .agent-avatar {
+      width: 62px;
+      height: 62px;
+      border-radius: 16px;
+      border: 1px solid rgba(239,66,80,.22);
+      background: linear-gradient(180deg, rgba(200,20,38,.18), rgba(255,255,255,.02));
+      display: grid;
+      place-items: center;
+      font-size: 24px;
+    }
+    .agent-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: start;
+    }
+    .agent-name { font-size: 20px; font-weight: 900; letter-spacing: -.03em; line-height: 1; }
+    .agent-meta { margin-top: 6px; color: var(--muted); font-size: 13px; line-height: 1.5; }
+    .agent-tags { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+
+    .feed-list { display: flex; flex-direction: column; gap: 10px; }
+    .feed-item {
+      padding: 12px 14px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.02);
+    }
+    .feed-item.alert { border-color: rgba(239,66,80,.28); background: rgba(200,20,38,.1); }
+    .feed-title { font-weight: 800; margin-bottom: 4px; }
+    .feed-text { color: var(--muted); font-size: 14px; line-height: 1.5; }
+
+    @media (max-width: 1320px) {
+      .shell { grid-template-columns: 240px 1fr; }
+      .rightbar { grid-column: 1 / -1; }
+      .hero { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 980px) {
+      .shell { grid-template-columns: 1fr; }
+      .topbar,
+      .cta-grid,
+      .zones-strip,
+      .zone-factors { grid-template-columns: 1fr; }
+      .possession-wrap { grid-template-columns: 1fr; }
+      .sidebar { order: 2; }
+      .main { order: 1; }
+      .rightbar { order: 3; }
     }
   </style>
 </head>
 <body>
-  <main class="wrap">
-    <section class="top">
-      <div>
-        <div class="title">Proto UI V2 — base de travail Pokegang</div>
-        <div class="sub">Ce fichier remplace la future base de travail de l'ancien proto inspiré PokéChill. Il sert de nouveau point d'entrée pour une V2 centrée sur le <strong>zone gangbase</strong>, la <strong>possession de zone</strong> et une DA plus spécifiquement <strong>Pokegang</strong>.</div>
+  <main class="shell">
+    <aside class="sidebar">
+      <section class="brand">
+        <div class="brand-kicker">Territorial command</div>
+        <div class="brand-title">Pokegang</div>
+        <div class="brand-sub">V2 recentrée sur un grand bloc <strong>zone gangbase</strong>, des CTA explicites et une lecture simple de la <strong>possession</strong> comme variable pivot.</div>
+      </section>
+
+      <div class="nav-title">Navigation</div>
+      <div class="nav-list">
+        <a class="nav-item active" href="#"><span>Zones</span><span class="nav-badge">12</span></a>
+        <a class="nav-item" href="#"><span>Gang</span><span class="nav-badge">18</span></a>
+        <a class="nav-item" href="#"><span>PC / Pokédex</span><span class="nav-badge">486</span></a>
+        <a class="nav-item" href="#"><span>Marché</span><span class="nav-badge">▲</span></a>
+        <a class="nav-item" href="#"><span>Missions</span><span class="nav-badge">7</span></a>
+        <a class="nav-item" href="#"><span>Évts</span><span class="nav-badge">3</span></a>
       </div>
-      <div class="badge">v2 target</div>
+
+      <div class="nav-title">Modules logiques</div>
+      <div class="nav-list">
+        <a class="nav-item" href="#"><span>zoneSystem</span><span class="nav-badge">sys</span></a>
+        <a class="nav-item" href="#"><span>gangBase</span><span class="nav-badge">ui</span></a>
+        <a class="nav-item" href="#"><span>agent</span><span class="nav-badge">sim</span></a>
+        <a class="nav-item" href="#"><span>market</span><span class="nav-badge">eco</span></a>
+      </div>
+
+      <section class="sidebar-note">
+        <div class="event-kicker">Direction</div>
+        <div class="event-title">Contrôler une zone, pas juste l’ouvrir</div>
+        <div class="event-text">La possession devient la base de lecture : elle pousse la rareté, change les événements et donne enfin une vraie sensation d’ancrage territorial.</div>
+      </section>
+    </aside>
+
+    <section class="main">
+      <div class="topbar">
+        <article class="metric">
+          <div class="metric-label">Pokédollars</div>
+          <div class="metric-value">2.48M₽</div>
+          <div class="metric-sub">La vente reste le moteur économique principal</div>
+        </article>
+        <article class="metric">
+          <div class="metric-label">Réputation</div>
+          <div class="metric-value">18 420</div>
+          <div class="metric-sub">Johto bientôt disponible</div>
+        </article>
+        <article class="metric">
+          <div class="metric-label">Captures</div>
+          <div class="metric-value">12 987</div>
+          <div class="metric-sub">34 chromatiques · 7 légendaires vus</div>
+        </article>
+        <article class="metric">
+          <div class="metric-label">Zones tenues</div>
+          <div class="metric-value">09 / 12</div>
+          <div class="metric-sub">2 contestées · 1 perdue</div>
+        </article>
+      </div>
+
+      <section class="hero">
+        <article class="zone-gangbase">
+          <div class="zone-head">
+            <div>
+              <div class="zone-kicker">Zone gangbase principale</div>
+              <h1 class="zone-title">Route Victoire</h1>
+              <div class="zone-sub">Zone frontalière à haute valeur de chasse. Très bonne source de Pokémon rares et d’événements spéciaux, mais la pression adverse augmente avec l’ancrage du gang.</div>
+            </div>
+            <div class="pill-row">
+              <span class="pill red">Contestée</span>
+              <span class="pill">Montagne</span>
+              <span class="pill gold">Rare ++</span>
+            </div>
+          </div>
+
+          <div class="possession-wrap">
+            <div class="possession-ring">
+              <div class="possession-core">
+                <div class="possession-label">Possession</div>
+                <div class="possession-value">78%</div>
+                <div class="possession-state">Zone maîtrisée</div>
+              </div>
+            </div>
+
+            <div class="zone-factors">
+              <div class="factor">
+                <div class="factor-kicker">Danger</div>
+                <div class="factor-value">Élevé</div>
+                <div class="factor-sub">Une attaque locale est probable si la pression passe 80.</div>
+              </div>
+              <div class="factor">
+                <div class="factor-kicker">Intérêt de chasse</div>
+                <div class="factor-value">Très fort</div>
+                <div class="factor-sub">La possession haute ouvre des événements et tables rares.</div>
+              </div>
+              <div class="factor">
+                <div class="factor-kicker">Cellule gang</div>
+                <div class="factor-value">Sergent + 2</div>
+                <div class="factor-sub">Spirit supervise la zone. Renfort possible via Gang.</div>
+              </div>
+              <div class="factor">
+                <div class="factor-kicker">État actuel</div>
+                <div class="factor-value">Sous tension</div>
+                <div class="factor-sub">Bonne rentabilité, mais perte possible sans intervention du boss.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="cta-grid">
+            <button class="cta primary">⚔ Intervenir</button>
+            <button class="cta">👤 Assigner un agent</button>
+            <button class="cta">📡 Surveiller</button>
+            <button class="cta">🚪 Ouvrir la zone</button>
+            <button class="cta">🛡 Renforcer</button>
+            <button class="cta">↺ Reprendre</button>
+          </div>
+        </article>
+
+        <aside class="quick-events">
+          <div class="panel-title-row">
+            <div>
+              <h2 class="panel-title">Événements liés à la possession</h2>
+              <div class="panel-sub">Ce bloc teste l’idée “plus la zone est tenue, plus elle évolue”.</div>
+            </div>
+            <span class="pill red">Live</span>
+          </div>
+
+          <article class="event-card hot">
+            <div class="event-kicker">Seuil atteint</div>
+            <div class="event-title">Fenêtre rare déclenchée</div>
+            <div class="event-text">La possession a ouvert une table de rencontres plus rentable. Les Pokémon trouvés dans la prochaine séquence ont un intérêt de chasse supérieur.</div>
+          </article>
+
+          <article class="event-card">
+            <div class="event-kicker">Effet secondaire</div>
+            <div class="event-title">Visibilité du gang en hausse</div>
+            <div class="event-text">Tenir la zone longtemps augmente aussi les risques : plus d’attention adverse, plus d’alertes, plus de chances d’événements de contestation.</div>
+          </article>
+
+          <article class="event-card">
+            <div class="event-kicker">Économie</div>
+            <div class="event-title">Synergie marché</div>
+            <div class="event-text">La possession haute rend les captures plus intéressantes à revendre. Le lien entre domination et économie devient enfin lisible.</div>
+          </article>
+        </aside>
+      </section>
+
+      <section class="section">
+        <div class="panel-title-row">
+          <div>
+            <h2 class="panel-title">Autres zones à l’écran</h2>
+            <div class="panel-sub">Le centre reste la gangbase active, mais les autres fronts restent visibles rapidement.</div>
+          </div>
+          <div class="pill-row">
+            <span class="pill green">Occupée</span>
+            <span class="pill">Exploitée</span>
+            <span class="pill red">Perdue</span>
+          </div>
+        </div>
+
+        <div class="zones-strip">
+          <article class="mini-zone">
+            <div class="pill-row"><span class="pill green">Occupée</span><span class="pill">Forêt</span></div>
+            <h3>Forêt de Jade</h3>
+            <p>Zone stable avec bonne cadence de capture. Forte valeur comme base de spécialisation forêt.</p>
+            <div class="progress"><span style="width:89%"></span></div>
+            <div class="mini-row"><span class="muted">Possession</span><strong>89%</strong></div>
+          </article>
+
+          <article class="mini-zone hot">
+            <div class="pill-row"><span class="pill red">Perdue</span><span class="pill">Tour</span></div>
+            <h3>Tour Pokémon</h3>
+            <p>Zone verrouillée tant qu’une victoire n’a pas été obtenue. Ici, la reprise doit être une action, pas un timer.</p>
+            <div class="progress"><span style="width:21%"></span></div>
+            <div class="mini-row"><span class="muted">Présence</span><strong>21%</strong></div>
+          </article>
+
+          <article class="mini-zone">
+            <div class="pill-row"><span class="pill">Ville</span><span class="pill gold">Marché +</span></div>
+            <h3>Safrania</h3>
+            <p>Moins rentable en volume brut, mais meilleure valeur moyenne de vente et bon point d’influence.</p>
+            <div class="progress"><span style="width:53%"></span></div>
+            <div class="mini-row"><span class="muted">Possession</span><strong>53%</strong></div>
+          </article>
+        </div>
+      </section>
     </section>
 
-    <section class="grid">
-      <div class="panel">
-        <h2>Ce que la V2 doit tester</h2>
-        <ul>
-          <li><strong>Panel principal centré</strong> sur le zone gangbase</li>
-          <li><strong>CTA clairs</strong> : ouvrir, assigner, intervenir, reprendre, vendre, surveiller</li>
-          <li><strong>Possession de zone</strong> comme variable pivot</li>
-          <li><strong>Panneau Gang</strong> avec vraies cartes d'identité pour les agents</li>
-          <li><strong>Lecture territoriale</strong> plus forte que simple dashboard d'app</li>
-        </ul>
-        <div class="cta-row">
-          <button class="cta primary">Construire le panel central</button>
-          <button class="cta">Designer les cartes agents</button>
-          <button class="cta">Tester la possession</button>
+    <aside class="rightbar">
+      <section class="section">
+        <div class="panel-title-row">
+          <div>
+            <h2 class="panel-title">Gang</h2>
+            <div class="panel-sub">Les agents passent en vraies cartes d’identité.</div>
+          </div>
+          <div class="tabs">
+            <span class="tab active">Agents</span>
+            <span class="tab">Titres</span>
+            <span class="tab">Hiérarchie</span>
+          </div>
         </div>
-      </div>
-      <div class="panel">
-        <h2>Notes de transition</h2>
-        <ul>
-          <li>L'ancien proto reste une <strong>référence historique</strong> pour la densité et la structure</li>
-          <li>Le travail suivant doit se faire sur <code>test/proto-pokechill-v2.html</code></li>
-          <li>La suite logique est une vraie maquette V2 branchée autant que possible sur le vocabulaire et les modules actuels du jeu</li>
-        </ul>
-        <div class="note">
-          Reco : garder l'ancien fichier comme archive de direction, puis pousser les futures itérations sur ce nouveau chemin pour éviter de mélanger la V1 inspirée et la V2 recentrée sur Pokegang.
-        </div>
-      </div>
-    </section>
 
-    <section class="footer">
-      <div>Issue liée : <code>#37</code></div>
-      <div>Prochaine étape : vraie maquette V2 + nouvelle DA + centre zone gangbase</div>
-    </section>
+        <div class="agent-list">
+          <article class="agent-card">
+            <div class="agent-avatar">🕶</div>
+            <div>
+              <div class="agent-head">
+                <div>
+                  <div class="agent-name">Spirit</div>
+                  <div class="agent-meta">Sergent · Route Victoire · cellule principale</div>
+                </div>
+                <span class="pill red">Sous pression</span>
+              </div>
+              <div class="agent-tags">
+                <span class="pill">Spé montagne</span>
+                <span class="pill gold">Rare +</span>
+                <span class="pill">31 captures / h</span>
+              </div>
+            </div>
+          </article>
+
+          <article class="agent-card">
+            <div class="agent-avatar">🗡</div>
+            <div>
+              <div class="agent-head">
+                <div>
+                  <div class="agent-name">Sniky</div>
+                  <div class="agent-meta">Lieutenant · Forêt de Jade · front secondaire</div>
+                </div>
+                <span class="pill green">Stable</span>
+              </div>
+              <div class="agent-tags">
+                <span class="pill">Spé forêt</span>
+                <span class="pill">34 captures / h</span>
+                <span class="pill gold">Chroma +</span>
+              </div>
+            </div>
+          </article>
+
+          <article class="agent-card">
+            <div class="agent-avatar">🧪</div>
+            <div>
+              <div class="agent-head">
+                <div>
+                  <div class="agent-name">Dr. Sorn</div>
+                  <div class="agent-meta">Grunt · Safrania · soutien économique</div>
+                </div>
+                <span class="pill">Disponible</span>
+              </div>
+              <div class="agent-tags">
+                <span class="pill">Ville</span>
+                <span class="pill">Valeur vente +</span>
+                <span class="pill">Renfort possible</span>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="panel-title-row">
+          <div>
+            <h2 class="panel-title">Feed</h2>
+            <div class="panel-sub">Captures, alertes, marché, moments boss.</div>
+          </div>
+          <span class="pill red">3 alertes</span>
+        </div>
+
+        <div class="feed-list">
+          <article class="feed-item alert">
+            <div class="event-kicker">Alerte boss</div>
+            <div class="feed-title">Route Victoire demande une intervention</div>
+            <div class="feed-text">La possession a attiré l’attention locale. Si rien n’est fait, la zone peut chuter et sortir de son palier actuel.</div>
+          </article>
+
+          <article class="feed-item">
+            <div class="event-kicker">Capture rare</div>
+            <div class="feed-title">Onix à fort potentiel détecté</div>
+            <div class="feed-text">La fenêtre rare liée à la possession a déjà commencé à produire des rencontres plus intéressantes.</div>
+          </article>
+
+          <article class="feed-item">
+            <div class="event-kicker">Marché</div>
+            <div class="feed-title">Les types Roche montent</div>
+            <div class="feed-text">Bonne synergie entre la gangbase centrale et le module marché. Le lien capture → vente devient lisible directement.</div>
+          </article>
+        </div>
+      </section>
+    </aside>
   </main>
 </body>
 </html>
