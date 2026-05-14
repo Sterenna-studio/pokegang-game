@@ -1,0 +1,2211 @@
+<!DOCTYPE html>
+<!--
+  proto-gang-zone.html
+  ─────────────────────────────────────────────────────────────────────────
+  PokéGang — Prototype "QUARTIER GÉNÉRAL" / Contrôle territorial
+  Design philosophy: Organisation > Criminalité. Faction, pas gang banal.
+  Vocabulaire: cellule, front, possession, zone tenue, admin, repaire, réseau
+  Tone: sérieux, stylé, légèrement dramatique — manga corrompu, pas grimdark pur
+  ─────────────────────────────────────────────────────────────────────────
+  Données réelles : ../data/zones-data.js + ../data/species-data.js
+  Save réel       : localStorage['pokeforge.v6']
+  ─────────────────────────────────────────────────────────────────────────
+-->
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PokéGang — QG Proto</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700;900&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+
+<script src="../data/zones-data.js"></script>
+<script src="../data/species-data.js"></script>
+<script src="../data/game-config-data.js"></script>
+
+<style>
+/* ══════════════════════════════════════════════════════════════
+   DESIGN TOKENS
+   ══════════════════════════════════════════════════════════════ */
+:root {
+  /* Core palette */
+  --bg:           #080808;
+  --bg-panel:     #0f0f0f;
+  --bg-card:      #131313;
+  --bg-card-hover:#181818;
+  --bg-inset:     #0a0a0a;
+
+  /* Accent: sang / territoire */
+  --red:          #cc1111;
+  --red-hot:      #e63535;
+  --red-dim:      #7a0a0a;
+  --red-glow:     rgba(204,17,17,0.18);
+  --red-border:   rgba(204,17,17,0.35);
+
+  /* Statut zones */
+  --tenue:        #cc1111;
+  --contestee:    #e67c00;
+  --libre:        #3a3a3a;
+  --neutre:       #5a4a00;
+  --verrouille:   #1a1a2e;
+
+  /* Accents secondaires */
+  --gold:         #ffcc5a;
+  --gold-dim:     #9a7a1a;
+  --green:        #2ea84e;
+  --green-dim:    #1a4a2a;
+  --blue:         #3a7acc;
+  --purple:       #7a3acc;
+
+  /* Texte */
+  --text:         #e0e0e0;
+  --text-dim:     #666;
+  --text-dimmer:  #3a3a3a;
+  --text-accent:  #ff4444;
+  --text-gold:    #ffcc5a;
+
+  /* Bordures */
+  --border:       #1e1e1e;
+  --border-strong:#2a2a2a;
+  --border-red:   rgba(204,17,17,0.4);
+
+  /* Typo */
+  --font-display: 'Bebas Neue', 'Arial Black', sans-serif;
+  --font-mono:    'Share Tech Mono', 'Courier New', monospace;
+  --font-cond:    'Barlow Condensed', sans-serif;
+  --font-body:    'Barlow', sans-serif;
+
+  /* Layout */
+  --topbar-h:     48px;
+  --sidebar-w:    300px;
+  --sidebar-r-w:  260px;
+  --tabbar-h:     54px;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   RESET + BASE
+   ══════════════════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: var(--font-body); font-size: 13px; }
+button { cursor: pointer; border: none; background: none; color: inherit; font: inherit; }
+img { display: block; }
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--red-dim); border-radius: 2px; }
+
+/* ══════════════════════════════════════════════════════════════
+   TOPBAR
+   ══════════════════════════════════════════════════════════════ */
+#topbar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  height: var(--topbar-h);
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border-strong);
+  display: flex; align-items: center;
+  padding: 0 12px;
+  gap: 12px;
+}
+#topbar .logo {
+  font-family: var(--font-display);
+  font-size: 22px;
+  letter-spacing: 3px;
+  color: var(--red-hot);
+  text-shadow: 0 0 12px rgba(230,53,53,0.5);
+  white-space: nowrap;
+  line-height: 1;
+}
+#topbar .logo span {
+  color: var(--text-dim);
+  font-size: 10px;
+  letter-spacing: 1px;
+  display: block;
+  font-family: var(--font-mono);
+  margin-top: -2px;
+}
+.top-divider {
+  width: 1px; height: 28px;
+  background: var(--border-strong);
+  flex-shrink: 0;
+}
+/* Boss identity */
+.boss-chip {
+  display: flex; align-items: center; gap: 6px;
+  padding: 3px 8px 3px 3px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-red);
+  flex-shrink: 0;
+}
+.boss-chip .boss-avatar {
+  width: 28px; height: 28px;
+  background: var(--red-dim);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+}
+.boss-chip .boss-name {
+  font-family: var(--font-cond);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text);
+  letter-spacing: 0.5px;
+}
+.boss-chip .boss-title {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--red);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+/* Metrics */
+.top-metrics {
+  display: flex; align-items: center; gap: 4px;
+  flex: 1;
+  overflow: hidden;
+}
+.metric-chip {
+  display: flex; align-items: center; gap: 4px;
+  padding: 3px 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.metric-chip .val { color: var(--text); font-weight: bold; }
+.metric-chip.gold .val { color: var(--gold); }
+.metric-chip.red .val { color: var(--red-hot); }
+.metric-chip.green .val { color: var(--green); }
+/* Top-right actions */
+.top-actions {
+  display: flex; align-items: center; gap: 6px;
+  margin-left: auto; flex-shrink: 0;
+}
+.icon-btn {
+  width: 30px; height: 30px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+  transition: border-color 0.15s;
+}
+.icon-btn:hover { border-color: var(--red); }
+.save-badge {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-dimmer);
+  white-space: nowrap;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   APP SHELL
+   ══════════════════════════════════════════════════════════════ */
+#app {
+  position: fixed;
+  top: var(--topbar-h);
+  left: 0; right: 0;
+  bottom: var(--tabbar-h);
+  display: flex;
+  overflow: hidden;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   LEFT SIDEBAR — COMMANDE DU BOSS
+   ══════════════════════════════════════════════════════════════ */
+#sidebar-left {
+  width: var(--sidebar-w);
+  flex-shrink: 0;
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.sidebar-section {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.sidebar-section:last-child { border-bottom: none; flex: 1; overflow-y: auto; }
+.section-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: var(--red-dim);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+/* Boss HQ panel */
+.boss-hq {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 16px 12px 12px;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+  overflow: hidden;
+}
+.boss-hq::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 50% 0%, rgba(204,17,17,0.08) 0%, transparent 65%);
+  pointer-events: none;
+}
+.boss-hq-avatar {
+  width: 64px; height: 64px;
+  background: linear-gradient(135deg, var(--red-dim), #1a0a0a);
+  border: 2px solid var(--red);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 28px;
+  margin-bottom: 8px;
+  position: relative;
+}
+.boss-hq-avatar .rank-badge {
+  position: absolute;
+  bottom: -4px; right: -4px;
+  background: var(--red);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  padding: 1px 4px;
+  color: #fff;
+  letter-spacing: 1px;
+}
+.boss-hq-name {
+  font-family: var(--font-display);
+  font-size: 18px;
+  letter-spacing: 2px;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+.boss-hq-subtitle {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--red);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+/* Boss stats row */
+.boss-stats {
+  display: grid; grid-template-columns: 1fr 1fr 1fr;
+  gap: 4px; width: 100%;
+}
+.boss-stat {
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  padding: 5px;
+  text-align: center;
+}
+.boss-stat .bs-val {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text);
+  display: block;
+}
+.boss-stat .bs-label {
+  font-family: var(--font-cond);
+  font-size: 9px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* Boss team */
+.boss-team {
+  display: flex; gap: 4px; width: 100%;
+  margin-top: 10px;
+}
+.boss-slot {
+  flex: 1;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  padding: 4px;
+  display: flex; flex-direction: column; align-items: center;
+  gap: 2px;
+  min-height: 52px;
+  position: relative;
+  transition: border-color 0.15s;
+}
+.boss-slot:hover { border-color: var(--red-dim); }
+.boss-slot img { width: 36px; height: 36px; image-rendering: pixelated; }
+.boss-slot .slot-name {
+  font-family: var(--font-mono);
+  font-size: 7px;
+  color: var(--text-dim);
+  text-align: center;
+  text-transform: lowercase;
+}
+.boss-slot.empty { border-style: dashed; opacity: 0.4; }
+.boss-slot.empty::after { content: '—'; color: var(--text-dimmer); font-size: 16px; margin: auto; }
+
+/* Occupation globale */
+.occ-bar-wrap {
+  margin-top: 6px;
+}
+.occ-label-row {
+  display: flex; justify-content: space-between;
+  font-family: var(--font-cond);
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-bottom: 3px;
+}
+.occ-label-row strong { color: var(--text); }
+.occ-bar {
+  height: 4px;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.occ-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--red-dim), var(--red));
+  transition: width 0.3s;
+}
+
+/* Territory summary */
+.terr-summary {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+.terr-stat {
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  padding: 6px 8px;
+  display: flex; align-items: center; gap: 6px;
+}
+.terr-dot {
+  width: 8px; height: 8px; flex-shrink: 0;
+}
+.terr-dot.tenue    { background: var(--tenue); }
+.terr-dot.contestee { background: var(--contestee); }
+.terr-dot.libre    { background: var(--libre); }
+.terr-dot.verrouille { background: var(--blue); }
+
+.terr-stat .tv {
+  font-family: var(--font-display);
+  font-size: 18px;
+  line-height: 1;
+  color: var(--text);
+}
+.terr-stat .tl {
+  font-family: var(--font-cond);
+  font-size: 9px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  line-height: 1.2;
+}
+
+/* Agents sidebar */
+.agents-list {
+  display: flex; flex-direction: column; gap: 4px;
+  overflow-y: auto;
+  max-height: 180px;
+}
+.agent-row {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  transition: border-color 0.15s;
+  cursor: pointer;
+}
+.agent-row:hover { border-color: var(--red-dim); }
+.agent-avatar {
+  width: 28px; height: 28px;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+}
+.agent-avatar img { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; }
+.agent-info { flex: 1; min-width: 0; }
+.agent-name {
+  font-family: var(--font-cond);
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.agent-role {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.agent-zone-badge {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  padding: 1px 4px;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  white-space: nowrap;
+  max-width: 60px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.agent-zone-badge.assigned { border-color: var(--red-dim); color: var(--red); }
+
+/* ══════════════════════════════════════════════════════════════
+   MAIN CONTENT — CARTE TERRITORIALE + GRILLE
+   ══════════════════════════════════════════════════════════════ */
+#main {
+  flex: 1;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+/* Filter bar */
+#filter-bar {
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  padding: 0 12px;
+  display: flex; align-items: center; gap: 8px;
+  height: 38px;
+  flex-shrink: 0;
+  overflow-x: auto;
+}
+#filter-bar::-webkit-scrollbar { height: 0; }
+
+.filter-group { display: flex; gap: 2px; }
+.filter-sep { width: 1px; height: 20px; background: var(--border-strong); flex-shrink: 0; margin: 0 4px; }
+
+.filter-pill {
+  display: flex; align-items: center; gap: 4px;
+  padding: 3px 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.12s;
+  white-space: nowrap;
+}
+.filter-pill:hover { color: var(--text); border-color: var(--border); }
+.filter-pill.active {
+  color: var(--red-hot);
+  border-color: var(--red-dim);
+  background: rgba(204,17,17,0.08);
+}
+.filter-pill .pill-count {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  padding: 0 3px;
+  font-size: 9px;
+  color: var(--text-dimmer);
+  min-width: 16px;
+  text-align: center;
+}
+.filter-pill.active .pill-count {
+  background: var(--red-dim);
+  border-color: var(--red);
+  color: #fff;
+}
+
+/* Zone grid container */
+#zone-grid-wrap {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+}
+#zone-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 8px;
+}
+
+/* ── ZONE CARD ── */
+.zone-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  position: relative;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  transition: border-color 0.2s, transform 0.1s;
+  cursor: pointer;
+}
+.zone-card:hover { transform: translateY(-1px); }
+.zone-card.tenue {
+  border-color: rgba(204,17,17,0.4);
+}
+.zone-card.tenue::before {
+  content: '';
+  position: absolute; left: 0; top: 0; bottom: 0;
+  width: 2px;
+  background: var(--red);
+  box-shadow: 0 0 6px var(--red);
+}
+.zone-card.contestee { border-color: rgba(230,124,0,0.4); }
+.zone-card.contestee::before {
+  content: '';
+  position: absolute; left: 0; top: 0; bottom: 0;
+  width: 2px;
+  background: var(--contestee);
+}
+.zone-card.verrouille { opacity: 0.55; }
+
+/* Card header */
+.zone-card-header {
+  display: flex; align-items: stretch;
+  border-bottom: 1px solid var(--border);
+}
+.zone-art {
+  width: 64px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px;
+  min-height: 56px;
+  position: relative;
+}
+.zone-art-inner {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+  z-index: 1;
+}
+.zone-art-bg {
+  position: absolute; inset: 0;
+  opacity: 0.18;
+}
+
+/* Status colors for art bg */
+.zone-card.tenue      .zone-art-bg { background: var(--red); }
+.zone-card.contestee  .zone-art-bg { background: var(--contestee); }
+.zone-card.libre      .zone-art-bg { background: #2a2a2a; }
+.zone-card.neutre     .zone-art-bg { background: var(--neutre); }
+.zone-card.verrouille .zone-art-bg { background: var(--blue); opacity: 0.08; }
+
+.zone-header-info {
+  flex: 1;
+  padding: 6px 8px;
+  display: flex; flex-direction: column; justify-content: space-between;
+  min-width: 0;
+}
+.zone-name-row {
+  display: flex; align-items: center; gap: 5px;
+}
+.zone-name {
+  font-family: var(--font-cond);
+  font-weight: 900;
+  font-size: 15px;
+  letter-spacing: 0.3px;
+  color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.zone-type-badge {
+  font-family: var(--font-mono);
+  font-size: 7px;
+  padding: 1px 4px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  flex-shrink: 0;
+}
+.zone-type-badge.route    { background: #1a2a1a; color: var(--green); border: 1px solid #1a4a1a; }
+.zone-type-badge.city     { background: #1a1a3a; color: var(--blue);  border: 1px solid #1a1a6a; }
+.zone-type-badge.special  { background: #2a1a2a; color: var(--purple); border: 1px solid #4a1a4a; }
+.zone-type-badge.gang_park{ background: rgba(204,17,17,0.15); color: var(--red); border: 1px solid var(--red-dim); }
+
+.zone-status-row {
+  display: flex; align-items: center; gap: 5px;
+}
+.status-pill {
+  display: flex; align-items: center; gap: 3px;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  padding: 1px 5px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.status-pill.tenue     { background: rgba(204,17,17,0.15); color: var(--red); border: 1px solid var(--red-dim); }
+.status-pill.contestee { background: rgba(230,124,0,0.15); color: var(--contestee); border: 1px solid rgba(230,124,0,0.4); }
+.status-pill.libre     { background: var(--bg-inset); color: var(--text-dim); border: 1px solid var(--border); }
+.status-pill.neutre    { background: rgba(90,74,0,0.25); color: var(--gold-dim); border: 1px solid rgba(90,74,0,0.5); }
+.status-pill.verrouille{ background: rgba(26,26,46,0.6); color: #5a6a9a; border: 1px solid #2a3a6a; }
+.status-pill .s-dot {
+  width: 5px; height: 5px; border-radius: 50%;
+}
+.status-pill.tenue .s-dot     { background: var(--red); box-shadow: 0 0 4px var(--red); animation: pulse-dot 1.5s ease-in-out infinite; }
+.status-pill.contestee .s-dot { background: var(--contestee); }
+.status-pill.libre .s-dot     { background: #3a3a3a; }
+.status-pill.neutre .s-dot    { background: var(--gold-dim); }
+.status-pill.verrouille .s-dot{ background: #3a4a7a; }
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.zone-agent-count {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  color: var(--text-dim);
+  margin-left: auto;
+}
+.zone-agent-count .aval { color: var(--text); font-weight: bold; }
+
+/* Card body */
+.zone-card-body {
+  padding: 7px 8px;
+  flex: 1;
+  display: flex; flex-direction: column;
+  gap: 5px;
+}
+
+/* Recent captures mini feed */
+.zone-feed {
+  display: flex; flex-direction: column; gap: 2px;
+}
+.zone-feed-entry {
+  display: flex; align-items: center; gap: 5px;
+  font-family: var(--font-cond);
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.feed-sprite {
+  width: 20px; height: 20px;
+  image-rendering: pixelated;
+  flex-shrink: 0;
+}
+.feed-sprite-placeholder {
+  width: 20px; height: 20px; flex-shrink: 0;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px;
+}
+.feed-stars { color: var(--gold); font-size: 9px; }
+.feed-who { color: var(--text-dimmer); font-size: 9px; font-family: var(--font-mono); }
+.feed-time { margin-left: auto; color: var(--text-dimmer); font-size: 9px; font-family: var(--font-mono); }
+
+/* Influence bar */
+.zone-influence {
+  display: flex; align-items: center; gap: 5px;
+}
+.influence-bar {
+  flex: 1;
+  height: 3px;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.influence-fill {
+  height: 100%;
+  transition: width 0.3s;
+}
+.zone-card.tenue .influence-fill     { background: var(--red); }
+.zone-card.contestee .influence-fill { background: var(--contestee); }
+.zone-card.libre .influence-fill     { background: #3a3a3a; }
+.zone-card.neutre .influence-fill    { background: var(--gold-dim); }
+.influence-label {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+/* Rep threshold (locked zones) */
+.rep-threshold {
+  display: flex; align-items: center; gap: 5px;
+}
+.rep-bar {
+  flex: 1;
+  height: 3px;
+  background: var(--bg-inset);
+  border: 1px solid rgba(26,26,46,0.8);
+  overflow: hidden;
+}
+.rep-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #1a1a6a, #3a3acc);
+  transition: width 0.3s;
+}
+.rep-label {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  color: #5a6a9a;
+  white-space: nowrap;
+}
+
+/* Action buttons */
+.zone-card-actions {
+  display: flex; gap: 4px;
+  padding: 6px 8px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-inset);
+}
+.zone-action-btn {
+  flex: 1;
+  padding: 5px 0;
+  font-family: var(--font-cond);
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  text-align: center;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  background: var(--bg-card);
+  transition: all 0.12s;
+}
+.zone-action-btn:hover { border-color: var(--red-dim); color: var(--text); }
+.zone-action-btn.primary {
+  background: var(--red);
+  border-color: var(--red-hot);
+  color: #fff;
+}
+.zone-action-btn.primary:hover { background: var(--red-hot); }
+.zone-action-btn.danger {
+  background: rgba(230,124,0,0.15);
+  border-color: rgba(230,124,0,0.4);
+  color: var(--contestee);
+}
+.zone-action-btn.danger:hover { background: rgba(230,124,0,0.25); }
+.zone-action-btn:disabled {
+  opacity: 0.3; cursor: not-allowed;
+}
+
+/* Spawn timer badge */
+.spawn-timer {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  padding: 1px 5px;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.spawn-timer.active { color: var(--green); border-color: var(--green-dim); }
+
+/* ══════════════════════════════════════════════════════════════
+   RIGHT SIDEBAR — FLUX + COMMANDES
+   ══════════════════════════════════════════════════════════════ */
+#sidebar-right {
+  width: var(--sidebar-r-w);
+  flex-shrink: 0;
+  background: var(--bg-panel);
+  border-left: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+
+/* Flux live */
+.flux-header {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.flux-title {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--red-dim);
+}
+.live-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 5px var(--green);
+  animation: pulse-dot 1s ease-in-out infinite;
+}
+.flux-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex; flex-direction: column;
+  gap: 0;
+}
+.flux-entry {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: flex-start; gap: 6px;
+  transition: background 0.1s;
+  animation: slide-in 0.2s ease;
+}
+.flux-entry:hover { background: var(--bg-card); }
+@keyframes slide-in {
+  from { opacity: 0; transform: translateX(6px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.flux-sprite {
+  width: 28px; height: 28px;
+  image-rendering: pixelated;
+  flex-shrink: 0;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+}
+.flux-content { flex: 1; min-width: 0; }
+.flux-pokemon {
+  font-family: var(--font-cond);
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.flux-pokemon .flux-shiny { color: var(--gold); }
+.flux-meta {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-dim);
+}
+.flux-zone { color: var(--red-dim); }
+.flux-time {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-dimmer);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.flux-type-badge {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 7px;
+  padding: 0 3px;
+  margin-left: 3px;
+  vertical-align: middle;
+}
+.flux-type-badge.cap    { background: rgba(46,168,78,0.2); color: var(--green); border: 1px solid var(--green-dim); }
+.flux-type-badge.combat { background: rgba(204,17,17,0.2); color: var(--red); border: 1px solid var(--red-dim); }
+.flux-type-badge.coffre { background: rgba(255,204,90,0.15); color: var(--gold); border: 1px solid var(--gold-dim); }
+
+/* Stat recap */
+.stat-recap {
+  padding: 8px 10px;
+  border-top: 1px solid var(--border);
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+.stat-rec-item {
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  padding: 5px 6px;
+}
+.stat-rec-val {
+  font-family: var(--font-display);
+  font-size: 16px;
+  color: var(--text);
+  line-height: 1;
+}
+.stat-rec-val.gold { color: var(--gold); }
+.stat-rec-label {
+  font-family: var(--font-cond);
+  font-size: 9px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Ordre actif panel */
+.ordre-panel {
+  padding: 8px 10px;
+  border-top: 1px solid var(--border);
+  background: rgba(204,17,17,0.04);
+}
+.ordre-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 6px;
+}
+.ordre-title {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: var(--red);
+  text-transform: uppercase;
+}
+.ordre-list { display: flex; flex-direction: column; gap: 3px; }
+.ordre-item {
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-red);
+  font-family: var(--font-cond);
+  font-size: 11px;
+  color: var(--text);
+}
+.ordre-icon { font-size: 12px; }
+.ordre-text { flex: 1; }
+.ordre-progress {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-dim);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   BOTTOM TAB BAR
+   ══════════════════════════════════════════════════════════════ */
+#tabbar {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+  height: var(--tabbar-h);
+  background: var(--bg-panel);
+  border-top: 1px solid var(--border-strong);
+  display: flex; align-items: stretch;
+}
+.tab-item {
+  flex: 1;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2px;
+  cursor: pointer;
+  border-right: 1px solid var(--border);
+  transition: background 0.12s;
+  position: relative;
+  font-family: var(--font-cond);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+.tab-item:last-child { border-right: none; }
+.tab-item:hover { background: var(--bg-card); color: var(--text); }
+.tab-item.active {
+  color: var(--red-hot);
+  background: rgba(204,17,17,0.07);
+}
+.tab-item.active::after {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--red);
+  box-shadow: 0 0 6px var(--red);
+}
+.tab-icon { font-size: 16px; line-height: 1; }
+.tab-label { font-size: 8px; letter-spacing: 0.5px; }
+.tab-badge {
+  position: absolute; top: 4px; right: calc(50% - 18px);
+  background: var(--red);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 7px;
+  padding: 0 3px;
+  min-width: 12px;
+  text-align: center;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   MODALS & OVERLAYS
+   ══════════════════════════════════════════════════════════════ */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,0.75);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.15s;
+}
+.modal-overlay.open { opacity: 1; pointer-events: all; }
+.modal {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  width: 420px; max-width: 95vw;
+  max-height: 80vh;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+.modal-header {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--bg-card);
+}
+.modal-title {
+  font-family: var(--font-display);
+  font-size: 18px;
+  letter-spacing: 2px;
+  color: var(--text);
+}
+.modal-zone-status {
+  display: flex; align-items: center; gap: 8px;
+}
+.modal-close {
+  width: 24px; height: 24px;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+  color: var(--text-dim);
+  transition: all 0.1s;
+}
+.modal-close:hover { border-color: var(--red); color: var(--red); }
+.modal-body {
+  padding: 14px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.modal-section-title {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: var(--red-dim);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+/* Zone detail pool */
+.pool-grid {
+  display: flex; flex-wrap: wrap; gap: 4px;
+}
+.pool-poke {
+  display: flex; align-items: center; gap: 3px;
+  padding: 2px 5px;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  font-family: var(--font-cond);
+  font-size: 10px;
+  color: var(--text-dim);
+}
+.pool-poke img {
+  width: 18px; height: 18px;
+  image-rendering: pixelated;
+}
+/* Agent assign list in modal */
+.assign-agent-list {
+  display: flex; flex-direction: column; gap: 4px;
+}
+.assign-agent-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  transition: border-color 0.12s;
+}
+.assign-agent-item:hover { border-color: var(--red-dim); }
+.assign-agent-item.assigned { border-color: var(--red-dim); background: rgba(204,17,17,0.06); }
+.assign-check {
+  width: 16px; height: 16px;
+  border: 1px solid var(--border);
+  background: var(--bg-inset);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; color: var(--red);
+  flex-shrink: 0;
+}
+.assign-check.checked { background: var(--red); color: #fff; border-color: var(--red); }
+.modal-footer {
+  padding: 10px 14px;
+  border-top: 1px solid var(--border);
+  display: flex; gap: 6px;
+  background: var(--bg-card);
+}
+.modal-btn {
+  flex: 1;
+  padding: 8px;
+  font-family: var(--font-cond);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  border: 1px solid var(--border);
+  background: var(--bg-inset);
+  color: var(--text-dim);
+  transition: all 0.12s;
+}
+.modal-btn:hover { border-color: var(--red-dim); color: var(--text); }
+.modal-btn.primary { background: var(--red); border-color: var(--red-hot); color: #fff; }
+.modal-btn.primary:hover { background: var(--red-hot); }
+
+/* ══════════════════════════════════════════════════════════════
+   DEMO BANNER
+   ══════════════════════════════════════════════════════════════ */
+.demo-banner {
+  position: fixed; top: var(--topbar-h); left: 0; right: 0; z-index: 90;
+  background: rgba(90,74,0,0.5);
+  border-bottom: 1px solid var(--gold-dim);
+  padding: 4px 12px;
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--gold);
+  display: none;
+}
+.demo-banner.visible {
+  display: flex;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   NOISE OVERLAY
+   ══════════════════════════════════════════════════════════════ */
+.noise-overlay {
+  position: fixed; inset: 0; z-index: 999;
+  pointer-events: none;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 180px;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   EMPTY STATE
+   ══════════════════════════════════════════════════════════════ */
+.empty-state {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-dimmer);
+}
+.empty-state .e-icon { font-size: 36px; margin-bottom: 8px; }
+.empty-state .e-text {
+  font-family: var(--font-cond);
+  font-size: 14px;
+  letter-spacing: 1px;
+}
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════════════
+     NOISE OVERLAY
+     ════════════════════════════════════════════════════════════ -->
+<div class="noise-overlay"></div>
+
+<!-- ════════════════════════════════════════════════════════════
+     DEMO BANNER (affiché si pas de save)
+     ════════════════════════════════════════════════════════════ -->
+<div class="demo-banner" id="demo-banner">
+  ⚠ Aucune save détectée — données de démonstration générées depuis les zones réelles
+  <button onclick="this.parentElement.style.display='none'" style="margin-left:auto;color:var(--gold);font-size:12px;">✕</button>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     TOPBAR
+     ════════════════════════════════════════════════════════════ -->
+<header id="topbar">
+  <div class="logo">POKEGANG<span>QG PROTO v0.1</span></div>
+  <div class="top-divider"></div>
+  <div class="boss-chip">
+    <div class="boss-avatar">⚡</div>
+    <div>
+      <div class="boss-name" id="boss-name-top">Boss</div>
+      <div class="boss-title" id="boss-title-top">RECRUE</div>
+    </div>
+  </div>
+  <div class="top-divider"></div>
+  <div class="top-metrics">
+    <div class="metric-chip"><span>⭐</span><span class="val" id="top-rep">0</span><span>REP</span></div>
+    <div class="metric-chip gold"><span>₽</span><span class="val" id="top-money">5 000</span></div>
+    <div class="metric-chip"><span>🎯</span><span class="val" id="top-captures">0</span><span>captures</span></div>
+    <div class="metric-chip green"><span>🗺</span><span class="val" id="top-zones">0</span><span>zones tenues</span></div>
+    <div class="metric-chip red"><span>✨</span><span class="val" id="top-shiny">0</span><span>shiny</span></div>
+  </div>
+  <div class="top-actions">
+    <div class="save-badge" id="save-badge">— pas de save —</div>
+    <button class="icon-btn" title="Paramètres">⚙</button>
+  </div>
+</header>
+
+<!-- ════════════════════════════════════════════════════════════
+     MAIN APP SHELL
+     ════════════════════════════════════════════════════════════ -->
+<div id="app">
+
+  <!-- ══ LEFT SIDEBAR ══ -->
+  <aside id="sidebar-left">
+    <!-- Boss HQ -->
+    <div class="boss-hq">
+      <div class="boss-hq-avatar">
+        👤
+        <div class="rank-badge" id="boss-rank">CAPO</div>
+      </div>
+      <div class="boss-hq-name" id="boss-name-main">Boss</div>
+      <div class="boss-hq-subtitle" id="boss-title-main">Chef de gang</div>
+      <div class="boss-stats">
+        <div class="boss-stat"><span class="bs-val" id="boss-combat">10</span><span class="bs-label">Combat</span></div>
+        <div class="boss-stat"><span class="bs-val" id="boss-capture">10</span><span class="bs-label">Capture</span></div>
+        <div class="boss-stat"><span class="bs-val" id="boss-luck">5</span><span class="bs-label">Chance</span></div>
+      </div>
+      <div class="boss-team" id="boss-team">
+        <!-- populated by JS -->
+      </div>
+      <div class="occ-bar-wrap" style="width:100%">
+        <div class="occ-label-row">
+          <span>CONTRÔLE TERRITORIAL</span>
+          <strong id="occ-pct">0%</strong>
+        </div>
+        <div class="occ-bar"><div class="occ-bar-fill" id="occ-fill" style="width:0%"></div></div>
+      </div>
+    </div>
+
+    <!-- Territory summary -->
+    <div class="sidebar-section">
+      <div class="section-label">Territoire</div>
+      <div class="terr-summary" id="terr-summary">
+        <!-- populated by JS -->
+      </div>
+    </div>
+
+    <!-- Agents roster -->
+    <div class="sidebar-section">
+      <div class="section-label">Agents — <span id="agent-count">0</span> opérationnels</div>
+      <div class="agents-list" id="agents-list">
+        <!-- populated by JS -->
+      </div>
+    </div>
+  </aside>
+
+  <!-- ══ MAIN CONTENT ══ -->
+  <main id="main">
+    <!-- Filter bar -->
+    <div id="filter-bar">
+      <div class="filter-group" id="filter-type">
+        <button class="filter-pill active" data-filter-type="all">TOUT</button>
+        <button class="filter-pill" data-filter-type="route">ROUTES</button>
+        <button class="filter-pill" data-filter-type="city">VILLES</button>
+        <button class="filter-pill" data-filter-type="special">SPÉCIALES</button>
+      </div>
+      <div class="filter-sep"></div>
+      <div class="filter-group" id="filter-status">
+        <button class="filter-pill" data-filter-status="tenue">
+          <span class="s-dot" style="width:6px;height:6px;border-radius:50%;background:var(--tenue);display:inline-block;"></span>
+          TENUES <span class="pill-count" id="count-tenue">0</span>
+        </button>
+        <button class="filter-pill" data-filter-status="contestee">
+          <span class="s-dot" style="width:6px;height:6px;border-radius:50%;background:var(--contestee);display:inline-block;"></span>
+          CONTESTÉES <span class="pill-count" id="count-contestee">0</span>
+        </button>
+        <button class="filter-pill" data-filter-status="libre">
+          <span class="s-dot" style="width:6px;height:6px;border-radius:50%;background:var(--libre);display:inline-block;"></span>
+          LIBRES <span class="pill-count" id="count-libre">0</span>
+        </button>
+        <button class="filter-pill" data-filter-status="verrouille">
+          🔒 VERROUILLÉES <span class="pill-count" id="count-verrouille">0</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Zone grid -->
+    <div id="zone-grid-wrap">
+      <div id="zone-grid"></div>
+    </div>
+  </main>
+
+  <!-- ══ RIGHT SIDEBAR ══ -->
+  <aside id="sidebar-right">
+    <!-- Flux live -->
+    <div class="flux-header">
+      <span class="flux-title">FLUX D'ACTIVITÉ</span>
+      <div class="live-dot"></div>
+    </div>
+    <div class="flux-list" id="flux-list">
+      <!-- populated by JS -->
+    </div>
+
+    <!-- Stat recap -->
+    <div class="stat-recap">
+      <div class="stat-rec-item">
+        <div class="stat-rec-val" id="stat-pkm-today">—</div>
+        <div class="stat-rec-label">Pokémon aujourd'hui</div>
+      </div>
+      <div class="stat-rec-item">
+        <div class="stat-rec-val gold" id="stat-money-earned">—</div>
+        <div class="stat-rec-label">₽ Générés</div>
+      </div>
+      <div class="stat-rec-item">
+        <div class="stat-rec-val" id="stat-fights">—</div>
+        <div class="stat-rec-label">Combats gagnés</div>
+      </div>
+      <div class="stat-rec-item">
+        <div class="stat-rec-val" id="stat-agents-active">—</div>
+        <div class="stat-rec-label">Agents en mission</div>
+      </div>
+    </div>
+
+    <!-- Ordres actifs -->
+    <div class="ordre-panel">
+      <div class="ordre-header">
+        <span class="ordre-title">ORDRES ACTIFS</span>
+        <button class="icon-btn" style="width:20px;height:20px;font-size:10px;" title="Nouveaux ordres">+</button>
+      </div>
+      <div class="ordre-list" id="ordre-list">
+        <!-- populated by JS -->
+      </div>
+    </div>
+  </aside>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     BOTTOM TAB BAR
+     ════════════════════════════════════════════════════════════ -->
+<nav id="tabbar">
+  <div class="tab-item active" data-tab="zones">
+    <div class="tab-icon">🗺</div>
+    <div class="tab-label">ZONES</div>
+  </div>
+  <div class="tab-item" data-tab="pc">
+    <div class="tab-icon">💾</div>
+    <div class="tab-label">PC</div>
+  </div>
+  <div class="tab-item" data-tab="agents">
+    <div class="tab-icon">👥</div>
+    <div class="tab-label">AGENTS</div>
+    <div class="tab-badge" id="tab-badge-agents"></div>
+  </div>
+  <div class="tab-item" data-tab="marche">
+    <div class="tab-icon">🛒</div>
+    <div class="tab-label">MARCHÉ</div>
+  </div>
+  <div class="tab-item" data-tab="gang">
+    <div class="tab-icon">💀</div>
+    <div class="tab-label">GANG</div>
+  </div>
+  <div class="tab-item" data-tab="missions">
+    <div class="tab-icon">📋</div>
+    <div class="tab-label">MISSIONS</div>
+    <div class="tab-badge" id="tab-badge-missions"></div>
+  </div>
+  <div class="tab-item" data-tab="combats">
+    <div class="tab-icon">⚔</div>
+    <div class="tab-label">COMBATS</div>
+  </div>
+  <div class="tab-item" data-tab="compte">
+    <div class="tab-icon">☁</div>
+    <div class="tab-label">COMPTE</div>
+  </div>
+</nav>
+
+<!-- ════════════════════════════════════════════════════════════
+     MODAL ZONE DETAIL
+     ════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="zone-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="modal-zone-name">Zone</div>
+        <div style="display:flex;align-items:center;gap:6px;margin-top:2px;">
+          <span class="status-pill" id="modal-zone-status"><span class="s-dot"></span><span id="modal-status-text">—</span></span>
+          <span class="zone-type-badge" id="modal-zone-type">route</span>
+        </div>
+      </div>
+      <div class="modal-zone-status">
+        <button class="modal-close" id="modal-close">✕</button>
+      </div>
+    </div>
+    <div class="modal-body" id="modal-body">
+      <!-- populated by JS -->
+    </div>
+    <div class="modal-footer" id="modal-footer">
+      <button class="modal-btn" id="modal-btn-cancel">Fermer</button>
+      <button class="modal-btn primary" id="modal-btn-action">Ouvrir</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     JAVASCRIPT
+     ════════════════════════════════════════════════════════════ -->
+<script>
+'use strict';
+// ─────────────────────────────────────────────────────────────────
+// CONFIG
+// ─────────────────────────────────────────────────────────────────
+const SD = 'https://play.pokemonshowdown.com/sprites';
+
+function pokeUrl(speciesEn, shiny = false) {
+  if (!speciesEn) return '';
+  const n = speciesEn.toLowerCase()
+    .replace(/['']/g,'').replace(/\.\s*/g,'').replace(/\s+/g,'-')
+    .replace(/♀/g,'-f').replace(/♂/g,'-m');
+  return `${SD}/${shiny ? 'gen5-shiny' : 'gen5'}/${n}.png`;
+}
+
+function fmtMoney(n) {
+  if (!n) return '0';
+  if (n >= 1_000_000) return (n/1_000_000).toFixed(1).replace('.0','') + 'M';
+  if (n >= 1_000) return (n/1_000).toFixed(1).replace('.0','') + 'k';
+  return String(n);
+}
+
+function timeAgo(ts) {
+  if (!ts) return '—';
+  const d = Math.floor((Date.now() - ts) / 1000);
+  if (d < 60) return d + 's';
+  if (d < 3600) return Math.floor(d/60) + 'min';
+  return Math.floor(d/3600) + 'h';
+}
+
+// ─────────────────────────────────────────────────────────────────
+// ZONE TYPE → EMOJI + LABEL
+// ─────────────────────────────────────────────────────────────────
+function zoneEmoji(zone) {
+  if (!zone) return '🗺';
+  if (zone.type === 'city')      return '🏙';
+  if (zone.type === 'special')   return '⭐';
+  if (zone.type === 'gang_park') return '🏴';
+  // route: use pool hints
+  const pool = (zone.pool || []).join(',');
+  if (pool.includes('zubat') || pool.includes('geodude') || pool.includes('onix')) return '🗻';
+  if (pool.includes('tentacool') || pool.includes('shellder') || pool.includes('lapras')) return '🌊';
+  if (pool.includes('gastly') || pool.includes('haunter')) return '👻';
+  if (pool.includes('pikachu') || pool.includes('voltorb')) return '⚡';
+  if (pool.includes('caterpie') || pool.includes('oddish')) return '🌿';
+  return '🛤';
+}
+
+// Terrain type label (vocabulary: cellule, repaire, front…)
+function zoneTerrain(zone) {
+  if (!zone) return '';
+  if (zone.type === 'gang_park') return 'REPAIRE';
+  if (zone.type === 'city')      return 'SECTEUR';
+  if (zone.type === 'special')   return 'FRONT';
+  // route sub-types
+  const pool = (zone.pool || []).join(',');
+  if (pool.includes('zubat') && pool.includes('geodude')) return 'GROTTE';
+  if (pool.includes('tentacool') || pool.includes('shellder')) return 'CÔTIER';
+  if (pool.includes('gastly') || pool.includes('haunter')) return 'CELLULE';
+  if (pool.includes('pikachu') || pool.includes('voltorb')) return 'CENTRALE';
+  if (pool.includes('caterpie') || pool.includes('oddish') || pool.includes('pikachu')) return 'FORÊT';
+  return 'ROUTE';
+}
+
+// ─────────────────────────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────────────────────────
+let _state = null;
+let _isDemo = false;
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem('pokeforge.v6');
+    if (raw) {
+      _state = JSON.parse(raw);
+      return;
+    }
+  } catch(e) {}
+  _isDemo = true;
+  _state = buildDemoState();
+}
+
+// ─────────────────────────────────────────────────────────────────
+// DEMO STATE (built from real ZONES + POKEMON_GEN1 data)
+// ─────────────────────────────────────────────────────────────────
+function buildDemoState() {
+  // Compute demo agent zone assignments
+  const demoAgents = [
+    { id:'a1', name:'Ryusaki', sprite:'ace', type:'combat', assignedZone:'route1', potential:'A', level:18 },
+    { id:'a2', name:'Malaika', sprite:'rocketgrunt', type:'capture', assignedZone:'viridian_forest', potential:'S', level:22 },
+    { id:'a3', name:'Chen',    sprite:'hiker', type:'combat', assignedZone:'mt_moon', potential:'B', level:14 },
+    { id:'a4', name:'Yuki',    sprite:'lass',  type:'capture', assignedZone:'viridian_forest', potential:'A', level:19 },
+    { id:'a5', name:'Vincente',sprite:'gentleman', type:'admin', assignedZone:'celadon_casino', potential:'S+', level:31 },
+    { id:'a6', name:'Sora',    sprite:'psychic', type:'capture', assignedZone:null, potential:'B', level:11 },
+  ];
+
+  const species = (typeof POKEMON_GEN1 !== 'undefined') ? POKEMON_GEN1.slice(0,20) : [
+    {en:'pikachu',fr:'Pikachu'},{en:'charmander',fr:'Salamèche'},
+    {en:'bulbasaur',fr:'Bulbizarre'},{en:'gengar',fr:'Ectoplasma'},
+    {en:'alakazam',fr:'Alakazam'},{en:'mewtwo',fr:'Mewtwo'},
+  ];
+
+  function rndSpecies() { return species[Math.floor(Math.random()*species.length)]; }
+  function rndStars() { const r = Math.random(); return r < 0.05 ? '★★★★★' : r < 0.2 ? '★★★★' : r < 0.5 ? '★★★' : '★★'; }
+
+  // Recent captures feed from zone logs
+  const recentCaptures = [];
+  for (let i = 0; i < 18; i++) {
+    const sp = rndSpecies();
+    const agent = demoAgents[Math.floor(Math.random()*demoAgents.length)];
+    const allZones = (typeof ZONES !== 'undefined') ? ZONES.filter(z=>z.id !== 'gang_park') : [];
+    const zone = allZones[Math.floor(Math.random()*allZones.length)] || {fr:'Route 1', id:'route1'};
+    recentCaptures.push({
+      ts: Date.now() - Math.floor(Math.random() * 3600000),
+      msg: `${agent.name} a capturé un ${sp.fr || sp.en} (${rndStars()}) en ${zone.fr}`,
+      species_en: sp.en,
+      agentName: agent.name,
+      zoneFr: zone.fr,
+      type: 'cap',
+      shiny: Math.random() < 0.02,
+    });
+  }
+  recentCaptures.sort((a,b) => b.ts - a.ts);
+
+  // Boss team: pick a few species from real pools
+  const bossSpecies = ['gengar','alakazam','persian','arcanine'];
+
+  return {
+    gang: {
+      name: 'Team Inferno',
+      bossName: 'Giovanni',
+      reputation: 847,
+      money: 2341500,
+      titleA: 'capo',
+      titleB: 'de l\'ombre',
+      bossTeam: bossSpecies.map((en,i) => ({
+        id: 'b'+i, species_en: en, level: 50 + i*5,
+        shiny: en === 'persian',
+      })),
+      bossZone: 'route1',
+    },
+    agents: demoAgents,
+    stats: {
+      totalCaught: 1204,
+      totalSold: 380,
+      totalMoneyEarned: 4100000,
+      totalFightsWon: 328,
+      shinyCaught: 3,
+    },
+    log: recentCaptures.map(c => ({ ts: c.ts, msg: c.msg, species_en: c.species_en, type: c.type, shiny: c.shiny })),
+    zones: {
+      // zone runtime state
+      route1:         { investments:1, combatCount:12 },
+      viridian_forest:{ investments:2, combatCount:8 },
+      mt_moon:        { investments:0, combatCount:3 },
+      celadon_casino: { investments:1, combatCount:7 },
+    },
+    playerStats: { baseStats: { combat: 14, capture: 12, luck: 7 }, allocatedStats: { combat: 4, capture: 2, luck: 2 }, statPoints: 1 },
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────
+// ZONE STATUS ENGINE
+// ─────────────────────────────────────────────────────────────────
+// Status: 'tenue' | 'contestee' | 'libre' | 'neutre' | 'verrouille'
+function getZoneStatus(zone) {
+  const s = _state;
+  const rep = s.gang.reputation || 0;
+
+  // Locked: rep < threshold
+  if (zone.rep > rep) return 'verrouille';
+
+  // How many agents assigned here?
+  const assignedAgents = (s.agents || []).filter(a => a.assignedZone === zone.id);
+  const agentCount = assignedAgents.length;
+
+  // Contested: has agents but low investments / combat pressure
+  if (agentCount >= 1) {
+    const zoneData = (s.zones || {})[zone.id] || {};
+    const combats = zoneData.combatCount || 0;
+    if (combats > 10 && agentCount < 2) return 'contestee';
+    return 'tenue';
+  }
+
+  // Libre: unlocked but no agents
+  return 'libre';
+}
+
+function getStatusLabel(status) {
+  const labels = {
+    tenue:     'TENUE',
+    contestee: 'CONTESTÉE',
+    libre:     'LIBRE',
+    neutre:    'NEUTRE',
+    verrouille:'VERROUILLÉE',
+  };
+  return labels[status] || status;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// FILTER STATE
+// ─────────────────────────────────────────────────────────────────
+let _filterType   = 'all';
+let _filterStatus = null;
+
+// ─────────────────────────────────────────────────────────────────
+// BUILD ZONE CARD
+// ─────────────────────────────────────────────────────────────────
+function buildZoneCard(zone) {
+  const status    = getZoneStatus(zone);
+  const assignedA = (_state.agents || []).filter(a => a.assignedZone === zone.id);
+  const emoji     = zoneEmoji(zone);
+  const terrain   = zoneTerrain(zone);
+  const zoneData  = (_state.zones || {})[zone.id] || {};
+  const rep       = _state.gang.reputation || 0;
+  const isLocked  = status === 'verrouille';
+
+  // Recent captures from log for this zone
+  const feedEntries = (_state.log || [])
+    .filter(l => l.type === 'cap' && (l.msg || '').toLowerCase().includes((zone.fr || '').toLowerCase().split(' ')[0].toLowerCase()))
+    .slice(0, 2);
+
+  // Influence percentage (mock: based on agent count + investments)
+  const investments = zoneData.investments || 0;
+  const influencePct = isLocked ? 0 : Math.min(100, (assignedA.length * 35) + (investments * 15));
+
+  // Actions
+  let primaryLabel = 'OUVRIR';
+  let primaryClass = 'primary';
+  let secondaryLabel = 'ASSIGNER';
+  let primaryDisabled = false;
+
+  if (isLocked) {
+    primaryLabel = 'VERROUILLÉE';
+    primaryDisabled = true;
+    primaryClass = '';
+    secondaryLabel = '— REP —';
+  } else if (status === 'tenue') {
+    primaryLabel = 'RENFORCER';
+    secondaryLabel = 'GÉRER';
+  } else if (status === 'contestee') {
+    primaryLabel = 'REPRENDRE';
+    primaryClass = 'danger';
+    secondaryLabel = 'AGENTS';
+  } else {
+    primaryLabel = 'OCCUPER';
+    secondaryLabel = 'EXPLORER';
+  }
+
+  const card = document.createElement('div');
+  card.className = `zone-card ${status}`;
+  card.dataset.zoneId = zone.id;
+  card.dataset.status = status;
+  card.dataset.type = zone.type;
+
+  card.innerHTML = `
+    <div class="zone-card-header">
+      <div class="zone-art">
+        <div class="zone-art-bg"></div>
+        <div class="zone-art-inner">${emoji}</div>
+      </div>
+      <div class="zone-header-info">
+        <div class="zone-name-row">
+          <div class="zone-name">${zone.fr}</div>
+          <span class="zone-type-badge ${zone.type}">${terrain}</span>
+        </div>
+        <div class="zone-status-row">
+          <div class="status-pill ${status}">
+            <span class="s-dot"></span>
+            ${getStatusLabel(status)}
+          </div>
+          ${!isLocked ? `<div class="spawn-timer ${status==='tenue'||status==='contestee'?'active':''}">
+            ⏱ ${status==='tenue' ? '00:'+String(Math.floor(Math.random()*59)).padStart(2,'0') : '—'}
+          </div>` : ''}
+          <div class="zone-agent-count">
+            👥 <span class="aval">${assignedA.length}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="zone-card-body">
+      ${isLocked ? `
+        <div class="rep-threshold">
+          <div class="rep-bar"><div class="rep-fill" style="width:${Math.min(100,(rep/zone.rep*100).toFixed(0))}%"></div></div>
+          <span class="rep-label">⭐ ${rep} / ${zone.rep}</span>
+        </div>
+        <div style="font-family:var(--font-cond);font-size:10px;color:var(--text-dimmer);">
+          Augmentez votre réputation pour accéder à cette zone.
+        </div>
+      ` : `
+        <!-- Influence bar -->
+        <div class="zone-influence">
+          <div class="influence-bar"><div class="influence-fill" style="width:${influencePct}%"></div></div>
+          <span class="influence-label">${influencePct}% INFLUENCE</span>
+        </div>
+
+        <!-- Recent captures feed -->
+        <div class="zone-feed">
+          ${feedEntries.length > 0 ? feedEntries.map(e => {
+            const sp = (e.msg||'').match(/capturé un ([^\(]+)/)?.[1]?.trim() || '—';
+            const stars = (e.msg||'').match(/\((★+)\)/)?.[1] || '';
+            return `<div class="zone-feed-entry">
+              <img class="feed-sprite" src="${pokeUrl(e.species_en)}" onerror="this.style.display='none'">
+              <span>${sp}</span>
+              <span class="feed-stars">${stars}</span>
+              <span class="feed-time">${timeAgo(e.ts)}</span>
+            </div>`;
+          }).join('') : `<div style="font-family:var(--font-cond);font-size:10px;color:var(--text-dimmer);">
+            Aucune activité récente
+          </div>`}
+        </div>
+
+        <!-- Agents assignés -->
+        ${assignedA.length > 0 ? `<div style="display:flex;gap:3px;flex-wrap:wrap;">
+          ${assignedA.map(a => `<div style="background:var(--bg-inset);border:1px solid var(--border-red);padding:2px 5px;font-family:var(--font-mono);font-size:8px;color:var(--red);">
+            ${a.name}
+          </div>`).join('')}
+        </div>` : ''}
+      `}
+    </div>
+
+    <div class="zone-card-actions">
+      <button class="zone-action-btn" ${isLocked ? 'disabled' : ''} onclick="openZoneModal('${zone.id}')" title="${secondaryLabel}">
+        ${secondaryLabel}
+      </button>
+      <button class="zone-action-btn ${primaryClass}" ${primaryDisabled ? 'disabled' : ''} onclick="handlePrimaryAction('${zone.id}','${status}')">
+        ${primaryLabel}
+      </button>
+    </div>
+  `;
+
+  return card;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// RENDER ZONE GRID
+// ─────────────────────────────────────────────────────────────────
+function renderGrid() {
+  const grid = document.getElementById('zone-grid');
+  grid.innerHTML = '';
+
+  const allZones = (typeof ZONES !== 'undefined') ? ZONES.filter(z => z.id !== 'gang_park') : [];
+
+  // Count by status
+  const counts = { tenue:0, contestee:0, libre:0, verrouille:0 };
+  allZones.forEach(z => {
+    const s = getZoneStatus(z);
+    counts[s] = (counts[s]||0) + 1;
+  });
+
+  document.getElementById('count-tenue').textContent     = counts.tenue;
+  document.getElementById('count-contestee').textContent = counts.contestee;
+  document.getElementById('count-libre').textContent     = counts.libre;
+  document.getElementById('count-verrouille').textContent= counts.verrouille;
+
+  // Filter
+  const filtered = allZones.filter(z => {
+    if (_filterType !== 'all' && z.type !== _filterType) return false;
+    if (_filterStatus && getZoneStatus(z) !== _filterStatus) return false;
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    grid.innerHTML = `<div class="empty-state"><div class="e-icon">🗺</div><div class="e-text">Aucune zone ne correspond au filtre actif</div></div>`;
+    return;
+  }
+
+  // Sort: tenue first, then contestee, libre, verrouille
+  const order = { tenue:0, contestee:1, libre:2, neutre:3, verrouille:4 };
+  filtered.sort((a,b) => (order[getZoneStatus(a)]||99) - (order[getZoneStatus(b)]||99));
+
+  filtered.forEach(zone => {
+    grid.appendChild(buildZoneCard(zone));
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────
+// RENDER TOPBAR + SIDEBAR
+// ─────────────────────────────────────────────────────────────────
+function renderTopBar() {
+  const s = _state;
+  const g = s.gang;
+
+  document.getElementById('boss-name-top').textContent  = g.bossName || 'Boss';
+  document.getElementById('boss-title-top').textContent = (g.titleA || 'Recrue').toUpperCase();
+  document.getElementById('top-rep').textContent        = (g.reputation || 0).toLocaleString('fr-FR');
+  document.getElementById('top-money').textContent      = fmtMoney(g.money);
+  document.getElementById('top-captures').textContent   = (s.stats?.totalCaught || 0).toLocaleString('fr-FR');
+  document.getElementById('top-shiny').textContent      = s.stats?.shinyCaught || 0;
+
+  // Count tenue zones
+  const allZones = (typeof ZONES !== 'undefined') ? ZONES.filter(z => z.id !== 'gang_park') : [];
+  const tenueCount = allZones.filter(z => getZoneStatus(z) === 'tenue').length;
+  document.getElementById('top-zones').textContent = tenueCount;
+
+  // Save badge
+  const savedAt = s._savedAt || 0;
+  document.getElementById('save-badge').textContent = savedAt
+    ? 'sauvegardé ' + timeAgo(savedAt)
+    : _isDemo ? '⚠ DÉMO' : '—';
+}
+
+function renderBossPanel() {
+  const s = _state;
+  const g = s.gang;
+  const ps = s.playerStats;
+
+  document.getElementById('boss-name-main').textContent  = g.bossName || 'Boss';
+  document.getElementById('boss-title-main').textContent = [g.titleA, g.titleB, g.titleC].filter(Boolean).join(' ') || 'Recrue';
+  document.getElementById('boss-rank').textContent       = (g.titleA || 'recrue').toUpperCase();
+
+  // Stats
+  const base = ps?.baseStats || { combat:10, capture:10, luck:5 };
+  const alloc = ps?.allocatedStats || {};
+  document.getElementById('boss-combat').textContent  = (base.combat||10) + (alloc.combat||0);
+  document.getElementById('boss-capture').textContent = (base.capture||10) + (alloc.capture||0);
+  document.getElementById('boss-luck').textContent    = (base.luck||5) + (alloc.luck||0);
+
+  // Boss team
+  const teamSlot = document.getElementById('boss-team');
+  const team = g.bossTeam || [];
+  const slots = team.slice(0, 6);
+  while (slots.length < 6) slots.push(null);
+  teamSlot.innerHTML = slots.map(p => p ? `
+    <div class="boss-slot" title="${p.species_en || ''} Niv.${p.level||'?'}">
+      <img src="${pokeUrl(p.species_en, p.shiny)}" onerror="this.src=''" alt="">
+      <span class="slot-name">${(p.species_en||'').substring(0,6)}</span>
+    </div>
+  ` : `<div class="boss-slot empty"></div>`).join('');
+
+  // Occupation %
+  const allZones = (typeof ZONES !== 'undefined') ? ZONES.filter(z => z.id !== 'gang_park') : [];
+  const tenueCnt = allZones.filter(z => getZoneStatus(z) === 'tenue').length;
+  const unlocked = allZones.filter(z => getZoneStatus(z) !== 'verrouille').length;
+  const pct = unlocked > 0 ? Math.round((tenueCnt / unlocked) * 100) : 0;
+  document.getElementById('occ-pct').textContent = pct + '%';
+  document.getElementById('occ-fill').style.width = pct + '%';
+}
+
+function renderTerrSummary() {
+  const allZones = (typeof ZONES !== 'undefined') ? ZONES.filter(z => z.id !== 'gang_park') : [];
+  const counts = { tenue:0, contestee:0, libre:0, verrouille:0 };
+  allZones.forEach(z => {
+    const s = getZoneStatus(z);
+    counts[s] = (counts[s]||0)+1;
+  });
+
+  document.getElementById('terr-summary').innerHTML = `
+    <div class="terr-stat"><div class="terr-dot tenue"></div><div class="tv">${counts.tenue}</div><div class="tl">Zones<br>Tenues</div></div>
+    <div class="terr-stat"><div class="terr-dot contestee"></div><div class="tv">${counts.contestee}</div><div class="tl">Zones<br>Contestées</div></div>
+    <div class="terr-stat"><div class="terr-dot libre"></div><div class="tv">${counts.libre}</div><div class="tl">Zones<br>Libres</div></div>
+    <div class="terr-stat"><div class="terr-dot verrouille"></div><div class="tv">${counts.verrouille}</div><div class="tl">Verrouil-<br>lées</div></div>
+  `;
+}
+
+function renderAgentsList() {
+  const agents = _state.agents || [];
+  const allZones = (typeof ZONES !== 'undefined') ? ZONES : [];
+
+  document.getElementById('agent-count').textContent = agents.length;
+  document.getElementById('tab-badge-agents').textContent = agents.filter(a => !a.assignedZone).length || '';
+
+  const html = agents.map(a => {
+    const zone = allZones.find(z => z.id === a.assignedZone);
+    const typeIcon = { combat:'⚔', capture:'🎯', admin:'📋' }[a.type] || '👤';
+    const assigned = !!a.assignedZone;
+    return `<div class="agent-row" title="${a.name} — ${a.type} — Potentiel ${a.potential}">
+      <div class="agent-avatar">${typeIcon}</div>
+      <div class="agent-info">
+        <div class="agent-name">${a.name}</div>
+        <div class="agent-role">${(a.type||'agent').toUpperCase()} · ${a.potential||'B'} · Niv.${a.level||'?'}</div>
+      </div>
+      <div class="agent-zone-badge ${assigned ? 'assigned' : ''}">
+        ${zone ? zone.fr.substring(0,8) : 'LIBRE'}
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('agents-list').innerHTML = html || '<div style="color:var(--text-dimmer);font-family:var(--font-cond);font-size:11px;">Aucun agent recruté</div>';
+}
+
+// ─────────────────────────────────────────────────────────────────
+// FLUX D'ACTIVITÉ
+// ─────────────────────────────────────────────────────────────────
+function renderFlux() {
+  const log = (_state.log || []).slice(0, 30);
+  const allZones = (typeof ZONES !== 'undefined') ? ZONES : [];
+
+  const html = log.map(entry => {
+    const msg   = entry.msg || '';
+    const type  = entry.type || 'cap';
+    const shiny = !!entry.shiny;
+    const ts    = entry.ts || 0;
+
+    // Parse species & zone from msg
+    const capMatch  = msg.match(/capturé un ([^\(]+)/);
+    const zoneMatch = msg.match(/en ([^\.]+)$/);
+    const agentMatch= msg.match(/^([^ ]+) a /);
+
+    const speciesName = (capMatch?.[1] || '').trim();
+    const zoneName    = (zoneMatch?.[1] || '').trim();
+    const agentName   = (agentMatch?.[1] || 'Agent').trim();
+    const species_en  = entry.species_en || '';
+
+    const typeBadge = { cap:'CAP', combat:'COMBAT', coffre:'COFFRE' }[type] || type;
+
+    return `<div class="flux-entry">
+      <img class="flux-sprite" src="${pokeUrl(species_en)}" onerror="this.style.display='none'" alt="">
+      <div class="flux-content">
+        <div class="flux-pokemon">${shiny ? '<span class="flux-shiny">✨</span> ' : ''}${speciesName || msg.substring(0,24)}
+          <span class="flux-type-badge ${type}">${typeBadge}</span>
+        </div>
+        <div class="flux-meta"><span class="flux-zone">${zoneName || '—'}</span> · ${agentName}</div>
+      </div>
+      <div class="flux-time">${timeAgo(ts)}</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('flux-list').innerHTML = html || '<div style="padding:12px;color:var(--text-dimmer);font-family:var(--font-cond);font-size:11px;">Aucune activité récente</div>';
+}
+
+// ─────────────────────────────────────────────────────────────────
+// STAT RECAP
+// ─────────────────────────────────────────────────────────────────
+function renderStatRecap() {
+  const s = _state.stats || {};
+  const agents = _state.agents || [];
+
+  document.getElementById('stat-pkm-today').textContent      = s.totalCaught || 0;
+  document.getElementById('stat-money-earned').textContent   = fmtMoney(s.totalMoneyEarned || 0);
+  document.getElementById('stat-fights').textContent         = s.totalFightsWon || 0;
+  document.getElementById('stat-agents-active').textContent  = agents.filter(a => a.assignedZone).length;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// ORDRES ACTIFS (mock)
+// ─────────────────────────────────────────────────────────────────
+function renderOrdres() {
+  const agents = _state.agents || [];
+  const allZones = (typeof ZONES !== 'undefined') ? ZONES : [];
+
+  // Generate fake "active orders" from agent assignments
+  const ordres = agents.filter(a => a.assignedZone).map(a => {
+    const zone = allZones.find(z => z.id === a.assignedZone);
+    const icons = { combat:'⚔', capture:'🎯', admin:'📋' };
+    const verbs = { combat:'Sécuriser', capture:'Capturer dans', admin:'Administrer' };
+    return {
+      icon: icons[a.type] || '📌',
+      text: `${verbs[a.type]||'Mission'} ${zone?.fr||a.assignedZone}`,
+      agent: a.name,
+      progress: Math.floor(Math.random()*100),
+    };
+  }).slice(0, 4);
+
+  document.getElementById('ordre-list').innerHTML = ordres.map(o => `
+    <div class="ordre-item">
+      <span class="ordre-icon">${o.icon}</span>
+      <div class="ordre-text">
+        <div style="font-size:11px;font-family:var(--font-cond);">${o.text}</div>
+        <div style="font-size:9px;font-family:var(--font-mono);color:var(--text-dim);">${o.agent}</div>
+      </div>
+      <span class="ordre-progress">${o.progress}%</span>
+    </div>
+  `).join('') || '<div style="color:var(--text-dimmer);font-family:var(--font-cond);font-size:11px;padding:4px 0;">Aucun ordre actif</div>';
+}
+
+// ─────────────────────────────────────────────────────────────────
+// MODAL ZONE DETAIL
+// ─────────────────────────────────────────────────────────────────
+let _modalZoneId = null;
+
+function openZoneModal(zoneId) {
+  const allZones = (typeof ZONES !== 'undefined') ? ZONES : [];
+  const zone = allZones.find(z => z.id === zoneId);
+  if (!zone) return;
+
+  _modalZoneId = zoneId;
+  const status = getZoneStatus(zone);
+  const assigned = (_state.agents || []).filter(a => a.assignedZone === zoneId);
+  const freeAgents = (_state.agents || []).filter(a => !a.assignedZone);
+  const terrain = zoneTerrain(zone);
+  const emoji = zoneEmoji(zone);
+
+  // Modal header
+  document.getElementById('modal-zone-name').textContent = zone.fr;
+  const statusEl = document.getElementById('modal-zone-status');
+  statusEl.className = 'status-pill ' + status;
+  statusEl.innerHTML = `<span class="s-dot"></span>`;
+  document.getElementById('modal-status-text').textContent = getStatusLabel(status);
+  const typeEl = document.getElementById('modal-zone-type');
+  typeEl.className = `zone-type-badge ${zone.type}`;
+  typeEl.textContent = terrain;
+
+  // Pool
+  const pool = zone.pool || [];
+  const poolHtml = pool.length > 0
+    ? `<div>
+        <div class="modal-section-title">POOL DE CAPTURES</div>
+        <div class="pool-grid">
+          ${pool.map(en => `<div class="pool-poke">
+            <img src="${pokeUrl(en)}" onerror="this.style.display='none'" alt="">
+            ${en}
+          </div>`).join('')}
+        </div>
+      </div>`
+    : '';
+
+  // Assigned agents
+  const agentsHtml = `<div>
+    <div class="modal-section-title">AGENTS ASSIGNÉS (${assigned.length})</div>
+    <div class="assign-agent-list">
+      ${assigned.map(a => `
+        <div class="assign-agent-item assigned">
+          <div class="assign-check checked">✓</div>
+          <div style="flex:1">
+            <div style="font-family:var(--font-cond);font-weight:700;font-size:13px;">${a.name}</div>
+            <div style="font-family:var(--font-mono);font-size:9px;color:var(--text-dim);">${(a.type||'agent').toUpperCase()} · Potentiel ${a.potential}</div>
+          </div>
+          <button onclick="unassignAgent('${a.id}')" style="font-family:var(--font-mono);font-size:9px;color:var(--red);border:1px solid var(--red-dim);padding:2px 6px;background:transparent;cursor:pointer;">RETIRER</button>
+        </div>
+      `).join('')}
+      ${freeAgents.map(a => `
+        <div class="assign-agent-item">
+          <div class="assign-check">+</div>
+          <div style="flex:1">
+            <div style="font-family:var(--font-cond);font-weight:700;font-size:13px;">${a.name}</div>
+            <div style="font-family:var(--font-mono);font-size:9px;color:var(--text-dim);">${(a.type||'agent').toUpperCase()} · Potentiel ${a.potential} · LIBRE</div>
+          </div>
+          <button onclick="assignAgent('${a.id}','${zoneId}')" style="font-family:var(--font-mono);font-size:9px;color:var(--green);border:1px solid var(--green-dim);padding:2px 6px;background:transparent;cursor:pointer;">ASSIGNER</button>
+        </div>
+      `).join('')}
+      ${(assigned.length + freeAgents.length) === 0 ? '<div style="color:var(--text-dimmer);font-family:var(--font-cond);font-size:11px;">Aucun agent disponible</div>' : ''}
+    </div>
+  </div>`;
+
+  // Zone info
+  const zoneInfo = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+    <div class="boss-stat"><span class="bs-val">${zone.rep || 0}</span><span class="bs-label">REP requise</span></div>
+    <div class="boss-stat"><span class="bs-val">${zone.investCost ? fmtMoney(zone.investCost) : '—'}</span><span class="bs-label">Coût invest.</span></div>
+    <div class="boss-stat"><span class="bs-val">${zone.spawnRate ? (zone.spawnRate*100).toFixed(0)+'%' : '—'}</span><span class="bs-label">Taux spawn</span></div>
+    <div class="boss-stat"><span class="bs-val">${zone.gymLeader ? zone.gymLeader.charAt(0).toUpperCase()+zone.gymLeader.slice(1) : '—'}</span><span class="bs-label">Élite</span></div>
+  </div>`;
+
+  document.getElementById('modal-body').innerHTML = zoneInfo + agentsHtml + poolHtml;
+
+  // Footer button
+  const btnAction = document.getElementById('modal-btn-action');
+  if (status === 'verrouille') {
+    btnAction.textContent = 'VERROUILLÉE';
+    btnAction.disabled = true;
+  } else if (status === 'tenue') {
+    btnAction.textContent = 'RENFORCER';
+    btnAction.disabled = false;
+  } else {
+    btnAction.textContent = 'OCCUPER';
+    btnAction.disabled = false;
+  }
+
+  document.getElementById('zone-modal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('zone-modal').classList.remove('open');
+  _modalZoneId = null;
+}
+
+function assignAgent(agentId, zoneId) {
+  const agent = (_state.agents || []).find(a => a.id === agentId);
+  if (agent) {
+    agent.assignedZone = zoneId;
+    renderAll();
+    if (_modalZoneId) openZoneModal(_modalZoneId);
+  }
+}
+
+function unassignAgent(agentId) {
+  const agent = (_state.agents || []).find(a => a.id === agentId);
+  if (agent) {
+    agent.assignedZone = null;
+    renderAll();
+    if (_modalZoneId) openZoneModal(_modalZoneId);
+  }
+}
+
+function handlePrimaryAction(zoneId, status) {
+  openZoneModal(zoneId);
+}
+
+// ─────────────────────────────────────────────────────────────────
+// FILTER INTERACTIONS
+// ─────────────────────────────────────────────────────────────────
+document.getElementById('filter-bar').addEventListener('click', e => {
+  const pill = e.target.closest('.filter-pill');
+  if (!pill) return;
+
+  if (pill.dataset.filterType !== undefined) {
+    document.querySelectorAll('[data-filter-type]').forEach(p => p.classList.remove('active'));
+    pill.classList.add('active');
+    _filterType = pill.dataset.filterType;
+    renderGrid();
+  }
+
+  if (pill.dataset.filterStatus !== undefined) {
+    const wasActive = pill.classList.contains('active');
+    document.querySelectorAll('[data-filter-status]').forEach(p => p.classList.remove('active'));
+    if (!wasActive) {
+      pill.classList.add('active');
+      _filterStatus = pill.dataset.filterStatus;
+    } else {
+      _filterStatus = null;
+    }
+    renderGrid();
+  }
+});
+
+// Tab bar
+document.getElementById('tabbar').addEventListener('click', e => {
+  const tab = e.target.closest('.tab-item');
+  if (!tab) return;
+  document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+  tab.classList.add('active');
+  // In the real game, this would switch views — here just visual
+});
+
+// Modal
+document.getElementById('modal-close').addEventListener('click', closeModal);
+document.getElementById('modal-btn-cancel').addEventListener('click', closeModal);
+document.getElementById('zone-modal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeModal();
+});
+document.getElementById('modal-btn-action').addEventListener('click', () => {
+  if (_modalZoneId) {
+    const status = getZoneStatus((ZONES||[]).find(z=>z.id===_modalZoneId)||{});
+    // Demo action feedback
+    const btn = document.getElementById('modal-btn-action');
+    const orig = btn.textContent;
+    btn.textContent = '✓ ENVOYÉ';
+    btn.disabled = true;
+    setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 1200);
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────
+// LIVE FLUX SIMULATION (adds a fake entry every ~8s in demo)
+// ─────────────────────────────────────────────────────────────────
+function simulateFluxEntry() {
+  if (!_isDemo) return;
+  const allZones = (typeof ZONES !== 'undefined') ? ZONES.filter(z=>z.id!=='gang_park') : [];
+  const agents   = _state.agents || [];
+  if (!allZones.length || !agents.length) return;
+
+  const zone    = allZones[Math.floor(Math.random()*allZones.length)];
+  const agent   = agents[Math.floor(Math.random()*agents.length)];
+  const pool    = zone.pool || [];
+  if (!pool.length) return;
+  const species_en = pool[Math.floor(Math.random()*pool.length)];
+  const stars   = ['★★', '★★★', '★★★', '★★★★'][Math.floor(Math.random()*4)];
+  const shiny   = Math.random() < 0.03;
+
+  _state.log.unshift({
+    ts: Date.now(),
+    msg: `${agent.name} a capturé un ${species_en} (${stars}) en ${zone.fr}`,
+    species_en,
+    type: 'cap',
+    shiny,
+  });
+  _state.log = _state.log.slice(0, 50);
+  renderFlux();
+}
+
+// ─────────────────────────────────────────────────────────────────
+// RENDER ALL
+// ─────────────────────────────────────────────────────────────────
+function renderAll() {
+  renderTopBar();
+  renderBossPanel();
+  renderTerrSummary();
+  renderAgentsList();
+  renderGrid();
+  renderFlux();
+  renderStatRecap();
+  renderOrdres();
+}
+
+// ─────────────────────────────────────────────────────────────────
+// BOOT
+// ─────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  loadState();
+
+  if (_isDemo) {
+    document.getElementById('demo-banner').classList.add('visible');
+    // Adjust app top to account for banner
+    document.getElementById('app').style.top = 'calc(var(--topbar-h) + 28px)';
+    document.getElementById('filter-bar');
+  }
+
+  renderAll();
+
+  // Simulate flux in demo mode
+  if (_isDemo) {
+    setInterval(simulateFluxEntry, 7000 + Math.random()*4000);
+  }
+
+  // Refresh timers every second
+  setInterval(() => {
+    // Update spawn timers on cards (no full re-render, just the timer badges)
+    document.querySelectorAll('.spawn-timer.active').forEach(el => {
+      const secs = Math.floor(Math.random() * 59);
+      const mins = Math.floor(Math.random() * 2);
+      el.textContent = `⏱ ${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+    });
+  }, 1000);
+});
+</script>
+</body>
+</html>
