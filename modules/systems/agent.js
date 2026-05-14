@@ -847,6 +847,9 @@ function unlockAgent(agentId) {
 // ── Rattrapage des ticks agents quand le joueur revient ──────────
 document.addEventListener('visibilitychange', () => {
   if (document.hidden || _hiddenAgentTicks === 0) return;
+  // Cap volontaire à 30 ticks : évite un freeze UI si l'onglet est resté
+  // masqué très longtemps. Le rattrapage long terme est géré par
+  // offlineCatchup.js au boot (rejoignez l'état après une vraie absence).
   const toProcess = Math.min(_hiddenAgentTicks, 30);
   _hiddenAgentTicks = 0;
   const state = globalThis.state;
