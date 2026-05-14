@@ -1,0 +1,1377 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pokegang — Proto Gang Base Main</title>
+  <style>
+    :root{
+      --bg:#070708;
+      --bg2:#0d0e12;
+      --panel:#12141b;
+      --panel2:#171a22;
+      --line:rgba(255,255,255,.08);
+      --line-strong:rgba(255,70,70,.28);
+      --text:#f2f2f3;
+      --text-dim:#9ca3af;
+      --text-soft:#707785;
+      --red:#c6172c;
+      --red2:#ef3e51;
+      --red-dark:#61111b;
+      --gold:#f7cc62;
+      --green:#48c37f;
+      --blue:#5d93ff;
+      --shadow:0 18px 60px rgba(0,0,0,.4);
+      --radius:20px;
+      --radius-sm:14px;
+      --font-main:Inter,Segoe UI,Arial,sans-serif;
+      --font-pixel:"Courier New",monospace;
+    }
+
+    *{box-sizing:border-box}
+    html,body{
+      margin:0;
+      background:
+        radial-gradient(circle at top, rgba(120,10,20,.25), transparent 30%),
+        linear-gradient(180deg, #0b0b0d 0%, #070708 100%);
+      color:var(--text);
+      font-family:var(--font-main);
+      min-height:100%;
+    }
+
+    body{padding:16px}
+
+    .app{
+      width:min(1600px,100%);
+      margin:0 auto;
+      display:grid;
+      grid-template-columns:240px minmax(0,1fr) 340px;
+      gap:16px;
+    }
+
+    .panel{
+      background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.015));
+      border:1px solid var(--line);
+      border-radius:24px;
+      box-shadow:var(--shadow);
+      overflow:hidden;
+      min-width:0;
+    }
+
+    /* LEFT */
+    .sidebar{
+      padding:18px;
+      display:flex;
+      flex-direction:column;
+      gap:18px;
+      background:linear-gradient(180deg, rgba(198,23,44,.12), rgba(255,255,255,.01));
+    }
+
+    .brand{
+      border:1px solid var(--line-strong);
+      border-radius:18px;
+      padding:16px;
+      background:linear-gradient(180deg, rgba(198,23,44,.16), rgba(255,255,255,.02));
+    }
+
+    .kicker{
+      font-size:11px;
+      letter-spacing:.22em;
+      text-transform:uppercase;
+      color:var(--text-dim);
+      margin-bottom:8px;
+    }
+
+    .brand h1{
+      margin:0;
+      font-size:30px;
+      line-height:1;
+      letter-spacing:-.05em;
+    }
+
+    .brand p{
+      margin:10px 0 0;
+      color:var(--text-dim);
+      font-size:14px;
+      line-height:1.5;
+    }
+
+    .nav-group h3{
+      margin:0 0 10px;
+      font-size:11px;
+      letter-spacing:.22em;
+      text-transform:uppercase;
+      color:var(--text-dim);
+      font-weight:700;
+    }
+
+    .nav-list{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+
+    .nav-item{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      padding:12px 14px;
+      border-radius:14px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.02);
+      font-weight:700;
+      color:var(--text);
+      text-decoration:none;
+    }
+
+    .nav-item.active{
+      border-color:var(--line-strong);
+      background:linear-gradient(180deg, rgba(198,23,44,.18), rgba(198,23,44,.08));
+    }
+
+    .nav-badge{
+      padding:4px 8px;
+      border-radius:999px;
+      background:rgba(255,255,255,.06);
+      color:var(--text-dim);
+      font-size:12px;
+      min-width:28px;
+      text-align:center;
+    }
+
+    .left-note{
+      margin-top:auto;
+      padding:14px;
+      border-radius:16px;
+      border:1px solid var(--line);
+      background:rgba(0,0,0,.22);
+    }
+
+    .left-note strong{display:block;margin-bottom:6px}
+    .left-note p{
+      margin:0;
+      color:var(--text-dim);
+      font-size:14px;
+      line-height:1.5;
+    }
+
+    /* CENTER */
+    .main{
+      padding:16px;
+      display:flex;
+      flex-direction:column;
+      gap:16px;
+    }
+
+    .top-metrics{
+      display:grid;
+      grid-template-columns:repeat(4,1fr);
+      gap:12px;
+    }
+
+    .metric{
+      padding:14px 16px;
+      border:1px solid var(--line);
+      border-radius:18px;
+      background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.015));
+    }
+
+    .metric .label{
+      font-size:11px;
+      letter-spacing:.18em;
+      text-transform:uppercase;
+      color:var(--text-dim);
+      margin-bottom:10px;
+    }
+
+    .metric .value{
+      font-size:28px;
+      font-weight:900;
+      letter-spacing:-.05em;
+      line-height:1;
+    }
+
+    .metric .sub{
+      margin-top:8px;
+      color:var(--text-dim);
+      font-size:13px;
+    }
+
+    .hero-layout{
+      display:grid;
+      grid-template-columns:minmax(0,1fr) 280px;
+      gap:16px;
+      align-items:start;
+    }
+
+    .gang-base{
+      border:1px solid var(--line-strong);
+      border-radius:24px;
+      background:
+        radial-gradient(circle at top right, rgba(239,62,81,.16), transparent 24%),
+        linear-gradient(180deg, rgba(198,23,44,.1), rgba(255,255,255,.015));
+      overflow:hidden;
+    }
+
+    .base-header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding:14px 16px;
+      border-bottom:1px solid var(--line);
+      background:rgba(0,0,0,.16);
+    }
+
+    .base-header-left,
+    .base-header-right{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .chip{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:7px 10px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.03);
+      color:var(--text-dim);
+      font-size:12px;
+      white-space:nowrap;
+    }
+
+    .chip.red{background:rgba(198,23,44,.16);border-color:rgba(239,62,81,.28);color:#ffd9de}
+    .chip.green{background:rgba(72,195,127,.12);border-color:rgba(72,195,127,.22);color:#dffff0}
+    .chip.gold{background:rgba(247,204,98,.12);border-color:rgba(247,204,98,.24);color:#fff0c0}
+
+    .base-viewport{
+      position:relative;
+      min-height:420px;
+      overflow:hidden;
+      border-bottom:1px solid var(--line);
+      background:
+        linear-gradient(180deg, rgba(20,5,8,.45), rgba(8,8,10,.75)),
+        radial-gradient(circle at center, rgba(255,255,255,.04), transparent 50%);
+    }
+
+    .bg-layer{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+    }
+
+    .bg-layer img{
+      position:absolute;
+      image-rendering:pixelated;
+      opacity:.28;
+      filter:brightness(.55) saturate(.8);
+    }
+
+    .bg-overlay{
+      position:absolute;
+      inset:0;
+      background:
+        linear-gradient(180deg, rgba(0,0,0,.12), rgba(0,0,0,.4)),
+        radial-gradient(circle at center, transparent 10%, rgba(6,6,8,.55) 75%);
+    }
+
+    .boss-stage{
+      position:relative;
+      z-index:2;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      gap:10px;
+      min-height:420px;
+      padding:20px 16px 16px;
+      text-align:center;
+    }
+
+    .boss-title{
+      font-family:var(--font-pixel);
+      font-size:11px;
+      letter-spacing:.18em;
+      text-transform:uppercase;
+      color:var(--text-dim);
+    }
+
+    .boss-frame{
+      position:relative;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      width:200px;
+      height:200px;
+      border-radius:32px;
+      border:1px solid rgba(255,255,255,.08);
+      background:
+        radial-gradient(circle at top, rgba(255,255,255,.06), rgba(255,255,255,.02) 45%, rgba(0,0,0,.18) 100%);
+      box-shadow:
+        0 0 0 10px rgba(198,23,44,.08),
+        0 0 36px rgba(239,62,81,.18);
+      overflow:visible;
+    }
+
+    .boss-halo{
+      position:absolute;
+      width:170px;
+      height:170px;
+      border-radius:50%;
+      background:radial-gradient(circle, rgba(239,62,81,.24) 0%, rgba(239,62,81,.08) 35%, transparent 70%);
+      filter:blur(4px);
+    }
+
+    .boss-sprite{
+      position:relative;
+      z-index:2;
+      width:128px;
+      height:128px;
+      image-rendering:pixelated;
+      filter:drop-shadow(0 8px 18px rgba(0,0,0,.8));
+    }
+
+    .boss-patch{
+      position:absolute;
+      width:34px;
+      height:34px;
+      object-fit:contain;
+      image-rendering:pixelated;
+      filter:drop-shadow(0 2px 6px rgba(0,0,0,.8));
+      background:rgba(0,0,0,.12);
+      border-radius:10px;
+      padding:2px;
+    }
+
+    .patch-a{top:-6px;right:-6px}
+    .patch-b{bottom:-6px;left:-6px}
+    .patch-c{bottom:-6px;right:-6px}
+
+    .boss-name{
+      font-size:28px;
+      font-weight:900;
+      letter-spacing:-.04em;
+      line-height:1;
+    }
+
+    .boss-sub{
+      color:var(--text-dim);
+      font-size:14px;
+      max-width:56ch;
+      line-height:1.55;
+    }
+
+    .boss-team{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      justify-content:center;
+      margin-top:4px;
+    }
+
+    .team-slot{
+      width:52px;
+      height:52px;
+      border-radius:14px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.03);
+      display:grid;
+      place-items:center;
+      overflow:hidden;
+      box-shadow:inset 0 0 0 1px rgba(255,255,255,.02);
+    }
+
+    .team-slot img{
+      width:42px;
+      height:42px;
+      image-rendering:pixelated;
+    }
+
+    .base-lower{
+      display:grid;
+      grid-template-columns:1.15fr .85fr;
+      gap:0;
+    }
+
+    .base-status,
+    .base-actions{
+      padding:18px;
+    }
+
+    .base-status{
+      border-right:1px solid var(--line);
+    }
+
+    .section-title{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:12px;
+    }
+
+    .section-title h2{
+      margin:0;
+      font-size:18px;
+      letter-spacing:-.02em;
+    }
+
+    .section-title span{
+      font-size:12px;
+      color:var(--text-dim);
+    }
+
+    .status-grid{
+      display:grid;
+      grid-template-columns:repeat(2,1fr);
+      gap:10px;
+    }
+
+    .status-card{
+      padding:14px;
+      border-radius:16px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.02);
+    }
+
+    .status-card .small{
+      font-size:11px;
+      letter-spacing:.18em;
+      text-transform:uppercase;
+      color:var(--text-dim);
+      margin-bottom:8px;
+    }
+
+    .status-card .big{
+      font-size:22px;
+      font-weight:900;
+      letter-spacing:-.03em;
+    }
+
+    .status-card .tiny{
+      margin-top:6px;
+      font-size:13px;
+      color:var(--text-dim);
+      line-height:1.45;
+    }
+
+    .actions-grid{
+      display:grid;
+      grid-template-columns:repeat(2,1fr);
+      gap:10px;
+    }
+
+    .action-btn{
+      min-height:54px;
+      border-radius:16px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.03);
+      color:var(--text);
+      font-size:14px;
+      font-weight:800;
+      cursor:pointer;
+      transition:.18s ease;
+    }
+
+    .action-btn:hover{
+      transform:translateY(-1px);
+      border-color:rgba(255,255,255,.14);
+      background:rgba(255,255,255,.05);
+    }
+
+    .action-btn.primary{
+      background:linear-gradient(180deg, var(--red2), var(--red));
+      border-color:rgba(255,255,255,.08);
+    }
+
+    .inventory-grid{
+      display:grid;
+      grid-template-columns:repeat(2,1fr);
+      gap:16px;
+    }
+
+    .inv-panel{
+      padding:16px;
+      border:1px solid var(--line);
+      border-radius:22px;
+      background:linear-gradient(180deg, rgba(255,255,255,.028), rgba(255,255,255,.012));
+    }
+
+    .inv-header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      margin-bottom:12px;
+    }
+
+    .inv-title{
+      font-size:14px;
+      letter-spacing:.16em;
+      text-transform:uppercase;
+      color:var(--text-dim);
+      font-family:var(--font-pixel);
+    }
+
+    .inv-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+    }
+
+    .item-tile{
+      width:62px;
+      min-height:74px;
+      border-radius:14px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.02);
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      gap:4px;
+      padding:6px 4px;
+      position:relative;
+      cursor:pointer;
+    }
+
+    .item-tile.active{
+      border-color:rgba(239,62,81,.3);
+      box-shadow:0 0 0 3px rgba(239,62,81,.08);
+      background:rgba(198,23,44,.08);
+    }
+
+    .item-tile img{
+      width:30px;
+      height:30px;
+      image-rendering:pixelated;
+      object-fit:contain;
+    }
+
+    .qty{
+      font-size:11px;
+      color:var(--text-dim);
+      font-weight:700;
+    }
+
+    .incubator-grid{
+      display:grid;
+      grid-template-columns:repeat(5,1fr);
+      gap:8px;
+    }
+
+    .egg-slot{
+      aspect-ratio:1;
+      border-radius:14px;
+      border:1px dashed rgba(255,255,255,.12);
+      background:rgba(255,255,255,.02);
+      display:grid;
+      place-items:center;
+      font-size:22px;
+      color:rgba(255,255,255,.22);
+    }
+
+    .zones-strip{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:12px;
+    }
+
+    .zone-card{
+      padding:16px;
+      border-radius:18px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.02);
+      cursor:pointer;
+      transition:.18s ease;
+    }
+
+    .zone-card:hover{
+      transform:translateY(-2px);
+      border-color:rgba(255,255,255,.14);
+    }
+
+    .zone-card.active{
+      border-color:var(--line-strong);
+      background:linear-gradient(180deg, rgba(198,23,44,.14), rgba(255,255,255,.02));
+    }
+
+    .zone-card h3{
+      margin:8px 0 6px;
+      font-size:20px;
+      letter-spacing:-.03em;
+    }
+
+    .zone-card p{
+      margin:0;
+      color:var(--text-dim);
+      font-size:14px;
+      line-height:1.45;
+      min-height:42px;
+    }
+
+    .progress{
+      margin:12px 0 8px;
+      height:10px;
+      border-radius:999px;
+      background:rgba(255,255,255,.05);
+      overflow:hidden;
+    }
+
+    .progress > span{
+      display:block;
+      height:100%;
+      border-radius:999px;
+      background:linear-gradient(90deg, #7a1320, var(--red2));
+    }
+
+    .zone-meta{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      font-size:13px;
+      color:var(--text-dim);
+    }
+
+    /* RIGHT */
+    .rightbar{
+      padding:16px;
+      display:flex;
+      flex-direction:column;
+      gap:16px;
+    }
+
+    .mini-panel{
+      padding:16px;
+      border:1px solid var(--line);
+      border-radius:22px;
+      background:linear-gradient(180deg, rgba(255,255,255,.028), rgba(255,255,255,.012));
+    }
+
+    .tabs{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+
+    .tab{
+      padding:8px 12px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.03);
+      color:var(--text-dim);
+      font-size:12px;
+      font-weight:700;
+      letter-spacing:.1em;
+      text-transform:uppercase;
+    }
+
+    .tab.active{
+      border-color:rgba(239,62,81,.28);
+      background:rgba(198,23,44,.14);
+      color:#ffd8dd;
+    }
+
+    .agent-list,
+    .feed-list{
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      margin-top:14px;
+    }
+
+    .agent-card{
+      display:grid;
+      grid-template-columns:60px 1fr;
+      gap:12px;
+      padding:14px;
+      border:1px solid var(--line);
+      border-radius:18px;
+      background:rgba(255,255,255,.02);
+    }
+
+    .agent-avatar{
+      width:60px;
+      height:60px;
+      border-radius:16px;
+      display:grid;
+      place-items:center;
+      font-size:24px;
+      background:linear-gradient(180deg, rgba(198,23,44,.18), rgba(255,255,255,.02));
+      border:1px solid rgba(239,62,81,.2);
+    }
+
+    .agent-name{
+      font-size:19px;
+      font-weight:900;
+      letter-spacing:-.03em;
+      line-height:1;
+    }
+
+    .agent-meta{
+      margin-top:6px;
+      font-size:13px;
+      color:var(--text-dim);
+      line-height:1.45;
+    }
+
+    .tag-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-top:8px;
+    }
+
+    .tag{
+      padding:5px 8px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.03);
+      color:var(--text-dim);
+      font-size:11px;
+      font-weight:700;
+    }
+
+    .feed-item{
+      padding:14px;
+      border-radius:16px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.02);
+    }
+
+    .feed-item.alert{
+      border-color:rgba(239,62,81,.28);
+      background:rgba(198,23,44,.1);
+    }
+
+    .feed-top{
+      font-size:11px;
+      color:var(--text-dim);
+      letter-spacing:.18em;
+      text-transform:uppercase;
+      margin-bottom:6px;
+    }
+
+    .feed-title{
+      font-size:16px;
+      font-weight:800;
+      margin-bottom:5px;
+    }
+
+    .feed-text{
+      color:var(--text-dim);
+      font-size:14px;
+      line-height:1.5;
+    }
+
+    .footer-note{
+      padding:12px 14px;
+      border-radius:14px;
+      background:rgba(0,0,0,.22);
+      border:1px solid var(--line);
+      color:var(--text-dim);
+      font-size:13px;
+      line-height:1.45;
+    }
+
+    @media (max-width: 1360px){
+      .app{grid-template-columns:220px minmax(0,1fr)}
+      .rightbar{grid-column:1/-1}
+      .hero-layout{grid-template-columns:1fr}
+    }
+
+    @media (max-width: 980px){
+      .app{grid-template-columns:1fr}
+      .top-metrics,
+      .inventory-grid,
+      .zones-strip,
+      .status-grid,
+      .actions-grid,
+      .base-lower{
+        grid-template-columns:1fr !important;
+      }
+      .base-status{border-right:0;border-bottom:1px solid var(--line)}
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <!-- LEFT -->
+    <aside class="panel sidebar">
+      <section class="brand">
+        <div class="kicker">Criminal management idle</div>
+        <h1>Pokegang</h1>
+        <p>Vue principale recentrée sur la <strong>Gang Base</strong>, avec le <strong>boss au centre</strong>, la possession visible et des actions de commandement claires.</p>
+      </section>
+
+      <section class="nav-group">
+        <h3>Navigation</h3>
+        <div class="nav-list">
+          <a class="nav-item active" href="#"><span>Gang Base</span><span class="nav-badge">HQ</span></a>
+          <a class="nav-item" href="#"><span>Zones</span><span class="nav-badge">12</span></a>
+          <a class="nav-item" href="#"><span>Gang</span><span class="nav-badge">18</span></a>
+          <a class="nav-item" href="#"><span>PC / Pokédex</span><span class="nav-badge">486</span></a>
+          <a class="nav-item" href="#"><span>Marché</span><span class="nav-badge">▲</span></a>
+          <a class="nav-item" href="#"><span>Missions</span><span class="nav-badge">7</span></a>
+        </div>
+      </section>
+
+      <section class="nav-group">
+        <h3>Modules</h3>
+        <div class="nav-list">
+          <a class="nav-item" href="#"><span>zoneSystem</span><span class="nav-badge">sys</span></a>
+          <a class="nav-item" href="#"><span>gangBase</span><span class="nav-badge">ui</span></a>
+          <a class="nav-item" href="#"><span>market</span><span class="nav-badge">eco</span></a>
+          <a class="nav-item" href="#"><span>agents</span><span class="nav-badge">sim</span></a>
+        </div>
+      </section>
+
+      <section class="left-note">
+        <strong>Direction V2.1</strong>
+        <p>Le QG devient la vraie page d’accueil du jeu. On pilote le gang depuis un lieu incarné, pas depuis un simple dashboard abstrait.</p>
+      </section>
+    </aside>
+
+    <!-- CENTER -->
+    <section class="panel main">
+      <section class="top-metrics">
+        <article class="metric">
+          <div class="label">Pokédollars</div>
+          <div class="value" id="moneyMetric">₽472 990</div>
+          <div class="sub">La vente reste le cœur de l’économie</div>
+        </article>
+        <article class="metric">
+          <div class="label">Réputation</div>
+          <div class="value">18 420</div>
+          <div class="sub">La domination du gang progresse</div>
+        </article>
+        <article class="metric">
+          <div class="label">Captures</div>
+          <div class="value">12 987</div>
+          <div class="sub">34 chromatiques · 7 légendaires vus</div>
+        </article>
+        <article class="metric">
+          <div class="label">Zones tenues</div>
+          <div class="value">09 / 12</div>
+          <div class="sub">2 contestées · 1 perdue</div>
+        </article>
+      </section>
+
+      <section class="hero-layout">
+        <article class="gang-base">
+          <div class="base-header">
+            <div class="base-header-left">
+              <span class="chip red">🏠 Team BZH</span>
+              <span class="chip" id="zoneTypeChip">Montagne</span>
+              <span class="chip gold" id="zoneRarityChip">Rare ++</span>
+            </div>
+            <div class="base-header-right">
+              <span class="chip">Boss rank : Dark Muten</span>
+              <span class="chip green" id="zoneStateChip">Maîtrisée</span>
+            </div>
+          </div>
+
+          <div class="base-viewport">
+            <div class="bg-layer">
+              <img src="https://play.pokemonshowdown.com/sprites/gen4-shiny/cloyster.png" style="left:7%;bottom:28%;width:46px;height:46px" alt="">
+              <img src="https://play.pokemonshowdown.com/sprites/gen4/cloyster.png" style="left:19%;bottom:58%;width:46px;height:46px" alt="">
+              <img src="https://play.pokemonshowdown.com/sprites/gen4-shiny/cloyster.png" style="left:32%;bottom:15%;width:46px;height:46px" alt="">
+              <img src="https://play.pokemonshowdown.com/sprites/gen4/lugia.png" style="left:50%;bottom:56%;width:34px;height:34px" alt="">
+              <img src="https://play.pokemonshowdown.com/sprites/gen4/mewtwo.png" style="left:63%;bottom:70%;width:36px;height:36px" alt="">
+              <img src="https://play.pokemonshowdown.com/sprites/gen4/steelix.png" style="left:84%;bottom:42%;width:28px;height:28px" alt="">
+              <img src="https://play.pokemonshowdown.com/sprites/gen4/pinsir.png" style="left:26%;bottom:42%;width:28px;height:28px" alt="">
+              <img src="https://play.pokemonshowdown.com/sprites/gen4/dragonite.png" style="left:73%;bottom:80%;width:28px;height:28px" alt="">
+              <img src="https://play.pokemonshowdown.com/sprites/trainers/proton.png" style="left:18%;bottom:4%;width:28px;height:28px;opacity:.22" alt="">
+              <img src="https://play.pokemonshowdown.com/sprites/trainers/hiker.png" style="left:72%;bottom:4%;width:28px;height:28px;opacity:.22" alt="">
+              <img src="https://play.pokemonshowdown.com/sprites/trainers/psychic.png" style="left:50%;bottom:4%;width:28px;height:28px;opacity:.22" alt="">
+              <div class="bg-overlay"></div>
+            </div>
+
+            <div class="boss-stage">
+              <div class="boss-title">Gang Base principale</div>
+
+              <div class="boss-frame">
+                <div class="boss-halo"></div>
+
+                <img
+                  id="patchA"
+                  class="boss-patch patch-a"
+                  src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/149.png"
+                  alt=""
+                />
+                <img
+                  id="patchB"
+                  class="boss-patch patch-b"
+                  src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/143.png"
+                  alt=""
+                />
+                <img
+                  id="patchC"
+                  class="boss-patch patch-c"
+                  src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/94.png"
+                  alt=""
+                />
+
+                <img
+                  id="bossSprite"
+                  class="boss-sprite"
+                  src="https://play.pokemonshowdown.com/sprites/trainers/byron.png"
+                  alt="Boss"
+                />
+              </div>
+
+              <div class="boss-name" id="bossZoneTitle">Route Victoire</div>
+              <div class="boss-sub" id="bossZoneDesc">
+                Front à haute tension où la présence du gang ouvre de meilleures opportunités de chasse, mais attire aussi davantage d’adversaires.
+              </div>
+
+              <div style="font-family:var(--font-pixel);font-size:9px;color:var(--text-dim)">Équipe du boss</div>
+              <div class="boss-team" id="bossTeam">
+                <div class="team-slot"><img src="https://play.pokemonshowdown.com/sprites/gen4-shiny/cloyster.png" alt=""></div>
+                <div class="team-slot"><img src="https://play.pokemonshowdown.com/sprites/gen4-shiny/cloyster.png" alt=""></div>
+                <div class="team-slot"><img src="https://play.pokemonshowdown.com/sprites/gen4/kingler.png" alt=""></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="base-lower">
+            <div class="base-status">
+              <div class="section-title">
+                <h2>État du territoire</h2>
+                <span>la possession influence l’activité</span>
+              </div>
+
+              <div class="status-grid">
+                <div class="status-card">
+                  <div class="small">Possession</div>
+                  <div class="big" id="possessionValue">78%</div>
+                  <div class="tiny">Plus la zone est tenue, plus elle peut offrir des événements rares.</div>
+                </div>
+                <div class="status-card">
+                  <div class="small">Danger</div>
+                  <div class="big" id="dangerValue">Élevé</div>
+                  <div class="tiny">Les zones rentables attirent les contestations et les combats.</div>
+                </div>
+                <div class="status-card">
+                  <div class="small">Intérêt de chasse</div>
+                  <div class="big" id="huntValue">Très fort</div>
+                  <div class="tiny">Les captures de qualité rendent l’économie plus excitante.</div>
+                </div>
+                <div class="status-card">
+                  <div class="small">Cellule active</div>
+                  <div class="big" id="cellValue">Sergent + 2</div>
+                  <div class="tiny">Le front devient plus intéressant avec une vraie lecture de l’occupation.</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="base-actions">
+              <div class="section-title">
+                <h2>Actions du boss</h2>
+                <span>pilotage direct</span>
+              </div>
+
+              <div class="actions-grid">
+                <button class="action-btn primary">⚔ Intervenir</button>
+                <button class="action-btn">👤 Assigner un agent</button>
+                <button class="action-btn">📡 Surveiller</button>
+                <button class="action-btn">🛡 Renforcer</button>
+                <button class="action-btn">🚪 Ouvrir la zone</button>
+                <button class="action-btn">↺ Reprendre</button>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <aside class="panel mini-panel">
+          <div class="section-title">
+            <h2>Événements liés au QG</h2>
+            <span>live</span>
+          </div>
+
+          <div class="feed-list">
+            <div class="feed-item alert">
+              <div class="feed-top">Alerte boss</div>
+              <div class="feed-title">Une contestation est imminente</div>
+              <div class="feed-text">La zone principale est visible et rentable. Si tu la laisses trop seule, elle risque de passer en état contesté.</div>
+            </div>
+
+            <div class="feed-item">
+              <div class="feed-top">Fenêtre rare</div>
+              <div class="feed-title">La possession a débloqué un meilleur pool</div>
+              <div class="feed-text">Le palier actuel rend la zone bien plus intéressante pour les captures à forte valeur.</div>
+            </div>
+
+            <div class="feed-item">
+              <div class="feed-top">Économie</div>
+              <div class="feed-title">Le marché réagit à la zone</div>
+              <div class="feed-text">Cette vue relie enfin clairement le QG, la chasse et la boucle de vente des Pokémon.</div>
+            </div>
+          </div>
+        </aside>
+      </section>
+
+      <section class="inventory-grid">
+        <article class="inv-panel">
+          <div class="inv-header">
+            <div class="inv-title">🎯 Balls</div>
+            <span class="chip">capture active</span>
+          </div>
+          <div class="inv-row">
+            <div class="item-tile">
+              <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png" alt="">
+              <div class="qty">99+</div>
+            </div>
+            <div class="item-tile">
+              <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/great-ball.png" alt="">
+              <div class="qty">99+</div>
+            </div>
+            <div class="item-tile active">
+              <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/ultra-ball.png" alt="">
+              <div class="qty">99+</div>
+            </div>
+            <div class="item-tile">
+              <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/dusk-ball.png" alt="">
+              <div class="qty">99+</div>
+            </div>
+            <div class="item-tile">
+              <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/master-ball.png" alt="">
+              <div class="qty">×32</div>
+            </div>
+          </div>
+        </article>
+
+        <article class="inv-panel">
+          <div class="inv-header">
+            <div class="inv-title">⚡ Boosts</div>
+            <div class="tabs">
+              <span class="tab active">×1</span>
+              <span class="tab">×5</span>
+              <span class="tab">×10</span>
+            </div>
+          </div>
+          <div class="inv-row">
+            <div class="item-tile">
+              <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/honey.png" alt="">
+              <div class="qty">×44</div>
+            </div>
+            <div class="item-tile">
+              <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/lure-ball.png" alt="">
+              <div class="qty">×50</div>
+            </div>
+            <div class="item-tile">
+              <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/luck-incense.png" alt="">
+              <div class="qty">99+</div>
+            </div>
+            <div class="item-tile">
+              <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/scope-lens.png" alt="">
+              <div class="qty">99+</div>
+            </div>
+            <div class="item-tile">
+              <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/shiny-stone.png" alt="">
+              <div class="qty">99+</div>
+            </div>
+          </div>
+        </article>
+
+        <article class="inv-panel">
+          <div class="inv-header">
+            <div class="inv-title">🔧 Objets</div>
+            <span class="chip">logistique du QG</span>
+          </div>
+          <div class="inv-row">
+            <div class="item-tile">
+              <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/rare-candy.png" alt="">
+              <div class="qty">×5</div>
+            </div>
+            <div class="item-tile">
+              <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/fire-stone.png" alt="">
+              <div class="qty">×66</div>
+            </div>
+            <div class="item-tile">
+              <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/town-map.png" alt="">
+              <div class="qty">✗</div>
+            </div>
+            <div class="item-tile">
+              <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/coin-case.png" alt="">
+              <div class="qty">✗</div>
+            </div>
+            <div class="item-tile">
+              <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/ss-ticket.png" alt="">
+              <div class="qty">✗</div>
+            </div>
+          </div>
+        </article>
+
+        <article class="inv-panel">
+          <div class="inv-header">
+            <div class="inv-title">🥚 Incubateurs</div>
+            <span class="chip">pension / futur système</span>
+          </div>
+          <div class="incubator-grid">
+            <div class="egg-slot">🥚</div>
+            <div class="egg-slot">🥚</div>
+            <div class="egg-slot">🥚</div>
+            <div class="egg-slot">🥚</div>
+            <div class="egg-slot">🥚</div>
+            <div class="egg-slot">🥚</div>
+            <div class="egg-slot">🥚</div>
+            <div class="egg-slot">🥚</div>
+            <div class="egg-slot">🥚</div>
+            <div class="egg-slot">🥚</div>
+          </div>
+        </article>
+      </section>
+
+      <section class="panel mini-panel">
+        <div class="section-title">
+          <h2>Autres fronts du gang</h2>
+          <span>clique une zone pour changer la vue centrale</span>
+        </div>
+
+        <div class="zones-strip" id="zoneCards">
+          <!-- JS -->
+        </div>
+      </section>
+    </section>
+
+    <!-- RIGHT -->
+    <aside class="panel rightbar">
+      <section class="mini-panel">
+        <div class="section-title">
+          <h2>Gang</h2>
+          <span>cartes agents</span>
+        </div>
+
+        <div class="tabs">
+          <span class="tab active">Agents</span>
+          <span class="tab">Titres</span>
+          <span class="tab">Hiérarchie</span>
+        </div>
+
+        <div class="agent-list">
+          <article class="agent-card">
+            <div class="agent-avatar">🕶</div>
+            <div>
+              <div class="agent-name">Spirit</div>
+              <div class="agent-meta">Sergent · Route Victoire · cellule principale</div>
+              <div class="tag-row">
+                <span class="tag">Spé montagne</span>
+                <span class="tag">Rare +</span>
+                <span class="tag">31 captures / h</span>
+              </div>
+            </div>
+          </article>
+
+          <article class="agent-card">
+            <div class="agent-avatar">🗡</div>
+            <div>
+              <div class="agent-name">Sniky</div>
+              <div class="agent-meta">Lieutenant · Forêt de Jade · front secondaire</div>
+              <div class="tag-row">
+                <span class="tag">Spé forêt</span>
+                <span class="tag">Chroma +</span>
+                <span class="tag">34 captures / h</span>
+              </div>
+            </div>
+          </article>
+
+          <article class="agent-card">
+            <div class="agent-avatar">🧪</div>
+            <div>
+              <div class="agent-name">Dr. Sorn</div>
+              <div class="agent-meta">Grunt · Safrania · soutien économique</div>
+              <div class="tag-row">
+                <span class="tag">Ville</span>
+                <span class="tag">Valeur vente +</span>
+                <span class="tag">Renfort possible</span>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="mini-panel">
+        <div class="section-title">
+          <h2>Feed</h2>
+          <span>activité</span>
+        </div>
+
+        <div class="feed-list">
+          <article class="feed-item alert">
+            <div class="feed-top">Alerte</div>
+            <div class="feed-title">La zone centrale attire l’attention</div>
+            <div class="feed-text">Quand la possession monte, la sensation de domination augmente… mais la pression aussi.</div>
+          </article>
+
+          <article class="feed-item">
+            <div class="feed-top">Capture rare</div>
+            <div class="feed-title">Un Onix de fort potentiel a été repéré</div>
+            <div class="feed-text">Le lien entre possession, zone et qualité des captures devient immédiatement visible.</div>
+          </article>
+
+          <article class="feed-item">
+            <div class="feed-top">Économie</div>
+            <div class="feed-title">Le marché des types Roche grimpe</div>
+            <div class="feed-text">Bonne synergie avec la zone principale : la base sert autant la fantasy que la lecture économique.</div>
+          </article>
+        </div>
+      </section>
+
+      <div class="footer-note">
+        <strong>But du proto :</strong> fusionner la structure V2 avec l’âme visuelle de la Gang Base actuelle, pour que la home de Pokegang ressemble enfin à un vrai QG vivant.
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    const zones = [
+      {
+        name: "Route Victoire",
+        type: "Montagne",
+        rarity: "Rare ++",
+        state: "Maîtrisée",
+        possession: 78,
+        danger: "Élevé",
+        hunt: "Très fort",
+        cell: "Sergent + 2",
+        desc: "Front à haute tension où la présence du gang ouvre de meilleures opportunités de chasse, mais attire aussi davantage d’adversaires.",
+        summary: "Très rentable mais instable.",
+        team: [
+          "https://play.pokemonshowdown.com/sprites/gen4-shiny/cloyster.png",
+          "https://play.pokemonshowdown.com/sprites/gen4-shiny/cloyster.png",
+          "https://play.pokemonshowdown.com/sprites/gen4/kingler.png"
+        ],
+        boss: "https://play.pokemonshowdown.com/sprites/trainers/byron.png",
+        patches: [
+          "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/149.png",
+          "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/143.png",
+          "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/94.png"
+        ]
+      },
+      {
+        name: "Forêt de Jade",
+        type: "Forêt",
+        rarity: "Chroma +",
+        state: "Stable",
+        possession: 89,
+        danger: "Modéré",
+        hunt: "Bon",
+        cell: "Lieutenant + 1",
+        desc: "Base secondaire efficace pour les captures régulières. Très bonne zone d’ancrage et de spécialisation forêt.",
+        summary: "Zone stable et efficace.",
+        team: [
+          "https://play.pokemonshowdown.com/sprites/gen4/pinsir.png",
+          "https://play.pokemonshowdown.com/sprites/gen4/scyther.png",
+          "https://play.pokemonshowdown.com/sprites/gen4/butterfree.png"
+        ],
+        boss: "https://play.pokemonshowdown.com/sprites/trainers/bugsy.png",
+        patches: [
+          "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/127.png",
+          "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/123.png",
+          "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/12.png"
+        ]
+      },
+      {
+        name: "Safrania",
+        type: "Ville",
+        rarity: "Valeur vente +",
+        state: "Contestée",
+        possession: 53,
+        danger: "Fort",
+        hunt: "Correct",
+        cell: "Grunt + 1",
+        desc: "Ville stratégique moins explosive en volume, mais intéressante pour la valeur moyenne des captures et la domination urbaine.",
+        summary: "Pression urbaine constante.",
+        team: [
+          "https://play.pokemonshowdown.com/sprites/gen4/alakazam.png",
+          "https://play.pokemonshowdown.com/sprites/gen4/mr.mime.png",
+          "https://play.pokemonshowdown.com/sprites/gen4/hypno.png"
+        ],
+        boss: "https://play.pokemonshowdown.com/sprites/trainers/sabrina.png",
+        patches: [
+          "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/65.png",
+          "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/122.png",
+          "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/97.png"
+        ]
+      }
+    ];
+
+    const zoneCards = document.getElementById("zoneCards");
+    const bossZoneTitle = document.getElementById("bossZoneTitle");
+    const bossZoneDesc = document.getElementById("bossZoneDesc");
+    const possessionValue = document.getElementById("possessionValue");
+    const dangerValue = document.getElementById("dangerValue");
+    const huntValue = document.getElementById("huntValue");
+    const cellValue = document.getElementById("cellValue");
+    const zoneTypeChip = document.getElementById("zoneTypeChip");
+    const zoneRarityChip = document.getElementById("zoneRarityChip");
+    const zoneStateChip = document.getElementById("zoneStateChip");
+    const bossSprite = document.getElementById("bossSprite");
+    const bossTeam = document.getElementById("bossTeam");
+    const patchA = document.getElementById("patchA");
+    const patchB = document.getElementById("patchB");
+    const patchC = document.getElementById("patchC");
+
+    function renderCards(activeIndex = 0){
+      zoneCards.innerHTML = "";
+      zones.forEach((zone, index) => {
+        const card = document.createElement("article");
+        card.className = "zone-card" + (index === activeIndex ? " active" : "");
+        card.innerHTML = `
+          <div class="chip ${zone.state === 'Contestée' ? 'red' : zone.state === 'Stable' ? 'green' : 'gold'}">${zone.state}</div>
+          <h3>${zone.name}</h3>
+          <p>${zone.summary}</p>
+          <div class="progress"><span style="width:${zone.possession}%"></span></div>
+          <div class="zone-meta">
+            <span>Possession</span>
+            <strong>${zone.possession}%</strong>
+          </div>
+        `;
+        card.addEventListener("click", () => {
+          applyZone(index);
+        });
+        zoneCards.appendChild(card);
+      });
+    }
+
+    function applyZone(index){
+      const z = zones[index];
+      bossZoneTitle.textContent = z.name;
+      bossZoneDesc.textContent = z.desc;
+      possessionValue.textContent = z.possession + "%";
+      dangerValue.textContent = z.danger;
+      huntValue.textContent = z.hunt;
+      cellValue.textContent = z.cell;
+      zoneTypeChip.textContent = z.type;
+      zoneRarityChip.textContent = z.rarity;
+      zoneStateChip.textContent = z.state;
+
+      zoneStateChip.className = "chip " + (
+        z.state === "Stable" ? "green" :
+        z.state === "Contestée" ? "red" :
+        "gold"
+      );
+
+      bossSprite.src = z.boss;
+      patchA.src = z.patches[0];
+      patchB.src = z.patches[1];
+      patchC.src = z.patches[2];
+
+      bossTeam.innerHTML = z.team.map(src => `
+        <div class="team-slot"><img src="${src}" alt=""></div>
+      `).join("");
+
+      renderCards(index);
+    }
+
+    renderCards(0);
+    applyZone(0);
+  </script>
+</body>
+</html>
