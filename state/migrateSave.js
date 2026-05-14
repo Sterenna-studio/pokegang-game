@@ -155,8 +155,10 @@ export function migrateSave(saved, deps) {
   // ── Agents ─────────────────────────────────────────────────────────────────────
   for (const agent of merged.agents) {
     if (agent.notifyCaptures === undefined) agent.notifyCaptures = true;
-    if (!Array.isArray(agent.perkLevels)) agent.perkLevels = [];
-    if (agent.pendingPerk === undefined) agent.pendingPerk = false;
+    // ── Purge champs Darkrai/perks hérités (schema v9 → v10) ──────────
+    delete agent.perkLevels;
+    delete agent.pendingPerk;
+    delete agent.perks;
     // Migrate legacy behavior string → 3 independent flags
     if (agent.autoCombat === undefined) {
       const b = agent.behavior || 'all';
@@ -203,6 +205,8 @@ export function migrateSave(saved, deps) {
   if (merged.pension.extraSlotsPurchased === undefined) merged.pension.extraSlotsPurchased = 0;
 
   // ── Purchases ───────────────────────────────────────────────────────────────────
+  // Purge flag Darkrai/perks (schema v9 → v10)
+  delete merged.purchases.agentPerkMigrated;
   if (merged.purchases.cosmeticsPanel    === undefined) merged.purchases.cosmeticsPanel    = false;
   if (merged.purchases.autoIncubator     === undefined) merged.purchases.autoIncubator     = false;
   if (merged.purchases.autoCollect       === undefined) merged.purchases.autoCollect       = false;
