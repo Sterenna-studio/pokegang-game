@@ -76,6 +76,10 @@ const MYSTERY_EGG_POOL = [
   {en:'omastar',w:2},{en:'kabutops',w:2},{en:'aerodactyl',w:2},
   // Final starters (w:1 — ultra rare)
   {en:'venusaur',w:1},{en:'charizard',w:1},{en:'blastoise',w:1},
+  // Bébés Pokémon (w:2 — obtenables uniquement par œuf)
+  {en:'pichu',w:2},{en:'cleffa',w:2},{en:'igglybuff',w:2},
+  {en:'togepi',w:2},{en:'tyrogue',w:2},
+  {en:'smoochum',w:1},{en:'elekid',w:1},{en:'magby',w:1},
 ];
 const MYSTERY_EGG_HATCH_MS = 45 * 60 * 1000; // 45 min
 

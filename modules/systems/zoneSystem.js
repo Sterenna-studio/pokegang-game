@@ -428,22 +428,28 @@ function spawnInZone(zoneId) {
 
   // 6. Pokemon spawn — Rare Scope triples chance of rare+ species
   let speciesEN;
+  // Bébés Pokémon (babyOnly:true) : jamais en spawn sauvage — œuf uniquement
+  const _spawnPool = zone.pool.filter(en => !SPECIES_BY_EN[en]?.babyOnly);
+  if (_spawnPool.length === 0) return null; // pool vide après filtrage
+  const _spawnRarePool = zone.rarePool
+    ? zone.rarePool.filter(e => !SPECIES_BY_EN[typeof e === 'string' ? e : e.en]?.babyOnly)
+    : null;
   // Safari rarePool: 10% chance to pick from rare uncapturable pool (boosted by rarescope)
-  const rarePoolChance = zone.rarePool ? (globalThis.isBoostActive('rarescope') ? 0.30 : 0.10) : 0;
-  if (zone.rarePool && Math.random() < rarePoolChance) {
-    speciesEN = globalThis.weightedPick(zone.rarePool);
+  const rarePoolChance = _spawnRarePool?.length ? (globalThis.isBoostActive('rarescope') ? 0.30 : 0.10) : 0;
+  if (_spawnRarePool?.length && Math.random() < rarePoolChance) {
+    speciesEN = globalThis.weightedPick(_spawnRarePool);
   } else if (globalThis.isBoostActive('rarescope') && Math.random() < 0.5) {
-    const filteredRare = zone.pool.filter(en => {
+    const filteredRare = _spawnPool.filter(en => {
       const sp = SPECIES_BY_EN[en];
       return sp && (sp.rarity === 'rare' || sp.rarity === 'very_rare');
       // légendaires exclus du boost rarescope
     });
-    speciesEN = filteredRare.length > 0 ? globalThis.pick(filteredRare) : globalThis.pick(zone.pool);
+    speciesEN = filteredRare.length > 0 ? globalThis.pick(filteredRare) : globalThis.pick(_spawnPool);
   } else {
     // Poids par rareté : commun spawne plus souvent que rare/très rare.
     // Légendaires : ~1 % de chance combinée quelle que soit la taille du pool.
-    const _legCount    = zone.pool.filter(en => SPECIES_BY_EN[en]?.rarity === 'legendary').length;
-    const _nonLegTotal = zone.pool.reduce((s, en) => {
+    const _legCount    = _spawnPool.filter(en => SPECIES_BY_EN[en]?.rarity === 'legendary').length;
+    const _nonLegTotal = _spawnPool.reduce((s, en) => {
       const r = SPECIES_BY_EN[en]?.rarity;
       return r === 'legendary' ? s : s + (RARITY_SPAWN_WEIGHT[r] ?? 5);
     }, 0);
@@ -451,7 +457,7 @@ function spawnInZone(zoneId) {
     const _legendaryW  = _legCount > 0 && _nonLegTotal > 0
       ? (_nonLegTotal / 99) / _legCount
       : 1;
-    const poolWithWeights = zone.pool.map(en => {
+    const poolWithWeights = _spawnPool.map(en => {
       const rarity = SPECIES_BY_EN[en]?.rarity;
       return {
         en,

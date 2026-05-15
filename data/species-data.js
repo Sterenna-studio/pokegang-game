@@ -160,13 +160,14 @@ const POKEMON_GEN1 = [
   {en:'mew',fr:'Mew',dex:151,types:['Psychic'],baseAtk:100,baseDef:100,baseSpd:100,rarity:'legendary',moves:['Psyko','Métronome','Surf','Lance-Flamme']},
 
   // ── Bébés Pokémon (pré-évolutions Gen 1 ajoutées en Gen 2) ──────
-  {en:'pichu',fr:'Pichu',dex:172,types:['Electric'],baseAtk:40,baseDef:15,baseSpd:60,rarity:'rare',moves:['Charge','Vive-Attaque','Tonnerre','Rugissement']},
-  {en:'cleffa',fr:'Mélo',dex:173,types:['Normal'],baseAtk:25,baseDef:28,baseSpd:15,rarity:'common',moves:['Chant','Câlinerie','Tonnerre','Métronome']},
-  {en:'igglybuff',fr:'Toudoudou',dex:174,types:['Normal'],baseAtk:30,baseDef:15,baseSpd:15,rarity:'common',moves:['Chant','Charge','Câlinerie','Rugissement']},
-  {en:'smoochum',fr:'Lippouti',dex:238,types:['Ice','Psychic'],baseAtk:45,baseDef:30,baseSpd:65,rarity:'rare',moves:['Blizzard','Psyko','Laser Glace','Rugissement']},
-  {en:'elekid',fr:'Élekid',dex:239,types:['Electric'],baseAtk:55,baseDef:35,baseSpd:95,rarity:'rare',moves:['Cage Éclair','Tonnerre','Vive-Attaque','Rugissement']},
-  {en:'magby',fr:'Magby',dex:240,types:['Fire'],baseAtk:55,baseDef:30,baseSpd:83,rarity:'rare',moves:['Flammèche','Brouillard','Vive-Attaque','Rugissement']},
-  {en:'tyrogue',fr:'Debugant',dex:236,types:['Fighting'],baseAtk:35,baseDef:35,baseSpd:35,rarity:'rare',moves:['Coup Bas','Tranche','Ticket','Rugissement']},
+  // babyOnly:true → obtenables uniquement par œuf (pension ou œuf mystère), jamais en spawn sauvage.
+  {en:'pichu',    fr:'Pichu',    dex:172,types:['Electric'],        baseAtk:40,baseDef:15,baseSpd:60, rarity:'rare', babyOnly:true,moves:['Charge','Vive-Attaque','Tonnerre','Rugissement']},
+  {en:'cleffa',   fr:'Mélo',     dex:173,types:['Normal'],          baseAtk:25,baseDef:28,baseSpd:15, rarity:'rare', babyOnly:true,moves:['Chant','Câlinerie','Tonnerre','Métronome']},
+  {en:'igglybuff',fr:'Toudoudou',dex:174,types:['Normal'],          baseAtk:30,baseDef:15,baseSpd:15, rarity:'rare', babyOnly:true,moves:['Chant','Charge','Câlinerie','Rugissement']},
+  {en:'smoochum', fr:'Lippouti', dex:238,types:['Ice','Psychic'],   baseAtk:45,baseDef:30,baseSpd:65, rarity:'rare', babyOnly:true,moves:['Blizzard','Psyko','Laser Glace','Rugissement']},
+  {en:'elekid',   fr:'Élekid',   dex:239,types:['Electric'],        baseAtk:55,baseDef:35,baseSpd:95, rarity:'rare', babyOnly:true,moves:['Cage Éclair','Tonnerre','Vive-Attaque','Rugissement']},
+  {en:'magby',    fr:'Magby',    dex:240,types:['Fire'],            baseAtk:55,baseDef:30,baseSpd:83, rarity:'rare', babyOnly:true,moves:['Flammèche','Brouillard','Vive-Attaque','Rugissement']},
+  {en:'tyrogue',  fr:'Debugant', dex:236,types:['Fighting'],        baseAtk:35,baseDef:35,baseSpd:35, rarity:'rare', babyOnly:true,moves:['Coup Bas','Tranche','Ticket','Rugissement']},
 
   // ── Évolutions Gen 2 de Pokémon Gen 1 ───────────────────────────
   {en:'crobat',fr:'Nostenfer',dex:169,types:['Poison','Flying'],baseAtk:90,baseDef:80,baseSpd:130,rarity:'rare',moves:['Vampirisme','Tranche','Cru-Aile','Toxik']},
@@ -206,7 +207,7 @@ const POKEMON_GEN1 = [
   {en:'ariados',fr:'Migalos',dex:168,types:['Bug','Poison'],baseAtk:90,baseDef:70,baseSpd:40,rarity:'uncommon',moves:['Dard-Venin','Acide','Crocs Venin','Furie']},
   {en:'chinchou',fr:'Loupio',dex:170,types:['Water','Electric'],baseAtk:38,baseDef:38,baseSpd:67,rarity:'uncommon',moves:['Pistolet à O','Cage Éclair','Tonnerre','Charge']},
   {en:'lanturn',fr:'Lanturn',dex:171,types:['Water','Electric'],baseAtk:58,baseDef:58,baseSpd:67,rarity:'rare',moves:['Surf','Fatal-Foudre','Hydrocanon','Tonnerre']},
-  {en:'togepi',fr:'Togepi',dex:175,types:['Fairy'],baseAtk:20,baseDef:65,baseSpd:20,rarity:'rare',moves:['Métronome','Berceuse','Éclat Magique','Charge']},
+  {en:'togepi',fr:'Togepi',dex:175,types:['Fairy'],baseAtk:20,baseDef:65,baseSpd:20,rarity:'rare',babyOnly:true,moves:['Métronome','Berceuse','Éclat Magique','Charge']},
   {en:'togetic',fr:'Togetic',dex:176,types:['Fairy','Flying'],baseAtk:40,baseDef:85,baseSpd:40,rarity:'rare',moves:['Éclat Magique','Cru-Aile','Berceuse','Météores']},
   {en:'natu',fr:'Natu',dex:177,types:['Psychic','Flying'],baseAtk:50,baseDef:45,baseSpd:70,rarity:'uncommon',moves:['Psyko','Choc Mental','Cru-Aile','Rugissement']},
   {en:'xatu',fr:'Xatu',dex:178,types:['Psychic','Flying'],baseAtk:75,baseDef:70,baseSpd:95,rarity:'rare',moves:['Psyko','Choc Mental','Cru-Aile','Aérojet']},

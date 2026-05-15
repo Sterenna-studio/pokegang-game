@@ -64,9 +64,8 @@ const ZONES_JOHTO = [
 
   { id:'mt_mortar',       fr:'Mont Mortier',         en:'Mt. Mortar',        rep:380,  spawnRate:0.04, type:'route',
     zoneLevelBonus:31,
-    pool:['machop','machoke','geodude','graveler','zubat','golbat','rattata','marill','tyrogue'],
+    pool:['machop','machoke','geodude','graveler','zubat','golbat','rattata','marill'],
     rarePool:[
-      {en:'tyrogue', w:2},
       {en:'hitmonlee', w:2}, {en:'hitmonchan', w:2}, {en:'hitmontop', w:2},
       {en:'machamp', w:1},
     ],
@@ -229,7 +228,7 @@ const ZONES_JOHTO = [
       // Communs Johto évolués
       {en:'flaaffy',w:4},{en:'togetic',w:3},{en:'politoed',w:3},
       {en:'slowking',w:3},{en:'wobbuffet',w:4},{en:'girafarig',w:4},
-      {en:'granbull',w:4},{en:'sneasel',w:3},{en:'magby',w:4},{en:'elekid',w:4},
+      {en:'granbull',w:4},{en:'sneasel',w:3},
     ],
     trainers:['acetrainer','pokemonranger'], eliteTrainer:'jasmine', investCost:15000 },
 
@@ -241,7 +240,7 @@ const ZONES_JOHTO = [
 
   { id:'tin_tower',       fr:'Tour Carillon',        en:'Tin Tower',         rep:950,  spawnRate:0.04, type:'special',
     zoneLevelBonus:48,
-    pool:['ho-oh','espeon','umbreon','blissey','crobat','bellossom','clefable','wigglytuff','chansey','snorlax','pichu','cleffa'],
+    pool:['ho-oh','espeon','umbreon','blissey','crobat','bellossom','clefable','wigglytuff','chansey','snorlax'],
     trainers:['acetrainer','psychic'], eliteTrainer:'lance', investCost:45000,
     unlockItem:'carillon_permit' },
 

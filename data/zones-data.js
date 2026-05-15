@@ -157,7 +157,7 @@ const ZONES = [
     unlockItem:'tourbillon_permit' },
 
   { id:'tour_carillon', fr:'Tour Carillon',      en:'Bell Tower',        rep:950, spawnRate:0.04, type:'special',
-    pool:['ho-oh','espeon','umbreon','blissey','crobat','bellossom','clefable','wigglytuff','chansey','snorlax','pichu','cleffa'],
+    pool:['ho-oh','espeon','umbreon','blissey','crobat','bellossom','clefable','wigglytuff','chansey','snorlax'],
     trainers:['acetrainer','psychic'], eliteTrainer:'lance', investCost:45000,
     unlockItem:'carillon_permit' },
 ];
