@@ -1,0 +1,1680 @@
+<!DOCTYPE html>
+<!--
+  proto-gangbase-v2.html
+  ─────────────────────────────────────────────────────────────────────────
+  PokéGang — Prototype "GANG BASE" redesign
+  Basé sur modules/ui/gangBase.js — vue QG comme écran principal
+
+  Priorités :
+  1. Possession territoriale comme métrique centrale
+  2. Inventaire visible en permanence (balls / boosts / objets)
+  3. Assignment agents clair : drag-and-drop visuel + zone picker
+  4. Vocabulaire : possession, front, cellule, renfort, intervention
+
+  Données réelles : ../data/zones-data.js + ../data/species-data.js
+  Save réel       : localStorage['pokeforge.v6']
+  ─────────────────────────────────────────────────────────────────────────
+-->
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>PokéGang — QG v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Share+Tech+Mono&family=Barlow+Condensed:ital,wght@0,300;0,400;0,600;0,700;0,900;1,400&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="../data/zones-data.js"></script>
+<script src="../data/species-data.js"></script>
+<script src="../data/game-config-data.js"></script>
+<style>
+/* ════════════════════════════════════════════════════════════
+   TOKENS
+   ════════════════════════════════════════════════════════════ */
+:root {
+  --bg:         #080808;
+  --bg1:        #0e0e0e;
+  --bg2:        #131313;
+  --bg3:        #181818;
+  --bg4:        #1d1d1d;
+
+  --red:        #cc1111;
+  --red2:       #e63535;
+  --red-a:      rgba(204,17,17,.2);
+  --red-b:      rgba(204,17,17,.08);
+  --red-c:      rgba(204,17,17,.04);
+
+  --orange:     #e67c00;
+  --orange-a:   rgba(230,124,0,.2);
+
+  --gold:       #ffcc5a;
+  --gold-dim:   #9a7a20;
+  --gold-a:     rgba(255,204,90,.12);
+
+  --green:      #2ea84e;
+  --green-dim:  #1a5a28;
+  --green-a:    rgba(46,168,78,.15);
+
+  --blue:       #3a7acc;
+  --blue-a:     rgba(58,122,204,.12);
+
+  --bd:         #1e1e1e;
+  --bd2:        #262626;
+  --bd-red:     rgba(204,17,17,.35);
+
+  --text:       #e0e0e0;
+  --mute:       #555;
+  --dimmer:     #333;
+
+  --F:  'Bebas Neue', sans-serif;
+  --FM: 'Share Tech Mono', monospace;
+  --FC: 'Barlow Condensed', sans-serif;
+  --FB: 'Barlow', sans-serif;
+
+  --top: 44px;
+  --tab: 50px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: var(--FB); font-size: 13px; }
+button { cursor: pointer; border: none; background: none; color: inherit; font: inherit; }
+img { display: block; image-rendering: pixelated; }
+::-webkit-scrollbar { width: 3px; height: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--red); }
+
+/* ════════════════════════════════════════════════════════════
+   TOPBAR
+   ════════════════════════════════════════════════════════════ */
+#top {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  height: var(--top);
+  background: var(--bg1);
+  border-bottom: 1px solid var(--bd2);
+  display: flex; align-items: center;
+  padding: 0 10px; gap: 8px;
+}
+.logo {
+  font-family: var(--F);
+  font-size: 20px; letter-spacing: 3px;
+  color: var(--red2);
+  text-shadow: 0 0 14px rgba(230,53,53,.4);
+  flex-shrink: 0;
+}
+.vd { width: 1px; height: 24px; background: var(--bd2); flex-shrink: 0; }
+.boss-id {
+  display: flex; align-items: center; gap: 5px;
+  padding: 2px 8px 2px 2px;
+  background: var(--bg2);
+  border: 1px solid var(--bd-red);
+  flex-shrink: 0;
+}
+.boss-id img { width: 26px; height: 26px; }
+.boss-id-txt strong { display: block; font-family: var(--FC); font-weight: 700; font-size: 12px; line-height: 1.1; }
+.boss-id-txt em { display: block; font-family: var(--FM); font-size: 8px; color: var(--red); letter-spacing: 1px; text-transform: uppercase; }
+.top-metrics { display: flex; align-items: center; gap: 3px; flex: 1; min-width: 0; overflow: hidden; }
+.mc {
+  display: flex; align-items: center; gap: 3px;
+  padding: 2px 7px;
+  background: var(--bg2);
+  border: 1px solid var(--bd);
+  font-family: var(--FM); font-size: 10px; color: var(--mute);
+  white-space: nowrap; flex-shrink: 0;
+}
+.mc b { color: var(--text); }
+.mc.gold b { color: var(--gold); }
+.mc.red b { color: var(--red2); }
+.mc.grn b { color: var(--green); }
+.top-r { display: flex; align-items: center; gap: 5px; margin-left: auto; flex-shrink: 0; }
+.ibtn {
+  width: 28px; height: 28px;
+  background: var(--bg2); border: 1px solid var(--bd);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; transition: border-color .15s;
+}
+.ibtn:hover { border-color: var(--red); }
+
+/* ════════════════════════════════════════════════════════════
+   SHELL
+   ════════════════════════════════════════════════════════════ */
+#shell {
+  position: fixed;
+  top: var(--top); left: 0; right: 0;
+  bottom: var(--tab);
+  display: grid;
+  grid-template-columns: 260px 1fr 280px;
+  overflow: hidden;
+}
+
+/* ════════════════════════════════════════════════════════════
+   LEFT — BOSS + ZONE FOCUS + LISTE ZONES
+   ════════════════════════════════════════════════════════════ */
+#left {
+  background: var(--bg1);
+  border-right: 1px solid var(--bd);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+
+/* Boss stage */
+.boss-stage {
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--bd2);
+}
+.boss-bg-layer {
+  position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse at 50% 30%, rgba(204,17,17,.1) 0%, transparent 70%);
+}
+.boss-bg-pokes { position: absolute; inset: 0; pointer-events: none; }
+.boss-main {
+  position: relative; z-index: 1;
+  display: flex; align-items: flex-end; gap: 8px;
+  padding: 10px 10px 8px;
+}
+.boss-sprite-wrap {
+  flex-shrink: 0; position: relative;
+}
+.boss-sprite-wrap img {
+  width: 72px; height: 72px;
+  filter: drop-shadow(0 0 8px rgba(204,17,17,.35));
+}
+.boss-sprite-empty {
+  width: 72px; height: 72px;
+  background: var(--bg2);
+  border: 1px dashed var(--bd2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px; color: var(--dimmer);
+}
+.boss-meta { flex: 1; min-width: 0; }
+.boss-gang-name {
+  font-family: var(--F); font-size: 20px;
+  letter-spacing: 1px; color: var(--text);
+  line-height: 1; margin-bottom: 1px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.boss-full-title {
+  font-family: var(--FM); font-size: 9px;
+  color: var(--red); letter-spacing: 1.5px;
+  text-transform: uppercase; margin-bottom: 5px;
+}
+.boss-mini-stats {
+  display: flex; gap: 4px;
+}
+.bms {
+  background: var(--bg3); border: 1px solid var(--bd);
+  padding: 3px 5px; text-align: center;
+}
+.bms span { display: block; font-family: var(--FM); font-size: 10px; color: var(--text); }
+.bms em { display: block; font-family: var(--FC); font-size: 8px; color: var(--mute); text-transform: uppercase; letter-spacing: .5px; }
+
+/* Boss team */
+.boss-team-wrap {
+  padding: 4px 8px 8px;
+  position: relative; z-index: 1;
+}
+.boss-team-label {
+  font-family: var(--FM); font-size: 8px; color: var(--mute);
+  text-transform: uppercase; letter-spacing: 1.5px;
+  margin-bottom: 4px;
+}
+.boss-team-slots { display: flex; gap: 3px; }
+.boss-slot {
+  flex: 1;
+  background: var(--bg3); border: 1px solid var(--bd);
+  padding: 3px;
+  display: flex; flex-direction: column; align-items: center;
+  gap: 1px; min-height: 50px;
+  transition: border-color .15s;
+  cursor: pointer;
+  position: relative;
+}
+.boss-slot:hover { border-color: var(--red); }
+.boss-slot img { width: 34px; height: 34px; }
+.boss-slot .sn {
+  font-family: var(--FM); font-size: 7px; color: var(--mute);
+  text-align: center; max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.boss-slot.empty { border-style: dashed; opacity: .3; }
+.boss-slot.empty::after {
+  content: '+'; color: var(--mute); font-size: 18px;
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+}
+.boss-slot.shiny::after {
+  content: '✨'; font-size: 8px;
+  position: absolute; top: 1px; right: 2px;
+}
+
+/* Focus zone header */
+.focus-header {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--bd);
+  display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0;
+}
+.focus-zone-name {
+  font-family: var(--FC); font-weight: 900;
+  font-size: 14px; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  flex: 1;
+}
+.focus-zone-type {
+  font-family: var(--FM); font-size: 8px;
+  padding: 1px 5px;
+  text-transform: uppercase; letter-spacing: 1px;
+  flex-shrink: 0;
+}
+.focus-zone-type.route   { background: #0d1f0d; color: var(--green); border: 1px solid var(--green-dim); }
+.focus-zone-type.city    { background: #0d0d1f; color: var(--blue);  border: 1px solid rgba(58,122,204,.4); }
+.focus-zone-type.special { background: #1a0d1a; color: #aa66cc;      border: 1px solid rgba(170,102,204,.4); }
+
+/* Possession meter — BIG */
+.possession-meter {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--bd);
+  flex-shrink: 0;
+}
+.poss-top {
+  display: flex; justify-content: space-between; align-items: flex-end;
+  margin-bottom: 5px;
+}
+.poss-val {
+  font-family: var(--F); font-size: 32px;
+  color: var(--text); line-height: 1;
+}
+.poss-val.high { color: var(--red2); text-shadow: 0 0 12px rgba(230,53,53,.4); }
+.poss-val.med  { color: var(--orange); }
+.poss-val.low  { color: var(--mute); }
+.poss-label { font-family: var(--FM); font-size: 8px; color: var(--mute); letter-spacing: 2px; text-transform: uppercase; }
+.poss-sub { font-family: var(--FM); font-size: 9px; color: var(--mute); }
+.poss-bar-track {
+  height: 6px; background: var(--bg3); border: 1px solid var(--bd);
+  overflow: hidden; position: relative;
+}
+.poss-bar-fill {
+  height: 100%; transition: width .4s ease;
+  background: linear-gradient(90deg, var(--red), var(--red2));
+  position: relative;
+}
+.poss-bar-fill::after {
+  content: '';
+  position: absolute; right: 0; top: 0; bottom: 0;
+  width: 4px;
+  background: #fff3;
+  filter: blur(2px);
+}
+/* Danger + status row */
+.poss-badges {
+  display: flex; gap: 4px; margin-top: 6px;
+}
+.pbadge {
+  font-family: var(--FM); font-size: 8px;
+  padding: 2px 6px; border: 1px solid var(--bd);
+  background: var(--bg3);
+  text-transform: uppercase; letter-spacing: .5px;
+  color: var(--mute);
+}
+.pbadge.d-faible  { border-color: var(--green-dim); color: var(--green); }
+.pbadge.d-modere  { border-color: rgba(255,204,90,.3); color: var(--gold); }
+.pbadge.d-eleve   { border-color: var(--orange-a); color: var(--orange); }
+.pbadge.d-extreme { border-color: var(--bd-red); color: var(--red2); }
+.pbadge.d-critique{ background: var(--red); border-color: var(--red2); color: #fff; }
+.pbadge.s-tenue   { border-color: var(--bd-red); color: var(--red2); }
+.pbadge.s-ouverte { background: var(--red-a); border-color: var(--red2); color: var(--red2); }
+.pbadge.s-libre   { color: var(--mute); }
+
+/* Zone list */
+.zone-list-wrap {
+  flex: 1; overflow-y: auto;
+}
+.zone-list-head {
+  padding: 6px 10px;
+  font-family: var(--FM); font-size: 8px; color: var(--mute);
+  text-transform: uppercase; letter-spacing: 1.5px;
+  border-bottom: 1px solid var(--bd);
+  display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; background: var(--bg1); z-index: 1;
+}
+.zone-row {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--bd);
+  cursor: pointer;
+  transition: background .1s;
+}
+.zone-row:hover { background: var(--bg2); }
+.zone-row.focus { background: var(--red-b); border-left: 2px solid var(--red); }
+.zone-row-icon { font-size: 14px; flex-shrink: 0; width: 18px; text-align: center; }
+.zone-row-info { flex: 1; min-width: 0; }
+.zone-row-name {
+  font-family: var(--FC); font-weight: 700;
+  font-size: 12px; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.zone-row-sub {
+  font-family: var(--FM); font-size: 8px; color: var(--mute);
+}
+.zone-row-poss {
+  font-family: var(--F); font-size: 16px;
+  color: var(--mute); flex-shrink: 0;
+}
+.zone-row-poss.hi { color: var(--red2); }
+.zone-row-poss.med { color: var(--orange); }
+.zone-row-lock {
+  font-size: 10px; color: var(--dimmer); flex-shrink: 0;
+}
+
+/* ════════════════════════════════════════════════════════════
+   CENTER — COMMANDE PRINCIPALE
+   ════════════════════════════════════════════════════════════ */
+#center {
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+/* Action bar */
+.action-bar {
+  background: var(--bg1);
+  border-bottom: 1px solid var(--bd2);
+  padding: 0 10px;
+  display: flex; align-items: center; gap: 5px;
+  height: 40px; flex-shrink: 0;
+  overflow-x: auto;
+}
+.action-bar::-webkit-scrollbar { height: 0; }
+.act-btn {
+  display: flex; align-items: center; gap: 4px;
+  padding: 5px 10px;
+  font-family: var(--FC); font-weight: 700;
+  font-size: 11px; letter-spacing: 1px; text-transform: uppercase;
+  border: 1px solid var(--bd);
+  background: var(--bg2);
+  color: var(--mute);
+  white-space: nowrap;
+  transition: all .12s;
+  flex-shrink: 0;
+}
+.act-btn:hover { border-color: var(--red); color: var(--text); }
+.act-btn.primary { background: var(--red); border-color: var(--red2); color: #fff; }
+.act-btn.primary:hover { background: var(--red2); }
+.act-btn.warn { border-color: var(--orange-a); color: var(--orange); }
+.act-btn.warn:hover { background: var(--orange-a); }
+.act-btn.ok { border-color: var(--green-dim); color: var(--green); }
+.act-btn.ok:hover { background: var(--green-a); }
+.act-sep { width: 1px; height: 20px; background: var(--bd2); flex-shrink: 0; margin: 0 2px; }
+
+/* Center scroll area */
+#center-scroll {
+  flex: 1; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 0;
+}
+
+/* Inventory block */
+.inv-block {
+  background: var(--bg1);
+  border-bottom: 1px solid var(--bd2);
+}
+.inv-block-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--bd);
+}
+.inv-section-label {
+  font-family: var(--FM); font-size: 8px;
+  color: var(--mute); text-transform: uppercase; letter-spacing: 2px;
+}
+.boost-tabs { display: flex; gap: 2px; }
+.boost-tab {
+  font-family: var(--FM); font-size: 9px;
+  padding: 1px 5px;
+  border: 1px solid var(--bd);
+  color: var(--mute);
+  transition: all .1s;
+}
+.boost-tab.active { background: var(--red-a); border-color: var(--bd-red); color: var(--red2); }
+.inv-row {
+  display: flex; gap: 3px; flex-wrap: wrap;
+  padding: 6px 10px 8px;
+}
+/* Item tile */
+.item-tile {
+  width: 52px; height: 52px;
+  background: var(--bg2); border: 1px solid var(--bd);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 1px; cursor: pointer; position: relative;
+  transition: border-color .12s, background .12s;
+  flex-shrink: 0;
+}
+.item-tile:hover { border-color: var(--red); background: var(--bg3); }
+.item-tile.active { border-color: var(--red2); background: var(--red-a); }
+.item-tile.active::before {
+  content: ''; position: absolute; inset: 0;
+  border: 1px solid var(--red2);
+  box-shadow: inset 0 0 8px rgba(204,17,17,.2);
+  pointer-events: none;
+}
+.item-tile.boosted { border-color: var(--green-dim); }
+.item-tile.locked-key { opacity: .3; }
+.item-sprite { font-size: 18px; line-height: 1; }
+.item-sprite img { width: 24px; height: 24px; }
+.item-qty {
+  font-family: var(--FM); font-size: 8px; color: var(--mute);
+  position: absolute; bottom: 2px; right: 3px;
+}
+.item-tile.active .item-qty { color: var(--red2); }
+.item-rem {
+  font-family: var(--FM); font-size: 7px; color: var(--green);
+  position: absolute; top: 2px; right: 2px;
+}
+
+/* Incubators */
+.inc-slots { display: flex; gap: 4px; padding: 6px 10px 8px; }
+.inc-slot {
+  width: 56px;
+  background: var(--bg2); border: 1px solid var(--bd);
+  padding: 4px;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  position: relative;
+}
+.inc-slot img { width: 28px; height: 28px; }
+.inc-slot .ibar { width: 100%; height: 3px; background: var(--bg3); border: 1px solid var(--bd); overflow: hidden; }
+.inc-slot .ifill { height: 100%; background: var(--gold); transition: width .3s; }
+.inc-slot .itime { font-family: var(--FM); font-size: 7px; color: var(--mute); }
+.inc-slot.ready { border-color: var(--green-dim); background: var(--green-a); cursor: pointer; }
+.inc-slot.ready .itime { color: var(--green); }
+.inc-slot.empty { border-style: dashed; opacity: .3; }
+.inc-slot.empty::after { content: '🥚'; font-size: 16px; opacity: .3; }
+
+/* Feed section */
+.feed-section { padding: 8px 10px; border-bottom: 1px solid var(--bd2); }
+.feed-section .sec-lbl {
+  font-family: var(--FM); font-size: 8px; color: var(--mute);
+  letter-spacing: 2px; text-transform: uppercase; margin-bottom: 5px;
+}
+.feed-items { display: flex; flex-direction: column; gap: 3px; }
+.feed-item {
+  background: var(--bg2); border: 1px solid var(--bd);
+  padding: 5px 8px;
+  display: grid; grid-template-columns: auto 1fr;
+  gap: 3px 8px; align-items: start;
+}
+.feed-item.alert { border-color: var(--orange-a); background: rgba(230,124,0,.05); }
+.feed-item.ok    { border-color: var(--green-dim); background: var(--green-a); }
+.fi-tag {
+  font-family: var(--FM); font-size: 8px;
+  padding: 1px 4px; border: 1px solid var(--bd);
+  color: var(--mute); white-space: nowrap;
+  align-self: start; margin-top: 1px;
+}
+.feed-item.alert .fi-tag { border-color: var(--orange-a); color: var(--orange); }
+.feed-item.ok .fi-tag { border-color: var(--green-dim); color: var(--green); }
+.fi-body {}
+.fi-title { font-family: var(--FC); font-weight: 700; font-size: 12px; color: var(--text); }
+.fi-detail { font-family: var(--FB); font-size: 10px; color: var(--mute); margin-top: 1px; }
+
+/* ════════════════════════════════════════════════════════════
+   RIGHT — AGENTS + ASSIGNMENT
+   ════════════════════════════════════════════════════════════ */
+#right {
+  background: var(--bg1);
+  border-left: 1px solid var(--bd);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.panel-head {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--bd2);
+  display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0;
+}
+.ph-title { font-family: var(--FM); font-size: 9px; color: var(--red); letter-spacing: 2px; text-transform: uppercase; }
+.ph-meta { font-family: var(--FM); font-size: 9px; color: var(--mute); }
+
+/* Agent card */
+.agents-wrap { flex: 1; overflow-y: auto; }
+.agent-card {
+  display: flex; align-items: stretch;
+  border-bottom: 1px solid var(--bd);
+  transition: background .1s;
+  position: relative;
+}
+.agent-card:hover { background: var(--bg2); }
+.agent-card.in-focus { background: var(--red-b); }
+.agent-card.in-focus::before {
+  content: '';
+  position: absolute; left: 0; top: 0; bottom: 0;
+  width: 2px; background: var(--red);
+}
+.agent-sprite-wrap {
+  width: 48px; flex-shrink: 0;
+  padding: 6px;
+  display: flex; align-items: flex-start; justify-content: center;
+  border-right: 1px solid var(--bd);
+}
+.agent-sprite-wrap img { width: 34px; height: 34px; }
+.agent-sprite-placeholder {
+  width: 34px; height: 34px;
+  background: var(--bg3);
+  border: 1px solid var(--bd);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+}
+.agent-body { flex: 1; padding: 6px 8px; min-width: 0; }
+.agent-name {
+  font-family: var(--FC); font-weight: 700;
+  font-size: 13px; color: var(--text); margin-bottom: 1px;
+}
+.agent-rank-zone {
+  font-family: var(--FM); font-size: 8px; color: var(--mute);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* Agent team mini */
+.agent-team-row { display: flex; gap: 2px; margin-top: 4px; }
+.agent-team-slot {
+  width: 22px; height: 22px;
+  background: var(--bg3); border: 1px solid var(--bd);
+  display: flex; align-items: center; justify-content: center;
+}
+.agent-team-slot img { width: 18px; height: 18px; }
+.agent-team-slot.empty { border-style: dashed; opacity: .3; }
+/* Assignment zone badge */
+.agent-zone-row {
+  padding: 3px 6px 5px;
+  display: flex; align-items: center; gap: 4px;
+  flex-shrink: 0;
+  align-self: stretch;
+  border-left: 1px solid var(--bd);
+  flex-direction: column; justify-content: center;
+  width: 70px;
+}
+.az-label {
+  font-family: var(--FM); font-size: 7px; color: var(--dimmer);
+  text-transform: uppercase; letter-spacing: .5px;
+}
+.az-zone {
+  font-family: var(--FM); font-size: 8px;
+  color: var(--mute);
+  text-align: center; width: 100%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.az-zone.assigned { color: var(--red); }
+.agent-assign-btn {
+  font-family: var(--FM); font-size: 8px;
+  padding: 2px 5px;
+  border: 1px solid var(--bd);
+  color: var(--mute);
+  text-transform: uppercase; letter-spacing: .5px;
+  transition: all .1s; margin-top: 2px;
+  background: var(--bg3);
+  width: 100%; text-align: center;
+}
+.agent-assign-btn:hover { border-color: var(--red); color: var(--red2); }
+.agent-assign-btn.retirer { border-color: var(--red-b); color: var(--red); }
+.agent-assign-btn.retirer:hover { background: var(--red-a); }
+
+/* Zone focus panel for agents */
+.zone-assign-panel {
+  padding: 8px 10px;
+  border-top: 1px solid var(--bd2);
+  background: var(--bg2);
+  flex-shrink: 0;
+}
+.zap-title {
+  font-family: var(--FM); font-size: 8px;
+  color: var(--mute); text-transform: uppercase; letter-spacing: 1.5px;
+  margin-bottom: 6px;
+}
+.zap-zone-name {
+  font-family: var(--FC); font-weight: 700; font-size: 14px;
+  color: var(--red2); margin-bottom: 4px;
+}
+.zap-slots {
+  display: flex; align-items: center; gap: 4px;
+  margin-bottom: 6px;
+}
+.zap-slot {
+  width: 44px; height: 44px;
+  background: var(--bg3); border: 1px solid var(--bd);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2px; font-size: 10px; color: var(--dimmer);
+  position: relative;
+}
+.zap-slot.filled { border-color: var(--red-b); }
+.zap-slot.filled img { width: 28px; height: 28px; }
+.zap-slot .zsn { font-family: var(--FM); font-size: 6px; color: var(--mute); }
+.zap-slot.empty { border-style: dashed; }
+.zap-slot.empty::after { content: '+'; font-size: 18px; color: var(--dimmer); }
+.zap-info {
+  font-family: var(--FM); font-size: 9px; color: var(--mute);
+}
+
+/* ════════════════════════════════════════════════════════════
+   BOTTOM TABBAR
+   ════════════════════════════════════════════════════════════ */
+#tabs {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+  height: var(--tab);
+  background: var(--bg1);
+  border-top: 1px solid var(--bd2);
+  display: flex;
+}
+.tab {
+  flex: 1;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2px; cursor: pointer;
+  border-right: 1px solid var(--bd);
+  color: var(--mute); font-family: var(--FC);
+  font-size: 8px; font-weight: 600; letter-spacing: .5px; text-transform: uppercase;
+  transition: background .1s, color .1s;
+  position: relative;
+}
+.tab:last-child { border-right: none; }
+.tab:hover { background: var(--bg2); color: var(--text); }
+.tab.active { color: var(--red2); background: var(--red-c); }
+.tab.active::after {
+  content: ''; position: absolute; top: 0; left: 0; right: 0;
+  height: 2px; background: var(--red);
+  box-shadow: 0 0 6px var(--red);
+}
+.tab-ic { font-size: 15px; line-height: 1; }
+.tab-badge {
+  position: absolute; top: 4px; right: calc(50% - 16px);
+  background: var(--red); color: #fff;
+  font-family: var(--FM); font-size: 7px;
+  padding: 0 3px; min-width: 12px; text-align: center;
+}
+
+/* ════════════════════════════════════════════════════════════
+   AGENT PICKER MODAL
+   ════════════════════════════════════════════════════════════ */
+.modal-ov {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,.8);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none; transition: opacity .15s;
+}
+.modal-ov.open { opacity: 1; pointer-events: all; }
+.modal-box {
+  background: var(--bg1);
+  border: 1px solid var(--bd2);
+  width: 380px; max-width: 95vw;
+  max-height: 75vh;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.modal-head {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--bd);
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--bg2);
+  flex-shrink: 0;
+}
+.modal-title { font-family: var(--FC); font-weight: 900; font-size: 16px; letter-spacing: 1px; }
+.modal-sub { font-family: var(--FM); font-size: 8px; color: var(--mute); margin-top: 1px; }
+.mclose {
+  width: 22px; height: 22px;
+  background: var(--bg3); border: 1px solid var(--bd);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; color: var(--mute);
+  transition: all .1s;
+}
+.mclose:hover { border-color: var(--red); color: var(--red2); }
+.modal-body { flex: 1; overflow-y: auto; }
+.picker-agent {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--bd);
+  cursor: pointer; transition: background .1s;
+}
+.picker-agent:hover { background: var(--bg2); }
+.picker-agent.assigned { background: var(--red-b); }
+.picker-agent img { width: 32px; height: 32px; flex-shrink: 0; }
+.pa-info { flex: 1; min-width: 0; }
+.pa-name { font-family: var(--FC); font-weight: 700; font-size: 13px; color: var(--text); }
+.pa-sub { font-family: var(--FM); font-size: 8px; color: var(--mute); }
+.pa-action {
+  font-family: var(--FM); font-size: 8px;
+  padding: 3px 8px; border: 1px solid var(--bd);
+  background: var(--bg3); color: var(--mute);
+  text-transform: uppercase; letter-spacing: .5px;
+  transition: all .1s; flex-shrink: 0;
+}
+.picker-agent.assigned .pa-action { border-color: var(--red-b); color: var(--red); }
+.picker-agent:not(.assigned):not([disabled]) .pa-action:hover { border-color: var(--green-dim); color: var(--green); }
+.pa-action[disabled] { opacity: .3; cursor: not-allowed; }
+
+/* demo banner */
+.demo-banner {
+  position: fixed; top: var(--top); left: 0; right: 0; z-index: 90;
+  background: rgba(90,74,0,.5);
+  border-bottom: 1px solid var(--gold-dim);
+  padding: 3px 10px;
+  font-family: var(--FM); font-size: 9px; color: var(--gold);
+  display: none; align-items: center; gap: 8px;
+}
+.demo-banner.on { display: flex; }
+/* noise */
+.noise { position: fixed; inset: 0; z-index: 999; pointer-events: none; opacity: .025;
+  background: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E") 0 0 / 180px;
+}
+
+/* Utility */
+.empty-note { padding: 12px; font-family: var(--FC); font-size: 11px; color: var(--dimmer); text-align: center; }
+</style>
+</head>
+<body>
+<div class="noise"></div>
+
+<!-- ── DEMO BANNER ── -->
+<div class="demo-banner" id="demoBanner">
+  ⚠ Aucune save — données démo générées depuis les zones réelles
+  <button onclick="this.parentElement.classList.remove('on')" style="margin-left:auto;color:var(--gold);">✕</button>
+</div>
+
+<!-- ── TOPBAR ── -->
+<header id="top">
+  <div class="logo">POKEGANG</div>
+  <div class="vd"></div>
+  <div class="boss-id" id="topBossId">
+    <div class="boss-sprite-placeholder" style="width:26px;height:26px;font-size:14px;">👤</div>
+    <div class="boss-id-txt">
+      <strong id="topBossName">Boss</strong>
+      <em id="topBossTitle">Chef de gang</em>
+    </div>
+  </div>
+  <div class="vd"></div>
+  <div class="top-metrics">
+    <div class="mc gold"><span>₽</span><b id="topMoney">0</b></div>
+    <div class="mc"><span>⭐</span><b id="topRep">0</b></div>
+    <div class="mc grn"><span>🗺</span><b id="topTenues">0</b><span>front(s)</span></div>
+    <div class="mc red"><span>✨</span><b id="topShiny">0</b></div>
+  </div>
+  <div class="top-r">
+    <button class="ibtn" title="Codex">📖</button>
+    <button class="ibtn" title="Export gang">📷</button>
+    <button class="ibtn" title="Paramètres">⚙</button>
+  </div>
+</header>
+
+<!-- ── SHELL ── -->
+<div id="shell">
+
+  <!-- ══ LEFT ══ -->
+  <div id="left">
+    <!-- Boss stage -->
+    <div class="boss-stage" id="bossStage">
+      <div class="boss-bg-layer"></div>
+      <div class="boss-bg-pokes" id="bgPokes"></div>
+      <div class="boss-main">
+        <div class="boss-sprite-wrap" id="bossSpriteWrap">
+          <div class="boss-sprite-empty">👤</div>
+        </div>
+        <div class="boss-meta">
+          <div class="boss-gang-name" id="gangName">Team ???</div>
+          <div class="boss-full-title" id="bossFullTitle">Recrue</div>
+          <div class="boss-mini-stats" id="bossMiniStats">
+            <div class="bms"><span id="statCombat">—</span><em>Combat</em></div>
+            <div class="bms"><span id="statCapture">—</span><em>Capture</em></div>
+            <div class="bms"><span id="statLuck">—</span><em>Chance</em></div>
+          </div>
+        </div>
+      </div>
+      <div class="boss-team-wrap">
+        <div class="boss-team-label">Équipe du boss</div>
+        <div class="boss-team-slots" id="bossTeamSlots"></div>
+      </div>
+    </div>
+
+    <!-- Focus zone header -->
+    <div class="focus-header">
+      <div class="focus-zone-name" id="focusName">Aucun front</div>
+      <div class="focus-zone-type" id="focusType">route</div>
+    </div>
+
+    <!-- Possession meter -->
+    <div class="possession-meter">
+      <div class="poss-top">
+        <div>
+          <div class="poss-label">Possession</div>
+          <div class="poss-val" id="possVal">—</div>
+        </div>
+        <div class="poss-sub" id="possSub">—</div>
+      </div>
+      <div class="poss-bar-track"><div class="poss-bar-fill" id="possBar" style="width:0%"></div></div>
+      <div class="poss-badges" id="possBadges"></div>
+    </div>
+
+    <!-- Zone list -->
+    <div class="zone-list-wrap">
+      <div class="zone-list-head">
+        <span>Fronts <span id="zoneListCount" style="color:var(--text)">0</span></span>
+        <button onclick="renderZoneList()" class="ibtn" style="width:18px;height:18px;font-size:9px;" title="Actualiser">↻</button>
+      </div>
+      <div id="zoneList"></div>
+    </div>
+  </div>
+
+  <!-- ══ CENTER ══ -->
+  <div id="center">
+    <!-- Action bar -->
+    <div class="action-bar" id="actionBar">
+      <button class="act-btn primary" id="actIntervene">⚔ Intervenir</button>
+      <button class="act-btn" id="actToggle">Ouvrir</button>
+      <button class="act-btn" id="actAssign" onclick="openAgentPicker()">👥 Assigner</button>
+      <button class="act-btn" id="actReinforce">🔒 Renforcer</button>
+      <button class="act-btn warn" id="actRetake">↩ Reprendre</button>
+    </div>
+
+    <div id="centerScroll">
+      <!-- BALLS -->
+      <div class="inv-block">
+        <div class="inv-block-head">
+          <span class="inv-section-label">Poké Balls</span>
+          <span class="inv-section-label" id="activeBallLabel" style="color:var(--text);">—</span>
+        </div>
+        <div class="inv-row" id="invBalls"></div>
+      </div>
+
+      <!-- BOOSTS -->
+      <div class="inv-block">
+        <div class="inv-block-head">
+          <span class="inv-section-label">Boosts actifs</span>
+          <div class="boost-tabs" id="boostTabs">
+            <button class="boost-tab active" data-mult="1">×1</button>
+            <button class="boost-tab" data-mult="5">×5</button>
+            <button class="boost-tab" data-mult="10">×10</button>
+          </div>
+        </div>
+        <div class="inv-row" id="invBoosts"></div>
+      </div>
+
+      <!-- OBJETS + CLÉS -->
+      <div class="inv-block">
+        <div class="inv-block-head">
+          <span class="inv-section-label">Objets & Clés</span>
+        </div>
+        <div class="inv-row" id="invItems"></div>
+      </div>
+
+      <!-- INCUBATEURS -->
+      <div class="inv-block">
+        <div class="inv-block-head">
+          <span class="inv-section-label">Incubateurs</span>
+          <span class="inv-section-label" id="incEggsWaiting" style="color:var(--gold)"></span>
+        </div>
+        <div class="inc-slots" id="incSlots"></div>
+      </div>
+
+      <!-- FEED -->
+      <div class="feed-section">
+        <div class="sec-lbl">Intel du QG</div>
+        <div class="feed-items" id="feedItems"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ RIGHT ══ -->
+  <div id="right">
+    <div class="panel-head">
+      <div>
+        <div class="ph-title">Agents</div>
+      </div>
+      <div class="ph-meta" id="agentCountMeta">0 opérationnels</div>
+    </div>
+
+    <!-- Agent cards -->
+    <div class="agents-wrap" id="agentsList"></div>
+
+    <!-- Zone focus assignment summary -->
+    <div class="zone-assign-panel">
+      <div class="zap-title">Cellule assignée</div>
+      <div class="zap-zone-name" id="zapZoneName">—</div>
+      <div class="zap-slots" id="zapSlots"></div>
+      <div class="zap-info" id="zapInfo">Aucun agent sur ce front</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── TABBAR ── -->
+<nav id="tabs">
+  <div class="tab" data-tab="zones"><div class="tab-ic">🗺</div><div>ZONES</div></div>
+  <div class="tab active" data-tab="gang"><div class="tab-ic">💀</div><div>QG</div></div>
+  <div class="tab" data-tab="pc"><div class="tab-ic">💾</div><div>PC</div></div>
+  <div class="tab" data-tab="agents"><div class="tab-ic">👥</div><div>AGENTS</div><div class="tab-badge" id="tabBadgeAgents"></div></div>
+  <div class="tab" data-tab="marche"><div class="tab-ic">🛒</div><div>MARCHÉ</div></div>
+  <div class="tab" data-tab="missions"><div class="tab-ic">📋</div><div>MISSIONS</div></div>
+  <div class="tab" data-tab="combats"><div class="tab-ic">⚔</div><div>COMBATS</div></div>
+  <div class="tab" data-tab="compte"><div class="tab-ic">☁</div><div>COMPTE</div></div>
+</nav>
+
+<!-- ── AGENT PICKER MODAL ── -->
+<div class="modal-ov" id="agentPickerModal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div>
+        <div class="modal-title" id="modalPickerTitle">Assigner un agent</div>
+        <div class="modal-sub" id="modalPickerSub">0/1 slot(s) utilisé(s)</div>
+      </div>
+      <button class="mclose" onclick="closeAgentPicker()">✕</button>
+    </div>
+    <div class="modal-body" id="modalPickerBody"></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* ════════════════════════════════════════════════════════════
+   CONSTANTS
+   ════════════════════════════════════════════════════════════ */
+const SD = 'https://play.pokemonshowdown.com/sprites';
+const SD_TRAINER = 'https://play.pokemonshowdown.com/sprites/trainers';
+
+const BALL_IDS  = ['pokeball','greatball','ultraball','duskball','masterball'];
+const BOOST_IDS = ['lure','superlure','incense','rarescope','aura'];
+const CRAFT_IDS = ['rarecandy','evostone'];
+const KEY_IDS   = ['incubator','map_pallet','casino_ticket','silph_keycard','boat_ticket'];
+
+const BALL_EMOJI = {
+  pokeball:'🔴', greatball:'🔵', ultraball:'⚫', duskball:'🟤', masterball:'🟣',
+};
+const BOOST_EMOJI = {
+  lure:'🎣', superlure:'🎯', incense:'🌫', rarescope:'🔭', aura:'✨',
+};
+const CRAFT_EMOJI = { rarecandy:'🍬', evostone:'💎' };
+const KEY_EMOJI   = { incubator:'🥚', map_pallet:'🗺', casino_ticket:'🎰', silph_keycard:'🔑', boat_ticket:'🚢' };
+
+const ZONE_TYPE_FR = { route:'Front sauvage', city:'Secteur', special:'Lieu spécial', gang_park:'QG' };
+const ZONE_TYPE_TERRAIN = {
+  route: 'FRONT', city: 'SECTEUR', special: 'LIEU SPÉCIAL', gang_park: 'REPAIRE',
+};
+const RANK_FR = { grunt:'Grunt', sergent:'Sergent', lieutenant:'Lieutenant', commandant:'Commandant', elite:'Elite', general:'Général' };
+
+/* ════════════════════════════════════════════════════════════
+   UTILS
+   ════════════════════════════════════════════════════════════ */
+function fmtM(n) {
+  if (!n || n === 0) return '0';
+  if (n >= 1_000_000) return (n/1_000_000).toFixed(1).replace('.0','') + 'M';
+  if (n >= 1_000) return (n/1_000).toFixed(1).replace('.0','') + 'k';
+  return n.toLocaleString('fr-FR');
+}
+function pokeUrl(en, shiny) {
+  if (!en) return '';
+  const n = en.toLowerCase().replace(/['']/g,'').replace(/\.\s*/g,'').replace(/\s+/g,'-').replace(/♀/g,'-f').replace(/♂/g,'-m');
+  return `${SD}/${shiny ? 'gen5-shiny' : 'gen5'}/${n}.png`;
+}
+function trainerUrl(sprite) {
+  if (!sprite) return '';
+  return `${SD_TRAINER}/${sprite.toLowerCase()}.png`;
+}
+function zoneEmoji(zone) {
+  if (!zone) return '🗺';
+  if (zone.type === 'city') return '🏙';
+  if (zone.type === 'special') return '⭐';
+  const p = (zone.pool || []).join(',');
+  if (p.includes('gastly') || p.includes('haunter')) return '👻';
+  if (p.includes('tentacool') || p.includes('lapras')) return '🌊';
+  if (p.includes('voltorb') || p.includes('pikachu')) return '⚡';
+  if (p.includes('zubat') && p.includes('geodude')) return '🗻';
+  if (p.includes('caterpie') || p.includes('oddish')) return '🌿';
+  return '🛤';
+}
+
+/* ════════════════════════════════════════════════════════════
+   STATE
+   ════════════════════════════════════════════════════════════ */
+let S = null;       // loaded state
+let isDemo = false;
+let focusZoneId = null;
+let boostMult = 1;
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem('pokeforge.v6');
+    if (raw) { S = JSON.parse(raw); return; }
+  } catch(e) {}
+  isDemo = true;
+  S = buildDemo();
+}
+
+/* ════════════════════════════════════════════════════════════
+   ZONE HELPERS
+   ════════════════════════════════════════════════════════════ */
+function allZones() {
+  return typeof ZONES !== 'undefined' ? ZONES.filter(z => z.type !== 'gang_park') : [];
+}
+function unlockedZones() {
+  const rep = S.gang.reputation || 0;
+  return allZones().filter(z => (z.rep || 0) <= rep);
+}
+function zoneById(id) {
+  if (!id) return null;
+  return allZones().find(z => z.id === id) || null;
+}
+
+/* Possession % — mirrors gangBase.js _baseZoneStatus logic */
+function zonePossession(zone) {
+  if (!zone) return 0;
+  const zs = (S.zones || {})[zone.id] || {};
+  const agents = (S.agents || []).filter(a => a.assignedZone === zone.id).length;
+  const mastery = zs.mastery || 0;
+  const combats = zs.combatsWon || 0;
+  const captures = zs.captures || 0;
+  const isLocked = (zone.rep || 0) > (S.gang.reputation || 0);
+  if (isLocked) return 0;
+  return Math.max(5, Math.min(100,
+    18 + mastery * 18 + Math.min(24, combats * 2) + Math.min(18, captures) + agents * 12
+  ));
+}
+
+function zoneDanger(zone) {
+  if (!zone) return 'faible';
+  const score = (zone.rep || 0) + (zone.type === 'city' ? 140 : 0) + (zone.type === 'special' ? 90 : 0);
+  if (score >= 900) return 'extreme';
+  if (score >= 550) return 'eleve';
+  if (score >= 250) return 'modere';
+  return 'faible';
+}
+
+function zoneStateLabel(zone) {
+  if (!zone) return 'libre';
+  const isLocked = (zone.rep || 0) > (S.gang.reputation || 0);
+  if (isLocked) return 'verrouillée';
+  const agents = (S.agents || []).filter(a => a.assignedZone === zone.id).length;
+  if (agents > 0) return 'tenue';
+  return 'libre';
+}
+
+function computeFocusZone() {
+  const boss = zoneById(S.gang?.bossZone);
+  if (boss) return boss.id;
+  const withAgent = allZones().find(z => (S.agents || []).some(a => a.assignedZone === z.id));
+  if (withAgent) return withAgent.id;
+  return unlockedZones()[0]?.id || allZones()[0]?.id || null;
+}
+
+/* ════════════════════════════════════════════════════════════
+   DEMO STATE
+   ════════════════════════════════════════════════════════════ */
+function buildDemo() {
+  const zones = typeof ZONES !== 'undefined' ? ZONES.filter(z => z.type !== 'gang_park') : [];
+  const species = typeof POKEMON_GEN1 !== 'undefined' ? POKEMON_GEN1 : [{en:'pikachu'},{en:'charmander'},{en:'gengar'}];
+
+  const agents = [
+    { id:'a1', name:'Ryusaki',  sprite:'acetrainer',   title:'lieutenant', level:22, assignedZone:'route1',          team:['pikachu','gengar','arcanine'] },
+    { id:'a2', name:'Malaika',  sprite:'rocketgruntf', title:'sergent',    level:17, assignedZone:'viridian_forest', team:['eevee','clefairy'] },
+    { id:'a3', name:'Chen',     sprite:'hiker',        title:'grunt',      level:12, assignedZone:'mt_moon',         team:['geodude','onix','zubat'] },
+    { id:'a4', name:'Yuki',     sprite:'lass',         title:'sergent',    level:18, assignedZone:null,              team:['jigglypuff','wigglytuff'] },
+    { id:'a5', name:'Vincente', sprite:'gentleman',    title:'commandant', level:34, assignedZone:'celadon_casino',  team:['persian','alakazam','gengar'] },
+    { id:'a6', name:'Sora',     sprite:'psychic',      title:'grunt',      level:10, assignedZone:null,              team:['abra'] },
+  ];
+
+  const log = [];
+  for (let i = 0; i < 12; i++) {
+    const z = zones[Math.floor(Math.random()*zones.length)] || zones[0];
+    const sp = species[Math.floor(Math.random()*species.length)];
+    const ag = agents[Math.floor(Math.random()*agents.length)];
+    log.push({
+      ts: Date.now() - Math.floor(Math.random()*3600000),
+      msg: `${ag.name} a capturé un ${sp.fr || sp.en} en ${z?.fr || 'Route 1'}`,
+      species_en: sp.en, type: 'cap', shiny: Math.random() < .03,
+    });
+  }
+
+  return {
+    gang: {
+      name: 'Team Inferno', bossName: 'Giovanni',
+      bossSprite: 'giovanni', bossZone: 'route1',
+      reputation: 847, money: 2341500,
+      titleA: 'capo', titleB: 'de l\'ombre',
+      bossTeam: ['pikachu','gengar','arcanine'].map((en,i) => ({ id:'bt'+i, species_en:en, level:50+i*5, shiny: en==='gengar' })),
+    },
+    agents,
+    pokemons: species.slice(0,20).map((sp,i) => ({
+      id:'p'+i, species_en:sp.en, level:10+i*3, potential:Math.ceil(Math.random()*4)+1,
+      shiny: Math.random()<.05,
+    })),
+    inventory: {
+      pokeball:50, greatball:12, ultraball:3, duskball:0, masterball:0,
+      lure:2, superlure:0, incense:2, rarescope:1, aura:0,
+      rarecandy:1, evostone:0,
+      incubator:3, map_pallet:0, casino_ticket:0, silph_keycard:0, boat_ticket:0,
+    },
+    activeBall: 'pokeball',
+    activeBoosts: { incense:0, rarescope:0, aura:0, lure:0, superlure:0 },
+    eggs: [
+      { id:'e1', species_en:'eevee', incubating:true, status:'incubating', incubatedAt: Date.now()-2400000, hatchAt: Date.now()+600000 },
+      { id:'e2', species_en:'pikachu', incubating:true, status:'ready', incubatedAt: Date.now()-3600000, hatchAt: Date.now()-300000 },
+    ],
+    stats: { totalCaught:1204, shinyCaught:3, totalFightsWon:328, totalMoneyEarned:4100000 },
+    playerStats: { baseStats:{combat:14,capture:12,luck:7}, allocatedStats:{combat:4,capture:2,luck:2} },
+    zones: {
+      route1:         { mastery:1, combatsWon:14, captures:18 },
+      viridian_forest:{ mastery:2, combatsWon:8,  captures:22 },
+      mt_moon:        { mastery:0, combatsWon:3,  captures:5  },
+      celadon_casino: { mastery:1, combatsWon:7,  captures:12 },
+    },
+    log,
+    _savedAt: Date.now() - 45000,
+  };
+}
+
+/* ════════════════════════════════════════════════════════════
+   RENDER TOPBAR
+   ════════════════════════════════════════════════════════════ */
+function renderTop() {
+  const g = S.gang;
+  document.getElementById('topBossName').textContent  = g.bossName;
+  document.getElementById('topBossTitle').textContent = (g.titleA || 'recrue').toUpperCase();
+  document.getElementById('topMoney').textContent     = fmtM(g.money);
+  document.getElementById('topRep').textContent       = (g.reputation || 0).toLocaleString('fr-FR');
+  document.getElementById('topShiny').textContent     = S.stats?.shinyCaught || 0;
+
+  const tenues = allZones().filter(z => zoneStateLabel(z) === 'tenue').length;
+  document.getElementById('topTenues').textContent = tenues;
+}
+
+/* ════════════════════════════════════════════════════════════
+   RENDER BOSS STAGE
+   ════════════════════════════════════════════════════════════ */
+function renderBoss() {
+  const g = S.gang;
+
+  document.getElementById('gangName').textContent = g.name;
+  document.getElementById('bossFullTitle').textContent =
+    [g.titleA, g.titleB, g.titleC, g.titleD].filter(Boolean).join(' ') || 'Recrue';
+
+  // Sprite
+  const sw = document.getElementById('bossSpriteWrap');
+  if (g.bossSprite) {
+    sw.innerHTML = `<img src="${trainerUrl(g.bossSprite)}" onerror="this.parentElement.innerHTML='<div class=boss-sprite-empty>👤</div>'" alt="">`;
+  }
+
+  // Stats
+  const bs = S.playerStats?.baseStats || { combat:10, capture:10, luck:5 };
+  const al = S.playerStats?.allocatedStats || {};
+  document.getElementById('statCombat').textContent  = (bs.combat||10) + (al.combat||0);
+  document.getElementById('statCapture').textContent = (bs.capture||10) + (al.capture||0);
+  document.getElementById('statLuck').textContent    = (bs.luck||5) + (al.luck||0);
+
+  // Boss team
+  const team = g.bossTeam || [];
+  const slots = [...team.slice(0,6)];
+  while (slots.length < 6) slots.push(null);
+  document.getElementById('bossTeamSlots').innerHTML = slots.map(p => p ? `
+    <div class="boss-slot${p.shiny ? ' shiny' : ''}" title="${p.species_en} Lv.${p.level||'?'}">
+      <img src="${pokeUrl(p.species_en, p.shiny)}" onerror="this.style.display='none'" alt="">
+      <div class="sn">${(p.species_en||'').substring(0,6)}</div>
+    </div>
+  ` : '<div class="boss-slot empty"></div>').join('');
+
+  // BG pokes
+  const BG_POS = [
+    {left:'6%',bottom:'30%'},{left:'20%',bottom:'62%'},{left:'36%',bottom:'20%'},
+    {left:'54%',bottom:'52%'},{left:'68%',bottom:'70%'},{left:'80%',bottom:'28%'},
+    {left:'88%',bottom:'48%'},{left:'14%',bottom:'80%'},{left:'46%',bottom:'76%'},
+    {left:'60%',bottom:'14%'},
+  ];
+  const topPokes = [...(S.pokemons || [])].slice(0,10);
+  document.getElementById('bgPokes').innerHTML = topPokes.map((p,i) => {
+    const pos = BG_POS[i % BG_POS.length];
+    const sz  = i < 3 ? 38 : i < 6 ? 28 : 22;
+    return `<img src="${pokeUrl(p.species_en, p.shiny)}" style="position:absolute;left:${pos.left};bottom:${pos.bottom};width:${sz}px;height:${sz}px;image-rendering:pixelated;opacity:.25;filter:brightness(.4)" alt="">`;
+  }).join('');
+}
+
+/* ════════════════════════════════════════════════════════════
+   RENDER FOCUS ZONE
+   ════════════════════════════════════════════════════════════ */
+function renderFocusZone() {
+  const zone = zoneById(focusZoneId);
+  const zs   = zone ? ((S.zones || {})[zone.id] || {}) : {};
+  const agents = zone ? (S.agents || []).filter(a => a.assignedZone === zone.id) : [];
+
+  // Header
+  const nameEl = document.getElementById('focusName');
+  const typeEl = document.getElementById('focusType');
+  if (zone) {
+    nameEl.textContent = zone.fr || zone.en;
+    typeEl.textContent = ZONE_TYPE_TERRAIN[zone.type] || 'FRONT';
+    typeEl.className   = `focus-zone-type ${zone.type}`;
+  } else {
+    nameEl.textContent = 'Aucun front sélectionné';
+    typeEl.textContent = '—';
+  }
+
+  // Possession
+  const poss = zone ? zonePossession(zone) : 0;
+  const possEl = document.getElementById('possVal');
+  possEl.textContent = zone ? poss + '%' : '—';
+  possEl.className = `poss-val ${poss >= 70 ? 'high' : poss >= 40 ? 'med' : 'low'}`;
+  document.getElementById('possSub').textContent =
+    agents.length ? `${agents.length} agent(s) en cellule` : 'Aucun agent assigné';
+  document.getElementById('possBar').style.width = poss + '%';
+
+  // Badges
+  const danger = zone ? zoneDanger(zone) : 'faible';
+  const state  = zone ? zoneStateLabel(zone) : '—';
+  document.getElementById('possBadges').innerHTML = zone ? `
+    <span class="pbadge d-${danger}">⚠ ${danger.charAt(0).toUpperCase()+danger.slice(1)}</span>
+    <span class="pbadge s-${state.replace('é','e').replace('î','i')}">${state.toUpperCase()}</span>
+    ${zone.type !== 'route' ? `<span class="pbadge">${ZONE_TYPE_FR[zone.type]||zone.type}</span>` : ''}
+    ${zs.captures ? `<span class="pbadge">🎯 ${zs.captures} cap.</span>` : ''}
+    ${zs.combatsWon ? `<span class="pbadge">⚔ ${zs.combatsWon} combats</span>` : ''}
+  ` : '';
+
+  // Action bar state
+  document.getElementById('actToggle').textContent = 'Ouvrir la fenêtre';
+  document.getElementById('actIntervene').disabled = !zone;
+  document.getElementById('actAssign').disabled    = !zone;
+  document.getElementById('actReinforce').disabled = !zone;
+
+  // Zone assign panel
+  document.getElementById('zapZoneName').textContent = zone ? (zone.fr || zone.en) : '—';
+  renderZapSlots(zone, agents);
+}
+
+function renderZapSlots(zone, agents) {
+  const maxSlots = zone ? (((S.zones || {})[zone?.id] || {}).slots || 1) : 1;
+  const slots = [...agents.slice(0, maxSlots)];
+  while (slots.length < maxSlots) slots.push(null);
+
+  document.getElementById('zapSlots').innerHTML = slots.map(a => a ? `
+    <div class="zap-slot filled" title="${a.name}">
+      <img src="${trainerUrl(a.sprite)}" onerror="this.style.display='none'" alt="">
+      <div class="zsn">${a.name.substring(0,6)}</div>
+    </div>
+  ` : '<div class="zap-slot empty"></div>').join('');
+
+  const free = agents.length < maxSlots;
+  document.getElementById('zapInfo').textContent = agents.length
+    ? `${agents.length}/${maxSlots} slot(s) · ${free ? 'Peut renforcer' : 'Front complet'}`
+    : 'Aucun agent — front non tenu';
+}
+
+/* ════════════════════════════════════════════════════════════
+   RENDER ZONE LIST
+   ════════════════════════════════════════════════════════════ */
+function renderZoneList() {
+  const zones = allZones();
+  const rep   = S.gang.reputation || 0;
+
+  // Sort: unlocked (by possession desc) then locked
+  const unlocked = zones.filter(z => (z.rep||0) <= rep).sort((a,b) => zonePossession(b) - zonePossession(a));
+  const locked   = zones.filter(z => (z.rep||0) > rep).sort((a,b) => (a.rep||0) - (b.rep||0));
+  const sorted   = [...unlocked, ...locked];
+
+  document.getElementById('zoneListCount').textContent = unlocked.length + '/' + zones.length;
+
+  document.getElementById('zoneList').innerHTML = sorted.map(zone => {
+    const isLocked = (zone.rep||0) > rep;
+    const poss     = zonePossession(zone);
+    const em       = zoneEmoji(zone);
+    const agentCnt = (S.agents||[]).filter(a=>a.assignedZone===zone.id).length;
+    const isFocus  = zone.id === focusZoneId;
+
+    return `<div class="zone-row ${isFocus ? 'focus' : ''}" data-zone-id="${zone.id}">
+      <div class="zone-row-icon">${em}</div>
+      <div class="zone-row-info">
+        <div class="zone-row-name">${zone.fr}</div>
+        <div class="zone-row-sub">${agentCnt} agent(s) · ${isLocked ? '🔒 REP ' + zone.rep : zoneStateLabel(zone).toUpperCase()}</div>
+      </div>
+      ${isLocked
+        ? `<div class="zone-row-lock">🔒</div>`
+        : `<div class="zone-row-poss ${poss >= 70 ? 'hi' : poss >= 40 ? 'med' : ''}">${poss}%</div>`
+      }
+    </div>`;
+  }).join('');
+
+  // Click to select focus
+  document.getElementById('zoneList').querySelectorAll('[data-zone-id]').forEach(row => {
+    row.addEventListener('click', () => {
+      const z = zoneById(row.dataset.zoneId);
+      if (!z) return;
+      const rep = S.gang.reputation || 0;
+      if ((z.rep||0) > rep) return; // locked
+      focusZoneId = z.id;
+      S.gang.bossZone = z.id;
+      renderAll();
+    });
+  });
+}
+
+/* ════════════════════════════════════════════════════════════
+   RENDER INVENTORY
+   ════════════════════════════════════════════════════════════ */
+function itemTileHtml(id, emoji, qty, isActive, isBoosted, isKey) {
+  if (isKey) {
+    const owned = qty > 0;
+    return `<div class="item-tile${owned ? '' : ' locked-key'}" data-item="${id}" title="${id}${owned ? ' — Obtenu' : ''}">
+      <div class="item-sprite">${emoji}</div>
+      <div class="item-qty" style="${owned ? 'color:var(--green)' : 'opacity:.3'}">×${qty}</div>
+    </div>`;
+  }
+  return `<div class="item-tile${isActive ? ' active' : ''}${isBoosted ? ' boosted' : ''}" data-item="${id}" title="${id} ×${qty}">
+    <div class="item-sprite">${emoji}</div>
+    <div class="item-qty">${qty > 99 ? '99+' : '×'+qty}</div>
+  </div>`;
+}
+
+function renderInventory() {
+  const inv  = S.inventory || {};
+  const ball = S.activeBall || 'pokeball';
+  const ab   = S.activeBoosts || {};
+
+  document.getElementById('activeBallLabel').textContent = 'Actif : ' + ball;
+
+  document.getElementById('invBalls').innerHTML = BALL_IDS.map(id =>
+    itemTileHtml(id, BALL_EMOJI[id]||'⚫', inv[id]||0, ball===id, false, false)
+  ).join('');
+
+  document.getElementById('invBoosts').innerHTML = BOOST_IDS.map(id =>
+    itemTileHtml(id, BOOST_EMOJI[id]||'💊', inv[id]||0, false, (ab[id]||0)>0, false)
+  ).join('');
+
+  const craftHtml = CRAFT_IDS.map(id =>
+    itemTileHtml(id, CRAFT_EMOJI[id]||'📦', inv[id]||0, false, false, false)
+  ).join('');
+  const keyHtml   = KEY_IDS.map(id =>
+    itemTileHtml(id, KEY_EMOJI[id]||'🔑', inv[id]||0, false, false, true)
+  ).join('');
+  document.getElementById('invItems').innerHTML = craftHtml + keyHtml;
+
+  // Item clicks: select ball
+  document.querySelectorAll('#invBalls [data-item]').forEach(el => {
+    el.addEventListener('click', () => {
+      S.activeBall = el.dataset.item;
+      renderInventory();
+    });
+  });
+
+  // Incubators
+  renderIncubators();
+}
+
+function renderIncubators() {
+  const inv   = S.inventory || {};
+  const count = inv.incubator || 0;
+  const eggs  = S.eggs || [];
+  const incubating = eggs.filter(e => e.incubating);
+  const waiting    = eggs.filter(e => !e.incubating);
+  const now        = Date.now();
+
+  const wLabel = document.getElementById('incEggsWaiting');
+  wLabel.textContent = waiting.length ? `+${waiting.length} en attente` : '';
+
+  if (!count) {
+    document.getElementById('incSlots').innerHTML = `<div class="empty-note">Aucun incubateur</div>`;
+    return;
+  }
+
+  let html = '';
+  for (let i = 0; i < count; i++) {
+    const egg = incubating[i];
+    if (!egg) {
+      html += '<div class="inc-slot empty"></div>';
+      continue;
+    }
+    const ready = egg.status === 'ready';
+    const pct   = (egg.hatchAt && egg.incubatedAt)
+      ? Math.min(100, Math.round((now - egg.incubatedAt) / (egg.hatchAt - egg.incubatedAt) * 100))
+      : 0;
+    const minLeft = (!ready && egg.hatchAt) ? Math.max(0, Math.ceil((egg.hatchAt - now) / 60000)) : null;
+    html += `<div class="inc-slot ${ready ? 'ready' : 'active'}" data-egg="${egg.id}" title="${egg.species_en}${ready ? ' — PRÊT !' : minLeft !== null ? ' — '+minLeft+'min' : ''}">
+      <div style="font-size:22px">🥚</div>
+      <div class="ibar"><div class="ifill" style="width:${ready ? 100 : pct}%;background:${ready ? 'var(--green)' : 'var(--gold)'}"></div></div>
+      <div class="itime">${ready ? 'PRÊT !' : minLeft !== null ? minLeft+'min' : '…'}</div>
+    </div>`;
+  }
+  document.getElementById('incSlots').innerHTML = html;
+}
+
+/* ════════════════════════════════════════════════════════════
+   RENDER FEED
+   ════════════════════════════════════════════════════════════ */
+function renderFeed() {
+  const zone = zoneById(focusZoneId);
+  const agents = zone ? (S.agents||[]).filter(a => a.assignedZone === zone.id) : [];
+  const poss  = zone ? zonePossession(zone) : 0;
+  const zs    = zone ? ((S.zones||{})[zone.id] || {}) : {};
+  const readyEggs = (S.eggs||[]).filter(e => e.status === 'ready').length;
+
+  const items = [
+    zone ? {
+      tag: zoneStateLabel(zone).toUpperCase(),
+      title: `${zone.fr} · ${poss}% de possession`,
+      detail: agents.length
+        ? `Cellule active : ${agents.map(a=>a.name).join(', ')}`
+        : `Aucun agent sur ce front — zone en attente`,
+      cls: agents.length > 0 ? '' : 'alert',
+    } : null,
+    readyEggs > 0 ? {
+      tag: 'PENSION',
+      title: `${readyEggs} œuf(s) prêt(s) à éclore`,
+      detail: 'Cliquez sur l\'incubateur pour déclencher l\'éclosion.',
+      cls: 'ok',
+    } : null,
+    {
+      tag: 'RÉSEAU',
+      title: `${(S.agents||[]).filter(a=>a.assignedZone).length} agent(s) en mission`,
+      detail: `${(S.agents||[]).filter(a=>!a.assignedZone).length} agent(s) en réserve`,
+      cls: '',
+    },
+  ].filter(Boolean);
+
+  document.getElementById('feedItems').innerHTML = items.map(item => `
+    <div class="feed-item ${item.cls}">
+      <div class="fi-tag">${item.tag}</div>
+      <div class="fi-body">
+        <div class="fi-title">${item.title}</div>
+        <div class="fi-detail">${item.detail}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+/* ════════════════════════════════════════════════════════════
+   RENDER AGENTS
+   ════════════════════════════════════════════════════════════ */
+function renderAgents() {
+  const agents = S.agents || [];
+  const freeCount = agents.filter(a => !a.assignedZone).length;
+
+  document.getElementById('agentCountMeta').textContent = `${agents.length} opérationnels`;
+  document.getElementById('tabBadgeAgents').textContent = freeCount || '';
+
+  if (!agents.length) {
+    document.getElementById('agentsList').innerHTML = '<div class="empty-note">Aucun agent recruté</div>';
+    return;
+  }
+
+  // Sort: in-focus first, then assigned, then free
+  const sorted = [...agents].sort((a,b) => {
+    const af = a.assignedZone === focusZoneId ? 0 : a.assignedZone ? 1 : 2;
+    const bf = b.assignedZone === focusZoneId ? 0 : b.assignedZone ? 1 : 2;
+    return af - bf;
+  });
+
+  document.getElementById('agentsList').innerHTML = sorted.map(agent => {
+    const inFocus = agent.assignedZone === focusZoneId;
+    const zone    = zoneById(agent.assignedZone);
+    const zoneLbl = zone ? (zone.fr || zone.en).substring(0,10) : 'Réserve';
+    const rank    = RANK_FR[agent.title] || agent.title || 'Agent';
+    const teamPokes = (agent.team || []).slice(0, 3);
+    const teamHtml = teamPokes.map(en => `
+      <div class="agent-team-slot">
+        <img src="${pokeUrl(en)}" onerror="this.style.display='none'" alt="">
+      </div>
+    `).join('') + Array(Math.max(0, 3 - teamPokes.length)).fill('<div class="agent-team-slot empty"></div>').join('');
+
+    const btnCls = agent.assignedZone === focusZoneId ? 'retirer' : '';
+    const btnLbl = agent.assignedZone === focusZoneId ? 'Retirer' : (focusZoneId ? 'Envoyer ici' : 'Assigner');
+
+    return `<div class="agent-card ${inFocus ? 'in-focus' : ''}" data-agent-id="${agent.id}">
+      <div class="agent-sprite-wrap">
+        <img src="${trainerUrl(agent.sprite)}" onerror="this.style.display='none'" alt="">
+      </div>
+      <div class="agent-body">
+        <div class="agent-name">${agent.name}</div>
+        <div class="agent-rank-zone">${rank} · ${zoneLbl}</div>
+        <div class="agent-team-row">${teamHtml}</div>
+      </div>
+      <div class="agent-zone-row">
+        <div class="az-label">Zone</div>
+        <div class="az-zone ${agent.assignedZone ? 'assigned' : ''}">${zoneLbl}</div>
+        <button class="agent-assign-btn ${btnCls}" data-quick-assign="${agent.id}">${btnLbl}</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Quick assign: send to focus zone or retract
+  document.querySelectorAll('[data-quick-assign]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const id = btn.dataset.quickAssign;
+      const agent = (S.agents||[]).find(a => a.id === id);
+      if (!agent) return;
+      if (agent.assignedZone === focusZoneId) {
+        agent.assignedZone = null;
+      } else {
+        agent.assignedZone = focusZoneId || agent.assignedZone;
+      }
+      renderAll();
+    });
+  });
+}
+
+/* ════════════════════════════════════════════════════════════
+   AGENT PICKER MODAL
+   ════════════════════════════════════════════════════════════ */
+function openAgentPicker() {
+  const zone    = zoneById(focusZoneId);
+  const zoneName= zone ? (zone.fr || zone.en) : 'Zone inconnue';
+  const zState  = zone ? ((S.zones||{})[zone.id] || {}) : {};
+  const maxSlots= zState.slots || 1;
+  const assigned= (S.agents||[]).filter(a => a.assignedZone === focusZoneId);
+  const cnt     = assigned.length;
+
+  document.getElementById('modalPickerTitle').textContent = 'Assigner · ' + zoneName;
+  document.getElementById('modalPickerSub').textContent   = `${cnt}/${maxSlots} slot(s) utilisé(s)`;
+
+  const rows = (S.agents||[]).map(agent => {
+    const sameZone = agent.assignedZone === focusZoneId;
+    const otherZone= agent.assignedZone && agent.assignedZone !== focusZoneId;
+    const full     = !sameZone && cnt >= maxSlots;
+    const rank     = RANK_FR[agent.title] || agent.title || 'Agent';
+    const curZone  = agent.assignedZone ? (zoneById(agent.assignedZone)?.fr || agent.assignedZone).substring(0,12) : 'Réserve';
+
+    return `<div class="picker-agent ${sameZone ? 'assigned' : ''}" data-pick="${agent.id}" ${full ? 'data-full=1' : ''}>
+      <img src="${trainerUrl(agent.sprite)}" onerror="this.style.display='none'" alt="">
+      <div class="pa-info">
+        <div class="pa-name">${agent.name}</div>
+        <div class="pa-sub">${rank} · ${curZone}</div>
+      </div>
+      <div class="pa-action" ${full ? 'data-disabled=1' : ''}>${sameZone ? 'Retirer' : full ? 'Complet' : otherZone ? 'Déplacer' : 'Assigner'}</div>
+    </div>`;
+  }).join('') || '<div class="empty-note">Aucun agent</div>';
+
+  document.getElementById('modalPickerBody').innerHTML = rows;
+
+  document.querySelectorAll('[data-pick]').forEach(row => {
+    if (row.dataset.full) return;
+    row.addEventListener('click', () => {
+      const id    = row.dataset.pick;
+      const agent = (S.agents||[]).find(a => a.id === id);
+      if (!agent) return;
+      agent.assignedZone = agent.assignedZone === focusZoneId ? null : focusZoneId;
+      closeAgentPicker();
+      renderAll();
+    });
+  });
+
+  document.getElementById('agentPickerModal').classList.add('open');
+}
+
+function closeAgentPicker() {
+  document.getElementById('agentPickerModal').classList.remove('open');
+}
+
+/* ════════════════════════════════════════════════════════════
+   BOOST TABS
+   ════════════════════════════════════════════════════════════ */
+document.getElementById('boostTabs').addEventListener('click', e => {
+  const btn = e.target.closest('[data-mult]');
+  if (!btn) return;
+  boostMult = parseInt(btn.dataset.mult);
+  document.querySelectorAll('#boostTabs .boost-tab').forEach(b => b.classList.toggle('active', b === btn));
+});
+
+/* ════════════════════════════════════════════════════════════
+   TAB BAR
+   ════════════════════════════════════════════════════════════ */
+document.getElementById('tabs').addEventListener('click', e => {
+  const tab = e.target.closest('.tab');
+  if (!tab) return;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  tab.classList.add('active');
+});
+
+/* ════════════════════════════════════════════════════════════
+   MODAL BACKDROP
+   ════════════════════════════════════════════════════════════ */
+document.getElementById('agentPickerModal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeAgentPicker();
+});
+
+/* ════════════════════════════════════════════════════════════
+   RENDER ALL
+   ════════════════════════════════════════════════════════════ */
+function renderAll() {
+  renderTop();
+  renderBoss();
+  renderFocusZone();
+  renderZoneList();
+  renderInventory();
+  renderFeed();
+  renderAgents();
+}
+
+/* ════════════════════════════════════════════════════════════
+   BOOT
+   ════════════════════════════════════════════════════════════ */
+window.addEventListener('DOMContentLoaded', () => {
+  loadState();
+
+  if (isDemo) {
+    document.getElementById('demoBanner').classList.add('on');
+    // Compensate for banner height
+    document.getElementById('shell').style.top = 'calc(var(--top) + 24px)';
+    document.getElementById('centerScroll').id = 'centerScroll'; // keep ref
+  }
+
+  focusZoneId = computeFocusZone();
+  renderAll();
+
+  // Live flux simulation in demo
+  if (isDemo) {
+    const zones   = allZones().filter(z => (z.rep||0) <= (S.gang.reputation||0));
+    const species = typeof POKEMON_GEN1 !== 'undefined' ? POKEMON_GEN1.slice(0,30) : [];
+    setInterval(() => {
+      if (!zones.length || !species.length || !(S.agents||[]).length) return;
+      const z  = zones[Math.floor(Math.random()*zones.length)];
+      const sp = species[Math.floor(Math.random()*species.length)];
+      const a  = S.agents[Math.floor(Math.random()*S.agents.length)];
+      S.log = [{
+        ts: Date.now(),
+        msg: `${a.name} a capturé un ${sp.fr||sp.en} en ${z.fr}`,
+        species_en: sp.en, type: 'cap',
+      }, ...(S.log||[]).slice(0,49)];
+      renderFeed();
+    }, 8000);
+  }
+
+  // Update timers every 30s
+  setInterval(renderInventory, 30000);
+});
+</script>
+</body>
+</html>
