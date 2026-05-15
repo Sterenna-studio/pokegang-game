@@ -548,8 +548,10 @@ function rollChestLoot(zoneId, passive = false) {
       return { msg: `📦 ${loot.qty}x ${name}`, type: 'gold' };
     }
     case 'masterball': {
-      state.inventory.masterball = (state.inventory.masterball || 0) + 1;
-      return { msg: `📦 MASTER BALL !!`, type: 'gold' };
+      // Legacy loot type — converti en pokeballs (masterball n'existe plus en inventaire)
+      const pbBonus = 20;
+      state.inventory.pokeball = (state.inventory.pokeball || 0) + pbBonus;
+      return { msg: `📦 ${pbBonus}× Poké Balls !`, type: 'gold' };
     }
     case 'event': {
       // Trigger a random event
@@ -689,15 +691,16 @@ function investInZone(zoneId) {
 
 function tryCapture(zoneId, speciesEN, bonusPotential = 0) {
   const state = globalThis.state;
-  const ball = state.activeBall;
   const BALLS = globalThis.BALLS;
-  if ((state.inventory[ball] || 0) <= 0) {
-    globalThis.notify(globalThis.t('no_balls', { ball: BALLS[ball]?.fr || ball }));
+  // pokeball = ressource unique de capture ; activeBall = skin cosmétique uniquement
+  if ((state.inventory.pokeball || 0) <= 0) {
+    globalThis.notify(globalThis.t('no_balls', { ball: 'Poké Ball' }));
     globalThis.SFX.play('error');
     return null;
   }
-  state.inventory[ball]--;
-  const pokemon = globalThis.makePokemon(speciesEN, zoneId, ball);
+  state.inventory.pokeball--;
+  const visualBall = state.activeBall || 'pokeball'; // skin affiché dans l'historique
+  const pokemon = globalThis.makePokemon(speciesEN, zoneId, visualBall);
   if (!pokemon) return null;
   if (bonusPotential > 0) pokemon.potential = Math.min(5, pokemon.potential + bonusPotential);
   state.pokemons.push(pokemon);
@@ -735,7 +738,7 @@ function tryCapture(zoneId, speciesEN, bonusPotential = 0) {
     globalThis.pushFeedEvent({
       category: 'capture',
       title: `${name}${pokemon.shiny ? ' ✨' : ''} — ${stars}`,
-      detail: `${zoneName} · ${BALLS[ball]?.fr || ball}`,
+      detail: `${zoneName} · ${BALLS[visualBall]?.fr || visualBall}`,
       win: true,
       species_en: pokemon.species_en,
       level: pokemon.level,
@@ -743,7 +746,7 @@ function tryCapture(zoneId, speciesEN, bonusPotential = 0) {
       shiny: pokemon.shiny,
       byAgent: null,
       zone: zoneName,
-      ball: BALLS[ball]?.fr || ball,
+      ball: BALLS[visualBall]?.fr || visualBall,
     });
   }
   // SFX
@@ -825,12 +828,10 @@ function applyCombatResult(result, playerTeamIds, trainerData) {
       state.gang.reputation += result.repGain;
       checkForNewlyUnlockedZones(prevRep);
     }
-    // Ball drops for regular trainer battles (2x less than before)
+    // Ball drops for regular trainer battles — toujours des Poké Balls (ressource unique)
     if (!trainerData.isSpecial && !trainerData.isRaid) {
-      const diff = trainerData.trainer?.diff || 1;
-      const ballType = diff >= 5 ? 'ultraball' : diff >= 3 ? 'greatball' : 'pokeball';
-      if (Math.random() < 0.5) { // 50% chance = moitié moins en moyenne
-        state.inventory[ballType] = (state.inventory[ballType] || 0) + 1;
+      if (Math.random() < 0.5) { // 50% de chance
+        state.inventory.pokeball = (state.inventory.pokeball || 0) + 1;
       }
     }
     if (ROCKET_TRAINER_KEYS.has(trainerData.trainerKey)) {

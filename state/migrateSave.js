@@ -30,6 +30,20 @@ export function migrateSave(saved, deps) {
   // ── Merge objets de premier niveau ─────────────────────────────────────────
   merged.gang         = { ...structuredClone(DEFAULT_STATE.gang),         ...ensureObject(saved.gang) };
   merged.inventory    = { ...structuredClone(DEFAULT_STATE.inventory),    ...ensureObject(saved.inventory) };
+  // ── Migration balls → pokeball unique ─────────────────────────────────────
+  // Convertir les vieilles balls fonctionnelles en pokeballs équivalentes.
+  if (saved.inventory) {
+    const gb = saved.inventory.greatball  || 0;
+    const ub = saved.inventory.ultraball  || 0;
+    const db = saved.inventory.duskball   || 0;
+    const mb = saved.inventory.masterball || 0;
+    const bonus = gb * 3 + ub * 10 + db * 7 + mb * 20;
+    if (bonus > 0) merged.inventory.pokeball = (merged.inventory.pokeball || 0) + bonus;
+  }
+  delete merged.inventory.greatball;
+  delete merged.inventory.ultraball;
+  delete merged.inventory.duskball;
+  delete merged.inventory.masterball;
   merged.stats        = { ...structuredClone(DEFAULT_STATE.stats),        ...ensureObject(saved.stats) };
   merged.settings     = { ...structuredClone(DEFAULT_STATE.settings),     ...ensureObject(saved.settings) };
   merged.activeBoosts = { ...structuredClone(DEFAULT_STATE.activeBoosts), ...ensureObject(saved.activeBoosts) };
@@ -172,6 +186,10 @@ export function migrateSave(saved, deps) {
     }
     if (agent.autoRaid    === undefined) agent.autoRaid    = agent.autoCombat ?? true;
     if (agent.autoCapture === undefined) agent.autoCapture = true;
+    // Migrer preferredBall → ball (cosmétique uniquement)
+    if (!agent.ball && agent.preferredBall) { agent.ball = agent.preferredBall; }
+    if (!agent.ball) agent.ball = 'pokeball';
+    delete agent.preferredBall;
   }
 
   // ── Pokémons ───────────────────────────────────────────────────────────────────

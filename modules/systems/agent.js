@@ -65,7 +65,7 @@ function rollNewAgent() {
     level:         1,
     xp:            0,
     combatsWon:    0,
-    preferredBall: 'pokeball',
+    ball: 'pokeball', // skin cosmétique — pas d'effet mécanique
     behavior:      'all',
     personality,
     team:          [],
@@ -445,13 +445,13 @@ function resolveBackgroundSpawnForZone(zoneId) {
   // ── Pokémon ──────────────────────────────────────────────────
   if (entry.type === 'pokemon') {
     const capAgents = agents.filter(a => a.autoCapture !== false);
-    let capturer = null; let ball = null;
-    for (const a of capAgents) {
-      const preferred = a.preferredBall || 'pokeball';
-      if ((state.inventory[preferred] || 0) > 0)  { capturer = a; ball = preferred; break; }
-      if ((state.inventory['pokeball'] || 0) > 0) { capturer = a; ball = 'pokeball'; break; }
+    let capturer = null;
+    // pokeball = ressource unique ; on cherche juste un agent disponible
+    if ((state.inventory.pokeball || 0) > 0) {
+      capturer = capAgents[0] || null;
     }
-    if (!capturer || !ball) {
+    const ball = 'pokeball';
+    if (!capturer) {
       const _now = Date.now();
       if (!resolveBackgroundSpawnForZone._noBallWarnAt || _now - resolveBackgroundSpawnForZone._noBallWarnAt > 120_000) {
         resolveBackgroundSpawnForZone._noBallWarnAt = _now;
@@ -460,7 +460,8 @@ function resolveBackgroundSpawnForZone(zoneId) {
       return false;
     }
 
-    const pokemon = globalThis.makePokemon(entry.species_en, zoneId, ball);
+    const visualBall = capturer.ball || 'pokeball'; // skin cosmétique de l'agent
+    const pokemon = globalThis.makePokemon(entry.species_en, zoneId, visualBall);
     if (!pokemon) return false;
 
     // Crit de capture basé sur le niveau de l'agent
@@ -469,7 +470,7 @@ function resolveBackgroundSpawnForZone(zoneId) {
       pokemon.potential = Math.min(5, (pokemon.potential || 1) + 1);
     }
 
-    state.inventory[ball]--;
+    state.inventory.pokeball--;
     state.pokemons.push(pokemon);
     state.stats.totalCaught++;
     _autoSellCaptured(pokemon);
@@ -489,7 +490,7 @@ function resolveBackgroundSpawnForZone(zoneId) {
     const stars   = '★'.repeat(pokemon.potential) + '☆'.repeat(5 - pokemon.potential);
     const rarity  = globalThis.SPECIES_BY_EN?.[pokemon.species_en]?.rarity;
     const zoneName = ZONE_BY_ID?.[zoneId]?.fr || zoneId;
-    const ballName = globalThis.BALLS?.[ball]?.fr || ball;
+    const ballName = globalThis.BALLS?.[visualBall]?.fr || visualBall;
 
     if (pokemon.shiny) {
       globalThis.notify(`✨ ${capturer.name} — SHINY ! ${name} ${stars} ✨`, 'gold');
@@ -716,11 +717,10 @@ function agentCaptureVisibleSpawn(agent, zoneId, spawnObj) {
   setTimeout(() => {
     ball.remove();
     const state   = globalThis.state;
-    const preferred = agent.preferredBall || 'pokeball';
-    const hasPref   = (state.inventory[preferred] || 0) > 0;
-    const usedBall  = hasPref ? preferred : 'pokeball';
+    // pokeball = ressource unique ; agent.ball = skin cosmétique
+    const usedBall  = agent.ball || 'pokeball'; // pour l'historique
     const prevBall  = state.activeBall;
-    state.activeBall = (state.inventory[usedBall] || 0) > 0 ? usedBall : prevBall;
+    state.activeBall = usedBall; // temporairement pour que tryCapture log le bon skin
     globalThis._agentCaptureCtx = { agentName: agent.name, ball: usedBall, zoneId };
     const caught = globalThis.tryCapture(zoneId, spawnObj.species_en);
     globalThis._agentCaptureCtx = null;

@@ -1,18 +1,18 @@
 /* Economy and shop data extracted from app.js */
 
+// BALLS : données purement cosmétiques — plus aucun effet mécanique sur le potentiel.
+// Le skin actif est affiché lors des captures (animation boss / agent).
 const BALLS = {
-  pokeball:   { fr:'Poké Ball',  en:'Poké Ball',  cost:200,  potential:[40,30,20,8,2]  },
-  greatball:  { fr:'Super Ball', en:'Great Ball',  cost:600,  potential:[15,30,30,18,7] },
-  ultraball:  { fr:'Hyper Ball', en:'Ultra Ball',  cost:2000, potential:[5,15,30,30,20] },
-  duskball:   { fr:'Sombre Ball',en:'Dusk Ball',   cost:1500, potential:[20,20,20,20,20]},
-  masterball: { fr:'Master Ball',en:'Master Ball', cost:99999,potential:[0,0,0,10,90]  },
+  pokeball:   { fr:'Poké Ball',   en:'Poké Ball',   color:'#e03030', icon:'PB' },
+  greatball:  { fr:'Super Ball',  en:'Great Ball',  color:'#2255ee', icon:'GB' },
+  ultraball:  { fr:'Hyper Ball',  en:'Ultra Ball',  color:'#ddbb00', icon:'UB' },
+  duskball:   { fr:'Sombre Ball', en:'Dusk Ball',   color:'#445566', icon:'DB' },
+  masterball: { fr:'Master Ball', en:'Master Ball', color:'#9922cc', icon:'MB' },
 };
 
 const SHOP_ITEMS = [
-  { id:'pokeball',  qty:10, cost:2000,  icon:'PB'  },
-  { id:'greatball', qty:10, cost:6000,  icon:'GB'  },
-  { id:'ultraball', qty:5,  cost:10000, icon:'UB'  },
-  { id:'duskball',  qty:5,  cost:7500,  icon:'DB'  },
+  // ── Poké Balls (ressource unique de capture) ──
+  { id:'pokeball',  qty:10, cost:200,  icon:'PB'  },
   { id:'lure',      qty:1,  cost:500,   icon:'LR',  fr:'Leurre',       en:'Lure',            desc_fr:'x2 spawns 60s',         desc_en:'x2 spawns 60s' },
   { id:'superlure', qty:1,  cost:2000,  icon:'SL',  fr:'Super Leurre', en:'Super Lure',      desc_fr:'x3 spawns 60s',         desc_en:'x3 spawns 60s' },
   { id:'incense',   qty:1,  cost:1500,  icon:'IN',  fr:'Encens Chance',en:'Lucky Incense',   desc_fr:'*+1 potentiel 90s',     desc_en:'*+1 potential 90s' },
@@ -23,6 +23,27 @@ const SHOP_ITEMS = [
   { id:'translator',qty:1,  cost:1000000,icon:'TR', fr:'Traducteur Pokemon', en:'Pokemon Translator', desc_fr:'Comprend ce que disent les Pokemon en combat', desc_en:'Understand pokemon speech in combat' },
   { id:'mysteryegg', qty:1, cost:0, icon:'EG', fr:'Oeuf Mystère', en:'Mystery Egg', desc_fr:'Contient un Pokemon introuvable — Prix croissant', desc_en:'Contains an uncatchable Pokemon — Scaling price' },
   { id:'incubator',  qty:1, cost:15000, icon:'INC', fr:'Incubateur', en:'Incubator', desc_fr:'Eclot un oeuf (reutilisable) — 1 a la fois', desc_en:'Hatches an egg (reusable) — 1 at a time' },
+  // ── Skins de Ball (cosmétique — appliquer au boss ou aux agents) ──
+  // Achat par troc : X pokeballs → skin débloqué dans state.purchases
+  { id:'skin_greatball',  qty:1, cost:0, ballSkin:'greatball',  icon:'GB',
+    fr:'Skin Super Ball',  en:'Great Ball Skin',
+    barter:{ item:'pokeball', qty:200 },
+    desc_fr:'200 Poké Balls → skin Super Ball (boss + agents)',
+    desc_en:'200 Poké Balls → Great Ball skin (boss + agents)' },
+  { id:'skin_duskball',   qty:1, cost:0, ballSkin:'duskball',   icon:'DB',
+    fr:'Skin Sombre Ball', en:'Dusk Ball Skin',
+    barter:{ item:'pokeball', qty:350 },
+    desc_fr:'350 Poké Balls → skin Sombre Ball (boss + agents)',
+    desc_en:'350 Poké Balls → Dusk Ball skin (boss + agents)' },
+  { id:'skin_ultraball',  qty:1, cost:0, ballSkin:'ultraball',  icon:'UB',
+    fr:'Skin Hyper Ball',  en:'Ultra Ball Skin',
+    barter:{ item:'pokeball', qty:600 },
+    desc_fr:'600 Poké Balls → skin Hyper Ball (boss + agents)',
+    desc_en:'600 Poké Balls → Ultra Ball skin (boss + agents)' },
+  { id:'skin_masterball', qty:1, cost:1500000, ballSkin:'masterball', icon:'MB',
+    fr:'Skin Master Ball', en:'Master Ball Skin',
+    desc_fr:'1 500 000₽ → skin Master Ball légendaire (boss + agents)',
+    desc_en:'1,500,000₽ → Legendary Master Ball skin (boss + agents)' },
   // ── Zone unlock items ──
   { id:'map_pallet',    qty:1, cost:5000,  icon:'🗺', fr:'Carte de Pallet',  en:'Pallet Map',      desc_fr:'Débloque le Jardin de Pallet',          desc_en:'Unlocks Pallet Garden' },
   { id:'casino_ticket', qty:1, cost:20000, icon:'🎰', fr:'Ticket Casino',    en:'Casino Ticket',   desc_fr:'Accès au Casino de Céladopole',         desc_en:'Access to Celadon Casino' },

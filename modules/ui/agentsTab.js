@@ -5,8 +5,13 @@ import { BALL_SPRITES, FALLBACK_TRAINER_SVG } from '../../data/assets-data.js';
 // 18b. UI — AGENTS TAB
 // ════════════════════════════════════════════════════════════════
 
-const AGENT_BALLS = ['pokeball','greatball','ultraball','duskball','masterball'];
+// Skins de ball disponibles pour les agents — pokeball toujours disponible, les autres selon purchases
+const ALL_BALL_SKINS = ['pokeball','greatball','duskball','ultraball','masterball'];
 const AGENT_BALL_LABELS = { pokeball:'Poké Ball', greatball:'Super Ball', ultraball:'Hyper Ball', duskball:'Sombre Ball', masterball:'Master Ball' };
+function getUnlockedBallSkins() {
+  const s = globalThis.state;
+  return ALL_BALL_SKINS.filter(b => b === 'pokeball' || !!(s?.purchases?.[`skin_${b}`]));
+}
 // Behavior flag config (used for global "tout" buttons)
 const BEHAVIOR_FLAGS = [
   { key:'autoCombat',  icon:'⚔️',  label:'Combat'  },
@@ -40,7 +45,7 @@ function renderAgentsTab() {
     </div>`;
 
   // ── Global ball setters ─────────────────────────────────────────
-  const availBalls = AGENT_BALLS.filter(b => (state.inventory[b] || 0) > 0 || b === 'pokeball');
+  const availBalls = getUnlockedBallSkins();
   html += `<div id="agentGlobalControls" style="grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);margin-bottom:4px">
     <span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">TOUT :</span>
     ${availBalls.map(b => `<button data-setallball="${b}" title="Définir ${AGENT_BALL_LABELS[b]} pour tous" style="display:flex;align-items:center;gap:3px;padding:3px 7px;font-size:8px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;color:var(--text)">
@@ -67,13 +72,13 @@ function renderAgentsTab() {
       return `<div class="agent-team-slot" data-agent-team="${a.id}" data-slot="${i}">+</div>`;
     }).join('');
 
-    // Ball selector
-    const curBall   = a.preferredBall || 'pokeball';
+    // Ball skin selector (cosmétique uniquement — pokeball = ressource unique de capture)
+    const curBall   = a.ball || 'pokeball';
     const curBallSp = BALL_SPRITES[curBall] || '';
-    const ballBtns  = AGENT_BALLS.map(b => {
-      const qty = state.inventory[b] || 0;
+    const unlockedSkins = getUnlockedBallSkins();
+    const ballBtns  = unlockedSkins.map(b => {
       const active = b === curBall;
-      return `<button data-agent-ball="${a.id}" data-ball="${b}" title="${AGENT_BALL_LABELS[b]} (×${qty})" style="padding:2px 4px;border:1px solid ${active ? 'var(--gold)' : 'var(--border)'};background:${active ? 'rgba(255,204,90,.15)' : 'var(--bg)'};border-radius:3px;cursor:pointer;opacity:${qty > 0 || active ? '1' : '.4'}">
+      return `<button data-agent-ball="${a.id}" data-ball="${b}" title="${AGENT_BALL_LABELS[b]}" style="padding:2px 4px;border:1px solid ${active ? 'var(--gold)' : 'var(--border)'};background:${active ? 'rgba(255,204,90,.15)' : 'var(--bg)'};border-radius:3px;cursor:pointer">
         <img src="${BALL_SPRITES[b] || ''}" style="width:16px;height:16px;image-rendering:pixelated">
       </button>`;
     }).join('');
@@ -252,7 +257,7 @@ function renderAgentsTab() {
     btn.addEventListener('click', () => {
       const agent = state.agents.find(a => a.id === btn.dataset.agentBall);
       if (!agent) return;
-      agent.preferredBall = btn.dataset.ball;
+      agent.ball = btn.dataset.ball;
       saveState();
       renderAgentsTab();
     });
@@ -274,7 +279,7 @@ function renderAgentsTab() {
   grid.querySelectorAll('[data-setallball]').forEach(btn => {
     btn.addEventListener('click', () => {
       const ball = btn.dataset.setallball;
-      state.agents.forEach(a => { a.preferredBall = ball; });
+      state.agents.forEach(a => { a.ball = ball; });
       saveState();
       renderAgentsTab();
       notify(`Tous les agents → ${AGENT_BALL_LABELS[ball]}`, 'success');

@@ -375,22 +375,19 @@ const SPECIAL_EVENTS = [
 
 // ── Treasure Chest Loot Table ──────────────────────────────────
 const CHEST_LOOT = [
-  { weight:30, type:'balls',    qty:[3,8],   ballType:'pokeball',  fr:'Poké Balls',     en:'Poké Balls'     },
-  { weight:20, type:'balls',    qty:[2,5],   ballType:'greatball', fr:'Super Balls',    en:'Great Balls'    },
-  { weight:10, type:'balls',    qty:[1,3],   ballType:'ultraball', fr:'Hyper Balls',    en:'Ultra Balls'    },
-  { weight:5,  type:'balls',    qty:[1,2],   ballType:'duskball',  fr:'Sombre Balls',   en:'Dusk Balls'     },
-  { weight:18, type:'money',    qty:[500,2000],                    fr:'PokéDollars',    en:'PokéDollars'    },
-  { weight:5,  type:'money',    qty:[3000,8000],                   fr:'Jackpot !',      en:'Jackpot!'       },
-  { weight:10, type:'rare_pokemon',                                fr:'Pokémon Rare !', en:'Rare Pokémon!'  },
-  { weight:8,  type:'item',     itemId:'incense',  qty:1,         fr:'Encens Chance',  en:'Lucky Incense'  },
-  { weight:5,  type:'item',     itemId:'rarescope', qty:1,        fr:'Rarioscope',     en:'Rare Scope'     },
-  { weight:3,  type:'item',     itemId:'aura',     qty:1,         fr:'Aura Shiny',     en:'Shiny Aura'     },
-  { weight:4,  type:'item',     itemId:'potion',   qty:3,         fr:'Potions',        en:'Potions'        },
-  { weight:3,  type:'item',     itemId:'lure',     qty:1,         fr:'Leurre',         en:'Lure'           },
-  { weight:2,  type:'item',     itemId:'evostone', qty:1,         fr:'Pierre Évolution',en:'Evolution Stone'},
-  { weight:2,  type:'item',     itemId:'rarecandy',qty:1,         fr:'Super Bonbon',   en:'Rare Candy'     },
-  { weight:1,  type:'masterball',                                  fr:'Master Ball !',  en:'Master Ball!'   },
-  { weight:5,  type:'event',                                       fr:'Événement !',    en:'Event!'         },
+  // Poké Balls — ressource unique de capture (anciens types consolidés)
+  { weight:55, type:'balls',   qty:[5,20],  ballType:'pokeball',  fr:'Poké Balls',      en:'Poké Balls'     },
+  { weight:20, type:'money',   qty:[500,2000],                    fr:'PokéDollars',      en:'PokéDollars'    },
+  { weight:5,  type:'money',   qty:[3000,8000],                   fr:'Jackpot !',        en:'Jackpot!'       },
+  { weight:10, type:'rare_pokemon',                               fr:'Pokémon Rare !',   en:'Rare Pokémon!'  },
+  { weight:8,  type:'item',    itemId:'incense',  qty:1,          fr:'Encens Chance',    en:'Lucky Incense'  },
+  { weight:5,  type:'item',    itemId:'rarescope',qty:1,          fr:'Rarioscope',       en:'Rare Scope'     },
+  { weight:3,  type:'item',    itemId:'aura',     qty:1,          fr:'Aura Shiny',       en:'Shiny Aura'     },
+  { weight:4,  type:'item',    itemId:'potion',   qty:3,          fr:'Potions',          en:'Potions'        },
+  { weight:3,  type:'item',    itemId:'lure',     qty:1,          fr:'Leurre',           en:'Lure'           },
+  { weight:2,  type:'item',    itemId:'evostone', qty:1,          fr:'Pierre Évolution', en:'Evolution Stone'},
+  { weight:2,  type:'item',    itemId:'rarecandy',qty:1,          fr:'Super Bonbon',     en:'Rare Candy'     },
+  { weight:5,  type:'event',                                      fr:'Événement !',      en:'Event!'         },
 ];
 
 // Gang Base — special zone (no spawns, management only)

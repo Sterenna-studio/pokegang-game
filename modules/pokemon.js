@@ -37,20 +37,23 @@
     return pick(NATURE_KEYS);
   }
 
+  // Distribution de potentiel unique — indépendante du type de ball.
+  // ★1:35% ★2:30% ★3:20% ★4:10% ★5:5%
+  const POTENTIAL_DIST = [35, 30, 20, 10, 5];
+
   /**
-   * Tire un potentiel 1–5 basé sur la distribution du type de Ball.
-   * Applique les boosts actifs comme l'encens chanceux.
+   * Tire un potentiel 1–5 selon une distribution fixe.
+   * L'Encens Chance ajoute +1 (plafonné à ★5).
+   * Le type de ball n'a plus d'effet mécanique — uniquement cosmétique.
    */
-  function rollPotential(ballType) {
-    const dist = BALLS[ballType]?.potential || BALLS.pokeball.potential;
+  function rollPotential() {
     const r = Math.random() * 100;
     let acc = 0;
     let result = 1;
-    for (let i = 0; i < dist.length; i++) {
-      acc += dist[i];
+    for (let i = 0; i < POTENTIAL_DIST.length; i++) {
+      acc += POTENTIAL_DIST[i];
       if (r < acc) { result = i + 1; break; }
     }
-    // Lucky Incense: +1 potential (capped at 5)
     if (isBoostActive('incense') && result < 5) result++;
     return result;
   }
@@ -136,7 +139,7 @@
     const sp = SPECIES_BY_EN[speciesEN];
     if (!sp) return null;
     const nature    = rollNature();
-    const potential = rollPotential(ballType);
+    const potential = rollPotential();
     const shiny     = rollShiny(speciesEN);
     const level     = randInt(3, 12);
     const pokemon = {

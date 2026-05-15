@@ -54,10 +54,7 @@ export const DEFAULT_STATE = {
     },
   },
   inventory: {
-    pokeball: 50,
-    greatball: 0,
-    ultraball: 0,
-    duskball: 0,
+    pokeball: 50,   // ressource unique de capture
     lure: 0,
     superlure: 0,
     potion: 0,
@@ -66,11 +63,10 @@ export const DEFAULT_STATE = {
     aura: 0,
     evostone: 0,
     rarecandy: 0,
-    masterball: 0,
     incubator: 0,
     egg_scanner: 0,
   },
-  activeBall: 'pokeball',
+  activeBall: 'pokeball', // skin cosmétique actif (boss/joueur)
   activeBoosts: {
     incense:    0,
     rarescope:  0,
