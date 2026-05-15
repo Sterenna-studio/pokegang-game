@@ -116,7 +116,7 @@ const ZONES_JOHTO = [
     trainers:['lass','beauty','youngster'], eliteTrainer:'whitney', investCost:5000,
     gymLeader:'whitney', gymType:'normal', xpBonus:1.8 },
 
-  { id:'ecruteak_gym',    fr:'Ecorussie',            en:'Ecruteak City',     rep:400,  spawnRate:0.05, type:'city',
+  { id:'ecruteak_gym',    fr:'Ecorcia',              en:'Ecruteak City',     rep:400,  spawnRate:0.05, type:'city',
     zoneLevelBonus:32,
     pool:['gastly','haunter','gengar','misdreavus','murkrow','zubat','golbat','rattata','raticate'],
     trainers:['channeler','psychic'], eliteTrainer:'morty', investCost:8000,
@@ -338,7 +338,7 @@ const SPECIAL_EVENTS_JOHTO = [
   { id:'morty_challenge',   fr:'Défi de Mortimer !',          en:'Morty\'s Challenge!',   icon:'👻',
     trainerKey:'morty', chance:0.03, minRep:350,
     reward: { money:[2500,5500], rep:18, xpBonus:40 },
-    desc_fr:'Mortimer, le Champion Spectre, vous attire dans le brouillard d\'Ecorussie.',
+    desc_fr:'Mortimer, le Champion Spectre, vous attire dans le brouillard d\'Ecorcia.',
     desc_en:'Morty, the Ghost-type master, lures you into Ecruteak\'s fog.' },
 
   { id:'chuck_challenge',   fr:'Défi de Bastien !',           en:'Chuck\'s Challenge!',   icon:'💪',
@@ -432,7 +432,7 @@ const SPECIAL_EVENTS_JOHTO = [
   { id:'kimono_girls_event',fr:'Filles Kimono !',             en:'Kimono Girls!',           icon:'🎎',
     trainerKey:null, chance:0.04, minRep:450,
     reward: { xpBonus:50, rareBoost:45000, chestBoost:30000 },
-    desc_fr:'Les cinq Filles Kimono dansent à Ecorussie. Une énergie mystique réveille les Pokémon rares.',
+    desc_fr:'Les cinq Filles Kimono dansent à Ecorcia. Une énergie mystique réveille les Pokémon rares.',
     desc_en:'The five Kimono Girls dance in Ecruteak. Mystic energy awakens rare Pokémon.' },
 
   { id:'sudowoodo_appears', fr:'Faux-Faux-Boss bloque la route !', en:'Sudowoodo Blocks the Path!', icon:'🪨',
@@ -481,11 +481,11 @@ const SPECIAL_EVENTS_JOHTO = [
     desc_fr:'Un antique rituel de dresseurs de Dragons se tient dans l\'Antre. Cathy vous y invite.',
     desc_en:'An ancient Dragon Tamer ritual takes place in the Den. Clair invites you in.' },
 
-  { id:'ecruteak_haunting', fr:'Hantise d\'Ecorussie !',     en:'Ecruteak Haunting!',       icon:'🏮',
+  { id:'ecruteak_haunting', fr:'Hantise d\'Ecorcia !',     en:'Ecruteak Haunting!',       icon:'🏮',
     trainerKey:null, chance:0.05, minRep:350,
     zoneIds:['ecruteak_gym','burned_tower'],
     reward:{ shinyBoost:75000, rareBoost:45000 },
-    desc_fr:'Une nuit sans lune à Ecorussie. Les Pokémon Spectre envahissent la Tour Cramée.',
+    desc_fr:'Une nuit sans lune à Ecorcia. Les Pokémon Spectre envahissent la Tour Cendrée.',
     desc_en:'A moonless night in Ecruteak. Ghost Pokémon flood the Burned Tower.' },
 
 ];
