@@ -2799,6 +2799,105 @@ function rebuildPokedex() {
   renderGangTab();
 }
 
+// ── Trainer encounters view ────────────────────────────────────
+function _renderTrainerEncountersView(grid) {
+  const state = globalThis.state;
+  const byTrainer = state.encounterStats?.byTrainer || {};
+  const bySpecies = state.encounterStats?.bySpecies || {};
+
+  // Trier les dresseurs par nb de rencontres décroissant
+  const trainerEntries = Object.entries(byTrainer)
+    .sort((a, b) => b[1] - a[1]);
+
+  // Top 10 espèces les plus rencontrées
+  const speciesEntries = Object.entries(bySpecies)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10);
+
+  const totalTrainer = trainerEntries.reduce((s, [, n]) => s + n, 0);
+  const totalPokemon = Object.values(bySpecies).reduce((s, n) => s + n, 0);
+  const rocketTotal  = (state.stats?.rocketDefeated || 0);
+  const rocketJohto  = (state.stats?.rocketDefeatedJohto || 0);
+
+  const TRAINER_LABELS = {
+    rocketgrunt:'Sbire Rocket', rocketgruntf:'Sbire Rocket (F)',
+    giovanni:'Giovanni', archer:'Archer', ariana:'Ariana', proton:'Lambda',
+    scientist:'Scientifique Rocket',
+    brock:'Pierre', misty:'Ondine', ltsurge:'Maj. Bob', erika:'Érika',
+    koga:'Koga', sabrina:'Morgane', blaine:'Auguste',
+    lorelei:'Olga', bruno:'Aldo', agatha:'Agatha', lance:'Peter', blue:'Blue', red:'Red',
+    falkner:'Amos', bugsy:'Hector', whitney:'Blanche', morty:'Mortimer',
+    chuck:'Joël', jasmine:'Jasmine', pryce:'Norman', clair:'Sandra',
+    will:'Xavier', karen:'Karen', silver:'Silver', gold:'Gold',
+    hiker:'Randonneur', youngster:'Gamin', lass:'Fillette',
+    camper:'Campeur', swimmer:'Nageur', sailor:'Marin',
+    acetrainer:'Dresseur As', blackbelt:'Ceinture Noire',
+    channeler:'Mystimana', psychic:'Télépathe', supernerd:'Intello',
+    gentleman:'Gentleman',
+  };
+
+  const maxCount = trainerEntries[0]?.[1] || 1;
+
+  grid.innerHTML = `
+    <div style="grid-column:1/-1;padding:4px 0 12px">
+      <!-- Stats summary -->
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:10px 16px;min-width:120px">
+          <div style="font-size:9px;color:var(--text-dim);font-family:var(--font-pixel);margin-bottom:4px">COMBATS</div>
+          <div style="font-size:20px;font-weight:700;color:var(--text)">${totalTrainer.toLocaleString()}</div>
+        </div>
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:10px 16px;min-width:120px">
+          <div style="font-size:9px;color:var(--text-dim);font-family:var(--font-pixel);margin-bottom:4px">RENCONTRES PKM</div>
+          <div style="font-size:20px;font-weight:700;color:var(--text)">${totalPokemon.toLocaleString()}</div>
+        </div>
+        <div style="background:var(--bg-card);border:1px solid var(--red-dim,#661111);border-radius:var(--radius);padding:10px 16px;min-width:120px">
+          <div style="font-size:9px;color:var(--red);font-family:var(--font-pixel);margin-bottom:4px">🚀 ROCKETS</div>
+          <div style="font-size:20px;font-weight:700;color:var(--red)">${rocketTotal.toLocaleString()}</div>
+          <div style="font-size:9px;color:var(--text-dim);margin-top:2px">dont ${rocketJohto} Johto</div>
+        </div>
+      </div>
+
+      <!-- Dresseurs rencontrés -->
+      <div style="font-size:9px;font-family:var(--font-pixel);color:var(--text-dim);margin-bottom:8px;letter-spacing:.05em">
+        DRESSEURS RENCONTRÉS ${trainerEntries.length > 0 ? `(${trainerEntries.length} types)` : ''}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:20px">
+        ${trainerEntries.length === 0
+          ? `<div style="color:var(--text-dim);font-size:10px;padding:8px">Aucun combat enregistré.</div>`
+          : trainerEntries.map(([key, count]) => {
+              const label = TRAINER_LABELS[key] || key;
+              const pct = Math.round(count / maxCount * 100);
+              return `<div style="display:flex;align-items:center;gap:8px">
+                <div style="font-size:10px;color:var(--text);width:130px;flex-shrink:0">${label}</div>
+                <div style="flex:1;height:8px;background:var(--border);border-radius:4px;overflow:hidden">
+                  <div style="width:${pct}%;height:100%;background:var(--accent,#cc1111);border-radius:4px;transition:width .3s"></div>
+                </div>
+                <div style="font-size:9px;color:var(--text-dim);width:36px;text-align:right">${count.toLocaleString()}</div>
+              </div>`;
+            }).join('')
+        }
+      </div>
+
+      <!-- Top pokémon rencontrés -->
+      <div style="font-size:9px;font-family:var(--font-pixel);color:var(--text-dim);margin-bottom:8px;letter-spacing:.05em">TOP 10 POKÉMON RENCONTRÉS</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${speciesEntries.length === 0
+          ? `<div style="color:var(--text-dim);font-size:10px;padding:8px">Aucune rencontre enregistrée.</div>`
+          : speciesEntries.map(([en, count]) => {
+              const sp = POKEMON_GEN1.find(s => s.en === en);
+              const label = sp ? sp.fr : en;
+              return `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px;text-align:center;min-width:64px">
+                <img src="${pokeSprite(en, false)}" style="width:32px;height:32px;display:block;margin:0 auto 4px">
+                <div style="font-size:9px;color:var(--text)">${label}</div>
+                <div style="font-size:8px;color:var(--text-dim);font-family:var(--font-pixel)">${count}×</div>
+              </div>`;
+            }).join('')
+        }
+      </div>
+    </div>
+  `;
+}
+
 function renderPokedexTab() {
   const grid = document.getElementById('pokedexGrid');
   if (!grid) return;
@@ -2832,6 +2931,7 @@ function renderPokedexTab() {
     { id: 'national', label: 'National',    title: 'Toutes les espèces disponibles' },
     { id: 'shiny',    label: '✨ Chromas',  title: 'Espèces dont tu possèdes un chromatique' },
     { id: 'missing',  label: '❓ Manquants',title: 'Espèces non encore capturées' },
+    { id: 'trainers', label: '⚔ Dresseurs', title: 'Statistiques de rencontres par dresseur' },
   ];
   let dexFilterBar = document.getElementById('dexFilterBar');
   if (!dexFilterBar) {
@@ -2855,6 +2955,12 @@ function renderPokedexTab() {
       renderPokedexTab();
     });
   });
+
+  // ── Vue Dresseurs ──────────────────────────────────────────────
+  if (dexViewFilter === 'trainers') {
+    _renderTrainerEncountersView(grid);
+    return;
+  }
 
   // ── Build species pool (always complete — filter only dims) ──────
   const search = document.getElementById('dexSearchInput')?.value?.toLowerCase() || '';

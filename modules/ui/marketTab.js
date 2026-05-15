@@ -163,30 +163,66 @@ function renderSpecialItemPanel() {
   const panel = document.querySelector('#specialItemPanel .special-list');
   if (!panel) return;
 
-  const ZONE_UNLOCK_IDS = new Set(['map_pallet','casino_ticket','silph_keycard','boat_ticket','tourbillon_permit','carillon_permit']);
+  const ZONE_UNLOCK_IDS = new Set(['map_pallet','casino_ticket','silph_keycard','boat_ticket','tourbillon_permit','carillon_permit','rocket_hq_keycard','rocket_uniform','silver_permit']);
   const WING_PERMIT_IDS = new Set(['tourbillon_permit','carillon_permit']);
+  const ACHIEVEMENT_IDS = new Set(['rocket_hq_keycard','rocket_uniform']); // obtenus automatiquement, pas achetables
   const items = SHOP_ITEMS.filter(item => ZONE_UNLOCK_IDS.has(item.id));
 
   const html = items.map(item => {
     const alreadyOwned = state.purchases?.[item.id];
     const isWingPermit = WING_PERMIT_IDS.has(item.id);
+    const isAchievement = ACHIEVEMENT_IDS.has(item.id);
     const wingHave = isWingPermit ? (state.inventory[item.wingCost?.item] || 0) : 0;
     const wingName = isWingPermit
       ? (item.wingCost?.item === 'silver_wing' ? "Argent'Aile" : "Arcenci'Aile")
       : '';
-    const btnDisabled = alreadyOwned || (isWingPermit && wingHave < (item.wingCost?.qty || 50));
+
+    // Prérequis pour le Permis Mont Argenté
+    const isSilverPermit = item.id === 'silver_permit';
+    const kantoGyms = globalThis.GYM_ORDER ?? [];
+    const johtoGyms = globalThis.JOHTO_GYM_ORDER ?? [];
+    const allGymsOk = isSilverPermit
+      ? [...kantoGyms, ...johtoGyms].every(id => state.zones?.[id]?.gymDefeated)
+      : true;
+
+    const btnDisabled = alreadyOwned
+      || (isWingPermit && wingHave < (item.wingCost?.qty || 50))
+      || isAchievement
+      || (isSilverPermit && !allGymsOk);
+
     const btnLabel = alreadyOwned
       ? 'Acquis'
-      : isWingPermit
-        ? `${item.wingCost?.qty||50}× ${wingName}`
-        : `${item.cost.toLocaleString()}₽`;
+      : isAchievement
+        ? '🏆 Succès'
+        : isWingPermit
+          ? `${item.wingCost?.qty||50}× ${wingName}`
+          : `${item.cost.toLocaleString()}₽`;
+
     const desc = state.lang === 'fr' ? item.desc_fr : item.desc_en;
-    const statusHtml = alreadyOwned
-      ? `<div style="font-size:10px;color:var(--green)">✓ Zone débloquée</div>`
-      : isWingPermit
-        ? `<div style="font-size:10px;color:${wingHave>=(item.wingCost?.qty||50)?'var(--gold)':'var(--red)'}">
-            ${wingName} : ${wingHave}/${item.wingCost?.qty||50}</div>`
-        : `<div style="font-size:10px;color:var(--text-dim)">Débloque une zone</div>`;
+
+    let statusHtml;
+    if (alreadyOwned) {
+      statusHtml = `<div style="font-size:10px;color:var(--green)">✓ Zone débloquée</div>`;
+    } else if (isAchievement) {
+      const stat  = item.achievement?.stat  || 'rocketDefeatedJohto';
+      const target= item.achievement?.target || 50;
+      const curr  = state.stats?.[stat] || 0;
+      const pct   = Math.min(100, Math.round(curr / target * 100));
+      statusHtml = `
+        <div style="font-size:9px;color:var(--text-dim);margin-top:3px">${curr}/${target} agents vaincus</div>
+        <div style="height:3px;background:var(--border);border-radius:2px;margin-top:4px;overflow:hidden">
+          <div style="width:${pct}%;height:100%;background:var(--red);transition:width .3s"></div></div>`;
+    } else if (isWingPermit) {
+      statusHtml = `<div style="font-size:10px;color:${wingHave>=(item.wingCost?.qty||50)?'var(--gold)':'var(--red)'}">
+            ${wingName} : ${wingHave}/${item.wingCost?.qty||50}</div>`;
+    } else if (isSilverPermit) {
+      statusHtml = allGymsOk
+        ? `<div style="font-size:10px;color:var(--gold)">✓ Toutes les arènes vaincues</div>`
+        : `<div style="font-size:10px;color:var(--red)">Arènes Kanto + Johto requises</div>`;
+    } else {
+      statusHtml = `<div style="font-size:10px;color:var(--text-dim)">Débloque une zone</div>`;
+    }
+
     return `<div style="display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid var(--border);opacity:${btnDisabled?'0.6':'1'}">
       ${itemSprite(item.id)}
       <div style="flex:1">
@@ -221,7 +257,7 @@ function renderShopPanel() {
   const panel = document.querySelector('#shopPanel .shop-list');
   if (!panel) return;
 
-  const ZONE_UNLOCK_ITEM_IDS = new Set(['map_pallet','casino_ticket','silph_keycard','boat_ticket','tourbillon_permit','carillon_permit']);
+  const ZONE_UNLOCK_ITEM_IDS = new Set(['map_pallet','casino_ticket','silph_keycard','boat_ticket','tourbillon_permit','carillon_permit','rocket_hq_keycard','rocket_uniform','silver_permit']);
   const ONE_OFF_IDS = new Set(['mysteryegg','incubator','translator']);
   const WING_PERMIT_IDS = new Set(['tourbillon_permit','carillon_permit']);
   const shopItems = SHOP_ITEMS.filter(item => !ZONE_UNLOCK_ITEM_IDS.has(item.id));

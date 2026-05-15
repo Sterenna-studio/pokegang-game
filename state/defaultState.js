@@ -99,6 +99,7 @@ export const DEFAULT_STATE = {
     totalMoneySpent: 0,
     shinyCaught: 0,
     rocketDefeated: 0,
+    rocketDefeatedJohto: 0,
     chestsOpened: 0,
     eventsCompleted: 0,
     eggsHatched: 0,
@@ -191,6 +192,10 @@ export const DEFAULT_STATE = {
   openZoneOrder: [],
   favoriteZones: [],
   claimedCodes: {},
+  encounterStats: {
+    bySpecies: {},  // { 'pikachu': 12 } — nb de spawns rencontrés par espèce
+    byTrainer: {},  // { 'rocketgrunt': 40 } — nb de combats engagés par type de dresseur
+  },
   discoveryProgress: {
     marketUnlocked: false,
     pokedexUnlocked: false,

@@ -53,10 +53,26 @@ function isJohtoZone(zoneId) {
   return typeof ZONE_JOHTO_BY_ID !== 'undefined' && !!ZONE_JOHTO_BY_ID[zoneId];
 }
 
+// Ensemble des types de dresseurs Rocket (pour le tracking)
+const ROCKET_TRAINER_KEYS = new Set(['rocketgrunt','rocketgruntf','scientist','archer','ariana','proton','giovanni']);
+
+// ── Événements actifs ─────────────────────────────────────────
+// La majorité des événements est désactivée en pre-alpha pour réduire le bruit.
+// Retirer un id d'ici pour le réactiver quand son système sera prêt.
+const ACTIVE_EVENT_IDS = new Set([
+  // Kanto — boost
+  'shiny_swarm',
+  'rare_migration',
+  // Johto — boost + combat Rocket
+  'raikou_sighting',
+  'rocket_radio_takeover',
+]);
+
 function getEligibleSpecialEvents(zoneId) {
   const state = globalThis.state;
   const zoneIsJohto = isJohtoZone(zoneId);
   return SPECIAL_EVENTS.filter(ev =>
+    ACTIVE_EVENT_IDS.has(ev.id) &&
     state.gang.reputation >= ev.minRep &&
     (!ev.zoneIds || ev.zoneIds.includes(zoneId)) &&
     (!ev.region || ev.region !== 'johto' || zoneIsJohto)
@@ -274,6 +290,20 @@ function makeRaidSpawn(zone, zoneId, masteryLevel = 1) {
   };
 }
 
+// ── Encounter tracking helper ─────────────────────────────────
+function _trackSpawnEncounter(spawn) {
+  if (!spawn) return;
+  const state = globalThis.state;
+  if (!state.encounterStats) state.encounterStats = { bySpecies: {}, byTrainer: {} };
+  if (!state.encounterStats.bySpecies) state.encounterStats.bySpecies = {};
+  if (!state.encounterStats.byTrainer) state.encounterStats.byTrainer = {};
+  if (spawn.type === 'pokemon' && spawn.species_en) {
+    state.encounterStats.bySpecies[spawn.species_en] = (state.encounterStats.bySpecies[spawn.species_en] || 0) + 1;
+  } else if (spawn.type === 'trainer' && spawn.trainerKey) {
+    state.encounterStats.byTrainer[spawn.trainerKey] = (state.encounterStats.byTrainer[spawn.trainerKey] || 0) + 1;
+  }
+}
+
 function spawnInZone(zoneId) {
   cleanExpiredZoneActivities(); // purge les événements expirés avant de spawner
   const state = globalThis.state;
@@ -370,14 +400,20 @@ function spawnInZone(zoneId) {
     const trainerKey = globalThis.pick(zone.trainers);
     const trainer = TRAINER_TYPES[trainerKey];
     const team = makeTrainerTeam(zone, trainerKey, undefined, mastery);
-    return { type: 'trainer', trainerKey, trainer, team };
+    const _ts = { type: 'trainer', trainerKey, trainer, team };
+    _trackSpawnEncounter(_ts);
+    return _ts;
   }
 
   // 5. City zones — extra trainer chance (no fallback to combat-only, pokemon can also spawn)
   if (zone.type === 'city' && r < 0.55 && zone.trainers.length > 0) {
     const trainerKey = globalThis.pick(zone.trainers);
     const trainer = TRAINER_TYPES[trainerKey];
-    if (trainer) return { type: 'trainer', trainerKey, trainer, team: makeTrainerTeam(zone, trainerKey, undefined, mastery) };
+    if (trainer) {
+      const _ts = { type: 'trainer', trainerKey, trainer, team: makeTrainerTeam(zone, trainerKey, undefined, mastery) };
+      _trackSpawnEncounter(_ts);
+      return _ts;
+    }
   }
 
   // 6. Pokemon spawn — Rare Scope triples chance of rare+ species
@@ -411,7 +447,9 @@ function spawnInZone(zoneId) {
       if (roll <= 0) { speciesEN = x.en; break; }
     }
   }
-  return { type: 'pokemon', species_en: speciesEN };
+  const _pokemonSpawn = { type: 'pokemon', species_en: speciesEN };
+  _trackSpawnEncounter(_pokemonSpawn);
+  return _pokemonSpawn;
 }
 
 // ── Chest loot resolution ─────────────────────────────────────
@@ -770,8 +808,23 @@ function applyCombatResult(result, playerTeamIds, trainerData) {
         state.inventory[ballType] = (state.inventory[ballType] || 0) + 1;
       }
     }
-    if (trainerData.trainerKey === 'rocketgrunt' || trainerData.trainerKey === 'rocketgruntf' || trainerData.trainerKey === 'giovanni') {
-      state.stats.rocketDefeated++;
+    if (ROCKET_TRAINER_KEYS.has(trainerData.trainerKey)) {
+      state.stats.rocketDefeated = (state.stats.rocketDefeated || 0) + 1;
+      if (isJohtoZone(trainerData.zoneId)) {
+        state.stats.rocketDefeatedJohto = (state.stats.rocketDefeatedJohto || 0) + 1;
+        // Auto-award Johto Rocket passes
+        const johtoRockets = state.stats.rocketDefeatedJohto;
+        if (johtoRockets >= 50 && !state.purchases.rocket_hq_keycard) {
+          state.purchases.rocket_hq_keycard = true;
+          globalThis.notify('🔑 Badge QG Rocket obtenu ! Le QG Rocket d\'Acajou est accessible.', 'gold');
+          setTimeout(() => globalThis.renderZonesTab?.(), 300);
+        }
+        if (johtoRockets >= 100 && !state.purchases.rocket_uniform) {
+          state.purchases.rocket_uniform = true;
+          globalThis.notify('👔 Uniforme Rocket obtenu ! La Tour Radio de Doublonville est accessible.', 'gold');
+          setTimeout(() => globalThis.renderZonesTab?.(), 300);
+        }
+      }
     }
     if (trainerData.trainerKey === 'blue') {
       state.stats.blueDefeated = (state.stats.blueDefeated || 0) + 1;
