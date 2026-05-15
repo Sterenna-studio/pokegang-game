@@ -364,18 +364,15 @@ function _combatTeamIdsForAgents(agentIds = []) {
 }
 
 function _trainerCombatLogLines(result, mainAgentName, trainerName, reward, repGain) {
-  const lines = [];
-  for (const duel of result.duels || []) {
-    lines.push(`${duel.attacker.name} vs ${duel.defender.name}: ${duel.attackerWin ? 'win' : 'loss'}`);
-  }
-  if (result.finalBattle?.skipped) {
-    lines.push('Boss battle skipped: attackers defeated');
-  } else if (result.finalBattle) {
-    lines.push(`Boss battle: ${result.finalBattle.attackerWin ? 'win' : 'loss'} (${result.finalBattle.attackerPower}/${result.finalBattle.defenderPower})`);
-  }
-  lines.push(result.attackerWin
-    ? `${mainAgentName} a battu ${trainerName}. +${reward}₽ +${repGain}rep`
-    : `${mainAgentName} a perdu contre ${trainerName}.`);
+  const bossName = globalThis.state?.gang?.bossName || 'Boss';
+  const agentNames = (result.attackers || []).map(a => a.name).filter(n => n !== bossName);
+  const allies = agentNames.length ? `${bossName} + ${agentNames.join('+')}` : bossName;
+  const lines = [
+    `${allies} vs ${trainerName} — ⚡${Math.round(result.attackerPower ?? 0)} / 🛡${Math.round(result.defenderPower ?? 0)}`,
+    result.attackerWin
+      ? `Victoire ! +${reward}₽ +${repGain}rep`
+      : `Défaite contre ${trainerName}.`,
+  ];
   return lines;
 }
 

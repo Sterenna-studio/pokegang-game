@@ -11,7 +11,7 @@
 // ════════════════════════════════════════════════════════════════
 
 const ZONE_AGENT_SLOTS = 3;
-const ZONE_BOSS_TEAM_SLOTS = 3;
+const ZONE_BOSS_TEAM_SLOTS = 6; // boss peut aligner toute son équipe
 
 const TRAINER_TYPE_MULTIPLIERS = {
   normal: 1,
@@ -264,16 +264,17 @@ function resolveAgentDuel(attacker, defender) {
   };
 }
 
-function bossAttackPower(state, survivingAgents) {
+// Puissance totale côté attaquant : boss + tous les agents (additionnés d'emblée).
+function totalAttackerPower(agentIds = null, state = getState()) {
   const bossTeamIds = (state.gang?.bossTeam || []).filter(Boolean).slice(0, ZONE_BOSS_TEAM_SLOTS);
-  const bossTeamPower = getTeamPower(bossTeamIds, state);
-  const survivingPower = survivingAgents.reduce((sum, agent) => sum + Math.round(agent?.power ?? 0), 0);
-  return Math.round(bossTeamPower + survivingPower);
+  const bossTeamPow = getTeamPower(bossTeamIds, state);
+  const attackers   = attackAgentSnapshots(agentIds, state);
+  const agentsPow   = attackers.reduce((sum, a) => sum + Math.round(a.power ?? 0), 0);
+  return { total: Math.round(bossTeamPow + agentsPow), bossPow: Math.round(bossTeamPow), agentsPow: Math.round(agentsPow), attackers };
 }
 
 function attackerPreviewPower(agentIds = null, state = getState()) {
-  const attackers = attackAgentSnapshots(agentIds, state);
-  return bossAttackPower(state, attackers);
+  return totalAttackerPower(agentIds, state).total;
 }
 
 function defenderPreviewPower(spawn) {
@@ -290,65 +291,39 @@ export function getTrainerCombatPreview(trainerSpawn, agentIds = null) {
   };
 }
 
+// ── Combat simplifié ─────────────────────────────────────────────────────────
+// Modèle : boss + agents (puissance totale additionnée d'emblée) vs dresseur.
+// Un seul jet — pas de duels individuels.
+// Grade de l'agent → nombre de Pokémon équipables (grunt:1 … général:6).
 export function resolveTrainerCombat(trainerSpawn, agentIds = null) {
   const state = getState();
-  const attackers = attackAgentSnapshots(agentIds, state);
-  const defenders = buildTrainerDefenders(trainerSpawn);
-  const duels = [];
-  let attackerIndex = 0;
-  let defenderIndex = 0;
 
-  while (attackerIndex < attackers.length && defenderIndex < defenders.length) {
-    const duel = resolveAgentDuel(attackers[attackerIndex], defenders[defenderIndex]);
-    duels.push(duel);
-    if (duel.attackerWin) defenderIndex++;
-    else attackerIndex++;
-  }
+  // ── Côté attaquant : boss + agents ────────────────────────────
+  const { total: atkTotal, bossPow, agentsPow, attackers } = totalAttackerPower(agentIds, state);
 
-  const survivingAttackers = attackers.slice(attackerIndex);
-  const remainingDefenders = defenders.slice(defenderIndex);
-  const trainerType = trainerTypeForSpawn(trainerSpawn);
+  // ── Côté défenseur : Pokémon du dresseur ───────────────────────
+  const trainerType       = trainerTypeForSpawn(trainerSpawn);
   const trainerMultiplier = trainerTypeMultiplier(trainerSpawn);
-  const finalTeam = allTrainerPokemon(trainerSpawn).slice(defenderIndex);
-  let finalBattle = null;
-  let attackerWin = false;
+  const allPk             = allTrainerPokemon(trainerSpawn);
+  const defTotal          = Math.round(trainerTeamPower(allPk, trainerMultiplier));
 
-  if (defenderIndex >= defenders.length && survivingAttackers.length > 0) {
-    const finalAttackerPower = bossAttackPower(state, survivingAttackers);
-    const finalDefenderPower = trainerTeamPower(finalTeam, trainerMultiplier);
-    const rolled = rollCombat(finalAttackerPower, finalDefenderPower);
-    attackerWin = rolled.attackerWin;
-    finalBattle = {
-      type: 'boss_battle',
-      attackerPower: finalAttackerPower,
-      defenderPower: finalDefenderPower,
-      attackerRoll: Math.round(rolled.attackerRoll),
-      defenderRoll: Math.round(rolled.defenderRoll),
-      attackerWin,
-      survivingAttackers: survivingAttackers.map(agentSummary),
-      defenderTeam: finalTeam.map(pokemon => trainerPokemonSummary(pokemon, trainerMultiplier)),
-    };
-  } else {
-    finalBattle = {
-      type: 'boss_battle',
-      skipped: true,
-      reason: attackers.length === 0 ? 'no_attackers' : 'attackers_defeated',
-      remainingDefenders: remainingDefenders.map(defenderSummary),
-    };
-  }
+  const rolled      = rollCombat(atkTotal, defTotal);
+  const attackerWin = rolled.attackerWin;
 
   return {
     attackerWin,
-    win: attackerWin,
-    attackerPower: attackerPreviewPower(agentIds, state),
-    defenderPower: defenderPreviewPower(trainerSpawn),
+    win:                   attackerWin,
+    attackerPower:         atkTotal,
+    defenderPower:         defTotal,
+    bossTeamPower:         bossPow,
+    agentsPower:           agentsPow,
     trainerType,
     trainerTypeMultiplier: trainerMultiplier,
-    attackers: attackers.map(agentSummary),
-    defenders: defenders.map(defenderSummary),
-    duels,
-    finalBattle,
-    remainingAttackers: survivingAttackers.map(agentSummary),
-    remainingDefenders: remainingDefenders.map(defenderSummary),
+    attackers:             attackers.map(agentSummary),
+    defenders:             [],
+    duels:                 [], // simplifié : plus de duels individuels
+    finalBattle:           null,
+    remainingAttackers:    [],
+    remainingDefenders:    [],
   };
 }
