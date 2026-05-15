@@ -22,7 +22,7 @@
 const ZONES_JOHTO = [
 
   // ══ QUARTIER GÉNÉRAL JOHTO (base gang Johto — toujours ouverte) ══
-  { id:'johto_gang_hq',   fr:'Planque de New Bark',  en:'New Bark Hideout',  rep:0,    spawnRate:0,    type:'gang_park',
+  { id:'johto_gang_hq',   fr:'Planque de Bourg Geon',en:'New Bark Hideout',  rep:0,    spawnRate:0,    type:'gang_park',
     zoneLevelBonus:0,
     pool:[], trainers:[], investCost:0,
     desc_fr:'Votre planque à New Bark Town. Point de départ de la conquête de Johto.',
@@ -40,12 +40,12 @@ const ZONES_JOHTO = [
     pool:['ledyba','spinarak','caterpie','metapod','weedle','kakuna','hoothoot','noctowl','bellsprout','hoppip'],
     trainers:['youngster','lass','bugcatcher'], eliteTrainer:'acetrainer', investCost:1500 },
 
-  { id:'dark_cave',       fr:'Grotte Sombre',        en:'Dark Cave',         rep:80,   spawnRate:0.05, type:'route',
+  { id:'dark_cave',       fr:'Antre Noir',            en:'Dark Cave',         rep:80,   spawnRate:0.05, type:'route',
     zoneLevelBonus:22,
     pool:['zubat','geodude','wobbuffet','dunsparce','graveler','golbat','teddiursa','ursaring'],
     trainers:['hiker','camper'], eliteTrainer:'hiker', investCost:3000 },
 
-  { id:'ilex_forest',     fr:'Forêt de Viridis',     en:'Ilex Forest',       rep:180,  spawnRate:0.08, type:'route',
+  { id:'ilex_forest',     fr:'Bois aux Chênes',       en:'Ilex Forest',       rep:180,  spawnRate:0.08, type:'route',
     zoneLevelBonus:25,
     pool:['caterpie','metapod','butterfree','oddish','psyduck','slowpoke','hoothoot','noctowl','aipom','yanma'],
     rarePool:[
@@ -77,7 +77,7 @@ const ZONES_JOHTO = [
     pool:['marill','flaaffy','ampharos','mareep','aipom','tauros','miltank','drowzee','hypno'],
     trainers:['picnicker','camper','swimmer'], eliteTrainer:'acetrainer', investCost:9000 },
 
-  { id:'ice_path',        fr:'Chemin Glacé',         en:'Ice Path',          rep:650,  spawnRate:0.04, type:'route',
+  { id:'ice_path',        fr:'Route de Glace',        en:'Ice Path',          rep:650,  spawnRate:0.04, type:'route',
     zoneLevelBonus:39,
     pool:['swinub','piloswine','jynx','sneasel','delibird','zubat','golbat','wobbuffet'],
     trainers:['hiker','blackbelt'], eliteTrainer:'pryce', investCost:15000 },
@@ -123,7 +123,7 @@ const ZONES_JOHTO = [
     gymLeader:'morty', gymType:'ghost', xpBonus:2.0,
     ghostZone: true },
 
-  { id:'cianwood_gym',    fr:'Acajou',               en:'Cianwood City',     rep:500,  spawnRate:0.06, type:'city',
+  { id:'cianwood_gym',    fr:'Irisia',               en:'Cianwood City',     rep:500,  spawnRate:0.06, type:'city',
     zoneLevelBonus:35,
     pool:['machop','machoke','machamp','poliwag','poliwhirl','poliwrath','mankey','primeape','hitmonlee','hitmonchan'],
     trainers:['blackbelt','hiker','sailor'], eliteTrainer:'chuck', investCost:10000,
@@ -160,7 +160,7 @@ const ZONES_JOHTO = [
     pool:['slowpoke','slowbro','slowking','zubat','golbat','psyduck','golduck','magikarp','wooper','quagsire'],
     trainers:['rocketgrunt','rocketgruntf','supernerd'], eliteTrainer:'proton', investCost:3000 },
 
-  { id:'ruins_of_alph',   fr:'Ruines d\'Alph',       en:'Ruins of Alph',     rep:200,  spawnRate:0.04, type:'special',
+  { id:'ruins_of_alph',   fr:'Ruines d\'Alpha',       en:'Ruins of Alph',     rep:200,  spawnRate:0.04, type:'special',
     zoneLevelBonus:26,
     pool:['unown','geodude','graveler','natu','xatu','smeargle','sudowoodo'],
     rarePool:[
@@ -180,7 +180,7 @@ const ZONES_JOHTO = [
     ],
     trainers:['bugcatcher','youngster','lass','picnicker'], eliteTrainer:'bugsy', investCost:5000 },
 
-  { id:'burned_tower',    fr:'Tour Cramée',          en:'Burned Tower',      rep:380,  spawnRate:0.04, type:'special',
+  { id:'burned_tower',    fr:'Tour Cendrée',          en:'Burned Tower',      rep:380,  spawnRate:0.04, type:'special',
     zoneLevelBonus:31,
     pool:['koffing','weezing','growlithe','arcanine','vulpix','ninetales','magmar','rapidash','rattata','raticate'],
     rarePool:[
@@ -233,7 +233,7 @@ const ZONES_JOHTO = [
     ],
     trainers:['acetrainer','pokemonranger'], eliteTrainer:'jasmine', investCost:15000 },
 
-  { id:'whirl_islands',   fr:'Îles Tourbillon',      en:'Whirl Islands',     rep:900,  spawnRate:0.04, type:'special',
+  { id:'whirl_islands',   fr:'Tourb\'Îles',           en:'Whirl Islands',     rep:900,  spawnRate:0.04, type:'special',
     zoneLevelBonus:46,
     pool:['lugia','politoed','slowking','kingdra','tentacruel','dewgong','lapras','seadra','starmie','tentacool','golduck','psyduck'],
     trainers:['swimmer','acetrainer'], eliteTrainer:'lorelei', investCost:45000,
@@ -441,7 +441,7 @@ const SPECIAL_EVENTS_JOHTO = [
     desc_fr:'Un Faux-Faux-Boss mime un arbre et bloque le passage. Arrosez-le pour débloquer la zone.',
     desc_en:'A Sudowoodo mimics a tree and blocks the path. Water it to unlock the area.' },
 
-  { id:'egg_from_oak',      fr:'Œuf du Prof. Chen !',         en:'Egg from Prof. Elm!',     icon:'🥚',
+  { id:'egg_from_oak',      fr:'Œuf du Prof. Orme !',         en:'Egg from Prof. Elm!',     icon:'🥚',
     trainerKey:null, chance:0.05, minRep:50,
     reward: { eggGift:['togepi'], xpBonus:20, chestBoost:20000 },
     desc_fr:'Le Prof. Orme vous confie un mystérieux œuf. On dirait qu\'il est sur le point d\'éclore.',
