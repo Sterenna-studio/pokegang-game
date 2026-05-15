@@ -166,17 +166,10 @@ function assignAgentToZone(agentId, zoneId) {
   }
   agent.assignedZone = zoneId;
   if (zoneId) {
+    // Slots illimités — pas de cap d'agents par zone
     const z = globalThis.initZone(zoneId);
-    const maxSlots = z.slots || 1;
     if (!z.assignedAgents.includes(agentId)) {
-      if (z.assignedAgents.length < maxSlots) {
-        z.assignedAgents.push(agentId);
-      } else {
-        agent.assignedZone = null;
-        globalThis.notify(`Zone pleine (${maxSlots} slot${maxSlots > 1 ? 's' : ''}). Améliore la zone pour +1 agent.`, 'error');
-        globalThis.saveState();
-        return;
-      }
+      z.assignedAgents.push(agentId);
     }
   }
   globalThis.saveState();

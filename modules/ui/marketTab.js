@@ -332,18 +332,8 @@ function renderShopPanel() {
     const ballDef  = BALLS[key];
     const owned    = !!(state.purchases?.[`skin_${key}`]);
     const active   = state.activeBall === key;
-    let priceLabel;
-    if (skinItem?.barter) {
-      const have = state.inventory[skinItem.barter.item] || 0;
-      priceLabel = `${have}/${skinItem.barter.qty} PB`;
-    } else if (skinItem?.cost) {
-      priceLabel = `${skinItem.cost.toLocaleString()}₽`;
-    } else {
-      priceLabel = '';
-    }
-    const canAfford = skinItem?.barter
-      ? (state.inventory[skinItem.barter.item] || 0) >= skinItem.barter.qty
-      : (state.gang.money || 0) >= (skinItem?.cost || 0);
+    const priceLabel = skinItem?.cost ? `${skinItem.cost.toLocaleString()}₽` : '';
+    const canAfford  = (state.gang.money || 0) >= (skinItem?.cost || 0);
     return `
       <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border-dim)">
         <span style="font-family:var(--font-pixel);font-size:9px;color:${ballDef.color};min-width:18px">${ballDef.icon}</span>

@@ -100,14 +100,6 @@ function cleanExpiredZoneActivities() {
   }
 }
 
-function getZoneSlotCost(zoneId, slotIndex) {
-  const base = globalThis.ZONE_SLOT_COSTS[slotIndex] ?? 9999;
-  const zone = ZONE_BY_ID[zoneId];
-  // tier based on zone unlock reputation: higher zone = more expensive slots
-  const rep = zone?.rep || 0;
-  const tier = rep < 50 ? 1 : rep < 150 ? 1.5 : rep < 300 ? 2 : rep < 600 ? 3 : rep < 1000 ? 4 : 5;
-  return Math.round(base * tier);
-}
 
 function initZone(zoneId) {
   const state = globalThis.state;
@@ -1111,7 +1103,6 @@ Object.assign(globalThis, {
   clearZoneActivity,
   cleanExpiredZoneActivities,
   // Zone system pure logic
-  _zsys_getZoneSlotCost:              getZoneSlotCost,
   _zsys_initZone:                     initZone,
   _zsys_isZoneUnlocked:               isZoneUnlocked,
   _zsys_isZoneDegraded:               isZoneDegraded,

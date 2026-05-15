@@ -154,8 +154,6 @@ export function showZoneContextMenu(zoneId, x, y) {
   const hasPending = (zState.pendingIncome || 0) > 0;
   const isFav      = (state.favoriteZones || []).includes(zoneId);
   const name       = state.lang === 'fr' ? zone.fr : zone.en;
-  const maxSlots   = zState.slots || 1;
-  const isFullSlot = maxSlots >= ((globalThis.ZONE_SLOT_COSTS?.length ?? 5) + 1);
 
   _ctxMenu = document.createElement('div');
   _ctxMenu.className = 'zone-ctx-menu';
@@ -184,10 +182,6 @@ export function showZoneContextMenu(zoneId, x, y) {
         icon: '👤', label: 'Assigner un agent →',
         action: () => renderAgentSubmenu(),
         sub: true,
-      },
-      !isFullSlot && {
-        icon: '🔓', label: 'Acheter un slot',
-        action: () => _buySlotFromCtx(zoneId),
       },
     ].filter(Boolean);
 
@@ -291,29 +285,6 @@ export function showZoneContextMenu(zoneId, x, y) {
   document.addEventListener('keydown', e => { if (e.key === 'Escape') _dismissCtxMenu(); }, { once: true });
 }
 
-function _buySlotFromCtx(zoneId) {
-  _dismissCtxMenu();
-  const state = globalThis.state;
-  const zs    = globalThis.initZone?.(zoneId);
-  if (!zs) return;
-  const nextSlot = zs.slots || 1;
-  const cost     = globalThis.getZoneSlotCost?.(zoneId, nextSlot - 1);
-  if (!cost) { globalThis.notify?.('Slots maximum atteint', 'error'); return; }
-  if (state.gang.money < cost) { globalThis.notify?.('Pokédollars insuffisants', 'error'); return; }
-  globalThis.showConfirm?.(
-    `Dépenser ${cost.toLocaleString()}₽ pour débloquer un slot agent ?`,
-    () => {
-      state.gang.money -= cost;
-      zs.slots = nextSlot + 1;
-      globalThis.saveState?.();
-      globalThis.updateTopBar?.();
-      globalThis.notify?.(`Zone améliorée ! Slots agents : ${zs.slots}`, 'gold');
-      globalThis.renderZonesTab?.();
-    },
-    null,
-    { confirmLabel: 'Oui', cancelLabel: 'Non' },
-  );
-}
 
 // ── Gang Park tile (special — always unlocked, not a standard zone) ──
 function _buildGangParkTile(zone) {

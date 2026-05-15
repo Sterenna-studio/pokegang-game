@@ -394,7 +394,6 @@ function renderGangBaseWindow() {
           <button data-base-command="intervene" data-zone="${focusZoneId}" class="primary">⚔ Intervenir</button>
           <button data-base-command="toggle-zone" data-zone="${focusZoneId}">${isFocusOpen ? 'Fermer' : 'Ouvrir'}</button>
           <button data-base-command="assign-agent" data-zone="${focusZoneId}">Assigner</button>
-          <button data-base-command="reinforce" data-zone="${focusZoneId}">Renforcer</button>
           <button data-base-command="retake" data-zone="${focusZoneId}">Reprendre</button>
         </div>
       </section>
@@ -520,40 +519,6 @@ function _openBaseAgentPicker(zoneId) {
   });
 }
 
-function _reinforceBaseZone(zoneId) {
-  const state = globalThis.state;
-  const zone = _baseZoneById(zoneId);
-  if (!state || !zone) return;
-  const zState = globalThis.initZone?.(zoneId) || state.zones?.[zoneId] || {};
-  const currentSlots = zState.slots || 1;
-  const maxSlots = (globalThis.ZONE_SLOT_COSTS?.length || 3) + 1;
-  if (currentSlots >= maxSlots) {
-    globalThis.notify?.('Slots agents deja au maximum', 'gold');
-    return;
-  }
-  const cost = globalThis.getZoneSlotCost?.(zoneId, currentSlots - 1) || 0;
-  if (!cost || state.gang.money < cost) {
-    globalThis.notify?.(`Pokédollars insuffisants (${cost.toLocaleString()}₽)`, 'error');
-    return;
-  }
-  const applyUpgrade = () => {
-    state.gang.money -= cost;
-    state.stats.totalMoneySpent = (state.stats.totalMoneySpent || 0) + cost;
-    zState.slots = currentSlots + 1;
-    globalThis.notify?.(`Renfort disponible sur ${_baseZoneName(zone, state)} (${zState.slots} slots)`, 'gold');
-    _refreshBaseRuntime();
-  };
-  if (globalThis.showConfirm) {
-    globalThis.showConfirm(
-      `Dépenser ${cost.toLocaleString()}₽ pour renforcer ${_baseZoneName(zone, state)} ?`,
-      applyUpgrade,
-      null,
-      { confirmLabel: 'Renforcer', cancelLabel: 'Annuler' }
-    );
-  } else {
-    applyUpgrade();
-  }
-}
 
 function _handleBaseCommand(command, zoneId) {
   const state = globalThis.state;
@@ -569,10 +534,6 @@ function _handleBaseCommand(command, zoneId) {
   }
   if (command === 'assign-agent') {
     _openBaseAgentPicker(zoneId);
-    return;
-  }
-  if (command === 'reinforce') {
-    _reinforceBaseZone(zoneId);
     return;
   }
   if (command === 'retake') {

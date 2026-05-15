@@ -976,7 +976,6 @@ function buildZoneWindowEl(zoneId) {
   const name = state.lang === 'fr' ? zone.fr : zone.en;
   const degraded = globalThis.isZoneDegraded(zoneId);
   const ZONE_BGS = globalThis.ZONE_BGS;
-  const ZONE_SLOT_COSTS = globalThis.ZONE_SLOT_COSTS;
   const trainerSprite = globalThis.trainerSprite;
 
   const boosts = [];
@@ -1010,12 +1009,6 @@ function buildZoneWindowEl(zoneId) {
   const masteryClass = mastery >= 3 ? 'zone-mastery-3' : mastery === 2 ? 'zone-mastery-2' : mastery === 1 ? 'zone-mastery-1' : '';
   if (masteryClass) win.classList.add(masteryClass);
 
-  const _slotCost = (() => {
-    const nextSlot = (zState.slots || 1);
-    const cost = globalThis.getZoneSlotCost(zoneId, nextSlot - 1);
-    const canAfford = state.gang.money >= cost;
-    return { nextSlot, cost, canAfford };
-  })();
 
   win.innerHTML = `
     <div class="zone-headbar${degraded ? ' zone-headbar-degraded' : ''}" data-zone-hb="${zoneId}">
@@ -1068,12 +1061,7 @@ function buildZoneWindowEl(zoneId) {
           <span class="boss-cd-label" style="display:none;font-family:var(--font-pixel);font-size:7px;color:var(--red);background:rgba(0,0,0,.8);border-radius:2px;padding:1px 3px;white-space:nowrap;position:absolute;top:-14px;left:50%;transform:translateX(-50%)"></span>
         </div>` : ''}
         <div class="zone-slot-info">
-          <span class="slot-count" style="color:var(--text-dim)">Agents: ${assignedAgents.length}/${zState.slots || 1}</span>
-          ${(zState.slots || 1) < ZONE_SLOT_COSTS.length + 1 ? `<button class="zone-slot-upgrade" data-zone-upgrade="${zoneId}" data-cost="${_slotCost.cost}"
-            style="font-family:var(--font-pixel);font-size:7px;padding:2px 6px;background:var(--bg);
-            border:1px solid ${_slotCost.canAfford ? 'var(--gold-dim)' : 'var(--border)'};border-radius:2px;
-            color:${_slotCost.canAfford ? 'var(--gold)' : 'var(--text-dim)'};cursor:${_slotCost.canAfford ? 'pointer' : 'default'}"
-            ${_slotCost.canAfford ? '' : 'disabled'}>+slot ${_slotCost.cost.toLocaleString()}₽</button>` : `<span style="color:var(--gold)">FULL</span>`}
+          <span class="slot-count" style="color:var(--text-dim)">Agents: ${assignedAgents.length}</span>
         </div>
       </div>
     </div>
@@ -1104,21 +1092,6 @@ function buildZoneWindowEl(zoneId) {
     globalThis.triggerGymRaid(zoneId);
   });
 
-  win.querySelector(`[data-zone-upgrade="${zoneId}"]`)?.addEventListener('dblclick', (e) => {
-    e.stopPropagation();
-    const zs = globalThis.initZone(zoneId);
-    const nextSlot = zs.slots || 1;
-    const cost = globalThis.getZoneSlotCost(zoneId, nextSlot - 1);
-    if (!cost || state.gang.money < cost) { globalThis.notify('Pokédollars insuffisants', 'error'); return; }
-    globalThis.showConfirm(`Dépenser ${cost.toLocaleString()}₽ pour débloquer un slot agent ?`, () => {
-      state.gang.money -= cost;
-      zs.slots = nextSlot + 1;
-      globalThis.saveState();
-      globalThis.updateTopBar();
-      globalThis.notify(`Zone améliorée ! Slots agents: ${zs.slots}`, 'gold');
-      renderZoneWindows();
-    }, null, { confirmLabel: 'Oui', cancelLabel: 'Non' });
-  });
 
   return win;
 }
@@ -1133,7 +1106,6 @@ function patchZoneWindow(zoneId, win) {
   const selectedTier = zState.selectedTier;
   const name = state.lang === 'fr' ? zone.fr : zone.en;
   const degraded = globalThis.isZoneDegraded(zoneId);
-  const ZONE_SLOT_COSTS = globalThis.ZONE_SLOT_COSTS;
   const trainerSprite = globalThis.trainerSprite;
   const gymDefeated = zState.gymDefeated;
   const combats = zState.combatsWon || 0;
@@ -1227,39 +1199,9 @@ function patchZoneWindow(zoneId, win) {
 
   // Refresh slot-info section inside zone-footer-right
   const freshAssigned = state.agents.filter(a => a.assignedZone === zoneId);
-  const freshZState2 = state.zones[zoneId] || {};
-  const freshMaxSlots = freshZState2.slots || 1;
-  const freshCanUpgrade = freshMaxSlots < ZONE_SLOT_COSTS.length + 1;
-  const freshCost = freshCanUpgrade ? globalThis.getZoneSlotCost(zoneId, freshMaxSlots - 1) : null;
-  const freshCanAfford = freshCost && state.gang.money >= freshCost;
   const slotInfo = win.querySelector('.zone-slot-info');
   if (slotInfo) {
-    slotInfo.innerHTML = `
-      <span class="slot-count" style="color:var(--text-dim)">Agents: ${freshAssigned.length}/${freshMaxSlots}</span>
-      ${freshCanUpgrade
-        ? `<button class="zone-slot-upgrade" data-zone-upgrade="${zoneId}" data-cost="${freshCost}"
-            style="font-family:var(--font-pixel);font-size:7px;padding:2px 6px;background:var(--bg);
-            border:1px solid ${freshCanAfford ? 'var(--gold-dim)' : 'var(--border)'};border-radius:2px;
-            color:${freshCanAfford ? 'var(--gold)' : 'var(--text-dim)'};cursor:${freshCanAfford ? 'pointer' : 'default'}"
-            ${freshCanAfford ? '' : 'disabled'}>+slot ${freshCost.toLocaleString()}₽</button>`
-        : '<span style="color:var(--gold)">FULL</span>'}
-    `;
-    // Rebind dblclick upgrade
-    slotInfo.querySelector(`[data-zone-upgrade="${zoneId}"]`)?.addEventListener('dblclick', (e) => {
-      e.stopPropagation();
-      const zs2 = globalThis.initZone(zoneId);
-      const ns = zs2.slots || 1;
-      const uc = globalThis.getZoneSlotCost(zoneId, ns - 1);
-      if (!uc || state.gang.money < uc) { globalThis.notify('Pokédollars insuffisants', 'error'); return; }
-      globalThis.showConfirm(`Dépenser ${uc.toLocaleString()}₽ pour débloquer un slot agent ?`, () => {
-        state.gang.money -= uc;
-        zs2.slots = ns + 1;
-        globalThis.saveState();
-        globalThis.updateTopBar();
-        globalThis.notify(`Zone améliorée ! Slots agents: ${zs2.slots}`, 'gold');
-        renderZoneWindows();
-      }, null, { confirmLabel: 'Oui', cancelLabel: 'Non' });
-    });
+    slotInfo.innerHTML = `<span class="slot-count" style="color:var(--text-dim)">Agents: ${freshAssigned.length}</span>`;
   }
 
   updateZoneTimers(zoneId);
@@ -1293,8 +1235,7 @@ function updateZoneTimers(zoneId) {
   const countSpan = win.querySelector('.slot-count');
   if (countSpan) {
     const assignedCount = state.agents.filter(a => a.assignedZone === zoneId).length;
-    const maxSlots = (state.zones[zoneId]?.slots) || 1;
-    countSpan.textContent = `Agents: ${assignedCount}/${maxSlots}`;
+    countSpan.textContent = `Agents: ${assignedCount}`;
   }
 
   // Cooldown display on agents in footer bar
@@ -2391,36 +2332,6 @@ Object.assign(globalThis, {
   SPECIAL_WING_EVENTS,
   zoneNextSpawn,
   zoneSpawnHistory,
-});
-
-// ── Expose to globalThis for app.js bridge ─────────────────────
-Object.assign(globalThis, {
-  _zwin_renderZonesTab:           renderZonesTab,
-  _zwin_openZoneWindow:           openZoneWindow,
-  _zwin_closeZoneWindow:          closeZoneWindow,
-  _zwin_renderZoneWindows:        renderZoneWindows,
-  _zwin_buildZoneWindowEl:        buildZoneWindowEl,
-  _zwin_patchZoneWindow:          patchZoneWindow,
-  _zwin_openCollectionModal:      openCollectionModal,
-  _zwin_showCollectionEncounter:  showCollectionEncounter,
-  _zwin_startZoneCollection:      startZoneCollection,
-  _zwin_showCollectionResult:     showCollectionResult,
-  _zwin_spawnCoinRain:            spawnCoinRain,
-  _zwin_autoCollectZone:          autoCollectZone,
-  _zwin_collectAllZones:          collectAllZones,
-  _zwin_updateZoneTimers:         updateZoneTimers,
-  _zwin_tickZoneSpawn:            tickZoneSpawn,
-  _zwin_tryWingDrop:              _tryWingDrop,
-  _zwin_addVSBadge:               _addVSBadge,
-  _zwin_renderSpawnInWindow:      renderSpawnInWindow,
-  _zwin_removeSpawn:              removeSpawn,
-  _zwin_animateCapture:           animateCapture,
-  _zwin_showCaptureBurst:         showCaptureBurst,
-  _zwin_buildPlayerTeamForZone:   buildPlayerTeamForZone,
-  _zwin_openCombatPopup:          openCombatPopup,
-  _zwin_executeCombat:            executeCombat,
-  _zwin_closeCombatPopup:         closeCombatPopup,
-  _zwin_refreshRaidBtn:           _refreshRaidBtn,
 });
 
 export {};

@@ -776,9 +776,6 @@ function levelUpPokemon(...a)     { return globalThis.levelUpPokemon?.(...a); }
 //  5.  ZONE MODULE
 // ════════════════════════════════════════════════════════════════
 
-// Coûts en ₽ pour débloquer des slots d'agents par zone
-// slot 2 → 2000₽, slot 3 → 6000₽, etc.
-const ZONE_SLOT_COSTS = [2000, 6000, 15000, 50000, 150000]; // base costs (₽)
 
 // ════════════════════════════════════════════════════════════════
 //  5b.  TITLES MODULE  (extracted → modules/systems/titles.js)
@@ -793,7 +790,6 @@ function checkTitleUnlocks(...a)  { return globalThis.checkTitleUnlocks?.(...a);
 function updateDiscovery(...a)    { return globalThis.updateDiscovery?.(...a); }
 function openTitleModal(...a)     { return globalThis.openTitleModal?.(...a); }
 
-function getZoneSlotCost(zoneId, slotIndex) { return globalThis._zsys_getZoneSlotCost(zoneId, slotIndex); }
 
 function initZone(zoneId) { return globalThis._zsys_initZone(zoneId); }
 
@@ -2258,7 +2254,7 @@ Object.assign(globalThis, {
   renderLabTabInEl, getDexDesc,
   // zoneSelector module — zone helpers + data it reads from globalThis
   isZoneDegraded, getZoneMastery, getZoneDifficulty,
-  getZoneSlotCost, ZONE_SLOT_COSTS, ZONE_BGS, SHOP_ITEMS,
+  ZONE_BGS, SHOP_ITEMS,
   // Zone UI helpers — called by agent.js background ticks
   refreshZoneIncomeTile: _refreshZoneIncomeTile,
   updateZoneButtons: _updateZoneButtons,

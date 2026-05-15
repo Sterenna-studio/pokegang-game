@@ -270,7 +270,7 @@ function buyItem(itemDef) {
     return true;
   }
 
-  // ── Skins de Ball (troc en Poké Balls ou achat ₽) ───────────────
+  // ── Skins de Ball (achat direct en ₽) ───────────────────────────
   if (itemDef.ballSkin) {
     const skinKey = `skin_${itemDef.ballSkin}`;
     if (state.purchases[skinKey]) {
@@ -278,22 +278,6 @@ function buyItem(itemDef) {
       state.gang.money += actualCost;
       state.stats.totalMoneySpent -= actualCost;
       return false;
-    }
-    // Coût en troc de Poké Balls
-    if (itemDef.barter) {
-      const have = state.inventory[itemDef.barter.item] || 0;
-      if (have < itemDef.barter.qty) {
-        globalThis.notify(
-          state.lang === 'fr'
-            ? `Il te faut ${itemDef.barter.qty}× Poké Balls (tu en as ${have}).`
-            : `You need ${itemDef.barter.qty}× Poké Balls (you have ${have}).`,
-          'error'
-        );
-        state.gang.money += actualCost; // rembourser le 0₽ soustrait
-        state.stats.totalMoneySpent -= actualCost;
-        return false;
-      }
-      state.inventory[itemDef.barter.item] -= itemDef.barter.qty;
     }
     state.purchases[skinKey] = true;
     const name = state.lang === 'fr' ? itemDef.fr : itemDef.en;
