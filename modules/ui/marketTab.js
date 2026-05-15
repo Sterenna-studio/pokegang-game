@@ -260,7 +260,7 @@ function renderShopPanel() {
   const ZONE_UNLOCK_ITEM_IDS = new Set(['map_pallet','casino_ticket','silph_keycard','boat_ticket','tourbillon_permit','carillon_permit','rocket_hq_keycard','rocket_uniform','silver_permit']);
   const ONE_OFF_IDS = new Set(['mysteryegg','incubator','translator']);
   const WING_PERMIT_IDS = new Set(['tourbillon_permit','carillon_permit']);
-  // Skins de ball affichés dans leur propre section, pas dans la liste standard
+  // Skins de ball gérés dans l'onglet Gang (APPARENCE)
   const shopItems = SHOP_ITEMS.filter(item => !ZONE_UNLOCK_ITEM_IDS.has(item.id) && !item.ballSkin);
 
   // ── Multiplier toolbar ─────────────────────────────────────────
@@ -325,54 +325,12 @@ function renderShopPanel() {
     </div>`;
   }).join('');
 
-  // ── Ball skins selector ────────────────────────────────────────
-  const BALL_SKIN_KEYS = ['greatball', 'duskball', 'ultraball', 'masterball'];
-  const skinRows = BALL_SKIN_KEYS.map(key => {
-    const skinItem = SHOP_ITEMS.find(s => s.ballSkin === key);
-    const ballDef  = BALLS[key];
-    const owned    = !!(state.purchases?.[`skin_${key}`]);
-    const active   = state.activeBall === key;
-    const priceLabel = skinItem?.cost ? `${skinItem.cost.toLocaleString()}₽` : '';
-    const canAfford  = (state.gang.money || 0) >= (skinItem?.cost || 0);
-    return `
-      <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border-dim)">
-        <span style="font-family:var(--font-pixel);font-size:9px;color:${ballDef.color};min-width:18px">${ballDef.icon}</span>
-        <span style="flex:1;font-size:11px;color:var(--text)">${state.lang==='fr'?ballDef.fr:ballDef.en}</span>
-        ${owned
-          ? `<button data-set-ball="${key}" style="font-size:9px;padding:3px 8px;cursor:pointer;
-              background:${active?'var(--red-dark)':'var(--bg-alt)'};
-              border:1px solid ${active?'var(--red)':'var(--border)'};border-radius:var(--radius-sm);
-              color:${active?'var(--text)':'var(--text-dim)'}">
-              ${active?(state.lang==='fr'?'ACTIF':'ACTIVE'):(state.lang==='fr'?'APPLIQUER':'APPLY')}
-            </button>`
-          : `<button data-buy-skin="${SHOP_ITEMS.indexOf(skinItem)}" ${canAfford?'':'disabled'}
-              style="font-size:9px;padding:3px 8px;cursor:${canAfford?'pointer':'default'};
-              background:var(--bg);border:1px solid ${canAfford?'var(--gold-dim)':'var(--border)'};
-              border-radius:var(--radius-sm);color:${canAfford?'var(--gold)':'var(--text-dim)'}">
-              ${priceLabel}
-            </button>`
-        }
-      </div>`;
-  }).join('');
-
-  const ballSkinsSection = `
-    <div style="padding:10px 4px;border-top:2px solid var(--border);margin-top:4px">
-      <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold);margin-bottom:8px">— SKINS DE BALL —</div>
-      <div style="font-size:10px;color:var(--text-dim);margin-bottom:6px">
-        ${state.lang==='fr'
-          ? 'Skin actif du boss : <b style="color:var(--gold)">' + (BALLS[state.activeBall]?.fr || state.activeBall) + '</b>'
-          : 'Active boss skin: <b style="color:var(--gold)">' + (BALLS[state.activeBall]?.en || state.activeBall) + '</b>'
-        }
-      </div>
-      ${skinRows}
-    </div>`;
-
   panel.innerHTML = `
     <div style="display:flex;align-items:center;gap:6px;padding:6px 4px 8px;border-bottom:1px solid var(--border)">
       <span style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim)">Quantité :</span>
       ${multBar}
     </div>
-    ${itemsHtml}${ballSkinsSection}`;
+    ${itemsHtml}`;
 
   // ── Bind events ────────────────────────────────────────────────
   panel.querySelectorAll('.shop-mult-btn').forEach(btn => {
@@ -394,24 +352,8 @@ function renderShopPanel() {
       if (activeTab === 'tabZones') renderZoneWindows();
     });
   });
-  panel.querySelectorAll('[data-set-ball]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      state.activeBall = btn.dataset.setBall;
-      saveState();
-      renderShopPanel();
-    });
-  });
-  panel.querySelectorAll('[data-buy-skin]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const item = SHOP_ITEMS[parseInt(btn.dataset.buySkin)];
-      if (!item || btn.disabled) return;
-      if (buyItem(item)) {
-        updateTopBar();
-        renderShopPanel();
-      }
-    });
-  });
 }
+
 
 Object.assign(globalThis, { renderMarketTab, renderBarterPanel, renderSpecialItemPanel, renderShopPanel });
 export { renderMarketTab, renderBarterPanel, renderSpecialItemPanel, renderShopPanel };

@@ -1,5 +1,8 @@
 'use strict';
 
+import { SHOWCASE_SLOTS } from '../../data/game-config-data.js';
+import { BALL_SPRITES } from '../../data/assets-data.js';
+
 // deps (globalThis): state, notify, saveState, updateTopBar, switchTab, showConfirm, SFX,
 //   pokeSprite, pokeIcon, trainerSprite, pokemonDisplayName,
 //   getBossFullTitle, getTitleLabel, getShinySpeciesCount,
@@ -126,6 +129,64 @@ function renderMusicPanel(container) {
       renderMusicPanel(container);
     });
   });
+}
+
+// ── Ball skins section ────────────────────────────────────────────────────────
+const BALL_SKIN_KEYS = ['greatball', 'duskball', 'ultraball', 'masterball'];
+
+function _buildBallSkinsHtml(state) {
+  const lang = state.lang === 'fr' ? 'fr' : 'en';
+  const BALLS = globalThis.BALLS || {};
+  const activeBall = state.activeBall || 'pokeball';
+
+  const rows = BALL_SKIN_KEYS.map(key => {
+    const ballDef   = BALLS[key] || { fr: key, en: key, color: '#888', icon: '?' };
+    const skinItem  = (globalThis.SHOP_ITEMS || []).find(s => s.ballSkin === key);
+    const owned     = !!(state.purchases?.[`skin_${key}`]);
+    const active    = activeBall === key;
+    const cost      = skinItem?.cost || 0;
+    const canAfford = (state.gang.money || 0) >= cost;
+    const shopIdx   = (globalThis.SHOP_ITEMS || []).indexOf(skinItem);
+
+    return `<div style="display:flex;align-items:center;gap:10px;padding:6px 4px;border-bottom:1px solid var(--border-dim)">
+      <img src="${BALL_SPRITES[key] || ''}" style="width:24px;height:24px;image-rendering:pixelated;flex-shrink:0">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:10px;color:var(--text)">${lang === 'fr' ? ballDef.fr : ballDef.en}</div>
+        ${owned ? `<div style="font-size:8px;color:var(--text-dim)">Débloqué</div>` : `<div style="font-size:8px;color:var(--gold)">${cost.toLocaleString()}₽</div>`}
+      </div>
+      ${owned
+        ? `<button data-gang-set-ball="${key}" style="font-family:var(--font-pixel);font-size:8px;padding:4px 9px;cursor:pointer;
+            background:${active ? 'var(--red-dark)' : 'var(--bg)'};
+            border:1px solid ${active ? 'var(--red)' : 'var(--border-light)'};
+            border-radius:var(--radius-sm);color:${active ? 'var(--text)' : 'var(--text-dim)'};white-space:nowrap">
+            ${active ? '✓ ACTIF' : 'UTILISER'}
+           </button>`
+        : `<button data-gang-buy-skin="${shopIdx}" ${canAfford && shopIdx >= 0 ? '' : 'disabled'}
+            style="font-family:var(--font-pixel);font-size:8px;padding:4px 9px;
+            cursor:${canAfford && shopIdx >= 0 ? 'pointer' : 'default'};
+            background:var(--bg);border:1px solid ${canAfford && shopIdx >= 0 ? 'var(--gold-dim)' : 'var(--border)'};
+            border-radius:var(--radius-sm);color:${canAfford && shopIdx >= 0 ? 'var(--gold)' : 'var(--text-dim)'}">
+            ACHETER
+           </button>`
+      }
+    </div>`;
+  }).join('');
+
+  // Skin actif du boss (poké ball = défaut, toujours dispo)
+  const activeDef = BALLS[activeBall] || { fr: 'Poké Ball', en: 'Poké Ball' };
+  const activeLabel = lang === 'fr' ? activeDef.fr : activeDef.en;
+
+  return `
+    <div style="margin-top:20px">
+      <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold-dim);margin-bottom:6px;letter-spacing:.5px">
+        🎳 SKINS DE BALL
+      </div>
+      <div style="font-size:9px;color:var(--text-dim);margin-bottom:8px">
+        Skin actif : <b style="color:var(--gold)">${activeLabel}</b>
+        <span style="font-size:8px;opacity:.6"> — cosmétique uniquement (boss + agents)</span>
+      </div>
+      ${rows}
+    </div>`;
 }
 
 // ── Appearance panel (backgrounds + pins) ────────────────────────────────────
@@ -290,7 +351,9 @@ function renderAppearancePanel(container) {
     <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold-dim);margin-top:20px;margin-bottom:8px;letter-spacing:.5px">
       📌 PINS <span style="font-size:7px;color:var(--text-dim);font-weight:normal">${activePatches.length}/3 actifs</span>
     </div>
-    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">${patchesHtml}</div>`;
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">${patchesHtml}</div>
+
+    ${_buildBallSkinsHtml(state)}`;
 
   // ── Réinsère le slider détaché (freeze) ou câble le nouveau ──────────────────
   {
@@ -451,6 +514,24 @@ function renderAppearancePanel(container) {
       state.cosmetics.activePatches = patches;
       globalThis.saveState();
       _patchPinCards(container, patches);
+    });
+  });
+
+  // ── ball skin handlers ──
+  container.querySelectorAll('[data-gang-set-ball]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.activeBall = btn.dataset.gangSetBall;
+      globalThis.saveState();
+      renderAppearancePanel(container);
+    });
+  });
+  container.querySelectorAll('[data-gang-buy-skin]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const item = (globalThis.SHOP_ITEMS || [])[parseInt(btn.dataset.gangBuySkin)];
+      if (!item || btn.disabled) return;
+      globalThis.buyItem?.(item);
+      globalThis.updateTopBar?.();
+      renderAppearancePanel(container);
     });
   });
 }
@@ -661,8 +742,8 @@ function _doRenderGangTab() {
 
   // Vitrine
   const showcaseArr = [...(g.showcase || [])];
-  while (showcaseArr.length < 6) showcaseArr.push(null);
-  const showcaseHtml = showcaseArr.slice(0, 6).map((pkId, i) => {
+  while (showcaseArr.length < SHOWCASE_SLOTS) showcaseArr.push(null);
+  const showcaseHtml = showcaseArr.slice(0, SHOWCASE_SLOTS).map((pkId, i) => {
     const pk = pkId ? state.pokemons.find(p => p.id === pkId) : null;
     if (pk) {
       const evos    = globalThis.EVO_BY_SPECIES?.[pk.species_en];
@@ -989,7 +1070,7 @@ function _doRenderGangTab() {
       e.stopPropagation();
       const idx = parseInt(btn.dataset.idx);
       const st  = globalThis.state;
-      while (st.gang.showcase.length < 6) st.gang.showcase.push(null);
+      while (st.gang.showcase.length < SHOWCASE_SLOTS) st.gang.showcase.push(null);
       st.gang.showcase[idx] = null;
       globalThis.saveState(); renderGangTab();
     });

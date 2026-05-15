@@ -1,5 +1,7 @@
 'use strict';
 
+import { SHOWCASE_SLOTS } from '../data/game-config-data.js';
+
 // ── Helper ───────────────────────────────────────────────────────────────────
 function ensureObject(value, fallback = {}) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : fallback;
@@ -113,7 +115,7 @@ export function migrateSave(saved, deps) {
   // ── Gang ─────────────────────────────────────────────────────────────────────
   if (!merged.gang.bossTeam) merged.gang.bossTeam = [];
   if (!merged.gang.showcase) merged.gang.showcase = [];
-  while (merged.gang.showcase.length < 6) merged.gang.showcase.push(null);
+  while (merged.gang.showcase.length < SHOWCASE_SLOTS) merged.gang.showcase.push(null);
   // bossTeamSlots (3 slots d'équipe sauvegardés)
   if (!merged.gang.bossTeamSlots) {
     merged.gang.bossTeamSlots = [[...(merged.gang.bossTeam || [])], [], []];
@@ -190,6 +192,8 @@ export function migrateSave(saved, deps) {
     if (!agent.ball && agent.preferredBall) { agent.ball = agent.preferredBall; }
     if (!agent.ball) agent.ball = 'pokeball';
     delete agent.preferredBall;
+    // v2 alpha — compteur de captures par agent
+    if (agent.captureCount === undefined) agent.captureCount = 0;
   }
 
   // ── Pokémons ───────────────────────────────────────────────────────────────────

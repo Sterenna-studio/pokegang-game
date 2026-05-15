@@ -11,7 +11,7 @@
 //    addBattleLogEntry, pushFeedEvent, addLog
 //    resolveBackgroundSpawnForZone, backgroundZoneTimers, openZones
 //    checkForNewlyUnlockedZones, openZoneWindow, closeZoneWindow, renderZoneWindows
-//    ZONE_SLOT_COSTS, BOOST_DURATIONS
+//    BOOST_DURATIONS
 //    MAX_COMBAT_REWARD, SPECIAL_TRAINER_KEYS
 //    SFX
 //
@@ -481,6 +481,7 @@ function rollChestLoot(zoneId, passive = false) {
   }
   const zone = ZONE_BY_ID[zoneId];
   const name = state.lang === 'fr' ? loot.fr : loot.en;
+  globalThis.addZoneXP?.(zoneId, 'chest'); // XP de zone v2
 
   switch (loot.type) {
     case 'balls': {
@@ -507,13 +508,14 @@ function rollChestLoot(zoneId, passive = false) {
       return { msg: `📦 ${amount}₽`, type: 'gold' };
     }
     case 'rare_pokemon': {
-      if (zone) {
+      if (zone && zone.pool) {
         const rarePool = zone.pool.filter(en => {
           const sp = SPECIES_BY_EN[en];
           return sp && sp.rarity !== 'common';
         });
         const speciesEN = rarePool.length > 0 ? globalThis.pick(rarePool) : globalThis.pick(zone.pool);
-        const pokemon = globalThis.makePokemon(speciesEN, zoneId, 'ultraball');
+        const ballVisual = state.activeBall || 'pokeball';
+        const pokemon = globalThis.makePokemon(speciesEN, zoneId, ballVisual);
         if (pokemon) {
           pokemon.potential = Math.max(pokemon.potential, 3); // guaranteed 3+ stars
           pokemon.stats = globalThis.calculateStats(pokemon);

@@ -279,4 +279,25 @@ const AGENT_PERKS = [
   { id:'final_form',    fr:'Forme Finale',            icon:'💥', desc:'+50% tous bonus de niveau', effect:'xp_bonus:0.50'              },
 ];
 
-export { NATURES, NATURE_KEYS, BOSS_SPRITES, AGENT_NAMES_M, AGENT_NAMES_F, AGENT_SPRITES, AGENT_PERSONALITIES, TITLE_REQUIREMENTS, TITLE_BONUSES, AGENT_RANK_LABELS, RANK_CHAIN };
+// ── Gang / UI limits ─────────────────────────────────────────
+const SHOWCASE_SLOTS       = 6;  // emplacements vitrine du boss
+const MAX_BOSS_NAME_LENGTH = 16; // caractères max pour le nom du boss
+const MAX_GANG_NAME_LENGTH = 24; // caractères max pour le nom du gang
+
+// ── Pokédex ranges ───────────────────────────────────────────
+const KANTO_DEX_MIN = 1;
+const KANTO_DEX_MAX = 151;
+const JOHTO_DEX_MIN = 152;
+const JOHTO_DEX_MAX = 251;
+
+// ── Chroma Charm ─────────────────────────────────────────────
+const CHROMA_CHARM_COST = 10_000_000; // ₽ — milestone qui déclenche l'obtention du charme
+
+export {
+  NATURES, NATURE_KEYS, BOSS_SPRITES,
+  AGENT_NAMES_M, AGENT_NAMES_F, AGENT_SPRITES, AGENT_PERSONALITIES,
+  TITLE_REQUIREMENTS, TITLE_BONUSES, AGENT_RANK_LABELS, RANK_CHAIN,
+  SHOWCASE_SLOTS, MAX_BOSS_NAME_LENGTH, MAX_GANG_NAME_LENGTH,
+  KANTO_DEX_MIN, KANTO_DEX_MAX, JOHTO_DEX_MIN, JOHTO_DEX_MAX,
+  CHROMA_CHARM_COST,
+};

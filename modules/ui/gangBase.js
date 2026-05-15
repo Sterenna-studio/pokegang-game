@@ -467,8 +467,6 @@ function _openBaseAgentPicker(zoneId) {
   const state = globalThis.state;
   const zone = _baseZoneById(zoneId);
   if (!state || !zone) return;
-  const zState = globalThis.initZone?.(zoneId) || state.zones?.[zoneId] || {};
-  const maxSlots = zState.slots || 1;
   const assignedCount = (state.agents || []).filter(a => a.assignedZone === zoneId).length;
   const zoneName = _baseZoneName(zone, state);
   document.getElementById('baseAgentPickerModal')?.remove();
@@ -476,12 +474,11 @@ function _openBaseAgentPicker(zoneId) {
   const rows = (state.agents || []).map(agent => {
     const sameZone = agent.assignedZone === zoneId;
     const currentZone = agent.assignedZone ? _baseZoneName(_baseZoneById(agent.assignedZone), state) : 'Reserve';
-    const locked = !sameZone && assignedCount >= maxSlots;
     const rank = globalThis.getAgentRankLabel?.(agent.title) || BASE_RANK_FR[agent.title] || agent.title || 'Agent';
-    return `<button class="base-picker-agent${sameZone ? ' active' : ''}" data-pick-agent="${agent.id}" ${locked ? 'disabled' : ''}>
+    return `<button class="base-picker-agent${sameZone ? ' active' : ''}" data-pick-agent="${agent.id}">
       <img src="${agent.sprite || globalThis.trainerSprite?.('acetrainer') || ''}" alt="" onerror="this.src='${globalThis.trainerSprite?.('acetrainer') || ''}'">
       <span><strong>${agent.name}</strong><em>${rank} · ${currentZone}</em></span>
-      <b>${sameZone ? 'Retirer' : locked ? 'Plein' : 'Assigner'}</b>
+      <b>${sameZone ? 'Retirer' : 'Assigner'}</b>
     </button>`;
   }).join('') || `<div class="base-empty-note">Aucun agent recrute</div>`;
 
@@ -494,7 +491,7 @@ function _openBaseAgentPicker(zoneId) {
         <span>Assigner · ${zoneName}</span>
         <button data-base-dialog-close>×</button>
       </div>
-      <div class="base-dialog-sub">${assignedCount}/${maxSlots} slot(s) utilises</div>
+      <div class="base-dialog-sub">${assignedCount} agent(s) assigné(s)</div>
       <div class="base-picker-list">${rows}</div>
     </div>`;
   document.body.appendChild(modal);

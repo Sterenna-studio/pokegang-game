@@ -6,7 +6,7 @@
 //  Globals read from app.js via globalThis:
 //    state, pick, randInt, uid, notify, saveState
 //    initZone, spawnInZone, isZoneDegraded, getZoneMastery
-//    getZoneSlotCost, rollChestLoot, activateEvent, makeTrainerTeam
+//    rollChestLoot, activateEvent, makeTrainerTeam
 //    tryCapture, applyCombatResult, getCombatRepGain
 //    checkForNewlyUnlockedZones, triggerGymRaid
 //    startBackgroundZone, stopBackgroundZone
@@ -18,7 +18,7 @@
 //    checkPlayerStatPoints
 //    SFX, activeTab
 //    openZones, zoneSpawns, zoneTimers
-//    ZONE_BGS, ZONE_SLOT_COSTS, ITEM_SPRITE_URLS, BALL_SPRITES, MAX_COMBAT_REWARD
+//    ZONE_BGS, ITEM_SPRITE_URLS, BALL_SPRITES, MAX_COMBAT_REWARD
 //    SPECIAL_TRAINER_KEYS
 //
 //  Classic-script globals accessed by bare name:

@@ -3,6 +3,35 @@
 const FALLBACK_TRAINER_SVG = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%231a1a1a'/%3E%3Ccircle cx='32' cy='20' r='10' fill='%23444'/%3E%3Cellipse cx='32' cy='50' rx='16' ry='14' fill='%23444'/%3E%3Ctext x='32' y='62' text-anchor='middle' font-size='8' fill='%23666'%3E%3F%3F%3C/text%3E%3C/svg%3E`;
 const FALLBACK_POKEMON_SVG = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%231a1a1a'/%3E%3Cellipse cx='32' cy='36' rx='20' ry='18' fill='%23333'/%3E%3Ccircle cx='32' cy='18' r='10' fill='%23333'/%3E%3Ctext x='32' y='62' text-anchor='middle' font-size='8' fill='%23555'%3E%3F%3C/text%3E%3C/svg%3E`;
 
+// ── Sprite base URLs ─────────────────────────────────────────
+const SHOWDOWN_SPRITE_BASE         = 'https://play.pokemonshowdown.com/sprites/';
+const SHOWDOWN_TRAINER_SPRITE_BASE = 'https://play.pokemonshowdown.com/sprites/trainers/';
+const POKEOS_EGG_BASE_URL          = 'https://s3.pokeos.com/pokeos-uploads/forgotten-dex/eggs/';
+
+// ── Custom trainer sprite overrides (non-Showdown sources) ───
+const CUSTOM_TRAINER_SPRITES = {
+  giovanni: 'https://www.pokepedia.fr/images/archive/7/73/20230124191924%21Sprite_Giovanni_RB.png',
+};
+
+// ── Logo URLs ─────────────────────────────────────────────────
+const LOGO_URL       = 'https://lab.sterenna.fr/PG/pokegang_logo.png';
+const LOGO_SMALL_URL = 'https://lab.sterenna.fr/PG/pokegang_logo/pokegang_logo_little.png';
+
+// ── Egg sprites ──────────────────────────────────────────────
+// Sprite générique NB (Noir & Blanc) — fallback universel
+const EGG_SPRITE_NB = 'https://www.pokepedia.fr/images/f/f5/Sprite_%C5%92uf_NB.png?20190202195308';
+
+// Sprites œufs génériques par rareté (style Pokémon GO)
+const EGG_SPRITES = {
+  common:    EGG_SPRITE_NB,
+  uncommon:  'https://www.pokepedia.fr/images/a/ab/Sprite_%C5%92uf_5_km_GO.png',
+  rare:      'https://www.pokepedia.fr/images/7/70/Sprite_%C5%92uf_10_km_GO.png',
+  very_rare: 'https://www.pokepedia.fr/images/a/a8/Sprite_%C5%92uf_12_km_GO.png',
+  legendary: 'https://www.pokepedia.fr/images/a/a8/Sprite_%C5%92uf_12_km_GO.png',
+  ready:     EGG_SPRITE_NB,
+  default:   EGG_SPRITE_NB,
+};
+
 const BALL_SPRITES = {
   pokeball:   'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png',
   greatball:  'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/great-ball.png',
@@ -44,4 +73,11 @@ const ITEM_SPRITE_URLS = {
 // Chest sprite URL
 const CHEST_SPRITE_URL = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/rare-candy.png';
 
-export { FALLBACK_TRAINER_SVG, FALLBACK_POKEMON_SVG, BALL_SPRITES, ITEM_SPRITE_URLS, CHEST_SPRITE_URL };
+export {
+  FALLBACK_TRAINER_SVG, FALLBACK_POKEMON_SVG,
+  BALL_SPRITES, ITEM_SPRITE_URLS, CHEST_SPRITE_URL,
+  SHOWDOWN_SPRITE_BASE, SHOWDOWN_TRAINER_SPRITE_BASE, POKEOS_EGG_BASE_URL,
+  LOGO_URL, LOGO_SMALL_URL,
+  EGG_SPRITE_NB, EGG_SPRITES,
+  CUSTOM_TRAINER_SPRITES,
+};

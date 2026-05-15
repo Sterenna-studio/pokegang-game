@@ -388,6 +388,7 @@ function _applyResolvedAgentCombat(zoneId, spawnObj, combatAgents, result) {
   if (result.attackerWin) {
     const zoneState = state.zones[zoneId];
     if (zoneState) zoneState.combatsWon = (zoneState.combatsWon || 0) + 1;
+    globalThis.addZoneXP?.(zoneId, 'combat_win'); // XP de zone v2
     const xpEach = Math.round((10 + (trainer.diff || 1) * 5) * 0.75);
     for (const agent of combatAgents) {
       agent.combatsWon = (agent.combatsWon || 0) + 1;
@@ -463,6 +464,10 @@ function resolveBackgroundSpawnForZone(zoneId) {
     state.inventory.pokeball--;
     state.pokemons.push(pokemon);
     state.stats.totalCaught++;
+    capturer.captureCount = (capturer.captureCount || 0) + 1;
+    // XP de zone v2
+    const _rarity = SPECIES_BY_EN?.[pokemon.species_en]?.rarity || 'common';
+    globalThis.addZoneXP?.(capturer.assignedZone, `capture_${_rarity}`);
     _autoSellCaptured(pokemon);
     if (!state.pokedex[pokemon.species_en]) {
       state.pokedex[pokemon.species_en] = { seen: true, caught: true, shiny: pokemon.shiny, count: 1 };

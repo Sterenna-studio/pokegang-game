@@ -122,7 +122,8 @@ function renderAgentsTab() {
     const cosmUnlockedAgent = state.purchases?.cosmeticsPanel;
     html += `<div class="agent-card-full" data-agent-id="${a.id}">
       <div class="agent-header">
-        <img src="${a.sprite}" alt="${a.name}" onerror="this.src='${FALLBACK_TRAINER_SVG}';this.onerror=null">
+        <img src="${a.sprite}" alt="${a.name}" onerror="this.src='${FALLBACK_TRAINER_SVG}';this.onerror=null"
+          style="cursor:pointer" class="agent-sprite-open-sheet" data-agent-id="${a.id}" title="Voir la fiche">
         <div class="agent-meta">
           <div class="agent-title agent-rank-${a.title}" style="display:flex;align-items:baseline;gap:5px;flex-wrap:nowrap;overflow:hidden">
             <span style="font-size:7px;opacity:.75;flex-shrink:0">[${getAgentRankLabel(a)}]</span>
@@ -131,10 +132,13 @@ function renderAgentsTab() {
           </div>
           <div class="agent-xp-bar"><div class="agent-xp-fill" style="width:${xpPct}%"></div></div>
         </div>
-        ${cosmUnlockedAgent ? `<div style="display:flex;flex-direction:column;gap:3px;margin-left:auto;padding-left:6px">
+        <div style="display:flex;flex-direction:column;gap:3px;margin-left:auto;padding-left:6px">
+          <button class="agent-open-sheet" data-agent-id="${a.id}" title="Fiche détaillée"
+            style="font-size:10px;padding:2px 6px;background:var(--bg);border:1px solid var(--red);border-radius:3px;cursor:pointer;color:var(--red)">📋</button>
+          ${cosmUnlockedAgent ? `
           <button class="agent-card-rename" data-agent-id="${a.id}" title="Renommer (2 000₽)" style="font-size:10px;padding:2px 5px;background:var(--bg);border:1px solid var(--border);border-radius:3px;cursor:pointer;color:var(--text-dim)">✏</button>
-          <button class="agent-card-sprite" data-agent-id="${a.id}" title="Changer sprite (5 000₽)" style="font-size:10px;padding:2px 5px;background:var(--bg);border:1px solid var(--border);border-radius:3px;cursor:pointer;color:var(--text-dim)">🎨</button>
-        </div>` : ''}
+          <button class="agent-card-sprite" data-agent-id="${a.id}" title="Changer sprite (5 000₽)" style="font-size:10px;padding:2px 5px;background:var(--bg);border:1px solid var(--border);border-radius:3px;cursor:pointer;color:var(--text-dim)">🎨</button>` : ''}
+        </div>
       </div>
 
       <!-- Ball selector -->
@@ -210,6 +214,13 @@ function renderAgentsTab() {
   // Recruit
   document.getElementById('btnRecruitAgentFull')?.addEventListener('click', () => {
     openAgentRecruitModal(() => renderAgentsTab());
+  });
+
+  // Agent sheet (📋 button + sprite click)
+  grid.querySelectorAll('.agent-open-sheet, .agent-sprite-open-sheet').forEach(btn => {
+    btn.addEventListener('click', () => {
+      openAgentSheet(btn.dataset.agentId, () => renderAgentsTab());
+    });
   });
 
   // Zone assignment

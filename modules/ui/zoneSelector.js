@@ -7,7 +7,7 @@
 //    ZONE_BGS, SPECIES_BY_EN,
 //    isZoneUnlocked, isZoneDegraded, getZoneMastery,
 //    openZoneWindow, closeZoneWindow, openCollectionModal,
-//    assignAgentToZone, getZoneSlotCost, initZone,
+//    assignAgentToZone, initZone,
 //    notify, saveState, updateTopBar, SFX, showConfirm,
 //    pokeSprite, SHOP_ITEMS, collectAllZones, renderZonesTab
 // ══════════════════════════════════════════════════════════════
@@ -208,7 +208,7 @@ export function showZoneContextMenu(zoneId, x, y) {
     const assignedIds = new Set(zState.assignedAgents || []);
     const assigned   = agents.filter(a => assignedIds.has(a.id));
     const available  = agents.filter(a => !assignedIds.has(a.id));
-    const canAdd     = assignedIds.size < maxSlots;
+    const canAdd     = true; // slots illimités — tous les agents peuvent être assignés
 
     let html = `
       <div class="zone-ctx-header">
@@ -216,7 +216,7 @@ export function showZoneContextMenu(zoneId, x, y) {
       </div>`;
 
     if (assigned.length > 0) {
-      html += `<div class="zone-ctx-section">ASSIGNÉS (${assigned.length}/${maxSlots})</div>`;
+      html += `<div class="zone-ctx-section">ASSIGNÉS (${assigned.length})</div>`;
       for (const a of assigned) {
         html += `<button class="zone-ctx-item zone-ctx-agent assigned" data-agent-id="${a.id}">
           <span class="zone-ctx-icon">✓</span>${a.name}

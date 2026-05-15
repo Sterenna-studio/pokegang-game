@@ -30,7 +30,29 @@
       "Bash(node --check \"C:/Users/pierr/Documents/GitHub/pokegang-game/app.js\")",
       "Bash(git push *)",
       "Bash(gh pr create --title 'feat\\(zones\\): système à trois états + simulation background à taux réel' --body ' *)",
-      "Bash(gh pr create --base base/pre-johto --head feat/johto-region --title 'feat: Région Johto — zones, difficulté et déblocage thématique' --body ' *)"
+      "Bash(gh pr create --base base/pre-johto --head feat/johto-region --title 'feat: Région Johto — zones, difficulté et déblocage thématique' --body ' *)",
+      "Bash(gh pr *)",
+      "Bash(node --check modules/systems/agent.js)",
+      "Bash(node --check modules/ui/agentsTab.js)",
+      "Bash(gh issue create --title 'fix\\(cloud\\): ré-activer la sync réputation depuis le cloud \\(TODO\\(rep-sync\\)\\)' --body ' *)",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "WebSearch",
+      "Bash(git commit -m 'fix\\(data\\): Ecruteak → Ecorcia \\(nom officiel FR\\) + Tour Cramée → Tour Cendrée dans desc *)",
+      "Bash(git branch *)",
+      "Bash(gh issue *)",
+      "Bash(echo \"exit:$?\")",
+      "Bash(node --check modules/systems/zoneSystem.js)",
+      "Bash(node --check modules/systems/market.js)",
+      "Bash(node --check modules/ui/marketTab.js)",
+      "Bash(node --check modules/ui/pcPokedex.js)",
+      "Bash(node --check state/defaultState.js)",
+      "Bash(git commit *)",
+      "Bash(findstr /n \"processAgentAction\\\\|handleSpawn\\\\|_zsys_spawnInZone\" modules\\\\systems\\\\agent.js)",
+      "Bash(Get-Content \"C:\\\\Users\\\\pierr\\\\Documents\\\\GitHub\\\\pokegang-game\\\\modules\\\\systems\\\\agent.js\")",
+      "Bash(Select-String \"processAgentAction|handleSpawn|captured|pokemons.push\")",
+      "Bash(Get-ChildItem -Recurse -Force)",
+      "Bash(Measure-Object)",
+      "Bash(Select-Object -ExpandProperty Count)"
     ]
   }
 }

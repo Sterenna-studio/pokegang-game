@@ -29,6 +29,8 @@ import './modules/systems/sessionObjectives.js';
 import './modules/systems/trainingRoom.js';
 import './modules/systems/pension.js';
 import './modules/systems/zoneSystem.js';
+import './modules/systems/zoneLevels.js';
+import './modules/ui/agentSheet.js';
 import {
   configureCloudAccount,
   initSupabase,
@@ -138,12 +140,12 @@ import { MISSIONS, HOURLY_QUEST_POOL } from './data/missions-data.js';
 import { TRAINER_TYPES } from './data/trainers-data.js';
 import { getDexDesc, buildSpeciesNameMaps } from './data/dex-helpers.js';
 import { BALLS, SHOP_ITEMS, MYSTERY_EGG_BASE_COST, MYSTERY_EGG_POOL, MYSTERY_EGG_HATCH_MS, POTENTIAL_MULT, BASE_PRICE, getMysteryEggCost as computeMysteryEggCost } from './data/economy-data.js';
-import { NATURES, NATURE_KEYS, BOSS_SPRITES, AGENT_NAMES_M, AGENT_NAMES_F, AGENT_SPRITES, AGENT_PERSONALITIES, TITLE_REQUIREMENTS, TITLE_BONUSES, AGENT_RANK_LABELS, RANK_CHAIN } from './data/game-config-data.js';
+import { NATURES, NATURE_KEYS, BOSS_SPRITES, AGENT_NAMES_M, AGENT_NAMES_F, AGENT_SPRITES, AGENT_PERSONALITIES, TITLE_REQUIREMENTS, TITLE_BONUSES, AGENT_RANK_LABELS, RANK_CHAIN, SHOWCASE_SLOTS, MAX_BOSS_NAME_LENGTH, MAX_GANG_NAME_LENGTH, KANTO_DEX_MIN, KANTO_DEX_MAX, JOHTO_DEX_MIN, JOHTO_DEX_MAX, CHROMA_CHARM_COST } from './data/game-config-data.js';
 import { I18N } from './data/i18n-data.js';
 import { ZONE_BG_URL, GYM_ORDER, JOHTO_GYM_ORDER } from './data/zones-config-data.js';
-import { HOURLY_QUEST_REROLL_COST, BOOST_DURATIONS } from './data/gameplay-config-data.js';
+import { HOURLY_QUEST_REROLL_COST, BOOST_DURATIONS, BALL_ASSIST_MIN_BALLS, BALL_ASSIST_DURATION_MS, PASSIVE_XP_PER_TICK, MAX_LOG_ENTRIES, DEFAULT_MUSIC_VOL, DEFAULT_UI_SCALE, DEFAULT_ZONE_SCALE, TICK_AGENT_MS, TICK_PASSIVE_AGENT_MS, TICK_MISSIONS_UI_MS, TICK_HOURLY_CHECK_MS, TICK_MARKET_DECAY_MS, TICK_VERSION_POLL_MS, TICK_VERSION_FIRST_MS, TICK_AUTO_SAVE_MS, TICK_CLOUD_SAVE_MS, TICK_SNAPSHOT_MS, TICK_LEADERBOARD_MS, TICK_TRAINING_MS, TICK_PENSION_MS, TICK_PASSIVE_XP_MS, TICK_ZONE_REFRESH_MS, TICK_DAILY_CHECK_MS, UPDATE_COUNTDOWN_S, DAILY_COUNTDOWN_S, JOHTO_UNLOCK_DELAY_MS } from './data/gameplay-config-data.js';
 import { SPECIAL_TRAINER_KEYS, MAX_COMBAT_REWARD } from './data/combat-config-data.js';
-import { FALLBACK_TRAINER_SVG, FALLBACK_POKEMON_SVG, BALL_SPRITES, ITEM_SPRITE_URLS, CHEST_SPRITE_URL } from './data/assets-data.js';
+import { FALLBACK_TRAINER_SVG, FALLBACK_POKEMON_SVG, BALL_SPRITES, ITEM_SPRITE_URLS, CHEST_SPRITE_URL, SHOWDOWN_SPRITE_BASE, SHOWDOWN_TRAINER_SPRITE_BASE, POKEOS_EGG_BASE_URL, LOGO_URL, LOGO_SMALL_URL, EGG_SPRITE_NB, EGG_SPRITES, CUSTOM_TRAINER_SPRITES } from './data/assets-data.js';
 import { TRANSLATOR_PHRASES_FR } from './data/flavor-data.js';
 import {
   APP_VERSION,
@@ -172,14 +174,15 @@ const { FR_TO_EN, EN_TO_FR } = buildSpeciesNameMaps(POKEMON_GEN1);
 
 // ── Constantes Pokédex ─────────────────────────────────────────
 // Pokédex Kanto = les 151 espèces originales (dex 1–151) + MissingNo (dex 0, caché)
-const KANTO_DEX_SIZE    = 151;
+// KANTO_DEX_MIN/MAX, JOHTO_DEX_MIN/MAX importés depuis data/game-config-data.js
+const KANTO_DEX_SIZE    = KANTO_DEX_MAX; // 151
 // Pokédex National = toutes les espèces non-cachées disponibles dans le jeu
 const NATIONAL_DEX_SIZE = POKEMON_GEN1.filter(s => !s.hidden).length;
-const JOHTO_DEX_SIZE    = POKEMON_GEN1.filter(s => !s.hidden && s.dex >= 152 && s.dex <= 251).length;
+const JOHTO_DEX_SIZE    = POKEMON_GEN1.filter(s => !s.hidden && s.dex >= JOHTO_DEX_MIN && s.dex <= JOHTO_DEX_MAX).length;
 
 // Helpers de comptage — centralisés ici pour éviter la duplication partout dans l'UI
-function getDexKantoCaught()   { return POKEMON_GEN1.filter(s => !s.hidden && s.dex >= 1 && s.dex <= 151 && state.pokedex[s.en]?.caught).length; }
-function getDexJohtoCaught()   { return POKEMON_GEN1.filter(s => !s.hidden && s.dex >= 152 && s.dex <= 251 && state.pokedex[s.en]?.caught).length; }
+function getDexKantoCaught()   { return POKEMON_GEN1.filter(s => !s.hidden && s.dex >= KANTO_DEX_MIN && s.dex <= KANTO_DEX_MAX && state.pokedex[s.en]?.caught).length; }
+function getDexJohtoCaught()   { return POKEMON_GEN1.filter(s => !s.hidden && s.dex >= JOHTO_DEX_MIN && s.dex <= JOHTO_DEX_MAX && state.pokedex[s.en]?.caught).length; }
 function getDexNationalCaught(){ return POKEMON_GEN1.filter(s => !s.hidden && state.pokedex[s.en]?.caught).length; }
 // Nombre d'espèces UNIQUES avec au moins un exemplaire chromatique (≠ shinyCaught qui compte les doublons)
 function getShinySpeciesCount(){ return POKEMON_GEN1.filter(s => !s.hidden && state.pokedex[s.en]?.shiny).length; }
@@ -424,7 +427,7 @@ function getPensionSlotIds() { return new Set(state.pension?.slots || []); }
 
 function addLog(msg) {
   state.log.unshift({ msg, ts: Date.now() });
-  if (state.log.length > 50) state.log.length = 50;
+  if (state.log.length > MAX_LOG_ENTRIES) state.log.length = MAX_LOG_ENTRIES;
 }
 
 function sanitizeSpriteName(en) {
@@ -466,7 +469,7 @@ function _showdownSpriteUrl(en, mode, { shiny = false, back = false } = {}) {
     case 'home': folder = back ? `gen5${bk}${sh}` : `home-centered${sh}`; break; // home has no back
     default:     folder = `gen5${bk}${sh}`; break; // 'gen5' or unknown
   }
-  return `https://play.pokemonshowdown.com/sprites/${folder}/${name}.${ext}`;
+  return `${SHOWDOWN_SPRITE_BASE}${folder}/${name}.${ext}`;
 }
 
 function pokeSpriteVariant(en, variant = 'main', shiny = false) {
@@ -495,28 +498,11 @@ function pokeSprite(en, shiny = false) {
 // Icône miniature BW (~40×30px) — pour les slots d'équipe
 function pokeIcon(en) {
   const name = sanitizeSpriteName(en);
-  return `https://play.pokemonshowdown.com/sprites/bwicons/${name}.png`;
+  return `${SHOWDOWN_SPRITE_BASE}bwicons/${name}.png`;
 }
 
 // ── Egg sprites ──────────────────────────────────────────────────────────────
-// Pokémon-specific anime eggs (PokéOS) : {dex}-egg-anime.png
-// Rarity-coded GO eggs (Pokepedia)     : mystery / unknown species
-// Sprite générique NB (Noir & Blanc) — utilisé comme fallback universel.
-// Les sprites GO (pokepedia) permettent de distinguer visuellement la rareté.
-const _EGG_NB = 'https://www.pokepedia.fr/images/f/f5/Sprite_%C5%92uf_NB.png?20190202195308';
-
-const EGG_SPRITES = {
-  // Generic rarity-based (mystery eggs — GO-style coloring)
-  common:    _EGG_NB,
-  uncommon:  'https://www.pokepedia.fr/images/a/ab/Sprite_%C5%92uf_5_km_GO.png',
-  rare:      'https://www.pokepedia.fr/images/7/70/Sprite_%C5%92uf_10_km_GO.png',
-  very_rare: 'https://www.pokepedia.fr/images/a/a8/Sprite_%C5%92uf_12_km_GO.png',
-  legendary: 'https://www.pokepedia.fr/images/a/a8/Sprite_%C5%92uf_12_km_GO.png',
-  // Special states
-  ready:     'https://www.pokepedia.fr/images/f/f5/Sprite_%C5%92uf_NB.png?20190202195308',
-  // Default fallback (NB générique — toujours accessible)
-  default:   _EGG_NB,
-};
+// EGG_SPRITES et EGG_SPRITE_NB importés depuis data/assets-data.js
 
 // Returns the generic fallback egg sprite URL (rarity-coded).
 function eggSprite(egg, ready = false) {
@@ -530,7 +516,7 @@ function eggSprite(egg, ready = false) {
 // style: optional inline CSS string to add to the img.
 function eggImgTag(egg, ready = false, style = '') {
   const fallback   = eggSprite(egg, ready);
-  const bwFallback = _EGG_NB; // fallback universel NB (pokepedia, toujours dispo)
+  const bwFallback = EGG_SPRITE_NB; // fallback universel NB (pokepedia, toujours dispo)
   const baseStyle = `object-fit:contain;image-rendering:pixelated;${style}`;
 
   // Pension egg (parents known) or scanned (species revealed) → try PokéOS first
@@ -539,7 +525,7 @@ function eggImgTag(egg, ready = false, style = '') {
     const sp = SPECIES_BY_EN[egg.species_en];
     const dex = sp?.dex;
     if (dex) {
-      const pokeos     = `https://s3.pokeos.com/pokeos-uploads/forgotten-dex/eggs/${dex}-animegg.png`;
+      const pokeos     = `${POKEOS_EGG_BASE_URL}${dex}-animegg.png`;
       const showdown   = window.getEggSpriteUrl?.(egg.species_en) ?? fallback;
       // onerror chain: PokéOS → Showdown/manifest → rarity fallback → BW generic
       return `<img src="${pokeos}" style="${baseStyle}" onerror="if(!this._f1){this._f1=1;this.src='${showdown}'}else if(!this._f2){this._f2=1;this.src='${fallback}'}else if(!this._f3){this._f3=1;this.src='${bwFallback}'}">`;
@@ -584,10 +570,7 @@ const SPRITE_FIX = {
   policeman:       'policeman-gen8',
 };
 
-// Custom sprite overrides (non-Showdown sources)
-const CUSTOM_TRAINER_SPRITES = {
-  giovanni: 'https://www.pokepedia.fr/images/archive/7/73/20230124191924%21Sprite_Giovanni_RB.png',
-};
+// Custom sprite overrides — importés depuis data/assets-data.js
 
 // ── Trainer sprite resolution ────────────────────────────────────────────────
 // Index à plat construit après chargement de trainer-sprites-grouped.json
@@ -596,22 +579,21 @@ const _trainerJsonIndex = {};
 function _buildTrainerIndex(data) {
   // `data` = résultat de loadTrainerGroups() — TRAINER_GROUPS n'est plus global (IIFE loaders.js)
   if (!data?.trainers) return;
-  const base = 'https://play.pokemonshowdown.com/sprites/trainers/';
   const groups = data.trainers;
   for (const [groupName, groupData] of Object.entries(groups)) {
     if (groupName === 'factions') {
       for (const [, arr] of Object.entries(groupData)) {
         if (Array.isArray(arr)) arr.forEach(rel => {
           const slug = rel.replace(/\.png$/, '').replace(/[^a-z0-9]/gi, '').toLowerCase();
-          _trainerJsonIndex[slug] = base + rel;
+          _trainerJsonIndex[slug] = SHOWDOWN_TRAINER_SPRITE_BASE + rel;
         });
       }
     } else if (typeof groupData === 'object' && !Array.isArray(groupData)) {
       for (const [key, rel] of Object.entries(groupData)) {
         const slug = rel.replace(/\.png$/, '').toLowerCase();
         const keyNorm = key.replace(/[^a-z0-9]/gi, '').toLowerCase();
-        _trainerJsonIndex[slug] = base + rel;
-        _trainerJsonIndex[keyNorm] = base + rel;
+        _trainerJsonIndex[slug] = SHOWDOWN_TRAINER_SPRITE_BASE + rel;
+        _trainerJsonIndex[keyNorm] = SHOWDOWN_TRAINER_SPRITE_BASE + rel;
       }
     }
   }
@@ -624,7 +606,7 @@ function trainerSprite(name) {
   if (_trainerJsonIndex[norm]) return _trainerJsonIndex[norm];
   // Fallback Showdown
   const fixed = SPRITE_FIX[name] || name;
-  return `https://play.pokemonshowdown.com/sprites/trainers/${fixed}.png`;
+  return `${SHOWDOWN_TRAINER_SPRITE_BASE}${fixed}.png`;
 }
 
 // Asset fallbacks moved to data/assets-data.js
@@ -883,11 +865,11 @@ function notify(msg, type = '') {
   globalThis._npanel_push?.({ category: type || 'system', title: msg, type });
 }
 
-// Milestone : 10 000 000₽ → Charme Chroma
+// Milestone : CHROMA_CHARM_COST₽ → Charme Chroma
 function checkMoneyMilestone() {
   if (state?.purchases?.chromaCharm) return;
-  if (state.gang.money >= 10_000_000) {
-    state.gang.money -= 10_000_000;
+  if (state.gang.money >= CHROMA_CHARM_COST) {
+    state.gang.money -= CHROMA_CHARM_COST;
     state.purchases.chromaCharm = true;
     saveState();
     SFX.play('unlock');
@@ -895,8 +877,8 @@ function checkMoneyMilestone() {
     modal.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.96);display:flex;align-items:center;justify-content:center;';
     modal.innerHTML = `
       <div style="background:var(--bg-panel);border:3px solid var(--red);border-radius:var(--radius);padding:28px 32px;max-width:440px;width:92%;text-align:center;display:flex;flex-direction:column;align-items:center;gap:14px">
-        <img src="https://lab.sterenna.fr/PG/pokegang_logo.png" style="width:72px;height:72px;image-rendering:pixelated" onerror="this.style.display='none'">
-        <div style="font-family:var(--font-pixel);font-size:9px;color:var(--red);letter-spacing:2px">⚠ ALERTE — 10 000 000₽ DÉTECTÉS</div>
+        <img src="${LOGO_URL}" style="width:72px;height:72px;image-rendering:pixelated" onerror="this.style.display='none'">
+        <div style="font-family:var(--font-pixel);font-size:9px;color:var(--red);letter-spacing:2px">⚠ ALERTE — ${CHROMA_CHARM_COST.toLocaleString()}₽ DÉTECTÉS</div>
         <div style="display:flex;align-items:center;justify-content:center;gap:20px">
           <img src="${trainerSprite('scientist')}" style="width:52px;height:52px;image-rendering:pixelated">
           <img src="${trainerSprite('giovanni')}" style="width:52px;height:52px;image-rendering:pixelated">
@@ -908,7 +890,7 @@ function checkMoneyMilestone() {
           <span style="font-size:13px;color:var(--red)">MOUAHAHAHA !</span>
         </div>
         <div style="font-size:10px;color:var(--text-dim);line-height:1.6">
-          Vos <b style="color:var(--red)">10 000 000₽</b> ont été convertis en<br>
+          Vos <b style="color:var(--red)">${CHROMA_CHARM_COST.toLocaleString()}₽</b> ont été convertis en<br>
           <b style="color:var(--gold)">✨ Charme Chroma</b> — taux shiny ×2 permanent !
         </div>
         <button style="font-family:var(--font-pixel);font-size:9px;padding:9px 24px;background:var(--red-dark);border:2px solid var(--red);border-radius:var(--radius-sm);color:var(--text);cursor:pointer" id="btnChromaCharmClose">... Très bien.</button>
@@ -921,8 +903,8 @@ function checkMoneyMilestone() {
 
 // ── Cheat Codes ───────────────────────────────────────────────
 const _CHEAT_CODES = {
-  [btoa('RICHISSIM')]:       { money: 5_000_000 },
-  [btoa('DOUBLERICHISSIM')]: { money: 10_000_000, title: 'doublerichissim' },
+  [btoa('RICHISSIM')]:       { money: CHROMA_CHARM_COST / 2 },
+  [btoa('DOUBLERICHISSIM')]: { money: CHROMA_CHARM_COST, title: 'doublerichissim' },
 };
 const _usedCodes = new Set();
 
@@ -984,14 +966,13 @@ let _ballAssistUntil = 0; // timestamp de fin de l'assist en cours
 
 function getTotalBalls() {
   const inv = state.inventory;
-  return (inv.pokeball || 0) + (inv.greatball || 0) + (inv.ultraball || 0)
-       + (inv.duskball || 0) + (inv.masterball || 0);
+  return Object.keys(BALLS).reduce((sum, key) => sum + (inv[key] || 0), 0);
 }
 
 function checkBallAssist() {
   if (Date.now() < _ballAssistUntil) return; // déjà actif
-  if (getTotalBalls() < 10) {
-    _ballAssistUntil = Date.now() + 2 * 60 * 1000; // 2 minutes
+  if (getTotalBalls() < BALL_ASSIST_MIN_BALLS) {
+    _ballAssistUntil = Date.now() + BALL_ASSIST_DURATION_MS;
   }
 }
 
@@ -1090,7 +1071,7 @@ function updateTopBar() {
   const gangEl = document.getElementById('gangNameDisplay');
   const moneyEl = document.getElementById('moneyDisplay');
   if (gangEl) {
-    const kantoComplete = POKEMON_GEN1.filter(s => !s.hidden && s.dex >= 1 && s.dex <= 151).every(s => state.pokedex[s.en]?.caught);
+    const kantoComplete = POKEMON_GEN1.filter(s => !s.hidden && s.dex >= KANTO_DEX_MIN && s.dex <= KANTO_DEX_MAX).every(s => state.pokedex[s.en]?.caught);
     const fullComplete  = POKEMON_GEN1.filter(s => !s.hidden).every(s => state.pokedex[s.en]?.caught);
     const dexIcon = fullComplete ? ' 🌟' : kantoComplete ? ' 📖' : '';
     gangEl.textContent = state.gang.name + dexIcon;
@@ -1208,7 +1189,7 @@ function openShowcasePicker(slotIdx) {
   modal.querySelectorAll('.showcase-pick-item').forEach(el => {
     el.addEventListener('click', () => {
       if (!state.gang.showcase) state.gang.showcase = [];
-      while (state.gang.showcase.length < 6) state.gang.showcase.push(null);
+      while (state.gang.showcase.length < SHOWCASE_SLOTS) state.gang.showcase.push(null);
       state.gang.showcase[slotIdx] = el.dataset.pkId;
       saveState();
       modal.remove();
@@ -1274,10 +1255,10 @@ function openBossEditModal(onDone) {
       <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">MODIFIER LE BOSS</div>
       <div style="display:flex;flex-direction:column;gap:8px">
         <label style="font-size:9px;color:var(--text-dim)">Nom du Boss</label>
-        <input id="bossEditName" type="text" maxlength="16" value="${state.gang.bossName}"
+        <input id="bossEditName" type="text" maxlength="${MAX_BOSS_NAME_LENGTH}" value="${state.gang.bossName}"
           style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);padding:8px 10px;font-size:12px;outline:none;width:100%;box-sizing:border-box">
         <label style="font-size:9px;color:var(--text-dim)">Nom du Gang</label>
-        <input id="bossEditGangName" type="text" maxlength="24" value="${state.gang.name}"
+        <input id="bossEditGangName" type="text" maxlength="${MAX_GANG_NAME_LENGTH}" value="${state.gang.name}"
           style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);padding:8px 10px;font-size:12px;outline:none;width:100%;box-sizing:border-box">
       </div>
       <button id="bossEditSprite" style="font-family:var(--font-pixel);font-size:8px;padding:8px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">🎨 Changer le sprite</button>
@@ -1290,8 +1271,8 @@ function openBossEditModal(onDone) {
   modal.querySelector('#bossEditConfirm').addEventListener('click', () => {
     const newBossName = modal.querySelector('#bossEditName').value.trim();
     const newGangName = modal.querySelector('#bossEditGangName').value.trim();
-    if (newBossName) state.gang.bossName = newBossName.slice(0, 16);
-    if (newGangName) state.gang.name = newGangName.slice(0, 24);
+    if (newBossName) state.gang.bossName = newBossName.slice(0, MAX_BOSS_NAME_LENGTH);
+    if (newGangName) state.gang.name = newGangName.slice(0, MAX_GANG_NAME_LENGTH);
     saveState();
     updateTopBar();
     notify('Gang mis à jour', 'success');
@@ -1671,7 +1652,7 @@ function showIntro() {
             <div class="isc-slot-label">SLOT ${i+1}</div>
             <div class="isc-boss-wrap">
               ${preview.bossSprite ? `<img src="${trainerSprite(preview.bossSprite)}" style="width:52px;height:52px;image-rendering:pixelated" onerror="this.style.display='none'">` : '<div style="width:52px;height:52px;background:var(--bg);border-radius:4px;opacity:.3"></div>'}
-              <span class="isc-boss-badge"><img src="https://lab.sterenna.fr/PG/pokegang_logo/pokegang_logo_little.png" alt=""></span>
+              <span class="isc-boss-badge"><img src="${LOGO_SMALL_URL}" alt=""></span>
             </div>
           </div>
           <div class="isc-info">
@@ -1902,62 +1883,68 @@ function startGameLoop() {
   // Initialiser les timers background pour les zones fermées avec agents
   syncBackgroundZones();
 
-  // Agent automation every 2 seconds (agents interact with visible spawns)
-  agentTickInterval = setInterval(agentTick, 2000);
+  // Initialiser les niveaux de zone v2
+  initZoneLevels();
 
-  // Passive agent tick every 10 seconds (closed zones, background activity)
-  setInterval(passiveAgentTick, 10000);
+  // Agent automation (agents interact with visible spawns)
+  agentTickInterval = setInterval(agentTick, TICK_AGENT_MS);
 
-  // Hourly quests countdown refresh (every 10s when missions tab open)
+  // Passive agent tick (closed zones, background activity)
+  setInterval(passiveAgentTick, TICK_PASSIVE_AGENT_MS);
+
+  // Hourly quests countdown refresh (when missions tab open)
   setInterval(() => {
     if (activeTab === 'tabMissions') renderMissionsTab();
-  }, 10000);
+  }, TICK_MISSIONS_UI_MS);
 
-  // Hourly quest reset check (every minute)
+  // Hourly quest reset check
   setInterval(() => {
     if (state.missions?.hourly && Date.now() - state.missions.hourly.reset >= HOUR_MS) {
       initHourlyQuests();
       if (activeTab === 'tabMissions') renderMissionsTab();
       notify('⏰ Nouvelles quêtes horaires disponibles !', 'gold');
     }
-  }, 60000);
+  }, TICK_HOURLY_CHECK_MS);
 
-  // Market decay every 5 minutes
-  setInterval(decayMarketSales, 300000);
+  // Market decay
+  setInterval(decayMarketSales, TICK_MARKET_DECAY_MS);
 
-  // Remote version polling every hour (detects new deploys)
-  setInterval(pollRemoteVersion, 3600000);
-  setTimeout(pollRemoteVersion, 15000); // first check 15s after boot
+  // Remote version polling (detects new deploys)
+  setInterval(pollRemoteVersion, TICK_VERSION_POLL_MS);
+  setTimeout(pollRemoteVersion, TICK_VERSION_FIRST_MS); // first check shortly after boot
 
   // Daily reload at 12h00 + 00h00 to flush new versions
   startDailyReloadSchedule();
 
-  // Auto-save every 10 seconds
-  autoSaveInterval = setInterval(saveState, 10000);
+  // Auto-save
+  autoSaveInterval = setInterval(saveState, TICK_AUTO_SAVE_MS);
 
-  // Cloud save every hour (dirty-checked — skipped if nothing changed)
-  setInterval(supaCloudSave, 60 * 60 * 1000);
+  // Cloud save (dirty-checked — skipped if nothing changed)
+  setInterval(supaCloudSave, TICK_CLOUD_SAVE_MS);
 
-  // Snapshot every 6 h — internally throttled + fingerprint-guarded (skipped if no new progress)
-  setInterval(supaWriteSnapshot, 6 * 60 * 60 * 1000);
+  // Snapshot — internally throttled + fingerprint-guarded (skipped if no new progress)
+  setInterval(supaWriteSnapshot, TICK_SNAPSHOT_MS);
 
-  // Leaderboard push every 2h, only if player was active since last push
+  // Leaderboard push, only if player was active since last push
   setInterval(() => {
     if (_playerWasActive) {
       _playerWasActive = false;
       supaUpdateLeaderboardAnon();
     }
-  }, 2 * 60 * 60 * 1000);
+  }, TICK_LEADERBOARD_MS);
 
   // Cooldown tick removed — cooldowns no longer exist in gameplay
 
-  // Training room tick every 60 seconds
-  setInterval(trainingRoomTick, 60000);
+  // Zone events tick (v2 — toutes les zones avec agents)
+  setInterval(tickAllZoneEvents, TICK_TRAINING_MS); // 60s
 
-  // Pension / egg tick every 30 seconds
-  setInterval(pensionTick, 30000);
+  // Training room tick
+  setInterval(trainingRoomTick, TICK_TRAINING_MS);
 
-  // Passive XP for pokemon in teams every 30 seconds
+  // Pension / egg tick
+  setInterval(pensionTick, TICK_PENSION_MS);
+
+  // Passive XP for pokemon in teams
   setInterval(() => {
     const teamIds = new Set([...state.gang.bossTeam]);
     for (const a of state.agents) a.team.forEach(id => teamIds.add(id));
@@ -1965,19 +1952,19 @@ function startGameLoop() {
     let leveled = false;
     for (const id of teamIds) {
       const p = state.pokemons.find(pk => pk.id === id);
-      if (p) leveled = levelUpPokemon(p, 3) || leveled; // 3 XP/30s passif
+      if (p) leveled = levelUpPokemon(p, PASSIVE_XP_PER_TICK) || leveled;
     }
     if (leveled) saveState();
-  }, 30000);
+  }, TICK_PASSIVE_XP_MS);
 
-  // Zone timers + raid button + fogmap refresh every second
+  // Zone timers + raid button + fogmap refresh
   setInterval(() => {
     for (const zoneId of openZones) {
       updateZoneTimers(zoneId);
       _refreshRaidBtn(zoneId);
     }
     if (activeTab === 'tabZones') _zsRefreshAllTiles();
-  }, 1000);
+  }, TICK_ZONE_REFRESH_MS);
 
 }
 
@@ -2021,8 +2008,7 @@ function pollRemoteVersion() {
 function showUpdateBanner(newVer) {
   document.getElementById('updateBanner')?.remove();
 
-  const COUNTDOWN = 60; // secondes avant reload forcé
-  let remaining = COUNTDOWN;
+  let remaining = UPDATE_COUNTDOWN_S;
 
   const banner = document.createElement('div');
   banner.id = 'updateBanner';
@@ -2034,7 +2020,7 @@ function showUpdateBanner(newVer) {
     box-shadow:0 2px 12px rgba(0,0,0,0.5);
   `;
   banner.innerHTML = `
-    <span id="updateBannerMsg">⚡ Nouvelle version <strong>${newVer}</strong> — rechargement dans <strong id="updateCountdown">${COUNTDOWN}</strong>s</span>
+    <span id="updateBannerMsg">⚡ Nouvelle version <strong>${newVer}</strong> — rechargement dans <strong id="updateCountdown">${UPDATE_COUNTDOWN_S}</strong>s</span>
     <button id="updateBannerBtn" style="
       background:#fff; color:#cc3333; border:none; border-radius:4px;
       padding:4px 12px; font-size:12px; cursor:pointer; font-weight:bold;
@@ -2061,7 +2047,7 @@ let _dailyReloadLastHour = -1;   // prevents double-trigger in same minute
 let _dailyCountdownActive = false;
 
 function startDailyReloadSchedule() {
-  setInterval(_checkDailyReload, 30000); // check every 30 seconds
+  setInterval(_checkDailyReload, TICK_DAILY_CHECK_MS);
 }
 
 function _checkDailyReload() {
@@ -2076,7 +2062,7 @@ function _checkDailyReload() {
   if (isReloadHour && _dailyReloadLastHour !== reloadKey && !_dailyCountdownActive) {
     _dailyCountdownActive = true;
     _dailyReloadLastHour = reloadKey;
-    _runDailyCountdown(60); // 60 second countdown
+    _runDailyCountdown(DAILY_COUNTDOWN_S);
   }
 
   // Safety: if we somehow missed the countdown, force reload at the exact hour
@@ -2630,13 +2616,13 @@ function boot() {
   }
 
   // Apply saved UI scale
-  const savedScale = state.settings?.uiScale ?? 100;
+  const savedScale = state.settings?.uiScale ?? DEFAULT_UI_SCALE;
   document.documentElement.style.setProperty('--ui-scale', (savedScale / 100).toFixed(2));
-  document.documentElement.style.setProperty('--zone-scale', ((state.settings?.zoneScale ?? 100) / 100).toFixed(2));
+  document.documentElement.style.setProperty('--zone-scale', ((state.settings?.zoneScale ?? DEFAULT_ZONE_SCALE) / 100).toFixed(2));
   document.body.classList.toggle('theme-light', state.settings?.lightTheme === true);
   document.body.classList.toggle('low-spec',    state.settings?.lowSpec === true);
   // Apply saved music volume
-  MusicPlayer.setVolume((state.settings?.musicVol ?? 80) / 1000);
+  MusicPlayer.setVolume((state.settings?.musicVol ?? DEFAULT_MUSIC_VOL) / 1000);
 
   // Initial render — force l'onglet actif correct au chargement
   switchTab(activeTab);
@@ -2682,7 +2668,7 @@ function boot() {
 
   // Check if Johto offer should be presented at this session
   if (!state.purchases?.johtoUnlocked) {
-    setTimeout(() => checkJohtoUnlock(), 4000);
+    setTimeout(() => checkJohtoUnlock(), JOHTO_UNLOCK_DELAY_MS);
   }
 
   // Catch-up starter gift: existing players who never saw the Giovanni intro
