@@ -1768,11 +1768,12 @@ function buildPlayerTeamForZone(zoneId) {
   return allAllyIds.map(id => state.pokemons.find(p => p.id === id)).filter(Boolean);
 }
 
+// Retourne les agents assignés à la zone (le boss participe toujours de son côté).
+// Pas de fallback vers des agents d'autres zones : le boss seul suffit en early game.
 function getZoneCombatAgentIds(zoneId) {
   const state = globalThis.state;
-  const assigned = (state.agents || []).filter(agent => agent.assignedZone === zoneId);
-  const candidates = assigned.length ? assigned : (state.agents || []);
-  return [...candidates]
+  return (state.agents || [])
+    .filter(agent => agent.assignedZone === zoneId && agent.autoCombat !== false)
     .sort((a, b) => (globalThis.getAgentCombatPower?.(b) ?? 0) - (globalThis.getAgentCombatPower?.(a) ?? 0))
     .slice(0, 3)
     .map(agent => agent.id);
@@ -1812,43 +1813,26 @@ function trainerCombatName(spawnObj) {
 }
 
 function buildTrainerCombatTaglines(spawnObj, result, reward, repGain) {
-  const trainerName = trainerCombatName(spawnObj);
+  const tName    = trainerCombatName(spawnObj);
+  const bossName = globalThis.state?.gang?.bossName || 'Boss';
   const taglines = [];
-  const attackerNames = (result.attackers || []).map(agent => agent.name);
-  const enemyCount = getTrainerCombatEnemyCount(spawnObj);
 
-  taglines.push(attackerNames.length
-    ? `${attackerNames.join(', ')} se positionnent.`
-    : 'Aucun agent ne tient la ligne.');
-  taglines.push(`${trainerName} aligne ${enemyCount} Pokémon.`);
-  taglines.push(`Puissance attaque : ⚡ ${fmtCombatNum(result.attackerPower)}`);
-  taglines.push(`Puissance défense : 🛡 ${fmtCombatNum(result.defenderPower)} (${result.trainerType})`);
+  // Participants côté joueur
+  const agentNames  = (result.attackers || []).map(a => a.name);
+  const alliesList  = agentNames.length ? `${bossName} + ${agentNames.join(' + ')}` : bossName;
+  const enemyCount  = getTrainerCombatEnemyCount(spawnObj);
+  const typeMod     = result.trainerTypeMultiplier > 1
+    ? ` (×${result.trainerTypeMultiplier.toFixed(2)} ${result.trainerType})`
+    : '';
 
-  for (const duel of result.duels || []) {
-    taglines.push(`${duel.attacker.name} affronte ${duel.defender.name} (${fmtCombatNum(duel.attackerPower)} vs ${fmtCombatNum(duel.defenderPower)})`);
-    taglines.push(duel.attackerWin
-      ? `${duel.defender.name} est neutralisé.`
-      : `${duel.attacker.name} est K.O.`);
-  }
-
-  if (result.finalBattle?.skipped) {
-    taglines.push('Tous les agents tombent avant que le Boss intervienne.');
-  } else if (result.finalBattle) {
-    if ((result.finalBattle.defenderPower || 0) <= 0) {
-      taglines.push(`${globalThis.state.gang?.bossName || 'Boss'} securise la zone.`);
-    } else {
-      const firstPokemon = result.finalBattle.defenderTeam?.[0];
-      const firstName = firstPokemon?.species_en
-        ? (globalThis.speciesName?.(firstPokemon.species_en) ?? firstPokemon.species_en)
-        : "l'equipe adverse";
-      taglines.push(`${globalThis.state.gang?.bossName || 'Boss'} engage l'equipe Boss contre ${firstName}.`);
-      taglines.push(`Combat final Boss : ⚡ ${fmtCombatNum(result.finalBattle.attackerPower)} vs 🛡 ${fmtCombatNum(result.finalBattle.defenderPower)}`);
-    }
-  }
+  taglines.push(`${alliesList} affrontent ${tName}.`);
+  taglines.push(`${tName} aligne ${enemyCount} Pok.${typeMod}`);
+  taglines.push(`⚡ Attaque : ${fmtCombatNum(result.attackerPower)} (Boss ${fmtCombatNum(result.bossTeamPower ?? 0)} + Agents ${fmtCombatNum(result.agentsPower ?? 0)})`);
+  taglines.push(`🛡 Défense : ${fmtCombatNum(result.defenderPower)}`);
 
   if (result.attackerWin) {
     taglines.push('— VICTOIRE ! —');
-    taglines.push(`+${fmtCombatNum(reward)} ₽ · +${fmtCombatNum(repGain)} rép`);
+    if (reward > 0) taglines.push(`+${fmtCombatNum(reward)} ₽ · +${fmtCombatNum(repGain)} rép`);
   } else {
     taglines.push('— DÉFAITE... —');
     taglines.push('Aucun loot récupéré.');
@@ -1865,13 +1849,11 @@ function openCombatPopup(zoneId, spawnObj) {
   const state = globalThis.state;
   if (currentCombat) return;
   const agentIds = getZoneCombatAgentIds(zoneId);
-  if (agentIds.length === 0) {
-    globalThis.notify('Aucun agent disponible pour ce combat !', 'error');
-    return;
-  }
+  // Le boss participe toujours — pas besoin d'agent pour se battre.
+  // On vérifie juste qu'il y a au moins un Pokémon disponible (boss ou agent).
   const available = buildPlayerTeamForZone(zoneId);
   if (available.length === 0) {
-    globalThis.notify('Aucun Pokémon disponible !');
+    globalThis.notify('Équipe votre Boss (ou assignez un agent) pour vous battre !', 'error');
     return;
   }
 
@@ -2041,7 +2023,7 @@ function executeCombat() {
     title: result.attackerWin
       ? `Victoire — ${spawnWithZone.trainer?.fr || spawnWithZone.trainerKey} +${reward}₽ +${repGain}rep`
       : `Défaite — ${spawnWithZone.trainer?.fr || spawnWithZone.trainerKey}`,
-    detail: `Zone: ${zName} · ${result.duels.length} duel${result.duels.length > 1 ? 's' : ''} · ${enemyPool.length} Pok. adverses`,
+    detail: `Zone: ${zName} · ⚡${fmtCombatNum(result.attackerPower)} / 🛡${fmtCombatNum(result.defenderPower)} · ${enemyPool.length} Pok. adverses`,
     win: result.attackerWin,
     combatLog: taglines.slice(),
   });
