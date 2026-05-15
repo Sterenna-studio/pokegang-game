@@ -55,13 +55,42 @@
     return result;
   }
 
+  // ── Taux shiny de base par rareté ───────────────────────────────
+  // Pokémon rares = plus difficiles à obtenir chromatiques.
+  const SHINY_BASE_RATE = {
+    common:    1 / 200,   // 0.500 %
+    uncommon:  1 / 350,   // 0.286 %
+    rare:      1 / 600,   // 0.167 %
+    very_rare: 1 / 1000,  // 0.100 %
+    legendary: 1 / 2000,  // 0.050 %
+  };
+
+  // ── Bonus chaîne (captures de la même espèce) ───────────────────
+  // Chaque capture ajoute +5 % au multiplicateur, plafonné à ×6 (à 100 captures).
+  // Exemples : 10 cap → ×1.5 | 25 cap → ×2.25 | 50 cap → ×3.5 | 100 cap → ×6
+  function _chainBonus(count) {
+    return 1 + Math.min(count * 0.05, 5);
+  }
+
   /**
-   * Détermine si un Pokémon est shiny en tenant compte des bonus.
+   * Détermine si un Pokémon est shiny.
+   * Taux de base selon la rareté de l'espèce.
+   * Multiplicateurs : Aura ×5, Chroma Charm ×2, chaîne de captures ×1–×6.
    */
-  function rollShiny() {
-    // Shiny Aura: x5 rate (1/40 instead of 1/200) ; Chroma Charm: ×2 permanent
-    let rate = isBoostActive('aura') ? 0.025 : 0.005;
+  function rollShiny(speciesEN) {
+    const rarity = SPECIES_BY_EN?.[speciesEN]?.rarity ?? 'common';
+    let rate = SHINY_BASE_RATE[rarity] ?? SHINY_BASE_RATE.common;
+
+    // Aura Shiny ×5
+    if (isBoostActive('aura')) rate *= 5;
+
+    // Chroma Charm ×2 (achat permanent)
     if (state?.purchases?.chromaCharm) rate *= 2;
+
+    // Bonus chaîne : nb de captures de cette espèce
+    const chainCount = globalThis.state?.pokedex?.[speciesEN]?.count ?? 0;
+    if (chainCount > 0) rate *= _chainBonus(chainCount);
+
     return Math.random() < rate;
   }
 
@@ -108,7 +137,7 @@
     if (!sp) return null;
     const nature    = rollNature();
     const potential = rollPotential(ballType);
-    const shiny     = rollShiny();
+    const shiny     = rollShiny(speciesEN);
     const level     = randInt(3, 12);
     const pokemon = {
       id: `pk-${uid()}`,

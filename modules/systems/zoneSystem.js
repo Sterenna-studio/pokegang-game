@@ -56,6 +56,16 @@ function isJohtoZone(zoneId) {
 // Ensemble des types de dresseurs Rocket (pour le tracking)
 const ROCKET_TRAINER_KEYS = new Set(['rocketgrunt','rocketgruntf','scientist','archer','ariana','proton','giovanni']);
 
+// ── Spawn weights par rareté ──────────────────────────────────
+// Pokémon communs spawnt plus souvent que les rares dans le même pool.
+// Les légendaires sont gérés séparément (formule ~1 % total).
+const RARITY_SPAWN_WEIGHT = {
+  common:    10,
+  uncommon:   5,
+  rare:       2,
+  very_rare:  1,
+};
+
 // ── Événements actifs ─────────────────────────────────────────
 // La majorité des événements est désactivée en pre-alpha pour réduire le bruit.
 // Retirer un id d'ici pour le réactiver quand son système sera prêt.
@@ -430,15 +440,24 @@ function spawnInZone(zoneId) {
     });
     speciesEN = filteredRare.length > 0 ? globalThis.pick(filteredRare) : globalThis.pick(zone.pool);
   } else {
-    // Légendaires : taux fixe ~1% par légendaire (poids relatif aux non-légendaires)
+    // Poids par rareté : commun spawne plus souvent que rare/très rare.
+    // Légendaires : ~1 % de chance combinée quelle que soit la taille du pool.
     const _legCount    = zone.pool.filter(en => SPECIES_BY_EN[en]?.rarity === 'legendary').length;
-    const _nonLegCount = zone.pool.length - _legCount;
-    // legendaryW donne P(légendaire) ≈ 1% : poids = nonLeg / 99 vs non-leg poids = 1
-    const _legendaryW  = _nonLegCount > 0 ? _nonLegCount / 99 : 1;
-    const poolWithWeights = zone.pool.map(en => ({
-      en,
-      w: SPECIES_BY_EN[en]?.rarity === 'legendary' ? _legendaryW : 1,
-    }));
+    const _nonLegTotal = zone.pool.reduce((s, en) => {
+      const r = SPECIES_BY_EN[en]?.rarity;
+      return r === 'legendary' ? s : s + (RARITY_SPAWN_WEIGHT[r] ?? 5);
+    }, 0);
+    // legendaryW : chaque légendaire représente ~1 % du pool total
+    const _legendaryW  = _legCount > 0 && _nonLegTotal > 0
+      ? (_nonLegTotal / 99) / _legCount
+      : 1;
+    const poolWithWeights = zone.pool.map(en => {
+      const rarity = SPECIES_BY_EN[en]?.rarity;
+      return {
+        en,
+        w: rarity === 'legendary' ? _legendaryW : (RARITY_SPAWN_WEIGHT[rarity] ?? 5),
+      };
+    });
     const totalW = poolWithWeights.reduce((s, x) => s + x.w, 0);
     let roll = Math.random() * totalW;
     speciesEN = poolWithWeights[poolWithWeights.length - 1].en;
