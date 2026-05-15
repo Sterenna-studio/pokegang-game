@@ -81,8 +81,8 @@
     const rarity = SPECIES_BY_EN?.[speciesEN]?.rarity ?? 'common';
     let rate = SHINY_BASE_RATE[rarity] ?? SHINY_BASE_RATE.common;
 
-    // Aura Shiny ×5
-    if (isBoostActive('aura')) rate *= 5;
+    // Aura Shiny ×1.5
+    if (isBoostActive('aura')) rate *= 1.5;
 
     // Chroma Charm ×2 (achat permanent)
     if (state?.purchases?.chromaCharm) rate *= 2;
