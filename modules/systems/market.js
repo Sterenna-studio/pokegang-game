@@ -242,6 +242,34 @@ function buyItem(itemDef) {
     return true;
   }
 
+  // ── Permis Mont Argenté (1M₽ + toutes arènes Kanto+Johto vaincues) ────────
+  if (itemDef.id === 'silver_permit') {
+    if (state.purchases.silver_permit) {
+      globalThis.notify(state.lang === 'fr' ? 'Déjà possédé !' : 'Already owned!');
+      state.gang.money += actualCost;
+      state.stats.totalMoneySpent -= actualCost;
+      return false;
+    }
+    // Vérifier toutes les arènes Kanto
+    const kantoGyms = globalThis.GYM_ORDER ?? [];
+    const johtoGyms = globalThis.JOHTO_GYM_ORDER ?? [];
+    const allGymsBeaten = [...kantoGyms, ...johtoGyms].every(id => state.zones[id]?.gymDefeated);
+    if (!allGymsBeaten) {
+      const msg = state.lang === 'fr'
+        ? 'Il faut vaincre toutes les arènes Kanto + Johto pour obtenir ce permis.'
+        : 'You must defeat all Kanto + Johto gyms to obtain this permit.';
+      globalThis.notify(msg, 'error');
+      state.gang.money += actualCost;
+      state.stats.totalMoneySpent -= actualCost;
+      return false;
+    }
+    state.purchases.silver_permit = true;
+    globalThis.notify('🗻 Permis Mont Argenté obtenu ! Red vous attend au sommet…', 'gold');
+    globalThis.saveState();
+    globalThis.renderZonesTab?.();
+    return true;
+  }
+
   if (itemDef.id === 'mysteryegg') {
     const species_en = globalThis.weightedPick(globalThis.MYSTERY_EGG_POOL);
     const potential = Math.random() < 0.1 ? 3 : Math.random() < 0.4 ? 2 : 1;

@@ -51,6 +51,10 @@ export function migrateSave(saved, deps) {
   merged.purchases    = { ...structuredClone(DEFAULT_STATE.purchases),    ...ensureObject(saved.purchases) };
   merged.pension      = { ...structuredClone(DEFAULT_STATE.pension),      ...ensureObject(saved.pension) };
   merged.activeEvents = ensureObject(saved.activeEvents, {});
+  merged.encounterStats = {
+    bySpecies: ensureObject(saved.encounterStats?.bySpecies),
+    byTrainer: ensureObject(saved.encounterStats?.byTrainer),
+  };
 
   // ── behaviourLogs ──────────────────────────────────────────────────────────
   if (!merged.behaviourLogs) merged.behaviourLogs = structuredClone(DEFAULT_STATE.behaviourLogs);

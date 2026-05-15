@@ -38,18 +38,23 @@ const SHOP_ITEMS = [
     desc_fr:'50× Arcenci\'Aile requis → Tour Carillon (Ho-Oh)',
     desc_en:'50× Rainbow Wing required → Bell Tower (Ho-Oh)' },
   // ── Zones Johto spéciales ──
-  { id:'rocket_hq_keycard', qty:1, cost:80000,  icon:'🔑',
+  // rocket_hq_keycard : pas dans le shop — obtenu automatiquement à 50 Rockets Johto vaincus
+  { id:'rocket_hq_keycard', qty:1, cost:0, hidden:true, icon:'🔑',
     fr:'Badge QG Rocket',   en:'Rocket HQ Keycard',
-    desc_fr:'Accès au QG de la Team Rocket à Acajou',
-    desc_en:'Access to Team Rocket HQ in Mahogany Town' },
-  { id:'rocket_uniform',    qty:1, cost:120000, icon:'👔',
+    achievement:{ stat:'rocketDefeatedJohto', target:50 },
+    desc_fr:'50 agents Rocket (Johto) vaincus → Accès au QG de la Team Rocket à Acajou',
+    desc_en:'50 Johto Rocket agents defeated → Access to Team Rocket HQ in Mahogany Town' },
+  // rocket_uniform : pas dans le shop — obtenu automatiquement à 100 Rockets Johto vaincus
+  { id:'rocket_uniform',    qty:1, cost:0, hidden:true, icon:'👔',
     fr:'Uniforme Rocket',   en:'Rocket Uniform',
-    desc_fr:'Déguisement infiltrant la Tour Radio de Doublonville',
-    desc_en:'Disguise to infiltrate Goldenrod Radio Tower' },
-  { id:'silver_permit',     qty:1, cost:200000, icon:'🗻',
+    achievement:{ stat:'rocketDefeatedJohto', target:100 },
+    desc_fr:'100 agents Rocket (Johto) vaincus → Déguisement pour infiltrer la Tour Radio de Doublonville',
+    desc_en:'100 Johto Rocket agents defeated → Disguise to infiltrate Goldenrod Radio Tower' },
+  { id:'silver_permit',     qty:1, cost:1000000, icon:'🗻',
     fr:'Permis Mont Argenté',en:'Mt. Silver Permit',
-    desc_fr:'Accès au sommet du Mont Argenté — Red vous attend',
-    desc_en:'Access to Mt. Silver Summit — Red awaits' },
+    prereqs:{ gymsKanto: true, gymsJohto: true },
+    desc_fr:'Toutes les arènes Kanto + Johto vaincues requis — Accès au sommet du Mont Argenté — Red vous attend',
+    desc_en:'All Kanto + Johto gyms required — Access to Mt. Silver Summit — Red awaits' },
 ];
 // Note: 'scientist' s'achète depuis l'onglet Gang ou Labo (carte avec sprite), pas au Marché.
 
