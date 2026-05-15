@@ -377,11 +377,7 @@ async function supaCheckCloudLoad() {
      <span style="color:var(--text-dim);font-size:10px">${cloudPkm} Pokémon · Slot ${getActiveSaveSlot() + 1}</span><br>
      <span style="color:var(--text-dim);font-size:10px">La save locale sera remplacée.</span>`,
     () => {
-      // TODO(rep-sync): réputation non synchronisée depuis le cloud — prio locale.
-      // Retirer ce bloc quand le bug de reset de réputation sera résolu côté cloud.
-      const _localRep = state.gang?.reputation ?? 0;
       setState(migrate(data.state));
-      state.gang.reputation = _localRep;
       saveState();
       renderAll();
       notify('Sauvegarde cloud chargée !', 'success');
@@ -408,10 +404,7 @@ async function supaForceCloudLoad() {
   showConfirm(
     `Charger la save cloud du ${fmt} ?<br><span style="color:var(--text-dim);font-size:11px">La save locale sera écrasée.</span>`,
     () => {
-      // TODO(rep-sync): réputation non synchronisée depuis le cloud — prio locale.
-      const _localRep = state.gang?.reputation ?? 0;
       setState(migrate(data.state));
-      state.gang.reputation = _localRep;
       saveState();
       renderAll();
       notify('Sauvegarde cloud chargée !', 'success');
