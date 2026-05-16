@@ -316,6 +316,17 @@ function spawnInZone(zoneId) {
   const isChestBoosted = globalThis.isBoostActive('chestBoost');
   const r = Math.random();
 
+  // ── Bonus de niveau de zone (v2) ─────────────────────────────
+  // Récompenses uniquement — jamais la difficulté.
+  const lvlBonuses  = globalThis.getZoneLevelBonuses?.(zoneId) || {};
+  const shinyBonus  = lvlBonuses.shinyBonus  || 0;   // additif sur rollShiny
+  const rareBonus   = lvlBonuses.rareChance  || 0;   // additif sur rarePoolChance
+  const moneyMult   = 1 + (lvlBonuses.moneyMult || 0); // multiplicateur revenus
+  // spawnRate bonus appliqué via backgroundZoneTimers (interval recalculé à chaque tick)
+
+  // ── Contexte spawn transmis à makePokemon ────────────────────
+  const spawnCtx = { shinyBonus };
+
   // Niveau de difficulté : mastery ou tier sélectionné manuellement
   const mastery = getZoneDifficulty(zoneId);
   const diffScaling = ZONE_DIFFICULTY_SCALING[mastery] || ZONE_DIFFICULTY_SCALING[1];
@@ -426,35 +437,37 @@ function spawnInZone(zoneId) {
   const _spawnRarePool = zone.rarePool
     ? zone.rarePool.filter(e => !SPECIES_BY_EN[typeof e === 'string' ? e : e.en]?.babyOnly)
     : null;
-  // Safari rarePool: 10% chance to pick from rare uncapturable pool (boosted by rarescope)
-  const rarePoolChance = _spawnRarePool?.length ? (globalThis.isBoostActive('rarescope') ? 0.30 : 0.10) : 0;
+  // Safari rarePool: 10% base + rareBonus (zone level), 30% avec rarescope
+  const rarePoolBase  = globalThis.isBoostActive('rarescope') ? 0.30 : 0.10;
+  const rarePoolChance = _spawnRarePool?.length ? Math.min(0.60, rarePoolBase + rareBonus) : 0;
   if (_spawnRarePool?.length && Math.random() < rarePoolChance) {
     speciesEN = globalThis.weightedPick(_spawnRarePool);
   } else if (globalThis.isBoostActive('rarescope') && Math.random() < 0.5) {
     const filteredRare = _spawnPool.filter(en => {
       const sp = SPECIES_BY_EN[en];
       return sp && (sp.rarity === 'rare' || sp.rarity === 'very_rare');
-      // légendaires exclus du boost rarescope
     });
     speciesEN = filteredRare.length > 0 ? globalThis.pick(filteredRare) : globalThis.pick(_spawnPool);
   } else {
-    // Poids par rareté : commun spawne plus souvent que rare/très rare.
-    // Légendaires : ~1 % de chance combinée quelle que soit la taille du pool.
+    // Poids par rareté — rareBonus augmente le poids des espèces rare/very_rare
+    const rareMult = 1 + rareBonus * 4; // +5% rareChance → poids rares ×1.2 environ
     const _legCount    = _spawnPool.filter(en => SPECIES_BY_EN[en]?.rarity === 'legendary').length;
     const _nonLegTotal = _spawnPool.reduce((s, en) => {
       const r = SPECIES_BY_EN[en]?.rarity;
-      return r === 'legendary' ? s : s + (RARITY_SPAWN_WEIGHT[r] ?? 5);
+      const baseW = RARITY_SPAWN_WEIGHT[r] ?? 5;
+      const w = (r === 'rare' || r === 'very_rare') ? baseW * rareMult : baseW;
+      return r === 'legendary' ? s : s + w;
     }, 0);
-    // legendaryW : chaque légendaire représente ~1 % du pool total
     const _legendaryW  = _legCount > 0 && _nonLegTotal > 0
       ? (_nonLegTotal / 99) / _legCount
       : 1;
     const poolWithWeights = _spawnPool.map(en => {
       const rarity = SPECIES_BY_EN[en]?.rarity;
-      return {
-        en,
-        w: rarity === 'legendary' ? _legendaryW : (RARITY_SPAWN_WEIGHT[rarity] ?? 5),
-      };
+      const baseW  = RARITY_SPAWN_WEIGHT[rarity] ?? 5;
+      const w = rarity === 'legendary'
+        ? _legendaryW
+        : (rarity === 'rare' || rarity === 'very_rare') ? baseW * rareMult : baseW;
+      return { en, w };
     });
     const totalW = poolWithWeights.reduce((s, x) => s + x.w, 0);
     let roll = Math.random() * totalW;
@@ -464,7 +477,7 @@ function spawnInZone(zoneId) {
       if (roll <= 0) { speciesEN = x.en; break; }
     }
   }
-  const _pokemonSpawn = { type: 'pokemon', species_en: speciesEN };
+  const _pokemonSpawn = { type: 'pokemon', species_en: speciesEN, spawnCtx };
   _trackSpawnEncounter(_pokemonSpawn);
   return _pokemonSpawn;
 }
@@ -683,7 +696,7 @@ function investInZone(zoneId) {
   return true;
 }
 
-function tryCapture(zoneId, speciesEN, bonusPotential = 0) {
+function tryCapture(zoneId, speciesEN, bonusPotential = 0, spawnCtx = {}) {
   const state = globalThis.state;
   const BALLS = globalThis.BALLS;
   // pokeball = ressource unique de capture ; activeBall = skin cosmétique uniquement
@@ -694,7 +707,7 @@ function tryCapture(zoneId, speciesEN, bonusPotential = 0) {
   }
   state.inventory.pokeball--;
   const visualBall = state.activeBall || 'pokeball'; // skin affiché dans l'historique
-  const pokemon = globalThis.makePokemon(speciesEN, zoneId, visualBall);
+  const pokemon = globalThis.makePokemon(speciesEN, zoneId, visualBall, spawnCtx);
   if (!pokemon) return null;
   if (bonusPotential > 0) pokemon.potential = Math.min(5, pokemon.potential + bonusPotential);
   state.pokemons.push(pokemon);
@@ -812,8 +825,13 @@ function applyCombatResult(result, playerTeamIds, trainerData) {
   if (result.win && result.reward >= 0) {
     state.stats.totalFightsWon++;
     if (result.reward > 0) {
+      // Appliquer le multiplicateur de revenus du niveau de zone
+      const _lvlBonuses = globalThis.getZoneLevelBonuses?.(trainerData.zoneId) || {};
+      const _moneyMult  = 1 + (_lvlBonuses.moneyMult || 0);
+      const _finalReward = Math.round(result.reward * _moneyMult);
       const zs = initZone(trainerData.zoneId);
-      zs.pendingIncome = (zs.pendingIncome || 0) + result.reward;
+      zs.pendingIncome = (zs.pendingIncome || 0) + _finalReward;
+      result = { ...result, reward: _finalReward }; // mise à jour pour le log
     }
     state.stats.totalMoneyEarned += result.reward;
     // Rep sur toutes les victoires (spécial = +10, normal = +1)

@@ -1611,7 +1611,7 @@ function animateCapture(zoneId, spawnObj, spawnEl) {
 
     function doCaptureAttempt() {
       ball.remove();
-      const caught = globalThis.tryCapture(zoneId, spawnObj.species_en, isCritical ? 1 : 0);
+      const caught = globalThis.tryCapture(zoneId, spawnObj.species_en, isCritical ? 1 : 0, spawnObj.spawnCtx || {});
       if (caught) {
         if (isCritical) globalThis.notify(`★ Capture critique ! +1 potentiel`, 'gold');
         if (caught.shiny) spawnEl.classList.add('shiny-flash');
