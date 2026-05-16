@@ -41,7 +41,7 @@ const TICK_LEADERBOARD_MS    =  2 * 60 * 60_000; // leaderboard push (2 h)
 const TICK_TRAINING_MS       = 60_000;  // training room tick
 const TICK_PENSION_MS        = 30_000;  // pension / egg tick
 const TICK_PASSIVE_XP_MS     = 30_000;  // XP passif Pokémon d'équipe
-const TICK_ZONE_REFRESH_MS   =  1_000;  // refresh timers de zone + fogmap
+const TICK_ZONE_REFRESH_MS   =  5_000;  // refresh timers de zone + fogmap
 const TICK_DAILY_CHECK_MS    = 30_000;  // vérification reload quotidien
 
 // ── Update / reload banners ───────────────────────────────────

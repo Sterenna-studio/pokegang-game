@@ -187,9 +187,16 @@ function triggerZoneEvent(zoneId) {
 
   scheduleNextZoneEvent(zoneId);
 
-  const lang = state.lang === 'fr' ? 'fr' : 'en';
-  globalThis.notify?.(`📍 ${_zoneName(zoneId)} — ${def[lang]} !`, 'gold');
+  const lang  = state.lang === 'fr' ? 'fr' : 'en';
+  const label = def[lang] || def.fr;
+  globalThis.notify?.(`📍 ${_zoneName(zoneId)} — ${label} !`, 'gold');
   globalThis.SFX?.play('notify');
+  globalThis.pushFeedEvent?.({
+    category: 'zone',
+    title:    `${_zoneName(zoneId)} — ${label}`,
+    detail:   `Type : ${eventType}${z.activeEvent.endsAt ? ` · expire dans ${Math.round((z.activeEvent.endsAt - Date.now()) / 60000)} min` : ''}`,
+    win:      null,
+  });
   globalThis.saveState?.();
 
   if (globalThis.activeTab === 'tabZones') globalThis.renderZonesTab?.();

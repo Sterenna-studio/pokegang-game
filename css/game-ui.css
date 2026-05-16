@@ -938,6 +938,31 @@
     }
     .fog-tile-stats { font-size: 8px; color: var(--gold-dim); }
     .fog-tile-status { font-family: var(--font-pixel); font-size: 7px; color: var(--red); }
+    /* Zone level badge */
+    .fog-tile-level-badge {
+      position: absolute;
+      top: 4px; right: 4px;
+      font-family: var(--font-pixel);
+      font-size: 7px;
+      color: var(--gold);
+      background: rgba(0,0,0,.7);
+      border: 1px solid var(--gold-dim);
+      border-radius: 2px;
+      padding: 1px 4px;
+      pointer-events: none;
+    }
+    /* Event badge */
+    .fog-tile-event-badge {
+      position: absolute;
+      bottom: 20px; right: 4px;
+      font-size: 11px;
+      background: rgba(0,0,0,.75);
+      border-radius: 3px;
+      padding: 1px 3px;
+      pointer-events: none;
+      animation: pulse-badge 1.5s ease-in-out infinite alternate;
+    }
+    @keyframes pulse-badge { from { opacity:.7; } to { opacity:1; } }
     .fog-tile.locked .fog-tile-name { color: var(--text-dim); }
     .fog-tile.zone-type-gym .fog-tile-name { color: var(--gold); }
     .fog-tile.zone-type-special .fog-tile-name { color: #a07cf0; }
