@@ -5,13 +5,17 @@
 
 import { resolveTrainerCombat } from './zoneCombat.js';
 
-// ── Slots d'équipe par grade ───────────────────────────────────────
-// grunt:1, sergent:2, lieutenant:3, commandant:4, élite:5, général:6
-const TEAM_SLOTS_BY_RANK = {
-  grunt: 1, sergent: 2, lieutenant: 3, commandant: 4, elite: 5, general: 6,
-};
+// ── Slots d'équipe par captures ────────────────────────────────────
+// 0 cap → 1 slot, 50 cap → 2 slots, 150 cap → 3 slots
 function getAgentTeamSlots(agent) {
-  return TEAM_SLOTS_BY_RANK[agent?.title] ?? 1;
+  const caps = agent?.captureCount || 0;
+  if (caps >= 150) return 3;
+  if (caps >= 50)  return 2;
+  return 1;
+}
+
+function isZoneContested(zoneId) {
+  return !!(globalThis.state?.zones?.[zoneId]?.contested);
 }
 
 // Courbe d'accès aux agents (coût pour recruter le (n+1)ième agent) :
@@ -72,6 +76,11 @@ function rollNewAgent() {
     assignedZone:  null,
     notifyCaptures: true,
     legacyLocked:  false,
+    energy:        10,
+    maxEnergy:     10,
+    resting:       false,
+    restUntil:     null,
+    lastEnergyReset: 0,
   };
 }
 
@@ -360,7 +369,9 @@ function _combatTeamIdsForAgents(agentIds = []) {
   }
   for (const agentId of agentIds) {
     const agent = state.agents.find(a => a.id === agentId);
-    for (const id of agent?.team || []) {
+    if (!agent) continue;
+    const slots = getAgentTeamSlots(agent);
+    for (const id of (agent.team || []).slice(0, slots)) {
       if (id) ids.push(id);
     }
   }
@@ -387,8 +398,10 @@ function _applyResolvedAgentCombat(zoneId, spawnObj, combatAgents, result) {
   const trainerData = { ...spawnObj, zoneId };
   const trainer    = trainerData.trainer || {};
   const rewardRange = trainer.reward || [10, 50];
+  const zStateForReward = state.zones?.[zoneId] || {};
+  const rewardMult = zStateForReward.contested ? 0.7 : 1;
   const reward     = result.attackerWin
-    ? Math.min(globalThis.MAX_COMBAT_REWARD, globalThis.randInt(rewardRange[0], rewardRange[1]))
+    ? Math.round(Math.min(globalThis.MAX_COMBAT_REWARD, globalThis.randInt(rewardRange[0], rewardRange[1])) * rewardMult)
     : 0;
   const repGain    = globalThis.getCombatRepGain(trainerData.trainerKey || trainerData.trainer?.sprite, result.attackerWin);
   const mainAgent  = combatAgents[0];
@@ -427,6 +440,17 @@ function _applyResolvedAgentCombat(zoneId, spawnObj, combatAgents, result) {
   return { reward, repGain };
 }
 
+// ── Énergie agent ─────────────────────────────────────────────────
+function _tickAgentEnergy(agent) {
+  if (!agent.resting) return;
+  if (Date.now() >= (agent.restUntil || 0)) {
+    agent.resting = false;
+    agent.restUntil = null;
+    agent.energy = 5; // retour à 5, pas full
+    globalThis.notify?.(`${agent.name} est reposé et reprend du service.`, 'success');
+  }
+}
+
 // ── Résolution background d'un spawn pour une zone fermée ────────
 function resolveBackgroundSpawnForZone(zoneId) {
   const state = globalThis.state;
@@ -436,8 +460,15 @@ function resolveBackgroundSpawnForZone(zoneId) {
   const zone = ZONE_BY_ID?.[zoneId];
   if (!zone || zone.spawnRate === 0) return false;
 
-  const agents = state.agents.filter(a => a.assignedZone === zoneId);
+  const allAgents = state.agents.filter(a => a.assignedZone === zoneId);
+  if (allAgents.length === 0) return false;
+
+  // Tick énergie + filtre agents en repos
+  for (const agent of allAgents) { _tickAgentEnergy(agent); }
+  const agents = allAgents.filter(a => !a.resting);
   if (agents.length === 0) return false;
+
+  const zState = state.zones[zoneId] || {};
 
   const entry = globalThis.spawnInZone(zoneId);
   if (!entry) return false;
@@ -460,6 +491,14 @@ function resolveBackgroundSpawnForZone(zoneId) {
         globalThis.notify(`⚠️ Plus de Poké Balls — les agents de ${zone?.fr || zoneId} ne capturent plus !`, 'error');
       }
       return false;
+    }
+
+    // Malus zone contestée sur la capture
+    if (zState.contested) {
+      if (Math.random() < 0.5) {
+        // Capture ratée à cause du malus
+        return false;
+      }
     }
 
     const visualBall = capturer.ball || 'pokeball'; // skin cosmétique de l'agent
@@ -529,6 +568,47 @@ function resolveBackgroundSpawnForZone(zoneId) {
     if (combatAgents.length === 0) return false;
     const result = resolveTrainerCombat({ ...entry, zoneId }, combatAgents.map(agent => agent.id));
     _applyResolvedAgentCombat(zoneId, entry, combatAgents, result);
+
+    // ── Zone contestée : gestion lossStreak / reclaimWins ────
+    const zoneName = zone?.fr || zoneId;
+    const mainAgent = combatAgents[0];
+    if (!result.attackerWin) {
+      // Défaite
+      zState.lossStreak = (zState.lossStreak || 0) + 1;
+      const tier = zone?.tier || 1;
+      const energyCost = tier >= 4 ? 3 : 2;
+      if (mainAgent) {
+        mainAgent.energy = Math.max(0, (mainAgent.energy ?? 10) - energyCost);
+        if (mainAgent.energy === 0) {
+          mainAgent.resting = true;
+          mainAgent.restUntil = Date.now() + 60 * 60 * 1000; // 1h
+          globalThis.notify?.(`${mainAgent.name} est épuisé — repos 1h.`, 'error');
+          globalThis.pushFeedEvent?.({ category:'zone', title:`${mainAgent.name} KO — repos forcé`, detail:`Zone ${zoneId} · reprend à 50% d'énergie dans 1h`, win:false });
+        }
+      }
+      if (zState.lossStreak >= 10) {
+        zState.contested = true;
+        zState.lossStreak = 0;
+        zState.reclaimWins = 0;
+        globalThis.notify?.(`⚠ Zone contestée : ${zoneName}`, 'error');
+        globalThis.pushFeedEvent?.({ category:'zone', title:`Zone contestée — ${zoneName}`, detail:'10 défaites — malus actifs (-50% captures, -30% revenus)', win:false });
+      }
+    } else {
+      // Victoire
+      if (zState.contested) {
+        zState.reclaimWins = (zState.reclaimWins || 0) + 1;
+        zState.lossStreak = 0;
+        if (zState.reclaimWins >= 5) {
+          zState.contested = false;
+          zState.reclaimWins = 0;
+          zState.lossStreak = 0;
+          globalThis.notify?.(`Zone reprise : ${zoneName} !`, 'gold');
+        }
+      } else {
+        zState.lossStreak = Math.max(0, (zState.lossStreak || 0) - 1);
+      }
+    }
+
     changed = true;
 
   // ── Coffre ───────────────────────────────────────────────────
@@ -605,6 +685,17 @@ function passiveAgentTick() {
   const openZones = globalThis.openZones;
   const ZONE_BY_ID = globalThis.ZONE_BY_ID;
   if (!openZones || !ZONE_BY_ID) return;
+
+  // ── Reset quotidien de l'énergie des agents ──────────────────
+  const now = Date.now();
+  const todayMidnight = new Date();
+  todayMidnight.setHours(0, 0, 0, 0);
+  for (const agent of state.agents) {
+    if (!agent.resting && (agent.lastEnergyReset || 0) < todayMidnight.getTime()) {
+      agent.energy = agent.maxEnergy || 10;
+      agent.lastEnergyReset = now;
+    }
+  }
 
   let changed = false;
   const raidCooldownMs = 5 * 60 * 1000;
@@ -873,6 +964,7 @@ document.addEventListener('visibilitychange', () => {
 
 Object.assign(globalThis, {
   getAgentTeamSlots,
+  isZoneContested,
   getAgentRecruitCost,
   getAgentUnlockCost,
   unlockAgent,

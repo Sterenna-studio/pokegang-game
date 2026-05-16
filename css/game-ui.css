@@ -914,6 +914,8 @@
     .fog-tile.fog-event .fog-tile-status { color: var(--gold); }
     .fog-tile.fog-auto     { border-color: rgba(100,180,255,.5); }
     .fog-tile.fog-auto .fog-tile-status  { color: rgba(100,180,255,.9); }
+    .fog-tile.fog-contested { border-color: #cc4400; border-width: 2px; }
+    .fog-tile.fog-contested .fog-tile-status { color: #cc4400; }
     .fog-tile-overlay {
       position: absolute; inset: 0;
       background: rgba(0,0,0,0.45);

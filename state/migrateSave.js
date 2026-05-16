@@ -194,6 +194,12 @@ export function migrateSave(saved, deps) {
     delete agent.preferredBall;
     // v2 alpha — compteur de captures par agent
     if (agent.captureCount === undefined) agent.captureCount = 0;
+    // alpha — énergie agent
+    if (agent.energy        === undefined) agent.energy        = 10;
+    if (agent.maxEnergy     === undefined) agent.maxEnergy     = 10;
+    if (agent.resting       === undefined) agent.resting       = false;
+    if (agent.restUntil     === undefined) agent.restUntil     = null;
+    if (agent.lastEnergyReset === undefined) agent.lastEnergyReset = 0;
   }
 
   // ── Pokémons ───────────────────────────────────────────────────────────────────
@@ -275,6 +281,10 @@ export function migrateSave(saved, deps) {
       if (zs.unlocked === undefined) {
         zs.unlocked = (zs.combatsWon > 0 || zs.captures > 0 || zs.invested === true);
       }
+      // alpha — zone contestée
+      if (zs.lossStreak   === undefined) zs.lossStreak   = 0;
+      if (zs.contested    === undefined) zs.contested    = false;
+      if (zs.reclaimWins  === undefined) zs.reclaimWins  = 0;
     }
     // Rebuild assignedAgents depuis agent.assignedZone (source de vérité)
     for (const agent of merged.agents) {

@@ -77,7 +77,10 @@ export const DEFAULT_STATE = {
   },
   pokemons: [],
   agents: [],
-  zones: {},
+  zones: {
+    // Per-zone runtime shape (populated by initZone):
+    // lossStreak: 0, contested: false, reclaimWins: 0
+  },
   pokedex: {},
   activeEvents: {},
   missions: {
