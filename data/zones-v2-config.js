@@ -42,22 +42,21 @@ const ZONE_XP_SOURCES = {
 // ── Level bonuses ─────────────────────────────────────────────
 // Bonus additifs appliqués à la zone selon son niveau.
 // Toutes les clés sont optionnelles — absence = pas de bonus.
-//   spawnRate   : +X% taux de spawn de la zone
-//   moneyMult   : +X% argent gagné dans la zone
-//   rareChance  : +X% chance de spawn rare dans le pool
-//   shinyBonus  : +X% chance shiny dans la zone
-//   agentXpBonus: +X% XP agent pour les actions dans la zone
+//   spawnRate  : +X% taux de spawn de la zone
+//   moneyMult  : +X% argent gagné dans la zone
+//   rareChance : +X% chance de spawn rare dans le pool
+//   shinyBonus : +X% chance shiny dans la zone
 const ZONE_LEVEL_BONUSES = {
   1:  {},
   2:  { spawnRate: 0.05 },
   3:  { spawnRate: 0.10, moneyMult: 0.05 },
   4:  { spawnRate: 0.15, moneyMult: 0.10, rareChance: 0.05 },
-  5:  { spawnRate: 0.20, moneyMult: 0.15, rareChance: 0.10, agentXpBonus: 0.10 },
-  6:  { spawnRate: 0.25, moneyMult: 0.20, rareChance: 0.15, agentXpBonus: 0.15 },
-  7:  { spawnRate: 0.30, moneyMult: 0.25, rareChance: 0.20, shinyBonus: 0.05, agentXpBonus: 0.20 },
-  8:  { spawnRate: 0.35, moneyMult: 0.30, rareChance: 0.25, shinyBonus: 0.10, agentXpBonus: 0.25 },
-  9:  { spawnRate: 0.40, moneyMult: 0.35, rareChance: 0.30, shinyBonus: 0.15, agentXpBonus: 0.30 },
-  10: { spawnRate: 0.50, moneyMult: 0.50, rareChance: 0.40, shinyBonus: 0.20, agentXpBonus: 0.40 },
+  5:  { spawnRate: 0.20, moneyMult: 0.15, rareChance: 0.10 },
+  6:  { spawnRate: 0.25, moneyMult: 0.20, rareChance: 0.15 },
+  7:  { spawnRate: 0.30, moneyMult: 0.25, rareChance: 0.20, shinyBonus: 0.05 },
+  8:  { spawnRate: 0.35, moneyMult: 0.30, rareChance: 0.25, shinyBonus: 0.10 },
+  9:  { spawnRate: 0.40, moneyMult: 0.35, rareChance: 0.30, shinyBonus: 0.15 },
+  10: { spawnRate: 0.50, moneyMult: 0.50, rareChance: 0.40, shinyBonus: 0.20 },
 };
 
 // ── Zone events ───────────────────────────────────────────────

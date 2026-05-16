@@ -78,7 +78,6 @@ function _zoneLevelHtml(zoneId) {
         moneyMult: `+${Math.round(v * 100)}% argent`,
         rareChance:`+${Math.round(v * 100)}% rare`,
         shinyBonus:`+${Math.round(v * 100)}% shiny`,
-        agentXpBonus:`+${Math.round(v * 100)}% XP agent`,
       };
       return `<span style="color:var(--gold);font-size:8px">${labels[k] || k}</span>`;
     }).join(' · ');

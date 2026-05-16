@@ -158,15 +158,26 @@ function assignAgentToZone(agentId, zoneId) {
   const state = globalThis.state;
   const agent = state.agents.find(a => a.id === agentId);
   if (!agent) return;
+
+  // ── Hard cap : 1 agent par zone ──────────────────────────────
+  if (zoneId) {
+    const occupant = state.agents.find(a => a.id !== agentId && a.assignedZone === zoneId);
+    if (occupant) {
+      globalThis.notify?.(`${occupant.name} est déjà assigné à cette zone.`, 'error');
+      return;
+    }
+  }
+
+  // Retirer l'agent de son ancienne zone
   if (agent.assignedZone) {
     const oldZ = state.zones[agent.assignedZone];
     if (oldZ) {
       oldZ.assignedAgents = oldZ.assignedAgents.filter(id => id !== agentId);
     }
   }
+
   agent.assignedZone = zoneId;
   if (zoneId) {
-    // Slots illimités — pas de cap d'agents par zone
     const z = globalThis.initZone(zoneId);
     if (!z.assignedAgents.includes(agentId)) {
       z.assignedAgents.push(agentId);

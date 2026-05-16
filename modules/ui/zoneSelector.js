@@ -286,6 +286,18 @@ export function showZoneContextMenu(zoneId, x, y) {
 }
 
 
+// ── Event icon helper ──────────────────────────────────────────
+function _eventIcon(type) {
+  const icons = {
+    territory_bonus:    '🏴',
+    bounty_hunt:        '🎯',
+    rival_invasion:     '⚔',
+    trainer_tournament: '🏆',
+    legendary_sighting: '✨',
+  };
+  return icons[type] || '📍';
+}
+
 // ── Gang Park tile (special — always unlocked, not a standard zone) ──
 function _buildGangParkTile(zone) {
   const state = globalThis.state;
@@ -395,6 +407,13 @@ function _buildTile(zone) {
       hasAgent && !isOpen ? 'fog-auto' : '',
     ].filter(Boolean).join(' ');
 
+    const zoneLevel   = globalThis.getZoneLevel?.(zone.id) || 1;
+    const activeEvent = zState.activeEvent && !zState.activeEvent.resolved ? zState.activeEvent : null;
+    const levelBadge  = zoneLevel > 1
+      ? `<div class="fog-tile-level-badge">Nv.${zoneLevel}</div>` : '';
+    const eventBadge  = activeEvent
+      ? `<div class="fog-tile-event-badge">${_eventIcon(activeEvent.type)}</div>` : '';
+
     return `<div class="${tileClass} zone-type-${zone.type}"
       data-zone="${zone.id}" style="${bgStyle}">
       <div class="fog-tile-overlay"></div>
@@ -404,6 +423,7 @@ function _buildTile(zone) {
         <div class="fog-tile-stats">${'★'.repeat(mastery)}${mastery ? ' ' : ''}${combats}W${musicIcon}</div>
         <div class="fog-tile-status">${statusText}</div>
       </div>
+      ${levelBadge}${eventBadge}
       ${incomeHtml}
       ${dexBarHtml}
       <button class="zone-fav-btn${isFav ? ' active' : ''}" data-fav-zone="${zone.id}"
