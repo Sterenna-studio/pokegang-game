@@ -29,9 +29,14 @@ function rollPotential(ballType) {
   return result;
 }
 
-function rollShiny() {
+/**
+ * Calcule si un Pokémon est shiny.
+ * @param {number} [bonusRate=0] — bonus additif au taux de base (ex: 0.05 pour +5% zone niveau 10)
+ */
+function rollShiny(bonusRate = 0) {
   let rate = globalThis.isBoostActive?.('aura') ? 0.025 : 0.005;
   if (globalThis.state?.purchases?.chromaCharm) rate *= 2;
+  rate += bonusRate;
   return Math.random() < rate;
 }
 
@@ -61,13 +66,20 @@ function calculateStats(pokemon) {
   };
 }
 
-function makePokemon(speciesEN, zoneId, ballType = 'pokeball') {
+/**
+ * Crée un Pokémon capturé.
+ * @param {string} speciesEN
+ * @param {string} zoneId
+ * @param {string} [ballType='pokeball']
+ * @param {{ shinyBonus?: number }} [spawnCtx={}] — bonus de spawn injectés par spawnInZone (zone level)
+ */
+function makePokemon(speciesEN, zoneId, ballType = 'pokeball', spawnCtx = {}) {
   const state = globalThis.state;
   const sp = SPECIES_BY_EN[speciesEN];
   if (!sp) return null;
   const nature    = rollNature();
   const potential = rollPotential(ballType);
-  const shiny     = rollShiny();
+  const shiny     = rollShiny(spawnCtx.shinyBonus || 0);
   const level     = globalThis.randInt(3, 12);
   const pokemon = {
     id: `pk-${globalThis.uid()}`,
