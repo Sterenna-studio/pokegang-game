@@ -535,6 +535,7 @@ const ZONE_MUSIC_MAP_JOHTO = {
 // ── Injection dans les globaux définis par zones-data.js ─────
 // (zones-data.js doit être chargé avant ce fichier dans index.html)
 ZONES_JOHTO.forEach(z => {
+  z.region = 'johto';
   ZONES.push(z);
   ZONE_BY_ID[z.id] = z;
 });
