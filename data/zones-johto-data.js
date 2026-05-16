@@ -532,6 +532,15 @@ const ZONE_MUSIC_MAP_JOHTO = {
   tin_tower:          'elite4',
 };
 
+// ── Injection dans les globaux définis par zones-data.js ─────
+// (zones-data.js doit être chargé avant ce fichier dans index.html)
+ZONES_JOHTO.forEach(z => {
+  ZONES.push(z);
+  ZONE_BY_ID[z.id] = z;
+});
+SPECIAL_EVENTS_JOHTO.forEach(e => SPECIAL_EVENTS.push(e));
+Object.assign(ZONE_MUSIC_MAP, ZONE_MUSIC_MAP_JOHTO);
+
 // ── Index rapide Johto ────────────────────────────────────────
 const ZONE_JOHTO_BY_ID = {};
 ZONES_JOHTO.forEach(z => ZONE_JOHTO_BY_ID[z.id] = z);
