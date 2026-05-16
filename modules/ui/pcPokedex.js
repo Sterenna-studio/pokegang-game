@@ -429,13 +429,12 @@ function renderEventsTab() {
       </div>`;
     }
 
-    // Combat log for replay
+    // Combat log — affiché directement, un round à la fois
     let combatLogHtml = '';
     if (e.combatLog?.length) {
-      combatLogHtml = `<div class="feed-combat-log" style="display:none;margin-top:6px;border-top:1px solid var(--border);padding-top:4px;max-height:120px;overflow-y:auto">
-        ${e.combatLog.map(line => `<div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);margin-bottom:1px">${line}</div>`).join('')}
-      </div>
-      <button class="feed-replay-btn" style="font-family:var(--font-pixel);font-size:7px;margin-top:4px;padding:1px 6px;background:rgba(255,255,255,.07);border:1px solid var(--border);border-radius:2px;cursor:pointer;color:var(--text-dim)">📋 Log combat</button>`;
+      combatLogHtml = `<div class="feed-combat-log" style="margin-top:6px;border-top:1px solid var(--border);padding-top:4px;max-height:160px;overflow-y:auto">
+        ${e.combatLog.map(line => `<div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);margin-bottom:2px;line-height:1.4">${line}</div>`).join('')}
+      </div>`;
     }
 
     return `<div class="feed-entry${hasExpandable ? ' feed-has-detail' : ''}" data-fi="${i}">
@@ -450,22 +449,9 @@ function renderEventsTab() {
     </div>`;
   }).join('');
 
-  // Toggle detail on click + replay log toggle
+  // Toggle detail on click
   listEl.querySelectorAll('.feed-entry.feed-has-detail').forEach(el => {
-    el.addEventListener('click', (ev) => {
-      if (ev.target.closest('.feed-replay-btn')) return; // handled separately
-      el.classList.toggle('feed-open');
-    });
-  });
-  listEl.querySelectorAll('.feed-replay-btn').forEach(btn => {
-    btn.addEventListener('click', (ev) => {
-      ev.stopPropagation();
-      const logEl = btn.previousElementSibling;
-      if (!logEl) return;
-      const isOpen = logEl.style.display !== 'none';
-      logEl.style.display = isOpen ? 'none' : 'block';
-      btn.textContent = isOpen ? '📋 Log combat' : '▲ Fermer log';
-    });
+    el.addEventListener('click', () => el.classList.toggle('feed-open'));
   });
 }
 
