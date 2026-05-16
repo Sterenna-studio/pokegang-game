@@ -150,16 +150,8 @@ const ZONES = [
     trainers:['channeler','psychic'], eliteTrainer:'agatha', investCost:12000,
     ghostZone: true },
 
-  // ══ ZONES GEN 2 — Légendaires (débloquables avec ailes) ══
-  { id:'tourbillon',    fr:'Tourb\'Îles',        en:'Whirl Islands',     rep:900, spawnRate:0.04, type:'special',
-    pool:['lugia','politoed','slowking','kingdra','tentacruel','dewgong','lapras','seadra','starmie','tentacool','golduck','psyduck'],
-    trainers:['swimmer','acetrainer'], eliteTrainer:'lorelei', investCost:45000,
-    unlockItem:'tourbillon_permit' },
-
-  { id:'tour_carillon', fr:'Tour Carillon',      en:'Bell Tower',        rep:950, spawnRate:0.04, type:'special',
-    pool:['ho-oh','espeon','umbreon','blissey','crobat','bellossom','clefable','wigglytuff','chansey','snorlax'],
-    trainers:['acetrainer','psychic'], eliteTrainer:'lance', investCost:45000,
-    unlockItem:'carillon_permit' },
+  // ── Zones légendaires Gen 2 → déplacées dans zones-johto-data.js ──
+  // (whirl_islands / tin_tower)
 ];
 
 // ── Special Events ────────────────────────────────────────────
@@ -442,7 +434,5 @@ const ZONE_MUSIC_MAP = {
   safari_zone:      'safari',
   celadon_casino:   'casino',
   silph_co:         'silph',
-  // Zones Gen 2 légendaires
-  tourbillon:       'sea',
-  tour_carillon:    'elite4',
+  // Zones légendaires Gen 2 → voir ZONE_MUSIC_MAP_JOHTO dans zones-johto-data.js
 };
