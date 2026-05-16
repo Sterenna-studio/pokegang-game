@@ -64,7 +64,7 @@ function renderAgentsTab() {
       `<option value="${z.id}" ${a.assignedZone === z.id ? 'selected' : ''}>${state.lang === 'fr' ? z.fr : z.en}</option>`
     ).join('');
 
-    const agentTeamSlots = getAgentTeamSlots(a);
+    const agentTeamSlots = getAgentTeamSlots(a); // capture-based slots (1-3)
     const teamSlots = Array.from({length: agentTeamSlots}, (_, i) => {
       const pkId = a.team[i];
       const pk   = pkId ? state.pokemons.find(p => p.id === pkId) : null;
@@ -131,6 +131,16 @@ function renderAgentsTab() {
             <span style="font-size:8px;opacity:.7;flex-shrink:0">Lv.${a.level}</span>
           </div>
           <div class="agent-xp-bar"><div class="agent-xp-fill" style="width:${xpPct}%"></div></div>
+          <div style="display:flex;align-items:center;gap:4px;margin-top:2px">
+            ${a.resting
+              ? `<span style="font-family:var(--font-pixel);font-size:7px;color:var(--red)">💤 REPOS ${Math.max(0, Math.round(((a.restUntil || 0) - Date.now()) / 60000))}min</span>`
+              : `<div style="flex:1;height:3px;background:var(--border);border-radius:2px;overflow:hidden">
+                   <div style="width:${Math.round((a.energy ?? 10) / (a.maxEnergy || 10) * 100)}%;height:100%;background:${(a.energy ?? 10) <= 3 ? 'var(--red)' : 'var(--green)'};border-radius:2px"></div>
+                 </div>
+                 <span style="font-size:8px;color:var(--text-dim)">${a.energy ?? 10}⚡</span>
+                 <span style="font-size:8px;color:var(--text-dim);margin-left:4px">${agentTeamSlots}/3 slots</span>`
+            }
+          </div>
         </div>
         <div style="display:flex;flex-direction:column;gap:3px;margin-left:auto;padding-left:6px">
           <button class="agent-open-sheet" data-agent-id="${a.id}" title="Fiche détaillée"

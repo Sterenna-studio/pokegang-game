@@ -98,9 +98,20 @@ function _zoneLevelHtml(zoneId) {
 // ── Team slots ────────────────────────────────────────────────
 function _teamHtml(agent) {
   const state   = _state();
-  const maxSlots = { grunt:1, sergent:2, lieutenant:3, commandant:4, elite:5, general:6 }[agent.title] ?? 1;
+  const slots   = globalThis.getAgentTeamSlots?.(agent) || 1;
+  const caps    = agent.captureCount || 0;
+  const nextUnlock = caps < 50  ? `${50 - caps} cap → slot 2`
+                   : caps < 150 ? `${150 - caps} cap → slot 3`
+                   : 'MAX';
 
-  return Array.from({ length: maxSlots }, (_, i) => {
+  return Array.from({ length: 3 }, (_, i) => {
+    if (i >= slots) {
+      // Slot verrouillé
+      return `<div style="width:48px;height:48px;background:var(--bg);border:1px dashed var(--border);border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;opacity:.45" title="${nextUnlock}">
+        <span style="font-size:16px">🔒</span>
+        <span style="font-size:6px;color:var(--text-dim);text-align:center;padding:0 2px">${nextUnlock}</span>
+      </div>`;
+    }
     const pkId = agent.team[i];
     const pk   = pkId ? state.pokemons.find(p => p.id === pkId) : null;
     if (!pk) return `<div style="width:48px;height:48px;background:var(--bg);border:1px dashed var(--border);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer" data-sheet-team-slot="${i}">+</div>`;
@@ -195,7 +206,7 @@ function _buildSheetHtml(agent) {
   <!-- ÉQUIPE -->
   <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 10px;margin-bottom:12px">
     <div style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);margin-bottom:8px">
-      ÉQUIPE (${(agent.team || []).filter(Boolean).length}/${({ grunt:1, sergent:2, lieutenant:3, commandant:4, elite:5, general:6 }[agent.title] ?? 1)} slots)
+      ÉQUIPE (${(agent.team || []).filter(Boolean).length}/${globalThis.getAgentTeamSlots?.(agent) || 1} slots actifs · 3 max)
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:6px" id="agentSheetTeam">
       ${_teamHtml(agent)}

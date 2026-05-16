@@ -354,6 +354,7 @@ function _buildTile(zone) {
     const hasAgent     = state.agents.some(a => a.assignedZone === zone.id);
     const activityMode = globalThis.getZoneActivityMode?.(zone.id) || 'idle';
     const hasEvent     = activityMode === 'event';
+    const isContested  = globalThis.isZoneContested?.(zone.id);
 
     let displayName = name;
     if (isCity) {
@@ -391,19 +392,22 @@ function _buildTile(zone) {
     // Calcul du statut affiché sur la tuile
     const statusText = isOpen
       ? '[OUVERT]'
-      : hasEvent
-        ? '[ÉVÉNEMENT]'
-        : degraded
-          ? '[COMBAT]'
-          : hasAgent
-            ? '[AUTO]'
-            : '[ENTRER]';
+      : isContested
+        ? '[CONTESTÉE]'
+        : hasEvent
+          ? '[ÉVÉNEMENT]'
+          : degraded
+            ? '[COMBAT]'
+            : hasAgent
+              ? '[AUTO]'
+              : '[ENTRER]';
 
     const tileClass = [
       'fog-tile unlocked',
-      isOpen    ? 'fog-open'    : '',
-      degraded  ? 'fog-degraded': '',
-      hasEvent  ? 'fog-event'   : '',
+      isOpen      ? 'fog-open'      : '',
+      isContested ? 'fog-contested' : '',
+      degraded    ? 'fog-degraded'  : '',
+      hasEvent    ? 'fog-event'     : '',
       hasAgent && !isOpen ? 'fog-auto' : '',
     ].filter(Boolean).join(' ');
 
@@ -556,18 +560,21 @@ export function refreshZoneTile(zoneId) {
   const hasAgent     = state?.agents?.some(a => a.assignedZone === zoneId);
   const activityMode = globalThis.getZoneActivityMode?.(zoneId) || 'idle';
   const hasEvent     = activityMode === 'event';
+  const isContested  = globalThis.isZoneContested?.(zoneId);
 
-  tile.classList.toggle('fog-open',    !!isOpen);
-  tile.classList.toggle('fog-degraded',!!degraded);
-  tile.classList.toggle('fog-event',   !!hasEvent && !isOpen);
-  tile.classList.toggle('fog-auto',    !!hasAgent && !isOpen);
+  tile.classList.toggle('fog-open',      !!isOpen);
+  tile.classList.toggle('fog-contested', !!isContested && !isOpen);
+  tile.classList.toggle('fog-degraded',  !!degraded);
+  tile.classList.toggle('fog-event',     !!hasEvent && !isOpen);
+  tile.classList.toggle('fog-auto',      !!hasAgent && !isOpen);
 
   const statusEl = tile.querySelector('.fog-tile-status');
   if (statusEl) statusEl.textContent = isOpen
     ? '[OUVERT]'
-    : hasEvent   ? '[ÉVÉNEMENT]'
-    : degraded   ? '[COMBAT]'
-    : hasAgent   ? '[AUTO]'
+    : isContested ? '[CONTESTÉE]'
+    : hasEvent    ? '[ÉVÉNEMENT]'
+    : degraded    ? '[COMBAT]'
+    : hasAgent    ? '[AUTO]'
     : '[ENTRER]';
 
   const statsEl = tile.querySelector('.fog-tile-stats');
