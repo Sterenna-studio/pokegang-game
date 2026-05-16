@@ -2164,6 +2164,7 @@ function executeCombat() {
 
   function doTurn() {
     turn++;
+    logMsg(`<span style="color:var(--border);letter-spacing:2px">─── Tour ${turn} ───</span>`);
     const curEnemy = enemyPool[enemyActiveIdx];
     if (!curEnemy || curEnemy.hp <= 0) { finishCombat(isEnemyDefeated()); return; }
 

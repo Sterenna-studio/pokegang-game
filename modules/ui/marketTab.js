@@ -15,10 +15,6 @@ function renderMarketTab() {
 // ── Troc d'objets ─────────────────────────────────────────────
 const BARTER_RECIPES = [
   // [donnerItemId, donnerQty, recevoirItemId, recevoirQty, label]
-  ['pokeball',  10, 'greatball',  1,   '10 Poké Balls → 1 Super Ball'],
-  ['greatball', 10, 'ultraball',  1,   '10 Super Balls → 1 Hyper Ball'],
-  // index 2 = MB ⇄ HB (bidirectionnel — voir _barterMbReverse)
-  ['ultraball', 100, 'masterball', 1,  '100 Hyper Balls → 1 Master Ball'],
   ['lure',       5, 'superlure',  1,   '5 Leurres → 1 Super Leurre'],
   ['superlure',  3, 'evostone',   1,   '3 Super Leurres → 1 Pierre Évol.'],
   ['rarecandy',  3, 'evostone',   1,   '3 Super Bonbons → 1 Pierre Évol.'],
@@ -26,26 +22,11 @@ const BARTER_RECIPES = [
   ['potion',    10, 'rarecandy',  1,   '10 Potions → 1 Super Bonbon'],
 ];
 
-// Sens du troc MB ⇄ HB (false = 100 HB→1 MB ; true = 1 MB→100 HB)
-let _barterMbReverse = false;
-
 function renderBarterPanel() {
   const panel = document.querySelector('#barterPanel .barter-list');
   if (!panel) return;
 
-  // Recette active pour le troc MB (index 2), sens selon _barterMbReverse
-  const mbRecipe = _barterMbReverse
-    ? ['masterball', 1,   'ultraball', 100, '1 Master Ball → 100 Hyper Balls']
-    : ['ultraball',  100, 'masterball', 1,  '100 Hyper Balls → 1 Master Ball'];
-  const recipes = [...BARTER_RECIPES];
-  recipes[2] = mbRecipe;
-
-  // Bouton toggle sens MB en tête de panel
-  const toggleBtn = `<div style="padding:6px 4px 4px;border-bottom:1px solid var(--border)">
-    <button id="btnBarterMbToggle" style="font-family:var(--font-pixel);font-size:7px;padding:4px 10px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">
-      ⇄ ${_barterMbReverse ? 'MB → 100 HB' : '100 HB → MB'}
-    </button>
-  </div>`;
+  const recipes = BARTER_RECIPES;
 
   // ── Recettes d'items classiques ────────────────────────────────
   const recipesHtml = recipes.map((r, i) => {
@@ -111,12 +92,7 @@ function renderBarterPanel() {
       }).join('')}
     </div>`;
 
-  panel.innerHTML = toggleBtn + recipesHtml + wingExchangeHtml + wingZonesHtml;
-
-  document.getElementById('btnBarterMbToggle')?.addEventListener('click', () => {
-    _barterMbReverse = !_barterMbReverse;
-    renderBarterPanel();
-  });
+  panel.innerHTML = recipesHtml + wingExchangeHtml + wingZonesHtml;
 
   panel.querySelectorAll('[data-barter]').forEach(btn => {
     btn.addEventListener('click', () => {
