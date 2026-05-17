@@ -30,6 +30,7 @@ import { FALLBACK_TRAINER_SVG } from '../../data/assets-data.js';
 // ── Gang Base Window ──────────────────────────────────────────
 
 let _boostMult = 1; // multiplicateur actif pour les boosts (x1/x5/x10)
+let _gangBaseViewMode = 'v1'; // 'v1' | 'v2' — persisté dans state.settings.gangBaseView
 
 const BASE_RARITY_ORDER = ['common', 'uncommon', 'rare', 'very_rare', 'legendary'];
 const BASE_RARITY_FR = {
@@ -123,10 +124,22 @@ function _baseModuleTitle(text, meta = '') {
   return `<div class="base-module-head"><span>${text}</span>${meta ? `<em>${meta}</em>` : ''}</div>`;
 }
 
+function _applyGangBaseViewMode() {
+  const zonesTopArea = document.getElementById('zonesTopArea');
+  if (zonesTopArea) zonesTopArea.classList.toggle('gb-v2-mode', _gangBaseViewMode === 'v2');
+}
+
 function renderGangBasePanel() {
   const gangContainer = document.getElementById('gangBaseContainer');
   if (!gangContainer) return;
-  const gangHtml = renderGangBaseWindow();
+
+  // Sync view mode from settings (persisted across reloads)
+  const savedView = globalThis.state?.settings?.gangBaseView;
+  if (savedView && savedView !== _gangBaseViewMode) _gangBaseViewMode = savedView;
+
+  _applyGangBaseViewMode();
+
+  const gangHtml = _gangBaseViewMode === 'v2' ? renderGangBaseWindowV2() : renderGangBaseWindow();
   const existingBase = gangContainer.querySelector('#gangBaseWin');
   if (existingBase) {
     const tmp = document.createElement('div');
@@ -135,7 +148,11 @@ function renderGangBasePanel() {
   } else {
     gangContainer.innerHTML = gangHtml;
   }
-  bindGangBase(gangContainer);
+  if (_gangBaseViewMode === 'v2') {
+    bindGangBaseV2(gangContainer);
+  } else {
+    bindGangBase(gangContainer);
+  }
 }
 
 function renderGangBaseWindow() {
@@ -354,6 +371,7 @@ function renderGangBaseWindow() {
       <div class="base-header-stats">
         <span>₽${(state.gang.money || 0).toLocaleString()}</span>
         <span>⭐${(state.gang.reputation || 0).toLocaleString()}</span>
+        <button class="gb-view-toggle" data-gb-view="v2" title="Vue v2 — 3 colonnes">V2</button>
         <button class="base-export-btn" title="${state.lang === 'fr' ? 'Exporter mon gang' : 'Export my gang'}">📷</button>
       </div>
     </div>
@@ -441,6 +459,446 @@ function renderGangBaseWindow() {
     </div>
 
   </div>`;
+}
+
+// ── Gang Base Window — V2 ────────────────────────────────────
+// Layout 3 colonnes : gauche (boss+zones) | centre (actions+inv) | droite (agents)
+
+function renderGangBaseWindowV2() {
+  const state         = globalThis.state;
+  const pokeSprite    = globalThis.pokeSprite;
+  const trainerSprite = globalThis.trainerSprite;
+  const speciesName   = globalThis.speciesName;
+  const itemSprite    = globalThis.itemSprite;
+  const isBoostActive = globalThis.isBoostActive;
+  const boostRemaining= globalThis.boostRemaining;
+  const getPokemonPower = globalThis.getPokemonPower;
+
+  const focusZone   = _baseFocusZone(state);
+  const focusZoneId = focusZone?.id || '';
+  const focusState  = focusZone ? (state.zones?.[focusZone.id] || {}) : {};
+  const focusAgents = focusZone ? (state.agents || []).filter(a => a.assignedZone === focusZone.id) : [];
+  const focusName   = _baseZoneName(focusZone, state);
+  const focusType   = focusZone?.type || 'route';
+  const focusTypeFR = BASE_ZONE_TYPE_FR[focusType] || focusType;
+  const focusMeta   = _baseZoneStatus(focusZone, state, focusState, focusAgents.length);
+  const isFocusOpen = !!(focusZone && globalThis.openZones?.has(focusZone.id));
+  const bossTitle   = globalThis.getBossFullTitle?.() || globalThis.getTitleLabel?.(state.gang.title) || 'Boss';
+  const poss        = focusMeta.possession;
+  const possClass   = poss >= 70 ? 'high' : poss >= 40 ? 'med' : 'low';
+  const dangerClass = focusMeta.dangerLabel.toLowerCase();
+  const stateClass  = isFocusOpen ? 'ouverte' : focusAgents.length > 0 ? 'tenue' : 'libre';
+
+  // ── Boss team ──
+  const bossTeamHtml = [0, 1, 2].map(i => {
+    const pkId = state.gang.bossTeam[i];
+    const pk   = pkId ? state.pokemons.find(p => p.id === pkId) : null;
+    if (pk) return `<div class="gb2-team-slot" data-boss-slot="${i}" title="${speciesName(pk.species_en)} Lv.${pk.level}">
+      <img src="${pokeSprite(pk.species_en, pk.shiny)}" alt="">
+      <div class="sn">${speciesName(pk.species_en)}</div>
+    </div>`;
+    return `<div class="gb2-team-slot empty" data-boss-slot="${i}"></div>`;
+  }).join('');
+
+  // ── Boss patches ──
+  const bossPatches = (() => {
+    const pids = state.cosmetics?.activePatches || [];
+    const pfn  = globalThis.patchUrl;
+    if (!pids.length || !pfn) return '';
+    const pos = ['bottom:0;right:-2px', 'bottom:0;left:-2px', 'top:0;right:-2px'];
+    return pids.slice(0, 3).map((pid, i) =>
+      `<img src="${pfn(pid)}" style="position:absolute;${pos[i]};width:20px;height:20px;image-rendering:pixelated;filter:drop-shadow(0 1px 2px rgba(0,0,0,.8))" onerror="this.style.display='none'" alt="">`
+    ).join('');
+  })();
+
+  // ── Zone list ──
+  const unlockedZones = _baseUnlockedZones(state);
+  const zoneListHtml  = unlockedZones.slice(0, 40).map(zone => {
+    const zs      = state.zones?.[zone.id] || {};
+    const agents  = (state.agents || []).filter(a => a.assignedZone === zone.id).length;
+    const meta    = _baseZoneStatus(zone, state, zs, agents);
+    const isFocus = zone.id === focusZoneId;
+    const isOpen  = globalThis.openZones?.has(zone.id);
+    const icon    = zone.type === 'city' ? '🏙' : zone.type === 'special' ? '⭐' : '🛤';
+    const pc      = meta.possession >= 70 ? 'hi' : meta.possession >= 40 ? 'med' : '';
+    return `<div class="gb2-zone-row${isFocus ? ' focus' : ''}" data-gb2-zone-select="${zone.id}">
+      <span class="gb2-zone-row-icon">${icon}</span>
+      <div class="gb2-zone-row-info">
+        <div class="gb2-zone-row-name">${_baseZoneName(zone, state)}</div>
+        <div class="gb2-zone-row-sub">${agents} agent${agents !== 1 ? 's' : ''}${isOpen ? ' · Ouverte' : ''}</div>
+      </div>
+      <div class="gb2-zone-row-poss ${pc}">${isOpen ? '●' : meta.possession + '%'}</div>
+    </div>`;
+  }).join('') || `<div class="base-empty-note">Aucun front débloqué</div>`;
+
+  // ── Inventaire ──
+  const BALL_IDS  = ['pokeball','greatball','ultraball','duskball','masterball'];
+  const BOOST_IDS = ['lure','superlure','incense','rarescope','aura'];
+  const CRAFT_IDS = ['rarecandy','evostone'];
+  const KEY_IDS   = ['incubator','map_pallet','casino_ticket','silph_keycard','boat_ticket'];
+
+  function _v2tile(id, isKey = false) {
+    const qty      = state.inventory?.[id] || 0;
+    const isBall   = BALL_IDS.includes(id);
+    const isBoost  = BOOST_IDS.includes(id);
+    const isActive = isBall && state.activeBall === id;
+    const isBoosted= isBoost && isBoostActive?.(id);
+    const owned    = qty > 0;
+    const remStr   = isBoosted ? `<span class="gb2-item-rem">${Math.ceil(boostRemaining?.(id) || 0)}s</span>` : '';
+    const qtyBadge = isKey
+      ? `<span class="gb2-item-qty" style="color:${owned ? 'var(--green)' : 'var(--text-dim)'}">${owned ? '✓' : '✗'}</span>`
+      : `<span class="gb2-item-qty">${qty > 99 ? '99+' : qty > 0 ? '×'+qty : '0'}</span>`;
+    const lockCls  = isKey && !owned ? ' locked-key' : '';
+    const spriteCls = !owned && !isKey ? ' locked' : '';
+    return `<div class="gb2-item-tile${isActive ? ' active' : ''}${isBoosted ? ' boosted' : ''}${lockCls}" data-bag-item="${id}" title="${id}">
+      <div class="${spriteCls}">${itemSprite?.(id) || ''}</div>
+      ${qtyBadge}${remStr}
+    </div>`;
+  }
+
+  const ballsHtml  = BALL_IDS.map(id => _v2tile(id)).join('');
+  const boostsHtml = BOOST_IDS.map(id => _v2tile(id)).join('');
+  const craftHtml  = CRAFT_IDS.map(id => _v2tile(id)).join('');
+  const keysHtml   = KEY_IDS.map(id => _v2tile(id, true)).join('');
+
+  // ── Incubateurs ──
+  const incCount       = state.inventory?.incubator || 0;
+  const eggs           = state.eggs || [];
+  const incubatingEggs = eggs.filter(e => e.incubating);
+  const waitingEggs    = eggs.filter(e => !e.incubating);
+  const now            = Date.now();
+  let   incSlotsHtml   = '';
+  if (incCount > 0) {
+    for (let i = 0; i < incCount; i++) {
+      const egg = incubatingEggs[i];
+      if (egg) {
+        const isReady  = egg.status === 'ready';
+        const progress = (egg.hatchAt && egg.incubatedAt)
+          ? Math.min(100, Math.round((now - egg.incubatedAt) / (egg.hatchAt - egg.incubatedAt) * 100)) : 0;
+        const tlm = (!isReady && egg.hatchAt) ? Math.max(0, Math.ceil((egg.hatchAt - now) / 60000)) : null;
+        const eggSrc = globalThis.eggSprite?.(egg, isReady) || '';
+        incSlotsHtml += `<div class="gb2-inc-slot ${isReady ? 'ready' : 'active'}" data-egg-id="${egg.id}">
+          <img src="${eggSrc}" alt="">
+          <div class="gb2-inc-bar"><div class="gb2-inc-fill" style="width:${isReady?100:progress}%;background:${isReady?'var(--green)':'var(--gold)'}"></div></div>
+          <span class="gb2-inc-time">${isReady ? '!' : tlm !== null ? tlm+'m' : ''}</span>
+        </div>`;
+      } else {
+        incSlotsHtml += `<div class="gb2-inc-slot empty"></div>`;
+      }
+    }
+  }
+
+  // ── Feed ──
+  const pendingIncome = focusState?.pendingIncome || 0;
+  const readyEggs     = incubatingEggs.filter(e => e.status === 'ready').length;
+  const zoneDesc      = focusZone
+    ? (state.lang === 'fr' ? (focusZone.desc_fr || focusZone.fr) : (focusZone.desc_en || focusZone.en))
+    : 'Ouvrez une zone pour démarrer les opérations.';
+
+  const feedHtml = [
+    focusZone ? {
+      tag:    focusMeta.stateLabel,
+      title:  `${focusName} · ${poss}%`,
+      detail: pendingIncome > 0 ? `${pendingIncome.toLocaleString()}₽ à récupérer` : zoneDesc,
+      cls:    focusMeta.dangerLabel === 'Critique' || focusMeta.dangerLabel === 'Extreme' ? 'alert'
+              : isFocusOpen ? 'ok' : '',
+    } : null,
+    readyEggs > 0
+      ? { tag: 'Pension', title: `${readyEggs} œuf(s) prêt(s)`, detail: 'Incubateurs disponibles.', cls: 'ok' }
+      : null,
+    focusAgents.length === 0
+      ? { tag: 'Cellule', title: 'Front sans agent', detail: 'Assignez un agent pour produire hors fenêtre.', cls: 'alert' }
+      : null,
+  ].filter(Boolean).map(item => `
+    <div class="gb2-feed-item ${item.cls || ''}">
+      <div class="gb2-fi-tag">${item.tag}</div>
+      <div><div class="gb2-fi-title">${item.title}</div><div class="gb2-fi-detail">${item.detail}</div></div>
+    </div>`).join('');
+
+  // ── Agents ──
+  const allAgents  = state.agents || [];
+  const agentsHtml = allAgents.length ? allAgents.map(agent => {
+    const inFocus   = agent.assignedZone === focusZoneId;
+    const zoneName  = agent.assignedZone ? _baseZoneName(_baseZoneById(agent.assignedZone), state) : 'Réserve';
+    const rank      = globalThis.getAgentRankLabel?.(agent.title) || BASE_RANK_FR[agent.title] || agent.title || 'Agent';
+    const agPks     = (agent.team || []).map(id => state.pokemons.find(p => p.id === id)).filter(Boolean);
+    const teamSlots = [0, 1, 2].map(i => {
+      const pk = agPks[i];
+      return pk
+        ? `<div class="gb2-agent-team-slot"><img src="${pokeSprite(pk.species_en, pk.shiny)}" alt=""></div>`
+        : `<div class="gb2-agent-team-slot empty"></div>`;
+    }).join('');
+    const isAssigned = !!agent.assignedZone;
+    return `<div class="gb2-agent-card${inFocus ? ' in-focus' : ''}">
+      <div class="gb2-agent-sprite-wrap">
+        <img src="${agent.sprite || trainerSprite('acetrainer')}" alt="" onerror="this.src='${trainerSprite('acetrainer')}'">
+      </div>
+      <div class="gb2-agent-body">
+        <div class="gb2-agent-name">${agent.name}</div>
+        <div class="gb2-agent-rank-zone">${rank}</div>
+        <div class="gb2-agent-team-row">${teamSlots}</div>
+      </div>
+      <div class="gb2-agent-zone-col">
+        <div class="gb2-az-label">Zone</div>
+        <div class="gb2-az-zone ${isAssigned ? 'assigned' : ''}">${zoneName}</div>
+        <button class="gb2-agent-assign-btn ${inFocus ? 'retirer' : ''}"
+          data-gb2-assign-agent="${agent.id}" data-gb2-target-zone="${focusZoneId}">
+          ${inFocus ? 'Retirer' : 'Assigner'}
+        </button>
+      </div>
+    </div>`;
+  }).join('') : `<div class="base-empty-note">Aucun agent recruté</div>`;
+
+  // ── Panneau assignation (bas colonne droite) ──
+  const zapSlots = focusAgents.slice(0, 4).map(agent =>
+    `<div class="gb2-zap-slot filled" title="${agent.name}">
+      <img src="${agent.sprite || trainerSprite('acetrainer')}" alt="" onerror="this.src='${trainerSprite('acetrainer')}'">
+      <div class="zsn">${agent.name.split(' ')[0]}</div>
+    </div>`
+  );
+  const maxSlots = Math.min(4, Math.max(focusState.slots || 1, focusAgents.length));
+  for (let i = focusAgents.length; i < maxSlots; i++) zapSlots.push(`<div class="gb2-zap-slot empty"></div>`);
+
+  return `<div class="gang-base-window v2" id="gangBaseWin" data-base-focus-zone="${focusZoneId}">
+
+    <!-- Header -->
+    <div class="gb2-header">
+      <div class="gb2-h-left">
+        <span class="base-hq-icon" style="font-size:9px;padding:3px 6px">HQ</span>
+        <span style="font-family:var(--font-pixel);font-size:7px;color:var(--red);margin-left:6px">${state.gang.name}</span>
+        <span style="font-size:8px;color:var(--text-dim)">— ${state.gang.bossName}</span>
+      </div>
+      <div class="gb2-h-right">
+        <span style="font-family:var(--font-pixel);font-size:7px;color:var(--gold)">₽${(state.gang.money||0).toLocaleString()}</span>
+        <span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">⭐${(state.gang.reputation||0).toLocaleString()}</span>
+        <button class="gb-view-toggle v2-active" data-gb-view="v1" title="Vue v1 — Compacte">V1</button>
+        <button class="base-export-btn" title="Exporter">📷</button>
+      </div>
+    </div>
+
+    <!-- Shell 3 colonnes -->
+    <div class="gb2-shell">
+
+      <!-- ══ GAUCHE : Boss + Zones ══ -->
+      <div class="gb2-left">
+        <div class="gb2-boss-stage">
+          <div class="gb2-boss-main">
+            <div class="gb2-boss-sprite-wrap">
+              ${state.gang.bossSprite
+                ? `<img src="${trainerSprite(state.gang.bossSprite)}" alt="Boss" style="width:64px;height:64px;image-rendering:pixelated;filter:drop-shadow(0 0 8px rgba(204,51,51,.35))">`
+                : `<div style="width:64px;height:64px;background:var(--bg-card);border:1px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--text-dim)">?</div>`}
+              ${bossPatches}
+            </div>
+            <div style="flex:1;min-width:0">
+              <div class="gb2-gang-name">${state.gang.name}</div>
+              <div class="gb2-boss-title">${bossTitle}</div>
+              <div class="gb2-mini-stats">
+                <div class="gb2-stat"><span>${(state.gang.reputation||0) >= 1000 ? Math.floor((state.gang.reputation||0)/1000)+'k' : (state.gang.reputation||0)}</span><em>REP</em></div>
+                <div class="gb2-stat"><span>${(state.pokemons||[]).length}</span><em>PKM</em></div>
+                <div class="gb2-stat"><span>${(state.agents||[]).length}</span><em>AGT</em></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="gb2-team-wrap">
+          <div class="gb2-team-label">Équipe du boss</div>
+          <div class="gb2-team-slots">${bossTeamHtml}</div>
+        </div>
+        <div class="gb2-focus-header">
+          <div class="gb2-focus-zone-name">${focusName}</div>
+          <div class="gb2-focus-zone-type ${focusType}">${focusTypeFR.toUpperCase()}</div>
+        </div>
+        <div class="gb2-possession-meter">
+          <div class="gb2-poss-top">
+            <div>
+              <div class="gb2-poss-label">Possession</div>
+              <div class="gb2-poss-val ${possClass}">${poss}%</div>
+            </div>
+            <div class="gb2-poss-sub">${focusAgents.length} agent(s)</div>
+          </div>
+          <div class="gb2-poss-bar-track"><div class="gb2-poss-bar-fill" style="width:${poss}%"></div></div>
+          <div class="gb2-poss-badges">
+            <span class="gb2-pbadge ${dangerClass}">${focusMeta.dangerLabel}</span>
+            <span class="gb2-pbadge ${stateClass}">${focusMeta.stateLabel}</span>
+          </div>
+        </div>
+        <div class="gb2-zone-list-wrap">
+          <div class="gb2-zone-list-head">
+            <span>Fronts <strong style="color:var(--text)">${unlockedZones.length}</strong></span>
+          </div>
+          <div>${zoneListHtml}</div>
+        </div>
+      </div>
+
+      <!-- ══ CENTRE : Actions + Inventaire + Feed ══ -->
+      <div class="gb2-center">
+        <div class="gb2-action-bar">
+          <button class="gb2-act-btn primary" data-base-command="intervene" data-zone="${focusZoneId}">⚔ Intervenir</button>
+          <button class="gb2-act-btn" data-base-command="toggle-zone" data-zone="${focusZoneId}">${isFocusOpen ? 'Fermer' : 'Ouvrir'}</button>
+          <button class="gb2-act-btn" data-base-command="assign-agent" data-zone="${focusZoneId}">👥 Assigner</button>
+          <div class="gb2-act-sep"></div>
+          <button class="gb2-act-btn warn" data-base-command="retake" data-zone="${focusZoneId}">↩ Reprendre</button>
+        </div>
+        <div class="gb2-center-scroll">
+          <div class="gb2-inv-block">
+            <div class="gb2-inv-block-head">
+              <span class="gb2-inv-section-label">Poké Balls</span>
+              <span class="gb2-inv-section-label" style="color:var(--text)">${state.activeBall || 'pokeball'}</span>
+            </div>
+            <div class="gb2-inv-row">${ballsHtml}</div>
+          </div>
+          <div class="gb2-inv-block">
+            <div class="gb2-inv-block-head">
+              <span class="gb2-inv-section-label">Boosts</span>
+              <div class="gb2-boost-tabs">
+                ${[1,5,10].map(n => `<button class="gb2-boost-tab${_boostMult===n?' active':''}" data-boost-mult="${n}">×${n}</button>`).join('')}
+              </div>
+            </div>
+            <div class="gb2-inv-row">${boostsHtml}</div>
+          </div>
+          <div class="gb2-inv-block">
+            <div class="gb2-inv-block-head"><span class="gb2-inv-section-label">Objets & Clés</span></div>
+            <div class="gb2-inv-row">${craftHtml}${keysHtml}</div>
+          </div>
+          ${incCount > 0 ? `<div class="gb2-inv-block" data-base-action="pension">
+            <div class="gb2-inv-block-head">
+              <span class="gb2-inv-section-label">Incubateurs</span>
+              ${waitingEggs.length > 0 ? `<span class="gb2-inv-section-label" style="color:var(--gold)">+${waitingEggs.length} en attente</span>` : ''}
+            </div>
+            <div class="gb2-inv-row">${incSlotsHtml}</div>
+          </div>` : ''}
+          <div class="gb2-feed-section">
+            <div class="gb2-feed-lbl">Intel QG</div>
+            ${feedHtml || '<div class="base-empty-note">Aucune activité récente</div>'}
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ DROITE : Agents ══ -->
+      <div class="gb2-right">
+        <div class="gb2-panel-head">
+          <div class="gb2-ph-title">Agents</div>
+          <div class="gb2-ph-meta">${allAgents.length} opérationnel(s)</div>
+        </div>
+        <div class="gb2-agents-wrap">${agentsHtml}</div>
+        <div class="gb2-zap">
+          <div class="gb2-zap-title">Cellule assignée</div>
+          <div class="gb2-zap-zone-name">${focusName}</div>
+          <div class="gb2-zap-slots">${zapSlots.join('')}</div>
+          <div class="gb2-zap-info">${focusAgents.length > 0 ? focusAgents.map(a => a.name).join(', ') : 'Aucun agent sur ce front'}</div>
+        </div>
+      </div>
+
+    </div>
+  </div>`;
+}
+
+function bindGangBaseV2(container) {
+  const state     = globalThis.state;
+  const BALL_IDS  = ['pokeball','greatball','ultraball','duskball','masterball'];
+  const BOOST_IDS = ['lure','superlure','incense','rarescope','aura'];
+
+  _bindViewToggle(container);
+
+  // Commandes zone (Intervenir / Ouvrir / Assigner / Reprendre)
+  container.querySelectorAll('[data-base-command]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      _handleBaseCommand(btn.dataset.baseCommand, btn.dataset.zone);
+    });
+  });
+
+  // Sélection zone focus (liste gauche)
+  container.querySelectorAll('[data-gb2-zone-select]').forEach(el => {
+    el.addEventListener('click', () => _setBaseFocusZone(el.dataset.gb2ZoneSelect));
+  });
+
+  // Assign agent rapide depuis la colonne droite
+  container.querySelectorAll('[data-gb2-assign-agent]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const agentId     = btn.dataset.gb2AssignAgent;
+      const targetZoneId= btn.dataset.gb2TargetZone;
+      const agent       = state.agents.find(a => a.id === agentId);
+      if (!agent) return;
+      const isAssigned  = agent.assignedZone === targetZoneId;
+      const newZone     = isAssigned ? null : (targetZoneId || null);
+      if (globalThis.assignAgentToZone) globalThis.assignAgentToZone(agentId, newZone);
+      else { agent.assignedZone = newZone; globalThis.saveState?.(); }
+      const targetZone  = newZone ? _baseZoneById(newZone) : null;
+      globalThis.notify?.(newZone ? `${agent.name} → ${_baseZoneName(targetZone, state)}` : `${agent.name} retiré du front`, newZone ? 'success' : '');
+      _refreshBaseRuntime();
+    });
+  });
+
+  // Boss team slots
+  container.querySelectorAll('[data-boss-slot]').forEach(slot => {
+    slot.addEventListener('click', () => {
+      const idx  = parseInt(slot.dataset.bossSlot);
+      const pkId = state.gang.bossTeam[idx];
+      if (pkId) {
+        state.gang.bossTeam.splice(idx, 1);
+        globalThis.saveState?.();
+        globalThis.renderZoneWindows?.();
+      } else {
+        globalThis.openTeamPicker('boss', null, () => globalThis.renderZoneWindows?.());
+      }
+      renderGangBasePanel();
+    });
+  });
+
+  // Export
+  container.querySelector('.base-export-btn')?.addEventListener('click', openExportModal);
+
+  // Pension (incubateurs)
+  container.querySelector('[data-base-action="pension"]')?.addEventListener('click', e => {
+    if (e.target.closest('[data-egg-id]')) return;
+    globalThis.pcView = 'pension';
+    globalThis.switchTab('tabPC');
+  });
+
+  // Œufs prêts
+  container.querySelectorAll('.gb2-inc-slot.ready[data-egg-id]').forEach(slot => {
+    slot.addEventListener('click', e => {
+      e.stopPropagation();
+      const egg = state.eggs.find(egg => egg.id === slot.dataset.eggId);
+      if (egg) globalThis.openHatchAnimation?.(egg, () => renderGangBasePanel());
+    });
+  });
+
+  // Multiplicateur boosts
+  container.querySelectorAll('[data-boost-mult]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      _boostMult = parseInt(btn.dataset.boostMult);
+      renderGangBasePanel();
+    });
+  });
+
+  // Item tiles
+  container.querySelectorAll('.gb2-item-tile[data-bag-item]').forEach(el => {
+    el.addEventListener('click', () => {
+      const id  = el.dataset.bagItem;
+      const qty = state.inventory?.[id] || 0;
+      if (BALL_IDS.includes(id)) {
+        state.activeBall = id;
+        globalThis.saveState?.();
+        globalThis.renderZoneWindows?.();
+        renderGangBasePanel();
+        return;
+      }
+      if (id === 'rarecandy') { globalThis.openRareCandyPicker?.(); return; }
+      if (BOOST_IDS.includes(id)) {
+        const uses = Math.min(_boostMult, qty);
+        if (uses > 0) {
+          for (let i = 0; i < uses; i++) globalThis.activateBoost?.(id);
+          globalThis.notify?.(`Boost ×${uses} activé — ${Math.ceil(globalThis.boostRemaining?.(id) || 0)}s`, 'success');
+        }
+        globalThis.renderZoneWindows?.();
+        renderGangBasePanel();
+      }
+    });
+  });
 }
 
 function _refreshBaseRuntime() {
@@ -554,10 +1012,25 @@ function _handleBaseCommand(command, zoneId) {
   }
 }
 
+function _bindViewToggle(container) {
+  container.querySelectorAll('[data-gb-view]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      _gangBaseViewMode = btn.dataset.gbView;
+      const st = globalThis.state;
+      if (st) { st.settings = st.settings || {}; st.settings.gangBaseView = _gangBaseViewMode; }
+      globalThis.saveState?.();
+      renderGangBasePanel();
+    });
+  });
+}
+
 function bindGangBase(container) {
   const state = globalThis.state;
   const BALL_IDS  = ['pokeball','greatball','ultraball','duskball','masterball'];
   const BOOST_IDS = ['lure','superlure','incense','rarescope','aura'];
+
+  _bindViewToggle(container);
 
   container.querySelectorAll('[data-base-command]').forEach(btn => {
     btn.addEventListener('click', e => {
