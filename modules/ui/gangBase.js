@@ -700,10 +700,6 @@ function renderGangBaseWindowV2() {
             </div>
           </div>
         </div>
-        <div class="gb2-team-wrap">
-          <div class="gb2-team-label">Équipe du boss</div>
-          <div class="gb2-team-slots">${bossTeamHtml}</div>
-        </div>
         <div class="gb2-focus-header">
           <div class="gb2-focus-zone-name">${focusName}</div>
           <div class="gb2-focus-zone-type ${focusType}">${focusTypeFR.toUpperCase()}</div>
@@ -740,13 +736,34 @@ function renderGangBaseWindowV2() {
           <button class="gb2-act-btn warn" data-base-command="retake" data-zone="${focusZoneId}">↩ Reprendre</button>
         </div>
         <div class="gb2-center-scroll">
+          <!-- Équipe du boss -->
           <div class="gb2-inv-block">
             <div class="gb2-inv-block-head">
-              <span class="gb2-inv-section-label">Poké Balls</span>
-              <span class="gb2-inv-section-label" style="color:var(--text)">${state.activeBall || 'pokeball'}</span>
+              <span class="gb2-inv-section-label">Équipe du boss</span>
+              <span class="gb2-inv-section-label" style="color:var(--text-dim)">${state.gang.bossTeam.filter(Boolean).length}/3</span>
             </div>
-            <div class="gb2-inv-row">${ballsHtml}</div>
+            <div class="gb2-team-center">
+              ${[0,1,2].map(i => {
+                const pkId = state.gang.bossTeam[i];
+                const pk   = pkId ? state.pokemons.find(p => p.id === pkId) : null;
+                if (pk) {
+                  const stats = globalThis.calculateStats?.(pk) || {};
+                  const power = globalThis.getPokemonPower?.(pk) || 0;
+                  return `<div class="gb2-boss-team-card filled" data-boss-slot="${i}" title="Retirer ${speciesName(pk.species_en)}">
+                    <img src="${pokeSprite(pk.species_en, pk.shiny)}" alt="">
+                    <div class="gb2-btc-name">${speciesName(pk.species_en)}${pk.shiny ? ' ✨' : ''}</div>
+                    <div class="gb2-btc-level">Lv.${pk.level} ${'★'.repeat(pk.potential)}</div>
+                    <div class="gb2-btc-power">${power} pw</div>
+                  </div>`;
+                }
+                return `<div class="gb2-boss-team-card empty" data-boss-slot="${i}">
+                  <span style="font-size:20px;opacity:.2">+</span>
+                  <div class="gb2-btc-name" style="opacity:.4">Slot ${i+1}</div>
+                </div>`;
+              }).join('')}
+            </div>
           </div>
+          <!-- Boosts -->
           <div class="gb2-inv-block">
             <div class="gb2-inv-block-head">
               <span class="gb2-inv-section-label">Boosts</span>
@@ -756,9 +773,13 @@ function renderGangBaseWindowV2() {
             </div>
             <div class="gb2-inv-row">${boostsHtml}</div>
           </div>
+          <!-- Balls + Objets + Clés -->
           <div class="gb2-inv-block">
-            <div class="gb2-inv-block-head"><span class="gb2-inv-section-label">Objets & Clés</span></div>
-            <div class="gb2-inv-row">${craftHtml}${keysHtml}</div>
+            <div class="gb2-inv-block-head">
+              <span class="gb2-inv-section-label">Balls & Objets</span>
+              <span class="gb2-inv-section-label" style="color:var(--text-dim)">Active : ${state.activeBall || 'pokeball'}</span>
+            </div>
+            <div class="gb2-inv-row">${ballsHtml}${craftHtml}${keysHtml}</div>
           </div>
           ${incCount > 0 ? `<div class="gb2-inv-block" data-base-action="pension">
             <div class="gb2-inv-block-head">
