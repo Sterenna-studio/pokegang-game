@@ -513,7 +513,7 @@ function renderGangBaseWindowV2() {
 
   // ── Zone list ──
   const unlockedZones = _baseUnlockedZones(state);
-  const zoneListHtml  = unlockedZones.slice(0, 40).map(zone => {
+  const zoneListHtml  = unlockedZones.map(zone => {
     const zs      = state.zones?.[zone.id] || {};
     const agents  = (state.agents || []).filter(a => a.assignedZone === zone.id).length;
     const meta    = _baseZoneStatus(zone, state, zs, agents);
