@@ -3700,6 +3700,42 @@
     .gb2-inc-slot.ready .gb2-inc-time { color: var(--green); }
     .gb2-inc-slot.empty { border-style: dashed; opacity: .3; cursor: default; }
 
+    /* Boss team dans le centre v2 */
+    .gb2-team-center {
+      display: flex;
+      gap: 6px;
+      padding: 6px 10px 8px;
+    }
+    .gb2-boss-team-card {
+      flex: 1;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      padding: 6px 4px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+      min-height: 80px;
+      position: relative;
+    }
+    .gb2-boss-team-card:hover { border-color: var(--red); background: var(--bg-hover); }
+    .gb2-boss-team-card.filled { border-color: rgba(204,51,51,.3); }
+    .gb2-boss-team-card.filled:hover::after {
+      content: '✕';
+      position: absolute;
+      top: 3px; right: 4px;
+      font-size: 8px;
+      color: var(--red);
+      font-family: var(--font-pixel);
+    }
+    .gb2-boss-team-card.empty { border-style: dashed; opacity: .4; justify-content: center; }
+    .gb2-boss-team-card img { width: 40px; height: 40px; image-rendering: pixelated; }
+    .gb2-btc-name { font-family: var(--font-pixel); font-size: 6px; color: var(--text); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
+    .gb2-btc-level { font-size: 7px; color: var(--gold-dim); text-align: center; }
+    .gb2-btc-power { font-family: var(--font-pixel); font-size: 6px; color: var(--text-dim); text-align: center; }
+
     .gb2-feed-section { padding: 6px 10px 8px; }
     .gb2-feed-lbl { font-family: var(--font-pixel); font-size: 7px; color: var(--text-dim); letter-spacing: 1.5px; margin-bottom: 5px; }
     .gb2-feed-item {
