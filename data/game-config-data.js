@@ -55,6 +55,11 @@ const AGENT_SPRITES = [
   'juggler','burglar','channeler','birdkeeper','cueball','tamer','rocker',
   // Kanto/Johto misc
   'cooltrainer','cooltrainerf','pokefan','pokefanf',
+  // Gen 2 / Johto — archétypes dédiés
+  'boarder','kimonogirl','firebreather','guitarist','sage',
+  'twins','schoolkid','skier','medium','officer',
+  'acetrainerGen2','acetrainerFGen2','beautyGen2','bikerGen2','hikerGen2',
+  'jugglerGen2','psychicGen2','pokemaniacGen2','birdkeeperGen2','bugcatcherGen2','camperGen2','gentlemanGen2',
   // Hoenn / Gen 3 — gangs rivaux, économie, terrain
   'aquaGruntM','aquaGruntF','magmaGruntM','magmaGruntF',
   'aquaGruntMGen3','aquaGruntFGen3','magmaGruntMGen3','magmaGruntFGen3',

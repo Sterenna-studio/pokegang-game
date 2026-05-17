@@ -62,6 +62,41 @@ const TRAINER_TYPES = {
   pokemonrangerf: { fr:'Ranger Pokémon', en:'Pokémon Ranger', sprite:'pokemonrangerf', diff:4, reward:[125,350],   rep:10},
   // Police (Arcanin, Caninos — zones Rocket)
   policeman:      { fr:'Policier',       en:'Policeman',      sprite:'policeman',      diff:4, reward:[150,400],   rep:12},
+
+  // ── Gen 2 / Johto — archétypes exclusifs ──────────────────────────────────
+  // Classes uniques à Johto, n'existant pas en Gen 1
+  boarder:        { fr:'Surfeur des neiges', en:'Boarder',      sprite:'boarder-gen2',      diff:2, reward:[25,75],    rep:3  },
+  kimonogirl:     { fr:'Fille Kimono',       en:'Kimono Girl',  sprite:'kimonogirl-gen2',   diff:3, reward:[60,180],   rep:6  },
+  firebreather:   { fr:'Crachefeu',          en:'Firebreather', sprite:'firebreather-gen2', diff:3, reward:[45,130],   rep:5  },
+  guitarist:      { fr:'Guitariste',         en:'Guitarist',    sprite:'guitarist-gen2',    diff:2, reward:[25,80],    rep:3  },
+  sage:           { fr:'Moine',              en:'Sage',         sprite:'sage',              diff:2, reward:[30,90],    rep:3  },
+  twins:          { fr:'Jumelles',           en:'Twins',        sprite:'twins',             diff:1, reward:[10,35],    rep:1  },
+  schoolkid:      { fr:'Écolier',            en:'School Kid',   sprite:'schoolkid',         diff:1, reward:[10,30],    rep:1  },
+  skier:          { fr:'Skieur',             en:'Skier',        sprite:'skier',             diff:2, reward:[25,70],    rep:3  },
+  medium:         { fr:'Médium',             en:'Medium',       sprite:'medium',            diff:2, reward:[30,90],    rep:3  },
+  officer:        { fr:'Agent',              en:'Officer',      sprite:'officer-gen2',      diff:3, reward:[50,150],   rep:5  },
+  pokefan:        { fr:'Fan Pokémon',        en:'Pokéfan',      sprite:'pokefan-gen2',      diff:2, reward:[30,90],    rep:3  },
+  pokefanf:       { fr:'Fan Pokémon♀',       en:'Pokéfan♀',     sprite:'pokefanf-gen2',     diff:2, reward:[30,90],    rep:3  },
+
+  // Gen 2 — variantes visuelles des types existants (sprite dédié Gen 2)
+  acetrainerGen2:  { fr:'Topdresseur',  en:'Ace Trainer',  sprite:'acetrainer-gen2',  diff:3, reward:[50,150],   rep:5  },
+  acetrainerFGen2: { fr:'Topdresseuse', en:'Ace Trainer♀', sprite:'acetrainerf-gen2', diff:3, reward:[50,150],   rep:5  },
+  beautyGen2:      { fr:'Canon',        en:'Beauty',       sprite:'beauty-gen2',      diff:2, reward:[30,90],    rep:3  },
+  bikerGen2:       { fr:'Motard',       en:'Biker',        sprite:'biker-gen2',       diff:2, reward:[25,75],    rep:3  },
+  hikerGen2:       { fr:'Montagnard',   en:'Hiker',        sprite:'hiker-gen2',       diff:2, reward:[25,75],    rep:3  },
+  jugglerGen2:     { fr:'Jongleur',     en:'Juggler',      sprite:'juggler-gen2',     diff:3, reward:[50,140],   rep:5  },
+  psychicGen2:     { fr:'Médium',       en:'Psychic',      sprite:'psychic-gen2',     diff:2, reward:[30,90],    rep:3  },
+  pokemaniacGen2:  { fr:'Maniaque',     en:'Pokemaniac',   sprite:'pokemaniac-gen2',  diff:2, reward:[30,90],    rep:3  },
+  birdkeeperGen2:  { fr:'Dresseur',     en:'Bird Keeper',  sprite:'birdkeeper-gen2',  diff:2, reward:[25,75],    rep:3  },
+  bugcatcherGen2:  { fr:'Chasseur',     en:'Bug Catcher',  sprite:'bugcatcher-gen2',  diff:1, reward:[10,30],    rep:1  },
+  camperGen2:      { fr:'Campeur',      en:'Camper',       sprite:'camper-gen2',      diff:1, reward:[15,40],    rep:1  },
+  gentlemanGen2:   { fr:'Gentleman',    en:'Gentleman',    sprite:'gentleman-gen2',   diff:2, reward:[30,90],    rep:3  },
+
+  // Gen 2 — PNJ spéciaux Johto
+  janine:          { fr:'Janine',  en:'Janine', sprite:'janine-gen2',  diff:5, reward:[2500,5000], rep:22 },
+  eusine:          { fr:'Eusin',   en:'Eusine', sprite:'eusine',       diff:4, reward:[1500,3500], rep:15 },
+  kris:            { fr:'Kris',    en:'Kris',   sprite:'kris',         diff:6, reward:[4000,8000], rep:35 },
+  ethan:           { fr:'Éthan',   en:'Ethan',  sprite:'ethan-gen2',   diff:6, reward:[4000,8000], rep:35 },
 };
 
 export { TRAINER_TYPES };
