@@ -338,13 +338,16 @@ function _typeCoverageMult(playerPks, enemyPks) {
 function getAgentCombatPower(agent) {
   const state = globalThis.state;
   const TITLE_BONUSES = globalThis.TITLE_BONUSES;
-  const bonus = 1 + (TITLE_BONUSES[agent.title] || 0);
+  // Le grade multiplie UNIQUEMENT la force de l'équipe Pokémon.
+  // La contribution de niveau reste neutre — un commandant gère mieux ses Pokémon,
+  // il ne devient pas physiquement plus fort.
+  const teamMult = 1 + (TITLE_BONUSES?.[agent.title] ?? 0);
   let teamPower = 0;
   for (const pkId of agent.team) {
     const p = state.pokemons.find(pk => pk.id === pkId);
     if (p) teamPower += globalThis.getPokemonPower(p);
   }
-  return Math.round((agent.level * 15 + teamPower) * bonus);
+  return Math.round(agent.level * 15 + teamPower * teamMult);
 }
 
 function _zoneCombatAgents(zoneId, { isRaid = false, preferredAgent = null } = {}) {

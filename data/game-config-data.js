@@ -86,14 +86,16 @@ const TITLE_REQUIREMENTS = {
   general:    { level: 100 },
 };
 
-// Bonus de puissance de combat par grade — plafonné à 20% (tier 1=5%, 2=10%, 3+=20%)
+// Multiplicateur appliqué uniquement à la puissance d'ÉQUIPE (teamPower) de l'agent.
+// Formula : agentPower = level × 15  +  teamPower × (1 + TITLE_BONUSES[grade])
+// Élite est exclusif (4 max) → bonus supérieur au Général
 const TITLE_BONUSES = {
-  grunt:      0,
-  sergent:    0.05,
-  lieutenant: 0.10,
-  commandant: 0.20,
-  elite:      0.20,
-  general:    0.20,
+  grunt:      0.00,  // ×1.00 — aucun bonus
+  sergent:    0.20,  // ×1.20 — +20 % équipe
+  lieutenant: 0.40,  // ×1.40 — +40 % équipe
+  commandant: 0.65,  // ×1.65 — +65 % équipe
+  general:    0.80,  // ×1.80 — +80 % équipe
+  elite:      1.00,  // ×2.00 — ×2 équipe (4 max par gang)
 };
 
 // Labels d'affichage par grade (FR / EN)
