@@ -386,20 +386,7 @@ const SPECIAL_EVENTS_JOHTO = [
     trainerKey:'archer', chance:0.03, minRep:600,
     reward: { money:[5000,12000], rep:20 },
     desc_fr:"Archer prend le contrôle de la Tour Radio ! Battez-le pour libérer les ondes.",
-    desc_en:'Archer takes over the Radio Tower! Defeat him to free the airwaves.' },
-
-  { id:'rocket_slowpoke_heist', fr:'Vol des Queues Ramoloss !', en:'Slowpoke Tail Heist!', icon:'🐾',
-    trainerKey:'proton', chance:0.05, minRep:100,
-    reward: { money:[2000,5000], rep:12 },
-    desc_fr:"Lambda rackette les habitants d'Azalée avec des queues de Ramoloss !",
-    desc_en:'Proton is extorting Azalea residents with Slowpoke Tails!' },
-
-  { id:'rocket_lake_raid', fr:'Raid au Lac de Mahogany !', en:'Mahogany Lake Raid!', icon:'🎣',
-    trainerKey:'ariana', chance:0.04, minRep:400,
-    reward: { money:[3000,7000], rep:15 },
-    desc_fr:"Ariane dirige une opération secrète au lac Acajou. Arrêtez-la !",
-    desc_en:'Ariana is running a secret operation at Mahogany Lake. Stop her!' },
-
+    desc_en:'Archer takes over the Radio Tower! Defeat him to free the airwaves.' }
   { id:'giovanni_comeback', fr:'Retour de Giovanni !', en:'Giovanni Returns!', icon:'💼',
     trainerKey:'giovanni', chance:0.01, minRep:900,
     reward: { money:[20000,40000], rep:60, rareBoost:90000 },
@@ -411,27 +398,13 @@ const SPECIAL_EVENTS_JOHTO = [
     trainerKey:'silver', chance:0.03, minRep:200,
     reward: { money:[3000,7000], rep:15, xpBonus:40 },
     desc_fr:'Silver surgit ! "Les faibles ne méritent pas les Pokémon."',
-    desc_en:'Silver appears! "The weak don\'t deserve Pokémon."' },
-
-  { id:'silver_final', fr:'Confrontation Finale avec Silver !', en:'Final Showdown with Silver!', icon:'🌑',
-    trainerKey:'silver', chance:0.015, minRep:900,
-    reward: { money:[10000,20000], rep:40, xpBonus:100 },
-    desc_fr:'Silver revient transformé. Un dernier duel pour conclure votre rivalité.',
-    desc_en:'Silver returns, changed. One final duel to end your rivalry.' },
-
+    desc_en:'Silver appears! "The weak don\'t deserve Pokémon."' }
   // --- Légendaires chiens ---
   { id:'raikou_sighting', fr:'Apparition de Raikou !', en:'Raikou Sighting!', icon:'⚡',
     trainerKey:null, chance:0.02, minRep:350,
     reward: { rareBoost:90000, shinyBoost:30000, xpBonus:60 },
     desc_fr:"Un éclair traverse la zone — Raikou est là ! Les Pokémon Électrik afflent !",
-    desc_en:'A bolt strikes the area — Raikou is here! Electric Pokémon surge in!' },
-
-  { id:'entei_eruption', fr:"Éruption d'Entei !", en:"Entei's Eruption!", icon:'🌋',
-    trainerKey:null, chance:0.02, minRep:350,
-    reward: { rareBoost:90000, shinyBoost:30000, xpBonus:60 },
-    desc_fr:"La terre tremble — Entei galope dans la zone ! Les Pokémon Feu s'embrasent !",
-    desc_en:'The ground trembles — Entei gallops through! Fire Pokémon ignite!' },
-
+    desc_en:'A bolt strikes the area — Raikou is here! Electric Pokémon surge in!' }
   { id:'suicune_blessing', fr:'Bénédiction de Suicune !', en:"Suicune's Blessing!", icon:'💧',
     trainerKey:null, chance:0.02, minRep:350,
     reward: { rareBoost:90000, shinyBoost:45000, chestBoost:45000 },
@@ -464,14 +437,7 @@ const SPECIAL_EVENTS_JOHTO = [
     trainerKey:'falkner', chance:0.04, minRep:50,
     reward: { money:[1500,3000], rep:12, xpBonus:25 },
     desc_fr:"Foxy surveille les cieux depuis son arène d'Ecorfeuil !",
-    desc_en:"Falkner, Violet City's Gym Leader, watches the skies from his gym!" },
-
-  { id:'bugsy_challenge', fr:'Défi de Léna !', en:"Bugsy's Challenge!", icon:'🐛',
-    trainerKey:'bugsy', chance:0.04, minRep:130,
-    reward: { money:[1500,3000], rep:12, xpBonus:25 },
-    desc_fr:"Léna, la pro en entomologie, envoie ses insectes à l'assaut !",
-    desc_en:'Bugsy, the bug expert, sends her insects into battle!' },
-
+    desc_en:"Falkner, Violet City's Gym Leader, watches the skies from his gym!" }
   { id:'whitney_challenge', fr:'Défi de Blanche !', en:"Whitney's Challenge!", icon:'🐄',
     trainerKey:'whitney', chance:0.03, minRep:220,
     reward: { money:[2000,4500], rep:15, xpBonus:30 },
@@ -482,26 +448,7 @@ const SPECIAL_EVENTS_JOHTO = [
     trainerKey:'morty', chance:0.03, minRep:350,
     reward: { money:[2500,5500], rep:18, xpBonus:40 },
     desc_fr:"Mortimer, le Champion Spectre, vous attire dans le brouillard d'Ecorcia.",
-    desc_en:"Morty, the Ghost-type master, lures you into Ecruteak's fog." },
-
-  { id:'chuck_challenge', fr:'Défi de Bastien !', en:"Chuck's Challenge!", icon:'💪',
-    trainerKey:'chuck', chance:0.03, minRep:460,
-    reward: { money:[3000,6000], rep:18, xpBonus:45 },
-    desc_fr:"Bastien sort de sa cascade d'entraînement pour vous affronter !",
-    desc_en:'Chuck steps out from his waterfall training to battle you!' },
-
-  { id:'jasmine_challenge', fr:'Défi de Jasmine !', en:"Jasmine's Challenge!", icon:'⚙️',
-    trainerKey:'jasmine', chance:0.03, minRep:530,
-    reward: { money:[3500,7000], rep:20, xpBonus:50 },
-    desc_fr:"Jasmine, la Fille de Fer d'Oliville, sort son Steelix sans hésiter.",
-    desc_en:"Jasmine, the Steel-clad Girl of Olivine, sends out her Steelix without hesitation." },
-
-  { id:'pryce_challenge', fr:'Défi de Froid !', en:"Pryce's Challenge!", icon:'🧊',
-    trainerKey:'pryce', chance:0.02, minRep:620,
-    reward: { money:[4000,8000], rep:20, xpBonus:55 },
-    desc_fr:"Froid, le Maître de Glace aux 30 ans d'expérience, gèle vos espoirs.",
-    desc_en:"Pryce, the ice master with 30 years of experience, freezes your hopes." },
-
+    desc_en:"Morty, the Ghost-type master, lures you into Ecruteak's fog." }
   { id:'clair_challenge', fr:'Défi de Cathy !', en:"Clair's Challenge!", icon:'🐉',
     trainerKey:'clair', chance:0.02, minRep:760,
     reward: { money:[6000,12000], rep:25, xpBonus:70 },
@@ -513,20 +460,7 @@ const SPECIAL_EVENTS_JOHTO = [
     trainerKey:'will', chance:0.02, minRep:850,
     reward: { money:[8000,15000], rep:30, xpBonus:80 },
     desc_fr:'Yoran du Conseil 4 de Johto invoque ses Pokémon Psy depuis le néant !',
-    desc_en:'Will of the Johto Elite Four summons his Psychic Pokémon from thin air!' },
-
-  { id:'koga_johto', fr:'Koga du Conseil 4 !', en:'Koga (Elite Four)!', icon:'🥷',
-    trainerKey:'koga', chance:0.02, minRep:880,
-    reward: { money:[9000,17000], rep:32, xpBonus:85 },
-    desc_fr:"Koga, promu au Conseil 4 de Johto, surgit de l'ombre avec de nouveaux Pokémon !",
-    desc_en:'Koga, now in the Johto Elite Four, strikes from the shadows with new Pokémon!' },
-
-  { id:'bruno_johto', fr:'Aldo (Johto) !', en:'Bruno (Johto)!', icon:'💪',
-    trainerKey:'bruno', chance:0.02, minRep:880,
-    reward: { money:[9000,17000], rep:32, xpBonus:85 },
-    desc_fr:"Aldo est de retour au Conseil 4, plus fort que jamais. Vous l'affrontez encore ?",
-    desc_en:'Bruno is back in the Elite Four, stronger than ever. Dare you face him again?' },
-
+    desc_en:'Will of the Johto Elite Four summons his Psychic Pokémon from thin air!' }
   { id:'karen_appears', fr:'Carole apparaît !', en:'Karen Appears!', icon:'🌑',
     trainerKey:'karen', chance:0.02, minRep:920,
     reward: { money:[10000,20000], rep:35, xpBonus:90 },
@@ -540,12 +474,6 @@ const SPECIAL_EVENTS_JOHTO = [
     desc_en:"Lance, Johto's Champion, descends from the Indigo Plateau to challenge you!" },
 
   // --- Red & Ethan ---
-  { id:'ethan_gold_appears', fr:'Éthan surgit !', en:'Ethan Appears!', icon:'🌟',
-    trainerKey:'ethan', chance:0.02, minRep:700,
-    reward: { money:[6000,12000], rep:20, xpBonus:60 },
-    desc_fr:"Éthan, le dresseur légendaire de Bourg Geon, croise votre route.",
-    desc_en:'Ethan, the legendary trainer from New Bark Town, crosses your path.' },
-
   { id:'red_at_summit', fr:'Red au sommet !', en:'Red at the Summit!', icon:'🗻',
     trainerKey:'red', chance:0.01, minRep:1100,
     reward: { money:[20000,40000], rep:70, xpBonus:180 },
@@ -553,12 +481,6 @@ const SPECIAL_EVENTS_JOHTO = [
     desc_en:'Red stands at the summit of Mt. Silver, silent. He accepts your challenge with a nod.' },
 
   // --- Légendaires ---
-  { id:'lugia_emerges', fr:'Lugia émerge des flots !', en:'Lugia Emerges!', icon:'🌊',
-    trainerKey:null, chance:0.01, minRep:850,
-    reward: { rareBoost:150000, shinyBoost:60000, chestBoost:60000 },
-    desc_fr:"Lugia s'élève des Îles Tourbillon ! Une aura mystique envahit la zone.",
-    desc_en:'Lugia rises from the Whirl Islands! A mystical aura floods the area.' },
-
   { id:'hooh_flies_over', fr:'Ho-Oh survole la région !', en:'Ho-Oh Flies Over!', icon:'🌈',
     trainerKey:null, chance:0.01, minRep:900,
     reward: { rareBoost:150000, shinyBoost:90000, eggGift:['ho-oh'] },
