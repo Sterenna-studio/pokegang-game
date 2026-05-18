@@ -943,6 +943,207 @@ function _zoneLevelHtml(zoneId) {
   return `<span style="font-family:var(--font-pixel);font-size:8px;color:var(--gold)">Nv.${lv}</span>`;
 }
 
+// ── Zone context menu (right-click on viewport) ───────────────────────────────
+function _openZoneContextMenu(zoneId, clientX, clientY) {
+  // Remove any existing context menu
+  document.getElementById('zone-ctx-menu')?.remove();
+
+  const state   = globalThis.state;
+  const zone    = ZONE_BY_ID[zoneId] || {};
+  const zState  = state.zones[zoneId] || {};
+  const mastery = globalThis.getZoneMastery?.(zoneId) ?? 0;
+  const assignedAgents = state.agents.filter(a => a.assignedZone === zoneId);
+  const name = state.lang === 'fr' ? zone.fr : zone.en;
+
+  // ── Combat preview ────────────────────────────────────────────
+  const preview = getTrainerCombatPreview({ zoneId, trainerKey: zone.eliteTrainer }, null);
+  const atkPow  = preview.attackerPower;
+  const defPow  = preview.defenderPower;
+  const winPct  = defPow <= 0 ? 100 : Math.round(Math.min(100, (atkPow / (atkPow + defPow)) * 100));
+  const barW    = Math.max(3, Math.min(97, winPct));
+
+  // ── Pokémon pool ──────────────────────────────────────────────
+  const pool = zone.pool || [];
+  const poolHtml = pool.length
+    ? pool.map(sp => {
+        const caught = state.pokedex[sp]?.caught;
+        const sprUrl = globalThis.pokeSprite(sp, false);
+        const spName = globalThis.speciesName?.(sp) ?? sp;
+        return `<span title="${spName}" style="display:inline-flex;flex-direction:column;align-items:center;gap:1px;opacity:${caught ? 1 : 0.45}">
+          <img src="${sprUrl}" style="width:28px;height:28px;image-rendering:pixelated">
+        </span>`;
+      }).join('')
+    : `<span style="color:var(--text-dim);font-size:10px">—</span>`;
+
+  // ── Trainers ──────────────────────────────────────────────────
+  const regularTrainers = (zone.trainers || []);
+  const eliteKey = zone.eliteTrainer;
+  const gymKey   = zone.gymLeader;
+  const gymType  = zone.gymType;
+  const gymDefeated = zState.gymDefeated;
+
+  const _trainerRow = (key, badge) => {
+    const t = TRAINER_TYPES[key];
+    if (!t) return '';
+    const tName = state.lang === 'fr' ? t.fr : t.en;
+    const tSprite = globalThis.trainerSprite?.(t.sprite || key) ?? '';
+    return `<div style="display:flex;align-items:center;gap:6px;padding:2px 0;border-bottom:1px solid rgba(255,255,255,.06)">
+      <img src="${tSprite}" style="width:28px;height:28px;image-rendering:pixelated;flex-shrink:0" onerror="this.style.display='none'">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:10px;color:var(--text)">${tName}</div>
+        <div style="font-size:8px;color:var(--text-dim)">diff ${t.diff} · ${t.reward[0]}–${t.reward[1]}₽ · +${t.rep}⭐</div>
+      </div>
+      ${badge ? `<span style="font-family:var(--font-pixel);font-size:7px;padding:1px 4px;background:rgba(200,60,60,.3);border:1px solid var(--red);border-radius:2px;color:var(--red);white-space:nowrap">${badge}</span>` : ''}
+    </div>`;
+  };
+
+  // Deduplicate regular trainers for display
+  const uniqRegular = [...new Set(regularTrainers)];
+  const trainersHtml = [
+    ...uniqRegular.map(k => _trainerRow(k, '')),
+    eliteKey && eliteKey !== gymKey ? _trainerRow(eliteKey, 'ÉLITE') : '',
+    gymKey ? _trainerRow(gymKey, gymDefeated ? `GYM ✓ ${gymType}` : `GYM ${gymType}`) : '',
+  ].filter(Boolean).join('');
+
+  // ── Mastery stars ─────────────────────────────────────────────
+  const masteryStars = ['☆','☆','☆'].map((s, i) => i < mastery ? '★' : '☆').join('');
+
+  // ── Agents ────────────────────────────────────────────────────
+  const agentsHtml = assignedAgents.length
+    ? assignedAgents.map(a => {
+        const tp = (a.team || []).reduce((s, id) => {
+          const p = state.pokemons?.find(pk => pk.id === id);
+          return s + (p ? (globalThis.getPokemonPower?.(p) ?? 0) : 0);
+        }, 0);
+        return `<div style="display:flex;align-items:center;gap:5px;font-size:10px;padding:1px 0">
+          <img src="${a.sprite}" style="width:20px;height:20px;image-rendering:pixelated" onerror="this.style.display='none'">
+          <span>${a.name}</span>
+          <span style="color:var(--text-dim);font-size:9px;margin-left:auto">${a.title ?? ''} · PC ${tp}</span>
+        </div>`;
+      }).join('')
+    : `<span style="color:var(--text-dim);font-size:10px">Aucun agent assigné</span>`;
+
+  // ── Spawn rate display ────────────────────────────────────────
+  const spawnSecs = zone.spawnRate > 0 ? Math.round(1 / zone.spawnRate) : null;
+  const spawnLabel = spawnSecs != null ? `~${spawnSecs}s / spawn` : '—';
+
+  // ── Type badge ────────────────────────────────────────────────
+  const typeColors = { route:'#2a6', city:'#26a', special:'#96a', gang_park:'#a62' };
+  const typeLabels = { route:'ROUTE', city:'VILLE', special:'SPÉCIALE', gang_park:'QG' };
+  const typeBg  = typeColors[zone.type] ?? '#444';
+  const typeLabel = typeLabels[zone.type] ?? (zone.type ?? '?').toUpperCase();
+
+  // ── Build panel ───────────────────────────────────────────────
+  const panel = document.createElement('div');
+  panel.id = 'zone-ctx-menu';
+  panel.style.cssText = [
+    'position:fixed',
+    `left:${clientX}px`,
+    `top:${clientY}px`,
+    'z-index:9999',
+    'background:var(--bg-panel,#111)',
+    'border:1px solid var(--border,#333)',
+    'border-radius:4px',
+    'box-shadow:0 4px 24px rgba(0,0,0,.8)',
+    'min-width:260px',
+    'max-width:300px',
+    'max-height:80vh',
+    'overflow-y:auto',
+    'font-family:var(--font-ui,sans-serif)',
+    'font-size:11px',
+    'color:var(--text,#e8e8e8)',
+    'user-select:none',
+    'animation:fadeIn .12s ease',
+  ].join(';');
+
+  panel.innerHTML = `
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-bottom:1px solid var(--border);background:rgba(0,0,0,.3)">
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="background:${typeBg};font-family:var(--font-pixel);font-size:7px;padding:1px 4px;border-radius:2px">${typeLabel}</span>
+        <span style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">${name}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">${masteryStars}</span>
+        <button id="zone-ctx-close" style="background:none;border:none;color:var(--text-dim);font-size:14px;cursor:pointer;line-height:1;padding:0 2px">&times;</button>
+      </div>
+    </div>
+
+    <!-- Zone stats row -->
+    <div style="display:flex;gap:0;border-bottom:1px solid var(--border)">
+      ${[
+        ['⭐', `Rép. req.`, zone.repRequired ?? zone.rep ?? 0],
+        ['🎯', `Captures`, zState.captures || 0],
+        ['⚔', `Combats`, zState.combatsWon || 0],
+        ['⏱', `Spawn`, spawnLabel],
+      ].map(([icon, label, val]) => `
+        <div style="flex:1;padding:5px 4px;text-align:center;border-right:1px solid var(--border)">
+          <div style="font-size:9px;color:var(--text-dim)">${icon} ${label}</div>
+          <div style="font-size:10px;color:var(--text);font-weight:bold;margin-top:1px">${val}</div>
+        </div>`).join('')}
+    </div>
+
+    <!-- Combat power preview -->
+    <div style="padding:8px 10px;border-bottom:1px solid var(--border)">
+      <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);margin-bottom:5px">PUISSANCE COMBAT</div>
+      <div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:4px">
+        <span style="color:#5af">Attaque <strong>${atkPow.toLocaleString()}</strong></span>
+        <span style="color:${winPct >= 50 ? '#5a5' : '#a55'}">${winPct}% victoire</span>
+        <span style="color:#f55">Défense <strong>${defPow.toLocaleString()}</strong></span>
+      </div>
+      <div style="height:5px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden">
+        <div style="height:100%;width:${barW}%;background:linear-gradient(90deg,#4af,#5a5);transition:width .3s"></div>
+      </div>
+      <div style="font-size:8px;color:var(--text-dim);margin-top:3px">
+        Type dresseur : <span style="color:var(--text)">${preview.trainerType}</span>
+        · ×${preview.trainerTypeMultiplier}
+      </div>
+    </div>
+
+    <!-- Pokémon pool -->
+    <div style="padding:8px 10px;border-bottom:1px solid var(--border)">
+      <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);margin-bottom:5px">POKÉMON (${pool.length})</div>
+      <div style="display:flex;flex-wrap:wrap;gap:2px">${poolHtml}</div>
+    </div>
+
+    <!-- Trainers -->
+    <div style="padding:8px 10px;border-bottom:1px solid var(--border)">
+      <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);margin-bottom:5px">DRESSEURS</div>
+      ${trainersHtml || '<span style="color:var(--text-dim);font-size:10px">—</span>'}
+    </div>
+
+    <!-- Assigned agents -->
+    <div style="padding:8px 10px">
+      <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);margin-bottom:5px">AGENTS ASSIGNÉS</div>
+      ${agentsHtml}
+    </div>
+  `;
+
+  document.body.appendChild(panel);
+
+  // Close button
+  panel.querySelector('#zone-ctx-close')?.addEventListener('click', () => panel.remove());
+
+  // Auto-close on outside click
+  const _dismiss = (e) => {
+    if (!panel.contains(e.target)) {
+      panel.remove();
+      document.removeEventListener('mousedown', _dismiss, true);
+    }
+  };
+  // Defer so the current click doesn't immediately close it
+  setTimeout(() => document.addEventListener('mousedown', _dismiss, true), 0);
+
+  // Clamp to viewport bounds
+  requestAnimationFrame(() => {
+    const rect = panel.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    if (rect.right  > vw) panel.style.left = `${Math.max(0, vw - rect.width  - 8)}px`;
+    if (rect.bottom > vh) panel.style.top  = `${Math.max(0, vh - rect.height - 8)}px`;
+  });
+}
+
 // Build a fresh zone window element (used on first open)
 function buildZoneWindowEl(zoneId) {
   const state = globalThis.state;
@@ -1067,6 +1268,11 @@ function buildZoneWindowEl(zoneId) {
     globalThis.triggerGymRaid(zoneId);
   });
 
+  win.querySelector('.zone-viewport')?.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    _openZoneContextMenu(zoneId, e.clientX, e.clientY);
+  });
 
   return win;
 }
