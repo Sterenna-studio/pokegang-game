@@ -287,6 +287,7 @@ const AGENT_PERKS = [
 ];
 
 // ── Gang / UI limits ─────────────────────────────────────────
+const BOSS_TEAM_SLOTS      = 6;  // équipe du boss : 6 Pokémon
 const SHOWCASE_SLOTS       = 6;  // emplacements vitrine du boss
 const MAX_BOSS_NAME_LENGTH = 16; // caractères max pour le nom du boss
 const MAX_GANG_NAME_LENGTH = 24; // caractères max pour le nom du gang
@@ -304,7 +305,7 @@ export {
   NATURES, NATURE_KEYS, BOSS_SPRITES,
   AGENT_NAMES_M, AGENT_NAMES_F, AGENT_SPRITES, AGENT_PERSONALITIES,
   TITLE_REQUIREMENTS, TITLE_BONUSES, AGENT_RANK_LABELS, RANK_CHAIN,
-  SHOWCASE_SLOTS, MAX_BOSS_NAME_LENGTH, MAX_GANG_NAME_LENGTH,
+  BOSS_TEAM_SLOTS, SHOWCASE_SLOTS, MAX_BOSS_NAME_LENGTH, MAX_GANG_NAME_LENGTH,
   KANTO_DEX_MIN, KANTO_DEX_MAX, JOHTO_DEX_MIN, JOHTO_DEX_MAX,
   CHROMA_CHARM_COST,
 };
