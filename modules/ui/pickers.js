@@ -1,5 +1,7 @@
 'use strict';
 
+import { BOSS_TEAM_SLOTS } from '../../data/game-config-data.js';
+
 // ── Picker modals ────────────────────────────────────────────────────────────
 // openTeamPicker      — choisir un Pokémon pour une équipe (boss ou agent)
 // openAssignToPicker  — choisir une destination depuis le PC
@@ -62,14 +64,15 @@ function openTeamPicker(type, targetId, onDone) {
     const pk = state.pokemons.find(p => p.id === pkId);
     if (!pk) return;
     if (type === 'boss') {
-      if (state.gang.bossTeam.length < 3) {
+      if (state.gang.bossTeam.length < BOSS_TEAM_SLOTS) {
         globalThis.removePokemonFromAllAssignments(pkId);
         state.gang.bossTeam.push(pkId);
         if (state.gang.bossTeamSlots) state.gang.bossTeamSlots[state.gang.activeBossTeamSlot || 0] = [...state.gang.bossTeam];
       }
     } else {
       const agent = state.agents.find(a => a.id === targetId);
-      if (agent && agent.team.length < 3) agent.team.push(pkId);
+      const agentSlots = globalThis.getAgentTeamSlots?.(agent) ?? 3;
+      if (agent && agent.team.length < agentSlots) agent.team.push(pkId);
     }
     globalThis.saveState();
     overlay.remove();
@@ -113,7 +116,7 @@ function openAssignToPicker(pokemonId) {
   }
 
   const destinations = [];
-  if (state.gang.bossTeam.length < 3) {
+  if (state.gang.bossTeam.length < BOSS_TEAM_SLOTS) {
     destinations.push({
       type: 'boss', id: null,
       label: state.gang.bossName + ' (Boss)',
@@ -121,7 +124,8 @@ function openAssignToPicker(pokemonId) {
     });
   }
   for (const a of state.agents) {
-    if (a.team.length < 3) destinations.push({ type: 'agent', id: a.id, label: a.name, sprite: a.sprite });
+    const agentSlots = globalThis.getAgentTeamSlots?.(a) ?? 3;
+    if (a.team.length < agentSlots) destinations.push({ type: 'agent', id: a.id, label: a.name, sprite: a.sprite });
   }
 
   if (destinations.length === 0) {
@@ -149,8 +153,8 @@ function openAssignToPicker(pokemonId) {
           <div style="font-size:12px">${d.label}</div>
           <div style="font-size:10px;color:var(--text-dim);margin-left:auto">
             ${d.type === 'boss'
-              ? state.gang.bossTeam.length
-              : (state.agents.find(a => a.id === d.id)?.team.length || 0)}/3
+              ? `${state.gang.bossTeam.length}/${BOSS_TEAM_SLOTS}`
+              : (() => { const _a = state.agents.find(a => a.id === d.id); return `${_a?.team.length || 0}/${globalThis.getAgentTeamSlots?.(_a) ?? 3}`; })()}
           </div>
         </div>`).join('')}
     </div>
@@ -167,13 +171,14 @@ function openAssignToPicker(pokemonId) {
       const destType = el.dataset.destType;
       const destId   = el.dataset.destId;
       if (destType === 'boss') {
-        if (state.gang.bossTeam.length < 3) {
+        if (state.gang.bossTeam.length < BOSS_TEAM_SLOTS) {
           globalThis.removePokemonFromAllAssignments(pokemonId);
           state.gang.bossTeam.push(pokemonId);
         }
       } else {
         const agent = state.agents.find(a => a.id === destId);
-        if (agent && agent.team.length < 3) agent.team.push(pokemonId);
+        const agentSlots = globalThis.getAgentTeamSlots?.(agent) ?? 3;
+        if (agent && agent.team.length < agentSlots) agent.team.push(pokemonId);
       }
       globalThis.saveState();
       overlay.remove();
