@@ -344,7 +344,7 @@ export function getNextObjective() {
   if (team === 0)
     return { text: '⚔ Place un Pokémon dans ton équipe Boss', detail: '→ PC', tab: 'tabPC' };
   if (team < 3)
-    return { text: `⚔ Complète ton équipe Boss`, detail: `${team}/3`, tab: 'tabPC' };
+    return { text: `⚔ Complète ton équipe Boss`, detail: `${team}/6`, tab: 'tabPC' };
   if (agents === 0) {
     const cost     = typeof getAgentRecruitCost === 'function' ? getAgentRecruitCost() : 10000;
     const progress = money >= cost ? 'Prêt !' : `₽${money.toLocaleString()}/${cost.toLocaleString()}`;
