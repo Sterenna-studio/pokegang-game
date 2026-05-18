@@ -5,11 +5,9 @@
 
 import { resolveTrainerCombat } from './zoneCombat.js';
 
-// ── Slots d'équipe par captures ────────────────────────────────────
-// 0 cap → 1 slot, 50 cap → 2 slots, 150 cap → 3 slots
-// Slots Pokémon déterminés par le rang.
+// ── Slots d'équipe par rang ─────────────────────────────────────────
 // grunt=1, sergent=2, lieutenant et au-delà=3.
-// Commandant/Général/Élite n'ont plus de slots supplémentaires :
+// Commandant/Général/Élite ont le même nombre de slots (3) ;
 // leur avantage passe par le multiplicateur TITLE_BONUSES.
 function getAgentTeamSlots(agent) {
   const title = agent?.title;

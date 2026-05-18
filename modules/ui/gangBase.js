@@ -24,7 +24,7 @@
 // ════════════════════════════════════════════════════════════════
 
 import { FALLBACK_TRAINER_SVG } from '../../data/assets-data.js';
-import { BOSS_TEAM_SLOTS } from '../../data/game-config-data.js';
+import { BOSS_TEAM_SLOTS, SHOWCASE_SLOTS } from '../../data/game-config-data.js';
 
 /* globals ZONES, ZONE_BY_ID, SPECIES_BY_EN */
 
@@ -1505,7 +1505,7 @@ function buildExportCard(opts = {}) {
   const mvp          = state.pokemons.length > 0
     ? state.pokemons.reduce((best, p) => calculatePrice(p) > calculatePrice(best) ? p : best)
     : null;
-  const showcaseIds  = (g.showcase || [null, null, null]).slice(0, 3);
+  const showcaseIds  = Array.from({ length: SHOWCASE_SLOTS }, (_, i) => (g.showcase?.[i] ?? null));
   const showcasePks  = showcaseIds.map(id => (id ? state.pokemons.find(p => p.id === id) : null) || null);
   const kantoCaught  = globalThis.getDexKantoCaught();
   const kantoTotal   = globalThis.KANTO_DEX_SIZE;

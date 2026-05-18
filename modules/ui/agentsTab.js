@@ -343,12 +343,12 @@ function renderAgentsTab() {
       }));
       showContextMenu(e.clientX, e.clientY, [
         { action:'clearteam', label:'Vider l\'equipe', fn: () => { agent.team = []; saveState(); renderAgentsTab(); } },
-        { action:'autoteam', label:'Auto-equipe (top 3)', fn: () => {
+        { action:'autoteam', label:`Auto-equipe (top ${getAgentTeamSlots(agent)})`, fn: () => {
           const usedIds = new Set();
           state.agents.forEach(a => { if (a.id !== agent.id) a.team.forEach(id => usedIds.add(id)); });
           state.gang.bossTeam.forEach(id => usedIds.add(id));
           const avail = state.pokemons.filter(p => !usedIds.has(p.id)).sort((a,b) => getPokemonPower(b) - getPokemonPower(a));
-          agent.team = avail.slice(0, 3).map(p => p.id);
+          agent.team = avail.slice(0, getAgentTeamSlots(agent)).map(p => p.id);
           saveState(); renderAgentsTab(); notify('Equipe auto assignee', 'success');
         }},
         ...zoneItems.length ? [{ action:'envoyer', label:'Envoyer en zone', fn: () => {} }, ...zoneItems] : [],
