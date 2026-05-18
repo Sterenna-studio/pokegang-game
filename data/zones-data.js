@@ -161,7 +161,8 @@ const SPECIAL_EVENTS = [
     trainerKey:'giovanni', chance:0.03, minRep:400,
     reward: { money:[3000,8000], rep:15 },
     desc_fr:'Giovanni envoie ses meilleurs sbires ! Battez-le pour un gros bonus.',
-    desc_en:'Giovanni sends his best grunts! Defeat him for a big bonus.' }  // --- Boost events ---
+    desc_en:'Giovanni sends his best grunts! Defeat him for a big bonus.' },
+  // --- Boost events ---
   { id:'shiny_swarm', fr:'Nuée Shiny !', en:'Shiny Swarm!', icon:'✨',
     trainerKey:null, chance:0.04, minRep:200,
     reward: { shinyBoost:60000 },
@@ -176,25 +177,30 @@ const SPECIAL_EVENTS = [
     trainerKey:null, chance:0.04, minRep:100,
     reward: { chestBoost:45000 },
     desc_fr:'Des coffres apparaissent partout pendant 45s !',
-    desc_en:'Treasure chests appear everywhere for 45s!' }  // --- Gym Leader events ---
+    desc_en:'Treasure chests appear everywhere for 45s!' },
+  // --- Gym Leader events ---
   { id:'brock_challenge', fr:'Défi de Pierre !', en:'Brock\'s Challenge!', icon:'🪨',
     trainerKey:'brock', chance:0.03, minRep:150,
     reward: { money:[2000,4000], rep:15, xpBonus:30 },
     desc_fr:'Pierre, le Champion d\'Argenta, défend son territoire !',
-    desc_en:'Brock, the Pewter City Gym Leader, defends his territory!' }  { id:'surge_challenge', fr:'Défi de Maj. Bob !', en:'Lt. Surge\'s Challenge!', icon:'⚡',
+    desc_en:'Brock, the Pewter City Gym Leader, defends his territory!' },
+  { id:'surge_challenge', fr:'Défi de Maj. Bob !', en:'Lt. Surge\'s Challenge!', icon:'⚡',
     trainerKey:'ltsurge', chance:0.03, minRep:350,
     reward: { money:[3000,6000], rep:18, xpBonus:40 },
     desc_fr:'Maj. Bob, le Lightning American, fait trembler la zone !',
-    desc_en:'Lt. Surge, the Lightning American, shocks the area!' }  { id:'sabrina_challenge', fr:'Défi de Morgane !', en:'Sabrina\'s Challenge!', icon:'🔮',
+    desc_en:'Lt. Surge, the Lightning American, shocks the area!' },
+  { id:'sabrina_challenge', fr:'Défi de Morgane !', en:'Sabrina\'s Challenge!', icon:'🔮',
     trainerKey:'sabrina', chance:0.02, minRep:700,
     reward: { money:[5000,10000], rep:22, xpBonus:60 },
     desc_fr:'Morgane, la Maîtresse de la Psyché, lit dans vos pensées !',
-    desc_en:'Sabrina, the Master of Psychic Pokémon, reads your mind!' }  // --- Elite Four events ---
+    desc_en:'Sabrina, the Master of Psychic Pokémon, reads your mind!' },
+  // --- Elite Four events ---
   { id:'lorelei_appears', fr:'Olga apparaît !', en:'Lorelei Appears!', icon:'❄️',
     trainerKey:'lorelei', chance:0.02, minRep:850,
     reward: { money:[8000,15000], rep:30, xpBonus:80 },
     desc_fr:'Olga du Conseil 4 fait irruption avec ses Pokémon Glace !',
-    desc_en:'Lorelei of the Elite Four arrives with her Ice Pokémon!' }  // --- Legendary events ---
+    desc_en:'Lorelei of the Elite Four arrives with her Ice Pokémon!' },
+  // --- Legendary events ---
   { id:'legendary_bird_sighting', fr:'Oiseau Légendaire !', en:'Legendary Bird!', icon:'🦅',
     trainerKey:null, chance:0.02, minRep:700,
     reward: { rareBoost:90000, shinyBoost:30000 },
@@ -205,7 +211,8 @@ const SPECIAL_EVENTS = [
     reward: { rareBoost:120000, shinyBoost:60000, chestBoost:60000 },
     desc_fr:'Une énergie psychique inconnue émane de la zone ! Tous les boosts activés !',
     desc_en:'An unknown psychic energy radiates from the area! All boosts activated!' },
-  // --- Lore events ---  { id:'prof_oak_visit', fr:'Visite du Prof. Chen !', en:'Prof. Oak\'s Visit!', icon:'👨‍🔬',
+  // --- Lore events ---
+  { id:'prof_oak_visit', fr:'Visite du Prof. Chen !', en:'Prof. Oak\'s Visit!', icon:'👨‍🔬',
     trainerKey:null, chance:0.04, minRep:50,
     reward: { xpBonus:30, chestBoost:30000 },
     desc_fr:'Le Prof. Chen inspecte la zone et laisse des récompenses !',
@@ -250,7 +257,7 @@ const SPECIAL_EVENTS = [
     trainerKey:null, chance:0.01, minRep:600,
     reward: { eggGift:['mew'], shinyBoost:60000, rareBoost:60000 },
     desc_fr:'Un signal mystérieux dans le Safari... Mew est là ! Courez !',
-    desc_en:'A mysterious signal in the Safari... Mew is here! Run!' }
+    desc_en:'A mysterious signal in the Safari... Mew is here! Run!' },
   // ══ LAVANVILLE — Événements spécifiques ══
   { id:'lavanville_curse',    fr:'Malédiction de Lavanville !', en:'Lavender Curse!',         icon:'👻',
     trainerKey:null, chance:0.06, minRep:300,
@@ -271,7 +278,7 @@ const SPECIAL_EVENTS = [
     zoneIds:['lavender_town','pokemon_tower'],
     reward:{ money:[1500,4000], rep:12, shinyBoost:30000 },
     desc_fr:'Une Mystimana est possédée par un esprit ! Battez-la avant qu\'elle ne perde la raison.',
-    desc_en:'A Channeler is possessed by a spirit! Defeat her before she loses her mind.' }
+    desc_en:'A Channeler is possessed by a spirit! Defeat her before she loses her mind.' },
   { id:'nameless_ghost',      fr:'Le Spectre Sans Nom…',       en:'The Nameless Ghost…',     icon:'☠️',
     trainerKey:null, chance:0.015, minRep:700,
     zoneIds:['lavender_town'],

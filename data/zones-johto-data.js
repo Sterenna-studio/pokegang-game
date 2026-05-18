@@ -386,7 +386,7 @@ const SPECIAL_EVENTS_JOHTO = [
     trainerKey:'archer', chance:0.03, minRep:600,
     reward: { money:[5000,12000], rep:20 },
     desc_fr:"Archer prend le contrôle de la Tour Radio ! Battez-le pour libérer les ondes.",
-    desc_en:'Archer takes over the Radio Tower! Defeat him to free the airwaves.' }
+    desc_en:'Archer takes over the Radio Tower! Defeat him to free the airwaves.' },
   { id:'giovanni_comeback', fr:'Retour de Giovanni !', en:'Giovanni Returns!', icon:'💼',
     trainerKey:'giovanni', chance:0.01, minRep:900,
     reward: { money:[20000,40000], rep:60, rareBoost:90000 },
@@ -398,13 +398,13 @@ const SPECIAL_EVENTS_JOHTO = [
     trainerKey:'silver', chance:0.03, minRep:200,
     reward: { money:[3000,7000], rep:15, xpBonus:40 },
     desc_fr:'Silver surgit ! "Les faibles ne méritent pas les Pokémon."',
-    desc_en:'Silver appears! "The weak don\'t deserve Pokémon."' }
+    desc_en:'Silver appears! "The weak don\'t deserve Pokémon."' },
   // --- Légendaires chiens ---
   { id:'raikou_sighting', fr:'Apparition de Raikou !', en:'Raikou Sighting!', icon:'⚡',
     trainerKey:null, chance:0.02, minRep:350,
     reward: { rareBoost:90000, shinyBoost:30000, xpBonus:60 },
     desc_fr:"Un éclair traverse la zone — Raikou est là ! Les Pokémon Électrik afflent !",
-    desc_en:'A bolt strikes the area — Raikou is here! Electric Pokémon surge in!' }
+    desc_en:'A bolt strikes the area — Raikou is here! Electric Pokémon surge in!' },
   { id:'suicune_blessing', fr:'Bénédiction de Suicune !', en:"Suicune's Blessing!", icon:'💧',
     trainerKey:null, chance:0.02, minRep:350,
     reward: { rareBoost:90000, shinyBoost:45000, chestBoost:45000 },
@@ -437,7 +437,7 @@ const SPECIAL_EVENTS_JOHTO = [
     trainerKey:'falkner', chance:0.04, minRep:50,
     reward: { money:[1500,3000], rep:12, xpBonus:25 },
     desc_fr:"Foxy surveille les cieux depuis son arène d'Ecorfeuil !",
-    desc_en:"Falkner, Violet City's Gym Leader, watches the skies from his gym!" }
+    desc_en:"Falkner, Violet City's Gym Leader, watches the skies from his gym!" },
   { id:'whitney_challenge', fr:'Défi de Blanche !', en:"Whitney's Challenge!", icon:'🐄',
     trainerKey:'whitney', chance:0.03, minRep:220,
     reward: { money:[2000,4500], rep:15, xpBonus:30 },
@@ -448,7 +448,7 @@ const SPECIAL_EVENTS_JOHTO = [
     trainerKey:'morty', chance:0.03, minRep:350,
     reward: { money:[2500,5500], rep:18, xpBonus:40 },
     desc_fr:"Mortimer, le Champion Spectre, vous attire dans le brouillard d'Ecorcia.",
-    desc_en:"Morty, the Ghost-type master, lures you into Ecruteak's fog." }
+    desc_en:"Morty, the Ghost-type master, lures you into Ecruteak's fog." },
   { id:'clair_challenge', fr:'Défi de Cathy !', en:"Clair's Challenge!", icon:'🐉',
     trainerKey:'clair', chance:0.02, minRep:760,
     reward: { money:[6000,12000], rep:25, xpBonus:70 },
@@ -460,7 +460,7 @@ const SPECIAL_EVENTS_JOHTO = [
     trainerKey:'will', chance:0.02, minRep:850,
     reward: { money:[8000,15000], rep:30, xpBonus:80 },
     desc_fr:'Yoran du Conseil 4 de Johto invoque ses Pokémon Psy depuis le néant !',
-    desc_en:'Will of the Johto Elite Four summons his Psychic Pokémon from thin air!' }
+    desc_en:'Will of the Johto Elite Four summons his Psychic Pokémon from thin air!' },
   { id:'karen_appears', fr:'Carole apparaît !', en:'Karen Appears!', icon:'🌑',
     trainerKey:'karen', chance:0.02, minRep:920,
     reward: { money:[10000,20000], rep:35, xpBonus:90 },
