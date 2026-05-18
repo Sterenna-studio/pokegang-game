@@ -64,7 +64,7 @@ function renderAgentsTab() {
       `<option value="${z.id}" ${a.assignedZone === z.id ? 'selected' : ''}>${state.lang === 'fr' ? z.fr : z.en}</option>`
     ).join('');
 
-    const agentTeamSlots = getAgentTeamSlots(a); // capture-based slots (1-3)
+    const agentTeamSlots = getAgentTeamSlots(a); // rank-based slots: grunt=1, sergent=2, lieutenant+=3
     const teamSlots = Array.from({length: agentTeamSlots}, (_, i) => {
       const pkId = a.team[i];
       const pk   = pkId ? state.pokemons.find(p => p.id === pkId) : null;
@@ -138,7 +138,7 @@ function renderAgentsTab() {
                    <div style="width:${Math.round((a.energy ?? 10) / (a.maxEnergy || 10) * 100)}%;height:100%;background:${(a.energy ?? 10) <= 3 ? 'var(--red)' : 'var(--green)'};border-radius:2px"></div>
                  </div>
                  <span style="font-size:8px;color:var(--text-dim)">${a.energy ?? 10}⚡</span>
-                 <span style="font-size:8px;color:var(--text-dim);margin-left:4px">${agentTeamSlots}/3 slots</span>`
+                 <span style="font-size:8px;color:var(--text-dim);margin-left:4px">${agentTeamSlots} slot${agentTeamSlots > 1 ? 's' : ''}</span>`
             }
           </div>
         </div>

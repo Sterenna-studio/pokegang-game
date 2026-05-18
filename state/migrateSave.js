@@ -255,6 +255,21 @@ export function migrateSave(saved, deps) {
   // trainingRoom extraSlots
   if (merged.trainingRoom.extraSlots === undefined) merged.trainingRoom.extraSlots = 0;
 
+  // ── Agents : slots par rang (v10 → v11) ──────────────────────────────────────────
+  // Avant v11 : slots déterminés par captureCount (0/50/150 → 1/2/3).
+  // Depuis v11 : slots déterminés par rang (grunt=1, sergent=2, lieutenant+=3).
+  // On tronque les équipes pour ne garder que les slots autorisés par le nouveau système.
+  // Les Pokémon retirés ne sont pas supprimés du PC — ils restent dans pokemons[].
+  {
+    const _rankSlots = { grunt: 1, sergent: 2 };
+    for (const agent of merged.agents) {
+      const maxSlots = _rankSlots[agent.title] ?? 3;
+      if (Array.isArray(agent.team) && agent.team.length > maxSlots) {
+        agent.team = agent.team.slice(0, maxSlots);
+      }
+    }
+  }
+
   // ── Intégrité : nettoyer les IDs obsolètes ───────────────────────────────────────
   const allIds    = new Set(merged.pokemons.map(p => p.id));
   const agentIds  = new Set(merged.agents.map(a => a.id));
