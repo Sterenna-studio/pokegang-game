@@ -308,39 +308,6 @@
 
     </div>
   </div>
-  <div id="newGameModal" class="new-game-modal" aria-hidden="true">
-    <div class="new-game-modal__backdrop" data-close-new-game></div>
-    <div class="new-game-modal__box" role="dialog" aria-modal="true" aria-labelledby="newGameTitle">
-      <div class="new-game-modal__header">
-        <div>
-          <div class="new-game-modal__eyebrow">Création de partie</div>
-          <div class="new-game-modal__title" id="newGameTitle">Nouvelle opération</div>
-        </div>
-        <button class="new-game-modal__close" id="btnCloseNewGameModal" title="Fermer">✕</button>
-      </div>
-
-      <div class="intro-field">
-        <label>Nom du Boss</label>
-        <input type="text" id="inputBossName" maxlength="16" placeholder="Boss">
-      </div>
-
-      <div class="intro-field">
-        <label>Nom du Gang</label>
-        <input type="text" id="inputGangName" maxlength="20" placeholder="Team Fury">
-      </div>
-
-      <div class="intro-field">
-        <label>Avatar</label>
-      </div>
-      <div class="sprite-picker" id="spritePicker"></div>
-
-      <div class="new-game-modal__footer">
-        <div class="new-game-modal__slot" id="newGameSelectedSlotLabel">Slot sélectionné : 1</div>
-        <button class="btn-start" id="btnStartGame">Créer la partie</button>
-      </div>
-    </div>
-  </div>
-
   <!-- ═══ Settings Modal ═══ -->
   <div id="settingsModal">
     <div class="settings-box">
@@ -359,9 +326,6 @@
       </div>
     </div>
   </div>
-
-  <!-- Battle Log moved to tabBattleLog tab (see tab section above) -->
-  <div id="battleLog" style="display:none" aria-hidden="true"></div>
 
   <!-- Info Modal -->
   <div id="infoModal">
