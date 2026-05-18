@@ -945,7 +945,7 @@ function _tierPickerHtml(zoneId, mastery, selectedTier) {
   const btnStyle = 'background:none;border:none;cursor:pointer;padding:0 2px;font-size:9px;color:var(--text-dim);line-height:1;transition:color .1s';
   const dn = cur <= 1 ? `style="${btnStyle};opacity:.3" disabled` : `style="${btnStyle};color:var(--text)" data-tier-dn="${zoneId}"`;
   const up = cur >= mastery ? `style="${btnStyle};opacity:.3" disabled` : `style="${btnStyle};color:var(--text)" data-tier-up="${zoneId}"`;
-  return `<button ${dn}>◀</button><span style="color:var(--gold);min-width:20px;text-align:center;display:inline-block" class="zone-tier-stars" data-zone-tier="${zoneId}">${stars}</span><button ${up}>▶</button>`;
+  return `<button ${dn}>◀</button><span style="color:var(--gold);min-width:20px;text-align:center;display:inline-block" data-zone-tier="${zoneId}">${stars}</span><button ${up}>▶</button>`;
 }
 
 function _bindTierPicker(win, zoneId) {
