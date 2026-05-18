@@ -403,11 +403,6 @@ function openLegacyImportModal(legacyData) {
 // ════════════════════════════════════════════════════════════════
 
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
-function formatIncome(n) {
-  if (n >= 10000) return Math.round(n / 1000) + 'k';
-  if (n >= 1000) return (n / 1000).toFixed(1) + 'k';
-  return n.toString();
-}
 function weightedPick(arr) {
   // arr: [{en, w}, ...] — returns en string
   const total = arr.reduce((s, e) => s + e.w, 0);
@@ -762,9 +757,6 @@ function levelUpPokemon(...a)     { return globalThis.levelUpPokemon?.(...a); }
 // ════════════════════════════════════════════════════════════════
 //  5b.  TITLES MODULE  (extracted → modules/systems/titles.js)
 // ════════════════════════════════════════════════════════════════
-
-// LIAISONS — also kept as local const for legacy callers inside app.js
-const LIAISONS = ['', 'de', "de l'", 'du', 'des', 'à', 'et', '&', 'alias', 'dit'];
 
 function getTitleLabel(...a)      { return globalThis.getTitleLabel?.(...a); }
 function getBossFullTitle(...a)   { return globalThis.getBossFullTitle?.(...a); }
@@ -1147,10 +1139,6 @@ function applyCosmetics(...a)      { return globalThis.applyCosmetics?.(...a); }
 function _unlockFabricBg(...a)     { return globalThis._unlockFabricBg?.(...a); }
 function openNameModal(...a)       { return globalThis.openNameModal?.(...a); }
 function openSpritePicker(...a)    { return globalThis.openSpritePicker?.(...a); }
-
-function renderCosmeticsPanel(_container) {
-  // Moved to modules/ui/gangTab.js → renderAppearancePanel / renderMusicPanel
-}
 
 // ════════════════════════════════════════════════════════════════
 // 13.  UI — GANG TAB  (extracted to modules/ui/gangTab.js)
@@ -1740,34 +1728,6 @@ function showIntro() {
   };
   renderSlots();
 
-  const newGameModal = document.getElementById('newGameModal');
-  const newGameSelectedSlotLabel = document.getElementById('newGameSelectedSlotLabel');
-  const closeNewGameModal = () => {
-    if (!newGameModal) return;
-    newGameModal.classList.remove('active');
-    newGameModal.setAttribute('aria-hidden', 'true');
-  };
-  const openNewGameModal = (slotIdx) => {
-    selectedSlotIdx = slotIdx;
-    renderSlots();
-    if (newGameSelectedSlotLabel) newGameSelectedSlotLabel.textContent = `Slot sélectionné : ${slotIdx + 1}`;
-    if (newGameModal) {
-      newGameModal.classList.add('active');
-      newGameModal.setAttribute('aria-hidden', 'false');
-    }
-    document.getElementById('inputBossName').value = '';
-    document.getElementById('inputGangName').value = '';
-    picker?.querySelectorAll('.sprite-option').forEach(o => o.classList.remove('selected'));
-    picker?.querySelector('.sprite-option')?.classList.add('selected');
-    document.getElementById('inputBossName')?.focus();
-  };
-
-  document.getElementById('btnCloseNewGameModal')?.addEventListener('click', closeNewGameModal);
-  document.querySelectorAll('[data-close-new-game]').forEach(el => el.addEventListener('click', closeNewGameModal));
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && newGameModal?.classList.contains('active')) closeNewGameModal();
-  });
-
   // ── Hub repair button ─────────────────────────────────────────
   document.getElementById('btnHubRepairSlot')?.addEventListener('click', () => openHubSlotRepairModal());
 
@@ -1793,39 +1753,6 @@ function showIntro() {
     input.click();
   });
 
-  // ── Sprite picker ─────────────────────────────────────────────
-  const picker = document.getElementById('spritePicker');
-  if (picker) {
-    picker.innerHTML = BOSS_SPRITES.map(s => `
-      <div class="sprite-option" data-sprite="${s}">
-        <img src="${trainerSprite(s)}" alt="${s}">
-      </div>
-    `).join('');
-    picker.querySelectorAll('.sprite-option').forEach(opt => {
-      opt.addEventListener('click', () => {
-        picker.querySelectorAll('.sprite-option').forEach(o => o.classList.remove('selected'));
-        opt.classList.add('selected');
-      });
-    });
-    picker.querySelector('.sprite-option')?.classList.add('selected');
-  }
-
-  // ── Start button ──────────────────────────────────────────────
-  document.getElementById('btnStartGame')?.addEventListener('click', () => {
-    const bossName = document.getElementById('inputBossName')?.value.trim() || 'Boss';
-    const gangName = document.getElementById('inputGangName')?.value.trim() || 'Team Fury';
-    const selectedSprite = picker?.querySelector('.sprite-option.selected')?.dataset.sprite || 'rocketgrunt';
-
-    state.gang.bossName = bossName;
-    state.gang.name = gangName;
-    state.gang.bossSprite = selectedSprite;
-    state.gang.initialized = true;
-    saveToSlot(selectedSlotIdx);
-    closeNewGameModal();
-    stopShowcase();
-    overlay.classList.remove('active');
-    renderAll();
-  });
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -1861,7 +1788,6 @@ const HOUR_MS = 3600000;
 
 let agentTickInterval = null;
 let autoSaveInterval  = null;
-let cooldownInterval  = null;
 let _gameLoopStarted  = false; // guard against double-start
 let _playerWasActive = false; // set by saveState(); consumed by the 2h leaderboard timer
 
