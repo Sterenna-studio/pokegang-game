@@ -138,7 +138,7 @@ function buildTrainerDefenders(spawn) {
   const multiplier = trainerTypeMultiplier(spawn);
   const type = trainerTypeForSpawn(spawn);
 
-  return trainerPokemonEntries(spawn).slice(0, ZONE_AGENT_SLOTS).map((entry, idx) => {
+  return trainerPokemonEntries(spawn).map((entry, idx) => {
     const summary = trainerPokemonSummary(entry.pokemon, multiplier);
     return {
       id: `${entry.trainerKey}-${entry.index}-${idx}`,
@@ -159,7 +159,8 @@ function allTrainerPokemon(spawn) {
 }
 
 function agentTeamPower(agent, state = getState()) {
-  return (agent?.team || []).reduce((sum, pokemonId) => {
+  const slots = globalThis.getAgentTeamSlots?.(agent) ?? 3;
+  return (agent?.team || []).slice(0, slots).reduce((sum, pokemonId) => {
     const pokemon = state.pokemons?.find(pk => pk.id === pokemonId);
     return sum + (pokemon ? getPokemonPower(pokemon) : 0);
   }, 0);
@@ -168,9 +169,9 @@ function agentTeamPower(agent, state = getState()) {
 function agentPower(agent, teamPower = 0) {
   if (!agent) return 0;
   const bonuses = globalThis.TITLE_BONUSES ?? {};
-  const titleBonus = 1 + (bonuses[agent.title] || 0);
+  const rankMult = bonuses[agent.title] ?? 1.0;
   const combatStat = agent.stats?.combat ?? 0;
-  return Math.round((combatStat * 10 + teamPower) * titleBonus);
+  return Math.round((combatStat * 10 + teamPower) * rankMult);
 }
 
 function sortedAgentsByPower(state = getState()) {
@@ -188,6 +189,7 @@ function attackAgentSnapshots(agentIds = null, state = getState()) {
     : sortedAgentsByPower(state).slice(0, ZONE_AGENT_SLOTS);
 
   return agents.map(agent => {
+    const slots = globalThis.getAgentTeamSlots?.(agent) ?? 3;
     const teamPower = agentTeamPower(agent, state);
     return {
       id: agent.id,
@@ -198,7 +200,7 @@ function attackAgentSnapshots(agentIds = null, state = getState()) {
       stats: { combat: agent.stats?.combat ?? 0 },
       teamPower,
       power: agentPower(agent, teamPower),
-      team: (agent.team || [])
+      team: (agent.team || []).slice(0, slots)
         .map(id => state.pokemons?.find(pokemon => pokemon.id === id))
         .filter(Boolean)
         .map(pokemon => ({
@@ -264,17 +266,23 @@ function resolveAgentDuel(attacker, defender) {
   };
 }
 
-// Puissance totale côté attaquant : boss + tous les agents (additionnés d'emblée).
-function totalAttackerPower(agentIds = null, state = getState()) {
-  const bossTeamIds = (state.gang?.bossTeam || []).filter(Boolean).slice(0, ZONE_BOSS_TEAM_SLOTS);
-  const bossTeamPow = getTeamPower(bossTeamIds, state);
-  const attackers   = attackAgentSnapshots(agentIds, state);
-  const agentsPow   = attackers.reduce((sum, a) => sum + Math.round(a.power ?? 0), 0);
+// Puissance totale côté attaquant : boss (si dans la zone) + agents.
+// zoneId=null → preview UI, boss toujours inclus.
+// zoneId fourni → boss inclus seulement si state.gang.bossZone === zoneId.
+function totalAttackerPower(agentIds = null, state = getState(), zoneId = null) {
+  const bossInZone = zoneId === null || state.gang?.bossZone === zoneId;
+  let bossTeamPow = 0;
+  if (bossInZone) {
+    const bossTeamIds = (state.gang?.bossTeam || []).filter(Boolean).slice(0, ZONE_BOSS_TEAM_SLOTS);
+    bossTeamPow = getTeamPower(bossTeamIds, state);
+  }
+  const attackers = attackAgentSnapshots(agentIds, state);
+  const agentsPow = attackers.reduce((sum, a) => sum + Math.round(a.power ?? 0), 0);
   return { total: Math.round(bossTeamPow + agentsPow), bossPow: Math.round(bossTeamPow), agentsPow: Math.round(agentsPow), attackers };
 }
 
 function attackerPreviewPower(agentIds = null, state = getState()) {
-  return totalAttackerPower(agentIds, state).total;
+  return totalAttackerPower(agentIds, state, null).total;
 }
 
 function defenderPreviewPower(spawn) {
@@ -298,8 +306,8 @@ export function getTrainerCombatPreview(trainerSpawn, agentIds = null) {
 export function resolveTrainerCombat(trainerSpawn, agentIds = null) {
   const state = getState();
 
-  // ── Côté attaquant : boss + agents ────────────────────────────
-  const { total: atkTotal, bossPow, agentsPow, attackers } = totalAttackerPower(agentIds, state);
+  // ── Côté attaquant : boss (si dans la zone) + agents ──────────
+  const { total: atkTotal, bossPow, agentsPow, attackers } = totalAttackerPower(agentIds, state, trainerSpawn?.zoneId ?? null);
 
   // ── Côté défenseur : Pokémon du dresseur ───────────────────────
   const trainerType       = trainerTypeForSpawn(trainerSpawn);

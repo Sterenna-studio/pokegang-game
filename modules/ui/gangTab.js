@@ -1,6 +1,6 @@
 'use strict';
 
-import { SHOWCASE_SLOTS } from '../../data/game-config-data.js';
+import { SHOWCASE_SLOTS, BOSS_TEAM_SLOTS } from '../../data/game-config-data.js';
 import { BALL_SPRITES } from '../../data/assets-data.js';
 
 // deps (globalThis): state, notify, saveState, updateTopBar, switchTab, showConfirm, SFX,
@@ -778,7 +778,7 @@ function _doRenderGangTab() {
     </button>`;
   }).join('');
 
-  const teamHtml = [0, 1, 2].map(i => {
+  const teamHtml = Array.from({length: BOSS_TEAM_SLOTS}, (_, i) => {
     const pk = teamPks[i];
     if (pk) return `<div class="gang-team-slot filled" data-boss-slot="${i}" title="${globalThis.pokemonDisplayName(pk)} Lv.${pk.level}">
       <img src="${globalThis.pokeIcon(pk.species_en)}" style="width:40px;height:30px;image-rendering:pixelated;${pk.shiny ? 'filter:drop-shadow(0 0 3px var(--gold))' : ''}" onerror="this.src='${globalThis.pokeSprite(pk.species_en, pk.shiny)}';this.style.width='40px';this.style.height='40px'">
