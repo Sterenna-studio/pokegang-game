@@ -1009,8 +1009,10 @@ function triggerGymRaid(zoneId, isAuto) {
     const raidAgents = state.agents.filter(a => a.assignedZone === zoneId);
     const agentPower = raidAgents.reduce((s, a) => s + globalThis.getAgentCombatPower(a), 0);
     const playerPks = raidAgents.flatMap(a => a.team.map(id => state.pokemons.find(pk => pk.id === id)).filter(Boolean));
+    const GYM_RAID_MULT = 1.45; // même que TRAINER_TYPE_MULTIPLIERS.gymRaid dans zoneCombat.js
     let enemyPower = 0;
     for (const t of team) enemyPower += (t.stats.atk + t.stats.def + t.stats.spd);
+    enemyPower = Math.round(enemyPower * GYM_RAID_MULT);
     const covMult = _typeCoverageMult(playerPks, team);
     const win = agentPower * covMult * (0.8 + Math.random() * 0.4) >= enemyPower * (0.8 + Math.random() * 0.4);
     if (win) {
