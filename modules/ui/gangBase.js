@@ -24,6 +24,7 @@
 // ════════════════════════════════════════════════════════════════
 
 import { FALLBACK_TRAINER_SVG } from '../../data/assets-data.js';
+import { BOSS_TEAM_SLOTS } from '../../data/game-config-data.js';
 
 /* globals ZONES, ZONE_BY_ID, SPECIES_BY_EN */
 
@@ -165,8 +166,8 @@ function renderGangBaseWindow() {
   const boostRemaining= globalThis.boostRemaining;
   const getPokemonPower = globalThis.getPokemonPower;
 
-  // ── Boss team slots
-  const bossTeamHtml = [0, 1, 2].map(i => {
+  // ── Boss team slots (6 Pokémon)
+  const bossTeamHtml = Array.from({length: BOSS_TEAM_SLOTS}, (_, i) => {
     const pkId = state.gang.bossTeam[i];
     const pk = pkId ? state.pokemons.find(p => p.id === pkId) : null;
     if (pk) {
@@ -489,8 +490,8 @@ function renderGangBaseWindowV2() {
   const dangerClass = focusMeta.dangerLabel.toLowerCase();
   const stateClass  = isFocusOpen ? 'ouverte' : focusAgents.length > 0 ? 'tenue' : 'libre';
 
-  // ── Boss team ──
-  const bossTeamHtml = [0, 1, 2].map(i => {
+  // ── Boss team (6 Pokémon) ──
+  const bossTeamHtml = Array.from({length: BOSS_TEAM_SLOTS}, (_, i) => {
     const pkId = state.gang.bossTeam[i];
     const pk   = pkId ? state.pokemons.find(p => p.id === pkId) : null;
     if (pk) return `<div class="gb2-team-slot" data-boss-slot="${i}" title="${speciesName(pk.species_en)} Lv.${pk.level}">
@@ -740,10 +741,10 @@ function renderGangBaseWindowV2() {
           <div class="gb2-inv-block">
             <div class="gb2-inv-block-head">
               <span class="gb2-inv-section-label">Équipe du boss</span>
-              <span class="gb2-inv-section-label" style="color:var(--text-dim)">${state.gang.bossTeam.filter(Boolean).length}/3</span>
+              <span class="gb2-inv-section-label" style="color:var(--text-dim)">${state.gang.bossTeam.filter(Boolean).length}/${BOSS_TEAM_SLOTS}</span>
             </div>
             <div class="gb2-team-center">
-              ${[0,1,2].map(i => {
+              ${Array.from({length: BOSS_TEAM_SLOTS}, (_, i) => {
                 const pkId = state.gang.bossTeam[i];
                 const pk   = pkId ? state.pokemons.find(p => p.id === pkId) : null;
                 if (pk) {

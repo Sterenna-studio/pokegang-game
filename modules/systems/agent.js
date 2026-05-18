@@ -667,7 +667,7 @@ function _resolveOccupiedZoneRaid(zoneId, agents) {
   const zone   = globalThis.ZONE_BY_ID?.[zoneId];
   if (!zone) return;
 
-  const defensePower = agents.reduce((acc, a) => acc + (a.level || 1) * 5, 0);
+  const defensePower = agents.reduce((acc, a) => acc + getAgentCombatPower(a), 0);
   const zoneDiff     = globalThis.getZoneDifficulty?.(zoneId) ?? 1;
   const attackPower  = Math.round(zoneDiff * 10 * (0.7 + Math.random() * 0.7));
   const zoneName     = zone.fr || zoneId;
@@ -842,7 +842,7 @@ function agentCaptureVisibleSpawn(agent, zoneId, spawnObj) {
       }
       _autoSellCaptured(caught);
       globalThis.showCaptureBurst(viewport, targetX, targetY, caught.potential, caught.shiny);
-      grantAgentXP(agent, 2);
+      grantAgentXP(agent, captureXP(caught.species_en, caught.potential, caught.shiny));
       const cName   = globalThis.speciesName(caught.species_en);
       const cStars  = '★'.repeat(caught.potential || 0) + '☆'.repeat(5 - (caught.potential || 0));
       const cRarity = globalThis.SPECIES_BY_EN?.[caught.species_en]?.rarity;

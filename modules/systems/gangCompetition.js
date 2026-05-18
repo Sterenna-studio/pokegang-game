@@ -19,7 +19,7 @@ const RAID_GOLD_PER_REP = 200;       // gold par point de base de butin
 const RAID_GOLD_MAX     = 1_000_000; // plafond d'or par raid (1M)
 const RAID_COOLDOWN_MS  = 60 * 60 * 1000; // 1 heure par cible
 const PVP_AGENT_SLOTS   = 3;
-const PVP_BOSS_TEAM_SLOTS = 3;
+const PVP_BOSS_TEAM_SLOTS = 6;
 
 let _ctx = {};
 
@@ -43,14 +43,14 @@ function _defPokemonPower(p) {
 function _agentPower(agent, teamPower = 0) {
   if (!agent) return 0;
   const TITLE_BONUSES = globalThis.TITLE_BONUSES ?? {};
-  const bonus = 1 + (TITLE_BONUSES[agent.title] || 0);
-  // Level-based power: 15 pts/level (mirrors getAgentCombatPower in agent.js)
-  return Math.round(((agent.level ?? 1) * 15 + (teamPower || 0)) * bonus);
+  const rankMult = TITLE_BONUSES[agent.title] ?? 1.0;
+  return Math.round((teamPower || 0) * rankMult);
 }
 
 function _agentTeamPower(agent, state = getState()) {
+  const slots = globalThis.getAgentTeamSlots?.(agent) ?? 3;
   let teamPower = 0;
-  for (const pkId of (agent?.team || [])) {
+  for (const pkId of (agent?.team || []).slice(0, slots)) {
     const p = state.pokemons?.find(pk => pk.id === pkId);
     if (p) teamPower += globalThis.getPokemonPower?.(p) ?? _defPokemonPower(p);
   }
