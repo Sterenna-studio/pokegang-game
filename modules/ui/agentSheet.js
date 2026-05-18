@@ -99,17 +99,16 @@ function _zoneLevelHtml(zoneId) {
 function _teamHtml(agent) {
   const state   = _state();
   const slots   = globalThis.getAgentTeamSlots?.(agent) || 1;
-  const caps    = agent.captureCount || 0;
-  const nextUnlock = caps < 50  ? `${50 - caps} cap → slot 2`
-                   : caps < 150 ? `${150 - caps} cap → slot 3`
+  const rankUnlock = slots < 2 ? 'Sergent requis'
+                   : slots < 3 ? 'Lieutenant requis'
                    : 'MAX';
 
   return Array.from({ length: 3 }, (_, i) => {
     if (i >= slots) {
-      // Slot verrouillé
-      return `<div style="width:48px;height:48px;background:var(--bg);border:1px dashed var(--border);border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;opacity:.45" title="${nextUnlock}">
+      // Slot verrouillé par le rang
+      return `<div style="width:48px;height:48px;background:var(--bg);border:1px dashed var(--border);border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;opacity:.45" title="${rankUnlock}">
         <span style="font-size:16px">🔒</span>
-        <span style="font-size:6px;color:var(--text-dim);text-align:center;padding:0 2px">${nextUnlock}</span>
+        <span style="font-size:6px;color:var(--text-dim);text-align:center;padding:0 2px">${rankUnlock}</span>
       </div>`;
     }
     const pkId = agent.team[i];
@@ -206,7 +205,7 @@ function _buildSheetHtml(agent) {
   <!-- ÉQUIPE -->
   <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 10px;margin-bottom:12px">
     <div style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);margin-bottom:8px">
-      ÉQUIPE (${(agent.team || []).filter(Boolean).length}/${globalThis.getAgentTeamSlots?.(agent) || 1} slots actifs · 3 max)
+      ÉQUIPE (${(agent.team || []).filter(Boolean).length}/${globalThis.getAgentTeamSlots?.(agent) || 1} slots · rang ${agent.title || 'grunt'})
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:6px" id="agentSheetTeam">
       ${_teamHtml(agent)}

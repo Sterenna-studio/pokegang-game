@@ -328,7 +328,7 @@ function renderGangBaseWindow() {
     return `<button class="base-agent-row${inFocus ? ' active' : ''}" data-base-agent="${agent.id}" data-base-zone="${focusZoneId}">
       <img src="${agent.sprite || trainerSprite('acetrainer')}" alt="" onerror="this.src='${trainerSprite('acetrainer')}'">
       <span><strong>${agent.name}</strong><em>${rank} · ${zoneName}</em></span>
-      <b>${agent.team?.length || 0}/3</b>
+      <b>${(agent.team || []).filter(Boolean).length}/${globalThis.getAgentTeamSlots?.(agent) || 1}</b>
     </button>`;
   }).join('') : `<div class="base-empty-note">Aucun agent recrute</div>`;
 
