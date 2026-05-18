@@ -7,11 +7,15 @@ import { resolveTrainerCombat } from './zoneCombat.js';
 
 // ── Slots d'équipe par captures ────────────────────────────────────
 // 0 cap → 1 slot, 50 cap → 2 slots, 150 cap → 3 slots
+// Slots Pokémon déterminés par le rang.
+// grunt=1, sergent=2, lieutenant et au-delà=3.
+// Commandant/Général/Élite n'ont plus de slots supplémentaires :
+// leur avantage passe par le multiplicateur TITLE_BONUSES.
 function getAgentTeamSlots(agent) {
-  const caps = agent?.captureCount || 0;
-  if (caps >= 150) return 3;
-  if (caps >= 50)  return 2;
-  return 1;
+  const title = agent?.title;
+  if (title === 'grunt')   return 1;
+  if (title === 'sergent') return 2;
+  return 3; // lieutenant, commandant, general, elite
 }
 
 function isZoneContested(zoneId) {
@@ -335,19 +339,20 @@ function _typeCoverageMult(playerPks, enemyPks) {
   return Math.min(1.4, Math.max(0.7, raw));
 }
 
+// Puissance de combat d'un agent.
+// Formula : sum(pokemonPower sur slots actifs) × rankMult
+// Le niveau de l'agent n'entre plus en compte directement :
+// il se reflète via l'évolution de son équipe Pokémon et son rang.
 function getAgentCombatPower(agent) {
   const state = globalThis.state;
-  const TITLE_BONUSES = globalThis.TITLE_BONUSES;
-  // Le grade multiplie UNIQUEMENT la force de l'équipe Pokémon.
-  // La contribution de niveau reste neutre — un commandant gère mieux ses Pokémon,
-  // il ne devient pas physiquement plus fort.
-  const teamMult = 1 + (TITLE_BONUSES?.[agent.title] ?? 0);
+  const rankMult = globalThis.TITLE_BONUSES?.[agent.title] ?? 1.0;
+  const slots = getAgentTeamSlots(agent);
   let teamPower = 0;
-  for (const pkId of agent.team) {
+  for (const pkId of (agent.team || []).slice(0, slots)) {
     const p = state.pokemons.find(pk => pk.id === pkId);
     if (p) teamPower += globalThis.getPokemonPower(p);
   }
-  return Math.round(agent.level * 15 + teamPower * teamMult);
+  return Math.round(teamPower * rankMult);
 }
 
 function _zoneCombatAgents(zoneId, { isRaid = false, preferredAgent = null } = {}) {
@@ -364,11 +369,16 @@ function _zoneCombatAgents(zoneId, { isRaid = false, preferredAgent = null } = {
     .slice(0, 3);
 }
 
-function _combatTeamIdsForAgents(agentIds = []) {
+// Assemble les IDs Pokémon pour un combat d'agents dans une zone.
+// Le boss n'est ajouté que s'il est physiquement dans la zone (state.gang.bossZone).
+function _combatTeamIdsForAgents(agentIds = [], zoneId = null) {
   const state = globalThis.state;
   const ids = [];
-  for (const id of state.gang?.bossTeam || []) {
-    if (id) ids.push(id);
+  const bossInZone = zoneId && state.gang?.bossZone === zoneId;
+  if (bossInZone) {
+    for (const id of state.gang?.bossTeam || []) {
+      if (id) ids.push(id);
+    }
   }
   for (const agentId of agentIds) {
     const agent = state.agents.find(a => a.id === agentId);
@@ -397,7 +407,7 @@ function _trainerCombatLogLines(result, mainAgentName, trainerName, reward, repG
 function _applyResolvedAgentCombat(zoneId, spawnObj, combatAgents, result) {
   const state = globalThis.state;
   const agentIds   = combatAgents.map(agent => agent.id);
-  const teamIds    = _combatTeamIdsForAgents(agentIds);
+  const teamIds    = _combatTeamIdsForAgents(agentIds, zoneId);
   const trainerData = { ...spawnObj, zoneId };
   const trainer    = trainerData.trainer || {};
   const rewardRange = trainer.reward || [10, 50];

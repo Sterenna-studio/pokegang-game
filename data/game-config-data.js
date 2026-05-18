@@ -86,16 +86,16 @@ const TITLE_REQUIREMENTS = {
   general:    { level: 100 },
 };
 
-// Multiplicateur appliqué uniquement à la puissance d'ÉQUIPE (teamPower) de l'agent.
-// Formula : agentPower = level × 15  +  teamPower × (1 + TITLE_BONUSES[grade])
-// Élite est exclusif (4 max) → bonus supérieur au Général
+// Multiplicateur appliqué à la somme des puissances Pokémon de l'agent.
+// Formula : agentPower = sum(pokemonPower) × TITLE_BONUSES[grade]
+// Slots Pokémon : grunt=1, sergent=2, lieutenant+=3 (géré dans getAgentTeamSlots)
 const TITLE_BONUSES = {
-  grunt:      0.00,  // ×1.00 — aucun bonus
-  sergent:    0.20,  // ×1.20 — +20 % équipe
-  lieutenant: 0.40,  // ×1.40 — +40 % équipe
-  commandant: 0.65,  // ×1.65 — +65 % équipe
-  general:    0.80,  // ×1.80 — +80 % équipe
-  elite:      1.00,  // ×2.00 — ×2 équipe (4 max par gang)
+  grunt:      0.9,   // léger malus — pas encore formé
+  sergent:    1.0,   // référence neutre
+  lieutenant: 1.1,   // +10 %
+  commandant: 1.2,   // +20 %
+  general:    1.35,  // +35 %
+  elite:      1.5,   // +50 % (4 max par gang)
 };
 
 // Labels d'affichage par grade (FR / EN)
