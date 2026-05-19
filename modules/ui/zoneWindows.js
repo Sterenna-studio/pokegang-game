@@ -139,36 +139,12 @@ function openCollectionModal(zoneId) {
   const zoneAgents = state.agents.filter(a => a.assignedZone === zoneId);
   const agentIds   = zoneAgents.map(a => a.id);
 
-  // Vérification mode découverte
-  if (state.settings.discoveryMode) {
-    const dexCaught = Object.values(state.pokedex).filter(e => e.caught).length;
-    const hasBossTeam = (state.gang.bossTeam || []).length > 0;
-    if (dexCaught < 10 || !hasBossTeam) {
-      const missing = [];
-      if (dexCaught < 10) missing.push(`${10 - dexCaught} espèce(s) de plus dans le Pokédex`);
-      if (!hasBossTeam) missing.push('au moins 1 Pokémon dans l\'équipe Boss (onglet Gang)');
-      globalThis.notify(`⚔ Combat non disponible — il te faut : ${missing.join(' et ')}`, 'error');
-      return;
-    }
-  }
   // Combat direct — sans écran VS intermédiaire
   startZoneCollection(zoneId, agentIds);
 }
 
 function showCollectionEncounter(zoneId, agentIds, income, items) {
   const state = globalThis.state;
-  // En mode découverte, bloquer si < 10 pokédex et pas de boss team
-  if (state.settings.discoveryMode) {
-    const dexCaught = Object.values(state.pokedex).filter(e => e.caught).length;
-    const hasBossTeam = (state.gang.bossTeam || []).length > 0;
-    if (dexCaught < 10 || !hasBossTeam) {
-      const missing = [];
-      if (dexCaught < 10) missing.push(`${10 - dexCaught} espèce(s) de plus dans le Pokédex`);
-      if (!hasBossTeam) missing.push('au moins 1 Pokémon dans l\'équipe Boss (onglet Gang)');
-      globalThis.notify(`⚔ Combat non disponible — il te faut : ${missing.join(' et ')}`, 'error');
-      return;
-    }
-  }
   const zone = ZONE_BY_ID[zoneId];
   const zoneName = zone ? (state.lang === 'fr' ? zone.fr : zone.en) : zoneId;
   const zoneAgents = agentIds.map(id => state.agents.find(a => a.id === id)).filter(Boolean);
