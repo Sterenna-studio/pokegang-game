@@ -34,6 +34,19 @@ export const POWER_SOFT_RATE = 0.52;
 // (loin de sa zone de capture depuis trop longtemps).
 export const POWER_HOMESICK_MULT = 0.75;
 
+// ── Bonus chromatique ─────────────────────────────────────────────
+// Un Pokémon shiny obtient un bonus de puissance sur son PC final.
+// Représente la rareté et la singularité de l'individu.
+export const POWER_SHINY_MULT = 1.10;
+
+// ── Variance individuelle ─────────────────────────────────────────
+// Chaque Pokémon reçoit une variance propre à la capture, stockée
+// dans pokemon.pcVariance. Range [POWER_VAR_MIN, POWER_VAR_MAX].
+// Apporte de la diversité même entre deux Pokémon de même espèce,
+// niveau et potentiel — "personnalité" de l'individu.
+export const POWER_VAR_MIN = 0.90;
+export const POWER_VAR_MAX = 1.10;
+
 // ════════════════════════════════════════════════════════════════
 //  Référence de l'ancienne formule (archivée pour comparaison) :
 //    PC = atk + def + spd   (poids 1:1:1, pas de cap)
