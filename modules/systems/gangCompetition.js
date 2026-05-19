@@ -215,8 +215,6 @@ function _attackerPower(agentIds = null) {
   return bossTeamPower + agentPower;
 }
 
-export function getAttackerPower(agentIds = null) { return _attackerPower(agentIds); }
-
 function _raidPreview(defData, agentIds = null) {
   const attackerPower = Math.round(_attackerPower(agentIds));
   const defenderPower = Math.round(_defenderPower(defData));

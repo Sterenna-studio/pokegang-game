@@ -267,8 +267,6 @@ export function openGiovanniIntro({ slotIdx = 0, onComplete } = {}) {
     cursor.style.display = 'none';
   }
 
-  function _trainerUrl(name) { return _trainerSprite(name); }
-
   // ── STEP 0 — Boss name ────────────────────────────────────────
   function stepName() {
     _updateDots(0);

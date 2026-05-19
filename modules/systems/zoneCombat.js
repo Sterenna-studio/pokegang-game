@@ -166,26 +166,6 @@ function defenderPokemonName(pokemon) {
   return globalThis.speciesName?.(pokemon.species_en) ?? pokemon.species_en;
 }
 
-function buildTrainerDefenders(spawn) {
-  const multiplier = trainerTypeMultiplier(spawn);
-  const type = trainerTypeForSpawn(spawn);
-
-  return trainerPokemonEntries(spawn).map((entry, idx) => {
-    const summary = trainerPokemonSummary(entry.pokemon, multiplier);
-    return {
-      id: `${entry.trainerKey}-${entry.index}-${idx}`,
-      key: entry.trainerKey,
-      name: defenderPokemonName(entry.pokemon),
-      trainerName: entry.trainerName,
-      trainerType: type,
-      typeMultiplier: multiplier,
-      team: [summary],
-      pokemon: summary,
-      power: summary.power,
-    };
-  });
-}
-
 function allTrainerPokemon(spawn) {
   return trainerPokemonEntries(spawn).map(entry => entry.pokemon).filter(Boolean);
 }
@@ -280,22 +260,6 @@ function rollCombat(attackerPower, defenderPower) {
   const attackerRoll = attackerPower * (0.85 + getRandom() * 0.30);
   const defenderRoll = defenderPower * (0.85 + getRandom() * 0.30);
   return { attackerWin: attackerRoll >= defenderRoll, attackerRoll, defenderRoll };
-}
-
-function resolveAgentDuel(attacker, defender) {
-  const attackerPower = Math.round(attacker?.power ?? 0);
-  const defenderPower = Math.round(defender?.power ?? 0);
-  const rolled = rollCombat(attackerPower, defenderPower);
-  return {
-    type: 'agent_trainer_duel',
-    attacker: agentSummary(attacker),
-    defender: defenderSummary(defender),
-    attackerPower,
-    defenderPower,
-    attackerRoll: Math.round(rolled.attackerRoll),
-    defenderRoll: Math.round(rolled.defenderRoll),
-    attackerWin: rolled.attackerWin,
-  };
 }
 
 // Puissance totale côté attaquant : boss (si dans la zone) + agents.

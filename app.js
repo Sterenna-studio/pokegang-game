@@ -2142,7 +2142,7 @@ Object.assign(globalThis, {
   showCollectionResult, spawnCoinRain, autoCollectZone, collectAllZones,
   openCombatPopup, executeCombat, closeCombatPopup,
   // Finance / combat / UI helpers
-  checkMoneyMilestone, showRarePopup, checkPlayerStatPoints,
+  checkMoneyMilestone, showRarePopup, showShinyPopup, checkPlayerStatPoints,
   pokeSpriteBack,
   // Data constants
   POKEMON_GEN1, SPECIES_BY_EN, EVO_BY_SPECIES, POT_UPGRADE_COSTS,

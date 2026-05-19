@@ -116,12 +116,6 @@ function calcCombatHp(stats, level) {
 // Exported so other modules (agent, zoneSystem) can use it for coverage calculations
 globalThis.getTypeEffectiveness = getTypeEffectiveness;
 
-/** Dégâts infligés — formule Gen 3-5, × 4 pour un rythme de 3-8 tours */
-function calcCombatDamage(atk, def, level, basePower = 60, typeMod = 1.0, stab = 1, crit = 1) {
-  const rand = 0.85 + Math.random() * 0.15;
-  return Math.max(1, Math.floor(((2 * level / 5 + 2) * basePower * (atk / Math.max(1, def)) / 50 + 2) * typeMod * stab * crit * rand * 4));
-}
-
 // ── Zone Income Collection ─────────────────────────────────────
 
 function openCollectionModal(zoneId) {
@@ -832,28 +826,6 @@ function closeZoneWindow(zoneId) {
   globalThis.renderGangBasePanel();
   renderZoneWindows();
   _zsUpdateButtons();
-}
-
-function _renderZoneWindowsInto(containerId, zoneIds) {
-  const container = document.getElementById(containerId);
-  if (!container) return;
-  const openZones = globalThis.openZones;
-
-  if (zoneIds.length === 0) {
-    let ph = container.querySelector('.zone-placeholder');
-    if (!ph) {
-      ph = document.createElement('div');
-      ph.className = 'zone-placeholder';
-      ph.style.cssText = 'color:var(--text-dim);padding:20px 0;text-align:center;width:100%';
-      ph.textContent = 'Sélectionnez une zone pour commencer';
-      container.appendChild(ph);
-    }
-    return;
-  }
-  container.querySelector('.zone-placeholder')?.remove();
-  container.querySelectorAll('.zone-window').forEach(el => {
-    if (!openZones.has(el.id.replace('zw-', ''))) el.remove();
-  });
 }
 
 function renderZoneWindows() {

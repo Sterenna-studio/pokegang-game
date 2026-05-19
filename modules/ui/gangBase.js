@@ -928,7 +928,7 @@ function _refreshBaseRuntime() {
   globalThis.updateTopBar?.();
   globalThis.renderZoneWindows?.();
   renderGangBasePanel();
-  globalThis._zsUpdateButtons?.();
+  globalThis.updateZoneButtons?.();
 }
 
 function _setBaseFocusZone(zoneId, notify = false) {
