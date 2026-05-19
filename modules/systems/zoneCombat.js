@@ -63,12 +63,20 @@ function speciesMap() {
 
 function trainerPokemonPower(pokemon) {
   if (!pokemon) return 0;
+  // Priorité aux stats pré-calculées (présentes sur tous les Pokémon générés par makeTrainerTeam).
+  // Elles incluent déjà niveau, potentiel et statMult → même échelle que getPokemonPower.
+  if (pokemon.stats?.atk !== undefined) {
+    return Math.round((pokemon.stats.atk + pokemon.stats.def + pokemon.stats.spd));
+  }
+  // Fallback : recalcul à partir des stats de base (même formule que calculateStats).
   const species = speciesMap()[pokemon.species_en] ?? {};
-  const atk = species.baseAtk ?? pokemon.stats?.atk ?? 50;
-  const def = species.baseDef ?? pokemon.stats?.def ?? 50;
-  const spd = species.baseSpd ?? pokemon.stats?.spd ?? 50;
-  const level = pokemon.level ?? 1;
-  return Math.round(level * ((atk + def + spd) / 3));
+  const baseAtk = species.baseAtk ?? 50;
+  const baseDef = species.baseDef ?? 50;
+  const baseSpd = species.baseSpd ?? 50;
+  const level   = pokemon.level ?? 1;
+  const potMult = 1 + (pokemon.potential ?? 1) * 0.1;
+  const lvlMult = 1 + level / 100;
+  return Math.round((baseAtk + baseDef + baseSpd) * potMult * lvlMult);
 }
 
 function trainerTypeForSpawn(spawn) {

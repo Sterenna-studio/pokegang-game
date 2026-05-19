@@ -62,8 +62,8 @@ function _agentTeamPower(agent, s = state()) {
 function _agentPower(agent, s = state()) {
   if (!agent) return 0;
   if (globalThis.getAgentCombatPower) return globalThis.getAgentCombatPower(agent);
-  const bonus = 1 + ((globalThis.TITLE_BONUSES ?? {})[agent.title] || 0);
-  return Math.round(((agent.stats?.combat ?? 0) * 10 + _agentTeamPower(agent, s)) * bonus);
+  const rankMult = (globalThis.TITLE_BONUSES ?? {})[agent.title] ?? 1.0;
+  return Math.round(((agent.stats?.combat ?? 0) * 10 + _agentTeamPower(agent, s)) * rankMult);
 }
 
 function _pickDefaultAgent(s = state()) {
