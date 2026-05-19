@@ -249,12 +249,8 @@ function startZoneCollection(zoneId, agentIds) {
   const income = zs.pendingIncome || 0;
   const items  = { ...zs.pendingItems } || {};
 
-  // Player power: boss team + selected agents
-  let playerPower = 0;
-  for (const pkId of state.gang.bossTeam) {
-    const p = state.pokemons.find(pk => pk.id === pkId);
-    if (p) playerPower += globalThis.getPokemonPower(p);
-  }
+  // Player power: boss team (cached) + selected agents
+  let playerPower = globalThis.getBossTeamPower(state);
   for (const agId of agentIds) {
     const ag = state.agents.find(a => a.id === agId);
     if (ag) playerPower += globalThis.getAgentCombatPower(ag);
@@ -448,12 +444,8 @@ function collectAllZones() {
   modal.id = 'collectAllModal';
   modal.style.cssText = 'position:fixed;inset:0;z-index:9300;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center;';
 
-  // Calcul combat global (pool de force combiné)
-  let playerPower = 0;
-  for (const pkId of state.gang.bossTeam) {
-    const p = state.pokemons.find(pk => pk.id === pkId);
-    if (p) playerPower += globalThis.getPokemonPower(p);
-  }
+  // Calcul combat global (pool de force combiné, boss via cache)
+  let playerPower = globalThis.getBossTeamPower(state);
   for (const a of state.agents) {
     if (zones.includes(a.assignedZone)) playerPower += globalThis.getAgentCombatPower(a);
   }

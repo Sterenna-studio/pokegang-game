@@ -10,8 +10,11 @@
 //  is accessed by bare name to match the rest of this codebase.
 // ════════════════════════════════════════════════════════════════
 
-const ZONE_AGENT_SLOTS = 3;
-const ZONE_BOSS_TEAM_SLOTS = 6; // boss peut aligner toute son équipe
+import { BOSS_TEAM_SLOTS } from '../../data/game-config-data.js';
+import { getBossTeamPower } from './bossPower.js';
+
+const ZONE_AGENT_SLOTS     = 3;
+const ZONE_BOSS_TEAM_SLOTS = BOSS_TEAM_SLOTS; // boss peut aligner toute son équipe
 
 const TRAINER_TYPE_MULTIPLIERS = {
   normal: 1,
@@ -281,8 +284,7 @@ function totalAttackerPower(agentIds = null, state = getState(), zoneId = null) 
   const bossInZone = zoneId === null || state.gang?.bossZone === zoneId;
   let bossTeamPow = 0;
   if (bossInZone) {
-    const bossTeamIds = (state.gang?.bossTeam || []).filter(Boolean).slice(0, ZONE_BOSS_TEAM_SLOTS);
-    bossTeamPow = getTeamPower(bossTeamIds, state);
+    bossTeamPow = getBossTeamPower(state);
   }
   const attackers = attackAgentSnapshots(agentIds, state);
   const agentsPow = attackers.reduce((sum, a) => sum + Math.round(a.power ?? 0), 0);

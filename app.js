@@ -24,6 +24,7 @@ import {
 import './modules/systems/llm.js';
 import './modules/systems/missions.js';
 import './modules/systems/market.js';
+import './modules/systems/bossPower.js';
 import './modules/systems/agent.js';
 import './modules/systems/sessionObjectives.js';
 import './modules/systems/trainingRoom.js';
