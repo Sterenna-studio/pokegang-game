@@ -12,6 +12,10 @@
 
 import { BOSS_TEAM_SLOTS } from '../../data/game-config-data.js';
 import { getBossTeamPower } from './bossPower.js';
+import {
+  POWER_W_ATK, POWER_W_DEF, POWER_W_SPD,
+  POWER_SOFT_CAP, POWER_SOFT_RATE,
+} from '../../data/power-config-data.js';
 
 const ZONE_AGENT_SLOTS     = 3;
 const ZONE_BOSS_TEAM_SLOTS = BOSS_TEAM_SLOTS; // boss peut aligner toute son équipe
@@ -54,10 +58,22 @@ function getTeamPower(pokemonIds = [], state = getState()) {
   }, 0);
 }
 
+// ── Formule partagée (miroir de computePokemonPC dans pokemon.js) ─
+// Dupliquée ici pour éviter une dépendance circulaire entre modules.
+// Doit rester strictement identique aux constantes de power-config-data.js.
+function _computePC(stats) {
+  if (!stats) return 0;
+  const raw = (stats.atk ?? 0) * POWER_W_ATK
+            + (stats.def ?? 0) * POWER_W_DEF
+            + (stats.spd ?? 0) * POWER_W_SPD;
+  return raw <= POWER_SOFT_CAP
+    ? raw
+    : POWER_SOFT_CAP + (raw - POWER_SOFT_CAP) * POWER_SOFT_RATE;
+}
+
 function fallbackStoredPokemonPower(pokemon) {
   if (!pokemon) return 0;
-  const stats = pokemon.stats ?? {};
-  return Math.round((stats.atk ?? 0) + (stats.def ?? 0) + (stats.spd ?? 0));
+  return Math.round(_computePC(pokemon.stats ?? {}));
 }
 
 function speciesMap() {
@@ -69,7 +85,7 @@ function trainerPokemonPower(pokemon) {
   // Priorité aux stats pré-calculées (présentes sur tous les Pokémon générés par makeTrainerTeam).
   // Elles incluent déjà niveau, potentiel et statMult → même échelle que getPokemonPower.
   if (pokemon.stats?.atk !== undefined) {
-    return Math.round((pokemon.stats.atk + pokemon.stats.def + pokemon.stats.spd));
+    return Math.round(_computePC(pokemon.stats));
   }
   // Fallback : recalcul à partir des stats de base (même formule que calculateStats).
   const species = speciesMap()[pokemon.species_en] ?? {};
@@ -79,7 +95,12 @@ function trainerPokemonPower(pokemon) {
   const level   = pokemon.level ?? 1;
   const potMult = 1 + (pokemon.potential ?? 1) * 0.1;
   const lvlMult = 1 + level / 100;
-  return Math.round((baseAtk + baseDef + baseSpd) * potMult * lvlMult);
+  const stats = {
+    atk: Math.round(baseAtk * potMult * lvlMult),
+    def: Math.round(baseDef * potMult * lvlMult),
+    spd: Math.round(baseSpd * potMult * lvlMult),
+  };
+  return Math.round(_computePC(stats));
 }
 
 function trainerTypeForSpawn(spawn) {
