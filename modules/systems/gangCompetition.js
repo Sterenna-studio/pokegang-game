@@ -12,14 +12,17 @@
 // docs/supabase-schema.sql.
 // ════════════════════════════════════════════════════════════════
 
+import { BOSS_TEAM_SLOTS } from '../../data/game-config-data.js';
+
 const RAID_PENALTY      = 100_000;   // pokédollars perdus si raid échoue
 const RAID_NO_DEFENSE_PENALTY_MULT = 2; // défense auto/vide : malus doublé pour le perdant
 const REP_STEAL_RATIO   = 0.05;      // base de butin: 5% de la réputation snapshot, sans transfert de rép
 const RAID_GOLD_PER_REP = 200;       // gold par point de base de butin
 const RAID_GOLD_MAX     = 1_000_000; // plafond d'or par raid (1M)
 const RAID_COOLDOWN_MS  = 60 * 60 * 1000; // 1 heure par cible
-const PVP_AGENT_SLOTS   = 3;
-const PVP_BOSS_TEAM_SLOTS = 6;
+
+const PVP_AGENT_SLOTS     = 3;
+const PVP_BOSS_TEAM_SLOTS = BOSS_TEAM_SLOTS;
 
 let _ctx = {};
 
