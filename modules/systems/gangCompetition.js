@@ -13,6 +13,10 @@
 // ════════════════════════════════════════════════════════════════
 
 import { BOSS_TEAM_SLOTS } from '../../data/game-config-data.js';
+import {
+  POWER_W_ATK, POWER_W_DEF, POWER_W_SPD,
+  POWER_SOFT_CAP, POWER_SOFT_RATE,
+} from '../../data/power-config-data.js';
 
 const RAID_PENALTY      = 100_000;   // pokédollars perdus si raid échoue
 const RAID_NO_DEFENSE_PENALTY_MULT = 2; // défense auto/vide : malus doublé pour le perdant
@@ -37,10 +41,19 @@ function slimPokemon(p)       { return _ctx.slimPokemon?.(p) ?? p; }
 function getSupabaseClient()  { return _ctx.getSupabaseClient?.(); }
 function getSupaSession()     { return _ctx.getSupaSession?.(); }
 
-// ── Puissance d'un pokemon stocké (stats pré-calculées incluses) ──
+// ── Puissance d'un pokemon (formule pondérée de référence) ────────
+// Utilise getPokemonPower si disponible (shiny + variance inclus).
+// Fallback pondéré identique à computePokemonPC pour les snapshots PvP.
 function _defPokemonPower(p) {
   if (!p || !p.stats) return 0;
-  return Math.round(p.stats.atk + p.stats.def + p.stats.spd);
+  if (globalThis.getPokemonPower) return globalThis.getPokemonPower(p);
+  const s = p.stats;
+  const raw = (s.atk ?? 0) * POWER_W_ATK
+            + (s.def ?? 0) * POWER_W_DEF
+            + (s.spd ?? 0) * POWER_W_SPD;
+  return Math.round(raw <= POWER_SOFT_CAP
+    ? raw
+    : POWER_SOFT_CAP + (raw - POWER_SOFT_CAP) * POWER_SOFT_RATE);
 }
 
 function _agentPower(agent, teamPower = 0) {
@@ -201,8 +214,6 @@ function _attackerPower(agentIds = null) {
   const agentPower = _attackAgentSnapshots(agentIds, state).reduce((sum, agent) => sum + (agent.power ?? 0), 0);
   return bossTeamPower + agentPower;
 }
-
-export function getAttackerPower(agentIds = null) { return _attackerPower(agentIds); }
 
 function _raidPreview(defData, agentIds = null) {
   const attackerPower = Math.round(_attackerPower(agentIds));

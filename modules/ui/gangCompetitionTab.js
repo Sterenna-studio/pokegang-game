@@ -9,6 +9,11 @@
 // ════════════════════════════════════════════════════════════════
 
 import {
+  POWER_W_ATK, POWER_W_DEF, POWER_W_SPD,
+  POWER_SOFT_CAP, POWER_SOFT_RATE,
+} from '../../data/power-config-data.js';
+
+import {
   publishDefense,
   purgeLegacyDefenseData,
   loadGangList,
@@ -54,7 +59,15 @@ function _agentTeamPower(agent, s = state()) {
   let power = 0;
   for (const pkId of (agent?.team || [])) {
     const p = s.pokemons.find(pk => pk.id === pkId);
-    if (p) power += globalThis.getPokemonPower?.(p) ?? ((p.stats?.atk ?? 0) + (p.stats?.def ?? 0) + (p.stats?.spd ?? 0));
+    if (p) {
+      if (globalThis.getPokemonPower) {
+        power += globalThis.getPokemonPower(p);
+      } else {
+        const s = p.stats ?? {};
+        const raw = (s.atk ?? 0) * POWER_W_ATK + (s.def ?? 0) * POWER_W_DEF + (s.spd ?? 0) * POWER_W_SPD;
+        power += raw <= POWER_SOFT_CAP ? raw : POWER_SOFT_CAP + (raw - POWER_SOFT_CAP) * POWER_SOFT_RATE;
+      }
+    }
   }
   return power;
 }
@@ -213,7 +226,7 @@ function _renderDefensePanel(el) {
     </div>`;
   }).join('');
 
-  const zones = globalThis.ZONES ?? [];
+  const zones = ZONES;
   const unlockedZones = zones.filter(z => {
     const zState = state().zones?.[z.id];
     return zState?.unlocked;

@@ -19,6 +19,10 @@
 // ════════════════════════════════════════════════════════════════
 
 import { BOSS_TEAM_SLOTS } from '../../data/game-config-data.js';
+import {
+  POWER_W_ATK, POWER_W_DEF, POWER_W_SPD,
+  POWER_SOFT_CAP, POWER_SOFT_RATE,
+} from '../../data/power-config-data.js';
 
 // ── Cache interne ─────────────────────────────────────────────────
 let _cache = {
@@ -40,9 +44,16 @@ function _fingerprint(state) {
 }
 
 // ── Fallback si getPokemonPower non disponible ────────────────────
+// Utilise la même formule pondérée + soft-cap que computePokemonPC.
 function _fallbackPower(pokemon) {
   const s = pokemon?.stats ?? {};
-  return Math.round((s.atk ?? 0) + (s.def ?? 0) + (s.spd ?? 0));
+  const raw = (s.atk ?? 0) * POWER_W_ATK
+            + (s.def ?? 0) * POWER_W_DEF
+            + (s.spd ?? 0) * POWER_W_SPD;
+  const pc = raw <= POWER_SOFT_CAP
+    ? raw
+    : POWER_SOFT_CAP + (raw - POWER_SOFT_CAP) * POWER_SOFT_RATE;
+  return Math.round(pc);
 }
 
 // ── API publique ──────────────────────────────────────────────────

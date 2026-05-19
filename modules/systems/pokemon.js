@@ -11,6 +11,14 @@
 //   notify, saveState, SFX, playSE, _npanel_push,
 //   resetPcRenderCache, renderPCTab, activeTab, showEvolutionChoicePopup
 
+import {
+  POWER_W_ATK, POWER_W_DEF, POWER_W_SPD,
+  POWER_SOFT_CAP, POWER_SOFT_RATE,
+  POWER_HOMESICK_MULT,
+  POWER_SHINY_MULT,
+  POWER_VAR_MIN, POWER_VAR_MAX,
+} from '../../data/power-config-data.js';
+
 function rollNature() {
   return globalThis.pick?.(globalThis.NATURE_KEYS);
 }
@@ -93,6 +101,9 @@ function makePokemon(speciesEN, zoneId, ballType = 'pokeball', spawnCtx = {}) {
     shiny,
     moves: rollMoves(speciesEN),
     capturedIn: zoneId,
+    // Variance individuelle : tirée une seule fois à la capture, jamais re-rollée.
+    // Range [POWER_VAR_MIN, POWER_VAR_MAX] — "personnalité" de l'individu.
+    pcVariance: parseFloat((POWER_VAR_MIN + Math.random() * (POWER_VAR_MAX - POWER_VAR_MIN)).toFixed(3)),
     stats: {},
     assignedTo: null,
     cooldown: 0,
@@ -109,9 +120,34 @@ function makePokemon(speciesEN, zoneId, ballType = 'pokeball', spawnCtx = {}) {
   return pokemon;
 }
 
+/**
+ * Formule partagée de puissance (PC) à partir des stats calculées.
+ * Indépendante du Pokémon — utilisable pour les dresseurs et le boss.
+ *
+ * Poids : ATK > SPD > DEF (rôle offensif/actif valorisé).
+ * Soft cap : au-delà de POWER_SOFT_CAP, les gains sont atténués pour
+ * limiter les outliers DEF-lourds (ex-meta Crustabri, Steelix…).
+ *
+ * @param {{ atk: number, def: number, spd: number }} stats
+ * @returns {number}
+ */
+function computePokemonPC(stats) {
+  if (!stats) return 0;
+  const raw = (stats.atk ?? 0) * POWER_W_ATK
+            + (stats.def ?? 0) * POWER_W_DEF
+            + (stats.spd ?? 0) * POWER_W_SPD;
+  return raw <= POWER_SOFT_CAP
+    ? raw
+    : POWER_SOFT_CAP + (raw - POWER_SOFT_CAP) * POWER_SOFT_RATE;
+}
+
 function getPokemonPower(pokemon) {
-  const s = pokemon.stats;
-  return Math.round((s.atk + s.def + s.spd) * (pokemon.homesick ? 0.75 : 1));
+  if (!pokemon?.stats) return 0;
+  const raw = computePokemonPC(pokemon.stats);
+  const shinyMult    = pokemon.shiny      ? POWER_SHINY_MULT    : 1;
+  const variance     = pokemon.pcVariance ?? 1;
+  const homesickMult = pokemon.homesick   ? POWER_HOMESICK_MULT : 1;
+  return Math.round(raw * shinyMult * variance * homesickMult);
 }
 
 function checkEvolution(pokemon) {
@@ -207,7 +243,7 @@ function levelUpPokemon(pokemon, xpGain) {
 
 Object.assign(globalThis, {
   rollNature, rollPotential, rollShiny, rollMoves,
-  calculateStats, makePokemon, getPokemonPower,
+  calculateStats, makePokemon, getPokemonPower, computePokemonPC,
   checkEvolution, evolvePokemon, tryAutoEvolution,
   showPokemonLevelPopup, levelUpPokemon,
 });

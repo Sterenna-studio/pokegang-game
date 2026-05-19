@@ -7,6 +7,19 @@ function ensureObject(value, fallback = {}) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : fallback;
 }
 
+// ── Variance déterministe depuis l'ID d'un Pokémon ───────────────────────────
+// Utilisée pour les Pokémon existants sans pcVariance dans leur save.
+// Produit toujours la même valeur pour le même ID → stable entre sessions.
+// Range : [0.90, 1.10] en pas de 0.001.
+function _pcVarianceFromId(id = '') {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) {
+    h = (Math.imul(31, h) + id.charCodeAt(i)) | 0;
+  }
+  const t = ((h >>> 0) % 201) / 1000; // 0.000 … 0.200
+  return parseFloat((0.9 + t).toFixed(3));
+}
+
 // ── migrateSave ─────────────────────────────────────────────────────────────
 // Parité totale avec migrate() dans app.js.
 // deps = { DEFAULT_STATE, SAVE_SCHEMA_VERSION, SPECIES_BY_EN, uid, now? }
@@ -215,6 +228,9 @@ export function migrateSave(saved, deps) {
     if (p.favorite  === undefined) p.favorite    = false;
     if (p.xp        === undefined) p.xp          = 0;
     if (!Array.isArray(p.history)) p.history     = [];
+    // pcVariance — variance individuelle [0.90, 1.10] stable par Pokémon.
+    // Pokémon existants : valeur déterministe depuis l'ID (jamais re-rollée).
+    if (p.pcVariance === undefined) p.pcVariance = _pcVarianceFromId(p.id);
   }
 
   // ── Œufs ────────────────────────────────────────────────────────────────────────

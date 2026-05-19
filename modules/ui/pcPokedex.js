@@ -1478,49 +1478,6 @@ function _evolveToMax(pk) {
   return evolved;
 }
 
-// ── Vente groupée: évoluer plusieurs Pokémon avec gestion des pierres ──
-function _bulkEvolve(evolvable, stoneNeeded, stoneHave) {
-  const doEvolve = () => {
-    let count = 0;
-    for (const pk of evolvable) { if (_evolveToMax(pk)) count++; }
-    saveState();
-    _pcLastRenderKey = ''; renderPCTab();
-    notify(`${count} Pokémon évolué${count > 1 ? 's' : ''} !`, 'gold');
-  };
-
-  if (stoneNeeded === 0 || stoneHave >= stoneNeeded) {
-    doEvolve();
-    return;
-  }
-
-  // Not enough stones — show popup
-  const shortage = stoneNeeded - stoneHave;
-  const stoneCost = 5000; // price per stone from shop
-  const buyCost = shortage * stoneCost;
-  const canAfford = state.gang.money >= buyCost;
-
-  showConfirm(
-    `<b>Évoluer nécessite ${stoneNeeded} Pierre${stoneNeeded > 1 ? 's' : ''} Évolution</b><br>
-     Vous en avez : <span style="color:var(--gold)">${stoneHave}</span> — il en manque <span style="color:var(--red)">${shortage}</span><br>
-     ${canAfford
-       ? `Acheter ${shortage} pierre${shortage > 1 ? 's' : ''} pour <span style="color:var(--gold)">${buyCost.toLocaleString()}₽</span> et évoluer ?`
-       : `<span style="color:var(--text-dim)">Fonds insuffisants pour acheter ${shortage} pierre${shortage > 1 ? 's' : ''} (${buyCost.toLocaleString()}₽)</span>`}`,
-    () => {
-      if (canAfford) {
-        state.gang.money -= buyCost;
-        state.inventory.evostone = (state.inventory.evostone || 0) + shortage;
-        updateTopBar();
-      }
-      doEvolve();
-    },
-    null,
-    {
-      confirmLabel: canAfford ? `Acheter (${buyCost.toLocaleString()}₽) + Évoluer` : 'Évoluer avec stock actuel',
-      cancelLabel: 'Annuler',
-      danger: !canAfford,
-    }
-  );
-}
 
 // ── XP-only chain evolution (auto-random for multi-path) ──
 function _xpEvolveToMax(pk) {
@@ -3058,6 +3015,10 @@ function renderPokedexTab() {
 }
 
 // ════════════════════════════════════════════════════════════════
+
+// Expose showEvolutionChoicePopup on globalThis so ES-module systems (pokemon.js)
+// can call it without a direct import cycle.
+Object.assign(globalThis, { showEvolutionChoicePopup });
 
 export {
   configurePcPokedex,
