@@ -326,8 +326,6 @@ function loadState() {
     if (needsMigration) {
       const addedFields = [];
       if (!saved.behaviourLogs)       addedFields.push('Logs comportementaux');
-      if (saved.discoveryProgress?.agentsUnlocked === undefined)
-                                       addedFields.push('Progression découverte étendue');
       if (saved.settings?.spriteMode === undefined && saved.settings?.classicSprites === undefined) addedFields.push('Option sprites');
       if (!saved.eggs)                addedFields.push('Système d\'œufs');
       if (!saved.pension)             addedFields.push('Pension');
@@ -763,7 +761,6 @@ function levelUpPokemon(...a)     { return globalThis.levelUpPokemon?.(...a); }
 function getTitleLabel(...a)      { return globalThis.getTitleLabel?.(...a); }
 function getBossFullTitle(...a)   { return globalThis.getBossFullTitle?.(...a); }
 function checkTitleUnlocks(...a)  { return globalThis.checkTitleUnlocks?.(...a); }
-function updateDiscovery(...a)    { return globalThis.updateDiscovery?.(...a); }
 function openTitleModal(...a)     { return globalThis.openTitleModal?.(...a); }
 
 
@@ -1079,7 +1076,6 @@ function updateTopBar() {
   // ── Ball assist silencieux (early-game) ───────────────────
   checkBallAssist();
   checkTitleUnlocks();
-  updateDiscovery();
   // Auto-buy ball
   if (state.settings.autoBuyBall) {
     const ballId = state.settings.autoBuyBall;

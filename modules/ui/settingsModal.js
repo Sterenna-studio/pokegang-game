@@ -312,10 +312,6 @@ function renderSettingsPanel() {
         <label>Auto-combat agents</label>
         ${tog('autoCombat', S.autoCombat !== false)}
       </div>
-      <div class="settings-row">
-        <label>Mode Découverte <span style="font-size:.75em;opacity:.6">(tutoriel progressif)</span></label>
-        ${tog('discoveryMode', S.discoveryMode !== false)}
-      </div>
       <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:8px">
         <label style="margin-bottom:2px">🖼 Mode sprites Pokémon</label>
         ${(() => {
@@ -512,7 +508,6 @@ export function initSettings() {
 
     // Toggles (lecture complète — _applySettingsLive a déjà écrit la plupart, mais on consolide)
     state.settings.autoCombat     = readToggle('autoCombat',    true);
-    state.settings.discoveryMode  = readToggle('discoveryMode', true);
     // spriteMode est écrit directement au clic — pas de toggle à relire ici
     state.settings.autoEvoChoice  = readToggle('autoEvoChoice', false);
     state.settings.musicEnabled   = readToggle('music',         false);

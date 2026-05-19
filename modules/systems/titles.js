@@ -1,12 +1,12 @@
 'use strict';
 
-// ── Titres, découverte de tabs, modal de titres ───────────────────────────────
+// ── Titres et modal de titres ────────────────────────────────────────────────
 //
 // Dépendances classiques (bare name — classic <script> globals) :
 //   TITLES, POKEMON_GEN1
 //
 // Dépendances globalThis :
-//   state, notify, saveState, renderGangTab, activeTab, getTotalBalls
+//   state, notify, saveState, renderGangTab, activeTab
 
 // LIAISONS list (défini ici — absent de titles-data.js)
 const LIAISONS = ['', 'de', "de l'", 'du', 'des', 'à', 'et', '&', 'alias', 'dit'];
@@ -89,81 +89,6 @@ function checkTitleUnlocks() {
     newOnes.forEach(t => globalThis.notify?.(`🏆 Titre débloqué : "${t.label}" !`, 'gold'));
     globalThis.saveState?.();
   }
-}
-
-function updateDiscovery() {
-  const state = globalThis.state;
-  if (!state.settings.discoveryMode) {
-    ['tabMarket','tabPokedex','tabMissions','tabAgents','tabBattleLog','tabCosmetics'].forEach(id => {
-      const btn = document.querySelector(`[data-tab="${id}"]`);
-      if (btn) btn.style.display = '';
-    });
-    return;
-  }
-
-  const dexCaught = Object.values(state.pokedex).filter(e => e.caught).length;
-  const totalFightsWon = state.stats?.totalFightsWon || 0;
-
-  if (!state.discoveryProgress.marketUnlocked) {
-    const totalBalls = globalThis.getTotalBalls?.() ?? 0;
-    if (totalBalls === 0) {
-      state.discoveryProgress.marketUnlocked = true;
-      globalThis.saveState?.();
-      globalThis.notify?.('🏪 Le Marché est maintenant accessible ! Achète des Balls pour continuer.', 'gold');
-    }
-  }
-
-  if (!state.discoveryProgress.pokedexUnlocked && dexCaught >= 5) {
-    state.discoveryProgress.pokedexUnlocked = true;
-    globalThis.saveState?.();
-    globalThis.notify?.('📖 Le Pokédex est maintenant accessible !', 'gold');
-  }
-
-  if (!state.discoveryProgress.agentsUnlocked && totalFightsWon >= 3) {
-    state.discoveryProgress.agentsUnlocked = true;
-    globalThis.saveState?.();
-    globalThis.notify?.('👥 Les Agents sont maintenant accessibles ! Assigne des Pokémon pour récolter en automatique.', 'gold');
-  }
-
-  if (!state.discoveryProgress.missionsUnlocked && totalFightsWon >= 10) {
-    state.discoveryProgress.missionsUnlocked = true;
-    globalThis.saveState?.();
-    globalThis.notify?.('📋 Les Missions sont maintenant accessibles !', 'gold');
-  }
-
-  if (!state.discoveryProgress.battleLogUnlocked && totalFightsWon >= 15) {
-    state.discoveryProgress.battleLogUnlocked = true;
-    globalThis.saveState?.();
-    globalThis.notify?.('⚔ Le Log de combat est maintenant accessible !', 'gold');
-  }
-
-  if (!state.discoveryProgress.cosmeticsUnlocked && totalFightsWon >= 30) {
-    state.discoveryProgress.cosmeticsUnlocked = true;
-    globalThis.saveState?.();
-    globalThis.notify?.('🎨 Les Cosmétiques sont maintenant accessibles !', 'gold');
-  }
-
-  // Appliquer la visibilité
-  const pcBtn = document.querySelector('[data-tab="tabPC"]');
-  if (pcBtn) pcBtn.style.display = '';
-
-  const marketBtn = document.querySelector('[data-tab="tabMarket"]');
-  if (marketBtn) marketBtn.style.display = state.discoveryProgress.marketUnlocked ? '' : 'none';
-
-  const dexBtn = document.querySelector('[data-tab="tabPokedex"]');
-  if (dexBtn) dexBtn.style.display = state.discoveryProgress.pokedexUnlocked ? '' : 'none';
-
-  const agentsBtn = document.querySelector('[data-tab="tabAgents"]');
-  if (agentsBtn) agentsBtn.style.display = state.discoveryProgress.agentsUnlocked ? '' : 'none';
-
-  const missionsBtn = document.querySelector('[data-tab="tabMissions"]');
-  if (missionsBtn) missionsBtn.style.display = state.discoveryProgress.missionsUnlocked ? '' : 'none';
-
-  const battleLogBtn = document.querySelector('[data-tab="tabBattleLog"]');
-  if (battleLogBtn) battleLogBtn.style.display = state.discoveryProgress.battleLogUnlocked ? '' : 'none';
-
-  const cosmeticsBtn = document.querySelector('[data-tab="tabCosmetics"]');
-  if (cosmeticsBtn) cosmeticsBtn.style.display = state.discoveryProgress.cosmeticsUnlocked ? '' : 'none';
 }
 
 function openTitleModal() {
@@ -332,7 +257,7 @@ function openTitleModal() {
 }
 
 Object.assign(globalThis, {
-  getTitleLabel, getBossFullTitle, checkTitleUnlocks, updateDiscovery, openTitleModal,
+  getTitleLabel, getBossFullTitle, checkTitleUnlocks, openTitleModal,
 });
 
 export {};
