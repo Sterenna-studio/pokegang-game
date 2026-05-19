@@ -391,8 +391,10 @@ function _combatTeamIdsForAgents(agentIds = [], zoneId = null) {
 
 function _trainerCombatLogLines(result, mainAgentName, trainerName, reward, repGain) {
   const bossName = globalThis.state?.gang?.bossName || 'Boss';
-  const agentNames = (result.attackers || []).map(a => a.name).filter(n => n !== bossName);
-  const allies = agentNames.length ? `${bossName} + ${agentNames.join('+')}` : bossName;
+  const bossContrib = (result.bossTeamPower ?? 0) > 0;
+  const agentNames = (result.attackers || []).map(a => a.name);
+  const allParties = [...(bossContrib ? [bossName] : []), ...agentNames];
+  const allies = allParties.length ? allParties.join(' + ') : bossName;
   const lines = [
     `${allies} vs ${trainerName} — ⚡${Math.round(result.attackerPower ?? 0)} / 🛡${Math.round(result.defenderPower ?? 0)}`,
     result.attackerWin
