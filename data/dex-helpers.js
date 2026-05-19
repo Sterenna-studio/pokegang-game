@@ -20,7 +20,7 @@ const TYPE_DESC_FR = {
   Ghost:'Type Spectre, insaisissable et mystérieux.',
 };
 
-function getDexDesc(species_en, speciesByEn = globalThis.SPECIES_BY_EN) {
+function getDexDesc(species_en, speciesByEn = SPECIES_BY_EN) {
   if (POKEDEX_DESC[species_en]) return POKEDEX_DESC[species_en];
   const sp = speciesByEn?.[species_en];
   if (!sp) return '???';

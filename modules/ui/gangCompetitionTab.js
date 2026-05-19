@@ -226,7 +226,7 @@ function _renderDefensePanel(el) {
     </div>`;
   }).join('');
 
-  const zones = globalThis.ZONES ?? [];
+  const zones = ZONES;
   const unlockedZones = zones.filter(z => {
     const zState = state().zones?.[z.id];
     return zState?.unlocked;
