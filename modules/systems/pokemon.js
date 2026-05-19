@@ -15,6 +15,8 @@ import {
   POWER_W_ATK, POWER_W_DEF, POWER_W_SPD,
   POWER_SOFT_CAP, POWER_SOFT_RATE,
   POWER_HOMESICK_MULT,
+  POWER_SHINY_MULT,
+  POWER_VAR_MIN, POWER_VAR_MAX,
 } from '../../data/power-config-data.js';
 
 function rollNature() {
@@ -99,6 +101,9 @@ function makePokemon(speciesEN, zoneId, ballType = 'pokeball', spawnCtx = {}) {
     shiny,
     moves: rollMoves(speciesEN),
     capturedIn: zoneId,
+    // Variance individuelle : tirée une seule fois à la capture, jamais re-rollée.
+    // Range [POWER_VAR_MIN, POWER_VAR_MAX] — "personnalité" de l'individu.
+    pcVariance: parseFloat((POWER_VAR_MIN + Math.random() * (POWER_VAR_MAX - POWER_VAR_MIN)).toFixed(3)),
     stats: {},
     assignedTo: null,
     cooldown: 0,
@@ -139,7 +144,10 @@ function computePokemonPC(stats) {
 function getPokemonPower(pokemon) {
   if (!pokemon?.stats) return 0;
   const raw = computePokemonPC(pokemon.stats);
-  return Math.round(raw * (pokemon.homesick ? POWER_HOMESICK_MULT : 1));
+  const shinyMult    = pokemon.shiny      ? POWER_SHINY_MULT    : 1;
+  const variance     = pokemon.pcVariance ?? 1;
+  const homesickMult = pokemon.homesick   ? POWER_HOMESICK_MULT : 1;
+  return Math.round(raw * shinyMult * variance * homesickMult);
 }
 
 function checkEvolution(pokemon) {
