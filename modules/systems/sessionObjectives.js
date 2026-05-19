@@ -107,8 +107,7 @@ function getNextObjective() {
     return { text: '👤 Recrute ton premier agent', detail: progress, tab: 'tabPC' };
   }
   // Zone suivante verrouillée
-  const ZONES = globalThis.ZONES;
-  const nextLocked = ZONES ? ZONES.find(z => !globalThis.isZoneUnlocked(z.id)) : null;
+  const nextLocked = ZONES.find(z => !globalThis.isZoneUnlocked(z.id));
   if (nextLocked) {
     const req = nextLocked.repRequired || 0;
     if (req > 0)

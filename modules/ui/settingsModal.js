@@ -54,7 +54,7 @@ const location = makeProxy(() => getContextValue('location', globalThis.location
 const caches = makeProxy(() => getContextValue('caches', globalThis.caches));
 const MusicPlayer = makeProxy(() => getContextValue('MusicPlayer', globalThis.MusicPlayer));
 const SFX = makeProxy(() => getContextValue('SFX', globalThis.SFX));
-const SPECIES_BY_EN = makeProxy(() => settingsContext.getSpeciesMap?.() ?? getContextValue('SPECIES_BY_EN', globalThis.SPECIES_BY_EN));
+const SPECIES_BY_EN = makeProxy(() => settingsContext.getSpeciesMap?.() ?? getContextValue('SPECIES_BY_EN'));
 
 function exportSave() { return callContext('exportSave'); }
 function importSave(file) { return callContext('importSave', file); }

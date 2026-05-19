@@ -230,7 +230,7 @@ function _autoSellCaptured(pokemon) {
 // XP variable selon la rareté du Pokémon capturé
 const RARITY_XP = { common: 3, uncommon: 5, rare: 8, epic: 12, legendary: 20 };
 function captureXP(species_en, potential, shiny) {
-  const sp = globalThis.SPECIES_BY_EN?.[species_en];
+  const sp = SPECIES_BY_EN[species_en];
   const base = RARITY_XP[sp?.rarity] ?? 3;
   return base + Math.max(0, (potential || 1) - 1) * 2 + (shiny ? 10 : 0);
 }
@@ -469,8 +469,7 @@ function resolveBackgroundSpawnForZone(zoneId) {
   const state = globalThis.state;
   if (!state.settings.autoCombat) return false;
 
-  const ZONE_BY_ID = globalThis.ZONE_BY_ID;
-  const zone = ZONE_BY_ID?.[zoneId];
+  const zone = ZONE_BY_ID[zoneId];
   if (!zone || zone.spawnRate === 0) return false;
 
   const allAgents = state.agents.filter(a => a.assignedZone === zoneId);
@@ -546,8 +545,8 @@ function resolveBackgroundSpawnForZone(zoneId) {
 
     const name    = globalThis.speciesName(pokemon.species_en);
     const stars   = '★'.repeat(pokemon.potential) + '☆'.repeat(5 - pokemon.potential);
-    const rarity  = globalThis.SPECIES_BY_EN?.[pokemon.species_en]?.rarity;
-    const zoneName = ZONE_BY_ID?.[zoneId]?.fr || zoneId;
+    const rarity  = SPECIES_BY_EN[pokemon.species_en]?.rarity;
+    const zoneName = ZONE_BY_ID[zoneId]?.fr || zoneId;
     const ballName = globalThis.BALLS?.[visualBall]?.fr || visualBall;
 
     if (pokemon.shiny) {
@@ -664,7 +663,7 @@ function resolveBackgroundSpawnForZone(zoneId) {
 // ── Raid hostile sur zone occupée ────────────────────────────────
 function _resolveOccupiedZoneRaid(zoneId, agents) {
   const state  = globalThis.state;
-  const zone   = globalThis.ZONE_BY_ID?.[zoneId];
+  const zone   = ZONE_BY_ID[zoneId];
   if (!zone) return;
 
   const defensePower = agents.reduce((acc, a) => acc + getAgentCombatPower(a), 0);
@@ -696,8 +695,7 @@ function passiveAgentTick() {
   const state = globalThis.state;
   if (!state.settings.autoCombat) return;
   const openZones = globalThis.openZones;
-  const ZONE_BY_ID = globalThis.ZONE_BY_ID;
-  if (!openZones || !ZONE_BY_ID) return;
+  if (!openZones) return;
 
   // ── Reset quotidien de l'énergie des agents ──────────────────
   const now = Date.now();
@@ -845,7 +843,7 @@ function agentCaptureVisibleSpawn(agent, zoneId, spawnObj) {
       grantAgentXP(agent, captureXP(caught.species_en, caught.potential, caught.shiny));
       const cName   = globalThis.speciesName(caught.species_en);
       const cStars  = '★'.repeat(caught.potential || 0) + '☆'.repeat(5 - (caught.potential || 0));
-      const cRarity = globalThis.SPECIES_BY_EN?.[caught.species_en]?.rarity;
+      const cRarity = SPECIES_BY_EN[caught.species_en]?.rarity;
       const zoneName = ZONE_BY_ID?.[zoneId]?.fr || zoneId;
       const ballName = globalThis.BALLS?.[usedBall]?.fr || usedBall;
       if (caught.shiny) {
