@@ -210,13 +210,18 @@ function getZoneAgentSlots(zoneId) {
 }
 
 // ── Scaling de difficulté par niveau de mastery ───────────────
-// Plus une zone a de combats gagnés (→ mastery élevée), plus les ennemis sont forts.
-// Ces constantes sont paramétrables librement.
+// Leviers principaux de difficulté : statMult et levelBonus.
+// Mastery 1 = zone fraîche (facile), mastery 3 = zone maîtrisée (dresseurs sérieux).
+// Cible calibrée sur des agents mid-game (~2 000–4 000 PC) :
+//   common (diff 1)  ≈ 35-50 % du power agent  → win rate ~90 %
+//   mid    (diff 2)  ≈ 65-80 % du power agent  → win rate ~75 %
+//   elite  (diff 3+) ≈ 95-120 % du power agent → win rate ~50-60 %
+//   raid   (multi)   ≈ 110-150 % du power agent → win rate ~35-50 %
 const ZONE_DIFFICULTY_SCALING = {
   //  mastery: { levelBonus, statMult, raidChanceBonus, tripleRaidChance, potentialBoost }
   1: { levelBonus: 0,  statMult: 1.00, raidChanceBonus: 0.00, tripleRaidChance: 0.00, potentialBoost: 0 },
-  2: { levelBonus: 4,  statMult: 1.15, raidChanceBonus: 0.06, tripleRaidChance: 0.00, potentialBoost: 0 },
-  3: { levelBonus: 10, statMult: 1.35, raidChanceBonus: 0.15, tripleRaidChance: 0.12, potentialBoost: 1 },
+  2: { levelBonus: 6,  statMult: 1.50, raidChanceBonus: 0.08, tripleRaidChance: 0.00, potentialBoost: 1 },
+  3: { levelBonus: 18, statMult: 2.80, raidChanceBonus: 0.18, tripleRaidChance: 0.15, potentialBoost: 2 },
 };
 
 // masteryLevel (1-3) permet de renforcer les équipes ennemies selon la progression de zone.
@@ -229,7 +234,7 @@ function makeTrainerTeam(zone, trainerKey, forcedSize, masteryLevel = 1) {
   const team = [];
   for (let i = 0; i < teamSize; i++) {
     const sp = globalThis.pick(zone.pool);
-    const baseLevel = globalThis.randInt(5 + trainer.diff * 3, 10 + trainer.diff * 5);
+    const baseLevel = globalThis.randInt(8 + trainer.diff * 4, 15 + trainer.diff * 6);
     const level = Math.min(100, baseLevel + (zone.zoneLevelBonus || 0) + scaling.levelBonus);
     const potential = Math.min(5, 2 + scaling.potentialBoost);
     const stats = globalThis.calculateStats({ species_en: sp, level, nature: 'hardy', potential });
