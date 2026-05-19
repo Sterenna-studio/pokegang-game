@@ -131,7 +131,9 @@ export function migrateSave(saved, deps) {
   if (merged.gang.titleC      === undefined) merged.gang.titleC      = null;
   if (merged.gang.titleD      === undefined) merged.gang.titleD      = null;
   // introSeen — false for existing players (they'll get the catch-up popup)
-  if (merged.gang.introSeen   === undefined) merged.gang.introSeen   = false;
+  if (merged.gang.introSeen         === undefined) merged.gang.introSeen         = false;
+  // darkraiCutsceneSeen — false for all; existing initialized players will see it on next boot
+  if (merged.gang.darkraiCutsceneSeen === undefined) merged.gang.darkraiCutsceneSeen = false;
   // competition — online PvP system
   if (!merged.gang.competition || typeof merged.gang.competition !== 'object' || Array.isArray(merged.gang.competition)) {
     merged.gang.competition = structuredClone(DEFAULT_STATE.gang.competition);

@@ -880,6 +880,8 @@ function applyCombatResult(result, playerTeamIds, trainerData) {
         // Vérifie si l'offre Johto doit être déclenchée (après la victoire au Plateau Indigo)
         if (trainerData.zoneId === 'indigo_plateau') {
           setTimeout(() => globalThis.checkJohtoUnlock?.(), 2500);
+          // Darkrai Nightmare — pour les nouveaux joueurs (cinématique non vue)
+          setTimeout(() => globalThis.triggerDarkraiOnLeagueVictory?.(), 4000);
         }
       }
       if (trainerData.isGymRaid) {

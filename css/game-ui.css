@@ -3260,11 +3260,14 @@
     /* Boss team dans le centre v2 */
     .gb2-team-center {
       display: flex;
+      flex-wrap: wrap;
       gap: 6px;
       padding: 6px 10px 8px;
     }
     .gb2-boss-team-card {
       flex: 1;
+      min-width: 65px;
+      flex-basis: calc(33.33% - 6px);
       background: var(--bg-card);
       border: 1px solid var(--border);
       padding: 6px 4px;

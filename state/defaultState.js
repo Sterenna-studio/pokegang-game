@@ -40,7 +40,8 @@ export const DEFAULT_STATE = {
     titleLiaison: '',
     titleC: null,
     titleD: null,
-    introSeen: false,   // true once the Giovanni intro (or catch-up gift) has been completed
+    introSeen: false,         // true once the Giovanni intro (or catch-up gift) has been completed
+    darkraiCutsceneSeen: false, // true once the Darkrai Nightmare cutscene has played
     competition: {
       defenseTeam: [null, null, null, null, null, null],
       defenseAgents: [null, null, null],
@@ -202,6 +203,7 @@ export const DEFAULT_STATE = {
     agentsUnlocked: false,
     battleLogUnlocked: false,
     cosmeticsUnlocked: false,
+    sinnohTeaseUnlocked: false, // true after Darkrai cutscene — unlocks Sinnoh section in pokédex
   },
   behaviourLogs: {
     firstCombatAt: 0,

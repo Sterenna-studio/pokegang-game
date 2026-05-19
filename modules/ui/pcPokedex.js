@@ -3015,6 +3015,46 @@ function renderPokedexTab() {
 
   // Restore detail panel
   if (dexSelectedEn) renderDexDetail(dexSelectedEn);
+
+  // ── Sinnoh tease — affiché si la cinématique Darkrai a été vue ──
+  const sinnohUnlocked = !!state.discoveryProgress?.sinnohTeaseUnlocked;
+  let sinnohSection = document.getElementById('dexSinnohTease');
+  if (sinnohUnlocked && (dexViewFilter === 'national' || dexViewFilter === 'kanto')) {
+    if (!sinnohSection) {
+      sinnohSection = document.createElement('div');
+      sinnohSection.id = 'dexSinnohTease';
+      sinnohSection.style.cssText = `
+        margin-top: 18px;
+        border: 1px solid #1a1a3e;
+        background: rgba(30,18,60,.35);
+        padding: 14px 16px 12px;
+        font-family: var(--font-pixel, monospace);
+      `;
+      grid.parentNode.appendChild(sinnohSection);
+    }
+    sinnohSection.innerHTML = `
+      <div style="font-size:7px;color:#8866cc;letter-spacing:3px;margin-bottom:8px;">
+        ★ SINNOH — BIENTÔT DISPONIBLE ★
+      </div>
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:6px;">
+        <img src="https://play.pokemonshowdown.com/sprites/gen5/darkrai.png"
+             style="width:48px;height:48px;filter:brightness(.15) sepia(1) saturate(4) hue-rotate(220deg);image-rendering:pixelated;flex-shrink:0;" alt="???">
+        <div>
+          <div style="font-size:8px;color:#e8e8e8;margin-bottom:3px;">#491 — ???</div>
+          <div style="font-size:7.5px;color:#333;line-height:1.8;">
+            ??? / ???<br>
+            ?????? ???????? ???? ??????????? ????<br>
+            ???? ????????? ??? ?? ??? ???.
+          </div>
+        </div>
+      </div>
+      <div style="font-size:7px;color:#444;letter-spacing:1px;">
+        Il t'attend. Deviens plus fort.
+      </div>
+    `;
+  } else if (sinnohSection) {
+    sinnohSection.remove();
+  }
 }
 
 // ════════════════════════════════════════════════════════════════

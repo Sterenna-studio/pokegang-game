@@ -121,6 +121,7 @@ import './modules/ui/gangTab.js';
 import './modules/systems/johto.js';
 import './modules/ui/pickers.js';
 import { configureIntro, openGiovanniIntro, openStarterGiftPopup } from './modules/ui/intro.js';
+import { checkDarkraiCutscene, triggerDarkraiOnLeagueVictory } from './modules/ui/darkraiEvent.js';
 import './modules/systems/pokemon.js';
 import './modules/systems/titles.js';
 import './modules/ui/cosmetics.js';
@@ -2603,6 +2604,12 @@ function boot() {
     setTimeout(() => {
       openStarterGiftPopup({ onComplete: () => renderAll() });
     }, 800);
+  }
+
+  // Darkrai Nightmare cutscene — existing players with a save (≥ 3 pokémon)
+  if (state.gang?.initialized && !state.gang?.darkraiCutsceneSeen) {
+    // Delay slightly so any other boot popups (starter gift, johto) register first
+    setTimeout(() => checkDarkraiCutscene(), 1600);
   }
 }
 
