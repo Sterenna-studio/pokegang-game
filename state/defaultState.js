@@ -122,7 +122,6 @@ export const DEFAULT_STATE = {
     lowSpec: false,
     sfxIndividual: {},
     autoCombat: true,
-    discoveryMode: true,
     autoBuyBall: null,
     spriteMode: 'local',   // 'local'|'gen1'|'gen2'|'gen3'|'gen4'|'gen5'|'ani'|'dex'|'home'
     autoEvoChoice: false,
@@ -197,12 +196,6 @@ export const DEFAULT_STATE = {
     byTrainer: {},  // { 'rocketgrunt': 40 } — nb de combats engagés par type de dresseur
   },
   discoveryProgress: {
-    marketUnlocked: false,
-    pokedexUnlocked: false,
-    missionsUnlocked: false,
-    agentsUnlocked: false,
-    battleLogUnlocked: false,
-    cosmeticsUnlocked: false,
     sinnohTeaseUnlocked: false, // true after Darkrai cutscene — unlocks Sinnoh section in pokédex
   },
   behaviourLogs: {
