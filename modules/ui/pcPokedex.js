@@ -357,6 +357,28 @@ const FEED_CAT = {
   system:  { icon: '⚙', label: 'Système' },
 };
 
+function _exportFeed() {
+  const state = globalThis.state;
+  const ts = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
+  const payload = {
+    exportedAt: new Date().toISOString(),
+    gang: state?.gang?.name ?? 'unknown',
+    boss: state?.gang?.bossName ?? 'unknown',
+    reputation: state?.gang?.reputation ?? 0,
+    eventCount: gameFeed.length,
+    events: gameFeed,
+    textLog: state?.log ?? [],
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `pokegang-logs-${ts}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  globalThis.notify?.('📥 Logs exportés', 'success');
+}
+
 function pushFeedEvent({ category = 'system', title = '', detail = '', win = null, ...extra } = {}) {
   const cat = FEED_CAT[category] || FEED_CAT.system;
   gameFeed.unshift({ ts: Date.now(), category, icon: cat.icon, title, detail, win, ...extra });
@@ -370,6 +392,13 @@ function renderEventsTab() {
   const filtersEl = document.getElementById('feedFilters');
   const listEl    = document.getElementById('feedList');
   if (!listEl) return;
+
+  // Wire export button once
+  const exportBtn = document.getElementById('feedExportBtn');
+  if (exportBtn && !exportBtn.dataset.wired) {
+    exportBtn.dataset.wired = '1';
+    exportBtn.addEventListener('click', _exportFeed);
+  }
 
   if (filtersEl && !filtersEl.dataset.wired) {
     filtersEl.dataset.wired = '1';
