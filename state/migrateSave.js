@@ -62,7 +62,13 @@ export function migrateSave(saved, deps) {
   merged.stats        = { ...structuredClone(DEFAULT_STATE.stats),        ...ensureObject(saved.stats) };
   merged.settings     = { ...structuredClone(DEFAULT_STATE.settings),     ...ensureObject(saved.settings) };
   merged.activeBoosts = { ...structuredClone(DEFAULT_STATE.activeBoosts), ...ensureObject(saved.activeBoosts) };
-  merged.discoveryProgress = { ...structuredClone(DEFAULT_STATE.discoveryProgress), ...ensureObject(saved.discoveryProgress) };
+  const savedDiscoveryProgress = ensureObject(saved.discoveryProgress);
+  merged.discoveryProgress = {
+    ...structuredClone(DEFAULT_STATE.discoveryProgress),
+    ...(savedDiscoveryProgress.sinnohTeaseUnlocked === undefined
+      ? {}
+      : { sinnohTeaseUnlocked: savedDiscoveryProgress.sinnohTeaseUnlocked }),
+  };
   merged.trainingRoom = { ...structuredClone(DEFAULT_STATE.trainingRoom), ...ensureObject(saved.trainingRoom) };
   merged.cosmetics    = { ...structuredClone(DEFAULT_STATE.cosmetics),    ...ensureObject(saved.cosmetics) };
   if (!Array.isArray(merged.cosmetics.favoriteBgs))  merged.cosmetics.favoriteBgs  = [];
@@ -90,8 +96,6 @@ export function migrateSave(saved, deps) {
   if (!merged.behaviourLogs.tabViewCounts) merged.behaviourLogs.tabViewCounts = {};
 
   // ── Settings guards ──────────────────────────────────────────────────────────
-  // Nouveau joueur → discovery ON ; joueur existant sans ce champ → OFF
-  if (merged.settings.discoveryMode === undefined) merged.settings.discoveryMode = false;
   if (merged.settings.autoBuyBall   === undefined) merged.settings.autoBuyBall   = null;
   if (merged.settings.uiScale       === undefined) merged.settings.uiScale       = 100;
   if (merged.settings.musicVol      === undefined) merged.settings.musicVol      = 50;
@@ -369,7 +373,6 @@ export function getMigrationSummary(saved, deps) {
   const fromVersion = saved._schemaVersion ?? saved.version ?? 'inconnue';
   const fields = [];
   if (!saved.behaviourLogs)       fields.push('Logs comportementaux');
-  if (saved.discoveryProgress?.agentsUnlocked === undefined) fields.push('Progression découverte étendue');
   if (saved.settings?.spriteMode === undefined && saved.settings?.classicSprites === undefined) fields.push('Option sprites');
   if (!saved.eggs)                fields.push('Système d\'\u0153ufs');
   if (!saved.pension)             fields.push('Pension');

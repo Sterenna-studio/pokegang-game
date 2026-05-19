@@ -198,7 +198,6 @@ function getInitialSaveSlot(localStorageRef) {
 function getMigrationFields(saved) {
   const fields = [];
   if (!saved.behaviourLogs) fields.push('Logs comportementaux');
-  if (saved.discoveryProgress?.agentsUnlocked === undefined) fields.push('Progression découverte étendue');
   if (saved.settings?.classicSprites === undefined) fields.push('Option sprites');
   if (!saved.eggs) fields.push('Système d’œufs');
   if (!saved.pension) fields.push('Pension');

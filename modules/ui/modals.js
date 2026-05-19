@@ -79,7 +79,7 @@ function showInfoModal(tabId) {
       body: `
         <strong>Réputation</strong> — Ressource clé. Débloque zones, agents supplémentaires, achats spéciaux. Barre en haut à droite.<br><br>
         <strong>Argent (₽)</strong> — Les récompenses de combat s'accumulent dans les zones. Collecte via l'icône ₽ dorée ou automatiquement via tes agents.<br><br>
-        <strong>Boss</strong> — Ton avatar. Assigne jusqu'à <strong>3 Pokémon</strong> à son équipe depuis le PC pour renforcer les combats.<br><br>
+        <strong>Boss</strong> — Ton avatar. Assigne jusqu'à <strong>6 Pokémon</strong> à son équipe depuis le PC pour renforcer les combats.<br><br>
         <strong>Sac</strong> — Balls actives, boosts temporaires, incubateurs. Clique une Ball pour l'activer comme Ball par défaut.<br><br>
         <strong>Cosmétiques</strong> — Personnalise l'apparence du boss et du gang (déblocable via achats spéciaux).<br><br>
         <span class="dim">Conseil : plus ta réputation est haute, plus les zones et agents disponibles sont puissants.</span>
@@ -103,7 +103,7 @@ function showInfoModal(tabId) {
         <strong>Zone inactive</strong> — Aucun agent assigné, rien ne se passe.<br><br>
         <strong>Maîtrise ★</strong> — S'accumule avec les victoires dans la zone. Améliore les spawns et débloque des dresseurs d'élite.<br><br>
         <strong>Raids hostiles</strong> — Un gang adverse peut attaquer tes zones tenues. Tes agents défendent automatiquement.<br><br>
-        <strong>Slots d'agents</strong> — Améliore la zone pour augmenter le nombre d'agents assignables.<br><br>
+        <strong>Slots d'agents</strong> — Chaque zone a un maximum d'agents assignables, déterminé par son niveau d'investissement.<br><br>
         <span class="dim">Une zone fermée avec un bon agent est souvent plus efficace qu'une zone ouverte sans attention.</span>
       `
     },
@@ -121,8 +121,11 @@ function showInfoModal(tabId) {
     tabPC: {
       title: '💻 PC',
       body: `
+        <strong>Puissance (PC)</strong> — Calculée via ATK×1.25 + DEF×0.65 + SPD×1.10 avec un soft cap à 620 (au-delà, les gains sont réduits à ×0.52). Les Pokémon très tanky (haute DEF) sont désavantagés face aux attaquants rapides.<br><br>
+        <strong>Shiny</strong> — Les chromatiques ont un bonus de puissance permanent de <strong>+10%</strong> sur leur PC de base.<br><br>
+        <strong>Variance individuelle</strong> — Chaque Pokémon reçoit un multiplicateur unique [×0.90–×1.10] assigné à la capture et stocké définitivement. Deux Pokémon identiques peuvent donc différer légèrement de PC.<br><br>
+        <strong>Nature</strong> — Multiplie 2 stats et en pénalise 1, impactant directement le PC via la formule pondérée.<br><br>
         <strong>Potentiel ★</strong> — Permanent. Détermine le plafond de puissance du Pokémon. ★5 = tier S. Dépend de la Ball utilisée à la capture.<br><br>
-        <strong>Nature</strong> — Chaque nature multiplie 2 stats et en pénalise 1. <em>Hardy</em> = neutre. Impacte ATK, DEF, SPD.<br><br>
         <strong>Évolution</strong> — Via le Labo. Certaines évolutions nécessitent un niveau minimum, d'autres une pierre. Les stats augmentent significativement.<br><br>
         <strong>Pension</strong> — 2 Pokémon compatibles produisent un œuf (incubateur requis). L'œuf hérite du potentiel des parents.<br><br>
         <strong>Salle d'entraînement</strong> — Monte en niveau des Pokémon passifs. Coût en ₽ croissant avec le niveau.<br><br>
@@ -136,7 +139,7 @@ function showInfoModal(tabId) {
         <strong>Vu 👁</strong> — Ce Pokémon est apparu dans une zone (spawn visible ou background).<br><br>
         <strong>Capturé ✓</strong> — Tu en possèdes au moins un dans ton PC.<br><br>
         <strong>Shiny ✨</strong> — Version chromatique capturée. Chance de base très faible — boostée par les atouts Radar Shiny et les boosts temporaires.<br><br>
-        <strong>Progression</strong> — Compléter le Pokédex Kanto donne des REP et débloques. Gen 2 (Johto) débloquée à haut niveau de réputation.<br><br>
+        <strong>Progression</strong> — Compléter le Pokédex Kanto donne des REP et débloques. Gen 2 (Johto) disponible dès le départ. Un événement spécial débloque un aperçu de la Gen 3 (Sinnoh).<br><br>
         <strong>Stats du joueur</strong> — Capture assez de Pokémon d'une espèce pour débloquer des bonus permanents (via le Pokédex étendu).<br><br>
         <span class="dim">Légendaires et très rares n'apparaissent que dans des zones spécifiques à haute maîtrise.</span>
       `
