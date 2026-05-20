@@ -248,67 +248,50 @@
   <!-- ═══ Intro Overlay ═══ -->
   <div id="introOverlay">
     <button id="introSettingsBtn" title="Paramètres">⚙</button>
-    <div class="intro-panels">
 
-      <!-- LEFT: animated showcase -->
-      <div class="intro-showcase intro-showcase-briefing">
-        <div class="intro-logo-fade" aria-hidden="true">
-          <img src="https://lab.sterenna.fr/PG/pokegang_logo/pokegang_logo_full_B.png" alt="">
+    <!-- Atmospheric background -->
+    <div class="intro-bg" aria-hidden="true">
+      <div class="intro-bg-glow-top"></div>
+      <div class="intro-bg-scanlines"></div>
+    </div>
+
+    <!-- Hero: logo + tagline + animated scene -->
+    <div class="intro-hero">
+      <img
+        src="assets/pokegang_logo/pokegang_logo_full_B.png"
+        alt="PokéGang"
+        class="intro-logo-img"
+      >
+      <p class="intro-tagline">Prends le contrôle de Kanto.</p>
+
+      <div class="intro-scene-card">
+        <div id="introSceneContainer" class="intro-scene">
+          <!-- filled by JS -->
         </div>
-
-        <div class="intro-showcase-copy">
-          <div class="intro-brief-label"><img class="intro-brief-icon" src="https://lab.sterenna.fr/PG/pokegang_logo/pokegang_logo_little.png" alt="">Briefing PokéGang</div>
-          <div class="intro-showcase-title">Prends le contrôle de Kanto.</div>
-          <div class="intro-showcase-text">
-            Recrute des agents, capture des Pokémon rares et étends ton influence dans l'ombre.
-          </div>
-        </div>
-
-        <div class="intro-scene-wrap intro-scene-wrap-briefing">
-          <div id="introSceneContainer" class="intro-scene">
-            <!-- filled by JS -->
-          </div>
-        </div>
-
         <div class="intro-dots" id="introSceneDots">
           <div class="intro-dot active"></div>
           <div class="intro-dot"></div>
           <div class="intro-dot"></div>
         </div>
-
-        <div class="intro-pillars">
-          <div class="intro-pillar">
-            <span class="intro-pillar-kicker">Capture</span>
-            <span class="intro-pillar-text">Récupère les meilleures cibles.</span>
-          </div>
-          <div class="intro-pillar">
-            <span class="intro-pillar-kicker">Dirige</span>
-            <span class="intro-pillar-text">Déploie ton réseau d'agents.</span>
-          </div>
-          <div class="intro-pillar">
-            <span class="intro-pillar-kicker">Gagne de la réputation</span>
-            <span class="intro-pillar-text">Étends ton influence dans toute la région.</span>
-          </div>
-        </div>
       </div>
-
-      <!-- RIGHT: save selection -->
-      <div class="intro-form-panel intro-form-panel-saves">
-        <div class="intro-section-label intro-section-label-with-icon">
-          <img class="intro-section-logo" src="https://lab.sterenna.fr/PG/pokegang_logo/pokegang_logo_little.png" alt="PokéGang">
-          <span>SAUVEGARDES</span>
-        </div>
-        <div class="intro-panel-note">Choisis une sauvegarde existante ou clique sur un slot vide pour créer une nouvelle partie.</div>
-        <div class="intro-slots" id="introSlots">
-          <!-- filled by JS -->
-        </div>
-        <div class="intro-slot-tools">
-          <button id="btnHubImportSave" class="intro-slot-tool intro-slot-tool-import">📥 Importer une save</button>
-          <button id="btnHubRepairSlot" class="intro-slot-tool intro-slot-tool-repair">🔧 Réparer une save</button>
-        </div>
-      </div>
-
     </div>
+
+    <!-- Saves panel anchored at bottom -->
+    <div class="intro-saves-panel">
+      <div class="intro-saves-header">
+        <img src="assets/pokegang_logo/pokegang_logo_little.png" alt="" class="intro-saves-icon">
+        <span class="intro-saves-label">SAUVEGARDES</span>
+        <span class="intro-saves-hint">Choisis ou crée une partie</span>
+      </div>
+      <div class="intro-slots" id="introSlots">
+        <!-- filled by JS -->
+      </div>
+      <div class="intro-slot-tools">
+        <button id="btnHubImportSave" class="intro-slot-tool intro-slot-tool-import">📥 Importer une save</button>
+        <button id="btnHubRepairSlot" class="intro-slot-tool intro-slot-tool-repair">🔧 Réparer une save</button>
+      </div>
+    </div>
+
   </div>
   <!-- ═══ Settings Modal ═══ -->
   <div id="settingsModal">
