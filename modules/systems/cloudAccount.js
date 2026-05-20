@@ -320,7 +320,7 @@ async function supaCloudSave() {
     // writing derivable/default fields and keeps the JSONB blob as small as possible.
     const payload = { ...state, pokemons: state.pokemons.map(slimPokemon) };
     const { error } = await _supabase
-      .from('player_saves')
+      .from('pokegang_saves')
       .upsert({
         user_id:  supaSession.user.id,
         slot:     getActiveSaveSlot(),
@@ -342,7 +342,7 @@ async function supaCheckCloudLoad() {
   let data, error;
   try {
     ({ data, error } = await _supabase
-      .from('player_saves')
+      .from('pokegang_saves')
       .select('state, saved_at')
       .eq('user_id', supaSession.user.id)
       .eq('slot', getActiveSaveSlot())
@@ -392,7 +392,7 @@ async function supaForceCloudLoad() {
   let data, error;
   try {
     ({ data, error } = await _supabase
-      .from('player_saves')
+      .from('pokegang_saves')
       .select('state, saved_at')
       .eq('user_id', supaSession.user.id)
       .eq('slot', getActiveSaveSlot())
@@ -435,7 +435,7 @@ async function supaWriteSnapshot() {
     const payload = { ...state, pokemons: state.pokemons.map(slimPokemon) };
 
     // 1. Insert new snapshot
-    const { error } = await _supabase.from('save_snapshots').insert({
+    const { error } = await _supabase.from('pokegang_save_snapshots').insert({
       user_id:   supaSession.user.id,
       slot:      getActiveSaveSlot(),
       state:     payload,
@@ -451,7 +451,7 @@ async function supaWriteSnapshot() {
     if (_snapshotCount < 0) {
       // First write since page load — fetch real count once
       const { count } = await _supabase
-        .from('save_snapshots')
+        .from('pokegang_save_snapshots')
         .select('id', { count: 'exact', head: true })
         .eq('user_id', supaSession.user.id)
         .eq('slot', getActiveSaveSlot());
@@ -463,7 +463,7 @@ async function supaWriteSnapshot() {
     // 2. Prune only when over limit (avoids SELECT+DELETE every write)
     if (_snapshotCount > MAX_SNAPSHOTS) {
       const { data: rows } = await _supabase
-        .from('save_snapshots')
+        .from('pokegang_save_snapshots')
         .select('id, saved_at')
         .eq('user_id', supaSession.user.id)
         .eq('slot', getActiveSaveSlot())
@@ -471,7 +471,7 @@ async function supaWriteSnapshot() {
 
       if (rows && rows.length > MAX_SNAPSHOTS) {
         const toDelete = rows.slice(MAX_SNAPSHOTS).map(r => r.id);
-        await _supabase.from('save_snapshots').delete().in('id', toDelete);
+        await _supabase.from('pokegang_save_snapshots').delete().in('id', toDelete);
         _snapshotCount = MAX_SNAPSHOTS;
       }
     }
@@ -481,7 +481,7 @@ async function supaWriteSnapshot() {
 async function supaFetchSnapshots() {
   if (!_supabase || !supaSession) return [];
   const { data, error } = await _supabase
-    .from('save_snapshots')
+    .from('pokegang_save_snapshots')
     .select('id, gang_name, rep, saved_at')
     .eq('user_id', supaSession.user.id)
     .eq('slot', getActiveSaveSlot())
@@ -493,7 +493,7 @@ async function supaFetchSnapshots() {
 async function supaRestoreSnapshot(snapshotId) {
   if (!_supabase || !supaSession) return;
   const { data, error } = await _supabase
-    .from('save_snapshots')
+    .from('pokegang_save_snapshots')
     .select('state, saved_at')
     .eq('id', snapshotId)
     .eq('user_id', supaSession.user.id)
@@ -516,7 +516,7 @@ async function supaRestoreSnapshot(snapshotId) {
 
 async function supaUpdateLeaderboard() {
   if (!_supabase || !supaSession) return;
-  await _supabase.from('players').upsert({
+  await _supabase.from('pokegang_players').upsert({
     user_id:            supaSession.user.id,
     gang_name:          state.gang.name        || 'Team ???',
     boss_name:          state.gang.bossName    || 'Boss',
@@ -584,7 +584,7 @@ async function supaUpdateLeaderboardAnon() {
   const monthly = _getMonthlyDeltas();
 
   try {
-    await _supabase.from('leaderboard').upsert({
+    await _supabase.from('pokegang_leaderboard').upsert({
       token:               getLeaderboardToken(),
       user_id:             supaSession?.user?.id ?? null,
       gang_name:           state.gang.name        || 'Team ???',
@@ -772,7 +772,7 @@ async function _loadLeaderboardTable() {
   const selectFields = 'token, user_id, gang_name, boss_name, boss_sprite, reputation, total_caught, shiny_count, shiny_species_count, dex_kanto_count, dex_national_count, total_sold, total_money_earned, agents_count, is_anonymous, updated_at, month_key, rep_monthly, caught_monthly, shiny_monthly, shiny_species_monthly';
 
   let query = _supabase
-    .from('leaderboard')
+    .from('pokegang_leaderboard')
     .select(selectFields)
     .order(col, { ascending: false })
     .limit(50);
@@ -782,7 +782,7 @@ async function _loadLeaderboardTable() {
   const { data: rows, error } = await query;
 
   const { data: myRow } = await _supabase
-    .from('leaderboard')
+    .from('pokegang_leaderboard')
     .select('gang_name, reputation, total_caught, shiny_species_count, dex_kanto_count, dex_national_count, total_sold, total_money_earned, updated_at, month_key, rep_monthly, caught_monthly, shiny_monthly, shiny_species_monthly')
     .eq('token', getLeaderboardToken())
     .maybeSingle();
@@ -790,7 +790,7 @@ async function _loadLeaderboardTable() {
   let myRank = '—';
   if (myRow) {
     const myVal = myRow[col] || 0;
-    let rankQ = _supabase.from('leaderboard').select('token', { count: 'exact', head: true }).gt(col, myVal);
+    let rankQ = _supabase.from('pokegang_leaderboard').select('token', { count: 'exact', head: true }).gt(col, myVal);
     if (isMonthly) rankQ = rankQ.eq('month_key', currentMonth);
     const { count } = await rankQ;
     if (count !== null) myRank = `#${count + 1}`;

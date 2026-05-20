@@ -5,7 +5,7 @@ This project can run without Supabase. Supabase enables:
 - account login/signup
 - cloud save per save slot
 - rolling restore snapshots
-- public leaderboard
+- public pokegang_leaderboard
 - online gang competition / raids
 
 ## 1. Create the local config
@@ -27,12 +27,12 @@ Open the Supabase Dashboard for the project, then go to SQL Editor and run:
 
 The schema creates every table currently used by the frontend:
 
-- `player_saves`: current cloud save per authenticated user and save slot
-- `save_snapshots`: recent restore points
-- `players`: authenticated account stats row
-- `leaderboard`: public all-time/monthly leaderboard
-- `gang_defenses`: published PvP defenses, including the active 3-Pokémon Boss team and up to three defender agents in `defense_agent`
-- `gang_raids`: PvP raid records and defender acknowledgements
+- `pokegang_saves`: current cloud save per authenticated user and save slot
+- `pokegang_save_snapshots`: recent restore points
+- `pokegang_players`: authenticated account stats row
+- `pokegang_leaderboard`: public all-time/monthly pokegang_leaderboard
+- `pokegang_gang_defenses`: published PvP defenses, including the active 3-Pokémon Boss team and up to three defender agents in `defense_agent`
+- `pokegang_gang_raids`: PvP raid records and defender acknowledgements
 
 The SQL is written to be rerunnable for normal updates: it uses `create table if not exists`, adds missing columns, enables RLS, drops/recreates the expected policies, and creates useful indexes.
 
@@ -42,12 +42,12 @@ Supabase recommends enabling Row Level Security on tables exposed through the Da
 
 Access model:
 
-- `player_saves`, `save_snapshots`, `players`: authenticated users can only read/write their own rows.
-- `leaderboard`: public read and public write are enabled because the current game supports anonymous leaderboard rows using a local browser token.
-- `gang_defenses`: public read, authenticated players write only their own published defense. The `defense_agent` column stores a JSON array of up to 3 defender agents; legacy rows can still contain a single object and are handled by the app.
-- `gang_raids`: authenticated attackers can insert raids; attackers and defenders can read their raids; defenders can only update `seen_by_defender` to acknowledge raids. PvP raids do not transfer reputation anymore, only money rewards and penalties are recorded.
+- `pokegang_saves`, `pokegang_save_snapshots`, `pokegang_players`: authenticated users can only read/write their own rows.
+- `pokegang_leaderboard`: public read and public write are enabled because the current game supports anonymous pokegang_leaderboard rows using a local browser token.
+- `pokegang_gang_defenses`: public read, authenticated pokegang_players write only their own published defense. The `defense_agent` column stores a JSON array of up to 3 defender agents; legacy rows can still contain a single object and are handled by the app.
+- `pokegang_gang_raids`: authenticated attackers can insert raids; attackers and defenders can read their raids; defenders can only update `seen_by_defender` to acknowledge raids. PvP raids do not transfer reputation anymore, only money rewards and penalties are recorded.
 
-Important tradeoff: the current anonymous leaderboard is not anti-cheat. A browser client can write leaderboard rows. If this needs to be hardened, move leaderboard writes to a Supabase Edge Function or server endpoint and keep only reads public.
+Important tradeoff: the current anonymous pokegang_leaderboard is not anti-cheat. A browser client can write pokegang_leaderboard rows. If this needs to be hardened, move pokegang_leaderboard writes to a Supabase Edge Function or server endpoint and keep only reads public.
 
 ## 4. Auth settings
 
@@ -68,7 +68,7 @@ After running the SQL and creating `config.js`:
 3. Create an account or sign in.
 4. Trigger a save and confirm no Supabase error is shown.
 5. Open `Raids`, set the active Boss team in `Gang` if needed, then publish the base. The defense uses the 3-Pokémon Boss team plus up to 3 defender agents.
-6. In Supabase Table Editor, verify rows appear in `player_saves`, `leaderboard`, and `gang_defenses`.
+6. In Supabase Table Editor, verify rows appear in `pokegang_saves`, `pokegang_leaderboard`, and `pokegang_gang_defenses`.
 7. Confirm a raid record stores `rep_delta = 0` and only money is transferred on raid results.
 
 The PvP list only shows real opponents if at least two different authenticated users have published bases.
