@@ -1760,10 +1760,9 @@ function showIntro() {
           renderSlots();
           openGiovanniIntro({
             slotIdx: idx,
-            onComplete: ({ slotIdx: si }) => {
-              saveToSlot(si);
-              const hub = document.getElementById('introOverlay');
-              hub?.classList.remove('active');
+            onComplete: () => {
+              // slot switch + saveState already done inside _confirm()
+              document.getElementById('introOverlay')?.classList.remove('active');
               stopShowcase?.();
               renderAll();
             },
@@ -2634,6 +2633,7 @@ function boot() {
     pokeSprite,
     trainerSprite,
     BOSS_SPRITES,
+    setActiveSaveSlot: slotIdx => setActiveSaveSlotValue(slotIdx, { persist: true }),
     saveState,
     notify,
   });

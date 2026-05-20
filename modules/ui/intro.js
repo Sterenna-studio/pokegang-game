@@ -79,6 +79,8 @@ function _fadeTransition(el, fn) {
 
 // ── Main entry point ──────────────────────────────────────────────
 export function openGiovanniIntro({ slotIdx = 0, onComplete } = {}) {
+  if (document.getElementById('giovanni-intro-overlay')) return;
+
   const state       = _ctx.getState?.();
   const BOSS_SPRITES = _ctx.BOSS_SPRITES || INTRO_BOSS_SPRITES;
 
@@ -88,6 +90,7 @@ export function openGiovanniIntro({ slotIdx = 0, onComplete } = {}) {
   let bossSprite = INTRO_BOSS_SPRITES[0];
   let starterEn  = '';
   let _typeTimer = null;
+  let _isClosing = false;
 
   // ── Overlay ───────────────────────────────────────────────────
   const overlay = document.createElement('div');
@@ -252,16 +255,39 @@ export function openGiovanniIntro({ slotIdx = 0, onComplete } = {}) {
   const inputArea = dialog.querySelector('#gi-input-area');
   const cursor    = dialog.querySelector('#gi-cursor');
 
+  function _clearTypeTimer() {
+    if (!_typeTimer) return;
+    clearInterval(_typeTimer);
+    clearTimeout(_typeTimer);
+    _typeTimer = null;
+  }
+
+  function _closeIntro(payload, shouldComplete = true) {
+    if (_isClosing) return;
+    _isClosing = true;
+    _clearTypeTimer();
+
+    overlay.style.transition = 'opacity .4s ease';
+    overlay.style.opacity = '0';
+    setTimeout(() => {
+      overlay.remove();
+      style.remove();
+      if (shouldComplete) onComplete?.(payload);
+    }, 400);
+  }
+
   function _say(text, onDone) {
-    if (_typeTimer) clearInterval(_typeTimer);
+    _clearTypeTimer();
     cursor.style.display = 'none';
     _typeTimer = _typewrite(textEl, text, () => {
+      _typeTimer = null;
       cursor.style.display = 'block';
       onDone?.();
     });
   }
 
   function _clearContent() {
+    _clearTypeTimer();
     _fadeTransition(contentZone, () => { contentZone.innerHTML = ''; });
     inputArea.innerHTML = '';
     cursor.style.display = 'none';
@@ -296,6 +322,7 @@ export function openGiovanniIntro({ slotIdx = 0, onComplete } = {}) {
 
   // ── STEP 1 — Starter choice ───────────────────────────────────
   function stepStarter() {
+    _clearTypeTimer();
     _updateDots(1);
 
     // Show starter cards above dialog
@@ -347,6 +374,7 @@ export function openGiovanniIntro({ slotIdx = 0, onComplete } = {}) {
 
   // ── STEP 2 — Gang name ────────────────────────────────────────
   function stepGang(starterFr) {
+    _clearTypeTimer();
     _updateDots(2);
 
     // Collapse starter cards
@@ -379,6 +407,7 @@ export function openGiovanniIntro({ slotIdx = 0, onComplete } = {}) {
 
   // ── STEP 3 — Boss sprite ──────────────────────────────────────
   function stepSprite() {
+    _clearTypeTimer();
     _updateDots(3);
 
     _fadeTransition(contentZone, () => {
@@ -424,6 +453,7 @@ export function openGiovanniIntro({ slotIdx = 0, onComplete } = {}) {
 
   // ── STEP 4 — Done ─────────────────────────────────────────────
   function stepDone() {
+    _clearTypeTimer();
     _updateDots(4);
 
     // Update portrait to chosen boss sprite
@@ -473,41 +503,45 @@ export function openGiovanniIntro({ slotIdx = 0, onComplete } = {}) {
 
   // ── Confirm + apply ───────────────────────────────────────────
   function _confirm() {
+    if (_isClosing) return;
+
     const state = _ctx.getState?.();
-    if (!state) return;
-
-    // Apply player choices
-    state.gang.bossName  = bossName  || 'Boss';
-    state.gang.name      = gangName  || 'Team Fury';
-    state.gang.bossSprite = bossSprite || 'red';
-    state.gang.initialized = true;
-    state.gang.introSeen   = true;
-
-    // Create starter Pokémon (level 15, potential 3)
     const sp = starterEn || INTRO_STARTERS[0].en;
-    const starter = _ctx.makePokemon?.(sp, 'intro', 'pokeball');
-    if (starter) {
-      starter.level     = 15;
-      starter.potential = 3;
-      if (_ctx.calculateStats) starter.stats = _ctx.calculateStats(starter);
-      starter.capturedIn = 'intro';
-      starter.history = [{ type: 'starter', ts: Date.now(), zone: 'intro', ball: 'giovanni' }];
-      if (!Array.isArray(state.pokemons)) state.pokemons = [];
-      state.pokemons.push(starter); globalThis.markDirty?.();
+    const payload = { bossName, gangName, bossSprite, starterEn: sp, slotIdx };
+
+    if (!state) {
+      _closeIntro(payload, false);
+      return;
     }
 
-    // Save + close
-    _ctx.saveState?.();
-    _ctx.notify?.(`🎉 Bienvenue ${bossName} ! Ta ${gangName} est fondée.`, 'gold');
+    try {
+      // Apply player choices
+      state.gang.bossName  = bossName  || 'Boss';
+      state.gang.name      = gangName  || 'Team Fury';
+      state.gang.bossSprite = bossSprite || 'red';
+      state.gang.initialized = true;
+      state.gang.introSeen   = true;
 
-    // Fade out overlay
-    overlay.style.transition = 'opacity .4s ease';
-    overlay.style.opacity = '0';
-    setTimeout(() => {
-      overlay.remove();
-      style.remove();
-      onComplete?.({ bossName, gangName, bossSprite, starterEn: sp, slotIdx });
-    }, 400);
+      // Create starter Pokémon (level 15, potential 3)
+      const starter = _ctx.makePokemon?.(sp, 'intro', 'pokeball');
+      if (starter) {
+        starter.level     = 15;
+        starter.potential = 3;
+        if (_ctx.calculateStats) starter.stats = _ctx.calculateStats(starter);
+        starter.capturedIn = 'intro';
+        starter.history = [{ type: 'starter', ts: Date.now(), zone: 'intro', ball: 'giovanni' }];
+        if (!Array.isArray(state.pokemons)) state.pokemons = [];
+        state.pokemons.push(starter); globalThis.markDirty?.();
+      }
+
+      _ctx.setActiveSaveSlot?.(slotIdx);
+      _ctx.saveState?.();
+      _ctx.notify?.(`🎉 Bienvenue ${bossName} ! Ta ${gangName} est fondée.`, 'gold');
+    } catch (err) {
+      console.error('[intro] Giovanni intro failed to persist:', err);
+    } finally {
+      _closeIntro(payload);
+    }
   }
 
   // ── Start ─────────────────────────────────────────────────────
@@ -527,14 +561,17 @@ function _trainerSprite(name) {
 //  need to pick a starter.
 // ════════════════════════════════════════════════════════════════
 export function openStarterGiftPopup({ onComplete } = {}) {
+  if (document.getElementById('starter-gift-overlay')) return;
+
   const state = _ctx.getState?.();
-  if (!state) return;
+  if (!state || !state.gang?.initialized || state.gang?.introSeen) return;
 
   const bossName = state.gang?.bossName || 'Boss';
   const gangName = state.gang?.name     || 'Team Fury';
   const bossSprite = state.gang?.bossSprite || 'red';
 
   let starterEn = '';
+  let _isClosing = false;
 
   // ── Overlay (same visual language as main intro) ──────────────
   const overlay = document.createElement('div');
@@ -629,14 +666,39 @@ export function openStarterGiftPopup({ onComplete } = {}) {
   const cursor  = dialog.querySelector('#sgp-cursor');
   let _twTimer  = null;
 
+  function _clearTypeTimer() {
+    if (!_twTimer) return;
+    clearInterval(_twTimer);
+    clearTimeout(_twTimer);
+    _twTimer = null;
+  }
+
+  function _closeGift() {
+    if (_isClosing) return;
+    _isClosing = true;
+    _clearTypeTimer();
+
+    overlay.style.transition = 'opacity .4s ease';
+    overlay.style.opacity = '0';
+    setTimeout(() => {
+      overlay.remove();
+      style.remove();
+      onComplete?.();
+    }, 400);
+  }
+
   function _say(text, onDone) {
-    if (_twTimer) clearInterval(_twTimer);
+    _clearTypeTimer();
     cursor.style.display = 'none';
     textEl.textContent = '';
     let i = 0;
     _twTimer = setInterval(() => {
       textEl.textContent += text[i++];
-      if (i >= text.length) { clearInterval(_twTimer); cursor.style.display = 'block'; onDone?.(); }
+      if (i >= text.length) {
+        _clearTypeTimer();
+        cursor.style.display = 'block';
+        onDone?.();
+      }
     }, 22);
   }
 
@@ -688,31 +750,31 @@ export function openStarterGiftPopup({ onComplete } = {}) {
 
   // ── Apply gift ────────────────────────────────────────────────
   function _applyGift() {
+    if (_isClosing) return;
+
     const sp = starterEn || INTRO_STARTERS[0].en;
-    const starter = _ctx.makePokemon?.(sp, 'intro', 'pokeball');
-    if (starter) {
-      starter.level     = 15;
-      starter.potential = 3;
-      if (_ctx.calculateStats) starter.stats = _ctx.calculateStats(starter);
-      starter.capturedIn = 'intro';
-      starter.history = [{ type: 'starter', ts: Date.now(), zone: 'intro', ball: 'giovanni' }];
-      if (!Array.isArray(state.pokemons)) state.pokemons = [];
-      state.pokemons.push(starter); globalThis.markDirty?.();
+
+    try {
+      const starter = _ctx.makePokemon?.(sp, 'intro', 'pokeball');
+      if (starter) {
+        starter.level     = 15;
+        starter.potential = 3;
+        if (_ctx.calculateStats) starter.stats = _ctx.calculateStats(starter);
+        starter.capturedIn = 'intro';
+        starter.history = [{ type: 'starter', ts: Date.now(), zone: 'intro', ball: 'giovanni' }];
+        if (!Array.isArray(state.pokemons)) state.pokemons = [];
+        state.pokemons.push(starter); globalThis.markDirty?.();
+      }
+
+      state.gang.introSeen = true;
+      _ctx.saveState?.();
+
+      const starterFr = INTRO_STARTERS.find(s => s.en === sp)?.fr || sp;
+      _ctx.notify?.(`🎁 Giovanni t'a offert ${starterFr} niv. 15 !`, 'gold');
+    } catch (err) {
+      console.error('[intro] Starter gift failed to persist:', err);
+    } finally {
+      _closeGift();
     }
-
-    state.gang.introSeen = true;
-    _ctx.saveState?.();
-
-    const starterFr = INTRO_STARTERS.find(s => s.en === sp)?.fr || sp;
-    _ctx.notify?.(`🎁 Giovanni t'a offert ${starterFr} niv. 15 !`, 'gold');
-
-    // Fade out
-    overlay.style.transition = 'opacity .4s ease';
-    overlay.style.opacity = '0';
-    setTimeout(() => {
-      overlay.remove();
-      style.remove();
-      onComplete?.();
-    }, 400);
   }
 }

@@ -1,0 +1,25 @@
+{
+  "id": "npc_silver",
+  "name": "Silver",
+  "age": 16,
+  "gender": "male",
+  "role": "Rival",
+  "faction": "Independent",
+  "personality": ["defensive", "fierce", "proud", "evolving"],
+  "goals": {
+    "shortTerm": "Prove strength through battles.",
+    "longTerm": "Define his own path beyond legacy."
+  },
+  "values": ["strength", "self-reliance", "growth"],
+  "orientation": "rival",
+  "trustLevel": 3,
+  "catchPhrases": ["I don't need your approval."],
+  "speechStyle": {
+    "tone": "sharp",
+    "verbosity": "short",
+    "formality": "low"
+  },
+  "pokemonPreferences": ["dark", "fast attackers"],
+  "possiblePokemon": ["sneasel", "crobat", "feraligatr"],
+  "sprite": "https://play.pokemonshowdown.com/sprites/trainers/silver.png"
+}

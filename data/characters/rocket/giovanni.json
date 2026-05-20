@@ -1,0 +1,28 @@
+{
+  "id": "npc_giovanni",
+  "name": "Giovanni",
+  "age": 42,
+  "gender": "male",
+  "role": "Rocket Boss",
+  "faction": "Team Rocket",
+  "personality": ["calm", "strategic", "ruthless", "authoritative"],
+  "goals": {
+    "shortTerm": "Expand Rocket influence around major cities.",
+    "longTerm": "Control rare and powerful Pokémon networks."
+  },
+  "values": ["power", "discipline", "loyalty"],
+  "orientation": "villain",
+  "trustLevel": 2,
+  "catchPhrases": [
+    "Power rewards discipline.",
+    "Weak plans are worse than no plans."
+  ],
+  "speechStyle": {
+    "tone": "cold",
+    "verbosity": "medium",
+    "formality": "high"
+  },
+  "pokemonPreferences": ["ground", "poison", "physical offense"],
+  "possiblePokemon": ["nidoking", "rhydon", "persian", "dugtrio"],
+  "sprite": "https://play.pokemonshowdown.com/sprites/trainers/giovanni-gen2.png"
+}
