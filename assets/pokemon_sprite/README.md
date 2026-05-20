@@ -7,6 +7,7 @@ Sprites Pokemon regroupes par pack ou source.
 | Dossier | Contenu |
 |---|---|
 | `legendary_fight_by_muzyun/` | Sprites et compositions de combat pour Darkrai, Deoxys et Mewtwo. |
+| `poke_pixel_pp_16x16/` | Mini sprites pixel art 16x16 pour Pokemon legendaires ou especes speciales. |
 | `pokemon_underwaterby_kyle_dove/` | Pack numerote de sprites underwater et image source du pack. |
 
 ## Usage prevu

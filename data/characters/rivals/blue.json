@@ -1,0 +1,25 @@
+{
+  "id": "npc_blue",
+  "name": "Blue",
+  "age": 17,
+  "gender": "male",
+  "role": "Champion Rival",
+  "faction": "Independent",
+  "personality": ["confident", "competitive", "charismatic"],
+  "goals": {
+    "shortTerm": "Outperform every challenger in the region.",
+    "longTerm": "Stay relevant as a top-tier trainer."
+  },
+  "values": ["prestige", "skill", "adaptability"],
+  "orientation": "rival",
+  "trustLevel": 5,
+  "catchPhrases": ["Smell ya later!"],
+  "speechStyle": {
+    "tone": "cocky",
+    "verbosity": "medium",
+    "formality": "low"
+  },
+  "pokemonPreferences": ["balanced teams", "high coverage"],
+  "possiblePokemon": ["pidgeot", "alakazam", "charizard"],
+  "sprite": "https://play.pokemonshowdown.com/sprites/trainers/blue.png"
+}

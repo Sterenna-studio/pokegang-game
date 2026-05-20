@@ -1,0 +1,25 @@
+{
+  "id": "npc_nurse_joy",
+  "name": "Nurse Joy",
+  "age": 24,
+  "gender": "female",
+  "role": "Pokémon Center Nurse",
+  "faction": "Civic Services",
+  "personality": ["kind", "composed", "supportive"],
+  "goals": {
+    "shortTerm": "Keep local trainers and Pokémon safe.",
+    "longTerm": "Maintain trust in civic healthcare services."
+  },
+  "values": ["care", "neutrality", "public safety"],
+  "orientation": "ally",
+  "trustLevel": 7,
+  "catchPhrases": ["We hope to see you again."],
+  "speechStyle": {
+    "tone": "warm",
+    "verbosity": "medium",
+    "formality": "medium"
+  },
+  "pokemonPreferences": ["support Pokémon", "healing archetypes"],
+  "possiblePokemon": ["chansey", "audino", "wigglytuff"],
+  "sprite": "https://play.pokemonshowdown.com/sprites/trainers/nursejoy.png"
+}

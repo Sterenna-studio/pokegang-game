@@ -1,0 +1,25 @@
+{
+  "id": "npc_archer",
+  "name": "Archer",
+  "age": 35,
+  "gender": "male",
+  "role": "Rocket Executive",
+  "faction": "Team Rocket",
+  "personality": ["disciplined", "pragmatic", "strict"],
+  "goals": {
+    "shortTerm": "Increase mission success rate of field teams.",
+    "longTerm": "Rebuild Rocket command hierarchy at full capacity."
+  },
+  "values": ["efficiency", "obedience", "results"],
+  "orientation": "villain",
+  "trustLevel": 4,
+  "catchPhrases": ["No excuses. Only outcomes."],
+  "speechStyle": {
+    "tone": "direct",
+    "verbosity": "short",
+    "formality": "high"
+  },
+  "pokemonPreferences": ["dark", "poison"],
+  "possiblePokemon": ["houndoom", "golbat", "arbok"],
+  "sprite": "https://play.pokemonshowdown.com/sprites/trainers/archer.png"
+}
