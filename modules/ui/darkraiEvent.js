@@ -143,14 +143,58 @@ function _injectStyles() {
     .dkr-btn.gold  { border-color: #ffcc5a; color: #ffcc5a; }
     .dkr-btn.gold:hover { background: rgba(255,204,90,.07); }
 
-    .dkr-sprite-wrap { text-align: center; margin-bottom: 14px; }
+    .dkr-sprite-wrap {
+      position: relative;
+      display: inline-block;
+      text-align: center;
+      margin-bottom: 14px;
+    }
+    /* Aura rouge + violet en couches concentriques */
+    .dkr-sprite-wrap.aura::before,
+    .dkr-sprite-wrap.aura::after {
+      content: '';
+      position: absolute;
+      inset: -18px;
+      border-radius: 50%;
+      pointer-events: none;
+      animation: dkr-aura-pulse 2.4s ease-in-out infinite;
+    }
+    .dkr-sprite-wrap.aura::before {
+      background: radial-gradient(ellipse at center,
+        rgba(180, 0, 255, 0.30) 0%,
+        rgba(180, 0, 255, 0.10) 45%,
+        transparent 70%);
+      animation-delay: 0s;
+    }
+    .dkr-sprite-wrap.aura::after {
+      inset: -10px;
+      background: radial-gradient(ellipse at center,
+        rgba(204, 17, 17, 0.45) 0%,
+        rgba(204, 17, 17, 0.18) 50%,
+        transparent 72%);
+      animation-delay: 1.2s;
+    }
+    @keyframes dkr-aura-pulse {
+      0%, 100% { opacity: 0.7; transform: scale(1); }
+      50%       { opacity: 1.0; transform: scale(1.12); }
+    }
     .dkr-sprite {
+      position: relative;
+      z-index: 1;
       width: 112px; height: 112px;
       image-rendering: pixelated;
       animation: dkr-appear .65s .15s both;
     }
-    .dkr-sprite.silhouette { filter: brightness(0); }
-    .dkr-sprite.revealed   { filter: brightness(.35) saturate(.2); animation-delay: 0s; }
+    /* Silhouette : tout noir + légère teinte violette dans l'ombre */
+    .dkr-sprite.silhouette {
+      filter: brightness(0) drop-shadow(0 0 8px rgba(140, 0, 200, 0.6));
+    }
+    /* Revealed : encore sombre mais forme vaguement lisible, aura active */
+    .dkr-sprite.revealed {
+      filter: brightness(0.08) saturate(0) drop-shadow(0 0 12px rgba(180, 0, 255, 0.7))
+              drop-shadow(0 0 6px rgba(204, 17, 17, 0.8));
+      animation-delay: 0s;
+    }
 
     .dkr-input {
       width: 100%; box-sizing: border-box;
@@ -337,7 +381,7 @@ async function _step2() {
 
   // Darkrai silhouette
   const sw  = document.createElement('div');
-  sw.className = 'dkr-sprite-wrap';
+  sw.className = 'dkr-sprite-wrap aura';
   const img = document.createElement('img');
   img.src       = DARKRAI_SPRITE;
   img.className = 'dkr-sprite silhouette';
@@ -407,7 +451,7 @@ async function _step3() {
 
   // Darkrai slightly more visible
   const sw  = document.createElement('div');
-  sw.className = 'dkr-sprite-wrap';
+  sw.className = 'dkr-sprite-wrap aura';
   const img = document.createElement('img');
   img.src       = DARKRAI_SPRITE;
   img.className = 'dkr-sprite revealed';
