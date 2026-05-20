@@ -1,32 +1,63 @@
-# Character Sheets - POKEGANG
+# data/characters
 
-This folder contains structured character sheets used to drive coherent NPC.
+Fiches JSON de personnages pour PokeGang.
 
-## Design goals
+Ces donnees servent de reserve structuree pour des PNJ coherents: rivaux,
+membres de teams, personnages de soutien, dialogues ou futurs generateurs
+d'evenements.
 
-- Deterministic, game-usable metadata (`faction`, `goals`, `possiblePokemon`).
-- Prompt-ready roleplay metadata (`personality`, `speechStyle`, `catchPhrases`).
-- JSON-only data so sheets can be loaded by both browser and Node tools.
+## Contenu
 
-## Folder layout
+| Dossier | Contenu |
+|---|---|
+| `rocket/` | Membres et cadres de la Team Rocket. |
+| `rivals/` | Rivaux recurrents ou dresseurs concurrents. |
+| `civilians/` | Personnages neutres, de soin ou de support. |
 
-- `rocket/`: Team Rocket members and executives.
-- `rivals/`: recurring rivals.
-- `civilians/`: neutral/support characters.
+## Fiches actuelles
 
-## Minimal schema (v1)
+| Fichier | Personnage | Role |
+|---|---|---|
+| `rocket/giovanni.json` | Giovanni | Boss Rocket. |
+| `rocket/archer.json` | Archer | Cadre Rocket. |
+| `rivals/blue.json` | Blue | Rival champion. |
+| `rivals/silver.json` | Silver | Rival solitaire. |
+| `civilians/nurse-joy.json` | Nurse Joy | Support et soin. |
 
-Each sheet should include:
+## Schema minimal
+
+Chaque fiche doit rester en JSON valide et inclure:
 
 - `id`, `name`, `role`, `faction`
 - `age`, `gender`
-- `personality` (array)
-- `goals` (`shortTerm`, `longTerm`)
-- `values` (array)
+- `personality` (liste)
+- `goals.shortTerm`, `goals.longTerm`
+- `values` (liste)
 - `orientation` (`ally`, `neutral`, `villain`, `rival`)
-- `trustLevel` (`0..10`)
-- `catchPhrases` (array)
-- `speechStyle` (`tone`, `verbosity`, `formality`)
-- `pokemonPreferences` (array)
-- `possiblePokemon` (array)
-- `sprite`
+- `trustLevel` (`0` a `10`)
+- `catchPhrases` (liste)
+- `speechStyle.tone`, `speechStyle.verbosity`, `speechStyle.formality`
+- `pokemonPreferences` (liste)
+- `possiblePokemon` (liste d'identifiants d'especes)
+- `sprite` (URL ou futur chemin local)
+
+## Convention d'ajout
+
+- Garder un sous-dossier par faction ou famille de personnages.
+- Utiliser un `id` stable prefixe par `npc_`.
+- Nommer les fichiers en minuscules avec `-` si besoin (`nurse-joy.json`).
+- Preferer des valeurs simples et deterministes, faciles a mapper dans le jeu.
+- Ne pas brancher une fiche dans le runtime sans verifier le chargement JSON et
+  le rendu du sprite.
+
+## Integration
+
+Ces fiches ne sont pas encore referencees directement par le code runtime.
+
+Quand une fiche devient utilisee:
+
+1. ajouter un loader ou un mapping explicite cote donnees;
+2. verifier que les identifiants `possiblePokemon` correspondent aux especes du
+   jeu;
+3. remplacer les URLs externes de sprites par des assets locaux si necessaire;
+4. documenter ici le module ou l'ecran qui consomme la fiche.
