@@ -541,7 +541,7 @@ function rollChestLoot(zoneId, passive = false) {
         if (pokemon) {
           pokemon.potential = Math.max(pokemon.potential, 3); // guaranteed 3+ stars
           pokemon.stats = globalThis.calculateStats(pokemon);
-          state.pokemons.push(pokemon);
+          state.pokemons.push(pokemon); globalThis.markDirty?.();
           state.stats.totalCaught++;
           if (!state.pokedex[pokemon.species_en]) {
             state.pokedex[pokemon.species_en] = { seen: true, caught: true, shiny: pokemon.shiny, count: 1 };
@@ -621,7 +621,7 @@ function activateEvent(zoneId, event) {
       if (agent.assignedZone === zoneId) {
         globalThis.grantAgentXP(agent, reward.xpBonus);
         for (const pkId of agent.team) {
-          const p = state.pokemons.find(pk => pk.id === pkId);
+          const p = globalThis.pokemonById?.(pkId) ?? state.pokemons.find(pk => pk.id === pkId);
           if (p) globalThis.levelUpPokemon(p, reward.xpBonus);
         }
       }
@@ -635,7 +635,7 @@ function activateEvent(zoneId, event) {
       if (p) {
         p.level = Math.max(p.level, 20);
         p.stats = globalThis.calculateStats(p);
-        state.pokemons.push(p);
+        state.pokemons.push(p); globalThis.markDirty?.();
         parts.push(`${globalThis.speciesName(reward.pokemonGift)} rejoint le gang !`);
       }
     }
@@ -719,7 +719,7 @@ function tryCapture(zoneId, speciesEN, bonusPotential = 0, spawnCtx = {}) {
   const pokemon = globalThis.makePokemon(speciesEN, zoneId, visualBall, spawnCtx);
   if (!pokemon) return null;
   if (bonusPotential > 0) pokemon.potential = Math.min(5, pokemon.potential + bonusPotential);
-  state.pokemons.push(pokemon);
+  state.pokemons.push(pokemon); globalThis.markDirty?.();
   state.stats.totalCaught++;
   globalThis.checkPlayerStatPoints?.();
   // Behavioural log — première capture
@@ -824,7 +824,7 @@ function resolveCombat(playerTeamIds, trainerData) {
   for (const t of trainerData.team) {
     enemyPower += _trainerPokemonPC(t);
   }
-  const playerPks = playerTeamIds.map(id => state.pokemons.find(pk => pk.id === id)).filter(Boolean);
+  const playerPks = playerTeamIds.map(id => globalThis.pokemonById?.(id) ?? state.pokemons.find(pk => pk.id === id)).filter(Boolean);
   const covMult = _typeCoverageMult(playerPks, trainerData.team);
   const pRoll = playerPower * covMult * (0.8 + Math.random() * 0.4);
   const eRoll = enemyPower * (0.8 + Math.random() * 0.4);
@@ -915,7 +915,7 @@ function applyCombatResult(result, playerTeamIds, trainerData) {
     const gymBonus = (zone?.type === 'city' && zone?.xpBonus) ? zone.xpBonus : 1;
     const xpEach = Math.round((10 + trainerData.trainer.diff * 5) * gymBonus * 0.75);
     for (const id of playerTeamIds) {
-      const p = state.pokemons.find(pk => pk.id === id);
+      const p = globalThis.pokemonById?.(id) ?? state.pokemons.find(pk => pk.id === id);
       if (p) {
         globalThis.levelUpPokemon(p, xpEach);
         if (p.history) p.history.push({ type: 'combat', ts: Date.now(), won: true });
@@ -924,7 +924,7 @@ function applyCombatResult(result, playerTeamIds, trainerData) {
   } else {
     state.gang.reputation = Math.max(0, state.gang.reputation + result.repGain);
     for (const id of playerTeamIds) {
-      const p = state.pokemons.find(pk => pk.id === id);
+      const p = globalThis.pokemonById?.(id) ?? state.pokemons.find(pk => pk.id === id);
       if (p) {
         if (p.history) p.history.push({ type: 'combat', ts: Date.now(), won: false });
       }
@@ -1032,7 +1032,7 @@ function triggerGymRaid(zoneId, isAuto) {
     // Auto-fight via agent power + boss (si assigné à la zone)
     const raidAgents = state.agents.filter(a => a.assignedZone === zoneId);
     let agentPower = raidAgents.reduce((s, a) => s + globalThis.getAgentCombatPower(a), 0);
-    const playerPks = raidAgents.flatMap(a => a.team.map(id => state.pokemons.find(pk => pk.id === id)).filter(Boolean));
+    const playerPks = raidAgents.flatMap(a => a.team.map(id => globalThis.pokemonById?.(id) ?? state.pokemons.find(pk => pk.id === id)).filter(Boolean));
     // Inclure le boss s'il est physiquement dans la zone
     if (state.gang?.bossZone === zoneId) {
       const bossTeamIds = (state.gang?.bossTeam || []).filter(Boolean);
