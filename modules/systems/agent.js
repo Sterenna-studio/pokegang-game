@@ -88,7 +88,7 @@ function rollNewAgent() {
 
 function recruitAgent(agentData) {
   const state = globalThis.state;
-  state.agents.push(agentData);
+  state.agents.push(agentData); globalThis.markDirty?.();
   globalThis.addLog(globalThis.t('recruit_agent') + ': ' + agentData.name);
   if (!state.behaviourLogs) state.behaviourLogs = {};
   if (!state.behaviourLogs.firstAgentAt) state.behaviourLogs.firstAgentAt = Date.now();
@@ -216,7 +216,7 @@ function _autoSellCaptured(pokemon) {
   const idx = state.pokemons.findIndex(p => p.id === pokemon.id);
   if (idx === -1) return false;
   const price = globalThis.calculatePrice(pokemon);
-  state.pokemons.splice(idx, 1);
+  state.pokemons.splice(idx, 1); globalThis.markDirty?.();
   state.gang.money += price;
   state.stats.totalSold++;
   state.stats.totalMoneyEarned += price;
@@ -347,7 +347,7 @@ function getAgentCombatPower(agent) {
   const slots = getAgentTeamSlots(agent);
   let teamPower = 0;
   for (const pkId of (agent.team || []).slice(0, slots)) {
-    const p = state.pokemons.find(pk => pk.id === pkId);
+    const p = globalThis.pokemonById?.(pkId) ?? state.pokemons.find(pk => pk.id === pkId);
     if (p) teamPower += globalThis.getPokemonPower(p);
   }
   return Math.round(teamPower * rankMult);
@@ -524,7 +524,7 @@ function resolveBackgroundSpawnForZone(zoneId) {
     }
 
     state.inventory.pokeball--;
-    state.pokemons.push(pokemon);
+    state.pokemons.push(pokemon); globalThis.markDirty?.();
     state.stats.totalCaught++;
     capturer.captureCount = (capturer.captureCount || 0) + 1;
     // XP de zone v2

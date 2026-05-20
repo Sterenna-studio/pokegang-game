@@ -222,7 +222,7 @@ function renderLabTabInEl(tab) {
     );
     if (donors.length < cost) return;
     const toSacrifice = donors.slice(0, cost).map(p => p.id);
-    state.pokemons = state.pokemons.filter(p => !toSacrifice.includes(p.id));
+    state.pokemons = state.pokemons.filter(p => !toSacrifice.includes(p.id)); globalThis.markDirty?.();
     selected.potential++;
     saveState();
     resetPcRenderCache();

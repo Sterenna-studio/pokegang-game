@@ -117,7 +117,7 @@ function _hatchEggSilent(egg) {
   hatched.shiny = egg.shiny;
   hatched.stats = calculateStats(hatched);
   hatched.history = [{ type: 'hatched', ts: now }];
-  state.pokemons.push(hatched);
+  state.pokemons.push(hatched); globalThis.markDirty?.();
   state.stats.totalCaught++;
   state.stats.eggsHatched = (state.stats.eggsHatched || 0) + 1;
   if (!state.pokedex[baseEn]) {
@@ -149,7 +149,7 @@ function _autoSellHatched(pokemon) {
   const price = globalThis.calculatePrice?.(pokemon) || (pokemon.potential * 500);
   const idx = state.pokemons.findIndex(p => p.id === pokemon.id);
   if (idx === -1) return false;
-  state.pokemons.splice(idx, 1);
+  state.pokemons.splice(idx, 1); globalThis.markDirty?.();
   state.gang.money += price;
   state.stats.totalSold = (state.stats.totalSold || 0) + 1;
   state.stats.totalMoneyEarned = (state.stats.totalMoneyEarned || 0) + price;

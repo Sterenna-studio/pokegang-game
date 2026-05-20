@@ -255,6 +255,8 @@ globalThis.state = state;
 function setState(nextState) {
   state = nextState;
   globalThis.state = state;
+  invalidateLookupMaps(); // new state object — maps must be rebuilt
+  _stateDirty = true;
   return state;
 }
 
@@ -265,7 +267,15 @@ function setState(nextState) {
 // Gain moyen : ~35% sur la section pokemons soit ~20-25% sur la save totale.
 // slimPokemon — importée depuis state/serialization.js
 
+// _autoSave — called only by the autosave setInterval.
+// Skips serialization when nothing changed since last save.
+function _autoSave() {
+  if (!_stateDirty) return;
+  saveState();
+}
+
 function saveState() {
+  _stateDirty = false;
   globalThis.state = state; // keep modules in sync
   if (!state.marketSales) state.marketSales = {}; // guard: toujours initialisé
   _playerWasActive = true; // signal leaderboard timer that the player is active
@@ -401,6 +411,44 @@ function openLegacyImportModal(legacyData) {
 // ════════════════════════════════════════════════════════════════
 //  3.  CORE UTILS
 // ════════════════════════════════════════════════════════════════
+
+// ── Lookup Maps (O(1) Pokémon / Agent access) ────────────────────────────────
+// Rebuilt lazily whenever invalidateLookupMaps() is called (i.e. after any
+// push/splice/filter mutation on state.pokemons or state.agents).
+// Hot-path callers use pokemonById(id) / agentById(id) instead of array.find().
+let _pokemonMap = null;
+let _agentMap   = null;
+
+function _rebuildLookupMaps() {
+  _pokemonMap = new Map(state.pokemons.map(p  => [p.id,  p]));
+  _agentMap   = new Map(state.agents.map(a    => [a.id,  a]));
+}
+
+function invalidateLookupMaps() {
+  _pokemonMap = null;
+  _agentMap   = null;
+}
+
+function pokemonById(id) {
+  if (!_pokemonMap) _rebuildLookupMaps();
+  return _pokemonMap.get(id) ?? null;
+}
+
+function agentById(id) {
+  if (!_agentMap) _rebuildLookupMaps();
+  return _agentMap.get(id) ?? null;
+}
+
+// ── Dirty flag for autosave ───────────────────────────────────────────────────
+// Set to true by markDirty() after any meaningful state mutation.
+// The 10s autosave interval skips the serialization when clean.
+// Explicit saveState() calls (after user actions) always save regardless.
+let _stateDirty = true; // start dirty so first autosave always fires
+
+function markDirty() {
+  _stateDirty = true;
+  invalidateLookupMaps();
+}
 
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 function weightedPick(arr) {
@@ -822,7 +870,7 @@ function getCombatRepGain(trainerKey, win) { return globalThis._zsys_getCombatRe
 function getTeamPower(pokemonIds) {
   let power = 0;
   for (const id of pokemonIds) {
-    const p = state.pokemons.find(pk => pk.id === id);
+    const p = pokemonById(id);
     if (p) power += getPokemonPower(p);
   }
   return power;
@@ -1356,7 +1404,7 @@ function toggleGangParkWindow() {
 function renderGangParkWindow(el) {
   const agentRows = state.agents.map(agent => {
     const teamHtml = agent.team.map(id => {
-      const pk = state.pokemons.find(p => p.id === id);
+      const pk = pokemonById(id);
       return pk ? `<img src="${pokeSprite(pk.species_en, pk.shiny)}" title="${speciesName(pk.species_en)} Lv.${pk.level}" style="width:28px;height:28px;image-rendering:pixelated${pk.shiny ? ';filter:drop-shadow(0 0 3px gold)' : ''}">` : '';
     }).join('');
     const zoneName = agent.assignedZone ? (ZONE_BY_ID[agent.assignedZone]?.fr || agent.assignedZone) : '—';
@@ -1372,7 +1420,7 @@ function renderGangParkWindow(el) {
 
   const trainingIds = state.trainingRoom?.pokemon || [];
   const trainingHtml = trainingIds.map(id => {
-    const pk = state.pokemons.find(p => p.id === id);
+    const pk = pokemonById(id);
     return pk ? `<div style="display:flex;align-items:center;gap:6px;padding:4px 8px">
       <img src="${pokeSprite(pk.species_en)}" style="width:28px;height:28px;image-rendering:pixelated">
       <div style="font-size:9px">${speciesName(pk.species_en)} Lv.${pk.level} ${'★'.repeat(pk.potential)}</div>
@@ -1381,7 +1429,7 @@ function renderGangParkWindow(el) {
 
   const pensionIds = state.pension?.slots || [];
   const pensionHtml = pensionIds.map(id => {
-    const pk = state.pokemons.find(p => p.id === id);
+    const pk = pokemonById(id);
     return pk ? `<div style="display:flex;align-items:center;gap:6px;padding:4px 8px">
       <img src="${pokeSprite(pk.species_en, pk.shiny)}" style="width:28px;height:28px;image-rendering:pixelated">
       <div style="font-size:9px">${speciesName(pk.species_en)} Lv.${pk.level}${pk.shiny ? ' ✨' : ''}</div>
@@ -1841,7 +1889,7 @@ function startGameLoop() {
   startDailyReloadSchedule();
 
   // Auto-save
-  autoSaveInterval = setInterval(saveState, TICK_AUTO_SAVE_MS);
+  autoSaveInterval = setInterval(_autoSave, TICK_AUTO_SAVE_MS);
 
   // Cloud save (dirty-checked — skipped if nothing changed)
   setInterval(supaCloudSave, TICK_CLOUD_SAVE_MS);
@@ -1875,7 +1923,7 @@ function startGameLoop() {
     if (teamIds.size === 0) return;
     let leveled = false;
     for (const id of teamIds) {
-      const p = state.pokemons.find(pk => pk.id === id);
+      const p = pokemonById(id);
       if (p) leveled = levelUpPokemon(p, PASSIVE_XP_PER_TICK) || leveled;
     }
     if (leveled) saveState();
@@ -1883,6 +1931,7 @@ function startGameLoop() {
 
   // Zone timers + raid button + fogmap refresh
   setInterval(() => {
+    if (document.hidden) return; // skip when tab is backgrounded
     for (const zoneId of openZones) {
       updateZoneTimers(zoneId);
       _refreshRaidBtn(zoneId);
@@ -2101,6 +2150,8 @@ configureTabRouter({
 // GLOBAL EXPORTS — functions/constants needed by extracted modules
 // ════════════════════════════════════════════════════════════════
 Object.assign(globalThis, {
+  // Lookup maps + dirty flag
+  pokemonById, agentById, invalidateLookupMaps, markDirty,
   // Utility functions
   t, pick, weightedPick, uid, randInt, addLog, speciesName, playSE,
   getMysteryEggCost, trainerSprite, safeTrainerImg, safePokeImg,
