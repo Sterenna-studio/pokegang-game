@@ -11,6 +11,7 @@ integrations.
 
 | Dossier | Contenu | Notes |
 |---|---|---|
+| `gang_logo/` | Logos de gangs et equipes | Variantes HD et pixel pour futures interfaces de competition, bases ou identites de team. Pas encore mappees dans le runtime. |
 | `pokegang_logo/` | Logos et variantes de marque | Assets PokeGang principaux, dont les variantes deja referencees cote app via l'hebergement `lab.sterenna.fr/PG`. |
 | `pokemon_sprite/` | Sprites Pokemon et packs thematiques | Packs separes par source ou auteur. A mapper explicitement avant usage dans le runtime. |
 | `trainer_sprite/` | Sprites de dresseurs et packs de personnages | Packs de dresseurs, variantes Giovanni, GIF Lysandre et un pack `128PX` a verifier avant classement definitif. |
