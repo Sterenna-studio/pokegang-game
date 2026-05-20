@@ -490,20 +490,19 @@ function resolveBackgroundSpawnForZone(zoneId) {
   // ── Pokémon ──────────────────────────────────────────────────
   if (entry.type === 'pokemon') {
     const capAgents = agents.filter(a => a.autoCapture !== false);
-    let capturer = null;
-    // pokeball = ressource unique ; on cherche juste un agent disponible
-    if ((state.inventory.pokeball || 0) > 0) {
-      capturer = capAgents[0] || null;
-    }
-    const ball = 'pokeball';
-    if (!capturer) {
+    // Pas d'agent en mode capture sur cette zone → skip silencieux
+    if (capAgents.length === 0) return false;
+    // pokeball = ressource unique de capture
+    if ((state.inventory.pokeball || 0) <= 0) {
       const _now = Date.now();
       if (!resolveBackgroundSpawnForZone._noBallWarnAt || _now - resolveBackgroundSpawnForZone._noBallWarnAt > 120_000) {
         resolveBackgroundSpawnForZone._noBallWarnAt = _now;
-        globalThis.notify(`⚠️ Plus de Poké Balls — les agents de ${zone?.fr || zoneId} ne capturent plus !`, 'error');
+        globalThis.notify(`⚠️ Plus de Poké Balls — les agents ne capturent plus !`, 'error');
       }
       return false;
     }
+    const capturer = capAgents[0];
+    const ball = 'pokeball';
 
     // Malus zone contestée sur la capture
     if (zState.contested) {
