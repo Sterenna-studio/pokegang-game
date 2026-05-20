@@ -383,7 +383,7 @@ export async function publishDefense() {
   const payload = buildDefensePayload();
   const hasAny  = _hasPublishedDefense(payload);
   try {
-    const { error } = await db.from('gang_defenses').upsert({
+    const { error } = await db.from('pokegang_gang_defenses').upsert({
       user_id:   session.user.id,
       ...payload,
       updated_at: new Date().toISOString(),
@@ -420,7 +420,7 @@ export async function purgeLegacyDefenseData() {
 
   try {
     const { error } = await db
-      .from('gang_defenses')
+      .from('pokegang_gang_defenses')
       .delete()
       .eq('user_id', session.user.id);
     if (error) {
@@ -448,7 +448,7 @@ export async function loadGangList() {
   const myId = session?.user?.id ?? null;
   try {
     let q = db
-      .from('gang_defenses')
+      .from('pokegang_gang_defenses')
       .select('user_id, gang_name, boss_name, boss_sprite, boss_title, reputation_snapshot, defense_pokemon, defense_agent, defense_zone, updated_at')
       .order('reputation_snapshot', { ascending: false })
       .limit(20);
@@ -495,7 +495,7 @@ export async function executeRaid(defData, agentIds = null) {
   const result   = attackerWin ? 'attacker_win' : 'defender_win';
 
   try {
-    const { error } = await db.from('gang_raids').insert({
+    const { error } = await db.from('pokegang_gang_raids').insert({
       attacker_id:       session.user.id,
       defender_id:       defData.user_id,
       attacker_gang:     state.gang.name,
@@ -540,7 +540,7 @@ export async function loadPendingRaids() {
 
   try {
     const { data, error } = await db
-      .from('gang_raids')
+      .from('pokegang_gang_raids')
       .select('id, attacker_gang, result, rep_delta, money_penalty, defender_snap_rep, executed_at')
       .eq('defender_id', session.user.id)
       .eq('seen_by_defender', false)
@@ -568,7 +568,7 @@ export async function acknowledgeRaids() {
 
   const ids = raids.map(r => r.id);
   try {
-    const { error } = await db.from('gang_raids').update({ seen_by_defender: true }).in('id', ids);
+    const { error } = await db.from('pokegang_gang_raids').update({ seen_by_defender: true }).in('id', ids);
     if (error) { notify('Erreur acquittement raids : ' + error.message, 'error'); return; }
   } catch {
     notify('Erreur réseau lors de l\'acquittement.', 'error');
