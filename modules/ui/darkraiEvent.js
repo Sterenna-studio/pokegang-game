@@ -24,7 +24,7 @@
 import { invalidateBossTeamPower } from '../systems/bossPower.js';
 
 // ── Constantes ────────────────────────────────────────────────────
-const DARKRAI_SPRITE = 'https://play.pokemonshowdown.com/sprites/gen5/darkrai.png';
+const DARKRAI_SPRITE = 'assets/pokemon_sprite/legendary_fight_by_muzyun/darkray.png';
 
 // ── État interne ──────────────────────────────────────────────────
 let _overlay   = null;

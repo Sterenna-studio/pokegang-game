@@ -1422,7 +1422,7 @@ function _exportAsPDF(opts) {
 <head>
   <meta charset="UTF-8">
   <title>PokéGang — ${g.name}</title>
-  <link rel="icon" href="https://lab.sterenna.fr/PG/pokegang_logo/pokegang_logo_little.png">
+  <link rel="icon" href="assets/pokegang_logo/pokegang_logo_little.png">
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -1472,8 +1472,8 @@ function buildExportCard(opts = {}) {
   const g = state.gang;
   const s = state.stats;
 
-  const LOGO_FULL  = 'https://lab.sterenna.fr/PG/pokegang_logo/pokegang_logo_full_B.png';
-  const LOGO_SMALL = 'https://lab.sterenna.fr/PG/pokegang_logo/pokegang_logo_medium.png';
+  const LOGO_FULL  = 'assets/pokegang_logo/pokegang_logo_full_B.png';
+  const LOGO_SMALL = 'assets/pokegang_logo/pokegang_logo_medium.png';
 
   const gen = opts.spriteGen || 'game';
   function _pkSprite(species_en, shiny) {

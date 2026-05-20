@@ -10,12 +10,12 @@ const POKEOS_EGG_BASE_URL          = 'https://s3.pokeos.com/pokeos-uploads/forgo
 
 // ── Custom trainer sprite overrides (non-Showdown sources) ───
 const CUSTOM_TRAINER_SPRITES = {
-  giovanni: 'https://www.pokepedia.fr/images/archive/7/73/20230124191924%21Sprite_Giovanni_RB.png',
+  giovanni: 'assets/trainer_sprite/trainer_giovanni/Sprite_Giovanni_HGSS.png',
 };
 
 // ── Logo URLs ─────────────────────────────────────────────────
-const LOGO_URL       = 'https://lab.sterenna.fr/PG/pokegang_logo.png';
-const LOGO_SMALL_URL = 'https://lab.sterenna.fr/PG/pokegang_logo/pokegang_logo_little.png';
+const LOGO_URL       = 'assets/pokegang_logo/pokegang_logo_full_B.png';
+const LOGO_SMALL_URL = 'assets/pokegang_logo/pokegang_logo_little.png';
 
 // ── Egg sprites ──────────────────────────────────────────────
 // Sprite générique NB (Noir & Blanc) — fallback universel
