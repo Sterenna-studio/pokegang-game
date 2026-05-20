@@ -276,6 +276,7 @@ let pcGridRows = 6;   // lignes par page (configurable)
 let pcGroupMode = false; // regroupement par espèce
 let pcGroupSpecies = null; // espèce sélectionnée en mode groupe
 let _pcLastRenderKey = ''; // tracks last filter/sort/page combo to avoid unnecessary rebuilds
+let _pcDetailVer = sessionStorage.getItem('pg_detail_ver') || 'v1'; // version de la fiche Pokémon
 
 function resetPcSelection() {
   pcSelectedId = null;
@@ -1649,6 +1650,167 @@ function _showEvoPreviewPopup(evolvable, type, onConfirm) {
   modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
 }
 
+// ── Helpers communs pour les 3 versions de fiche ─────────────────────────────
+
+function _getLv100Data(p) {
+  const lv100 = { species_en: p.species_en, potential: p.potential, nature: p.nature, level: 100 };
+  lv100.stats = calculateStats(lv100);
+  const lv100PC = getPokemonPower({ ...lv100, pcVariance: p.pcVariance ?? 1, shiny: p.shiny, homesick: false });
+
+  const perfRef = { species_en: p.species_en, potential: 5, nature: 'hardy', level: 100 };
+  perfRef.stats = calculateStats(perfRef);
+  const perfPC = getPokemonPower({ ...perfRef, pcVariance: 1, shiny: false, homesick: false });
+
+  const gradePct = perfPC > 0 ? Math.round(lv100PC / perfPC * 100) : 0;
+  const grade = gradePct >= 95 ? 'S' : gradePct >= 88 ? 'A+' : gradePct >= 80 ? 'A' : gradePct >= 72 ? 'B+' : gradePct >= 63 ? 'B' : 'C';
+  const gradeColor = { S: 'var(--gold)', 'A+': '#4caf50', A: '#81c784', 'B+': '#64b5f6', B: '#90caf9', C: '#aaa' }[grade];
+
+  const NATURES = getNatures();
+  const nat = NATURES[p.nature] || NATURES.hardy || { atk: 1, def: 1, spd: 1 };
+  const natBonus = nat.atk > 1 ? '+ATK' : nat.def > 1 ? '+DEF' : nat.spd > 1 ? '+VIT' : null;
+  const natMalus = nat.atk < 1 ? '−ATK' : nat.def < 1 ? '−DEF' : nat.spd < 1 ? '−VIT' : null;
+
+  const s100 = lv100.stats;
+  const roleKey = s100.atk >= s100.def && s100.atk >= s100.spd ? 'Offensif' :
+                  s100.def >= s100.atk && s100.def >= s100.spd ? 'Défensif' : 'Vitesse';
+  const roleIcon = { Offensif: '⚔', Défensif: '🛡', Vitesse: '⚡' }[roleKey];
+
+  return { lv100, lv100PC, perfPC, gradePct, grade, gradeColor, nat, natBonus, natMalus, s100, roleKey, roleIcon };
+}
+
+function _statBar(val, max, color) {
+  const pct = Math.min(100, Math.round(val / max * 100));
+  return `<div style="flex:1;background:var(--border);border-radius:2px;height:5px"><div style="background:${color};width:${pct}%;height:5px;border-radius:2px;transition:width .3s"></div></div>`;
+}
+
+// V1 — Compact Lv100 : barres vs référence Lv100 + grade en coin
+function _statsV1(p) {
+  const { lv100, lv100PC, perfRef: _p, grade, gradeColor, s100 } = _getLv100Data(p);
+  const perfRef = { species_en: p.species_en, potential: 5, nature: 'hardy', level: 100 };
+  perfRef.stats = calculateStats(perfRef);
+  const bar = (val, max, color) => _statBar(val, max, color);
+  return `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+      <span style="font-size:8px;color:var(--text-dim);font-family:var(--font-pixel)">STATS (→ Lv.100)</span>
+      <span style="font-size:10px;font-weight:bold;font-family:var(--font-pixel);color:${gradeColor};padding:1px 6px;border:1px solid ${gradeColor};border-radius:2px">${grade}</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:4px">
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="font-size:9px;width:28px;color:#e57373;font-family:var(--font-pixel)">ATK</span>
+        ${bar(p.stats.atk, perfRef.stats.atk, '#e57373')}
+        <span style="font-size:9px;color:var(--text-dim);min-width:55px;text-align:right">${p.stats.atk} <span style="color:${gradeColor}">→ ${s100.atk}</span></span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="font-size:9px;width:28px;color:#64b5f6;font-family:var(--font-pixel)">DEF</span>
+        ${bar(p.stats.def, perfRef.stats.def, '#64b5f6')}
+        <span style="font-size:9px;color:var(--text-dim);min-width:55px;text-align:right">${p.stats.def} <span style="color:${gradeColor}">→ ${s100.def}</span></span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="font-size:9px;width:28px;color:#81c784;font-family:var(--font-pixel)">VIT</span>
+        ${bar(p.stats.spd, perfRef.stats.spd, '#81c784')}
+        <span style="font-size:9px;color:var(--text-dim);min-width:55px;text-align:right">${p.stats.spd} <span style="color:${gradeColor}">→ ${s100.spd}</span></span>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:5px">
+      <span style="font-size:8px;color:var(--text-dim)">PC Lv.100 estimé</span>
+      <span style="font-size:10px;font-weight:bold;color:${gradeColor}">${lv100PC.toLocaleString()}</span>
+    </div>`;
+}
+
+// V2 — Preview Duel : colonne gauche (maintenant) | colonne droite (Lv.100)
+function _statsV2(p) {
+  const { lv100, lv100PC, grade, gradeColor, nat, natBonus, natMalus, s100 } = _getLv100Data(p);
+  const curr = p.stats;
+  const natTag = (natBonus || natMalus)
+    ? `<div style="margin-top:4px;font-size:8px">
+        ${natBonus ? `<span style="color:#81c784">${natBonus}</span>` : ''}
+        ${natMalus ? `<span style="color:#e57373;margin-left:4px">${natMalus}</span>` : ''}
+      </div>` : '';
+  const statRow = (label, cur, lv, color) => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:8px;color:${color};font-family:var(--font-pixel);width:28px">${label}</span>
+      <span style="font-size:10px;color:var(--text-dim)">${cur}</span>
+      <span style="font-size:8px;color:var(--text-dim)">→</span>
+      <span style="font-size:11px;font-weight:bold;color:${gradeColor}">${lv}</span>
+    </div>`;
+  return `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:10px">
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px">
+        <div style="font-size:8px;color:var(--text-dim);font-family:var(--font-pixel);margin-bottom:4px">MAINTENANT</div>
+        <div style="font-size:12px;font-weight:bold;color:var(--text)">${getPokemonPower(p).toLocaleString()} <span style="font-size:8px;color:var(--text-dim)">PC</span></div>
+        <div style="font-size:9px;color:var(--text-dim);margin-top:2px">ATK ${curr.atk} · DEF ${curr.def} · VIT ${curr.spd}</div>
+        <div style="font-size:8px;color:var(--text-dim);margin-top:2px">Lv.${p.level}</div>
+        ${natTag}
+      </div>
+      <div style="background:rgba(${gradeColor === 'var(--gold)' ? '255,200,60' : '100,181,246'},0.06);border:1px solid ${gradeColor};border-radius:var(--radius-sm);padding:6px">
+        <div style="font-size:8px;font-family:var(--font-pixel);margin-bottom:4px;color:${gradeColor}">LV.100 ↑</div>
+        <div style="font-size:12px;font-weight:bold;color:${gradeColor}">${lv100PC.toLocaleString()} <span style="font-size:8px;opacity:.7">PC</span></div>
+        <div style="font-size:9px;color:var(--text-dim);margin-top:2px">ATK ${s100.atk} · DEF ${s100.def} · VIT ${s100.spd}</div>
+        <div style="margin-top:4px;font-size:9px;font-weight:bold;color:${gradeColor};font-family:var(--font-pixel)">Grade ${grade}</div>
+      </div>
+    </div>
+    <div style="margin-top:5px;display:flex;flex-direction:column;gap:2px">
+      ${statRow('ATK', curr.atk, s100.atk, '#e57373')}
+      ${statRow('DEF', curr.def, s100.def, '#64b5f6')}
+      ${statRow('VIT', curr.spd, s100.spd, '#81c784')}
+    </div>`;
+}
+
+// V3 — Fiche Combat : rôle + jauge % + stats Lv100 chips colorés
+function _statsV3(p) {
+  const { lv100PC, perfPC, gradePct, grade, gradeColor, natBonus, natMalus, s100, roleKey, roleIcon } = _getLv100Data(p);
+  const gaugePct = Math.min(100, gradePct);
+  const gaugeBg = `linear-gradient(90deg, ${gradeColor} ${gaugePct}%, var(--border) ${gaugePct}%)`;
+  const chip = (label, val, color) => `
+    <div style="flex:1;background:var(--bg);border:1px solid ${color};border-radius:3px;padding:4px 6px;text-align:center;min-width:0">
+      <div style="font-size:7px;color:${color};font-family:var(--font-pixel)">${label}</div>
+      <div style="font-size:13px;font-weight:bold;color:${color}">${val}</div>
+    </div>`;
+  return `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <div style="display:flex;align-items:center;gap:5px">
+        <span style="font-size:14px">${roleIcon}</span>
+        <span style="font-size:8px;font-family:var(--font-pixel);color:var(--text)">${roleKey.toUpperCase()}</span>
+      </div>
+      <div style="font-size:11px;font-weight:bold;font-family:var(--font-pixel);color:${gradeColor};background:rgba(0,0,0,.3);border:1px solid ${gradeColor};padding:2px 8px;border-radius:2px">GRADE ${grade}</div>
+    </div>
+    <div style="margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:2px">
+        <span style="font-size:8px;color:var(--text-dim)">vs. ★★★★★ Hardy Lv.100</span>
+        <span style="font-size:9px;color:${gradeColor};font-weight:bold">${gradePct}%</span>
+      </div>
+      <div style="height:7px;border-radius:3px;background:${gaugeBg};border:1px solid var(--border)"></div>
+    </div>
+    <div style="font-size:9px;color:var(--text-dim);margin-bottom:5px;font-family:var(--font-pixel)">STATS LV.100</div>
+    <div style="display:flex;gap:4px;margin-bottom:6px">
+      ${chip('ATK', s100.atk, '#e57373')}
+      ${chip('DEF', s100.def, '#64b5f6')}
+      ${chip('VIT', s100.spd, '#81c784')}
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:9px;color:var(--text-dim)">
+        ${natBonus ? `<span style="color:#81c784">${natBonus}</span>` : ''}
+        ${natMalus ? `<span style="color:#e57373;margin-left:4px">${natMalus}</span>` : ''}
+        ${!natBonus && !natMalus ? '<span>Nature neutre</span>' : ''}
+      </div>
+      <div style="font-size:11px;font-weight:bold;color:${gradeColor}">${lv100PC.toLocaleString()} <span style="font-size:8px;opacity:.7">PC</span></div>
+    </div>`;
+}
+
+function _statsBlockHTML(p) {
+  const ver = _pcDetailVer;
+  const fn = ver === 'v2' ? _statsV2 : ver === 'v3' ? _statsV3 : _statsV1;
+  const btnStyle = (v) => `padding:2px 7px;font-size:8px;font-family:var(--font-pixel);cursor:pointer;border-radius:2px;border:1px solid ${v === ver ? 'var(--red)' : 'var(--border)'};background:${v === ver ? 'var(--red-dark)' : 'var(--bg)'};color:${v === ver ? 'var(--text)' : 'var(--text-dim)'}`;
+  return `
+    <div style="display:flex;gap:4px;margin-bottom:6px">
+      <button class="pc-stat-ver-btn" data-ver="v1" style="${btnStyle('v1')}">V1</button>
+      <button class="pc-stat-ver-btn" data-ver="v2" style="${btnStyle('v2')}">V2</button>
+      <button class="pc-stat-ver-btn" data-ver="v3" style="${btnStyle('v3')}">V3</button>
+    </div>
+    ${fn(p)}`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 function renderPokemonDetail() {
   const panel = document.getElementById('pokemonDetail');
   if (!panel) return;
@@ -1866,19 +2028,8 @@ function renderPokemonDetail() {
       </div>
       ${p.moves.map(m => `<div style="padding:2px 0">▸ ${m}</div>`).join('')}
     </div>
-    <div style="font-size:11px;margin-bottom:8px">
-      ${(() => {
-        const ref = { species_en: p.species_en, potential: 5, nature: 'hardy', level: p.level };
-        ref.stats = calculateStats(ref);
-        const pct = v => Math.min(100, Math.round(v / ref.stats[Object.keys(ref.stats)[0]] * 100));
-        const bar = (val, max, color) => `<div style="flex:1;background:var(--border);border-radius:2px;height:5px"><div style="background:${color};width:${Math.min(100,Math.round(val/max*100))}%;height:5px;border-radius:2px"></div></div>`;
-        return `<div style="display:flex;flex-direction:column;gap:3px">
-          <div style="display:flex;align-items:center;gap:6px"><span style="font-size:9px;width:30px">ATK</span>${bar(p.stats.atk, ref.stats.atk,'#e57373')}<span style="font-size:9px;color:var(--text-dim)">${p.stats.atk}<span style="color:var(--border-light)">/${ref.stats.atk}</span></span></div>
-          <div style="display:flex;align-items:center;gap:6px"><span style="font-size:9px;width:30px">DEF</span>${bar(p.stats.def, ref.stats.def,'#64b5f6')}<span style="font-size:9px;color:var(--text-dim)">${p.stats.def}<span style="color:var(--border-light)">/${ref.stats.def}</span></span></div>
-          <div style="display:flex;align-items:center;gap:6px"><span style="font-size:9px;width:30px">SPD</span>${bar(p.stats.spd, ref.stats.spd,'#81c784')}<span style="font-size:9px;color:var(--text-dim)">${p.stats.spd}<span style="color:var(--border-light)">/${ref.stats.spd}</span></span></div>
-          <div style="font-size:7px;color:var(--text-dim);margin-top:1px">/ ref ★★★★★ Hardy Lv.${p.level}</div>
-        </div>`;
-      })()}
+    <div id="pcStatsBlock" style="font-size:11px;margin-bottom:8px;padding:8px;background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:var(--radius-sm)">
+      ${_statsBlockHTML(p)}
     </div>
     <div style="font-size:10px;color:var(--text-dim);margin-bottom:8px">${t('zone_caught')}: ${zoneName}</div>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
@@ -1937,6 +2088,15 @@ function renderPokemonDetail() {
     ${renderPotentialUpgradePanel(p)}
     ${renderPokemonHistory(p)}
   `;
+
+  // Version selector buttons (V1/V2/V3) — re-render the detail panel on switch
+  panel.querySelectorAll('.pc-stat-ver-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      _pcDetailVer = btn.dataset.ver;
+      sessionStorage.setItem('pg_detail_ver', _pcDetailVer);
+      renderPokemonDetail(); // fast re-render, preserves scroll position is not critical
+    });
+  });
 
   document.getElementById('btnFavToggle')?.addEventListener('click', () => {
     p.favorite = !p.favorite;
