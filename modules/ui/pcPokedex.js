@@ -3023,7 +3023,7 @@ function renderPokedexTab() {
         ★ SINNOH — BIENTÔT DISPONIBLE ★
       </div>
       <div style="display:flex;align-items:center;gap:14px;margin-bottom:6px;">
-        <img src="https://play.pokemonshowdown.com/sprites/gen5/darkrai.png"
+        <img src="assets/pokemon_sprite/legendary_fight_by_muzyun/darkray.png"
              style="width:48px;height:48px;filter:brightness(.15) sepia(1) saturate(4) hue-rotate(220deg);image-rendering:pixelated;flex-shrink:0;" alt="???">
         <div>
           <div style="font-size:8px;color:#e8e8e8;margin-bottom:3px;">#491 — ???</div>
