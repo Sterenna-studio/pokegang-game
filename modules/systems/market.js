@@ -144,7 +144,7 @@ function sellPokemon(pokemonIds, _shinyConfirmed = false) {
     const p = state.pokemons[idx];
     const soldPrice = calculatePrice(p);
     total += soldPrice;
-    state.pokemons.splice(idx, 1);
+    state.pokemons.splice(idx, 1); globalThis.markDirty?.();
     state.stats.totalSold++;
     // Track most expensive sale
     if (!state.stats.mostExpensiveSold || soldPrice > (state.stats.mostExpensiveSold.price || 0)) {

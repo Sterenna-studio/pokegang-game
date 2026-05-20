@@ -100,7 +100,7 @@ export const SECRET_CODES = {
       if (existing) { notify('Tu possèdes déjà MissingNo !', 'error'); return; }
       const p = makePokemon('missingno', 'secret', 'pokeball');
       p.potential = 5; p.level = 1; p.shiny = Math.random() < 0.5; p.noSell = true;
-      state.pokemons.push(p);
+      state.pokemons.push(p); globalThis.markDirty?.();
       if (!state.pokedex['missingno']) state.pokedex['missingno'] = {};
       state.pokedex['missingno'].caught = true; state.pokedex['missingno'].count = 1;
       claim();
@@ -125,7 +125,7 @@ export const SECRET_CODES = {
           onPick: () => {
             const p = makePokemon(sp, 'reward', 'pokeball');
             p.level = 1; p.shiny = shiny; p.potential = Math.random() < 0.2 ? 2 : 1;
-            state.pokemons.push(p);
+            state.pokemons.push(p); globalThis.markDirty?.();
             claim(); saveState();
             notify(`🎁 ${spDef?.fr || sp}${shiny ? ' ✨' : ''} a rejoint ton PC !`, 'gold');
             refreshPcGridAfterSecretReward();
@@ -178,7 +178,7 @@ export const SECRET_CODES = {
           if (opt.atk) p.atk = Math.round((p.atk || 10) * opt.atk);
           if (opt.spd) p.spd = Math.round((p.spd || 10) * opt.spd);
           if (opt.pot) p.potential = opt.pot;
-          state.pokemons.push(p);
+          state.pokemons.push(p); globalThis.markDirty?.();
           claim(); saveState();
           notify(`⚡ Pikachu${shiny ? ' ✨' : ''} — ${opt.bonus} — a rejoint ton PC !`, 'gold');
           refreshPcGridAfterSecretReward();

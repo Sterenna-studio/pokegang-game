@@ -493,7 +493,7 @@ export function openGiovanniIntro({ slotIdx = 0, onComplete } = {}) {
       starter.capturedIn = 'intro';
       starter.history = [{ type: 'starter', ts: Date.now(), zone: 'intro', ball: 'giovanni' }];
       if (!Array.isArray(state.pokemons)) state.pokemons = [];
-      state.pokemons.push(starter);
+      state.pokemons.push(starter); globalThis.markDirty?.();
     }
 
     // Save + close
@@ -697,7 +697,7 @@ export function openStarterGiftPopup({ onComplete } = {}) {
       starter.capturedIn = 'intro';
       starter.history = [{ type: 'starter', ts: Date.now(), zone: 'intro', ball: 'giovanni' }];
       if (!Array.isArray(state.pokemons)) state.pokemons = [];
-      state.pokemons.push(starter);
+      state.pokemons.push(starter); globalThis.markDirty?.();
     }
 
     state.gang.introSeen = true;
