@@ -1,6 +1,14 @@
-'use strict';
+﻿'use strict';
 
 import { BOSS_TEAM_SLOTS } from '../../data/game-config-data.js';
+
+import { EventBus, EVENTS } from '../core/eventBus.js';
+
+const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
+const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
+const _topBar = ()               => EventBus.emit(EVENTS.UI_TOPBAR_UPDATE);
+const _save   = ()               => globalThis.saveState?.();
+
 
 // ── Picker modals ────────────────────────────────────────────────────────────
 // openTeamPicker      — choisir un Pokémon pour une équipe (boss ou agent)
@@ -22,7 +30,7 @@ function openTeamPicker(type, targetId, onDone) {
     .sort((a, b) => globalThis.getPokemonPower(b) - globalThis.getPokemonPower(a));
 
   if (available.length === 0) {
-    globalThis.notify(state.lang === 'fr' ? 'Aucun Pokémon disponible' : 'No Pokémon available');
+    _notify(state.lang === 'fr' ? 'Aucun Pokémon disponible' : 'No Pokémon available');
     return;
   }
 
@@ -74,9 +82,9 @@ function openTeamPicker(type, targetId, onDone) {
       const agentSlots = globalThis.getAgentTeamSlots?.(agent) ?? 3;
       if (agent && agent.team.length < agentSlots) agent.team.push(pkId);
     }
-    globalThis.saveState();
+    _save();
     overlay.remove();
-    globalThis.notify(`${globalThis.speciesName(pk.species_en)} → ${targetLabel}`, 'success');
+    _notify(`${globalThis.speciesName(pk.species_en)} → ${targetLabel}`, 'success');
     onDone?.();
   };
 
@@ -111,7 +119,7 @@ function openAssignToPicker(pokemonId) {
   const assignedIds = new Set([...state.gang.bossTeam]);
   for (const a of state.agents) a.team.forEach(id => assignedIds.add(id));
   if (assignedIds.has(pokemonId)) {
-    globalThis.notify(state.lang === 'fr' ? 'Déjà dans une équipe !' : 'Already in a team!');
+    _notify(state.lang === 'fr' ? 'Déjà dans une équipe !' : 'Already in a team!');
     return;
   }
 
@@ -129,7 +137,7 @@ function openAssignToPicker(pokemonId) {
   }
 
   if (destinations.length === 0) {
-    globalThis.notify(state.lang === 'fr' ? 'Toutes les équipes sont pleines !' : 'All teams are full!');
+    _notify(state.lang === 'fr' ? 'Toutes les équipes sont pleines !' : 'All teams are full!');
     return;
   }
 
@@ -180,12 +188,12 @@ function openAssignToPicker(pokemonId) {
         const agentSlots = globalThis.getAgentTeamSlots?.(agent) ?? 3;
         if (agent && agent.team.length < agentSlots) agent.team.push(pokemonId);
       }
-      globalThis.saveState();
+      _save();
       overlay.remove();
       const destLabel = destType === 'boss'
         ? state.gang.bossName
         : (state.agents.find(a => a.id === destId)?.name || 'Agent');
-      globalThis.notify(`${globalThis.speciesName(pk.species_en)} → ${destLabel}`, 'success');
+      _notify(`${globalThis.speciesName(pk.species_en)} → ${destLabel}`, 'success');
       globalThis.renderPCTab?.();
     });
   });
@@ -209,7 +217,7 @@ function openRareCandyPicker() {
     });
 
   if (candidates.length === 0) {
-    globalThis.notify(state.lang === 'fr' ? 'Tous les Pokémon sont au max !' : 'All Pokémon are maxed!');
+    _notify(state.lang === 'fr' ? 'Tous les Pokémon sont au max !' : 'All Pokémon are maxed!');
     return;
   }
 
@@ -257,12 +265,12 @@ function openRareCandyPicker() {
         p.stats = globalThis.calculateStats(p);
         globalThis.tryAutoEvolution(p);
       }
-      globalThis.saveState();
-      globalThis.notify(`🍬 ${globalThis.speciesName(p.species_en)} Lv.${oldLv} → Lv.${p.level}`, 'gold');
+      _save();
+      _notify(`🍬 ${globalThis.speciesName(p.species_en)} Lv.${oldLv} → Lv.${p.level}`, 'gold');
       overlay.remove();
       globalThis.renderBagTab?.();
       if (globalThis.activeTab === 'tabPC') globalThis.renderPCTab?.();
-      globalThis.updateTopBar?.();
+      _topBar();
     });
   });
 }

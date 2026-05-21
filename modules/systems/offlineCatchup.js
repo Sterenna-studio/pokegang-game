@@ -1,4 +1,4 @@
-// ════════════════════════════════════════════════════════════════
+﻿// ════════════════════════════════════════════════════════════════
 // modules/systems/offlineCatchup.js
 // Offline / background idle catchup system
 //
@@ -10,6 +10,11 @@
 // ════════════════════════════════════════════════════════════════
 
 'use strict';
+
+import { EventBus, EVENTS } from '../core/eventBus.js';
+
+const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
+const _save   = ()               => globalThis.saveState?.();
 
 // Cap maximum de rattrapage offline (12 heures)
 const OFFLINE_CAP_MS = 12 * 60 * 60 * 1000;
@@ -161,7 +166,7 @@ function applyOfflineCatchup() {
 
   // Mettre à jour _savedAt pour éviter un double-rattrapage
   state._savedAt = now;
-  globalThis.saveState?.();
+  _save();
 
   // Notification uniquement si l'absence est significative (> 1 min)
   if (rawElapsed >= 60000) {
@@ -170,7 +175,7 @@ function applyOfflineCatchup() {
     if (eggsReady > 0) parts.push(`${eggsReady} œuf${eggsReady > 1 ? 's' : ''} éclosable${eggsReady > 1 ? 's' : ''}`);
     const extra = parts.length > 0 ? ` — ${parts.join(', ')}` : '';
     const cappedStr = rawElapsed > OFFLINE_CAP_MS ? ` (plafonné à ${_formatDuration(OFFLINE_CAP_MS)})` : '';
-    globalThis.notify?.(
+    _notify(
       `⏰ Absent ${_formatDuration(rawElapsed)}${cappedStr}${extra}. Gains appliqués !`,
       'gold',
     );

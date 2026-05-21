@@ -1,4 +1,4 @@
-// ════════════════════════════════════════════════════════════════
+﻿// ════════════════════════════════════════════════════════════════
 //  ZONE WINDOWS MODULE
 //  Extracted from app.js — DOM rendering + interactions
 // ════════════════════════════════════════════════════════════════
@@ -38,6 +38,14 @@ import {
   getTrainerCombatPreview,
   resolveTrainerCombat,
 } from '../systems/zoneCombat.js';
+
+import { EventBus, EVENTS } from '../core/eventBus.js';
+
+const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
+const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
+const _topBar = ()               => EventBus.emit(EVENTS.UI_TOPBAR_UPDATE);
+const _save   = ()               => globalThis.saveState?.();
+
 
 // ── Module-level state ────────────────────────────────────────
 const zoneNextSpawn = {}; // zoneId -> { countdown, lastSpawnType }
@@ -128,9 +136,9 @@ function openCollectionModal(zoneId) {
   // Récolte automatique débloquée et activée : skip animation, collecte instantanée
   if (state.purchases?.autoCollect && state.purchases?.autoCollectEnabled !== false) {
     autoCollectZone(zoneId);
-    globalThis.saveState();
-    globalThis.updateTopBar();
-    globalThis.notify(`🤖 +${income.toLocaleString()}₽ (auto-récolte)`, 'gold');
+    _save();
+    _topBar();
+    _notify(`🤖 +${income.toLocaleString()}₽ (auto-récolte)`, 'gold');
     _zsRefreshIncome(zoneId);
       _zsUpdateButtons();
     return;
@@ -248,8 +256,8 @@ function startZoneCollection(zoneId, agentIds) {
     state.gang.reputation = Math.max(0, state.gang.reputation - 3);
   }
 
-  globalThis.saveState();
-  globalThis.updateTopBar();
+  _save();
+  _topBar();
 
   showCollectionResult(win, collected, items, agentIds);
 }
@@ -395,15 +403,15 @@ function collectAllZones() {
   const state = globalThis.state;
   // Include ALL zones (open or closed) that have pending income from agents
   const zones = Object.keys(state.zones).filter(zid => (state.zones[zid]?.pendingIncome || 0) > 0);
-  if (zones.length === 0) { globalThis.notify('Aucune récolte en attente.', ''); return; }
+  if (zones.length === 0) { _notify('Aucune récolte en attente.', ''); return; }
 
   // Si auto-collect débloqué et activé → récolte silencieuse instantanée
   if (state.purchases?.autoCollect && state.purchases?.autoCollectEnabled !== false) {
     let total = 0;
     for (const zid of zones) total += autoCollectZone(zid);
-    globalThis.saveState();
-    globalThis.updateTopBar();
-    globalThis.notify(`🤖 Récolte auto : +${total.toLocaleString()}₽`, 'gold');
+    _save();
+    _topBar();
+    _notify(`🤖 Récolte auto : +${total.toLocaleString()}₽`, 'gold');
     zones.forEach(zid => _zsRefreshIncome(zid));
       _zsUpdateButtons();
     return;
@@ -466,8 +474,8 @@ function collectAllZones() {
   globalThis.checkMoneyMilestone();
   if (!win) state.gang.reputation = Math.max(0, state.gang.reputation - 3);
   else state.stats.totalFightsWon = (state.stats.totalFightsWon || 0) + 1;
-  globalThis.saveState();
-  globalThis.updateTopBar();
+  _save();
+  _topBar();
 
   // Animate rows sequentially, then reveal total
   let idx = 0;
@@ -538,7 +546,7 @@ function renderZonesTab() {
             if (jQual) {
               globalThis.showJohtoUnlockModal?.();
             } else {
-              globalThis.notify('🔒 Johto — Vainquez le Champion Lance au Plateau Indigo d\'abord !', 'error');
+              _notify('🔒 Johto — Vainquez le Champion Lance au Plateau Indigo d\'abord !', 'error');
             }
             return;
           }
@@ -748,7 +756,7 @@ function openZoneWindow(zoneId) {
     if (neededRank) {
       const bestRank = _maxAgentRank(state);
       if ((_ZONE_RANK_ORD[bestRank] ?? 0) < (_ZONE_RANK_ORD[neededRank] ?? 0)) {
-        globalThis.notify(
+        _notify(
           `🔒 Zone ${currentOpen + 1} : promouvez un agent au rang ${_ZONE_RANK_FR[neededRank]} pour l'ouvrir`,
           'error'
         );
@@ -767,7 +775,7 @@ function openZoneWindow(zoneId) {
   const _zs = globalThis.initZone(zoneId);
   // Persistent unlock flag — zone reste accessible même si la réputation chute plus tard
   _zs.unlocked = true;
-  globalThis.saveState();
+  _save();
   zoneSpawns[zoneId] = []; // liste visuelle de spawns — fraîche à chaque ouverture
   if (!state.gang.bossZone || !openZones.has(state.gang.bossZone)) state.gang.bossZone = zoneId;
 
@@ -785,7 +793,7 @@ function closeZoneWindow(zoneId) {
 
   openZones.delete(zoneId);
   state.openZoneOrder = (state.openZoneOrder || []).filter(id => id !== zoneId);
-  globalThis.saveState();
+  _save();
 
   // Nettoyer les spawns visuels
   if (zoneSpawns[zoneId]) {
@@ -865,7 +873,7 @@ function renderZoneWindows() {
         const toIdx = order.indexOf(zoneId);
         if (fromIdx !== -1 && toIdx !== -1) {
           order.splice(fromIdx, 1); order.splice(toIdx, 0, sourceId);
-          state.openZoneOrder = order; globalThis.saveState(); renderZoneWindows();
+          state.openZoneOrder = order; _save(); renderZoneWindows();
         }
       });
       targetContainer.appendChild(win);
@@ -1199,7 +1207,7 @@ function buildZoneWindowEl(zoneId) {
     if (e.target.closest('.zone-spawn')) return;
     if (e.target.closest('.zone-gym-raid-btn')) return;
     state.gang.bossZone = zoneId;
-    globalThis.saveState();
+    _save();
     renderZoneWindows();
   });
 
@@ -1551,12 +1559,12 @@ function renderSpawnInWindow(zoneId, spawnObj) {
       state.stats.chestsOpened = (state.stats.chestsOpened || 0) + 1;
       setTimeout(() => {
         const loot = globalThis.rollChestLoot(zoneId);
-        globalThis.notify(loot.msg, loot.type);
+        _notify(loot.msg, loot.type);
         globalThis.SFX.play('chest'); // Loot jingle
         removeSpawn(zoneId, spawnObj.id);
-        globalThis.updateTopBar();
+        _topBar();
         updateZoneTimers(zoneId);
-        globalThis.saveState();
+        _save();
       }, 400);
     });
   } else if (spawnObj.type === 'wing_shadow') {
@@ -1594,16 +1602,16 @@ function renderSpawnInWindow(zoneId, spawnObj) {
 
         // Feedback + log
         const msg = `✦ ${qty}× ${cfg.itemName} obtenu${qty > 1 ? 's' : ''} ! (${cfg.shadowLabel})`;
-        globalThis.notify(msg, 'gold');
+        _notify(msg, 'gold');
         globalThis.addLog(msg);
 
         // Burst doré à l'endroit du spawn
         showCaptureBurst(viewport, parseInt(el.style.left) + 32, parseInt(el.style.top) + 32, 4, false);
 
         removeSpawn(zoneId, spawnObj.id);
-        globalThis.updateTopBar();
+        _topBar();
         updateZoneTimers(zoneId);
-        globalThis.saveState();
+        _save();
       }, 300);
     });
 
@@ -1732,12 +1740,12 @@ function animateCapture(zoneId, spawnObj, spawnEl) {
       ball.remove();
       const caught = globalThis.tryCapture(zoneId, spawnObj.species_en, isCritical ? 1 : 0, spawnObj.spawnCtx || {});
       if (caught) {
-        if (isCritical) globalThis.notify(`★ Capture critique ! +1 potentiel`, 'gold');
+        if (isCritical) _notify(`★ Capture critique ! +1 potentiel`, 'gold');
         if (caught.shiny) spawnEl.classList.add('shiny-flash');
         globalThis.SFX.play('capture', caught.potential, caught.shiny);
         showCaptureBurst(viewport, targetX, targetY, caught.potential, caught.shiny);
         removeSpawn(zoneId, spawnObj.id);
-        globalThis.updateTopBar();
+        _topBar();
         if (globalThis.activeTab === 'tabPC') globalThis.renderPCTab();
         updateZoneTimers(zoneId);
       } else {
@@ -1920,7 +1928,7 @@ function openCombatPopup(zoneId, spawnObj) {
   const agentIds = getZoneCombatAgentIds(zoneId);
   const available = buildPlayerTeamForZone(zoneId);
   if (available.length === 0) {
-    globalThis.notify('Équipez votre Boss pour pouvoir combattre !', 'error');
+    _notify('Équipez votre Boss pour pouvoir combattre !', 'error');
     return;
   }
 
@@ -2081,9 +2089,9 @@ function executeCombat() {
       globalThis.clearZoneActivity?.(zoneId);
     }
   } else {
-    globalThis.notify(`Défaite contre ${trainerCombatName(spawnWithZone)} — aucun loot.`, 'error');
+    _notify(`Défaite contre ${trainerCombatName(spawnWithZone)} — aucun loot.`, 'error');
   }
-  globalThis.saveState?.();
+  _save();
 
   const taglines = buildTrainerCombatTaglines(spawnWithZone, result, reward, repGain);
   const zoneDef = ZONE_BY_ID[zoneId];
@@ -2126,7 +2134,7 @@ function executeCombat() {
   function doClose() {
     closeCombatPopup();
     removeSpawn(zoneId, spawnObj.id);
-    globalThis.updateTopBar();
+    _topBar();
     updateZoneTimers(zoneId);
     if (globalThis.activeTab === 'tabGang') globalThis.renderGangTab();
   }

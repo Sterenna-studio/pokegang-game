@@ -1,4 +1,12 @@
-'use strict';
+﻿'use strict';
+
+import { EventBus, EVENTS } from '../core/eventBus.js';
+
+const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
+const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
+const _topBar = ()               => EventBus.emit(EVENTS.UI_TOPBAR_UPDATE);
+const _save   = ()               => globalThis.saveState?.();
+
 
 // ── Modales du hub : réparation de slot + validateur de sprite boss ──────────
 //
@@ -62,7 +70,7 @@ function openHubSlotRepairModal() {
   overlay.querySelector('#btnRepairSlotConfirm')?.addEventListener('click', () => {
     const targetSlot = parseInt(overlay.querySelector('input[name="repairTargetSlot"]:checked')?.value ?? activeSaveSlot);
     const raw = localStorage.getItem(SAVE_KEYS[targetSlot]);
-    if (!raw) { globalThis.notify?.('Slot vide — rien à réparer.', 'error'); overlay.remove(); return; }
+    if (!raw) { _notify('Slot vide — rien à réparer.', 'error'); overlay.remove(); return; }
 
     globalThis.showConfirm?.(
       `Réparer le Slot ${targetSlot + 1} ?<br><span style="color:var(--text-dim);font-size:10px">Toutes les migrations seront réappliquées. Données intactes.</span>`,
@@ -97,11 +105,11 @@ function openHubSlotRepairModal() {
 
           if (targetSlot === (globalThis.activeSaveSlot ?? 0)) {
             globalThis.setState?.(fixed);
-            globalThis.saveState?.();
+            _save();
           }
 
           overlay.remove();
-          globalThis.notify?.(
+          _notify(
             `✅ Slot ${targetSlot + 1} réparé.${histTrimmed > 0 ? ` ${histTrimmed} entrées d'historique nettoyées.` : ''}`,
             'success'
           );
@@ -113,7 +121,7 @@ function openHubSlotRepairModal() {
             globalThis.showIntro?.();
           }
         } catch (err) {
-          globalThis.notify?.('Erreur lors de la réparation — slot non modifié.', 'error');
+          _notify('Erreur lors de la réparation — slot non modifié.', 'error');
           console.error(err);
         }
       },
@@ -197,13 +205,13 @@ function showBossSpriteRepairModal() {
 
   modal.querySelector('#spriteRepairConfirm')?.addEventListener('click', () => {
     state.gang.bossSprite = selected;
-    globalThis.saveState?.();
+    _save();
     modal.remove();
     document.querySelectorAll('[data-boss-sprite-img]').forEach(img => {
       img.src = globalThis.trainerSprite?.(selected) ?? '';
     });
     globalThis.renderAll?.();
-    globalThis.notify?.(state.lang === 'fr' ? 'Sprite mis à jour !' : 'Sprite updated!', 'success');
+    _notify(state.lang === 'fr' ? 'Sprite mis à jour !' : 'Sprite updated!', 'success');
   });
 }
 

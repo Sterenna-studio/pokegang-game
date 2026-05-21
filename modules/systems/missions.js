@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Missions Module — extracted from app.js section 7b
  *
  * Depends on globals set by app.js:
@@ -10,6 +10,13 @@
  *          claimHourlyQuest, rerollHourlyQuest, getMissionProgress,
  *          isMissionComplete, isMissionClaimed, claimMission
  */
+
+import { EventBus, EVENTS } from '../core/eventBus.js';
+
+const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
+const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
+const _topBar = ()               => EventBus.emit(EVENTS.UI_TOPBAR_UPDATE);
+const _save   = ()               => globalThis.saveState?.();
 
 // ════════════════════════════════════════════════════════════════
 //  7b. MISSIONS MODULE
@@ -100,7 +107,7 @@ function initHourlyQuests() {
       if (q) baseline[q.stat] = (baseline[q.stat] === undefined) ? getMissionStat(q.stat) : baseline[q.stat];
     }
     state.missions.hourly = { reset: Date.now(), slots, baseline, claimed: [] };
-    globalThis.saveState();
+    _save();
   }
 }
 
@@ -126,15 +133,15 @@ function claimHourlyQuest(idx) {
   state.missions.hourly.claimed.push(idx);
   if (q.reward.money) { state.gang.money += q.reward.money; state.stats.totalMoneyEarned += q.reward.money; }
   if (q.reward.rep)   { const prev = state.gang.reputation; state.gang.reputation += q.reward.rep; globalThis.checkForNewlyUnlockedZones(prev); }
-  globalThis.notify(`✓ Quête : ${q.fr} — +${q.reward.money?.toLocaleString() || 0}₽${q.reward.rep ? ' +'+q.reward.rep+' rep' : ''}`, 'gold');
+  _notify(`✓ Quête : ${q.fr} — +${q.reward.money?.toLocaleString() || 0}₽${q.reward.rep ? ' +'+q.reward.rep+' rep' : ''}`, 'gold');
   globalThis.SFX.play('coin');
-  globalThis.saveState();
+  _save();
 }
 
 function rerollHourlyQuest(idx) {
   const state = globalThis.state;
   const HOURLY_QUEST_REROLL_COST = globalThis.HOURLY_QUEST_REROLL_COST;
-  if (state.gang.money < HOURLY_QUEST_REROLL_COST) { globalThis.notify(`Pokédollars insuffisants (${HOURLY_QUEST_REROLL_COST}₽ req)`); return; }
+  if (state.gang.money < HOURLY_QUEST_REROLL_COST) { _notify(`Pokédollars insuffisants (${HOURLY_QUEST_REROLL_COST}₽ req)`); return; }
   const h = state.missions.hourly;
   if (!h || isHourlyClaimed(idx)) return;
   const current = getHourlyQuest(idx);
@@ -143,12 +150,12 @@ function rerollHourlyQuest(idx) {
   // Pick a different quest of same difficulty
   const HOURLY_QUEST_POOL = globalThis.HOURLY_QUEST_POOL;
   const pool = HOURLY_QUEST_POOL.filter(q => q.diff === current.diff && q.id !== current.id && !h.slots.includes(q.id));
-  if (pool.length === 0) { globalThis.notify('Aucune quête disponible pour le reroll'); state.gang.money += HOURLY_QUEST_REROLL_COST; return; }
+  if (pool.length === 0) { _notify('Aucune quête disponible pour le reroll'); state.gang.money += HOURLY_QUEST_REROLL_COST; return; }
   const newQ = pool[Math.floor(Math.random() * pool.length)];
   h.slots[idx] = newQ.id;
   if (h.baseline[newQ.stat] === undefined) h.baseline[newQ.stat] = getMissionStat(newQ.stat);
-  globalThis.saveState();
-  globalThis.notify(`Reroll : ${newQ.fr}`, 'success');
+  _save();
+  _notify(`Reroll : ${newQ.fr}`, 'success');
 }
 
 function getMissionProgress(mission) {
@@ -192,9 +199,9 @@ function claimMission(mission) {
     period.claimed.push(mission.id);
   }
   const name = state.lang === 'fr' ? mission.fr : mission.en;
-  globalThis.notify(`${mission.icon} ${name} — ${state.lang === 'fr' ? 'Récompense récupérée !' : 'Reward claimed!'}`, 'gold');
-  globalThis.saveState();
-  globalThis.updateTopBar();
+  _notify(`${mission.icon} ${name} — ${state.lang === 'fr' ? 'Récompense récupérée !' : 'Reward claimed!'}`, 'gold');
+  _save();
+  _topBar();
 }
 
 Object.assign(globalThis, {

@@ -1,4 +1,12 @@
-'use strict';
+﻿'use strict';
+
+import { EventBus, EVENTS } from '../core/eventBus.js';
+
+const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
+const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
+const _topBar = ()               => EventBus.emit(EVENTS.UI_TOPBAR_UPDATE);
+const _save   = ()               => globalThis.saveState?.();
+
 
 // ════════════════════════════════════════════════════════════════
 //  GIOVANNI INTRO — narrative character creation sequence
@@ -531,7 +539,7 @@ export function openGiovanniIntro({ slotIdx = 0, onComplete } = {}) {
         starter.capturedIn = 'intro';
         starter.history = [{ type: 'starter', ts: Date.now(), zone: 'intro', ball: 'giovanni' }];
         if (!Array.isArray(state.pokemons)) state.pokemons = [];
-        state.pokemons.push(starter); globalThis.markDirty?.();
+        state.pokemons.push(starter); _dirty();
       }
 
       _ctx.setActiveSaveSlot?.(slotIdx);
@@ -763,7 +771,7 @@ export function openStarterGiftPopup({ onComplete } = {}) {
         starter.capturedIn = 'intro';
         starter.history = [{ type: 'starter', ts: Date.now(), zone: 'intro', ball: 'giovanni' }];
         if (!Array.isArray(state.pokemons)) state.pokemons = [];
-        state.pokemons.push(starter); globalThis.markDirty?.();
+        state.pokemons.push(starter); _dirty();
       }
 
       state.gang.introSeen = true;

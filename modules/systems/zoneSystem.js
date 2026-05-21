@@ -1,4 +1,4 @@
-// ════════════════════════════════════════════════════════════════
+﻿// ════════════════════════════════════════════════════════════════
 //  ZONE SYSTEM MODULE
 //  Extracted from app.js — pure logic, no DOM access
 // ════════════════════════════════════════════════════════════════
@@ -28,6 +28,12 @@ import {
   POWER_W_ATK, POWER_W_DEF, POWER_W_SPD,
   POWER_SOFT_CAP, POWER_SOFT_RATE,
 } from '../../data/power-config-data.js';
+import { EventBus, EVENTS } from '../core/eventBus.js';
+
+const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
+const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
+const _topBar = ()               => EventBus.emit(EVENTS.UI_TOPBAR_UPDATE);
+const _save   = ()               => globalThis.saveState?.();
 
 // État exclusif par zone : une seule activité à la fois
 // zoneActivity[zoneId] = { mode: 'idle' | 'event', eventId?, expiresAt? }
@@ -541,7 +547,7 @@ function rollChestLoot(zoneId, passive = false) {
         if (pokemon) {
           pokemon.potential = Math.max(pokemon.potential, 3); // guaranteed 3+ stars
           pokemon.stats = globalThis.calculateStats(pokemon);
-          state.pokemons.push(pokemon); globalThis.markDirty?.();
+          state.pokemons.push(pokemon); _dirty();
           state.stats.totalCaught++;
           if (!state.pokedex[pokemon.species_en]) {
             state.pokedex[pokemon.species_en] = { seen: true, caught: true, shiny: pokemon.shiny, count: 1 };
@@ -635,7 +641,7 @@ function activateEvent(zoneId, event) {
       if (p) {
         p.level = Math.max(p.level, 20);
         p.stats = globalThis.calculateStats(p);
-        state.pokemons.push(p); globalThis.markDirty?.();
+        state.pokemons.push(p); _dirty();
         parts.push(`${globalThis.speciesName(reward.pokemonGift)} rejoint le gang !`);
       }
     }
@@ -654,7 +660,7 @@ function activateEvent(zoneId, event) {
 
   // Single notification for the whole event
   const suffix = parts.length > 0 ? ` — ${parts.join(' · ')}` : '';
-  globalThis.notify(`${event.icon} ${label}${suffix}`, 'gold');
+  _notify(`${event.icon} ${label}${suffix}`, 'gold');
 
   // Événements sans combat : résolus instantanément → zone repasse idle
   // Événements avec combat : setZoneActivity déjà fait dans spawnInZone au moment du spawn,
@@ -662,7 +668,7 @@ function activateEvent(zoneId, event) {
   if (!event.trainerKey) {
     clearZoneActivity(zoneId);
   }
-  globalThis.saveState();
+  _save();
 }
 
 // ── Zone Investment ───────────────────────────────────────────
@@ -674,7 +680,7 @@ function investInZone(zoneId) {
   if (zState.invested) return false;
   const cost = zone.investCost || 0;
   if (state.gang.money < cost) {
-    globalThis.notify(state.lang === 'fr' ? 'Pas assez d\'argent !' : 'Not enough money!');
+    _notify(state.lang === 'fr' ? 'Pas assez d\'argent !' : 'Not enough money!');
     globalThis.SFX.play('error');
     return false;
   }
@@ -687,7 +693,7 @@ function investInZone(zoneId) {
     }
   }
   if (zonePower < minPower && minPower > 0) {
-    globalThis.notify(state.lang === 'fr'
+    _notify(state.lang === 'fr'
       ? `Puissance insuffisante ! (${zonePower}/${minPower}) Assignez des agents avec des Pokémon.`
       : `Not enough power! (${zonePower}/${minPower}) Assign agents with Pokémon.`);
     globalThis.SFX.play('error');
@@ -698,10 +704,10 @@ function investInZone(zoneId) {
   zState.unlocked = true;  // persistent: zone stays accessible even if rep drops later
   zState.invested = true;
   zState.investPower = zonePower;
-  globalThis.notify(state.lang === 'fr'
+  _notify(state.lang === 'fr'
     ? `🏴 Zone investie ! Événements & élites débloqués.`
     : `🏴 Zone invested! Events & elites unlocked.`, 'gold');
-  globalThis.saveState();
+  _save();
   return true;
 }
 
@@ -710,7 +716,7 @@ function tryCapture(zoneId, speciesEN, bonusPotential = 0, spawnCtx = {}) {
   const BALLS = globalThis.BALLS;
   // pokeball = ressource unique de capture ; activeBall = skin cosmétique uniquement
   if ((state.inventory.pokeball || 0) <= 0) {
-    globalThis.notify(globalThis.t('no_balls', { ball: 'Poké Ball' }));
+    _notify(globalThis.t('no_balls', { ball: 'Poké Ball' }));
     globalThis.SFX.play('error');
     return null;
   }
@@ -719,7 +725,7 @@ function tryCapture(zoneId, speciesEN, bonusPotential = 0, spawnCtx = {}) {
   const pokemon = globalThis.makePokemon(speciesEN, zoneId, visualBall, spawnCtx);
   if (!pokemon) return null;
   if (bonusPotential > 0) pokemon.potential = Math.min(5, pokemon.potential + bonusPotential);
-  state.pokemons.push(pokemon); globalThis.markDirty?.();
+  state.pokemons.push(pokemon); _dirty();
   state.stats.totalCaught++;
   globalThis.checkPlayerStatPoints?.();
   // Behavioural log — première capture
@@ -742,10 +748,10 @@ function tryCapture(zoneId, speciesEN, bonusPotential = 0, spawnCtx = {}) {
   const stars = '★'.repeat(pokemon.potential) + '☆'.repeat(5 - pokemon.potential);
   const shinyTag = pokemon.shiny ? ' ✨SHINY✨' : '';
   if (pokemon.shiny) {
-    globalThis.notify(`${name} ${stars}${shinyTag}`, 'gold');
+    _notify(`${name} ${stars}${shinyTag}`, 'gold');
     setTimeout(() => globalThis.showShinyPopup?.(pokemon.species_en), 200);
   } else {
-    globalThis.notify(`${name} ${stars}`, pokemon.potential >= 4 ? 'gold' : 'success');
+    _notify(`${name} ${stars}`, pokemon.potential >= 4 ? 'gold' : 'success');
   }
   globalThis.addLog(globalThis.t('catch_success', { name }) + ` [${stars}]`);
   // Feed event — skip si un agent gère son propre feed event (évite les doublons)
@@ -767,7 +773,7 @@ function tryCapture(zoneId, speciesEN, bonusPotential = 0, spawnCtx = {}) {
   }
   // SFX
   globalThis.SFX.play('capture', pokemon.potential, pokemon.shiny);
-  globalThis.saveState();
+  _save();
   return pokemon;
 }
 
@@ -876,12 +882,12 @@ function applyCombatResult(result, playerTeamIds, trainerData) {
         const johtoRockets = state.stats.rocketDefeatedJohto;
         if (johtoRockets >= 50 && !state.purchases.rocket_hq_keycard) {
           state.purchases.rocket_hq_keycard = true;
-          globalThis.notify('🔑 Badge QG Rocket obtenu ! Le QG Rocket d\'Acajou est accessible.', 'gold');
+          _notify('🔑 Badge QG Rocket obtenu ! Le QG Rocket d\'Acajou est accessible.', 'gold');
           setTimeout(() => globalThis.renderZonesTab?.(), 300);
         }
         if (johtoRockets >= 100 && !state.purchases.rocket_uniform) {
           state.purchases.rocket_uniform = true;
-          globalThis.notify('👔 Uniforme Rocket obtenu ! La Tour Radio de Doublonville est accessible.', 'gold');
+          _notify('👔 Uniforme Rocket obtenu ! La Tour Radio de Doublonville est accessible.', 'gold');
           setTimeout(() => globalThis.renderZonesTab?.(), 300);
         }
       }
@@ -896,7 +902,7 @@ function applyCombatResult(result, playerTeamIds, trainerData) {
       const wasDefeated = zs.gymDefeated;
       zs.gymDefeated = true;
       if (!wasDefeated) {
-        globalThis.notify(`🏆 ${combatZone.fr} — Champion vaincu ! La voie est libre.`, 'gold');
+        _notify(`🏆 ${combatZone.fr} — Champion vaincu ! La voie est libre.`, 'gold');
         // Déclenche la vérification de nouvelles zones débloquées par la séquence
         setTimeout(() => checkForNewlyUnlockedZones(state.gang.reputation - 0.001), 600);
         // Vérifie si l'offre Johto doit être déclenchée (après la victoire au Plateau Indigo)
@@ -930,7 +936,7 @@ function applyCombatResult(result, playerTeamIds, trainerData) {
       }
     }
   }
-  globalThis.saveState();
+  _save();
 }
 
 // ── Zone unlock detection ──────────────────────────────────────
@@ -993,18 +999,18 @@ function triggerGymRaid(zoneId, isAuto) {
   const zs = initZone(zoneId);
   const raidCooldownMs = 5 * 60 * 1000;
   if (Date.now() - (zs.gymRaidLastFight || 0) < raidCooldownMs) {
-    if (!isAuto) globalThis.notify('⏳ Raid d\'arène en cooldown !', 'error');
+    if (!isAuto) _notify('⏳ Raid d\'arène en cooldown !', 'error');
     return false;
   }
   if ((zs.combatsWon || 0) < 10) {
-    if (!isAuto) globalThis.notify('⚔ Remportez 10 combats d\'abord !', 'error');
+    if (!isAuto) _notify('⚔ Remportez 10 combats d\'abord !', 'error');
     return false;
   }
   // Auto requires at least 1 manual win
   if (isAuto && !zs.gymDefeated) return false;
 
   zs.gymRaidLastFight = Date.now();
-  globalThis.saveState();
+  _save();
 
   // Build the gym leader's team
   const trainerKey = zone.gymLeader;
@@ -1058,15 +1064,15 @@ function triggerGymRaid(zoneId, isAuto) {
       state.stats.totalFightsWon++;
       zs.combatsWon = (zs.combatsWon || 0) + 1;
       zs.gymDefeated = true;
-      globalThis.notify(`🏆 RAID AUTO — ${zone.fr} vaincu ! +${reward}₽`, 'gold');
+      _notify(`🏆 RAID AUTO — ${zone.fr} vaincu ! +${reward}₽`, 'gold');
       globalThis.addBattleLogEntry({ ts: Date.now(), zoneName: `[RAID] ${zone.fr}`, win: true,
         reward, repGain: raidTrainer.rep, lines: [`Raid auto réussi contre ${trainerKey}`], trainerKey, isAgent: true });
     } else {
       state.stats.totalFights++;
-      globalThis.notify(`❌ Raid auto échoué — ${zone.fr}`, 'error');
+      _notify(`❌ Raid auto échoué — ${zone.fr}`, 'error');
     }
-    globalThis.saveState();
-    globalThis.updateTopBar();
+    _save();
+    _topBar();
     return win;
   }
 

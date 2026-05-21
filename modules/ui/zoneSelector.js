@@ -1,4 +1,4 @@
-// ══════════════════════════════════════════════════════════════
+﻿// ══════════════════════════════════════════════════════════════
 //  Zone Selector UI — fogmap grid, filter tabs, context menu
 //  Extracted from app.js for modularity.
 //
@@ -12,6 +12,14 @@
 //    pokeSprite, SHOP_ITEMS, collectAllZones, renderZonesTab
 // ══════════════════════════════════════════════════════════════
 'use strict';
+
+import { EventBus, EVENTS } from '../core/eventBus.js';
+
+const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
+const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
+const _topBar = ()               => EventBus.emit(EVENTS.UI_TOPBAR_UPDATE);
+const _save   = ()               => globalThis.saveState?.();
+
 
 // ── Internal state ────────────────────────────────────────────
 let _zoneFilter    = 'all'; // 'all' | 'fav' | 'route' | 'city' | 'special'
@@ -102,13 +110,13 @@ function toggleZoneFav(zoneId) {
   const name = state.lang === 'fr' ? zone?.fr : zone?.en;
   if (idx === -1) {
     state.favoriteZones.push(zoneId);
-    globalThis.notify?.(`${name} ajoutée aux favoris`, 'success');
+    _notify(`${name} ajoutée aux favoris`, 'success');
   } else {
     state.favoriteZones.splice(idx, 1);
-    globalThis.notify?.(`${name} retirée des favoris`, 'success');
+    _notify(`${name} retirée des favoris`, 'success');
   }
   globalThis.SFX?.play('click');
-  globalThis.saveState?.();
+  _save();
 
   // Update in-tile fav button if tile visible
   const tile = document.querySelector(`#zoneSelector [data-zone="${zoneId}"]`);
@@ -258,11 +266,11 @@ export function showZoneContextMenu(zoneId, x, y) {
         const isAssigned = btn.classList.contains('assigned');
         if (isAssigned) {
           globalThis.assignAgentToZone?.(agentId, null);
-          globalThis.notify?.(`Agent retiré de ${name}`, 'info');
+          _notify(`Agent retiré de ${name}`, 'info');
         } else {
           globalThis.assignAgentToZone?.(agentId, zoneId);
         }
-        globalThis.saveState?.();
+        _save();
         globalThis.renderZonesTab?.();
         _dismissCtxMenu();
       });

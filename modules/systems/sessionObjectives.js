@@ -1,3 +1,8 @@
+﻿import { EventBus, EVENTS } from '../core/eventBus.js';
+
+const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
+const _save   = ()               => globalThis.saveState?.();
+
 // ════════════════════════════════════════════════════════════════
 // SESSION TRACKING + NEXT OBJECTIVE + BOOST HELPERS + ITEM SPRITE
 // Extracted from app.js
@@ -140,7 +145,7 @@ function activateBoost(boostId) {
   // Cumulate: extend from current expiry if already active, else from now
   const base = Math.max(Date.now(), state.activeBoosts[boostId] || 0);
   state.activeBoosts[boostId] = base + duration;
-  globalThis.saveState();
+  _save();
   return true;
 }
 

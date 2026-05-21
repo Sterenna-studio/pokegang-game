@@ -1,4 +1,9 @@
-'use strict';
+﻿'use strict';
+
+import { EventBus, EVENTS } from '../core/eventBus.js';
+
+const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
+const _save   = ()               => globalThis.saveState?.();
 
 // ── Johto region unlock system ───────────────────────────────────────────────
 // Logique d'activation et de cinématique de déblocage de la région Johto.
@@ -31,7 +36,7 @@ function activateJohtoRegion() {
   globalThis.state.purchases.johtoUnlocked = true;
   globalThis._zsel_setActiveRegion?.('kanto');
   if (globalThis.activeTab === 'tabZones') globalThis.renderZonesTab?.();
-  globalThis.saveState();
+  _save();
 }
 
 function showJohtoUnlockModal() {
@@ -192,12 +197,12 @@ function showJohtoUnlockModal() {
         b.classList.toggle('active', b.dataset.region === 'johto');
       });
       globalThis.switchTab?.('tabZones');
-      globalThis.notify?.('🌏 Johto débloqué ! Bienvenue à New Bark Town, Parrain...', 'gold');
+      _notify('🌏 Johto débloqué ! Bienvenue à New Bark Town, Parrain...', 'gold');
     });
 
     actionsEl.querySelector('#ji-dismiss').addEventListener('click', () => {
       _close();
-      globalThis.notify?.('📡 L\'offre reste disponible — bouton Johto ✉ dans les zones.', '');
+      _notify('📡 L\'offre reste disponible — bouton Johto ✉ dans les zones.', '');
     });
   }
 
