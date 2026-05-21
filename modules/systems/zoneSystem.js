@@ -711,13 +711,19 @@ function investInZone(zoneId) {
   return true;
 }
 
+let _noBallNotifyAt = 0; // throttle : 1 notif "plus de balls" toutes les 10 s max
+
 function tryCapture(zoneId, speciesEN, bonusPotential = 0, spawnCtx = {}) {
   const state = globalThis.state;
   const BALLS = globalThis.BALLS;
   // pokeball = ressource unique de capture ; activeBall = skin cosmétique uniquement
   if ((state.inventory.pokeball || 0) <= 0) {
-    _notify(globalThis.t('no_balls', { ball: 'Poké Ball' }));
-    globalThis.SFX.play('error');
+    const now = Date.now();
+    if (now - _noBallNotifyAt > 10_000) {
+      _noBallNotifyAt = now;
+      _notify(globalThis.t('no_balls', { ball: 'Poké Ball' }));
+      globalThis.SFX.play('error');
+    }
     return null;
   }
   state.inventory.pokeball--;
@@ -1097,6 +1103,17 @@ function isZoneActive(zoneId) {
   return openZones?.has(zoneId) || state.agents.some(a => a.assignedZone === zoneId);
 }
 
+// ── Background-suppression (Chantier 4) ──────────────────────────────────────
+// Quand le tab passe en arrière-plan, on enregistre `hiddenSince` par zone
+// et on ne fait RIEN dans le setInterval (zéro CPU background).
+// Au retour du tab on batch-rattrape les ticks manqués, puis on redémarre
+// normalement.
+//
+// Cap : 500 ticks par zone pour éviter un freeze à la reprise.
+// Les absences > cap sont compensées par offlineCatchup.js (pension/XP/training).
+const _ZONE_CATCHUP_CAP  = 500;
+const _zoneHiddenSince   = new Map(); // zoneId → timestamp
+
 function startActiveZone(zoneId) {
   const zoneTimers = globalThis.zoneTimers;
   if (zoneTimers[zoneId]) return; // déjà actif
@@ -1104,19 +1121,18 @@ function startActiveZone(zoneId) {
   if (!zone || !zone.spawnRate) return;
   const interval = Math.round(1000 / zone.spawnRate);
   zoneTimers[zoneId] = setInterval(() => {
-    // Page en arrière-plan : on résout silencieusement uniquement les zones sans fenêtre ouverte.
-    // Les zones ouvertes (visuelles) ne génèrent pas de nouveaux spawns DOM quand la page est masquée.
     if (document.hidden) {
-      if (!globalThis.openZones?.has(zoneId)) {
-        globalThis.resolveBackgroundSpawnForZone?.(zoneId);
-      }
-      // Zone ouverte + page masquée → aucun spawn visuel, la queue s'accumule à la réouverture
+      // Mémoriser le premier tick hidden, puis ne rien faire
+      if (!_zoneHiddenSince.has(zoneId)) _zoneHiddenSince.set(zoneId, Date.now());
       return;
     }
+    // Tab visible — effacer la marque hidden (le catchup est géré par visibilitychange)
+    _zoneHiddenSince.delete(zoneId);
+
     if (globalThis.openZones?.has(zoneId)) {
-      globalThis.tickZoneSpawn?.(zoneId);               // mode visuel
+      globalThis.tickZoneSpawn?.(zoneId);                  // mode visuel
     } else {
-      globalThis.resolveBackgroundSpawnForZone?.(zoneId); // mode silencieux
+      globalThis.resolveBackgroundSpawnForZone?.(zoneId);  // mode silencieux
     }
   }, interval);
 }
@@ -1127,6 +1143,7 @@ function stopActiveZone(zoneId) {
     clearInterval(zoneTimers[zoneId]);
     delete zoneTimers[zoneId];
   }
+  _zoneHiddenSince.delete(zoneId);
 }
 
 // Délai de grâce 5 s avant de pauser — évite l'arrêt/redémarrage du timer
@@ -1151,6 +1168,48 @@ function syncActiveZones() {
     if (!isZoneActive(zoneId)) stopActiveZone(zoneId);
   }
 }
+
+// ── Rattrapage zones au retour du tab ─────────────────────────────────────────
+// Déclenché par le handler visibilitychange ci-dessous.
+function _catchupHiddenZones() {
+  const now       = Date.now();
+  const zoneTimers = globalThis.zoneTimers;
+  if (!zoneTimers) return;
+
+  let anyChange = false;
+
+  for (const zoneId of Object.keys(zoneTimers)) {
+    const hiddenSince = _zoneHiddenSince.get(zoneId);
+    if (!hiddenSince) continue;
+    _zoneHiddenSince.delete(zoneId);
+
+    // Les zones ouvertes (visuelles) ne nécessitent pas de résolution silencieuse
+    if (globalThis.openZones?.has(zoneId)) continue;
+
+    const zone = ZONE_BY_ID[zoneId];
+    if (!zone || !zone.spawnRate) continue;
+
+    const interval    = Math.round(1000 / zone.spawnRate);
+    const elapsed     = now - hiddenSince;
+    const missedTicks = Math.min(Math.floor(elapsed / interval), _ZONE_CATCHUP_CAP);
+
+    for (let i = 0; i < missedTicks; i++) {
+      // resolveBackgroundSpawnForZone retourne false quand il n'y a plus d'agents/balls
+      if (!globalThis.resolveBackgroundSpawnForZone?.(zoneId)) break;
+      anyChange = true;
+    }
+  }
+
+  if (anyChange) {
+    globalThis.updateTopBar?.();
+    globalThis.saveState?.();
+  }
+}
+
+// Hook visibilitychange (enregistré une seule fois)
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) _catchupHiddenZones();
+});
 
 // Aliases de compatibilité (appelés depuis app.js wrappers, gardés temporairement)
 const startBackgroundZone = startActiveZone;

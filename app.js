@@ -162,6 +162,7 @@ import {
 } from './state/defaultState.js';
 import { slimPokemon, buildSavePayload, MAX_HISTORY } from './state/serialization.js';
 import { migrateSave, getMigrationSummary } from './state/migrateSave.js';
+import { createStore } from './state/store.js';
 
 // ════════════════════════════════════════════════════════════════
 //  1.  CONFIG & CONSTANTS
@@ -246,6 +247,8 @@ function setActiveSaveSlotValue(idx, opts = {}) {
   activeSaveSlot = idx;
   SAVE_KEY = SAVE_KEYS[idx];
   if (opts?.persist) localStorage.setItem('pokeforge.activeSlot', String(idx));
+  // Sync store slot so store.save() writes to the right key
+  _store?.setActiveSaveSlot(idx, { persist: false }); // persist géré ligne au-dessus
 }
 
 // Résultat de migration exposé au boot pour afficher le banner
@@ -254,9 +257,30 @@ let _migrationResult = null; // null | { from: string, fields: string[] }
 let state = structuredClone(DEFAULT_STATE);
 globalThis.state = state;
 
+// ── Store (Chantier 2) ────────────────────────────────────────────────────────
+// Instancié ici ; chargé et utilisé dans boot().
+// Gère la sérialisation, la migration et la persistance localStorage.
+// Le cloudSave est null ici — le tick cloudSave du Scheduler le gère séparément.
+let _store = null; // initialisé dans _createStoreInstance() appelé au boot
+
+function _createStoreInstance() {
+  _store = createStore({
+    localStorageRef: localStorage,
+    initialState:    createDefaultState(),
+    notify:          (msg, type) => notify(msg, type),
+    speciesByEn:     SPECIES_BY_EN,
+    uid,
+    now:             () => Date.now(),
+  });
+  globalThis._store = _store; // debug access
+  return _store;
+}
+
 function setState(nextState) {
   state = nextState;
   globalThis.state = state;
+  // Synchronise le store avec le nouvel objet state (après loadSlot etc.)
+  if (_store) _store.setState(nextState, { emit: false });
   invalidateLookupMaps(); // new state object — maps must be rebuilt
   _stateDirty = true;
   return state;
@@ -279,33 +303,12 @@ function _autoSave() {
 function saveState() {
   _stateDirty = false;
   globalThis.state = state; // keep modules in sync
-  if (!state.marketSales) state.marketSales = {}; // guard: toujours initialisé
   _playerWasActive = true; // signal leaderboard timer that the player is active
 
-  // Playtime accumulation
-  if (state.sessionStart) {
-    state.playtime = (state.playtime || 0) + Math.floor((Date.now() - state.sessionStart) / 1000);
-    state.sessionStart = Date.now();
-  }
-
-  state._savedAt = Date.now();
-
-  // Sérialisation slim via state/serialization.js
-  const payload = buildSavePayload(state);
-  payload._savedAt = state._savedAt;
-  const data = JSON.stringify(payload);
-
-  try {
-    localStorage.setItem(SAVE_KEY, data);
-  } catch (e) {
-    if (e.name === 'QuotaExceededError') {
-      notify('⚠ Save trop volumineuse — historiques supprimés', 'error');
-      const emergency = JSON.parse(data);
-      for (const p of emergency.pokemons) delete p.history;
-      try { localStorage.setItem(SAVE_KEY, JSON.stringify(emergency)); } catch {}
-    }
-  }
-  // Cloud sync : géré par le tick 5 min dans startGameLoop (pas ici)
+  // Délègue sérialisation/persistance au store (Chantier 2).
+  // Le store gère : marketSales guard, playtime, _savedAt, slim payload, QuotaError.
+  // Cloud sync : géré par le tick cloudSave du Scheduler (pas ici).
+  _store.save();
 }
 
 
@@ -1108,14 +1111,27 @@ function switchTab(tabId) {
   state.behaviourLogs.tabViewCounts[tabId] = (state.behaviourLogs.tabViewCounts[tabId] || 0) + 1;
 }
 
-function updateTopBar() {
+// ── Chantier 5 — updateTopBar debounce + dex badge cache ─────────────────────
+// updateTopBar() est appelée ~80× par tick d'agent (capture + save + topBar).
+// On la debounce via rAF (1 seul DOM write par frame) et on cache le badge dex
+// (scan O(n) sur POKEMON_GEN1) jusqu'à ce que le compte de pokémons capturés change.
+
+let _topBarRafId   = 0;           // rAF handle pour debounce
+let _dexBadgeCache = '';          // icon cached
+let _dexBadgeCaughtCount = -1;    // invalidation clé : nb de pokémons distincts capturés
+
+function _updateTopBarImpl() {
   const gangEl = document.getElementById('gangNameDisplay');
   const moneyEl = document.getElementById('moneyDisplay');
   if (gangEl) {
-    const kantoComplete = POKEMON_GEN1.filter(s => !s.hidden && s.dex >= KANTO_DEX_MIN && s.dex <= KANTO_DEX_MAX).every(s => state.pokedex[s.en]?.caught);
-    const fullComplete  = POKEMON_GEN1.filter(s => !s.hidden).every(s => state.pokedex[s.en]?.caught);
-    const dexIcon = fullComplete ? ' 🌟' : kantoComplete ? ' 📖' : '';
-    gangEl.textContent = state.gang.name + dexIcon;
+    const caughtCount = Object.keys(state.pokedex).filter(k => state.pokedex[k]?.caught).length;
+    if (caughtCount !== _dexBadgeCaughtCount) {
+      _dexBadgeCaughtCount = caughtCount;
+      const kantoComplete = POKEMON_GEN1.filter(s => !s.hidden && s.dex >= KANTO_DEX_MIN && s.dex <= KANTO_DEX_MAX).every(s => state.pokedex[s.en]?.caught);
+      const fullComplete  = POKEMON_GEN1.filter(s => !s.hidden).every(s => state.pokedex[s.en]?.caught);
+      _dexBadgeCache      = fullComplete ? ' 🌟' : kantoComplete ? ' 📖' : '';
+    }
+    gangEl.textContent = state.gang.name + _dexBadgeCache;
   }
   if (moneyEl) moneyEl.innerHTML = `<span>₽</span> ${state.gang.money.toLocaleString()}`;
   const repEl = document.getElementById('repDisplay');
@@ -1166,6 +1182,16 @@ function updateTopBar() {
       objBar.style.display = 'none';
     }
   }
+}
+
+// updateTopBar publique — debounce via rAF pour éviter N DOM writes par tick.
+// Les appels multiples dans la même frame sont fusionnés en un seul rendu.
+function updateTopBar() {
+  if (_topBarRafId) return; // déjà en attente
+  _topBarRafId = requestAnimationFrame(() => {
+    _topBarRafId = 0;
+    _updateTopBarImpl();
+  });
 }
 
 function renderAll() {
@@ -2227,6 +2253,7 @@ Object.assign(globalThis, {
   showIntro,
   // Core infrastructure
   Scheduler, EventBus, EVENTS,
+  get _store() { return _store; }, // debug access (also set in _createStoreInstance)
 });
 
 configureSecretCodes({
@@ -2422,17 +2449,29 @@ function boot() {
   // Version check — must run before anything else; may trigger reload
   if (checkVersionOnBoot()) return;
 
-  // Try to load saved state
-  const saved = loadState();
-  if (saved) {
-    setState(saved);
+  // Initialiser le store (Chantier 2)
+  _createStoreInstance();
+
+  // Try to load saved state via store
+  const loaded = _store.load();   // migre + persiste dans _store.state
+  if (loaded) {
+    state = _store.getState();    // récupère la référence (même objet)
+    globalThis.state = state;
+    invalidateLookupMaps();
+    _stateDirty = false;          // vient d'être chargé — pas dirty
   }
+
+  // Fallback legacy si le store n'a rien trouvé (compatibilité)
+  // loadState() reste disponible mais n'est plus appelé au boot normal
+  // (gardé pour les outils de debug et les tests)
+
   state.sessionStart = Date.now();
   _sessionStatsBase = globalThis._gangSessionStatsBase = { ...state.stats };
 
   // ── Banner de migration si save convertie ────────────────────────────────
-  if (_migrationResult) {
-    setTimeout(() => showMigrationBanner(_migrationResult), 1200);
+  const migRes = _store.getMigrationResult();
+  if (migRes) {
+    setTimeout(() => showMigrationBanner(migRes), 1200);
   }
 
   // ── Notification limite dépassée → MissingNo reward ──────────
