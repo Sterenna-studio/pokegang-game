@@ -34,7 +34,7 @@ jobs:
 
       - name: Ensure remote target directory exists
         run: |
-          ssh -i ~/.ssh/ovh_key "${{ secrets.OVH_USER }}@${{ secrets.OVH_HOST }}" "mkdir -p ~/www/pokegang"
+          ssh -i ~/.ssh/ovh_key "${{ secrets.OVH_USER }}@${{ secrets.OVH_HOST }}" "mkdir -p ~/pokegang"
 
       - name: Deploy to OVH with rsync
         run: |
@@ -45,4 +45,4 @@ jobs:
             --exclude='LICENSE' \
             --exclude='docs/' \
             -e "ssh -i ~/.ssh/ovh_key" \
-            ./ "${{ secrets.OVH_USER }}@${{ secrets.OVH_HOST }}:~/www/pokegang/"
+            ./ "${{ secrets.OVH_USER }}@${{ secrets.OVH_HOST }}:~/pokegang/"
