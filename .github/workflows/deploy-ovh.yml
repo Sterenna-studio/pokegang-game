@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   deploy:
-    name: Upload static site to OVH
+    name: Deploy static site to OVH via SSH
     runs-on: ubuntu-latest
 
     steps:
@@ -25,19 +25,24 @@ jobs:
           echo "Commit: $GITHUB_SHA" >> deploy-test.txt
           echo "Date: $(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> deploy-test.txt
 
-      - name: Deploy to OVH via FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.6
-        with:
-          server: ${{ secrets.OVH_FTP_SERVER }}
-          username: ${{ secrets.OVH_FTP_USERNAME }}
-          password: ${{ secrets.OVH_FTP_PASSWORD }}
-          local-dir: ./
-          server-dir: /www/pokegang/
-          dangerous-clean-slate: false
-          exclude: |
-            **/.git*
-            **/.git*/**
-            **/.github/**
-            README.md
-            LICENSE
-            docs/**
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.OVH_SSH_KEY }}" > ~/.ssh/ovh_key
+          chmod 600 ~/.ssh/ovh_key
+          ssh-keyscan -H "${{ secrets.OVH_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Ensure remote target directory exists
+        run: |
+          ssh -i ~/.ssh/ovh_key "${{ secrets.OVH_USER }}@${{ secrets.OVH_HOST }}" "mkdir -p ~/www/pokegang"
+
+      - name: Deploy to OVH with rsync
+        run: |
+          rsync -avz --delete \
+            --exclude='.git/' \
+            --exclude='.github/' \
+            --exclude='README.md' \
+            --exclude='LICENSE' \
+            --exclude='docs/' \
+            -e "ssh -i ~/.ssh/ovh_key" \
+            ./ "${{ secrets.OVH_USER }}@${{ secrets.OVH_HOST }}:~/www/pokegang/"
