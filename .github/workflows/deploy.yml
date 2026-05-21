@@ -1,34 +1,18 @@
-name: Deploy to OVH
+name: Legacy OVH Deploy - disabled
+
+# This legacy workflow is intentionally disabled.
+# The active deployment workflow is .github/workflows/deploy-ovh.yml
+# It deploys the static site to OVH with SSH + rsync.
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 jobs:
-  deploy:
+  disabled:
+    name: Legacy workflow disabled
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.OVH_HOST }}
-          username: ${{ secrets.OVH_USER }}
-          key: ${{ secrets.OVH_SSH_KEY }}
-          script: |
-            REPO="https://github.com/MutenRock/pokegang-game.git"
-            DIR="$HOME/pokegang"
-            if [ -d "$DIR/.git" ]; then
-              # Repo already initialised — just pull
-              cd "$DIR" && git pull origin main
-            elif [ -d "$DIR" ]; then
-              # Directory exists but not a git repo — init in-place
-              cd "$DIR"
-              git init
-              git remote add origin "$REPO"
-              git fetch origin main
-              git reset --hard origin/main
-            else
-              git clone "$REPO" "$DIR"
-            fi
+      - name: Explain disabled legacy deploy
+        run: |
+          echo "This legacy OVH git-pull workflow is disabled."
+          echo "Use .github/workflows/deploy-ovh.yml instead."
