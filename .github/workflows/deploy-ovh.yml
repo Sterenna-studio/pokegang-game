@@ -1,0 +1,43 @@
+name: Deploy PokéGang to OVH
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-pokegang-ovh
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Upload static site to OVH
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Add deployment marker
+        run: |
+          echo "PokéGang deploy" > deploy-test.txt
+          echo "Commit: $GITHUB_SHA" >> deploy-test.txt
+          echo "Date: $(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> deploy-test.txt
+
+      - name: Deploy to OVH via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.6
+        with:
+          server: ${{ secrets.OVH_FTP_SERVER }}
+          username: ${{ secrets.OVH_FTP_USERNAME }}
+          password: ${{ secrets.OVH_FTP_PASSWORD }}
+          local-dir: ./
+          server-dir: /www/pokegang/
+          dangerous-clean-slate: false
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/.github/**
+            README.md
+            LICENSE
+            docs/**
