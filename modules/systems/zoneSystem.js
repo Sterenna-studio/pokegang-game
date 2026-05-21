@@ -1201,8 +1201,8 @@ function _catchupHiddenZones() {
   }
 
   if (anyChange) {
-    globalThis.updateTopBar?.();
-    globalThis.saveState?.();
+    _topBar();
+    _save();
   }
 }
 
