@@ -1,4 +1,4 @@
-// ════════════════════════════════════════════════════════════════
+﻿// ════════════════════════════════════════════════════════════════
 //  AGENT SHEET — Fiche détaillée d'un agent (alpha)
 //  Modal complet : stats, équipe, zone, historique, actions.
 // ════════════════════════════════════════════════════════════════
@@ -17,6 +17,14 @@
 'use strict';
 
 import { FALLBACK_TRAINER_SVG } from '../../data/assets-data.js';
+
+import { EventBus, EVENTS } from '../core/eventBus.js';
+
+const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
+const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
+const _topBar = ()               => EventBus.emit(EVENTS.UI_TOPBAR_UPDATE);
+const _save   = ()               => globalThis.saveState?.();
+
 
 // ── Helpers ───────────────────────────────────────────────────
 
@@ -266,7 +274,7 @@ function openAgentSheet(agentId, onClose) {
     globalThis.assignAgentToZone?.(agentId, e.target.value || null);
     // Rafraîchir la section zone sans fermer
     _refreshZoneSection(modal, agent);
-    globalThis.saveState?.();
+    _save();
   });
 
   // Team slots
@@ -277,7 +285,7 @@ function openAgentSheet(agentId, onClose) {
     const pkId = agent.team[slotIdx];
     if (pkId) {
       agent.team.splice(slotIdx, 1);
-      globalThis.saveState?.();
+      _save();
       _refreshTeamSection(modal, agent);
     } else {
       globalThis.openTeamPicker?.('agent', agentId, () => _refreshTeamSection(modal, agent));
@@ -330,29 +338,29 @@ function _refreshZoneSection(modal, agent) {
 function _handleRename(agent, onDone) {
   const state = _state();
   if (state.gang.money < 2000) {
-    globalThis.notify?.('Fonds insuffisants (2 000₽)', 'error'); return;
+    _notify('Fonds insuffisants (2 000₽)', 'error'); return;
   }
   const newName = window.prompt('Nouveau nom de l\'agent :', agent.name);
   if (!newName || !newName.trim()) return;
   state.gang.money -= 2000;
   agent.name = newName.trim().slice(0, 20);
-  globalThis.saveState?.();
-  globalThis.notify?.(`Agent renommé → ${agent.name}`, 'success');
+  _save();
+  _notify(`Agent renommé → ${agent.name}`, 'success');
   onDone?.();
 }
 
 function _handleSpriteChange(agent, onDone) {
   const state = _state();
   if (state.gang.money < 5000) {
-    globalThis.notify?.('Fonds insuffisants (5 000₽)', 'error'); return;
+    _notify('Fonds insuffisants (5 000₽)', 'error'); return;
   }
   // Réutilise le sprite picker existant (openSpritePicker de pickers.js)
   globalThis.openSpritePicker?.(agent.spriteKey, (newSprite) => {
     state.gang.money -= 5000;
     agent.spriteKey = newSprite;
     agent.sprite    = globalThis.trainerSprite?.(newSprite) || agent.sprite;
-    globalThis.saveState?.();
-    globalThis.notify?.('Sprite de l\'agent mis à jour', 'success');
+    _save();
+    _notify('Sprite de l\'agent mis à jour', 'success');
     onDone?.();
   });
 }

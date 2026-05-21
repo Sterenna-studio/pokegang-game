@@ -2630,6 +2630,13 @@ function boot() {
   // Start game loop
   startGameLoop();
 
+  // ── EventBus bridges ─────────────────────────────────────────
+  // Modules can emit these events instead of calling globalThis.fn()
+  // directly. Both pathways work during the progressive migration.
+  EventBus.on(EVENTS.UI_NOTIFY,        ({ msg, type = '' } = {}) => notify(msg, type));
+  EventBus.on(EVENTS.UI_TOPBAR_UPDATE, ()                        => updateTopBar());
+  EventBus.on(EVENTS.STATE_DIRTY,      ()                        => markDirty());
+
   // Check if Johto offer should be presented at this session
   if (!state.purchases?.johtoUnlocked) {
     setTimeout(() => checkJohtoUnlock(), JOHTO_UNLOCK_DELAY_MS);

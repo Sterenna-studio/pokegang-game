@@ -1,3 +1,10 @@
+﻿import { EventBus, EVENTS } from '../core/eventBus.js';
+
+const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
+const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
+const _topBar = ()               => EventBus.emit(EVENTS.UI_TOPBAR_UPDATE);
+const _save   = ()               => globalThis.saveState?.();
+
 // ════════════════════════════════════════════════════════════════
 // pension.js — Pension & Eggs system
 // Dependencies (globalThis): state, saveState, notify, speciesName,
@@ -117,7 +124,7 @@ function _hatchEggSilent(egg) {
   hatched.shiny = egg.shiny;
   hatched.stats = calculateStats(hatched);
   hatched.history = [{ type: 'hatched', ts: now }];
-  state.pokemons.push(hatched); globalThis.markDirty?.();
+  state.pokemons.push(hatched); _dirty();
   state.stats.totalCaught++;
   state.stats.eggsHatched = (state.stats.eggsHatched || 0) + 1;
   if (!state.pokedex[baseEn]) {
@@ -149,7 +156,7 @@ function _autoSellHatched(pokemon) {
   const price = globalThis.calculatePrice?.(pokemon) || (pokemon.potential * 500);
   const idx = state.pokemons.findIndex(p => p.id === pokemon.id);
   if (idx === -1) return false;
-  state.pokemons.splice(idx, 1); globalThis.markDirty?.();
+  state.pokemons.splice(idx, 1); _dirty();
   state.gang.money += price;
   state.stats.totalSold = (state.stats.totalSold || 0) + 1;
   state.stats.totalMoneyEarned = (state.stats.totalMoneyEarned || 0) + price;
@@ -206,10 +213,10 @@ function openHatchPopup() {
         if (_autoSellHatched(pk)) sold++;
       }
     }
-    globalThis.saveState();
+    _save();
     let msg = `${hatched} Pokémon ont éclos !`;
     if (sold > 0) msg += ` (${sold} vendu${sold > 1 ? 's' : ''} automatiquement)`;
-    if (hatched > 0) globalThis.notify(msg, 'gold');
+    if (hatched > 0) _notify(msg, 'gold');
     modal.remove();
     if (globalThis.activeTab === 'tabPC') globalThis.renderPCTab();
   });
@@ -255,8 +262,8 @@ function openHatchAnimation(egg, onDone) {
     const pk = _hatchEggSilent(egg);
     const sold = pk ? _autoSellHatched(pk) : false;
     if (pk) {
-      globalThis.saveState?.();
-      globalThis.updateTopBar?.();
+      _save();
+      _topBar();
     }
     const root = overlay.querySelector('#_hatchAnimRoot');
     if (!root) return;
@@ -620,7 +627,7 @@ function renderPensionView(container) {
       state.purchases.autoIncubator = true;
       state.purchases.autoIncubatorEnabled = true;
       saveState();
-      globalThis.updateTopBar?.();
+      _topBar();
       notify('💉 Joëlle est en poste !', 'gold');
       globalThis.tryAutoIncubate?.();
       renderPensionView(container);
@@ -642,7 +649,7 @@ function renderPensionView(container) {
       state.purchases.scientist = true;
       state.purchases.scientistEnabled = true;
       saveState();
-      globalThis.updateTopBar?.();
+      _topBar();
       notify('🧬 Scientifique engagé !', 'gold');
       renderPensionView(container);
     }, null, { confirmLabel: 'Engager', cancelLabel: 'Annuler' });
@@ -655,7 +662,7 @@ function renderPensionView(container) {
       state.purchases.autoSellEggs = true;
       state.purchases.autoSellEggsEnabled = true;
       saveState();
-      globalThis.updateTopBar?.();
+      _topBar();
       notify('🤖 Vente automatique des éclots activée !', 'gold');
       renderPensionView(container);
     }, null, { confirmLabel: 'Acheter', cancelLabel: 'Annuler' });
@@ -750,7 +757,7 @@ function renderPensionView(container) {
       state.gang.money -= 10000;
       egg.revealed = true;
       saveState();
-      globalThis.updateTopBar?.();
+      _topBar();
       notify(`🧬 Analyse : ${speciesName(egg.species_en)} ${'★'.repeat(egg.potential)}${egg.shiny ? ' ✨' : ''}`, 'gold');
       renderPensionView(container);
     });

@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 // ── Pokémon — création, stats, évolution, montée de niveau ──────────────────
 //
@@ -18,6 +18,10 @@ import {
   POWER_SHINY_MULT,
   POWER_VAR_MIN, POWER_VAR_MAX,
 } from '../../data/power-config-data.js';
+import { EventBus, EVENTS } from '../core/eventBus.js';
+
+const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
+const _save   = ()               => globalThis.saveState?.();
 
 function rollNature() {
   return globalThis.pick?.(globalThis.NATURE_KEYS);
@@ -180,9 +184,9 @@ function evolvePokemon(pokemon, targetEN) {
   }
   showPokemonLevelPopup(pokemon, pokemon.level);
   const newName = globalThis.speciesName?.(sp.en) ?? sp.en;
-  globalThis.notify?.(`${oldName} ${state.lang === 'fr' ? 'évolue en' : 'evolved into'} ${newName} !`, 'gold');
+  _notify(`${oldName} ${state.lang === 'fr' ? 'évolue en' : 'evolved into'} ${newName} !`, 'gold');
   globalThis.SFX?.play('evolve');
-  globalThis.saveState?.();
+  _save();
   return true;
 }
 

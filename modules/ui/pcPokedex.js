@@ -1,4 +1,4 @@
-// ════════════════════════════════════════════════════════════════
+﻿// ════════════════════════════════════════════════════════════════
 //  PC / POKÉDEX UI MODULE
 //  Extracted from app.js — PC tab, Pokédex tab, event feed, player stats
 // ════════════════════════════════════════════════════════════════
@@ -8,6 +8,14 @@
 // ════════════════════════════════════════════════════════════════
 
 import { getDexDesc } from '../../data/dex-helpers.js';
+
+import { EventBus, EVENTS } from '../core/eventBus.js';
+
+const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
+const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
+const _topBar = ()               => EventBus.emit(EVENTS.UI_TOPBAR_UPDATE);
+const _save   = ()               => globalThis.saveState?.();
+
 
 let pcPokedexContext = {};
 
@@ -377,7 +385,7 @@ function _exportFeed() {
   a.download = `pokegang-logs-${ts}.json`;
   a.click();
   URL.revokeObjectURL(url);
-  globalThis.notify?.('📥 Logs exportés', 'success');
+  _notify('📥 Logs exportés', 'success');
 }
 
 function pushFeedEvent({ category = 'system', title = '', detail = '', win = null, ...extra } = {}) {
@@ -902,7 +910,7 @@ function hatchEgg(eggId) {
   hatched.history   = [{ type: 'hatched', ts: Date.now() }];
 
   state.eggs = state.eggs.filter(e => e.id !== eggId);
-  state.pokemons.push(hatched); globalThis.markDirty?.();
+  state.pokemons.push(hatched); _dirty();
   state.stats.totalCaught++;
   state.stats.eggsHatched = (state.stats.eggsHatched || 0) + 1;
   if (!state.pokedex[baseEn]) {
@@ -1234,7 +1242,7 @@ function _bindPCCardListeners(el) {
         if (!donor) { notify('Aucun donneur ★★★★★ disponible.', 'error'); return; }
         showConfirm(`Sacrifier <b>${speciesName(donor.species_en)} ★★★★★</b> pour élever <b>${speciesName(pk.species_en)}</b> de ★${pk.potential} à ★${pk.potential + 1} ?<br><span style="color:var(--red);font-size:11px">Le donneur sera détruit.</span>`,
           () => {
-            state.pokemons = state.pokemons.filter(p => p.id !== donor.id); globalThis.markDirty?.();
+            state.pokemons = state.pokemons.filter(p => p.id !== donor.id); _dirty();
             pk.potential = Math.min(5, pk.potential + 1);
             pk.stats = calculateStats(pk);
             saveState(); notify(`🧬 ${speciesName(pk.species_en)} est maintenant ${'★'.repeat(pk.potential)} !`, 'gold');
@@ -2145,7 +2153,7 @@ function renderPokemonDetail() {
       agent.team = agent.team.filter(id => id !== p.id);
     }
     state.gang.bossTeam = state.gang.bossTeam.filter(id => id !== p.id);
-    state.pokemons = state.pokemons.filter(pk => pk.id !== p.id); globalThis.markDirty?.();
+    state.pokemons = state.pokemons.filter(pk => pk.id !== p.id); _dirty();
     pcSelectedId = null;
     saveState();
     renderPCTab();
@@ -2216,7 +2224,7 @@ function renderPokemonDetail() {
     if (donors.length < cost) return;
     donors.slice(0, cost).forEach(d => {
       state.pokemons = state.pokemons.filter(pk => pk.id !== d.id);
-    }); globalThis.markDirty?.();
+    }); _dirty();
     p.potential++;
     p.stats = calculateStats(p);
     saveState();

@@ -1,4 +1,4 @@
-// ════════════════════════════════════════════════════════════════
+﻿// ════════════════════════════════════════════════════════════════
 //  ZONE LEVELS MODULE (v2 alpha)
 //  Gestion des niveaux de zone, XP et événements de zone.
 //  Dual version : fonctionne en superposition de zones-data.js.
@@ -23,6 +23,10 @@ import {
   ZONE_EVENT_POOLS,
   ZONE_EVENT_DEFINITIONS,
 } from '../../data/zones-v2-config.js';
+import { EventBus, EVENTS } from '../core/eventBus.js';
+
+const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
+const _save   = ()               => globalThis.saveState?.();
 
 // ── Helpers internes ──────────────────────────────────────────
 
@@ -113,7 +117,7 @@ function addZoneXP(zoneId, source) {
   const newLevel  = _xpToLevel(z.zoneXp);
 
   if (newLevel > prevLevel) {
-    globalThis.notify?.(`📍 ${_zoneName(zoneId)} → Niveau ${newLevel} !`, 'gold');
+    _notify(`📍 ${_zoneName(zoneId)} → Niveau ${newLevel} !`, 'gold');
     globalThis.SFX?.play('unlock');
     globalThis.addBattleLogEntry?.(`📍 Zone ${_zoneName(zoneId)} montée au niveau ${newLevel} !`);
     return true;
@@ -189,7 +193,7 @@ function triggerZoneEvent(zoneId) {
 
   const lang  = state.lang === 'fr' ? 'fr' : 'en';
   const label = def[lang] || def.fr;
-  globalThis.notify?.(`📍 ${_zoneName(zoneId)} — ${label} !`, 'gold');
+  _notify(`📍 ${_zoneName(zoneId)} — ${label} !`, 'gold');
   globalThis.SFX?.play('notify');
   globalThis.pushFeedEvent?.({
     category: 'zone',
@@ -197,7 +201,7 @@ function triggerZoneEvent(zoneId) {
     detail:   `Type : ${eventType}${z.activeEvent.endsAt ? ` · expire dans ${Math.round((z.activeEvent.endsAt - Date.now()) / 60000)} min` : ''}`,
     win:      null,
   });
-  globalThis.saveState?.();
+  _save();
 
   if (globalThis.activeTab === 'tabZones') globalThis.renderZonesTab?.();
 }
@@ -228,7 +232,7 @@ function resolveZoneEvent(zoneId) {
   if (xpGain)    addZoneXP(zoneId, 'event_complete');
   state.stats.eventsCompleted = (state.stats.eventsCompleted || 0) + 1;
 
-  globalThis.saveState?.();
+  _save();
   if (globalThis.activeTab === 'tabZones') globalThis.renderZonesTab?.();
 
   return { success: true, moneyGain, repGain, xpGain };
@@ -252,7 +256,7 @@ function tickZoneEvents(zoneId) {
   // Expirer les événements à durée finie non résolus
   if (z.activeEvent && !z.activeEvent.resolved && z.activeEvent.endsAt && now >= z.activeEvent.endsAt) {
     z.activeEvent = null;
-    globalThis.saveState?.();
+    _save();
     if (globalThis.activeTab === 'tabZones') globalThis.renderZonesTab?.();
   }
 }

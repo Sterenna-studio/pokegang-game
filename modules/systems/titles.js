@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 // ── Titres et modal de titres ────────────────────────────────────────────────
 //
@@ -7,6 +7,11 @@
 //
 // Dépendances globalThis :
 //   state, notify, saveState, renderGangTab, activeTab
+
+import { EventBus, EVENTS } from '../core/eventBus.js';
+
+const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
+const _save   = ()               => globalThis.saveState?.();
 
 // LIAISONS list (défini ici — absent de titles-data.js)
 const LIAISONS = ['', 'de', "de l'", 'du', 'des', 'à', 'et', '&', 'alias', 'dit'];
@@ -86,8 +91,8 @@ function checkTitleUnlocks() {
   if (newOnes.length > 0) {
     state.unlockedTitles = [...unlocked];
     if (!state.gang.titleA) state.gang.titleA = state.unlockedTitles[0] || 'recrue';
-    newOnes.forEach(t => globalThis.notify?.(`🏆 Titre débloqué : "${t.label}" !`, 'gold'));
-    globalThis.saveState?.();
+    newOnes.forEach(t => _notify(`🏆 Titre débloqué : "${t.label}" !`, 'gold'));
+    _save();
   }
 }
 
@@ -216,13 +221,13 @@ function openTitleModal() {
     overlay.querySelector('#btnCloseTitleModal')?.addEventListener('click', () => overlay.remove());
     overlay.querySelector('#titleLiaison')?.addEventListener('change', e => {
       state.gang.titleLiaison = e.target.value;
-      globalThis.saveState?.(); renderModal();
+      _save(); renderModal();
       if (globalThis.activeTab === 'tabGang') globalThis.renderGangTab?.();
     });
     overlay.querySelector('#btnClearTitles')?.addEventListener('click', () => {
       state.gang.titleA = 'recrue'; state.gang.titleB = null;
       state.gang.titleC = null;    state.gang.titleD = null;
-      globalThis.saveState?.(); renderModal();
+      _save(); renderModal();
       if (globalThis.activeTab === 'tabGang') globalThis.renderGangTab?.();
     });
 
@@ -245,7 +250,7 @@ function openTitleModal() {
           }
           state.gang[slotKey] = id;
         }
-        globalThis.saveState?.(); renderModal();
+        _save(); renderModal();
         if (globalThis.activeTab === 'tabGang') globalThis.renderGangTab?.();
       });
     });

@@ -1,4 +1,4 @@
-// ════════════════════════════════════════════════════════════════
+﻿// ════════════════════════════════════════════════════════════════
 //  GANG BASE MODULE
 //  Extracted from app.js — gang base window, codex, export card
 // ════════════════════════════════════════════════════════════════
@@ -25,6 +25,14 @@
 
 import { FALLBACK_TRAINER_SVG } from '../../data/assets-data.js';
 import { BOSS_TEAM_SLOTS, SHOWCASE_SLOTS } from '../../data/game-config-data.js';
+
+import { EventBus, EVENTS } from '../core/eventBus.js';
+
+const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
+const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
+const _topBar = ()               => EventBus.emit(EVENTS.UI_TOPBAR_UPDATE);
+const _save   = ()               => globalThis.saveState?.();
+
 
 /* globals ZONES, ZONE_BY_ID, SPECIES_BY_EN */
 
@@ -846,9 +854,9 @@ function bindGangBaseV2(container) {
       const isAssigned  = agent.assignedZone === targetZoneId;
       const newZone     = isAssigned ? null : (targetZoneId || null);
       if (globalThis.assignAgentToZone) globalThis.assignAgentToZone(agentId, newZone);
-      else { agent.assignedZone = newZone; globalThis.saveState?.(); }
+      else { agent.assignedZone = newZone; _save(); }
       const targetZone  = newZone ? _baseZoneById(newZone) : null;
-      globalThis.notify?.(newZone ? `${agent.name} → ${_baseZoneName(targetZone, state)}` : `${agent.name} retiré du front`, newZone ? 'success' : '');
+      _notify(newZone ? `${agent.name} → ${_baseZoneName(targetZone, state)}` : `${agent.name} retiré du front`, newZone ? 'success' : '');
       _refreshBaseRuntime();
     });
   });
@@ -860,7 +868,7 @@ function bindGangBaseV2(container) {
       const pkId = state.gang.bossTeam[idx];
       if (pkId) {
         state.gang.bossTeam.splice(idx, 1);
-        globalThis.saveState?.();
+        _save();
         globalThis.renderZoneWindows?.();
       } else {
         globalThis.openTeamPicker('boss', null, () => globalThis.renderZoneWindows?.());
@@ -904,7 +912,7 @@ function bindGangBaseV2(container) {
       const qty = state.inventory?.[id] || 0;
       if (BALL_IDS.includes(id)) {
         state.activeBall = id;
-        globalThis.saveState?.();
+        _save();
         globalThis.renderZoneWindows?.();
         renderGangBasePanel();
         return;
@@ -914,7 +922,7 @@ function bindGangBaseV2(container) {
         const uses = Math.min(_boostMult, qty);
         if (uses > 0) {
           for (let i = 0; i < uses; i++) globalThis.activateBoost?.(id);
-          globalThis.notify?.(`Boost ×${uses} activé — ${Math.ceil(globalThis.boostRemaining?.(id) || 0)}s`, 'success');
+          _notify(`Boost ×${uses} activé — ${Math.ceil(globalThis.boostRemaining?.(id) || 0)}s`, 'success');
         }
         globalThis.renderZoneWindows?.();
         renderGangBasePanel();
@@ -924,8 +932,8 @@ function bindGangBaseV2(container) {
 }
 
 function _refreshBaseRuntime() {
-  globalThis.saveState?.();
-  globalThis.updateTopBar?.();
+  _save();
+  _topBar();
   globalThis.renderZoneWindows?.();
   renderGangBasePanel();
   globalThis.updateZoneButtons?.();
@@ -936,10 +944,10 @@ function _setBaseFocusZone(zoneId, notify = false) {
   const zone = _baseZoneById(zoneId);
   if (!state || !zone) return false;
   state.gang.bossZone = zoneId;
-  globalThis.saveState?.();
+  _save();
   globalThis.renderZoneWindows?.();
   renderGangBasePanel();
-  if (notify) globalThis.notify?.(`Boss repositionne sur ${_baseZoneName(zone, state)}`, 'gold');
+  if (notify) _notify(`Boss repositionne sur ${_baseZoneName(zone, state)}`, 'gold');
   return true;
 }
 
@@ -987,9 +995,9 @@ function _openBaseAgentPicker(zoneId) {
       if (globalThis.assignAgentToZone) globalThis.assignAgentToZone(agentId, targetZone);
       else {
         agent.assignedZone = targetZone;
-        globalThis.saveState?.();
+        _save();
       }
-      globalThis.notify?.(targetZone ? `${agent.name} -> ${zoneName}` : `${agent.name} retire du front`, targetZone ? 'success' : '');
+      _notify(targetZone ? `${agent.name} -> ${zoneName}` : `${agent.name} retire du front`, targetZone ? 'success' : '');
       modal.remove();
       _refreshBaseRuntime();
     });
@@ -1001,7 +1009,7 @@ function _handleBaseCommand(command, zoneId) {
   const state = globalThis.state;
   const zone = _baseZoneById(zoneId);
   if (!state || !zone) {
-    globalThis.notify?.('Aucune zone disponible', 'error');
+    _notify('Aucune zone disponible', 'error');
     return;
   }
   if (command === 'toggle-zone') {
@@ -1028,7 +1036,7 @@ function _handleBaseCommand(command, zoneId) {
       return;
     }
     if (!globalThis.openZones?.has(zoneId)) globalThis.openZoneWindow?.(zoneId);
-    globalThis.notify?.(`Intervention lancee sur ${_baseZoneName(zone, state)}`, 'gold');
+    _notify(`Intervention lancee sur ${_baseZoneName(zone, state)}`, 'gold');
     setTimeout(() => globalThis.tickZoneSpawn?.(zoneId), 80);
     return;
   }
@@ -1041,7 +1049,7 @@ function _bindViewToggle(container) {
       _gangBaseViewMode = btn.dataset.gbView;
       const st = globalThis.state;
       if (st) { st.settings = st.settings || {}; st.settings.gangBaseView = _gangBaseViewMode; }
-      globalThis.saveState?.();
+      _save();
       renderGangBasePanel();
     });
   });
@@ -1076,7 +1084,7 @@ function bindGangBase(container) {
       const pkId = state.gang.bossTeam[idx];
       if (pkId) {
         state.gang.bossTeam.splice(idx, 1);
-        globalThis.saveState();
+        _save();
         globalThis.renderZoneWindows();
       } else {
         globalThis.openTeamPicker('boss', null, () => globalThis.renderZoneWindows());
@@ -1122,7 +1130,7 @@ function bindGangBase(container) {
 
       if (BALL_IDS.includes(id)) {
         state.activeBall = id;
-        globalThis.saveState();
+        _save();
         globalThis.renderZoneWindows();
         renderGangBasePanel();
         return;
@@ -1133,7 +1141,7 @@ function bindGangBase(container) {
         if (uses > 0) {
           for (let i = 0; i < uses; i++) globalThis.activateBoost(id);
           const rem = Math.ceil(globalThis.boostRemaining(id));
-          globalThis.notify(`Boost ×${uses} activé — ${rem}s`, 'success');
+          _notify(`Boost ×${uses} activé — ${rem}s`, 'success');
         }
         globalThis.renderZoneWindows();
         renderGangBasePanel();
@@ -1148,7 +1156,7 @@ function bindGangBase(container) {
       e.stopPropagation();
       const ballId = btn.dataset.autoBall;
       state.settings.autoBuyBall = (state.settings.autoBuyBall === ballId) ? null : ballId;
-      globalThis.saveState();
+      _save();
       renderGangBasePanel();
     });
   });
@@ -1451,11 +1459,11 @@ function _exportAsPDF(opts) {
 </html>`;
 
   const win = window.open('', '_blank');
-  if (!win) { globalThis.notify('Autorise les popups pour l\'export PDF', 'error'); return; }
+  if (!win) { _notify('Autorise les popups pour l\'export PDF', 'error'); return; }
   win.document.open();
   win.document.write(html);
   win.document.close();
-  globalThis.notify('📄 PDF prêt dans un nouvel onglet', 'success');
+  _notify('📄 PDF prêt dans un nouvel onglet', 'success');
 }
 
 function buildExportCard(opts = {}) {

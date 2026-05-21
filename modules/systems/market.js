@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Market Module — extracted from app.js section 9
  *
  * Depends on globals set by app.js:
@@ -11,6 +11,12 @@
  */
 
 import { tryAutoIncubate } from '../ui/pcPokedex.js';
+import { EventBus, EVENTS } from '../core/eventBus.js';
+
+const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
+const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
+const _topBar = ()               => EventBus.emit(EVENTS.UI_TOPBAR_UPDATE);
+const _save   = ()               => globalThis.saveState?.();
 
 // ════════════════════════════════════════════════════════════════
 //  9.  MARKET MODULE
@@ -75,7 +81,7 @@ function sellPokemon(pokemonIds, _shinyConfirmed = false) {
     return species?.noSell === true;
   });
   if (noSellBlocked.length > 0) {
-    globalThis.notify('Ce Pokémon ne peut pas être vendu.', 'error');
+    _notify('Ce Pokémon ne peut pas être vendu.', 'error');
     pokemonIds = pokemonIds.filter(id => !noSellBlocked.includes(id));
     if (pokemonIds.length === 0) return;
   }
@@ -85,7 +91,7 @@ function sellPokemon(pokemonIds, _shinyConfirmed = false) {
     return p && p.homesick;
   });
   if (homesickBlocked.length > 0) {
-    globalThis.notify('Ce Pokémon souffre du mal du pays et ne peut pas être vendu.', 'error');
+    _notify('Ce Pokémon souffre du mal du pays et ne peut pas être vendu.', 'error');
     pokemonIds = pokemonIds.filter(id => !homesickBlocked.includes(id));
     if (pokemonIds.length === 0) return;
   }
@@ -93,7 +99,7 @@ function sellPokemon(pokemonIds, _shinyConfirmed = false) {
   const pensionSet = globalThis.getPensionSlotIds();
   const pensionBlocked = pokemonIds.filter(id => pensionSet.has(id));
   if (pensionBlocked.length > 0) {
-    globalThis.notify('Les Pokémon en pension ne peuvent pas être vendus.', 'error');
+    _notify('Les Pokémon en pension ne peuvent pas être vendus.', 'error');
     pokemonIds = pokemonIds.filter(id => !pensionSet.has(id));
     if (pokemonIds.length === 0) return;
   }
@@ -101,7 +107,7 @@ function sellPokemon(pokemonIds, _shinyConfirmed = false) {
   const trainingSet = new Set(state.trainingRoom?.pokemon || []);
   const trainingBlocked = pokemonIds.filter(id => trainingSet.has(id));
   if (trainingBlocked.length > 0) {
-    globalThis.notify('Les Pokémon en formation ne peuvent pas être vendus.', 'error');
+    _notify('Les Pokémon en formation ne peuvent pas être vendus.', 'error');
     pokemonIds = pokemonIds.filter(id => !trainingSet.has(id));
     if (pokemonIds.length === 0) return;
   }
@@ -144,7 +150,7 @@ function sellPokemon(pokemonIds, _shinyConfirmed = false) {
     const p = state.pokemons[idx];
     const soldPrice = calculatePrice(p);
     total += soldPrice;
-    state.pokemons.splice(idx, 1); globalThis.markDirty?.();
+    state.pokemons.splice(idx, 1); _dirty();
     state.stats.totalSold++;
     // Track most expensive sale
     if (!state.stats.mostExpensiveSold || soldPrice > (state.stats.mostExpensiveSold.price || 0)) {
@@ -153,10 +159,10 @@ function sellPokemon(pokemonIds, _shinyConfirmed = false) {
   }
   state.gang.money += total;
   state.stats.totalMoneyEarned += total;
-  globalThis.notify(globalThis.t('sold', { n: pokemonIds.length, price: total }), 'gold');
+  _notify(globalThis.t('sold', { n: pokemonIds.length, price: total }), 'gold');
   globalThis.addLog(globalThis.t('sold', { n: pokemonIds.length, price: total }));
   globalThis.SFX.play('sell');
-  globalThis.saveState();
+  _save();
   return total;
 }
 
@@ -166,7 +172,7 @@ function buyItem(itemDef) {
   const state = globalThis.state;
   const actualCost = itemDef.id === 'mysteryegg' ? globalThis.getMysteryEggCost() : itemDef.cost;
   if (state.gang.money < actualCost) {
-    globalThis.notify(globalThis.t('not_enough'));
+    _notify(globalThis.t('not_enough'));
     globalThis.SFX.play('error');
     return false;
   }
@@ -180,22 +186,22 @@ function buyItem(itemDef) {
   const GANG_UPGRADES = new Set(['translator', 'autoSellAgent']);
   if (GANG_UPGRADES.has(itemDef.id)) {
     if (state.purchases[itemDef.id]) {
-      globalThis.notify(state.lang === 'fr' ? 'Déjà possédé !' : 'Already owned!');
+      _notify(state.lang === 'fr' ? 'Déjà possédé !' : 'Already owned!');
       state.gang.money += actualCost;
       state.stats.totalMoneySpent -= actualCost;
       return false;
     }
     state.purchases[itemDef.id] = true;
     const name = state.lang === 'fr' ? (itemDef.fr || itemDef.id) : (itemDef.en || itemDef.id);
-    globalThis.notify(`${name} débloqué !`, 'gold');
-    globalThis.saveState();
+    _notify(`${name} débloqué !`, 'gold');
+    _save();
     return true;
   }
 
   if (itemDef.id === 'incubator') {
     state.inventory.incubator = (state.inventory.incubator || 0) + 1;
-    globalThis.notify(`Incubateur obtenu ! Total: ${state.inventory.incubator}`, 'gold');
-    globalThis.saveState();
+    _notify(`Incubateur obtenu ! Total: ${state.inventory.incubator}`, 'gold');
+    _save();
     return true;
   }
 
@@ -203,14 +209,14 @@ function buyItem(itemDef) {
   const WING_PERMIT_ITEMS = new Set(['tourbillon_permit','carillon_permit']);
   if (WING_PERMIT_ITEMS.has(itemDef.id)) {
     if (state.purchases[itemDef.id]) {
-      globalThis.notify(state.lang === 'fr' ? 'Déjà possédé !' : 'Already owned!');
+      _notify(state.lang === 'fr' ? 'Déjà possédé !' : 'Already owned!');
       return false;
     }
     const wc = itemDef.wingCost;
     const have = state.inventory[wc.item] || 0;
     if (have < wc.qty) {
       const itemName = wc.item === 'silver_wing' ? 'Argent\'Aile' : 'Arcenci\'Aile';
-      globalThis.notify(`Il te faut ${wc.qty}× ${itemName} (tu en as ${have}).`, 'error');
+      _notify(`Il te faut ${wc.qty}× ${itemName} (tu en as ${have}).`, 'error');
       return false;
     }
     state.inventory[wc.item] -= wc.qty;
@@ -218,8 +224,8 @@ function buyItem(itemDef) {
     const zone = ZONES.find(z => z.unlockItem === itemDef.id);
     const zLabel = zone ? (state.lang === 'fr' ? zone.fr : zone.en) : '';
     const pName  = state.lang === 'fr' ? itemDef.fr : itemDef.en;
-    globalThis.notify(`${pName} obtenu !${zLabel ? ' → ' + zLabel + ' accessible' : ''}`, 'gold');
-    globalThis.saveState();
+    _notify(`${pName} obtenu !${zLabel ? ' → ' + zLabel + ' accessible' : ''}`, 'gold');
+    _save();
     globalThis.renderZonesTab?.();
     return true;
   }
@@ -227,7 +233,7 @@ function buyItem(itemDef) {
   const ZONE_UNLOCK_ITEMS = new Set(['map_pallet','casino_ticket','silph_keycard','boat_ticket']);
   if (ZONE_UNLOCK_ITEMS.has(itemDef.id)) {
     if (state.purchases[itemDef.id]) {
-      globalThis.notify(state.lang === 'fr' ? 'Déjà possédé !' : 'Already owned!');
+      _notify(state.lang === 'fr' ? 'Déjà possédé !' : 'Already owned!');
       state.gang.money += actualCost; // refund
       state.stats.totalMoneySpent -= actualCost;
       return false;
@@ -236,8 +242,8 @@ function buyItem(itemDef) {
     const zoneName = ZONES.find(z => z.unlockItem === itemDef.id);
     const name = state.lang === 'fr' ? (itemDef.fr || itemDef.id) : (itemDef.en || itemDef.id);
     const zLabel = zoneName ? (state.lang === 'fr' ? zoneName.fr : zoneName.en) : '';
-    globalThis.notify(`${name} obtenu !${zLabel ? ' → ' + zLabel + ' accessible' : ''}`, 'gold');
-    globalThis.saveState();
+    _notify(`${name} obtenu !${zLabel ? ' → ' + zLabel + ' accessible' : ''}`, 'gold');
+    _save();
     globalThis.renderZonesTab?.();
     return true;
   }
@@ -245,7 +251,7 @@ function buyItem(itemDef) {
   // ── Permis Mont Argenté (1M₽ + toutes arènes Kanto+Johto vaincues) ────────
   if (itemDef.id === 'silver_permit') {
     if (state.purchases.silver_permit) {
-      globalThis.notify(state.lang === 'fr' ? 'Déjà possédé !' : 'Already owned!');
+      _notify(state.lang === 'fr' ? 'Déjà possédé !' : 'Already owned!');
       state.gang.money += actualCost;
       state.stats.totalMoneySpent -= actualCost;
       return false;
@@ -258,14 +264,14 @@ function buyItem(itemDef) {
       const msg = state.lang === 'fr'
         ? 'Il faut vaincre toutes les arènes Kanto + Johto pour obtenir ce permis.'
         : 'You must defeat all Kanto + Johto gyms to obtain this permit.';
-      globalThis.notify(msg, 'error');
+      _notify(msg, 'error');
       state.gang.money += actualCost;
       state.stats.totalMoneySpent -= actualCost;
       return false;
     }
     state.purchases.silver_permit = true;
-    globalThis.notify('🗻 Permis Mont Argenté obtenu ! Red vous attend au sommet…', 'gold');
-    globalThis.saveState();
+    _notify('🗻 Permis Mont Argenté obtenu ! Red vous attend au sommet…', 'gold');
+    _save();
     globalThis.renderZonesTab?.();
     return true;
   }
@@ -274,15 +280,15 @@ function buyItem(itemDef) {
   if (itemDef.ballSkin) {
     const skinKey = `skin_${itemDef.ballSkin}`;
     if (state.purchases[skinKey]) {
-      globalThis.notify(state.lang === 'fr' ? 'Déjà possédé !' : 'Already owned!');
+      _notify(state.lang === 'fr' ? 'Déjà possédé !' : 'Already owned!');
       state.gang.money += actualCost;
       state.stats.totalMoneySpent -= actualCost;
       return false;
     }
     state.purchases[skinKey] = true;
     const name = state.lang === 'fr' ? itemDef.fr : itemDef.en;
-    globalThis.notify(`🎨 ${name} débloqué !`, 'gold');
-    globalThis.saveState();
+    _notify(`🎨 ${name} débloqué !`, 'gold');
+    _save();
     return true;
   }
 
@@ -293,18 +299,18 @@ function buyItem(itemDef) {
     state.eggs.push({ id: globalThis.uid(), species_en, hatchAt: null, incubating: false, potential, shiny, mystery: true });
     state.purchases.mysteryEggCount = (state.purchases.mysteryEggCount || 0) + 1;
     tryAutoIncubate();
-    globalThis.notify(`🥚 Un œuf mystérieux est apparu… On se demande ce qu'il contient !`, 'gold');
-    globalThis.saveState();
+    _notify(`🥚 Un œuf mystérieux est apparu… On se demande ce qu'il contient !`, 'gold');
+    _save();
     return true;
   }
 
   // All consumables go to inventory — player activates manually from the Zone bag bar
   state.inventory[itemDef.id] = (state.inventory[itemDef.id] || 0) + itemDef.qty;
   const _itemName = state.lang === 'fr' ? (itemDef.fr || globalThis.BALLS[itemDef.id]?.fr || itemDef.id) : (itemDef.en || globalThis.BALLS[itemDef.id]?.en || itemDef.id);
-  globalThis.notify(`${itemDef.qty}× ${_itemName} → sac`, 'success');
+  _notify(`${itemDef.qty}× ${_itemName} → sac`, 'success');
   globalThis.SFX.play('buy');
   globalThis.playSE('buy', 0.5);
-  globalThis.saveState();
+  _save();
   return true;
 }
 

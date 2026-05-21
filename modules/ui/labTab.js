@@ -1,4 +1,12 @@
-'use strict';
+﻿'use strict';
+
+import { EventBus, EVENTS } from '../core/eventBus.js';
+
+const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
+const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
+const _topBar = ()               => EventBus.emit(EVENTS.UI_TOPBAR_UPDATE);
+const _save   = ()               => globalThis.saveState?.();
+
 
 let labSelectedId = null;
 let labShowAll = false;
@@ -222,7 +230,7 @@ function renderLabTabInEl(tab) {
     );
     if (donors.length < cost) return;
     const toSacrifice = donors.slice(0, cost).map(p => p.id);
-    state.pokemons = state.pokemons.filter(p => !toSacrifice.includes(p.id)); globalThis.markDirty?.();
+    state.pokemons = state.pokemons.filter(p => !toSacrifice.includes(p.id)); _dirty();
     selected.potential++;
     saveState();
     resetPcRenderCache();

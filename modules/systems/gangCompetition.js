@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 // ════════════════════════════════════════════════════════════════
 //  GANG COMPETITION MODULE  —  PvP en ligne
@@ -17,6 +17,10 @@ import {
   POWER_W_ATK, POWER_W_DEF, POWER_W_SPD,
   POWER_SOFT_CAP, POWER_SOFT_RATE,
 } from '../../data/power-config-data.js';
+import { EventBus, EVENTS } from '../core/eventBus.js';
+
+const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
+const _save   = ()               => globalThis.saveState?.();
 
 const RAID_PENALTY      = 100_000;   // pokédollars perdus si raid échoue
 const RAID_NO_DEFENSE_PENALTY_MULT = 2; // défense auto/vide : malus doublé pour le perdant
@@ -36,7 +40,7 @@ export function configureGangCompetition(ctx = {}) {
 
 function getState()           { return _ctx.getState?.() ?? globalThis.state ?? {}; }
 function saveState()          { return _ctx.saveState?.(); }
-function notify(msg, type)    { return _ctx.notify?.(msg, type) ?? globalThis.notify?.(msg, type); }
+function notify(msg, type)    { return _ctx.notify?.(msg, type) ?? _notify(msg, type); }
 function slimPokemon(p)       { return _ctx.slimPokemon?.(p) ?? p; }
 function getSupabaseClient()  { return _ctx.getSupabaseClient?.(); }
 function getSupaSession()     { return _ctx.getSupaSession?.(); }

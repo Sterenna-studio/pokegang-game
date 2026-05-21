@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 // ════════════════════════════════════════════════════════════════
 //  GANG COMPETITION TAB  —  UI du mode PvP en ligne
@@ -31,10 +31,18 @@ import {
   PVP_BOSS_TEAM_SLOTS,
 } from '../systems/gangCompetition.js';
 
+import { EventBus, EVENTS } from '../core/eventBus.js';
+
+const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
+const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
+const _topBar = ()               => EventBus.emit(EVENTS.UI_TOPBAR_UPDATE);
+const _save   = ()               => globalThis.saveState?.();
+
+
 // ── Helpers locaux ────────────────────────────────────────────────
 function state()     { return globalThis.state; }
-function notify(...a){ return globalThis.notify?.(...a); }
-function saveState() { return globalThis.saveState?.(); }
+function notify(...a){ return _notify(...a); }
+function saveState() { return _save(); }
 function pokeSprite(en, shiny) { return globalThis.pokeSprite?.(en, shiny) ?? ''; }
 function showConfirm(message, onConfirm, opts = {}) {
   if (typeof globalThis.showConfirm === 'function') {
@@ -172,7 +180,7 @@ function _bindLegacyDefensePurge(tab) {
           btn.textContent = '…';
           await purgeLegacyDefenseData();
           await renderGangCompetitionTab();
-          globalThis.updateTopBar?.();
+          _topBar();
         })();
       },
       { danger: true, confirmLabel: 'Purger', cancelLabel: 'Annuler' },
@@ -400,7 +408,7 @@ async function _renderPendingRaidsPanel(el) {
     await acknowledgeRaids();
     _renderRaidList([]);
     ackBtn.style.display = 'none';
-    globalThis.updateTopBar?.();
+    _topBar();
   });
 }
 
@@ -641,11 +649,11 @@ function _openAttackPrepModal(defData, panelEl) {
       modal.remove();
       if (result) {
         _openRaidCinematic(defData, agentIds, result, () => {
-          globalThis.updateTopBar?.();
+          _topBar();
           _loadAndRenderGangs(panelEl);
         });
       } else {
-        globalThis.updateTopBar?.();
+        _topBar();
         _loadAndRenderGangs(panelEl);
       }
     });

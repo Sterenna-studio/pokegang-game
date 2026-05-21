@@ -4,6 +4,13 @@
 // ════════════════════════════════════════════════════════════════
 
 import { resolveTrainerCombat } from './zoneCombat.js';
+import { EventBus, EVENTS } from '../core/eventBus.js';
+
+// ── Convenience shims (progressive migration from globalThis.*) ─
+const _notify     = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
+const _dirty      = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
+const _topBar     = ()               => EventBus.emit(EVENTS.UI_TOPBAR_UPDATE);
+const _save       = ()               => globalThis.saveState?.();
 
 // ── Slots d'équipe par rang ─────────────────────────────────────────
 // grunt=1, sergent=2, lieutenant et au-delà=3.
@@ -88,11 +95,11 @@ function rollNewAgent() {
 
 function recruitAgent(agentData) {
   const state = globalThis.state;
-  state.agents.push(agentData); globalThis.markDirty?.();
+  state.agents.push(agentData); _dirty();
   globalThis.addLog(globalThis.t('recruit_agent') + ': ' + agentData.name);
   if (!state.behaviourLogs) state.behaviourLogs = {};
   if (!state.behaviourLogs.firstAgentAt) state.behaviourLogs.firstAgentAt = Date.now();
-  globalThis.saveState();
+  _save();
 }
 
 function openAgentRecruitModal(onAfterRecruit) {
@@ -101,7 +108,7 @@ function openAgentRecruitModal(onAfterRecruit) {
   const cost  = getAgentRecruitCost();
 
   if ((state.gang?.money || 0) < cost) {
-    globalThis.notify(`Fonds insuffisants (${cost.toLocaleString()}₽ requis)`, 'error');
+    _notify(`Fonds insuffisants (${cost.toLocaleString()}₽ requis)`, 'error');
     SFX?.play('error');
     return;
   }
@@ -154,8 +161,8 @@ function openAgentRecruitModal(onAfterRecruit) {
       const idx = parseInt(btn.dataset.idx);
       state.gang.money -= cost;
       recruitAgent(candidates[idx]);
-      globalThis.notify(`${candidates[idx].name} rejoint votre organisation !`, 'gold');
-      globalThis.updateTopBar();
+      _notify(`${candidates[idx].name} rejoint votre organisation !`, 'gold');
+      _topBar();
       modal.remove();
       onAfterRecruit?.();
     });
@@ -174,7 +181,7 @@ function assignAgentToZone(agentId, zoneId) {
   if (zoneId) {
     const occupant = state.agents.find(a => a.id !== agentId && a.assignedZone === zoneId);
     if (occupant) {
-      globalThis.notify?.(`${occupant.name} est déjà assigné à cette zone.`, 'error');
+      _notify(`${occupant.name} est déjà assigné à cette zone.`, 'error');
       return;
     }
   }
@@ -194,7 +201,7 @@ function assignAgentToZone(agentId, zoneId) {
       z.assignedAgents.push(agentId);
     }
   }
-  globalThis.saveState();
+  _save();
   globalThis.syncActiveZones?.();
 }
 
@@ -216,7 +223,7 @@ function _autoSellCaptured(pokemon) {
   const idx = state.pokemons.findIndex(p => p.id === pokemon.id);
   if (idx === -1) return false;
   const price = globalThis.calculatePrice(pokemon);
-  state.pokemons.splice(idx, 1); globalThis.markDirty?.();
+  state.pokemons.splice(idx, 1); _dirty();
   state.gang.money += price;
   state.stats.totalSold++;
   state.stats.totalMoneyEarned += price;
@@ -245,7 +252,7 @@ function grantAgentXP(agent, amount) {
     agent.level++;
   }
   if (agent.level > prevLevel) {
-    globalThis.notify(`📈 ${agent.name} Lv.${agent.level} !`, 'gold');
+    _notify(`📈 ${agent.name} Lv.${agent.level} !`, 'gold');
     checkPromotion(agent);
   }
 }
@@ -282,7 +289,7 @@ function checkPromotion(agent) {
     if (agent.title === step.from && agent.level >= step.level) {
       agent.title = step.to;
       const label = AGENT_RANK_LABELS?.[step.to]?.fr || step.to;
-      globalThis.notify(`🏅 ${agent.name} promu ${label} !`, 'gold');
+      _notify(`🏅 ${agent.name} promu ${label} !`, 'gold');
       globalThis.addLog(`${agent.name} — promotion : ${label}`);
       promoted = true;
     }
@@ -295,11 +302,11 @@ function checkPromotion(agent) {
     if (eliteCount < 4) {
       agent.title = 'elite';
       state.stats.agentsEliteCount = eliteCount + 1;
-      globalThis.notify(`★★ ${agent.name} est désormais Élite ${gangName} ! ★★`, 'gold');
+      _notify(`★★ ${agent.name} est désormais Élite ${gangName} ! ★★`, 'gold');
       globalThis.addLog(`${agent.name} — grade ÉLITE ${gangName} obtenu !`);
     } else {
       agent.title = 'general';
-      globalThis.notify(`★ ${agent.name} est désormais Général ${gangName} !`, 'gold');
+      _notify(`★ ${agent.name} est désormais Général ${gangName} !`, 'gold');
       globalThis.addLog(`${agent.name} — grade GÉNÉRAL ${gangName} obtenu !`);
     }
     promoted = true;
@@ -431,10 +438,10 @@ function _applyResolvedAgentCombat(zoneId, spawnObj, combatAgents, result) {
       agent.combatsWon = (agent.combatsWon || 0) + 1;
       grantAgentXP(agent, xpEach);
     }
-    if (mainAgent?.notifyCaptures !== false) globalThis.notify(`⚔️ ${mainAgent.name} +${reward}₽ +${repGain}rep`, 'success');
+    if (mainAgent?.notifyCaptures !== false) _notify(`⚔️ ${mainAgent.name} +${reward}₽ +${repGain}rep`, 'success');
     globalThis.addLog(globalThis.t('agent_win', { agent: mainAgent?.name || 'Agent' }));
   } else {
-    if (mainAgent?.notifyCaptures !== false) globalThis.notify(`💀 ${mainAgent?.name || 'Agent'} — défaite`, 'error');
+    if (mainAgent?.notifyCaptures !== false) _notify(`💀 ${mainAgent?.name || 'Agent'} — défaite`, 'error');
     globalThis.addLog(globalThis.t('agent_lose', { agent: mainAgent?.name || 'Agent' }));
   }
 
@@ -449,7 +456,7 @@ function _applyResolvedAgentCombat(zoneId, spawnObj, combatAgents, result) {
     isAgent: true,
   });
 
-  globalThis.saveState?.();
+  _save();
   return { reward, repGain };
 }
 
@@ -460,7 +467,7 @@ function _tickAgentEnergy(agent) {
     agent.resting = false;
     agent.restUntil = null;
     agent.energy = 5; // retour à 5, pas full
-    globalThis.notify?.(`${agent.name} est reposé et reprend du service.`, 'success');
+    _notify(`${agent.name} est reposé et reprend du service.`, 'success');
   }
 }
 
@@ -497,7 +504,7 @@ function resolveBackgroundSpawnForZone(zoneId) {
       const _now = Date.now();
       if (!resolveBackgroundSpawnForZone._noBallWarnAt || _now - resolveBackgroundSpawnForZone._noBallWarnAt > 120_000) {
         resolveBackgroundSpawnForZone._noBallWarnAt = _now;
-        globalThis.notify(`⚠️ Plus de Poké Balls — les agents ne capturent plus !`, 'error');
+        _notify(`⚠️ Plus de Poké Balls — les agents ne capturent plus !`, 'error');
       }
       return false;
     }
@@ -523,7 +530,7 @@ function resolveBackgroundSpawnForZone(zoneId) {
     }
 
     state.inventory.pokeball--;
-    state.pokemons.push(pokemon); globalThis.markDirty?.();
+    state.pokemons.push(pokemon); _dirty();
     state.stats.totalCaught++;
     capturer.captureCount = (capturer.captureCount || 0) + 1;
     // XP de zone v2
@@ -549,12 +556,12 @@ function resolveBackgroundSpawnForZone(zoneId) {
     const ballName = globalThis.BALLS?.[visualBall]?.fr || visualBall;
 
     if (pokemon.shiny) {
-      globalThis.notify(`✨ ${capturer.name} — SHINY ! ${name} ${stars} ✨`, 'gold');
+      _notify(`✨ ${capturer.name} — SHINY ! ${name} ${stars} ✨`, 'gold');
       setTimeout(() => globalThis.showShinyPopup?.(pokemon.species_en), 200);
     } else if (rarity === 'legendary') {
-      globalThis.notify(`🏆 ${capturer.name} — LÉGENDAIRE ! ${name} ${stars}`, 'gold');
+      _notify(`🏆 ${capturer.name} — LÉGENDAIRE ! ${name} ${stars}`, 'gold');
     } else if (rarity === 'very_rare') {
-      globalThis.notify(`⭐ ${capturer.name} — Très rare ! ${name} ${stars}`, 'gold');
+      _notify(`⭐ ${capturer.name} — Très rare ! ${name} ${stars}`, 'gold');
     }
     globalThis.addLog(globalThis.t('agent_catch', { agent: capturer.name, pokemon: name }));
     globalThis.pushFeedEvent?.({
@@ -593,7 +600,7 @@ function resolveBackgroundSpawnForZone(zoneId) {
         if (mainAgent.energy === 0) {
           mainAgent.resting = true;
           mainAgent.restUntil = Date.now() + 60 * 60 * 1000; // 1h
-          globalThis.notify?.(`${mainAgent.name} est épuisé — repos 1h.`, 'error');
+          _notify(`${mainAgent.name} est épuisé — repos 1h.`, 'error');
           globalThis.pushFeedEvent?.({ category:'zone', title:`${mainAgent.name} KO — repos forcé`, detail:`Zone ${zoneId} · reprend à 50% d'énergie dans 1h`, win:false });
         }
       }
@@ -601,7 +608,7 @@ function resolveBackgroundSpawnForZone(zoneId) {
         zState.contested = true;
         zState.lossStreak = 0;
         zState.reclaimWins = 0;
-        globalThis.notify?.(`⚠ Zone contestée : ${zoneName}`, 'error');
+        _notify(`⚠ Zone contestée : ${zoneName}`, 'error');
         globalThis.pushFeedEvent?.({ category:'zone', title:`Zone contestée — ${zoneName}`, detail:'10 défaites — malus actifs (-50% captures, -30% revenus)', win:false });
       }
     } else {
@@ -613,7 +620,7 @@ function resolveBackgroundSpawnForZone(zoneId) {
           zState.contested = false;
           zState.reclaimWins = 0;
           zState.lossStreak = 0;
-          globalThis.notify?.(`Zone reprise : ${zoneName} !`, 'gold');
+          _notify(`Zone reprise : ${zoneName} !`, 'gold');
         }
       } else {
         zState.lossStreak = Math.max(0, (zState.lossStreak || 0) - 1);
@@ -627,7 +634,7 @@ function resolveBackgroundSpawnForZone(zoneId) {
     state.stats.chestsOpened = (state.stats.chestsOpened || 0) + 1;
     const loot      = globalThis.rollChestLoot(zoneId, true);
     const mainAgent = agents[0];
-    if (mainAgent?.notifyCaptures !== false) globalThis.notify(`📦 ${mainAgent.name} — ${loot.msg}`, loot.type);
+    if (mainAgent?.notifyCaptures !== false) _notify(`📦 ${mainAgent.name} — ${loot.msg}`, loot.type);
     changed = true;
 
   // ── Événement spécial — ignoré en background ──────────────────
@@ -636,8 +643,8 @@ function resolveBackgroundSpawnForZone(zoneId) {
   }
 
   if (changed) {
-    globalThis.saveState();
-    globalThis.updateTopBar();
+    _save();
+    _topBar();
     globalThis.refreshZoneIncomeTile?.(zoneId);
     globalThis.updateZoneButtons?.();
     globalThis._refreshZoneStatsView?.();
@@ -676,16 +683,16 @@ function _resolveOccupiedZoneRaid(zoneId, agents) {
     const moneyGain = Math.round(zoneDiff * 200 * (1 + Math.random()));
     state.gang.reputation = (state.gang.reputation || 0) + repGain;
     state.gang.money      = (state.gang.money || 0) + moneyGain;
-    globalThis.notify(`🛡 Raid repoussé sur ${zoneName} ! +${repGain} REP +${moneyGain.toLocaleString()}₽`, 'gold');
+    _notify(`🛡 Raid repoussé sur ${zoneName} ! +${repGain} REP +${moneyGain.toLocaleString()}₽`, 'gold');
     globalThis.pushFeedEvent?.({ category: 'raid', title: `Raid repoussé — ${zoneName}`, detail: `Défense ${defensePower} vs Attaque ${attackPower} · +${repGain} REP`, win: true });
   } else {
     const moneyLoss = Math.round(Math.min(state.gang.money * 0.03, zoneDiff * 500));
     state.gang.money = Math.max(0, (state.gang.money || 0) - moneyLoss);
-    globalThis.notify(`⚠️ Raid ennemi sur ${zoneName} ! −${moneyLoss.toLocaleString()}₽`, 'error');
+    _notify(`⚠️ Raid ennemi sur ${zoneName} ! −${moneyLoss.toLocaleString()}₽`, 'error');
     globalThis.pushFeedEvent?.({ category: 'raid', title: `Raid subi — ${zoneName}`, detail: `Défense ${defensePower} vs Attaque ${attackPower} · −${moneyLoss.toLocaleString()}₽`, win: false });
   }
-  globalThis.saveState();
-  globalThis.updateTopBar?.();
+  _save();
+  _topBar();
 }
 
 // ── Passive agent tick (toutes les 10s) ──────────────────────────
@@ -727,8 +734,8 @@ function passiveAgentTick() {
   }
 
   if (changed) {
-    globalThis.saveState();
-    globalThis.updateTopBar();
+    _save();
+    _topBar();
     if (globalThis.activeTab === 'tabGang') globalThis.renderGangTab();
   }
 }
@@ -846,11 +853,11 @@ function agentCaptureVisibleSpawn(agent, zoneId, spawnObj) {
       const zoneName = ZONE_BY_ID?.[zoneId]?.fr || zoneId;
       const ballName = globalThis.BALLS?.[usedBall]?.fr || usedBall;
       if (caught.shiny) {
-        globalThis.notify(`✨ ${agent.name} — SHINY ! ${cName} ${cStars} ✨`, 'gold');
+        _notify(`✨ ${agent.name} — SHINY ! ${cName} ${cStars} ✨`, 'gold');
       } else if (cRarity === 'legendary') {
-        globalThis.notify(`🏆 ${agent.name} — LÉGENDAIRE ! ${cName} ${cStars}`, 'gold');
+        _notify(`🏆 ${agent.name} — LÉGENDAIRE ! ${cName} ${cStars}`, 'gold');
       } else if (cRarity === 'very_rare') {
-        globalThis.notify(`⭐ ${agent.name} — Très rare ! ${cName} ${cStars}`, 'gold');
+        _notify(`⭐ ${agent.name} — Très rare ! ${cName} ${cStars}`, 'gold');
       }
       globalThis.addLog(globalThis.t('agent_catch', { agent: agent.name, pokemon: cName }));
       globalThis.pushFeedEvent({
@@ -867,7 +874,7 @@ function agentCaptureVisibleSpawn(agent, zoneId, spawnObj) {
         ball:       ballName,
       });
       globalThis.removeSpawn(zoneId, spawnObj.id);
-      globalThis.updateTopBar();
+      _topBar();
       globalThis.updateZoneTimers(zoneId);
     } else {
       spawnEl.classList.remove('catching');
@@ -893,7 +900,7 @@ function agentAutoCombat(zoneId, spawnObj, agent) {
     const result = resolveTrainerCombat({ ...spawnObj, zoneId }, combatAgents.map(a => a.id));
     _applyResolvedAgentCombat(zoneId, spawnObj, combatAgents, result);
     globalThis.removeSpawn(zoneId, spawnObj.id);
-    globalThis.updateTopBar();
+    _topBar();
     globalThis.updateZoneTimers?.(zoneId);
     globalThis.refreshZoneIncomeTile?.(zoneId);
     globalThis.updateZoneButtons?.();
@@ -906,13 +913,13 @@ function agentOpenChest(agent, zoneId, spawnObj) {
   const state = globalThis.state;
   state.stats.chestsOpened = (state.stats.chestsOpened || 0) + 1;
   const loot = globalThis.rollChestLoot(zoneId);
-  globalThis.notify(`${agent.name}: ${loot.msg}`, loot.type);
+  _notify(`${agent.name}: ${loot.msg}`, loot.type);
   grantAgentXP(agent, 1);
   globalThis.SFX.play('chest');
   globalThis.removeSpawn(zoneId, spawnObj.id);
-  globalThis.updateTopBar();
+  _topBar();
   globalThis.updateZoneTimers(zoneId);
-  globalThis.saveState();
+  _save();
 }
 
 // ── Déverrouillage d'un agent bloqué (slot 6+) ───────────────────
@@ -928,7 +935,7 @@ function unlockAgent(agentId) {
 
   const cost = getAgentUnlockCost(idx);
   if ((state.gang?.money || 0) < cost) {
-    globalThis.notify(`Fonds insuffisants (${cost.toLocaleString()}₽ requis)`, 'error');
+    _notify(`Fonds insuffisants (${cost.toLocaleString()}₽ requis)`, 'error');
     return;
   }
 
@@ -941,10 +948,10 @@ function unlockAgent(agentId) {
     () => {
       state.gang.money -= cost;
       agent.legacyLocked = false;
-      globalThis.saveState();
-      globalThis.notify(`✅ ${agent.name} intègre officiellement votre organisation !`, 'success');
+      _save();
+      _notify(`✅ ${agent.name} intègre officiellement votre organisation !`, 'success');
       globalThis.renderAgentsTab?.();
-      globalThis.updateTopBar?.();
+      _topBar();
     },
     null,
     { confirmLabel: 'Débloquer', cancelLabel: 'Annuler' }
@@ -968,7 +975,7 @@ document.addEventListener('visibilitychange', () => {
       }
     }
   }
-  globalThis.updateTopBar?.();
+  _topBar();
   if (globalThis.activeTab === 'tabGang') globalThis.renderGangTab?.();
 });
 

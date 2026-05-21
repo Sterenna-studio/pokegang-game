@@ -1,7 +1,15 @@
-'use strict';
+﻿'use strict';
 
 import { SHOWCASE_SLOTS, BOSS_TEAM_SLOTS } from '../../data/game-config-data.js';
 import { BALL_SPRITES } from '../../data/assets-data.js';
+
+import { EventBus, EVENTS } from '../core/eventBus.js';
+
+const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
+const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
+const _topBar = ()               => EventBus.emit(EVENTS.UI_TOPBAR_UPDATE);
+const _save   = ()               => globalThis.saveState?.();
+
 
 // deps (globalThis): state, notify, saveState, updateTopBar, switchTab, showConfirm, SFX,
 //   pokeSprite, pokeIcon, trainerSprite, pokemonDisplayName,
@@ -116,15 +124,15 @@ function renderMusicPanel(container) {
   container.querySelectorAll('[data-jukebox-track]').forEach(el => {
     el.addEventListener('click', () => {
       const key = el.dataset.jukeboxTrack;
-      if (el.classList.contains('locked')) { globalThis.notify('🔒 Débloquez cette zone pour accéder à cette musique', 'error'); return; }
+      if (el.classList.contains('locked')) { _notify('🔒 Débloquez cette zone pour accéder à cette musique', 'error'); return; }
       if (key === '__auto__') {
         globalThis.state.settings.jukeboxTrack = null;
-        globalThis.notify('🎵 Jukebox → Auto', 'success');
+        _notify('🎵 Jukebox → Auto', 'success');
       } else {
         globalThis.state.settings.jukeboxTrack = key;
-        globalThis.notify(`🎵 ${MUSIC_TRACKS[key]?.fr || key}`, 'success');
+        _notify(`🎵 ${MUSIC_TRACKS[key]?.fr || key}`, 'success');
       }
-      globalThis.saveState();
+      _save();
       globalThis.MusicPlayer?.updateFromContext();
       renderMusicPanel(container);
     });
@@ -375,23 +383,23 @@ function renderAppearancePanel(container) {
       const key = el.dataset.cosm;
       if (key === 'none') {
         state.cosmetics.gameBg = null;
-        globalThis.saveState(); globalThis.applyCosmetics();
+        _save(); globalThis.applyCosmetics();
         _patchActiveBg(container, null); return;
       }
       const c = COSMETIC_BGS[key];
       if (!c) return;
       if (unlocked.has(key)) {
         state.cosmetics.gameBg = key;
-        globalThis.saveState(); globalThis.applyCosmetics();
+        _save(); globalThis.applyCosmetics();
         _patchActiveBg(container, key);
       } else {
-        if (state.gang.money < c.cost) { globalThis.notify('Fonds insuffisants.', 'error'); return; }
+        if (state.gang.money < c.cost) { _notify('Fonds insuffisants.', 'error'); return; }
         globalThis.showConfirm(`Acheter "${c.fr}" pour ${c.cost.toLocaleString()}₽ ?`, () => {
           state.gang.money -= c.cost;
           state.cosmetics.unlockedBgs = [...(state.cosmetics.unlockedBgs || []), key];
           state.cosmetics.gameBg = key;
-          globalThis.saveState(); globalThis.applyCosmetics(); globalThis.updateTopBar();
-          globalThis.notify(`🎨 "${c.fr}" débloqué !`, 'gold');
+          _save(); globalThis.applyCosmetics(); _topBar();
+          _notify(`🎨 "${c.fr}" débloqué !`, 'gold');
           globalThis.SFX.play('unlock');
           renderAppearancePanel(container);
         }, null, { confirmLabel: 'Acheter', cancelLabel: 'Annuler' });
@@ -409,7 +417,7 @@ function renderAppearancePanel(container) {
         const idx  = favs.indexOf(key);
         if (idx >= 0) favs.splice(idx, 1); else favs.push(key);
         state.cosmetics.favoriteBgs = favs;
-        globalThis.saveState();
+        _save();
         btn.textContent = favs.includes(key) ? '⭐' : '☆';
       });
     });
@@ -420,20 +428,20 @@ function renderAppearancePanel(container) {
         if (!key) return;
         if (unlocked.has(key)) {
           state.cosmetics.gameBg = key;
-          globalThis.saveState(); globalThis.applyCosmetics();
+          _save(); globalThis.applyCosmetics();
           _patchActiveFabric(container, key);
         } else {
           const m   = key.match(/^fabric_(\d+)/);
           const pid = m ? parseInt(m[1], 10) : 0;
           const spec = pid ? FABRIC_SPECIES.find(s => s[0] === pid) : null;
           const fr   = spec ? spec[1] : `#${pid}`;
-          if (state.gang.money < FABRIC_SHOP_COST) { globalThis.notify('Fonds insuffisants (100 000₽).', 'error'); return; }
+          if (state.gang.money < FABRIC_SHOP_COST) { _notify('Fonds insuffisants (100 000₽).', 'error'); return; }
           globalThis.showConfirm(`Acheter le fond tissu "${fr}" pour ${FABRIC_SHOP_COST.toLocaleString()}₽ ?`, () => {
             state.gang.money -= FABRIC_SHOP_COST;
             state.cosmetics.unlockedBgs = [...(state.cosmetics.unlockedBgs || []), key];
             state.cosmetics.gameBg = key;
-            globalThis.saveState(); globalThis.applyCosmetics(); globalThis.updateTopBar();
-            globalThis.notify(`🧵 Fond tissu "${fr}" débloqué !`, 'gold');
+            _save(); globalThis.applyCosmetics(); _topBar();
+            _notify(`🧵 Fond tissu "${fr}" débloqué !`, 'gold');
             globalThis.SFX.play('unlock');
             renderAppearancePanel(container);
           }, null, { confirmLabel: 'Acheter', cancelLabel: 'Annuler' });
@@ -471,7 +479,7 @@ function renderAppearancePanel(container) {
     fabricSettings.querySelectorAll('.fabric-mode-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         state.cosmetics.fabricMode = btn.dataset.mode;
-        globalThis.saveState(); globalThis.applyCosmetics();
+        _save(); globalThis.applyCosmetics();
         _patchFabricSettings(container, state.cosmetics);
       });
     });
@@ -485,7 +493,7 @@ function renderAppearancePanel(container) {
         state.cosmetics.fabricSize = parseInt(sizeRange.value, 10);
         globalThis.applyCosmetics();
       });
-      sizeRange.addEventListener('change', () => globalThis.saveState());
+      sizeRange.addEventListener('change', () => _save());
     }
     if (opacityRange && opacityVal) {
       opacityRange.addEventListener('input', () => {
@@ -493,7 +501,7 @@ function renderAppearancePanel(container) {
         state.cosmetics.fabricOpacity = parseInt(opacityRange.value, 10);
         globalThis.applyCosmetics();
       });
-      opacityRange.addEventListener('change', () => globalThis.saveState());
+      opacityRange.addEventListener('change', () => _save());
     }
   }
 
@@ -505,14 +513,14 @@ function renderAppearancePanel(container) {
       const idx     = patches.indexOf(pid);
       if (idx >= 0) {
         patches.splice(idx, 1);
-        globalThis.notify('📌 Pin retiré', 'success');
+        _notify('📌 Pin retiré', 'success');
       } else {
-        if (patches.length >= 3) { globalThis.notify('Maximum 3 pins actifs.', 'error'); return; }
+        if (patches.length >= 3) { _notify('Maximum 3 pins actifs.', 'error'); return; }
         patches.push(pid);
-        globalThis.notify(`📌 Pin "${_patchLabel[pid] || pid}" activé !`, 'gold');
+        _notify(`📌 Pin "${_patchLabel[pid] || pid}" activé !`, 'gold');
       }
       state.cosmetics.activePatches = patches;
-      globalThis.saveState();
+      _save();
       _patchPinCards(container, patches);
     });
   });
@@ -521,7 +529,7 @@ function renderAppearancePanel(container) {
   container.querySelectorAll('[data-gang-set-ball]').forEach(btn => {
     btn.addEventListener('click', () => {
       state.activeBall = btn.dataset.gangSetBall;
-      globalThis.saveState();
+      _save();
       renderAppearancePanel(container);
     });
   });
@@ -530,7 +538,7 @@ function renderAppearancePanel(container) {
       const item = (globalThis.SHOP_ITEMS || [])[parseInt(btn.dataset.gangBuySkin)];
       if (!item || btn.disabled) return;
       globalThis.buyItem?.(item);
-      globalThis.updateTopBar?.();
+      _topBar();
       renderAppearancePanel(container);
     });
   });
@@ -915,7 +923,7 @@ function _doRenderGangTab() {
     radio.addEventListener('change', () => {
       if (!globalThis.state.settings.autoSellAgent) globalThis.state.settings.autoSellAgent = { mode: 'all', potentials: [] };
       globalThis.state.settings.autoSellAgent.mode = radio.value;
-      globalThis.saveState(); renderGangTab();
+      _save(); renderGangTab();
     });
   });
   tab.querySelectorAll('.autoSellPot').forEach(cb => {
@@ -925,77 +933,77 @@ function _doRenderGangTab() {
       const pots = globalThis.state.settings.autoSellAgent.potentials || [];
       globalThis.state.settings.autoSellAgent.potentials = cb.checked
         ? [...new Set([...pots, pot])] : pots.filter(p => p !== pot);
-      globalThis.saveState();
+      _save();
     });
   });
 
   // Services handlers
   tab.querySelector('#btnBuyScientist')?.addEventListener('click', () => {
     const st = globalThis.state;
-    if (st.gang.money < 5_000_000) { globalThis.notify('Fonds insuffisants.', 'error'); return; }
+    if (st.gang.money < 5_000_000) { _notify('Fonds insuffisants.', 'error'); return; }
     globalThis.showConfirm('Engager le <b>Scientifique peu scrupuleux</b> pour <b>5 000 000₽</b> ?', () => {
       st.gang.money -= 5_000_000; st.purchases.scientist = true; st.purchases.scientistEnabled = true;
-      globalThis.saveState(); globalThis.updateTopBar(); globalThis.SFX.play('unlock');
-      globalThis.notify('🧬 Le scientifique est en poste !', 'gold'); renderGangTab();
+      _save(); _topBar(); globalThis.SFX.play('unlock');
+      _notify('🧬 Le scientifique est en poste !', 'gold'); renderGangTab();
     }, null, { confirmLabel: 'Engager', cancelLabel: 'Annuler' });
   });
   tab.querySelector('#btnToggleScientist')?.addEventListener('click', () => {
     const st = globalThis.state;
     st.purchases.scientistEnabled = st.purchases.scientistEnabled === false;
-    globalThis.saveState();
-    globalThis.notify(st.purchases.scientistEnabled !== false ? '🧬 Scientifique rappelé !' : '🚫 Scientifique renvoyé.', 'success');
+    _save();
+    _notify(st.purchases.scientistEnabled !== false ? '🧬 Scientifique rappelé !' : '🚫 Scientifique renvoyé.', 'success');
     renderGangTab();
   });
 
   tab.querySelector('#btnBuyAutoCollect')?.addEventListener('click', () => {
     const st = globalThis.state;
-    if (st.gang.money < 100_000) { globalThis.notify('Fonds insuffisants.', 'error'); return; }
+    if (st.gang.money < 100_000) { _notify('Fonds insuffisants.', 'error'); return; }
     globalThis.showConfirm('Acheter la <b>Récolte automatique</b> pour <b>100 000₽</b> ?', () => {
       st.gang.money -= 100_000; st.purchases.autoCollect = true; st.purchases.autoCollectEnabled = true;
-      globalThis.saveState(); globalThis.updateTopBar(); globalThis.SFX.play('unlock');
-      globalThis.notify('🪙 Récolte automatique activée !', 'gold'); renderGangTab();
+      _save(); _topBar(); globalThis.SFX.play('unlock');
+      _notify('🪙 Récolte automatique activée !', 'gold'); renderGangTab();
     }, null, { confirmLabel: 'Acheter', cancelLabel: 'Annuler' });
   });
   tab.querySelector('#btnToggleAutoCollect')?.addEventListener('click', () => {
     const st = globalThis.state;
     st.purchases.autoCollectEnabled = st.purchases.autoCollectEnabled === false;
-    globalThis.saveState();
-    globalThis.notify(st.purchases.autoCollectEnabled !== false ? '🪙 Récolte automatique activée !' : '🚫 Récolte automatique désactivée.', '');
+    _save();
+    _notify(st.purchases.autoCollectEnabled !== false ? '🪙 Récolte automatique activée !' : '🚫 Récolte automatique désactivée.', '');
     renderGangTab();
   });
 
   tab.querySelector('#btnBuyAutoSellAgent')?.addEventListener('click', () => {
     const st = globalThis.state;
-    if (st.gang.money < 10_000_000) { globalThis.notify('Fonds insuffisants.', 'error'); return; }
+    if (st.gang.money < 10_000_000) { _notify('Fonds insuffisants.', 'error'); return; }
     globalThis.showConfirm('Acheter la <b>Vente automatique</b> pour <b>10 000 000₽</b> ?', () => {
       st.gang.money -= 10_000_000; st.purchases.autoSellAgent = true; st.purchases.autoSellAgentEnabled = true;
       if (!st.settings.autoSellAgent) st.settings.autoSellAgent = { mode: 'all', potentials: [] };
-      globalThis.saveState(); globalThis.updateTopBar(); globalThis.SFX.play('unlock');
-      globalThis.notify('🤖 Vente automatique activée !', 'gold'); renderGangTab();
+      _save(); _topBar(); globalThis.SFX.play('unlock');
+      _notify('🤖 Vente automatique activée !', 'gold'); renderGangTab();
     }, null, { confirmLabel: 'Acheter', cancelLabel: 'Annuler' });
   });
   tab.querySelector('#btnToggleAutoSellAgent')?.addEventListener('click', () => {
     const st = globalThis.state;
     st.purchases.autoSellAgentEnabled = st.purchases.autoSellAgentEnabled === false;
-    globalThis.saveState();
-    globalThis.notify(st.purchases.autoSellAgentEnabled !== false ? '🤖 Vente automatique activée !' : '🚫 Vente automatique désactivée.', '');
+    _save();
+    _notify(st.purchases.autoSellAgentEnabled !== false ? '🤖 Vente automatique activée !' : '🚫 Vente automatique désactivée.', '');
     renderGangTab();
   });
 
   tab.querySelector('#btnBuyNurse')?.addEventListener('click', () => {
     const st = globalThis.state;
-    if (st.gang.money < 300_000) { globalThis.notify('Fonds insuffisants.', 'error'); return; }
+    if (st.gang.money < 300_000) { _notify('Fonds insuffisants.', 'error'); return; }
     globalThis.showConfirm("Embaucher l'<b>Infirmière Joëlle</b> pour <b>300 000₽</b> ?", () => {
       st.gang.money -= 300_000; st.purchases.autoIncubator = true; st.purchases.autoIncubatorEnabled = true;
-      globalThis.saveState(); globalThis.updateTopBar(); globalThis.SFX.play('unlock');
-      globalThis.notify('💉 Joëlle est en poste !', 'gold'); renderGangTab();
+      _save(); _topBar(); globalThis.SFX.play('unlock');
+      _notify('💉 Joëlle est en poste !', 'gold'); renderGangTab();
     }, null, { confirmLabel: 'Embaucher', cancelLabel: 'Annuler' });
   });
   tab.querySelector('#btnToggleNurse')?.addEventListener('click', () => {
     const st = globalThis.state;
     st.purchases.autoIncubatorEnabled = st.purchases.autoIncubatorEnabled === false;
-    globalThis.saveState();
-    globalThis.notify(st.purchases.autoIncubatorEnabled !== false ? '💉 Joëlle est de retour !' : '💤 Joëlle en congé.', '');
+    _save();
+    _notify(st.purchases.autoIncubatorEnabled !== false ? '💉 Joëlle est de retour !' : '💤 Joëlle en congé.', '');
     renderGangTab();
   });
 
@@ -1010,7 +1018,7 @@ function _doRenderGangTab() {
       const def  = SPECIAL_DEFS[spId];
       if (!def) return;
       const st = globalThis.state;
-      if (st.gang.money < def.cost) { globalThis.notify('Fonds insuffisants.', 'error'); return; }
+      if (st.gang.money < def.cost) { _notify('Fonds insuffisants.', 'error'); return; }
       globalThis.showConfirm(`Acheter <b>${def.label}</b> pour <b>${def.cost.toLocaleString()}₽</b> ?`, () => {
         st.gang.money -= def.cost;
         st.purchases[spId] = true;
@@ -1021,8 +1029,8 @@ function _doRenderGangTab() {
           if (!st.unlockedTitles) st.unlockedTitles = [];
           if (!st.unlockedTitles.includes('doublerichissim')) st.unlockedTitles.push('doublerichissim');
         }
-        globalThis.saveState(); globalThis.updateTopBar(); globalThis.SFX.play('unlock');
-        globalThis.notify(`✨ ${def.label} débloqué !`, 'gold'); renderGangTab();
+        _save(); _topBar(); globalThis.SFX.play('unlock');
+        _notify(`✨ ${def.label} débloqué !`, 'gold'); renderGangTab();
       }, null, { confirmLabel: 'Acheter', cancelLabel: 'Annuler' });
     });
   });
@@ -1041,17 +1049,17 @@ function _doRenderGangTab() {
       if (!isPur) {
         const cost = SLOT_COSTS[slotIdx];
         globalThis.showConfirm(`Débloquer le Slot ${slotIdx + 1} pour ${cost.toLocaleString()}₽ ?`, () => {
-          if (st.gang.money < cost) { globalThis.notify('Fonds insuffisants.', 'error'); globalThis.SFX.play('error'); return; }
+          if (st.gang.money < cost) { _notify('Fonds insuffisants.', 'error'); globalThis.SFX.play('error'); return; }
           st.gang.money -= cost;
           st.gang.bossTeamSlotsPurchased[slotIdx] = true;
           st.gang.activeBossTeamSlot = slotIdx;
           st.gang.bossTeam = [...(st.gang.bossTeamSlots[slotIdx] || [])];
-          globalThis.saveState(); globalThis.updateTopBar(); globalThis.SFX.play('unlock'); renderGangTab();
+          _save(); _topBar(); globalThis.SFX.play('unlock'); renderGangTab();
         }, null, { confirmLabel: 'Acheter', cancelLabel: 'Annuler' }); return;
       }
       st.gang.activeBossTeamSlot = slotIdx;
       st.gang.bossTeam = [...(st.gang.bossTeamSlots[slotIdx] || [])];
-      globalThis.saveState(); renderGangTab();
+      _save(); renderGangTab();
     });
   });
 
@@ -1072,7 +1080,7 @@ function _doRenderGangTab() {
       const st  = globalThis.state;
       while (st.gang.showcase.length < SHOWCASE_SLOTS) st.gang.showcase.push(null);
       st.gang.showcase[idx] = null;
-      globalThis.saveState(); renderGangTab();
+      _save(); renderGangTab();
     });
   });
 
@@ -1093,7 +1101,7 @@ function _doRenderGangTab() {
       if (el.classList.contains('filled')) {
         st.gang.bossTeam.splice(i, 1);
         st.gang.bossTeamSlots[st.gang.activeBossTeamSlot || 0] = [...st.gang.bossTeam];
-        globalThis.saveState(); renderGangTab();
+        _save(); renderGangTab();
       } else {
         globalThis.openTeamPickerModal?.(i, () => renderGangTab());
       }

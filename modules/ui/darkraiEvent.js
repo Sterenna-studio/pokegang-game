@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 // ════════════════════════════════════════════════════════════════
 //  DARKRAI EVENT — "L'importance d'une bonne équipe — Cauchemar"
@@ -23,6 +23,14 @@
 
 import { invalidateBossTeamPower } from '../systems/bossPower.js';
 
+import { EventBus, EVENTS } from '../core/eventBus.js';
+
+const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
+const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
+const _topBar = ()               => EventBus.emit(EVENTS.UI_TOPBAR_UPDATE);
+const _save   = ()               => globalThis.saveState?.();
+
+
 // ── Constantes ────────────────────────────────────────────────────
 const DARKRAI_SPRITE = 'assets/pokemon_sprite/legendary_fight_by_muzyun/darkray.png';
 
@@ -32,8 +40,6 @@ let _torchChoice = null; // 'torch' | 'pokemon'
 
 // ── Helpers globaux ───────────────────────────────────────────────
 const _state    = ()     => globalThis.state ?? {};
-const _save     = ()     => globalThis.saveState?.();
-const _notify   = (m, t) => globalThis.notify?.(m, t);
 
 // ── Typewriter ────────────────────────────────────────────────────
 function _typewrite(el, text, speed = 26) {
