@@ -17,5 +17,8 @@ jobs:
           username: ${{ secrets.OVH_USER }}
           key: ${{ secrets.OVH_SSH_KEY }}
           script: |
-            cd ~/pokegang
-            git pull origin main
+            if [ -d ~/pokegang/.git ]; then
+              cd ~/pokegang && git pull origin main
+            else
+              git clone https://github.com/MutenRock/pokegang-game.git ~/pokegang
+            fi
