@@ -17,8 +17,18 @@ jobs:
           username: ${{ secrets.OVH_USER }}
           key: ${{ secrets.OVH_SSH_KEY }}
           script: |
-            if [ -d ~/pokegang/.git ]; then
-              cd ~/pokegang && git pull origin main
+            REPO="https://github.com/MutenRock/pokegang-game.git"
+            DIR="$HOME/pokegang"
+            if [ -d "$DIR/.git" ]; then
+              # Repo already initialised — just pull
+              cd "$DIR" && git pull origin main
+            elif [ -d "$DIR" ]; then
+              # Directory exists but not a git repo — init in-place
+              cd "$DIR"
+              git init
+              git remote add origin "$REPO"
+              git fetch origin main
+              git reset --hard origin/main
             else
-              git clone https://github.com/MutenRock/pokegang-game.git ~/pokegang
+              git clone "$REPO" "$DIR"
             fi
