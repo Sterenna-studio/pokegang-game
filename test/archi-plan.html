@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>REFACTOR PLAN — POKEGANG</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  /* ── Reset & tokens ──────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #0a0a0a;
+    --panel:     #111111;
+    --panel2:    #141414;
+    --border:    #222222;
+    --red:       #e63535;
+    --red-dark:  #cc1111;
+    --red-glow:  rgba(230,53,53,.18);
+    --gold:      #ffcc5a;
+    --gold-dim:  rgba(255,204,90,.15);
+    --green:     #3ddc84;
+    --green-dim: rgba(61,220,132,.12);
+    --blue:      #5ba4f5;
+    --blue-dim:  rgba(91,164,245,.12);
+    --orange:    #ff8c42;
+    --orange-dim:rgba(255,140,66,.12);
+    --text:      #e8e8e8;
+    --text-dim:  #666666;
+    --mono:      'Share Tech Mono', monospace;
+    --body:      'Rajdhani', sans-serif;
+  }
+
+  html, body {
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--body);
+    overflow-x: hidden;
+  }
+
+  /* ── Scanlines overlay ───────────────────────────────────── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,.07) 2px,
+      rgba(0,0,0,.07) 4px
+    );
+    pointer-events: none;
+    z-index: 100;
+  }
+
+  /* ── Ambient red glow top ────────────────────────────────── */
+  body::after {
+    content: '';
+    position: fixed;
+    top: -120px; left: 50%; transform: translateX(-50%);
+    width: 600px; height: 300px;
+    background: radial-gradient(ellipse, rgba(204,17,17,.22) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── Layout ──────────────────────────────────────────────── */
+  .page {
+    position: relative;
+    z-index: 1;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 28px 24px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    min-height: 100vh;
+  }
+
+  /* ── Header ──────────────────────────────────────────────── */
+  .header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 18px;
+    gap: 16px;
+  }
+
+  .header-left { flex: 1; }
+
+  .header-eyebrow {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--red);
+    letter-spacing: .25em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    animation: fadeIn .4s ease both;
+  }
+
+  .header-title {
+    font-family: var(--mono);
+    font-size: clamp(18px, 3vw, 26px);
+    color: var(--text);
+    letter-spacing: .08em;
+    line-height: 1;
+    animation: fadeIn .5s ease both .05s;
+  }
+  .header-title span { color: var(--red); }
+
+  .header-sub {
+    margin-top: 7px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: .05em;
+    animation: fadeIn .5s ease both .1s;
+  }
+
+  .header-meta {
+    text-align: right;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    line-height: 1.8;
+    animation: fadeIn .5s ease both .15s;
+    flex-shrink: 0;
+  }
+  .header-meta .live {
+    display: inline-flex; align-items: center; gap: 5px;
+    color: var(--green);
+  }
+  .header-meta .live::before {
+    content: '';
+    width: 6px; height: 6px;
+    background: var(--green);
+    border-radius: 50%;
+    animation: pulse 1.8s ease-in-out infinite;
+  }
+
+  /* ── Cards grid ──────────────────────────────────────────── */
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    flex: 1;
+  }
+
+  @media (max-width: 900px) {
+    .cards { grid-template-columns: repeat(3, 1fr); }
+  }
+  @media (max-width: 600px) {
+    .cards { grid-template-columns: 1fr 1fr; }
+  }
+
+  /* ── Single card ─────────────────────────────────────────── */
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--red-dark);
+    border-radius: 2px;
+    padding: 14px 14px 12px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: transform .18s ease, box-shadow .18s ease, border-left-color .2s ease;
+    animation: slideUp .4s ease both;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .card:nth-child(1) { animation-delay: .08s; }
+  .card:nth-child(2) { animation-delay: .14s; }
+  .card:nth-child(3) { animation-delay: .20s; }
+  .card:nth-child(4) { animation-delay: .26s; }
+  .card:nth-child(5) { animation-delay: .32s; }
+
+  .card::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: var(--red-glow);
+    opacity: 0;
+    transition: opacity .2s ease;
+    pointer-events: none;
+  }
+
+  .card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 28px rgba(230,53,53,.15);
+  }
+  .card:hover::before { opacity: 1; }
+
+  /* Done state */
+  .card.done {
+    border-left-color: var(--green);
+  }
+  .card.done::before {
+    background: var(--green-dim);
+    opacity: 1;
+  }
+  .card.done .card-num { color: var(--green); }
+  .card.done .status-badge {
+    background: var(--green-dim);
+    border-color: var(--green);
+    color: var(--green);
+  }
+
+  .card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 6px;
+  }
+
+  .card-num {
+    font-family: var(--mono);
+    font-size: 28px;
+    color: var(--red);
+    line-height: 1;
+    flex-shrink: 0;
+    transition: color .2s ease;
+    text-shadow: 0 0 20px rgba(230,53,53,.4);
+  }
+
+  .status-badge {
+    font-family: var(--mono);
+    font-size: 8px;
+    letter-spacing: .15em;
+    padding: 2px 7px;
+    border-radius: 1px;
+    border: 1px solid var(--red-dark);
+    background: rgba(204,17,17,.1);
+    color: var(--red);
+    flex-shrink: 0;
+    transition: all .2s ease;
+    white-space: nowrap;
+  }
+
+  .card-name {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text);
+    letter-spacing: .06em;
+    line-height: 1.2;
+  }
+
+  .card-desc {
+    font-family: var(--body);
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.4;
+    font-weight: 400;
+    flex: 1;
+  }
+
+  .card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    margin-top: auto;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+  }
+
+  .gain-badge {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--gold);
+    background: var(--gold-dim);
+    padding: 2px 6px;
+    border-radius: 1px;
+    letter-spacing: .04em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .effort-badge {
+    font-family: var(--mono);
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 1px;
+    letter-spacing: .04em;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .effort-badge.faible  { color: var(--green);  background: var(--green-dim); }
+  .effort-badge.moyen   { color: var(--blue);   background: var(--blue-dim); }
+  .effort-badge.eleve   { color: var(--orange); background: var(--orange-dim); }
+
+  /* ── Progress bar ────────────────────────────────────────── */
+  .progress-bar-wrap {
+    animation: fadeIn .5s ease both .4s;
+  }
+  .progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text-dim);
+    margin-bottom: 5px;
+  }
+  .progress-label span { color: var(--gold); }
+  .progress-track {
+    height: 3px;
+    background: var(--border);
+    border-radius: 1px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--red-dark), var(--red));
+    width: 0%;
+    transition: width .6s ease .5s;
+    border-radius: 1px;
+  }
+
+  /* ── Timeline ────────────────────────────────────────────── */
+  .timeline {
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 16px 20px;
+    animation: fadeIn .5s ease both .45s;
+  }
+
+  .timeline-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text-dim);
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+
+  .timeline-flow {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+
+  .tl-node {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    flex-shrink: 0;
+  }
+
+  .tl-circle {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    border: 2px solid var(--red-dark);
+    background: rgba(204,17,17,.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-size: 14px;
+    color: var(--red);
+    font-weight: bold;
+    transition: all .2s ease;
+    cursor: pointer;
+    position: relative;
+  }
+  .tl-circle:hover {
+    background: var(--red-glow);
+    box-shadow: 0 0 12px rgba(230,53,53,.3);
+  }
+  .tl-circle.done {
+    border-color: var(--green);
+    background: var(--green-dim);
+    color: var(--green);
+  }
+
+  .tl-name {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text-dim);
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .tl-arrow {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    padding: 0 4px;
+    min-width: 28px;
+    margin-bottom: 22px;
+  }
+
+  .tl-arrow-line {
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, var(--red-dark), rgba(204,17,17,.3));
+    position: relative;
+  }
+  .tl-arrow-line::after {
+    content: '▶';
+    position: absolute;
+    right: -7px;
+    top: -6px;
+    font-size: 8px;
+    color: var(--red-dark);
+  }
+
+  /* ── Footer ──────────────────────────────────────────────── */
+  .footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-top: 1px solid var(--border);
+    padding-top: 12px;
+    animation: fadeIn .5s ease both .5s;
+  }
+
+  .footer-text {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+
+  .footer-hint {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text-dim);
+    opacity: .5;
+  }
+
+  .reset-btn {
+    font-family: var(--mono);
+    font-size: 9px;
+    padding: 4px 10px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    cursor: pointer;
+    border-radius: 1px;
+    transition: all .15s ease;
+    letter-spacing: .1em;
+  }
+  .reset-btn:hover {
+    border-color: var(--red-dark);
+    color: var(--red);
+  }
+
+  /* ── Animations ──────────────────────────────────────────── */
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: .3; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ── HEADER ───────────────────────────────────────────── -->
+  <header class="header">
+    <div class="header-left">
+      <div class="header-eyebrow">// MISSION BRIEFING</div>
+      <div class="header-title"><span>REFACTOR</span> PLAN — POKEGANG</div>
+      <div class="header-sub">5 chantiers · Option B partout · Migration progressive · Zéro dépendance externe</div>
+    </div>
+    <div class="header-meta">
+      <div class="live">PLAN ACTIF</div>
+      <div>VERSION 1.0</div>
+      <div>VANILLA JS</div>
+      <div>BREAKING: NON</div>
+    </div>
+  </header>
+
+  <!-- ── PROGRESS ─────────────────────────────────────────── -->
+  <div class="progress-bar-wrap">
+    <div class="progress-label">
+      PROGRESSION <span id="progressText">0 / 5</span>
+    </div>
+    <div class="progress-track">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+  </div>
+
+  <!-- ── CARDS ────────────────────────────────────────────── -->
+  <div class="cards">
+
+    <div class="card" data-id="1" onclick="toggleCard(this)">
+      <div class="card-header">
+        <div class="card-num">01</div>
+        <div class="status-badge">À FAIRE</div>
+      </div>
+      <div class="card-name">TICK MANAGER</div>
+      <div class="card-desc">Un seul setInterval(1s) remplace les 20 timers indépendants. Pause/resume global, throttle sur visibilité.</div>
+      <div class="card-footer">
+        <div class="gain-badge">CPU −60% bg</div>
+        <div class="effort-badge moyen">MOYEN</div>
+      </div>
+    </div>
+
+    <div class="card" data-id="2" onclick="toggleCard(this)">
+      <div class="card-header">
+        <div class="card-num">02</div>
+        <div class="status-badge">À FAIRE</div>
+      </div>
+      <div class="card-name">STATE STORE</div>
+      <div class="card-desc">Finir state/store.js — mutations tracées, subscriptions automatiques. Re-renders déclenchés par les données.</div>
+      <div class="card-footer">
+        <div class="gain-badge">Re-renders ciblés</div>
+        <div class="effort-badge eleve">ÉLEVÉ</div>
+      </div>
+    </div>
+
+    <div class="card" data-id="3" onclick="toggleCard(this)">
+      <div class="card-header">
+        <div class="card-num">03</div>
+        <div class="status-badge">À FAIRE</div>
+      </div>
+      <div class="card-name">EVENT BUS</div>
+      <div class="card-desc">Remplacer globalThis par EventBus.emit/on (~30 lignes). Modules totalement découplés, contrats explicites.</div>
+      <div class="card-footer">
+        <div class="gain-badge">Modules découplés</div>
+        <div class="effort-badge moyen">MOYEN</div>
+      </div>
+    </div>
+
+    <div class="card" data-id="4" onclick="toggleCard(this)">
+      <div class="card-header">
+        <div class="card-num">04</div>
+        <div class="status-badge">À FAIRE</div>
+      </div>
+      <div class="card-name">OFFLINE CATCHUP</div>
+      <div class="card-desc">Simuler le delta au retour d'onglet. Supprimer les background timers. lastActiveAt → calcul en une passe.</div>
+      <div class="card-footer">
+        <div class="gain-badge">Zéro CPU background</div>
+        <div class="effort-badge moyen">MOYEN</div>
+      </div>
+    </div>
+
+    <div class="card" data-id="5" onclick="toggleCard(this)">
+      <div class="card-header">
+        <div class="card-num">05</div>
+        <div class="status-badge">À FAIRE</div>
+      </div>
+      <div class="card-name">RENDERS CIBLÉS</div>
+      <div class="card-desc">Remplacer les 185 innerHTML= complets par des mises à jour atomiques sur les nœuds concernés.</div>
+      <div class="card-footer">
+        <div class="gain-badge">DOM −80% rewrites</div>
+        <div class="effort-badge eleve">ÉLEVÉ</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── TIMELINE ──────────────────────────────────────────── -->
+  <div class="timeline">
+    <div class="timeline-label">ORDRE D'IMPLÉMENTATION RECOMMANDÉ</div>
+    <div class="timeline-flow">
+
+      <div class="tl-node">
+        <div class="tl-circle" id="tl-1" onclick="toggleCard(document.querySelector('[data-id=\'1\']'))">1</div>
+        <div class="tl-name">TICK<br>MANAGER</div>
+      </div>
+      <div class="tl-arrow"><div class="tl-arrow-line"></div></div>
+
+      <div class="tl-node">
+        <div class="tl-circle" id="tl-3" onclick="toggleCard(document.querySelector('[data-id=\'3\']'))">3</div>
+        <div class="tl-name">EVENT<br>BUS</div>
+      </div>
+      <div class="tl-arrow"><div class="tl-arrow-line"></div></div>
+
+      <div class="tl-node">
+        <div class="tl-circle" id="tl-2" onclick="toggleCard(document.querySelector('[data-id=\'2\']'))">2</div>
+        <div class="tl-name">STATE<br>STORE</div>
+      </div>
+      <div class="tl-arrow"><div class="tl-arrow-line"></div></div>
+
+      <div class="tl-node">
+        <div class="tl-circle" id="tl-4" onclick="toggleCard(document.querySelector('[data-id=\'4\']'))">4</div>
+        <div class="tl-name">OFFLINE<br>CATCHUP</div>
+      </div>
+      <div class="tl-arrow"><div class="tl-arrow-line"></div></div>
+
+      <div class="tl-node">
+        <div class="tl-circle" id="tl-5" onclick="toggleCard(document.querySelector('[data-id=\'5\']'))">5</div>
+        <div class="tl-name">RENDERS<br>CIBLÉS</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── FOOTER ────────────────────────────────────────────── -->
+  <footer class="footer">
+    <div class="footer-text">POKEGANG · REFACTOR PLAN v1.0</div>
+    <div class="footer-hint">↑ cliquer une carte pour la marquer comme faite</div>
+    <button class="reset-btn" onclick="resetAll()">RESET</button>
+  </footer>
+
+</div>
+
+<script>
+  const ORDER = [1, 3, 2, 4, 5]; // recommended order
+
+  function toggleCard(card) {
+    const id = parseInt(card.dataset.id);
+    const isDone = card.classList.toggle('done');
+    const badge = card.querySelector('.status-badge');
+    badge.textContent = isDone ? 'FAIT ✓' : 'À FAIRE';
+
+    // Sync timeline circle
+    const circle = document.getElementById(`tl-${id}`);
+    if (circle) circle.classList.toggle('done', isDone);
+
+    updateProgress();
+  }
+
+  function updateProgress() {
+    const total = 5;
+    const done = document.querySelectorAll('.card.done').length;
+    document.getElementById('progressText').textContent = `${done} / ${total}`;
+    document.getElementById('progressFill').style.width = `${(done / total) * 100}%`;
+  }
+
+  function resetAll() {
+    document.querySelectorAll('.card.done').forEach(c => {
+      c.classList.remove('done');
+      c.querySelector('.status-badge').textContent = 'À FAIRE';
+    });
+    document.querySelectorAll('.tl-circle.done').forEach(c => c.classList.remove('done'));
+    updateProgress();
+  }
+
+  // Trigger progress bar animation on load
+  window.addEventListener('load', () => {
+    setTimeout(() => updateProgress(), 600);
+  });
+</script>
+</body>
+</html>

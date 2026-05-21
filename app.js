@@ -4,6 +4,8 @@
 
 'use strict';
 
+import { Scheduler } from './modules/core/tickManager.js';
+import { EventBus, EVENTS } from './modules/core/eventBus.js';
 import {
   checkSecretCode,
   configureSecretCodes,
@@ -1831,10 +1833,44 @@ function showBossSpriteRepairModal(...a) { return globalThis.showBossSpriteRepai
 // ════════════════════════════════════════════════════════════════
 const HOUR_MS = 3600000;
 
-let agentTickInterval = null;
-let autoSaveInterval  = null;
 let _gameLoopStarted  = false; // guard against double-start
 let _playerWasActive = false; // set by saveState(); consumed by the 2h leaderboard timer
+
+// ── Fonctions nommées pour le Scheduler ──────────────────────
+// (extraites des lambdas inline de startGameLoop)
+function _tickMissionsUI() {
+  if (activeTab === 'tabMissions') renderMissionsTab();
+}
+function _tickHourlyCheck() {
+  if (!state.missions?.hourly) return;
+  if (Date.now() - state.missions.hourly.reset < HOUR_MS) return;
+  initHourlyQuests();
+  if (activeTab === 'tabMissions') renderMissionsTab();
+  notify('⏰ Nouvelles quêtes horaires disponibles !', 'gold');
+}
+function _tickLeaderboard() {
+  if (!_playerWasActive) return;
+  _playerWasActive = false;
+  supaUpdateLeaderboardAnon();
+}
+function _tickPassiveXP() {
+  const teamIds = new Set([...state.gang.bossTeam]);
+  for (const a of state.agents) a.team.forEach(id => teamIds.add(id));
+  if (teamIds.size === 0) return;
+  let leveled = false;
+  for (const id of teamIds) {
+    const p = pokemonById(id);
+    if (p) leveled = levelUpPokemon(p, PASSIVE_XP_PER_TICK) || leveled;
+  }
+  if (leveled) saveState();
+}
+function _tickZoneRefresh() {
+  for (const zoneId of openZones) {
+    updateZoneTimers(zoneId);
+    _refreshRaidBtn(zoneId);
+  }
+  if (activeTab === 'tabZones') _zsRefreshAllTiles();
+}
 
 // ════════════════════════════════════════════════════════════════
 // JOHTO — Extension régionale
@@ -1857,86 +1893,37 @@ function startGameLoop() {
   // Initialiser les niveaux de zone v2
   initZoneLevels();
 
-  // Agent automation (agents interact with visible spawns)
-  agentTickInterval = setInterval(agentTick, TICK_AGENT_MS);
+  // ── Tick Manager — enregistrement de toutes les tâches ──────
+  // skipWhenHidden:true  = skip si document.hidden (onglet caché)
+  // skipWhenHidden:false = tourne toujours (saves, cloud, versions)
 
-  // Passive agent tick (closed zones, background activity)
-  setInterval(passiveAgentTick, TICK_PASSIVE_AGENT_MS);
+  // Gameplay — critique, skip si onglet caché
+  Scheduler.register('agentTick',       agentTick,          TICK_AGENT_MS,        { skipWhenHidden: true  });
+  Scheduler.register('passiveAgentTick',passiveAgentTick,   TICK_PASSIVE_AGENT_MS,{ skipWhenHidden: true  });
+  Scheduler.register('tickHourlyCheck', _tickHourlyCheck,   TICK_HOURLY_CHECK_MS, { skipWhenHidden: true  });
+  Scheduler.register('tickMissionsUI',  _tickMissionsUI,    TICK_MISSIONS_UI_MS,  { skipWhenHidden: true  });
+  Scheduler.register('zoneEvents',      tickAllZoneEvents,  TICK_TRAINING_MS,     { skipWhenHidden: true  });
+  Scheduler.register('trainingRoom',    trainingRoomTick,   TICK_TRAINING_MS,     { skipWhenHidden: true  });
+  Scheduler.register('pensionTick',     pensionTick,        TICK_PENSION_MS,      { skipWhenHidden: true  });
+  Scheduler.register('passiveXP',       _tickPassiveXP,     TICK_PASSIVE_XP_MS,   { skipWhenHidden: true  });
+  Scheduler.register('zoneRefresh',     _tickZoneRefresh,   TICK_ZONE_REFRESH_MS, { skipWhenHidden: true  });
+  Scheduler.register('marketDecay',     decayMarketSales,   TICK_MARKET_DECAY_MS, { skipWhenHidden: true  });
 
-  // Hourly quests countdown refresh (when missions tab open)
-  setInterval(() => {
-    if (activeTab === 'tabMissions') renderMissionsTab();
-  }, TICK_MISSIONS_UI_MS);
+  // Persistance — tourne même en arrière-plan
+  Scheduler.register('autoSave',        _autoSave,          TICK_AUTO_SAVE_MS,    { skipWhenHidden: false });
+  Scheduler.register('cloudSave',       supaCloudSave,      TICK_CLOUD_SAVE_MS,   { skipWhenHidden: false });
+  Scheduler.register('snapshot',        supaWriteSnapshot,  TICK_SNAPSHOT_MS,     { skipWhenHidden: false });
+  Scheduler.register('leaderboard',     _tickLeaderboard,   TICK_LEADERBOARD_MS,  { skipWhenHidden: false });
+  Scheduler.register('versionPoll',     pollRemoteVersion,  TICK_VERSION_POLL_MS, { skipWhenHidden: false });
 
-  // Hourly quest reset check
-  setInterval(() => {
-    if (state.missions?.hourly && Date.now() - state.missions.hourly.reset >= HOUR_MS) {
-      initHourlyQuests();
-      if (activeTab === 'tabMissions') renderMissionsTab();
-      notify('⏰ Nouvelles quêtes horaires disponibles !', 'gold');
-    }
-  }, TICK_HOURLY_CHECK_MS);
+  // Premier poll de version peu après le boot (setTimeout conservé)
+  setTimeout(pollRemoteVersion, TICK_VERSION_FIRST_MS);
 
-  // Market decay
-  setInterval(decayMarketSales, TICK_MARKET_DECAY_MS);
-
-  // Remote version polling (detects new deploys)
-  setInterval(pollRemoteVersion, TICK_VERSION_POLL_MS);
-  setTimeout(pollRemoteVersion, TICK_VERSION_FIRST_MS); // first check shortly after boot
-
-  // Daily reload at 12h00 + 00h00 to flush new versions
+  // Daily reload at 12h00 + 00h00
   startDailyReloadSchedule();
 
-  // Auto-save
-  autoSaveInterval = setInterval(_autoSave, TICK_AUTO_SAVE_MS);
-
-  // Cloud save (dirty-checked — skipped if nothing changed)
-  setInterval(supaCloudSave, TICK_CLOUD_SAVE_MS);
-
-  // Snapshot — internally throttled + fingerprint-guarded (skipped if no new progress)
-  setInterval(supaWriteSnapshot, TICK_SNAPSHOT_MS);
-
-  // Leaderboard push, only if player was active since last push
-  setInterval(() => {
-    if (_playerWasActive) {
-      _playerWasActive = false;
-      supaUpdateLeaderboardAnon();
-    }
-  }, TICK_LEADERBOARD_MS);
-
-  // Cooldown tick removed — cooldowns no longer exist in gameplay
-
-  // Zone events tick (v2 — toutes les zones avec agents)
-  setInterval(tickAllZoneEvents, TICK_TRAINING_MS); // 60s
-
-  // Training room tick
-  setInterval(trainingRoomTick, TICK_TRAINING_MS);
-
-  // Pension / egg tick
-  setInterval(pensionTick, TICK_PENSION_MS);
-
-  // Passive XP for pokemon in teams
-  setInterval(() => {
-    const teamIds = new Set([...state.gang.bossTeam]);
-    for (const a of state.agents) a.team.forEach(id => teamIds.add(id));
-    if (teamIds.size === 0) return;
-    let leveled = false;
-    for (const id of teamIds) {
-      const p = pokemonById(id);
-      if (p) leveled = levelUpPokemon(p, PASSIVE_XP_PER_TICK) || leveled;
-    }
-    if (leveled) saveState();
-  }, TICK_PASSIVE_XP_MS);
-
-  // Zone timers + raid button + fogmap refresh
-  setInterval(() => {
-    if (document.hidden) return; // skip when tab is backgrounded
-    for (const zoneId of openZones) {
-      updateZoneTimers(zoneId);
-      _refreshRaidBtn(zoneId);
-    }
-    if (activeTab === 'tabZones') _zsRefreshAllTiles();
-  }, TICK_ZONE_REFRESH_MS);
+  // Lance le master clock (un seul setInterval à 1 s pour tout)
+  Scheduler.start();
 
 }
 
@@ -2238,6 +2225,8 @@ Object.assign(globalThis, {
   formatPlaytime, getTotalBalls, getSlotPreview,
   setActiveSaveSlotValue,
   showIntro,
+  // Core infrastructure
+  Scheduler, EventBus, EVENTS,
 });
 
 configureSecretCodes({
