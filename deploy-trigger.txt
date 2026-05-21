@@ -1,0 +1,4 @@
+PokéGang deployment trigger
+
+This file is used to manually trigger the GitHub Actions deployment workflow.
+Last manual trigger commit: 2026-05-21
