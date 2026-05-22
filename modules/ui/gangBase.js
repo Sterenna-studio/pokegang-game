@@ -176,9 +176,26 @@ function _buildRenderSig(state) {
   ].join('|');
 }
 
+/** Le gang base est visible uniquement sur l'onglet Zones — skip render sinon. */
+function _isGangBaseVisible() {
+  if (globalThis.activeTab && globalThis.activeTab !== 'tabZones') return false;
+  const c = document.getElementById('gangBaseContainer');
+  if (!c) return false;
+  // offsetParent === null si display:none (ou ancêtre)
+  return c.offsetParent !== null || c.children.length === 0; // children.length === 0 = pas encore rendu, on autorise le 1er paint
+}
+
 function _renderGangBasePanelImpl({ force = false } = {}) {
   const gangContainer = document.getElementById('gangBaseContainer');
   if (!gangContainer) return;
+
+  // Skip si pas visible (économie CPU + DOM)
+  if (!force && !_isGangBaseVisible()) {
+    // On invalide la signature pour forcer un full render à la prochaine
+    // visibilité — le state a peut-être changé pendant qu'on était caché.
+    _lastRenderSig = '';
+    return;
+  }
 
   // Sync view mode from settings (persisted across reloads)
   const state = globalThis.state;
@@ -1776,6 +1793,24 @@ function buildExportCard(opts = {}) {
 
 // Legacy stub
 function exportGangImage() { openExportModal(); }
+
+// ── Auto-refresh via EventBus ─────────────────────────────────
+// Le module s'abonne lui-même aux signaux pertinents → les callers n'ont plus
+// besoin d'appeler explicitement renderGangBasePanel(). Le rAF debounce
+// fusionne les bursts d'events en un seul rendu/frame.
+//
+// Filets de sécurité conservés :
+// - Les appels directs globalThis.renderGangBasePanel() restent valides
+//   (no-op s'ils tombent dans la même frame que l'event-driven render)
+// - Le visibility check court-circuite si l'onglet Zones n'est pas actif
+EventBus.on(EVENTS.STATE_DIRTY,      () => renderGangBasePanel());
+EventBus.on(EVENTS.UI_TOPBAR_UPDATE, () => renderGangBasePanel());
+
+// Re-render forcé au changement d'onglet (quand on revient sur Zones)
+// pour rattraper les états manqués pendant l'absence.
+EventBus.on(EVENTS.UI_TAB_CHANGED, ({ tabId } = {}) => {
+  if (tabId === 'tabZones') renderGangBasePanelForce();
+});
 
 // ── Expose ────────────────────────────────────────────────────
 Object.assign(globalThis, {

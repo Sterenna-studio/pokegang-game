@@ -1095,6 +1095,8 @@ function switchTab(tabId) {
   document.querySelectorAll('.tab-pane').forEach(pane => {
     pane.classList.toggle('active', pane.id === tabId);
   });
+  // Notifie les modules abonnés (ex: gangBase auto-refresh à l'arrivée sur Zones)
+  EventBus.emit(EVENTS.UI_TAB_CHANGED, { tabId });
   renderHint(tabId);
   renderActiveTab();
   MusicPlayer.updateFromContext();
