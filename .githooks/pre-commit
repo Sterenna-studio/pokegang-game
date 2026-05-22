@@ -1,0 +1,30 @@
+#!/bin/sh
+# ════════════════════════════════════════════════════════════════
+#  pre-commit hook — bump deploy-trigger.txt on every commit
+#
+#  Met à jour deploy-trigger.txt avant chaque commit pour qu'un
+#  marqueur horodaté soit toujours présent dans le commit, et
+#  garantit que le push déclenche le workflow GitHub Actions.
+#
+#  Activation (à faire une seule fois sur la machine) :
+#      git config core.hooksPath .githooks
+# ════════════════════════════════════════════════════════════════
+
+DATE="$(date '+%Y-%m-%d %H:%M:%S %z')"
+BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo '?')"
+PREV_SHA="$(git rev-parse --short HEAD 2>/dev/null || echo '?')"
+
+cat > deploy-trigger.txt <<EOF
+PokéGang deployment trigger
+
+Auto-updated on every commit by .githooks/pre-commit.
+Garantit qu'un marqueur horodaté est présent dans chaque commit
+et que le workflow GitHub Actions se déclenche.
+
+Last update : $DATE
+Branch      : $BRANCH
+Previous sha: $PREV_SHA
+EOF
+
+git add deploy-trigger.txt
+exit 0
