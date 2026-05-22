@@ -2227,9 +2227,30 @@
       letter-spacing: 0.04em;
     }
     .base-boss-stage-compact .base-team-slots {
-      margin-top: 2px;
+      margin-top: 4px;
+      display: grid;
+      grid-template-columns: repeat(2, 38px);
+      grid-template-rows: repeat(3, 38px);
+      gap: 4px;
       justify-content: flex-start;
     }
+    .base-team-slot {
+      width: 38px;
+      height: 38px;
+      background: rgba(0,0,0,.55);
+      border: 1px dashed rgba(255,255,255,.18);
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+      font-size: 14px;
+      color: var(--text-dim);
+    }
+    .base-team-slot:hover { border-color: var(--gold); background: rgba(255,255,255,.05); }
+    .base-team-slot.filled { border-style: solid; border-color: var(--red); }
+    .base-team-slot img { width: 32px; height: 32px; image-rendering: pixelated; }
 
     /* ── Strip territoire compact (4 metrics inline) ───────────── */
     .base-status-strip {
