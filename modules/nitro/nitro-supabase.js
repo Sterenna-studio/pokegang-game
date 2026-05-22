@@ -8,6 +8,7 @@ const NITRO_SHARED_BASE = 'https://nitro.sterenna.fr/shared';
 
 let _nitroSupabase = null;
 let _available = null; // null = non testé, true/false = résultat connu
+let _lastError = null; // mémorise la dernière erreur pour debug (utile après cache)
 
 /**
  * Tente de charger le client Supabase Nitro depuis le module partagé distant.
@@ -15,7 +16,7 @@ let _available = null; // null = non testé, true/false = résultat connu
  */
 export async function getNitroSupabase() {
   if (_available !== null) {
-    return { supabase: _nitroSupabase, available: _available };
+    return { supabase: _nitroSupabase, available: _available, error: _lastError ?? undefined };
   }
 
   try {
@@ -29,6 +30,7 @@ export async function getNitroSupabase() {
     return { supabase: _nitroSupabase, available: true };
   } catch (error) {
     _available = false;
+    _lastError = error;
     console.warn('[PokéGang Nitro] Shared Supabase module unavailable:', error.message);
     return { supabase: null, available: false, error };
   }

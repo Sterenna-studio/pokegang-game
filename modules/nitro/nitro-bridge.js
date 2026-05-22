@@ -73,8 +73,8 @@ export async function initNitroBridge() {
  * @returns {{ available: boolean, connected: boolean, user: object|null, profile: object|null, displayName: string|null, error: Error|null }}
  */
 export function getNitroBridgeState() {
-  const { _initialized: _i, ...pub } = _state; // eslint-disable-line no-unused-vars
-  return { ..._state, _initialized: undefined };
+  const { _initialized, ...pub } = _state; // eslint-disable-line no-unused-vars
+  return pub;
 }
 
 // ── Gestion du lien compte ───────────────────────────────────────
@@ -85,10 +85,10 @@ export function getNitroBridgeState() {
  * Pour une vraie liaison DB, voir docs/nitro-integration.md.
  *
  * @param {string} nitroUserId   - UUID Supabase de l'utilisateur Nitro
- * @param {string} [saveSlot]    - Clé localStorage du slot (ex: "v6", "v6.s2")
+ * @param {string} [saveSlot]    - Suffixe du slot (ex: "v6", "v6.s2", "v6.s3")
  * @returns {boolean}
  */
-export function linkCurrentSaveToNitro(nitroUserId, saveSlot = 'pokeforge.v6') {
+export function linkCurrentSaveToNitro(nitroUserId, saveSlot = 'v6') {
   if (!nitroUserId) {
     console.warn('[PokéGang Nitro] linkCurrentSaveToNitro: nitroUserId is required');
     return false;
