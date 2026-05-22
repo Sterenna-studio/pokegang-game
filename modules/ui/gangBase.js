@@ -518,24 +518,10 @@ function renderGangBaseWindow() {
   const focusRarity = _baseZoneRarity(focusZone);
   const focusMeta = _baseZoneStatus(focusZone, state, focusState, focusAgents.length);
   const isFocusOpen = !!(focusZone && globalThis.openZones?.has(focusZone.id));
-  const pendingIncome = focusState?.pendingIncome || 0;
-  const pendingItemsCount = Object.values(focusState?.pendingItems || {}).reduce((sum, n) => sum + (n || 0), 0);
-  const readyEggs = incubatingEggs.filter(e => e.status === 'ready').length;
   const bossTitle = globalThis.getBossFullTitle?.() || globalThis.getTitleLabel?.(state.gang.title) || 'Boss';
   const zoneDesc = focusZone
     ? (state.lang === 'fr' ? (focusZone.desc_fr || focusZone.desc || focusZone.en) : (focusZone.desc_en || focusZone.desc || focusZone.fr))
     : 'Ouvrez une zone pour lancer les operations du gang.';
-  const activeZones = [...(globalThis.openZones || [])].filter(id => _baseZoneById(id));
-  const unlockedZones = _baseUnlockedZones(state);
-  const sideZones = [
-    ...activeZones.map(id => _baseZoneById(id)).filter(Boolean),
-    ...unlockedZones.filter(z => !activeZones.includes(z.id)),
-  ].filter((z, idx, arr) => z.id !== focusZoneId && arr.findIndex(other => other.id === z.id) === idx).slice(0, 6);
-  const topAgents = [
-    ...focusAgents,
-    ...(state.agents || []).filter(a => a.assignedZone !== focusZoneId),
-  ].slice(0, 5);
-
   const bossPatches = (() => {
     const pids = state.cosmetics?.activePatches || [];
     const patchUrlFn = globalThis.patchUrl;
@@ -557,46 +543,6 @@ function renderGangBaseWindow() {
       <strong>${value}</strong>
       <i><b style="width:${fill}"></b></i>
     </div>`).join('');
-
-  const agentRows = topAgents.length ? topAgents.map(agent => {
-    const inFocus = agent.assignedZone === focusZoneId;
-    const zoneName = agent.assignedZone ? _baseZoneName(_baseZoneById(agent.assignedZone), state) : 'Reserve';
-    const rank = globalThis.getAgentRankLabel?.(agent.title) || BASE_RANK_FR[agent.title] || agent.title || 'Agent';
-    return `<button class="base-agent-row${inFocus ? ' active' : ''}" data-base-agent="${agent.id}" data-base-zone="${focusZoneId}">
-      <img src="${agent.sprite || trainerSprite('acetrainer')}" alt="" onerror="this.src='${trainerSprite('acetrainer')}'">
-      <span><strong>${agent.name}</strong><em>${rank} · ${zoneName}</em></span>
-      <b>${(agent.team || []).filter(Boolean).length}/${globalThis.getAgentTeamSlots?.(agent) || 1}</b>
-    </button>`;
-  }).join('') : `<div class="base-empty-note">Aucun agent recrute</div>`;
-
-  const feedItems = [
-    focusZone ? {
-      tag: focusMeta.stateLabel,
-      title: `${focusName} · ${focusMeta.possession}%`,
-      detail: pendingIncome > 0
-        ? `${pendingIncome.toLocaleString()}₽ a recuperer${pendingItemsCount ? ` · ${pendingItemsCount} objet(s)` : ''}`
-        : zoneDesc,
-      alert: focusMeta.dangerLabel === 'Critique' || focusMeta.dangerLabel === 'Extreme',
-    } : null,
-    readyEggs > 0 ? { tag: 'Pension', title: `${readyEggs} oeuf(s) pret(s)`, detail: 'Incubateurs disponibles dans le QG.', alert: false } : null,
-    focusAgents.length > 0 ? { tag: 'Cellule', title: `${focusAgents.length} agent(s) sur le front`, detail: focusAgents.map(a => a.name).join(', '), alert: false } : { tag: 'Cellule', title: 'Front sans agent', detail: 'Assignez un agent pour produire hors fenetre.', alert: true },
-  ].filter(Boolean).slice(0, 3).map(item => `
-    <div class="base-feed-item${item.alert ? ' alert' : ''}">
-      <span>${item.tag}</span>
-      <strong>${item.title}</strong>
-      <p>${item.detail}</p>
-    </div>`).join('');
-
-  const sideZoneRows = sideZones.length ? sideZones.map(zone => {
-    const zs = state.zones?.[zone.id] || {};
-    const assigned = (state.agents || []).filter(a => a.assignedZone === zone.id).length;
-    const meta = _baseZoneStatus(zone, state, zs, assigned);
-    const open = globalThis.openZones?.has(zone.id);
-    return `<button class="base-zone-row${open ? ' open' : ''}" data-base-zone-select="${zone.id}">
-      <span><strong>${_baseZoneName(zone, state)}</strong><em>${BASE_ZONE_TYPE_FR[zone.type] || zone.type} · ${assigned} agent(s)</em></span>
-      <b>${meta.possession}%</b>
-    </button>`;
-  }).join('') : `<div class="base-empty-note">Aucun front secondaire disponible</div>`;
 
   return `<div class="gang-base-window" id="gangBaseWin" data-base-focus-zone="${focusZoneId}">
 
@@ -672,20 +618,10 @@ function renderGangBaseWindow() {
         </div>
       </section>
 
-      <section class="base-side-panels">
-        <div class="base-side-panel">
-          <div class="base-side-title"><span>Agents</span><em>${focusAgents.length}/${focusState?.slots || 1}</em></div>
-          <div class="base-agent-list">${agentRows}</div>
-        </div>
-        <div class="base-side-panel">
-          <div class="base-side-title"><span>Feed</span><em>QG</em></div>
-          <div class="base-feed-list">${feedItems}</div>
-        </div>
-        <div class="base-side-panel">
-          <div class="base-side-title"><span>Zones secondaires</span><em>${sideZones.length}</em></div>
-          <div class="base-zone-list">${sideZoneRows}</div>
-        </div>
-      </section>
+      <!-- Side panels v1 retirés (Agents, Feed, Zones secondaires) :
+           Agents → onglet Agents dédié
+           Feed   → panneau notifications + BattleLog
+           Zones  → zone-selector (fogmap) -->
     </div>
 
   </div>`;
