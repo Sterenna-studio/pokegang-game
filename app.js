@@ -2303,13 +2303,33 @@ configureSaveRepair({
   MAX_HISTORY,
 });
 
+// ── Chargement async de la config Supabase locale (optionnelle) ──────────────
+// config.js est un ES module gitignored, déployé manuellement. Il exporte
+// SUPABASE_URL et SUPABASE_PUBLISHABLE_KEY (ou SUPABASE_ANON_KEY).
+// Si absent : le jeu marche normalement sans cloud save.
+let _localSupabaseConfig = { url: '', anonKey: '' };
+(async () => {
+  try {
+    const cfg = await import('./config.js');
+    _localSupabaseConfig = {
+      url:     cfg.SUPABASE_URL ?? cfg.default?.SUPABASE_URL ?? '',
+      anonKey: cfg.SUPABASE_ANON_KEY ?? cfg.SUPABASE_PUBLISHABLE_KEY ?? cfg.default?.SUPABASE_ANON_KEY ?? '',
+    };
+    if (_localSupabaseConfig.url && _localSupabaseConfig.anonKey) {
+      console.info('[PokéGang] Local Supabase config loaded');
+    }
+  } catch (e) {
+    console.info('[PokéGang] No local config.js — Supabase cloud disabled (Nitro can take over)');
+  }
+})();
+
 configureCloudAccount({
   getState: () => state,
   getActiveTab: () => activeTab,
   getActiveSaveSlot: () => activeSaveSlot,
   getSupabaseConfig: () => ({
-    url: typeof SUPABASE_URL !== 'undefined' ? SUPABASE_URL : '',
-    anonKey: typeof SUPABASE_ANON_KEY !== 'undefined' ? SUPABASE_ANON_KEY : '',
+    url:     _localSupabaseConfig.url,
+    anonKey: _localSupabaseConfig.anonKey,
   }),
   getSupabaseSdk: () => window.supabase,
   localStorage,

@@ -1071,7 +1071,7 @@ async function _appendNitroSection(tab) {
   wrapper.style.cssText = 'padding:0 16px 16px;max-width:760px';
   wrapper.innerHTML = `
     <div style="background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);padding:16px">
-      <div style="font-family:var(--font-pixel);font-size:10px;color:#7ec8e3;margin-bottom:10px">🌐 IDENTITÉ NITRO</div>
+      <div style="font-family:var(--font-pixel);font-size:10px;color:#7ec8e3;margin-bottom:10px">🌐 COMPTE NITRO / GWEN HA STAR</div>
       <div id="nitroStatus" style="font-size:9px;color:var(--text-dim)">Vérification…</div>
     </div>`;
   tab.appendChild(wrapper);
@@ -1083,10 +1083,10 @@ async function _appendNitroSection(tab) {
 
   if (!nitro.available) {
     statusEl.innerHTML = `
-      <div style="color:var(--text-dim)">Module Nitro indisponible.</div>
+      <div style="color:var(--text-dim)">Intégration Nitro indisponible pour le moment.</div>
       <div style="font-size:8px;color:var(--text-dim);margin-top:4px;opacity:.7">
-        Le serveur Nitro n'a pas pu être atteint (CORS ou réseau).
-        Le jeu continue à fonctionner normalement sans Nitro.
+        Le module partagé n'a pas pu être chargé (CORS, réseau ou maintenance).
+        Le jeu continue localement.
       </div>`;
     return;
   }
@@ -1099,6 +1099,7 @@ async function _appendNitroSection(tab) {
           <div style="color:#7ec8e3;margin-bottom:4px">✅ Identité Nitro détectée</div>
           <div style="margin-bottom:2px"><b style="color:var(--text)">${_escHtml(name)}</b></div>
           <div style="color:var(--text-dim);font-size:8px">${_escHtml(nitro.user.email ?? '')}</div>
+          <div style="color:var(--text-dim);font-size:7px;font-family:var(--font-mono,monospace);margin-top:4px;opacity:.55">id · ${_escHtml(nitro.user.id ?? '')}</div>
         </div>
         <div style="display:flex;flex-direction:column;gap:6px">
           <a href="https://nitro.sterenna.fr/star/" target="_blank" rel="noopener"
@@ -1106,17 +1107,22 @@ async function _appendNitroSection(tab) {
             Voir mon espace ★ Star
           </a>
         </div>
+      </div>
+      <div style="font-size:7px;color:var(--text-dim);margin-top:10px;opacity:.65;line-height:1.5">
+        PokéGang est sur un sous-domaine séparé. La liaison complète du compte
+        (sauvegardes cloud Nitro, récompenses cross-app) sera ajoutée progressivement.
       </div>`;
   } else {
     statusEl.innerHTML = `
-      <div style="color:var(--text-dim);margin-bottom:8px">Compte Nitro non connecté.</div>
+      <div style="color:var(--text-dim);margin-bottom:8px">Aucune session Nitro détectée.</div>
       <div style="font-size:8px;color:var(--text-dim);margin-bottom:10px;line-height:1.6;opacity:.8">
         PokéGang est hébergé sur un sous-domaine différent de Nitro.<br>
-        La session ne se partage pas automatiquement — connecte-toi via le bouton ci-dessous.
+        Même avec CORS, la session ne se partage pas automatiquement.
+        Connecte-toi à Nitro pour lier ton profil plus tard.
       </div>
       <button id="btnNitroLogin"
         style="padding:8px 14px;background:var(--bg);border:1px solid #7ec8e3;border-radius:var(--radius-sm);color:#7ec8e3;font-family:var(--font-pixel);font-size:8px;cursor:pointer;letter-spacing:.04em">
-        Se connecter via Nitro
+        Se connecter sur Nitro
       </button>`;
     wrapper.querySelector('#btnNitroLogin')?.addEventListener('click', () => {
       redirectToNitroLogin(window.location.href);

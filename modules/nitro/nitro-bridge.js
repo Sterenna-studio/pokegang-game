@@ -136,3 +136,26 @@ export function unlinkNitroAccount() {
     return false;
   }
 }
+
+/**
+ * Retourne le statut combiné de la liaison Nitro :
+ *   - linked   : un lien local existe
+ *   - matches  : le user Nitro connecté correspond au lien stocké
+ *   - link     : l'objet de lien stocké (ou null)
+ *   - userId   : l'ID Nitro connecté actuellement (ou null)
+ *
+ * Utile pour l'UI : "Compte lié ✓" / "Lien désynchronisé ⚠" / "Non lié".
+ *
+ * @returns {Promise<{ linked: boolean, matches: boolean, link: object|null, userId: string|null }>}
+ */
+export async function getNitroLinkStatus() {
+  const link   = getLinkedNitroUser();
+  const state  = getNitroBridgeState();
+  const userId = state.user?.id ?? null;
+  return {
+    linked:  !!link,
+    matches: !!(link && userId && link.nitro_user_id === userId),
+    link,
+    userId,
+  };
+}
