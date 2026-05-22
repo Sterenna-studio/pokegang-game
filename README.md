@@ -277,6 +277,48 @@ Voir :
 
 ---
 
+## Intégration Nitro / Gwen Ha Star
+
+PokéGang peut reconnaître une identité **Nitro** (`nitro.sterenna.fr`), le hub d'auth commun aux applications Sterenna. L'intégration est progressive et ne remet pas en cause le fonctionnement local.
+
+### Principes
+
+- PokéGang **fonctionne seul** sans Nitro (localStorage, 3 slots, export/import JSON).
+- Nitro peut servir d'**identité commune** entre PokéGang, Gwen Ha Star et d'autres apps.
+- La **liaison de compte** est optionnelle et additive — elle n'écrase pas les saves locales.
+- L'intégration cloud se fera **sans casser l'existant**.
+
+### Limitation technique
+
+PokéGang est sur `pokegang.sterenna.fr`, Nitro sur `nitro.sterenna.fr`. Ces deux origines ont des `localStorage` séparés — la session Supabase ne se partage pas automatiquement. Le module Nitro l'indique clairement dans l'UI et propose une redirection vers la connexion Nitro.
+
+### Architecture
+
+```
+modules/nitro/
+  nitro-supabase.js   — charge le client Supabase Nitro via import() dynamique
+  nitro-auth.js       — session, user, redirect login
+  nitro-profile.js    — profil (shared module ou token metadata en fallback)
+  nitro-bridge.js     — état centralisé, fonctions de liaison de compte
+```
+
+### UI
+
+L'onglet **☁ Compte** affiche une section "🌐 IDENTITÉ NITRO" :
+
+- Si le module Nitro est inaccessible : message discret, jeu non affecté.
+- Si l'utilisateur n'est pas connecté à Nitro : bouton "Se connecter via Nitro" → redirige vers `nitro.sterenna.fr/login.html?next=...`
+- Si une session Nitro est détectée : pseudo, email, lien vers l'espace Star.
+
+### Documentation
+
+Voir [`docs/nitro-integration.md`](docs/nitro-integration.md) pour :
+- les tables Supabase à créer (`pokegang_account_links`, `pokegang_cloud_saves`, `pokegang_rewards`)
+- les prochaines étapes (SSO token, liaison DB, récompenses cross-app)
+- les contraintes de sécurité
+
+---
+
 ## LLM (optionnel)
 
 Dialogues de dresseurs générés à la volée. Providers supportés : **Ollama** (local), **OpenAI**, **Anthropic**. Configuration dans l'onglet Paramètres.
