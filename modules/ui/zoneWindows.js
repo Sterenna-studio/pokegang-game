@@ -13,7 +13,7 @@
 //    levelUpPokemon, getPokemonPower, getTeamPower, getAgentCombatPower
 //    checkMoneyMilestone, pokeSprite, pokeSpriteBack, trainerSprite
 //    speciesName, addLog, addBattleLogEntry, pushFeedEvent, updateTopBar
-//    renderGangTab, renderPCTab, renderZonesTab, renderGangBasePanel
+//    renderGangTab, renderPCTab, renderZonesTab
 //    showConfirm, showRarePopup, showShinyPopup, getTrainerDialogue
 //    checkPlayerStatPoints
 //    SFX, activeTab
@@ -583,7 +583,6 @@ function renderZonesTab() {
   _zsRenderSelector();
   renderZoneWindows();
   _zsBindActions();
-  globalThis.renderGangBasePanel();
   // Bind stats toggle (idempotent via _bound flag)
   const btnStats = document.getElementById('btnToggleZoneStats');
   if (btnStats && !btnStats._bound) {
@@ -781,7 +780,7 @@ function openZoneWindow(zoneId) {
 
   globalThis.MusicPlayer?.updateFromContext();
   _zsRefreshTile(zoneId);
-  globalThis.renderGangBasePanel();
+  _dirty();
   renderZoneWindows();
   _zsUpdateButtons();
 }
@@ -807,7 +806,7 @@ function closeZoneWindow(zoneId) {
 
   globalThis.MusicPlayer?.updateFromContext();
   _zsRefreshTile(zoneId);
-  globalThis.renderGangBasePanel();
+  _dirty();
   renderZoneWindows();
   _zsUpdateButtons();
 }

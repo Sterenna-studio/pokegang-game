@@ -608,7 +608,7 @@ function renderPensionView(container) {
       if (!egg || egg.status !== 'ready') return;
       openHatchAnimation(egg, () => {
         if (globalThis.activeTab === 'tabPC') renderPensionView(container);
-        if (globalThis.renderGangBasePanel) globalThis.renderGangBasePanel();
+        _dirty();
       });
     });
   });
