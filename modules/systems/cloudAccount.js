@@ -8,6 +8,8 @@
 //  directly.
 // ════════════════════════════════════════════════════════════════
 
+import { initNitroBridge, redirectToNitroLogin } from '../nitro/nitro-bridge.js';
+
 let cloudContext = {};
 
 function configureCloudAccount(ctx = {}) {
@@ -907,10 +909,7 @@ async function renderCompteTab() {
           3. Suis le guide SQL dans <code>docs/supabase-setup.md</code>
         </div>
       </div>`;
-    return;
-  }
-
-  if (!supaSession) {
+  } else if (!supaSession) {
     // ── Formulaire de connexion ──────────────────────────────────
     tab.innerHTML = `
       <div style="max-width:380px;margin:48px auto;padding:28px;background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius)">
@@ -1055,6 +1054,82 @@ async function renderCompteTab() {
     });
 
   }
+
+  // ── Section Nitro (couche bonus, toujours affichée) ─────────────
+  _appendNitroSection(tab).catch(e =>
+    console.warn('[PokéGang Nitro] Section render error:', e.message)
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+//  Nitro integration UI
+// ════════════════════════════════════════════════════════════════
+
+async function _appendNitroSection(tab) {
+  const wrapper = document.createElement('div');
+  wrapper.id = 'nitroSection';
+  wrapper.style.cssText = 'padding:0 16px 16px;max-width:760px';
+  wrapper.innerHTML = `
+    <div style="background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);padding:16px">
+      <div style="font-family:var(--font-pixel);font-size:10px;color:#7ec8e3;margin-bottom:10px">🌐 IDENTITÉ NITRO</div>
+      <div id="nitroStatus" style="font-size:9px;color:var(--text-dim)">Vérification…</div>
+    </div>`;
+  tab.appendChild(wrapper);
+
+  const statusEl = wrapper.querySelector('#nitroStatus');
+  if (!statusEl) return;
+
+  const nitro = await initNitroBridge();
+
+  if (!nitro.available) {
+    statusEl.innerHTML = `
+      <div style="color:var(--text-dim)">Module Nitro indisponible.</div>
+      <div style="font-size:8px;color:var(--text-dim);margin-top:4px;opacity:.7">
+        Le serveur Nitro n'a pas pu être atteint (CORS ou réseau).
+        Le jeu continue à fonctionner normalement sans Nitro.
+      </div>`;
+    return;
+  }
+
+  if (nitro.connected && nitro.user) {
+    const name = nitro.displayName ?? nitro.user.email ?? '—';
+    statusEl.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <div style="flex:1;min-width:160px">
+          <div style="color:#7ec8e3;margin-bottom:4px">✅ Identité Nitro détectée</div>
+          <div style="margin-bottom:2px"><b style="color:var(--text)">${_escHtml(name)}</b></div>
+          <div style="color:var(--text-dim);font-size:8px">${_escHtml(nitro.user.email ?? '')}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <a href="https://nitro.sterenna.fr/star/" target="_blank" rel="noopener"
+             style="padding:7px 12px;background:var(--bg);border:1px solid #7ec8e3;border-radius:var(--radius-sm);color:#7ec8e3;font-size:9px;text-decoration:none;text-align:center;white-space:nowrap">
+            Voir mon espace ★ Star
+          </a>
+        </div>
+      </div>`;
+  } else {
+    statusEl.innerHTML = `
+      <div style="color:var(--text-dim);margin-bottom:8px">Compte Nitro non connecté.</div>
+      <div style="font-size:8px;color:var(--text-dim);margin-bottom:10px;line-height:1.6;opacity:.8">
+        PokéGang est hébergé sur un sous-domaine différent de Nitro.<br>
+        La session ne se partage pas automatiquement — connecte-toi via le bouton ci-dessous.
+      </div>
+      <button id="btnNitroLogin"
+        style="padding:8px 14px;background:var(--bg);border:1px solid #7ec8e3;border-radius:var(--radius-sm);color:#7ec8e3;font-family:var(--font-pixel);font-size:8px;cursor:pointer;letter-spacing:.04em">
+        Se connecter via Nitro
+      </button>`;
+    wrapper.querySelector('#btnNitroLogin')?.addEventListener('click', () => {
+      redirectToNitroLogin(window.location.href);
+    });
+  }
+}
+
+function _escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 // ════════════════════════════════════════════════════════════════
