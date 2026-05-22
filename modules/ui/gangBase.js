@@ -138,28 +138,65 @@ function _applyGangBaseViewMode() {
   if (zonesTopArea) zonesTopArea.classList.toggle('gb-v2-mode', _gangBaseViewMode === 'v2');
 }
 
-// ── Chantier 5 — Debounce rAF ────────────────────────────────────
-// renderGangBasePanel() est appelée par 18 sites (pension, zoneWindows, et
-// 11 sites internes). Chaque appel regénère le HTML complet de la base et
-// fait un replaceChild — coûteux. Le debounce rAF fusionne tous les appels
-// d'une même frame en un seul rendu (max 60 FPS).
+// ── Chantier 5 — Debounce rAF + patch ciblé ──────────────────────
+// renderGangBasePanel() est appelée par 18 sites. Au lieu de regénérer
+// systématiquement le HTML complet, on essaie d'abord un patch ciblé sur
+// les sections qui changent réellement (stats header, items, incubateurs,
+// cartes territoire, équipe boss).
+//
+// Si la STRUCTURE change (view mode, focus zone, agent count, side zones),
+// la signature diffère → full render fallback.
 //
 // Si un caller a besoin d'un rendu synchrone immédiat (cas rare — ex: avant
 // d'ouvrir une modal qui lit le DOM rendu), utiliser renderGangBasePanelSync().
 let _rafGangBaseId = 0;
+let _lastRenderSig = '';
 
-function _renderGangBasePanelImpl() {
+const _BALL_IDS  = ['pokeball','greatball','ultraball','duskball','masterball'];
+const _BOOST_IDS = ['lure','superlure','incense','rarescope','aura'];
+const _CRAFT_IDS = ['rarecandy','evostone'];
+const _KEY_IDS   = ['incubator','map_pallet','casino_ticket','silph_keycard','boat_ticket'];
+
+/**
+ * Signature des éléments structurels — si elle change, full render est requis
+ * car le HTML produit serait sensiblement différent (focus zone, agents, etc.).
+ */
+function _buildRenderSig(state) {
+  if (!state) return '';
+  const focusId    = _baseFocusZone(state)?.id || '';
+  const openZ      = [...(globalThis.openZones || [])].sort().join(',');
+  const agentsSig  = (state.agents || []).map(a => `${a.id}:${a.assignedZone || ''}`).join(',');
+  const bossTeam   = (state.gang.bossTeam || []).join(',');
+  const patches    = (state.cosmetics?.activePatches || []).join(',');
+  return [
+    _gangBaseViewMode, focusId, openZ, agentsSig, bossTeam, patches,
+    state.gang.bossSprite || '',
+    state.inventory?.incubator || 0,
+    (state.eggs || []).length,
+  ].join('|');
+}
+
+function _renderGangBasePanelImpl({ force = false } = {}) {
   const gangContainer = document.getElementById('gangBaseContainer');
   if (!gangContainer) return;
 
   // Sync view mode from settings (persisted across reloads)
-  const savedView = globalThis.state?.settings?.gangBaseView;
+  const state = globalThis.state;
+  const savedView = state?.settings?.gangBaseView;
   if (savedView && savedView !== _gangBaseViewMode) _gangBaseViewMode = savedView;
 
   _applyGangBaseViewMode();
 
-  const gangHtml = _gangBaseViewMode === 'v2' ? renderGangBaseWindowV2() : renderGangBaseWindow();
+  const sig = _buildRenderSig(state);
   const existingBase = gangContainer.querySelector('#gangBaseWin');
+
+  // Patch ciblé : structure identique + DOM déjà construit + pas forcé + view v1
+  if (!force && existingBase && sig === _lastRenderSig && _gangBaseViewMode === 'v1') {
+    if (_patchGangBaseV1(existingBase, state)) return;
+  }
+
+  // Full render fallback
+  const gangHtml = _gangBaseViewMode === 'v2' ? renderGangBaseWindowV2() : renderGangBaseWindow();
   if (existingBase) {
     const tmp = document.createElement('div');
     tmp.innerHTML = gangHtml;
@@ -171,6 +208,159 @@ function _renderGangBasePanelImpl() {
     bindGangBaseV2(gangContainer);
   } else {
     bindGangBase(gangContainer);
+  }
+  _lastRenderSig = sig;
+}
+
+/**
+ * Patch ciblé v1 : met à jour les sections "live" sans recréer le DOM.
+ * @returns {boolean} true si patch appliqué avec succès, false si fallback requis
+ */
+function _patchGangBaseV1(win, state) {
+  try {
+    // 1. Header stats — money + reputation
+    const headerStats = win.querySelector('.base-header-stats');
+    if (headerStats) {
+      const spans = headerStats.children;
+      if (spans[0]) spans[0].textContent = `₽${(state.gang.money || 0).toLocaleString()}`;
+      if (spans[1]) spans[1].textContent = `⭐${(state.gang.reputation || 0).toLocaleString()}`;
+    }
+
+    // 2. Item tiles — quantités, active ball, boost remaining
+    const isBoostActive  = globalThis.isBoostActive;
+    const boostRemaining = globalThis.boostRemaining;
+    const allItems = [..._BALL_IDS, ..._BOOST_IDS, ..._CRAFT_IDS];
+    for (const id of allItems) {
+      const tile = win.querySelector(`[data-bag-item="${id}"]`);
+      if (!tile) continue;
+      const qty   = state.inventory?.[id] || 0;
+      const owned = qty > 0;
+      const isBall    = _BALL_IDS.includes(id);
+      const isBoost   = _BOOST_IDS.includes(id);
+      const isActive  = isBall && state.activeBall === id;
+      const isBoosted = isBoost && isBoostActive?.(id);
+
+      // Active/boosted classes
+      tile.classList.toggle('active', isActive);
+      tile.classList.toggle('boosted', !!isBoosted);
+      const spriteEl = tile.querySelector('.base-item-sprite');
+      if (spriteEl) spriteEl.classList.toggle('locked', !owned);
+
+      // Quantity badge
+      const qtyEl = tile.querySelector('.base-item-qty');
+      if (qtyEl) {
+        qtyEl.textContent = owned ? (qty > 99 ? '99+' : '×' + qty) : '0';
+        qtyEl.style.color   = owned ? '' : 'var(--text-dim)';
+        qtyEl.style.opacity = owned ? '' : '0.4';
+      }
+
+      // Boost remaining time
+      let remEl = tile.querySelector('.base-item-rem');
+      if (isBoosted) {
+        const remStr = `${Math.ceil(boostRemaining?.(id) || 0)}s`;
+        if (remEl) remEl.textContent = remStr;
+        else tile.insertAdjacentHTML('beforeend', `<span class="base-item-rem">${remStr}</span>`);
+      } else if (remEl) {
+        remEl.remove();
+      }
+
+      // Title attr
+      tile.title = `${id} ×${qty}`;
+    }
+
+    // Clés (KEY_IDS) — juste maj du badge ✓/✗
+    for (const id of _KEY_IDS) {
+      const tile = win.querySelector(`[data-bag-item="${id}"]`);
+      if (!tile) continue;
+      const qty   = state.inventory?.[id] || 0;
+      const owned = qty > 0;
+      tile.classList.toggle('locked-key', !owned);
+      const sprite = tile.querySelector('.base-item-sprite');
+      if (sprite) sprite.classList.toggle('locked', !owned);
+      const badge = tile.querySelector('.base-item-qty');
+      if (badge) {
+        badge.textContent = owned ? '✓' : '✗';
+        badge.style.color   = owned ? 'var(--green)' : 'var(--text-dim)';
+        badge.style.opacity = owned ? '' : '0.35';
+      }
+      tile.title = `${id}${owned ? ' — Obtenu' : ' — Non obtenu'}`;
+    }
+
+    // 3. Incubator slots — progress fill + time
+    const incCount = state.inventory?.incubator || 0;
+    if (incCount > 0) {
+      const incubatingEggs = (state.eggs || []).filter(e => e.incubating);
+      const now = Date.now();
+      const slots = win.querySelectorAll('.base-inc-slot[data-egg-id]');
+      for (const slot of slots) {
+        const eggId = slot.dataset.eggId;
+        const egg = incubatingEggs.find(e => e.id === eggId);
+        if (!egg) continue;
+        const isReady  = egg.status === 'ready';
+        const progress = (egg.hatchAt && egg.incubatedAt)
+          ? Math.min(100, Math.round((now - egg.incubatedAt) / (egg.hatchAt - egg.incubatedAt) * 100))
+          : 0;
+        slot.classList.toggle('ready',  isReady);
+        slot.classList.toggle('active', !isReady);
+        const fill = slot.querySelector('.base-inc-fill');
+        if (fill) {
+          fill.style.width = (isReady ? 100 : progress) + '%';
+          fill.style.background = isReady ? 'var(--green)' : 'var(--gold)';
+        }
+        const timeEl = slot.querySelector('.base-inc-time');
+        if (!isReady && egg.hatchAt && timeEl) {
+          const tm = Math.max(0, Math.ceil((egg.hatchAt - now) / 60000));
+          timeEl.textContent = `${tm}m`;
+        }
+      }
+    }
+
+    // 4. Territory cards — possession, danger, rareté, état
+    const focusZone = _baseFocusZone(state);
+    if (focusZone) {
+      const focusState  = state.zones?.[focusZone.id] || {};
+      const focusAgents = (state.agents || []).filter(a => a.assignedZone === focusZone.id);
+      const focusMeta   = _baseZoneStatus(focusZone, state, focusState, focusAgents.length);
+      const focusRarity = _baseZoneRarity(focusZone);
+      const isFocusOpen = !!globalThis.openZones?.has(focusZone.id);
+
+      const cards = win.querySelectorAll('.base-status-grid .base-status-card');
+      const updates = [
+        { value: `${focusMeta.possession}%`, fill: `${Math.max(4, focusMeta.possession)}%` },
+        { value: focusMeta.dangerLabel,      fill: focusMeta.dangerLabel === 'Critique' ? '100%' : focusMeta.dangerLabel === 'Extreme' ? '84%' : focusMeta.dangerLabel === 'Eleve' ? '66%' : focusMeta.dangerLabel === 'Modere' ? '42%' : '22%' },
+        { value: focusRarity,                fill: focusRarity.includes('+') || focusRarity.includes('Legendaire') ? '86%' : focusRarity.includes('Rare') ? '66%' : '38%' },
+        { value: focusMeta.stateLabel,       fill: isFocusOpen ? '100%' : focusAgents.length ? '68%' : '36%' },
+      ];
+      for (let i = 0; i < cards.length && i < updates.length; i++) {
+        const strong = cards[i].querySelector('strong');
+        const fillB  = cards[i].querySelector('i > b');
+        if (strong) strong.textContent  = updates[i].value;
+        if (fillB)  fillB.style.width  = updates[i].fill;
+      }
+    }
+
+    // 5. Boss team slots — re-render local de cette petite section
+    const teamRow = win.querySelector('.base-team-slots');
+    if (teamRow) {
+      const pokeSprite  = globalThis.pokeSprite;
+      const speciesName = globalThis.speciesName;
+      const html = Array.from({ length: BOSS_TEAM_SLOTS }, (_, i) => {
+        const pkId = state.gang.bossTeam[i];
+        const pk = pkId ? state.pokemons.find(p => p.id === pkId) : null;
+        if (pk) {
+          return `<div class="base-team-slot filled" data-boss-slot="${i}" title="${speciesName(pk.species_en)} Lv.${pk.level}">
+            <img src="${pokeSprite(pk.species_en, pk.shiny)}" alt="${speciesName(pk.species_en)}">
+          </div>`;
+        }
+        return `<div class="base-team-slot" data-boss-slot="${i}" title="${state.lang === 'fr' ? 'Assigner un Pokémon' : 'Assign a Pokémon'}">+</div>`;
+      }).join('');
+      teamRow.innerHTML = html;
+    }
+
+    return true;
+  } catch (e) {
+    console.warn('[gangBase] patch failed, fallback to full render:', e);
+    return false;
   }
 }
 
@@ -190,6 +380,16 @@ function renderGangBasePanelSync() {
     _rafGangBaseId = 0;
   }
   _renderGangBasePanelImpl();
+}
+
+/** Force un full render (jamais de patch ciblé). À utiliser après un changement
+ *  qui invalide la structure (changement de focus zone, view, etc.). */
+function renderGangBasePanelForce() {
+  if (_rafGangBaseId) {
+    cancelAnimationFrame(_rafGangBaseId);
+    _rafGangBaseId = 0;
+  }
+  _renderGangBasePanelImpl({ force: true });
 }
 
 function renderGangBaseWindow() {
@@ -1682,15 +1882,16 @@ function exportGangImage() { openExportModal(); }
 
 // ── Expose ────────────────────────────────────────────────────
 Object.assign(globalThis, {
-  _gbase_renderGangBasePanel:     renderGangBasePanel,
-  _gbase_renderGangBasePanelSync: renderGangBasePanelSync,
-  _gbase_renderGangBaseWindow:    renderGangBaseWindow,
-  _gbase_bindGangBase:            bindGangBase,
-  _gbase_openCodexModal:          openCodexModal,
-  _gbase_openExportModal:         openExportModal,
-  _gbase_exportAsPDF:             _exportAsPDF,
-  _gbase_exportGangImage:         exportGangImage,
-  _gbase_buildExportCard:         buildExportCard,
+  _gbase_renderGangBasePanel:      renderGangBasePanel,
+  _gbase_renderGangBasePanelSync:  renderGangBasePanelSync,
+  _gbase_renderGangBasePanelForce: renderGangBasePanelForce,
+  _gbase_renderGangBaseWindow:     renderGangBaseWindow,
+  _gbase_bindGangBase:             bindGangBase,
+  _gbase_openCodexModal:           openCodexModal,
+  _gbase_openExportModal:          openExportModal,
+  _gbase_exportAsPDF:              _exportAsPDF,
+  _gbase_exportGangImage:          exportGangImage,
+  _gbase_buildExportCard:          buildExportCard,
 });
 
 export {};
