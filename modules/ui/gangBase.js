@@ -138,7 +138,17 @@ function _applyGangBaseViewMode() {
   if (zonesTopArea) zonesTopArea.classList.toggle('gb-v2-mode', _gangBaseViewMode === 'v2');
 }
 
-function renderGangBasePanel() {
+// ── Chantier 5 — Debounce rAF ────────────────────────────────────
+// renderGangBasePanel() est appelée par 18 sites (pension, zoneWindows, et
+// 11 sites internes). Chaque appel regénère le HTML complet de la base et
+// fait un replaceChild — coûteux. Le debounce rAF fusionne tous les appels
+// d'une même frame en un seul rendu (max 60 FPS).
+//
+// Si un caller a besoin d'un rendu synchrone immédiat (cas rare — ex: avant
+// d'ouvrir une modal qui lit le DOM rendu), utiliser renderGangBasePanelSync().
+let _rafGangBaseId = 0;
+
+function _renderGangBasePanelImpl() {
   const gangContainer = document.getElementById('gangBaseContainer');
   if (!gangContainer) return;
 
@@ -162,6 +172,24 @@ function renderGangBasePanel() {
   } else {
     bindGangBase(gangContainer);
   }
+}
+
+function renderGangBasePanel() {
+  if (_rafGangBaseId) return; // déjà en attente cette frame
+  _rafGangBaseId = requestAnimationFrame(() => {
+    _rafGangBaseId = 0;
+    _renderGangBasePanelImpl();
+  });
+}
+
+/** Rendu synchrone immédiat. À utiliser uniquement si le caller doit lire
+ *  le DOM rendu juste après (modal, focus, etc.). */
+function renderGangBasePanelSync() {
+  if (_rafGangBaseId) {
+    cancelAnimationFrame(_rafGangBaseId);
+    _rafGangBaseId = 0;
+  }
+  _renderGangBasePanelImpl();
 }
 
 function renderGangBaseWindow() {
@@ -1654,14 +1682,15 @@ function exportGangImage() { openExportModal(); }
 
 // ── Expose ────────────────────────────────────────────────────
 Object.assign(globalThis, {
-  _gbase_renderGangBasePanel:  renderGangBasePanel,
-  _gbase_renderGangBaseWindow: renderGangBaseWindow,
-  _gbase_bindGangBase:         bindGangBase,
-  _gbase_openCodexModal:       openCodexModal,
-  _gbase_openExportModal:      openExportModal,
-  _gbase_exportAsPDF:          _exportAsPDF,
-  _gbase_exportGangImage:      exportGangImage,
-  _gbase_buildExportCard:      buildExportCard,
+  _gbase_renderGangBasePanel:     renderGangBasePanel,
+  _gbase_renderGangBasePanelSync: renderGangBasePanelSync,
+  _gbase_renderGangBaseWindow:    renderGangBaseWindow,
+  _gbase_bindGangBase:            bindGangBase,
+  _gbase_openCodexModal:          openCodexModal,
+  _gbase_openExportModal:         openExportModal,
+  _gbase_exportAsPDF:             _exportAsPDF,
+  _gbase_exportGangImage:         exportGangImage,
+  _gbase_buildExportCard:         buildExportCard,
 });
 
 export {};
