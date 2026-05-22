@@ -2303,23 +2303,54 @@ configureSaveRepair({
   MAX_HISTORY,
 });
 
-// ── Chargement async de la config Supabase locale (optionnelle) ──────────────
-// config.js est un ES module gitignored, déployé manuellement. Il exporte
-// SUPABASE_URL et SUPABASE_PUBLISHABLE_KEY (ou SUPABASE_ANON_KEY).
-// Si absent : le jeu marche normalement sans cloud save.
+// ── Chargement async des credentials Supabase ────────────────────────────────
+// Source principale : Nitro shared (/shared/config.js) — CORS autorisé depuis
+// pokegang.sterenna.fr. Plus besoin de déployer un config.js local.
+// Fallback : ./config.js local (utile en dev offline ou si Nitro est down).
+//
+// initSupabase() est appelé une fois dans boot() ET re-déclenché depuis l'IIFE
+// quand les credentials arrivent (idempotent) — gère le race condition
+// async config vs boot synchrone.
 let _localSupabaseConfig = { url: '', anonKey: '' };
 (async () => {
+  let loaded = false;
+
+  // 1. Tenter Nitro shared en premier
   try {
-    const cfg = await import('./config.js');
-    _localSupabaseConfig = {
-      url:     cfg.SUPABASE_URL ?? cfg.default?.SUPABASE_URL ?? '',
-      anonKey: cfg.SUPABASE_ANON_KEY ?? cfg.SUPABASE_PUBLISHABLE_KEY ?? cfg.default?.SUPABASE_ANON_KEY ?? '',
-    };
-    if (_localSupabaseConfig.url && _localSupabaseConfig.anonKey) {
-      console.info('[PokéGang] Local Supabase config loaded');
+    const { getNitroSupabaseConfig } = await import('./modules/nitro/nitro-supabase.js');
+    const nitroCfg = await getNitroSupabaseConfig();
+    if (nitroCfg?.url && nitroCfg?.anonKey) {
+      _localSupabaseConfig = nitroCfg;
+      console.info('[PokéGang] Supabase credentials source : Nitro shared');
+      loaded = true;
     }
   } catch (e) {
-    console.info('[PokéGang] No local config.js — Supabase cloud disabled (Nitro can take over)');
+    console.warn('[PokéGang] Nitro shared config import failed:', e.message);
+  }
+
+  // 2. Fallback : config.js local (gitignored, dev only)
+  if (!loaded) {
+    try {
+      const cfg = await import('./config.js');
+      _localSupabaseConfig = {
+        url:     cfg.SUPABASE_URL ?? cfg.default?.SUPABASE_URL ?? '',
+        anonKey: cfg.SUPABASE_ANON_KEY ?? cfg.SUPABASE_PUBLISHABLE_KEY ?? cfg.default?.SUPABASE_ANON_KEY ?? '',
+      };
+      if (_localSupabaseConfig.url && _localSupabaseConfig.anonKey) {
+        console.info('[PokéGang] Supabase credentials source : local config.js (fallback)');
+        loaded = true;
+      }
+    } catch {
+      // Pas de config.js → silencieux, on continue sans cloud
+    }
+  }
+
+  if (loaded) {
+    // Si boot() a déjà appelé initSupabase() avant que la config arrive,
+    // _supabase est encore null. Relancer (idempotent).
+    try { initSupabase(); } catch (e) { console.warn('[PokéGang] late initSupabase failed:', e.message); }
+  } else {
+    console.info('[PokéGang] No Supabase credentials — cloud features disabled');
   }
 })();
 
