@@ -122,6 +122,7 @@ export const DEFAULT_STATE = {
     lowSpec: false,
     sfxIndividual: {},
     autoCombat: true,
+    offlineReportThreshold: 300, // seuil en s pour afficher le rapport au retour (0 = jamais)
     autoBuyBall: null,
     spriteMode: 'local',   // 'local'|'gen1'|'gen2'|'gen3'|'gen4'|'gen5'|'ani'|'dex'|'home'
     autoEvoChoice: false,

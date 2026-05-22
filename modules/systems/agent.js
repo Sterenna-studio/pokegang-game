@@ -438,10 +438,20 @@ function _applyResolvedAgentCombat(zoneId, spawnObj, combatAgents, result) {
       agent.combatsWon = (agent.combatsWon || 0) + 1;
       grantAgentXP(agent, xpEach);
     }
-    if (mainAgent?.notifyCaptures !== false) _notify(`⚔️ ${mainAgent.name} +${reward}₽ +${repGain}rep`, 'success');
+    const _collecting = globalThis.OfflineReport?.isCollecting?.();
+    if (_collecting) {
+      globalThis.OfflineReport.pushCombat(true, reward);
+    } else if (mainAgent?.notifyCaptures !== false) {
+      _notify(`⚔️ ${mainAgent.name} +${reward}₽ +${repGain}rep`, 'success');
+    }
     globalThis.addLog(globalThis.t('agent_win', { agent: mainAgent?.name || 'Agent' }));
   } else {
-    if (mainAgent?.notifyCaptures !== false) _notify(`💀 ${mainAgent?.name || 'Agent'} — défaite`, 'error');
+    const _collecting = globalThis.OfflineReport?.isCollecting?.();
+    if (_collecting) {
+      globalThis.OfflineReport.pushCombat(false, 0);
+    } else if (mainAgent?.notifyCaptures !== false) {
+      _notify(`💀 ${mainAgent?.name || 'Agent'} — défaite`, 'error');
+    }
     globalThis.addLog(globalThis.t('agent_lose', { agent: mainAgent?.name || 'Agent' }));
   }
 
@@ -555,7 +565,17 @@ function resolveBackgroundSpawnForZone(zoneId) {
     const zoneName = ZONE_BY_ID[zoneId]?.fr || zoneId;
     const ballName = globalThis.BALLS?.[visualBall]?.fr || visualBall;
 
-    if (pokemon.shiny) {
+    // Pendant le catchup offline : accumuler dans le rapport, pas de notif individuelle
+    const _collecting = globalThis.OfflineReport?.isCollecting?.();
+    if (_collecting) {
+      globalThis.OfflineReport.pushCapture({
+        species_en: pokemon.species_en,
+        shiny:      pokemon.shiny,
+        potential:  pokemon.potential,
+        rarity,
+        byAgent:    capturer.name,
+      });
+    } else if (pokemon.shiny) {
       _notify(`✨ ${capturer.name} — SHINY ! ${name} ${stars} ✨`, 'gold');
       setTimeout(() => globalThis.showShinyPopup?.(pokemon.species_en), 200);
     } else if (rarity === 'legendary') {
@@ -634,7 +654,15 @@ function resolveBackgroundSpawnForZone(zoneId) {
     state.stats.chestsOpened = (state.stats.chestsOpened || 0) + 1;
     const loot      = globalThis.rollChestLoot(zoneId, true);
     const mainAgent = agents[0];
-    if (mainAgent?.notifyCaptures !== false) _notify(`📦 ${mainAgent.name} — ${loot.msg}`, loot.type);
+    const _collecting = globalThis.OfflineReport?.isCollecting?.();
+    if (_collecting) {
+      globalThis.OfflineReport.pushChest();
+      // loot.delta peut contenir { money, items } selon rollChestLoot
+      if (loot?.delta?.money)  globalThis.OfflineReport.pushMoney(loot.delta.money);
+      if (loot?.delta?.items)  globalThis.OfflineReport.pushItems(loot.delta.items);
+    } else if (mainAgent?.notifyCaptures !== false) {
+      _notify(`📦 ${mainAgent.name} — ${loot.msg}`, loot.type);
+    }
     changed = true;
 
   // ── Événement spécial — ignoré en background ──────────────────

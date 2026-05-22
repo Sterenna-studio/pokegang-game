@@ -1206,10 +1206,8 @@ function _catchupHiddenZones() {
   }
 }
 
-// Hook visibilitychange (enregistré une seule fois)
-document.addEventListener('visibilitychange', () => {
-  if (!document.hidden) _catchupHiddenZones();
-});
+// Exposé pour l'orchestrateur offlineReport.js
+globalThis._catchupHiddenZones = _catchupHiddenZones;
 
 // Aliases de compatibilité (appelés depuis app.js wrappers, gardés temporairement)
 const startBackgroundZone = startActiveZone;

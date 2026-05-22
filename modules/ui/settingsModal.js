@@ -312,6 +312,23 @@ function renderSettingsPanel() {
         <label>Auto-combat agents</label>
         ${tog('autoCombat', S.autoCombat !== false)}
       </div>
+      <div class="settings-row">
+        <label>Rapport de mission au retour</label>
+        <select id="settingOfflineReport">
+          ${(() => {
+            const cur = typeof S.offlineReportThreshold === 'number' ? S.offlineReportThreshold : 300;
+            const opts = [
+              { v: 0,    l: 'Jamais' },
+              { v: 60,   l: '≥ 1 min' },
+              { v: 300,  l: '≥ 5 min' },
+              { v: 900,  l: '≥ 15 min' },
+              { v: 1800, l: '≥ 30 min' },
+              { v: 3600, l: '≥ 1 h' },
+            ];
+            return opts.map(o => `<option value="${o.v}" ${cur === o.v ? 'selected' : ''}>${o.l}</option>`).join('');
+          })()}
+        </select>
+      </div>
       <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:8px">
         <label style="margin-bottom:2px">🖼 Mode sprites Pokémon</label>
         ${(() => {
@@ -508,6 +525,12 @@ export function initSettings() {
 
     // Toggles (lecture complète — _applySettingsLive a déjà écrit la plupart, mais on consolide)
     state.settings.autoCombat     = readToggle('autoCombat',    true);
+    // Rapport de mission au retour de tab (Chantier 4)
+    const offlineReportSel = document.getElementById('settingOfflineReport');
+    if (offlineReportSel) {
+      const v = parseInt(offlineReportSel.value, 10);
+      state.settings.offlineReportThreshold = Number.isFinite(v) ? v : 300;
+    }
     // spriteMode est écrit directement au clic — pas de toggle à relire ici
     state.settings.autoEvoChoice  = readToggle('autoEvoChoice', false);
     state.settings.musicEnabled   = readToggle('music',         false);
