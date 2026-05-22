@@ -323,8 +323,13 @@
 
   <!-- Supabase JS SDK (CDN) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <!-- Config Supabase (valeurs vides par défaut — remplacer localement pour Supabase) -->
-  <script src="./config.js?v=1"></script>
+  <!--
+    Config Supabase locale (optionnelle) :
+    chargée dynamiquement dans app.js via import() — voir _loadLocalSupabaseConfig().
+    Le fichier ./config.js est un ES module exportant SUPABASE_URL et
+    SUPABASE_PUBLISHABLE_KEY ; il n'est PAS chargé ici via <script> classique
+    (sinon erreur "Unexpected token 'export'").
+  -->
   <!-- Sprite data loaders (variables internes isolées dans IIFE, no global pollution) -->
   <script src="./data/loaders.js?v=3"></script>
   <script src="./data/species-data.js?v=1"></script>
