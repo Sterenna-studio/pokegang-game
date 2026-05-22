@@ -232,6 +232,7 @@ function _makeSupaLock() {
 
 // ── Init ──────────────────────────────────────────────────────────
 function initSupabase() {
+  if (_supabase) return; // idempotent : déjà initialisé
   if (!supaConfigured()) return;
   const supabaseSdk = getSupabaseSdk();
   if (!supabaseSdk) {
