@@ -324,7 +324,7 @@ function _patchGangBaseV1(win, state) {
       const focusRarity = _baseZoneRarity(focusZone);
       const isFocusOpen = !!globalThis.openZones?.has(focusZone.id);
 
-      const cards = win.querySelectorAll('.base-status-grid .base-status-card');
+      const cards = win.querySelectorAll('.base-status-strip .base-status-card, .base-status-grid .base-status-card');
       const updates = [
         { value: `${focusMeta.possession}%`, fill: `${Math.max(4, focusMeta.possession)}%` },
         { value: focusMeta.dangerLabel,      fill: focusMeta.dangerLabel === 'Critique' ? '100%' : focusMeta.dangerLabel === 'Extreme' ? '84%' : focusMeta.dangerLabel === 'Eleve' ? '66%' : focusMeta.dangerLabel === 'Modere' ? '42%' : '22%' },
@@ -414,25 +414,6 @@ function renderGangBaseWindow() {
     return `<div class="base-team-slot" data-boss-slot="${i}" title="${state.lang === 'fr' ? 'Assigner un Pokémon' : 'Assign a Pokémon'}">+</div>`;
   }).join('');
 
-  // ── Glass background: top Pokémon + agents floutés
-  const _BG_POSITIONS = [
-    {left:'6%',bottom:'28%'},{left:'18%',bottom:'58%'},{left:'32%',bottom:'18%'},
-    {left:'48%',bottom:'50%'},{left:'62%',bottom:'68%'},{left:'76%',bottom:'26%'},
-    {left:'86%',bottom:'46%'},{left:'12%',bottom:'78%'},{left:'42%',bottom:'74%'},
-    {left:'58%',bottom:'12%'},{left:'28%',bottom:'44%'},{left:'70%',bottom:'82%'},
-  ];
-  const _bgPokes = [...state.pokemons].sort((a, b) => getPokemonPower(b) - getPokemonPower(a)).slice(0, 12);
-  const _bgPokeHtml = _bgPokes.map((p, i) => {
-    const pos = _BG_POSITIONS[i % _BG_POSITIONS.length];
-    const sz = i < 3 ? 48 : i < 6 ? 36 : 28;
-    return `<img src="${pokeSprite(p.species_en, p.shiny)}" style="position:absolute;left:${pos.left};bottom:${pos.bottom};width:${sz}px;height:${sz}px;image-rendering:pixelated;opacity:.35;filter:brightness(.5)" alt="">`;
-  }).join('');
-  const _agentPositions = [{left:'4%',bottom:'4%'},{left:'72%',bottom:'4%'},{left:'22%',bottom:'4%'},{left:'50%',bottom:'4%'},{left:'88%',bottom:'4%'}];
-  const _bgAgentHtml = state.agents.slice(0, 5).map((a, i) => {
-    const pos = _agentPositions[i];
-    return `<img src="${a.sprite}" style="position:absolute;left:${pos.left};bottom:${pos.bottom};width:30px;height:30px;image-rendering:pixelated;opacity:.28;filter:brightness(.45)" onerror="this.src='${trainerSprite('acetrainer')}'" alt="">`;
-  }).join('');
-
   // ── Item tiles
   const BALL_IDS  = ['pokeball','greatball','ultraball','duskball','masterball'];
   const BOOST_IDS = ['lure','superlure','incense','rarescope','aura'];
@@ -514,7 +495,6 @@ function renderGangBaseWindow() {
   const focusState = focusZone ? (state.zones?.[focusZone.id] || {}) : {};
   const focusAgents = focusZone ? (state.agents || []).filter(a => a.assignedZone === focusZone.id) : [];
   const focusName = _baseZoneName(focusZone, state);
-  const focusType = focusZone ? (BASE_ZONE_TYPE_FR[focusZone.type] || focusZone.type || 'Front') : '—';
   const focusRarity = _baseZoneRarity(focusZone);
   const focusMeta = _baseZoneStatus(focusZone, state, focusState, focusAgents.length);
   const isFocusOpen = !!(focusZone && globalThis.openZones?.has(focusZone.id));
@@ -561,35 +541,23 @@ function renderGangBaseWindow() {
 
     <div class="base-command-shell">
       <section class="base-command-main">
-        <div class="base-focus-bar">
-          <span class="base-chip red">${focusName}</span>
-          <span class="base-chip">${focusType}</span>
-          <span class="base-chip gold">${focusRarity}</span>
-          <span class="base-chip ${focusMeta.stateLabel === 'Ouverte' || focusMeta.stateLabel === 'Tenue' ? 'green' : ''}">${focusMeta.stateLabel}</span>
-        </div>
-
-        <div class="base-env-viewport base-command-viewport">
-          <div class="base-bg-layer">
-            ${_bgPokeHtml}${_bgAgentHtml}
-            <div class="base-bg-overlay"></div>
+        <!-- Boss stage compact : sprite + nom + zone desc + 6 slots équipe -->
+        <div class="base-boss-stage base-boss-stage-compact">
+          <div class="base-boss-frame">
+            ${bossPatches}
+            ${state.gang.bossSprite
+              ? `<img class="base-boss-sprite" src="${trainerSprite(state.gang.bossSprite)}" alt="Boss" onerror="this.src='${FALLBACK_TRAINER_SVG}';this.onerror=null">`
+              : '<div class="base-boss-empty">?</div>'}
           </div>
-          <div class="base-boss-stage">
-            <div class="base-boss-kicker">Gang Base principale</div>
-            <div class="base-boss-frame">
-              <div class="base-boss-halo"></div>
-              ${bossPatches}
-              ${state.gang.bossSprite
-                ? `<img class="base-boss-sprite" src="${trainerSprite(state.gang.bossSprite)}" alt="Boss" onerror="this.src='${FALLBACK_TRAINER_SVG}';this.onerror=null">`
-                : '<div class="base-boss-empty">?</div>'}
-            </div>
+          <div class="base-boss-info">
             <div class="base-boss-name">${state.gang.bossName}</div>
-            <div class="base-boss-zone">${zoneDesc}</div>
-            <div class="base-team-label">Equipe du boss</div>
+            <div class="base-boss-zone"><span class="base-zone-tag">${focusName}</span> · ${zoneDesc}</div>
             <div class="base-team-slots">${bossTeamHtml}</div>
           </div>
         </div>
 
-        <div class="base-status-grid">${territoryCards}</div>
+        <!-- Strip territoire : 4 métriques compactes en ligne -->
+        <div class="base-status-strip">${territoryCards}</div>
       </section>
 
       <section class="base-modules-grid">
