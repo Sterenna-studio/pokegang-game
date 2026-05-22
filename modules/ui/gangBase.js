@@ -644,13 +644,6 @@ function renderGangBaseWindow() {
         </div>
 
         <div class="base-status-grid">${territoryCards}</div>
-
-        <div class="base-actions">
-          <button data-base-command="intervene" data-zone="${focusZoneId}" class="primary">⚔ Intervenir</button>
-          <button data-base-command="toggle-zone" data-zone="${focusZoneId}">${isFocusOpen ? 'Fermer' : 'Ouvrir'}</button>
-          <button data-base-command="assign-agent" data-zone="${focusZoneId}">Assigner</button>
-          <button data-base-command="retake" data-zone="${focusZoneId}">Reprendre</button>
-        </div>
       </section>
 
       <section class="base-modules-grid">
