@@ -1,4 +1,4 @@
-﻿// ════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════
 // modules/systems/offlineCatchup.js
 // Offline / background idle catchup system
 //
@@ -7,6 +7,10 @@
 //   - Pension (génération d'œufs + incubation)
 //   - Training room (XP)
 //   - XP passif équipes
+//
+// Note : le déclenchement (visibilitychange) est orchestré par
+// modules/systems/offlineReport.js qui rassemble aussi les captures
+// de zone et affiche le rapport final.
 // ════════════════════════════════════════════════════════════════
 
 'use strict';
@@ -46,18 +50,11 @@ function _catchupPension(elapsedMs) {
 
   const slots = p.slots || [];
   const hasPair = slots.length >= 2;
-  const EGG_GEN_MS = globalThis.EGG_GEN_MS || 5 * 60 * 1000;
 
   // Avancer la génération d'œufs : combien d'œufs auraient dû être produits ?
   if (hasPair && p.eggAt) {
-    const simulatedNow = p.eggAt + elapsedMs;
-    // Chaque cycle = EGG_GEN_MS; on compte les cycles complets
     while (p.eggAt <= now) {
       if (eggsGenerated > 10) break; // cap sécurité anti-spam
-      // Appeler pensionTick directement avec un now simulé est complexe ;
-      // à la place, on avance juste eggAt pour que le prochain tick réel
-      // voie que c'est "prêt" et génère les œufs normalement.
-      // On ne génère qu'un seul œuf max en offline pour éviter le spam.
       if (eggsGenerated === 0) p.eggAt = now; // forcé prêt pour le prochain tick
       eggsGenerated++;
       break;
@@ -98,15 +95,11 @@ function _catchupPassiveXP(elapsedMs) {
   for (const a of state.agents) a.team.forEach(id => teamIds.add(id));
   if (teamIds.size === 0) return 0;
 
-  let leveled = false;
   for (const id of teamIds) {
     const p = state.pokemons?.find(pk => pk.id === id);
-    if (p && globalThis.levelUpPokemon) {
-      globalThis.levelUpPokemon(p, totalXP);
-      leveled = true;
-    }
+    if (p && globalThis.levelUpPokemon) globalThis.levelUpPokemon(p, totalXP);
   }
-  return leveled ? totalXP : 0;
+  return ticksOf30s;
 }
 
 // ── Catchup salle d'entraînement ──────────────────────────────────────────────
@@ -142,34 +135,46 @@ function _catchupTraining(elapsedMs) {
 
 // ── Fonction principale ───────────────────────────────────────────────────────
 
-function applyOfflineCatchup() {
+/**
+ * @param {object} [opts]
+ * @param {boolean} [opts.silent=false] - Si true, n'affiche pas la notif
+ *   classique (utile quand le rapport global prend le relais).
+ * @returns {{ elapsed: number, eggsReady: number, trainingTicks: number, xpTicks: number } | null}
+ */
+function applyOfflineCatchup({ silent = false } = {}) {
   const state = globalThis.state;
-  if (!state) return;
+  if (!state) return null;
 
   const now = Date.now();
   const savedAt = state._savedAt;
   if (!savedAt || typeof savedAt !== 'number') {
     // Pas encore de timestamp → marquer et partir
     state._savedAt = now;
-    return;
+    return null;
   }
 
   const rawElapsed = now - savedAt;
-  if (rawElapsed < OFFLINE_MIN_MS) return; // trop court, pas de rattrapage
+  if (rawElapsed < OFFLINE_MIN_MS) return null; // trop court, pas de rattrapage
 
   const elapsed = Math.min(rawElapsed, OFFLINE_CAP_MS);
 
   // Appliquer les rattrapages
-  const eggsReady  = _catchupPension(elapsed);
+  const eggsReady     = _catchupPension(elapsed);
   const trainingTicks = _catchupTraining(elapsed);
-  _catchupPassiveXP(elapsed);
+  const xpTicks       = _catchupPassiveXP(elapsed);
 
   // Mettre à jour _savedAt pour éviter un double-rattrapage
   state._savedAt = now;
   _save();
 
-  // Notification uniquement si l'absence est significative (> 1 min)
-  if (rawElapsed >= 60000) {
+  // Alimenter le rapport global si actif
+  const collecting = globalThis.OfflineReport?.isCollecting?.();
+  if (collecting) {
+    globalThis.OfflineReport.pushPensionResult({ eggsReady });
+    globalThis.OfflineReport.pushTrainingTicks(trainingTicks);
+    globalThis.OfflineReport.pushXPTicks(xpTicks);
+  } else if (!silent && rawElapsed >= 60000) {
+    // Fallback notif classique (boot initial, pas de collector actif)
     const parts = [];
     if (trainingTicks > 0) parts.push(`${trainingTicks} combats d'entraînement`);
     if (eggsReady > 0) parts.push(`${eggsReady} œuf${eggsReady > 1 ? 's' : ''} éclosable${eggsReady > 1 ? 's' : ''}`);
@@ -185,22 +190,15 @@ function applyOfflineCatchup() {
   if (eggsReady > 0 && globalThis.activeTab === 'tabPC') {
     globalThis.renderPCTab?.();
   }
+
+  return { elapsed: rawElapsed, eggsReady, trainingTicks, xpTicks };
 }
 
-// ── Hooks ─────────────────────────────────────────────────────────────────────
-
-// Rattrapage au retour de l'onglet en foreground
-document.addEventListener('visibilitychange', () => {
-  if (!document.hidden) {
-    // Petit délai pour laisser le state être chargé si nécessaire
-    setTimeout(applyOfflineCatchup, 500);
-  }
-});
-
-// Rattrapage au chargement initial (cas navigateur fermé/crash)
+// ── Hooks de boot uniquement ─────────────────────────────────────────────────
+// Le rattrapage de visibilitychange est orchestré par offlineReport.js.
+// On garde uniquement le rattrapage initial au chargement (navigateur fermé/crash).
 window.addEventListener('load', () => {
-  // Déclenché après loadState() via le flow normal de app.js
-  setTimeout(applyOfflineCatchup, 2000);
+  setTimeout(() => applyOfflineCatchup(), 2000);
 });
 
 // ── Expose ────────────────────────────────────────────────────────────────────
