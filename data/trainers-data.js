@@ -97,6 +97,94 @@ const TRAINER_TYPES = {
   eusine:          { fr:'Eusin',   en:'Eusine', sprite:'eusine',       diff:4, reward:[1500,3500], rep:15 },
   kris:            { fr:'Kris',    en:'Kris',   sprite:'kris',         diff:6, reward:[4000,8000], rep:35 },
   ethan:           { fr:'Éthan',   en:'Ethan',  sprite:'ethan-gen2',   diff:6, reward:[4000,8000], rep:35 },
+
+  // ── Gen 3 / Hoenn — archétypes exclusifs ──────────────────────────────────
+  tuber:           { fr:'Gamin Plage',    en:'Tuber',          sprite:'tuber',            diff:1, reward:[10,30],    rep:1  },
+  tuberf:          { fr:'Fillette Plage', en:'Tuber♀',         sprite:'tuberf',           diff:1, reward:[10,30],    rep:1  },
+  kindler:         { fr:'Allumeur',       en:'Kindler',        sprite:'kindler',           diff:2, reward:[25,70],    rep:3  },
+  parasollady:     { fr:'Dame Ombrelle',  en:'Parasol Lady',   sprite:'parasollady',       diff:2, reward:[30,85],    rep:3  },
+  triathlete:      { fr:'Triathlète',     en:'Triathlete',     sprite:'triathlete',        diff:2, reward:[30,80],    rep:3  },
+  triathletebikerf:{ fr:'Triathlète♀',   en:'Triathlete♀',    sprite:'triathletebikerf',  diff:2, reward:[30,80],    rep:3  },
+  ruinmaniac:      { fr:'Fouilleur',      en:'Ruin Maniac',    sprite:'ruinmaniac',        diff:3, reward:[50,140],   rep:5  },
+  dragontamer:     { fr:'Dompteur Dragon',en:'Dragon Tamer',   sprite:'dragontamer',       diff:4, reward:[100,280],  rep:8  },
+  birdkeeperGen3:  { fr:'Dresseur',       en:'Bird Keeper',    sprite:'birdkeeper',        diff:2, reward:[25,75],    rep:3  },
+  collectorGen3:   { fr:'Collectionneur', en:'Collector',      sprite:'collector',         diff:2, reward:[30,90],    rep:3  },
+  // Gen 3 — variantes visuelles
+  acetrainerGen3:  { fr:'Topdresseur',   en:'Ace Trainer',    sprite:'cooltrainer',       diff:3, reward:[60,180],   rep:6  },
+  acetrainerFGen3: { fr:'Topdresseuse',  en:'Ace Trainer♀',   sprite:'cooltrainerf',      diff:3, reward:[60,180],   rep:6  },
+  hikerGen3:       { fr:'Montagnard',     en:'Hiker',          sprite:'hiker',             diff:2, reward:[25,75],    rep:3  },
+  swimmerGen3:     { fr:'Nageur',         en:'Swimmer',        sprite:'swimmer',           diff:2, reward:[25,75],    rep:3  },
+  swimmerFGen3:    { fr:'Nageuse',        en:'Swimmer♀',       sprite:'swimmerf',          diff:2, reward:[25,75],    rep:3  },
+  fisherGen3:      { fr:'Pêcheur',        en:'Fisher',         sprite:'fisherman',         diff:1, reward:[20,55],    rep:2  },
+  // Team Magma
+  magmagrunt:      { fr:'Sbire Magma',   en:'Magma Grunt',    sprite:'magmagrunt',        diff:4, reward:[120,340],  rep:11 },
+  magmagruntf:     { fr:'Sbire Magma',   en:'Magma Grunt♀',   sprite:'magmagruntf',       diff:4, reward:[120,340],  rep:11 },
+  tabitha:         { fr:'Tabitha',        en:'Tabitha',        sprite:'tabitha',           diff:5, reward:[2000,4500], rep:20 },
+  courtney:        { fr:'Courtney',       en:'Courtney',       sprite:'courtney',          diff:5, reward:[2000,4500], rep:20 },
+  maxie:           { fr:'Maxie',          en:'Maxie',          sprite:'maxie',             diff:6, reward:[4000,8000], rep:35 },
+  // Team Aqua
+  aquagrunt:       { fr:'Sbire Aqua',    en:'Aqua Grunt',     sprite:'aquagrunt',         diff:4, reward:[120,340],  rep:11 },
+  aquagruntf:      { fr:'Sbire Aqua♀',   en:'Aqua Grunt♀',    sprite:'aquagruntf',        diff:4, reward:[120,340],  rep:11 },
+  matt:            { fr:'Matt',           en:'Matt',           sprite:'matt',              diff:5, reward:[2000,4500], rep:20 },
+  shelly:          { fr:'Shelly',         en:'Shelly',         sprite:'shelly',            diff:5, reward:[2000,4500], rep:20 },
+  archie:          { fr:'Archie',         en:'Archie',         sprite:'archie',            diff:6, reward:[4000,8000], rep:35 },
+  // Gym Leaders Hoenn
+  roxanne:         { fr:'Sandra',         en:'Roxanne',        sprite:'roxanne',           diff:3, reward:[1500,2800], rep:15 },
+  brawly:          { fr:'Bastien',        en:'Brawly',         sprite:'brawly',            diff:3, reward:[1500,2800], rep:15 },
+  wattson:         { fr:'Voltère',        en:'Wattson',        sprite:'wattson',           diff:4, reward:[2000,4000], rep:18 },
+  flannery:        { fr:'Adriane',        en:'Flannery',       sprite:'flannery',          diff:4, reward:[2500,5000], rep:20 },
+  normanHoenn:     { fr:'Norman',         en:'Norman',         sprite:'norman',            diff:5, reward:[3000,6000], rep:22 },
+  winona:          { fr:'Alizée',         en:'Winona',         sprite:'winona',            diff:5, reward:[3500,7000], rep:24 },
+  tate:            { fr:'Théo',           en:'Tate',           sprite:'tate',              diff:6, reward:[4000,8000], rep:28 },
+  liza:            { fr:'Léa',            en:'Liza',           sprite:'liza',              diff:6, reward:[4000,8000], rep:28 },
+  juan:            { fr:'Juan',           en:'Juan',           sprite:'juan',              diff:6, reward:[4500,9000], rep:30 },
+  // Elite Four & Champion Hoenn
+  sidney:          { fr:'Marco',          en:'Sidney',         sprite:'sidney',            diff:6, reward:[5000,9000],  rep:35 },
+  phoebe:          { fr:'Spectra',        en:'Phoebe',         sprite:'phoebe',            diff:6, reward:[5000,9000],  rep:35 },
+  glacia:          { fr:'Glacia',         en:'Glacia',         sprite:'glacia',            diff:6, reward:[5000,9000],  rep:35 },
+  drake:           { fr:'Drake',          en:'Drake',          sprite:'drake',             diff:7, reward:[6000,11000], rep:40 },
+  steven:          { fr:'Pierre',         en:'Steven',         sprite:'steven',            diff:8, reward:[8000,16000], rep:60 },
+  // Rival Hoenn
+  brendan:         { fr:'Alexis',         en:'Brendan',        sprite:'brendan',           diff:5, reward:[3000,7000],  rep:30 },
+  may:             { fr:'Flora',          en:'May',            sprite:'may',               diff:5, reward:[3000,7000],  rep:30 },
+
+  // ── Gen 4 / Sinnoh — archétypes exclusifs ──────────────────────────────────
+  pokekid:         { fr:'Kid Pokémon',    en:'Poké Kid',       sprite:'pokekid',           diff:1, reward:[10,30],    rep:1  },
+  aromalady:       { fr:'Dame Fleur',     en:'Aroma Lady',     sprite:'aromalady',         diff:2, reward:[30,80],    rep:3  },
+  veteran:         { fr:'Vétéran',        en:'Veteran',        sprite:'veteran',           diff:4, reward:[100,300],   rep:8  },
+  veteranf:        { fr:'Vétérante',      en:'Veteran♀',       sprite:'veteranf',          diff:4, reward:[100,300],   rep:8  },
+  skierGen4:       { fr:'Skieuse',        en:'Skier',          sprite:'skier',             diff:2, reward:[25,70],    rep:3  },
+  blackbeltGen4:   { fr:'Karatéka',       en:'Black Belt',     sprite:'blackbelt',         diff:3, reward:[40,110],   rep:5  },
+  // Gen 4 — variantes visuelles
+  acetrainerGen4:  { fr:'Topdresseur',   en:'Ace Trainer',    sprite:'acetrainer',        diff:3, reward:[70,200],   rep:7  },
+  acetrainerFGen4: { fr:'Topdresseuse',  en:'Ace Trainer♀',   sprite:'acetrainerf',       diff:3, reward:[70,200],   rep:7  },
+  hikerGen4:       { fr:'Montagnard',     en:'Hiker',          sprite:'hiker',             diff:2, reward:[30,85],    rep:3  },
+  swimmerGen4:     { fr:'Nageur',         en:'Swimmer',        sprite:'swimmer',           diff:2, reward:[30,85],    rep:3  },
+  swimmerFGen4:    { fr:'Nageuse',        en:'Swimmer♀',       sprite:'swimmerf',          diff:2, reward:[30,85],    rep:3  },
+  // Team Galactic
+  galacticgrunt:   { fr:'Sbire Galactic', en:'Galactic Grunt', sprite:'galacticgrunt',     diff:4, reward:[150,400],  rep:12 },
+  galacticgruntf:  { fr:'Sbire Galactic', en:'Galactic Grunt♀',sprite:'galacticgruntf',    diff:4, reward:[150,400],  rep:12 },
+  mars:            { fr:'Mars',           en:'Mars',           sprite:'mars',              diff:5, reward:[2500,5500], rep:22 },
+  jupiter:         { fr:'Jupiter',        en:'Jupiter',        sprite:'jupiter',           diff:5, reward:[2500,5500], rep:22 },
+  saturn:          { fr:'Saturne',        en:'Saturn',         sprite:'saturn',            diff:5, reward:[2500,5500], rep:22 },
+  cyrus:           { fr:'Cyrus',          en:'Cyrus',          sprite:'cyrus',             diff:7, reward:[5000,10000], rep:40 },
+  // Gym Leaders Sinnoh
+  roark:           { fr:'Pierrick',       en:'Roark',          sprite:'roark',             diff:3, reward:[1500,2800], rep:15 },
+  gardenia:        { fr:'Flo',            en:'Gardenia',       sprite:'gardenia',          diff:3, reward:[1800,3500], rep:16 },
+  maylene:         { fr:'Mélanie',        en:'Maylene',        sprite:'maylene',           diff:4, reward:[2200,4500], rep:18 },
+  crasherwake:     { fr:'Vague',          en:'Crasher Wake',   sprite:'crasher-wake',      diff:4, reward:[2500,5000], rep:20 },
+  fantina:         { fr:'Fantina',        en:'Fantina',        sprite:'fantina',           diff:5, reward:[3000,6000], rep:22 },
+  byron:           { fr:'Acier',          en:'Byron',          sprite:'byron',             diff:5, reward:[3500,7000], rep:24 },
+  candice:         { fr:'Gladys',         en:'Candice',        sprite:'candice',           diff:6, reward:[4000,8000], rep:28 },
+  volkner:         { fr:'Volt',           en:'Volkner',        sprite:'volkner',           diff:6, reward:[4500,9000], rep:30 },
+  // Elite Four & Champion Sinnoh
+  aaron:           { fr:'Aaron',          en:'Aaron',          sprite:'aaron',             diff:6, reward:[5000,9500],  rep:35 },
+  bertha:          { fr:'Bertha',         en:'Bertha',         sprite:'bertha',            diff:6, reward:[5000,9500],  rep:35 },
+  flint:           { fr:'Adrien',         en:'Flint',          sprite:'flint',             diff:7, reward:[6000,11000], rep:40 },
+  lucian:          { fr:'Lucain',         en:'Lucian',         sprite:'lucian',            diff:7, reward:[6000,11000], rep:40 },
+  cynthia:         { fr:'Cynthia',        en:'Cynthia',        sprite:'cynthia',           diff:8, reward:[9000,18000], rep:70 },
+  // Rival Sinnoh
+  barry:           { fr:'Régis',          en:'Barry',          sprite:'barry',             diff:5, reward:[3000,7000],  rep:30 },
 };
 
 export { TRAINER_TYPES };

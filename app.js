@@ -121,6 +121,8 @@ import './modules/ui/zoneWindows.js';
 import './modules/ui/gangBase.js';
 import './modules/ui/gangTab.js';
 import './modules/systems/johto.js';
+import './modules/systems/hoenn.js';
+import './modules/systems/sinnoh.js';
 import './modules/ui/pickers.js';
 import { configureIntro, openGiovanniIntro, openStarterGiftPopup } from './modules/ui/intro.js';
 import { checkDarkraiCutscene, triggerDarkraiOnLeagueVictory } from './modules/ui/darkraiEvent.js';
@@ -146,7 +148,7 @@ import { getDexDesc, buildSpeciesNameMaps } from './data/dex-helpers.js';
 import { BALLS, SHOP_ITEMS, MYSTERY_EGG_BASE_COST, MYSTERY_EGG_POOL, MYSTERY_EGG_HATCH_MS, POTENTIAL_MULT, BASE_PRICE, getMysteryEggCost as computeMysteryEggCost } from './data/economy-data.js';
 import { NATURES, NATURE_KEYS, BOSS_SPRITES, AGENT_NAMES_M, AGENT_NAMES_F, AGENT_SPRITES, AGENT_PERSONALITIES, TITLE_REQUIREMENTS, TITLE_BONUSES, AGENT_RANK_LABELS, RANK_CHAIN, SHOWCASE_SLOTS, MAX_BOSS_NAME_LENGTH, MAX_GANG_NAME_LENGTH, KANTO_DEX_MIN, KANTO_DEX_MAX, JOHTO_DEX_MIN, JOHTO_DEX_MAX, CHROMA_CHARM_COST } from './data/game-config-data.js';
 import { I18N } from './data/i18n-data.js';
-import { ZONE_BG_URL, GYM_ORDER, JOHTO_GYM_ORDER } from './data/zones-config-data.js';
+import { ZONE_BG_URL, GYM_ORDER, JOHTO_GYM_ORDER, HOENN_GYM_ORDER, SINNOH_GYM_ORDER } from './data/zones-config-data.js';
 import { HOURLY_QUEST_REROLL_COST, BOOST_DURATIONS, BALL_ASSIST_MIN_BALLS, BALL_ASSIST_DURATION_MS, PASSIVE_XP_PER_TICK, MAX_LOG_ENTRIES, DEFAULT_MUSIC_VOL, DEFAULT_UI_SCALE, DEFAULT_ZONE_SCALE, TICK_AGENT_MS, TICK_PASSIVE_AGENT_MS, TICK_MISSIONS_UI_MS, TICK_HOURLY_CHECK_MS, TICK_MARKET_DECAY_MS, TICK_VERSION_POLL_MS, TICK_VERSION_FIRST_MS, TICK_AUTO_SAVE_MS, TICK_CLOUD_SAVE_MS, TICK_SNAPSHOT_MS, TICK_LEADERBOARD_MS, TICK_TRAINING_MS, TICK_PENSION_MS, TICK_PASSIVE_XP_MS, TICK_ZONE_REFRESH_MS, TICK_DAILY_CHECK_MS, UPDATE_COUNTDOWN_S, DAILY_COUNTDOWN_S, JOHTO_UNLOCK_DELAY_MS } from './data/gameplay-config-data.js';
 import { SPECIAL_TRAINER_KEYS, MAX_COMBAT_REWARD } from './data/combat-config-data.js';
 import { FALLBACK_TRAINER_SVG, FALLBACK_POKEMON_SVG, BALL_SPRITES, ITEM_SPRITE_URLS, CHEST_SPRITE_URL, SHOWDOWN_SPRITE_BASE, SHOWDOWN_TRAINER_SPRITE_BASE, POKEOS_EGG_BASE_URL, LOGO_URL, LOGO_SMALL_URL, EGG_SPRITE_NB, EGG_SPRITES, CUSTOM_TRAINER_SPRITES } from './data/assets-data.js';
@@ -1910,6 +1912,16 @@ function activateJohtoRegion() { globalThis.activateJohtoRegion?.(); }
 function showJohtoUnlockModal() { globalThis.showJohtoUnlockModal?.(); }
 function checkJohtoUnlock()     { globalThis.checkJohtoUnlock?.(); }
 
+// ── Hoenn — extraite vers modules/systems/hoenn.js ───────────────────────────
+function activateHoennRegion()  { globalThis.activateHoennRegion?.(); }
+function showHoennUnlockModal() { globalThis.showHoennUnlockModal?.(); }
+function checkHoennUnlock()     { globalThis.checkHoennUnlock?.(); }
+
+// ── Sinnoh — extraite vers modules/systems/sinnoh.js ─────────────────────────
+function activateSinnohRegion()  { globalThis.activateSinnohRegion?.(); }
+function showSinnohUnlockModal() { globalThis.showSinnohUnlockModal?.(); }
+function checkSinnohUnlock()     { globalThis.checkSinnohUnlock?.(); }
+
 function startGameLoop() {
   // Guard: only start once — prevents interval accumulation on hot-reload
   if (_gameLoopStarted) return;
@@ -2174,7 +2186,9 @@ Object.assign(globalThis, {
   updateTopBar, tryAutoIncubate,
   renderMarketTab, renderMissionsTab, renderCosmeticsTab, renderBattleLogTab, renderLabTab,
   renderZonesTab, renderGangTab, renderAgentsTab, renderPokemonGrid, renderEggsView, renderGangBasePanel,
-  // activateJohtoRegion, showJohtoUnlockModal, checkJohtoUnlock — set by modules/systems/johto.js
+  // activateJohtoRegion, showJohtoUnlockModal, checkJohtoUnlock   — set by modules/systems/johto.js
+  // activateHoennRegion, showHoennUnlockModal, checkHoennUnlock   — set by modules/systems/hoenn.js
+  // activateSinnohRegion, showSinnohUnlockModal, checkSinnohUnlock — set by modules/systems/sinnoh.js
   renderGangCompetitionTab,
   // Audio
   SFX, MusicPlayer, JinglePlayer, MUSIC_TRACKS, playTone,
@@ -2208,7 +2222,7 @@ Object.assign(globalThis, {
   // Data constants
   POKEMON_GEN1, SPECIES_BY_EN, EVO_BY_SPECIES, POT_UPGRADE_COSTS,
   ZONES, ZONE_BY_ID, getBaseSpecies,
-  GYM_ORDER, JOHTO_GYM_ORDER,
+  GYM_ORDER, JOHTO_GYM_ORDER, HOENN_GYM_ORDER, SINNOH_GYM_ORDER,
   MISSIONS, HOURLY_QUEST_POOL, HOURLY_QUEST_REROLL_COST,
   BASE_PRICE, POTENTIAL_MULT, NATURES, NATURE_KEYS, BALLS, MYSTERY_EGG_POOL,
   MAX_COMBAT_REWARD, BALL_SPRITES, FALLBACK_TRAINER_SVG,
@@ -2703,8 +2717,10 @@ function boot() {
     });
   }
 
-  // Réactiver Johto si déjà débloqué (save existante)
-  if (state.purchases?.johtoUnlocked) activateJohtoRegion();
+  // Réactiver les régions si déjà débloquées (save existante)
+  if (state.purchases?.johtoUnlocked)  activateJohtoRegion();
+  if (state.purchases?.hoennUnlocked)  activateHoennRegion();
+  if (state.purchases?.sinnohUnlocked) activateSinnohRegion();
 
   // Configure intro module
   configureIntro({
@@ -2729,9 +2745,15 @@ function boot() {
   EventBus.on(EVENTS.UI_TOPBAR_UPDATE, ()                        => updateTopBar());
   EventBus.on(EVENTS.STATE_DIRTY,      ()                        => markDirty());
 
-  // Check if Johto offer should be presented at this session
+  // Check if region unlock offers should be presented at this session
   if (!state.purchases?.johtoUnlocked) {
     setTimeout(() => checkJohtoUnlock(), JOHTO_UNLOCK_DELAY_MS);
+  }
+  if (!state.purchases?.hoennUnlocked) {
+    setTimeout(() => checkHoennUnlock(), JOHTO_UNLOCK_DELAY_MS + 500);
+  }
+  if (!state.purchases?.sinnohUnlocked) {
+    setTimeout(() => checkSinnohUnlock(), JOHTO_UNLOCK_DELAY_MS + 1000);
   }
 
   // Catch-up starter gift: existing players who never saw the Giovanni intro

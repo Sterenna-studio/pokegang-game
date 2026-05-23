@@ -2861,6 +2861,8 @@
       padding: 5px 10px; border-bottom: 1px solid rgba(255,255,255,.04);
     }
     .gb2-inv-section-label { font-family: var(--font-pixel); font-size: 7px; color: var(--text-dim); letter-spacing: 1.5px; }
+    .gb2-inv-section-label.gold { color: var(--gold); }
+    .gb2-fronts-count { color: var(--text); }
     .gb2-boost-tabs { display: flex; gap: 2px; }
     .gb2-boost-tab { font-family: var(--font-pixel); font-size: 7px; padding: 1px 5px; border: 1px solid var(--border); color: var(--text-dim); transition: all .1s; cursor: pointer; background: transparent; }
     .gb2-boost-tab.active { background: rgba(204,51,51,.12); border-color: rgba(204,51,51,.45); color: var(--red); }
@@ -2880,6 +2882,8 @@
     .gb2-item-tile .locked img { filter: grayscale(1) brightness(.25); }
     .gb2-item-qty { font-family: var(--font-pixel); font-size: 6px; color: var(--text-dim); position: absolute; bottom: 2px; right: 2px; }
     .gb2-item-tile.active .gb2-item-qty { color: var(--red); }
+    .gb2-item-qty.on  { color: var(--green); }
+    .gb2-item-qty.off { color: var(--text-dim); opacity: .45; }
     .gb2-item-rem { font-family: var(--font-pixel); font-size: 6px; color: var(--green); position: absolute; top: 2px; right: 2px; }
 
     .gb2-inc-slot {
@@ -2889,7 +2893,8 @@
     }
     .gb2-inc-slot img { width: 24px; height: 24px; image-rendering: pixelated; }
     .gb2-inc-bar { width: 100%; height: 2px; background: rgba(255,255,255,.1); overflow: hidden; }
-    .gb2-inc-fill { height: 100%; transition: width .3s; }
+    .gb2-inc-fill { height: 100%; background: var(--gold); transition: width .3s; }
+    .gb2-inc-fill.done { background: var(--green); }
     .gb2-inc-time { font-family: var(--font-pixel); font-size: 6px; color: var(--text-dim); }
     .gb2-inc-slot.ready { border-color: rgba(68,187,85,.4); background: rgba(68,187,85,.06); }
     .gb2-inc-slot.ready .gb2-inc-time { color: var(--green); }
@@ -2931,6 +2936,8 @@
     .gb2-boss-team-card.empty { border-style: dashed; opacity: .4; justify-content: center; }
     .gb2-boss-team-card img { width: 40px; height: 40px; image-rendering: pixelated; }
     .gb2-btc-name { font-family: var(--font-pixel); font-size: 6px; color: var(--text); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
+    .gb2-btc-name.empty { color: var(--text-dim); opacity: .4; }
+    .gb2-btc-plus { font-size: 20px; opacity: .2; line-height: 1; }
     .gb2-btc-level { font-size: 7px; color: var(--gold-dim); text-align: center; }
     .gb2-btc-power { font-family: var(--font-pixel); font-size: 6px; color: var(--text-dim); text-align: center; }
 

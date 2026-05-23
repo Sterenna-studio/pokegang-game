@@ -68,4 +68,10 @@ const GYM_ORDER = ['pewter_gym','cerulean_gym','celadon_gym','fuchsia_gym','saff
 // Sequential gym unlock order — Johto
 const JOHTO_GYM_ORDER = ['violet_gym','azalea_gym','goldenrod_gym','ecruteak_gym','cianwood_gym','olivine_gym','mahogany_gym','blackthorn_gym','indigo_johto'];
 
-export { ZONE_BG_URL, GYM_ORDER, JOHTO_GYM_ORDER };
+// Sequential gym unlock order — Hoenn
+const HOENN_GYM_ORDER = ['rustboro_gym','dewford_gym','mauville_gym','lavaridge_gym','petalburg_gym','fortree_gym','mossdeep_gym','sootopolis_gym','ever_grande_hoenn'];
+
+// Sequential gym unlock order — Sinnoh
+const SINNOH_GYM_ORDER = ['oreburgh_gym','eterna_gym','veilstone_gym','pastoria_gym','hearthome_gym','canalave_gym','snowpoint_gym','sunyshore_gym','pokemon_league_sinnoh'];
+
+export { ZONE_BG_URL, GYM_ORDER, JOHTO_GYM_ORDER, HOENN_GYM_ORDER, SINNOH_GYM_ORDER };

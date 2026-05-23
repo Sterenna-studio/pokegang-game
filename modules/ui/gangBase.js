@@ -33,6 +33,12 @@ const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
 const _topBar = ()               => EventBus.emit(EVENTS.UI_TOPBAR_UPDATE);
 const _save   = ()               => globalThis.saveState?.();
 
+// ── Sprite helpers — wrappers lazy (résolus à l'appel, pas au chargement du module) ───
+const pokeSprite    = (...a) => globalThis.pokeSprite?.(...a)    ?? '';
+const trainerSprite = (...a) => globalThis.trainerSprite?.(...a) ?? '';
+const speciesName   = (...a) => globalThis.speciesName?.(...a)   ?? a[0] ?? '';
+const itemSprite    = (...a) => globalThis.itemSprite?.(...a)     ?? '';
+
 
 /* globals ZONES, ZONE_BY_ID, SPECIES_BY_EN */
 
@@ -359,8 +365,6 @@ function _patchGangBaseV1(win, state) {
     // 5. Boss team slots — re-render local de cette petite section
     const teamRow = win.querySelector('.base-team-slots');
     if (teamRow) {
-      const pokeSprite  = globalThis.pokeSprite;
-      const speciesName = globalThis.speciesName;
       const html = Array.from({ length: BOSS_TEAM_SLOTS }, (_, i) => {
         const pkId = state.gang.bossTeam[i];
         const pk = pkId ? state.pokemons.find(p => p.id === pkId) : null;
@@ -411,10 +415,6 @@ function renderGangBasePanelForce() {
 
 function renderGangBaseWindow() {
   const state = globalThis.state;
-  const pokeSprite    = globalThis.pokeSprite;
-  const trainerSprite = globalThis.trainerSprite;
-  const speciesName   = globalThis.speciesName;
-  const itemSprite    = globalThis.itemSprite;
   const isBoostActive = globalThis.isBoostActive;
   const boostRemaining= globalThis.boostRemaining;
   const getPokemonPower = globalThis.getPokemonPower;
@@ -636,10 +636,6 @@ function renderGangBaseWindow() {
 
 function renderGangBaseWindowV2() {
   const state         = globalThis.state;
-  const pokeSprite    = globalThis.pokeSprite;
-  const trainerSprite = globalThis.trainerSprite;
-  const speciesName   = globalThis.speciesName;
-  const itemSprite    = globalThis.itemSprite;
   const isBoostActive = globalThis.isBoostActive;
   const boostRemaining= globalThis.boostRemaining;
   const getPokemonPower = globalThis.getPokemonPower;
@@ -716,7 +712,7 @@ function renderGangBaseWindowV2() {
     const owned    = qty > 0;
     const remStr   = isBoosted ? `<span class="gb2-item-rem">${Math.ceil(boostRemaining?.(id) || 0)}s</span>` : '';
     const qtyBadge = isKey
-      ? `<span class="gb2-item-qty" style="color:${owned ? 'var(--green)' : 'var(--text-dim)'}">${owned ? '✓' : '✗'}</span>`
+      ? `<span class="gb2-item-qty ${owned ? 'on' : 'off'}">${owned ? '✓' : '✗'}</span>`
       : `<span class="gb2-item-qty">${qty > 99 ? '99+' : qty > 0 ? '×'+qty : '0'}</span>`;
     const lockCls  = isKey && !owned ? ' locked-key' : '';
     const spriteCls = !owned && !isKey ? ' locked' : '';
@@ -749,7 +745,7 @@ function renderGangBaseWindowV2() {
         const eggSrc = globalThis.eggSprite?.(egg, isReady) || '';
         incSlotsHtml += `<div class="gb2-inc-slot ${isReady ? 'ready' : 'active'}" data-egg-id="${egg.id}">
           <img src="${eggSrc}" alt="">
-          <div class="gb2-inc-bar"><div class="gb2-inc-fill" style="width:${isReady?100:progress}%;background:${isReady?'var(--green)':'var(--gold)'}"></div></div>
+          <div class="gb2-inc-bar"><div class="gb2-inc-fill${isReady?' done':''}" style="width:${isReady?100:progress}%"></div></div>
           <span class="gb2-inc-time">${isReady ? '!' : tlm !== null ? tlm+'m' : ''}</span>
         </div>`;
       } else {
@@ -855,7 +851,7 @@ function renderGangBaseWindowV2() {
           <div class="gb2-boss-main">
             <div class="gb2-boss-sprite-wrap">
               ${state.gang.bossSprite
-                ? `<img src="${trainerSprite(state.gang.bossSprite)}" class="gb2-boss-sprite-img" alt="Boss">`
+                ? `<img src="${trainerSprite(state.gang.bossSprite)}" class="gb2-boss-sprite-img" alt="Boss" onerror="this.src='${FALLBACK_TRAINER_SVG}';this.onerror=null">`
                 : `<div class="gb2-boss-placeholder">?</div>`}
               ${bossPatches}
             </div>
@@ -890,7 +886,7 @@ function renderGangBaseWindowV2() {
         </div>
         <div class="gb2-zone-list-wrap">
           <div class="gb2-zone-list-head">
-            <span>Fronts <strong style="color:var(--text)">${unlockedZones.length}</strong></span>
+            <span>Fronts <strong class="gb2-fronts-count">${unlockedZones.length}</strong></span>
           </div>
           <div>${zoneListHtml}</div>
         </div>
@@ -910,7 +906,7 @@ function renderGangBaseWindowV2() {
           <div class="gb2-inv-block">
             <div class="gb2-inv-block-head">
               <span class="gb2-inv-section-label">Équipe du boss</span>
-              <span class="gb2-inv-section-label" style="color:var(--text-dim)">${state.gang.bossTeam.filter(Boolean).length}/${BOSS_TEAM_SLOTS}</span>
+              <span class="gb2-inv-section-label">${state.gang.bossTeam.filter(Boolean).length}/${BOSS_TEAM_SLOTS}</span>
             </div>
             <div class="gb2-team-center">
               ${Array.from({length: BOSS_TEAM_SLOTS}, (_, i) => {
@@ -927,8 +923,8 @@ function renderGangBaseWindowV2() {
                   </div>`;
                 }
                 return `<div class="gb2-boss-team-card empty" data-boss-slot="${i}">
-                  <span style="font-size:20px;opacity:.2">+</span>
-                  <div class="gb2-btc-name" style="opacity:.4">Slot ${i+1}</div>
+                  <span class="gb2-btc-plus">+</span>
+                  <div class="gb2-btc-name empty">Slot ${i+1}</div>
                 </div>`;
               }).join('')}
             </div>
@@ -947,14 +943,14 @@ function renderGangBaseWindowV2() {
           <div class="gb2-inv-block">
             <div class="gb2-inv-block-head">
               <span class="gb2-inv-section-label">Balls & Objets</span>
-              <span class="gb2-inv-section-label" style="color:var(--text-dim)">Active : ${state.activeBall || 'pokeball'}</span>
+              <span class="gb2-inv-section-label">Active : ${state.activeBall || 'pokeball'}</span>
             </div>
             <div class="gb2-inv-row">${ballsHtml}${craftHtml}${keysHtml}</div>
           </div>
           ${incCount > 0 ? `<div class="gb2-inv-block" data-base-action="pension">
             <div class="gb2-inv-block-head">
               <span class="gb2-inv-section-label">Incubateurs</span>
-              ${waitingEggs.length > 0 ? `<span class="gb2-inv-section-label" style="color:var(--gold)">+${waitingEggs.length} en attente</span>` : ''}
+              ${waitingEggs.length > 0 ? `<span class="gb2-inv-section-label gold">+${waitingEggs.length} en attente</span>` : ''}
             </div>
             <div class="gb2-inv-row">${incSlotsHtml}</div>
           </div>` : ''}
@@ -1338,9 +1334,6 @@ function openCodexModal() {
   const BASE_PRICE    = globalThis.BASE_PRICE;
   const POTENTIAL_MULT= globalThis.POTENTIAL_MULT;
   const ZONE_BGS      = globalThis.ZONE_BGS;
-  const pokeSprite    = globalThis.pokeSprite;
-  const trainerSprite = globalThis.trainerSprite;
-
   const RARITY_ORDER = ['common','uncommon','rare','very_rare','legendary'];
   const RARITY_FR = { common:'Commun', uncommon:'Peu commun', rare:'Rare', very_rare:'Très rare', legendary:'Légendaire' };
   const RARITY_COLOR = { common:'#aaa', uncommon:'#5be06c', rare:'#5b9be0', very_rare:'#c05be0', legendary:'#ffcc5a' };
@@ -1634,9 +1627,6 @@ function _exportAsPDF(opts) {
 
 function buildExportCard(opts = {}) {
   const state           = globalThis.state;
-  const pokeSprite      = globalThis.pokeSprite;
-  const trainerSprite   = globalThis.trainerSprite;
-  const speciesName     = globalThis.speciesName;
   const calculateStats  = globalThis.calculateStats;
   const calculatePrice  = globalThis.calculatePrice;
   const pokemonDisplayName = globalThis.pokemonDisplayName;
