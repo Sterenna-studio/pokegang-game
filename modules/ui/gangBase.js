@@ -516,9 +516,6 @@ function renderGangBaseWindow() {
   const focusMeta = _baseZoneStatus(focusZone, state, focusState, focusAgents.length);
   const isFocusOpen = !!(focusZone && globalThis.openZones?.has(focusZone.id));
   const bossTitle = globalThis.getBossFullTitle?.() || globalThis.getTitleLabel?.(state.gang.title) || 'Boss';
-  const zoneDesc = focusZone
-    ? (state.lang === 'fr' ? (focusZone.desc_fr || focusZone.desc || focusZone.en) : (focusZone.desc_en || focusZone.desc || focusZone.fr))
-    : 'Ouvrez une zone pour lancer les operations du gang.';
   const bossPatches = (() => {
     const pids = state.cosmetics?.activePatches || [];
     const patchUrlFn = globalThis.patchUrl;
@@ -528,6 +525,26 @@ function renderGangBaseWindow() {
       `<img src="${patchUrlFn(pid)}" class="base-boss-patch" style="${positions[i]}" onerror="this.style.display='none'" alt="">`
     ).join('');
   })();
+
+  // Encart localisation boss
+  const focusTypeLabel = BASE_ZONE_TYPE_FR[focusZone?.type] || focusZone?.type || '—';
+  const locStatusClass = isFocusOpen ? 'open' : focusAgents.length ? 'held' : 'idle';
+  const locAgentLine   = focusAgents.length
+    ? `${focusAgents.length} agent${focusAgents.length > 1 ? 's' : ''}`
+    : 'Aucun agent';
+  const locationHtml = focusZone
+    ? `<div class="base-boss-location">
+        <span class="base-loc-pin">📍</span>
+        <div class="base-loc-main">
+          <span class="base-loc-name">${focusName}</span>
+          <span class="base-loc-meta">${focusTypeLabel} · ${locAgentLine}</span>
+        </div>
+        <span class="base-loc-status ${locStatusClass}">${focusMeta.stateLabel}</span>
+      </div>`
+    : `<div class="base-boss-location idle">
+        <span class="base-loc-pin">📍</span>
+        <span class="base-loc-name" style="color:var(--text-dim);font-size:9px">Ouvrez une zone pour lancer les operations</span>
+      </div>`;
 
   const territoryCards = [
     ['Possession', `${focusMeta.possession}%`, 'base-possession', `${Math.max(4, focusMeta.possession)}%`],
@@ -558,7 +575,7 @@ function renderGangBaseWindow() {
 
     <div class="base-command-shell">
       <section class="base-command-main">
-        <!-- Boss stage compact : sprite + nom/zone | équipe pleine largeur -->
+        <!-- Boss stage compact : sprite + nom/titre | localisation | équipe pleine largeur -->
         <div class="base-boss-stage base-boss-stage-compact">
           <div class="base-boss-header">
             <div class="base-boss-frame">
@@ -569,9 +586,10 @@ function renderGangBaseWindow() {
             </div>
             <div class="base-boss-info">
               <div class="base-boss-name">${state.gang.bossName}</div>
-              <div class="base-boss-zone"><span class="base-zone-tag">${focusName}</span> · ${zoneDesc}</div>
+              <div class="base-boss-title-line">${bossTitle}</div>
             </div>
           </div>
+          ${locationHtml}
           <div class="base-team-slots">${bossTeamHtml}</div>
         </div>
 
