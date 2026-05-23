@@ -20,7 +20,7 @@
 //  ES module imports:
 //    TRAINER_TYPES (from data/trainers-data.js)
 //  ES module globals (exposed on globalThis by app.js):
-//    GYM_ORDER, JOHTO_GYM_ORDER
+//    GYM_ORDER, JOHTO_GYM_ORDER, HOENN_GYM_ORDER, SINNOH_GYM_ORDER
 // ════════════════════════════════════════════════════════════════
 
 import { TRAINER_TYPES } from '../../data/trainers-data.js';
@@ -163,18 +163,22 @@ function isZoneUnlocked(zoneId) {
   if (zone.unlockItem && !state.purchases?.[zone.unlockItem]) return false;
   // Cities (gyms) require sequential unlock: previous city must be defeated
   if (zone.type === 'city') {
-    const johtoIdx = globalThis.JOHTO_GYM_ORDER?.indexOf(zoneId) ?? -1;
-    if (johtoIdx >= 0) {
-      if (johtoIdx > 0) {
-        const prevId = globalThis.JOHTO_GYM_ORDER[johtoIdx - 1];
-        if (!state.zones[prevId]?.gymDefeated) return false;
-      }
-    } else {
-      const idx = globalThis.GYM_ORDER.indexOf(zoneId);
+    // Check all region gym orders — first match wins
+    const allOrders = [
+      globalThis.SINNOH_GYM_ORDER,
+      globalThis.HOENN_GYM_ORDER,
+      globalThis.JOHTO_GYM_ORDER,
+      globalThis.GYM_ORDER,
+    ];
+    for (const order of allOrders) {
+      if (!order) continue;
+      const idx = order.indexOf(zoneId);
+      if (idx < 0) continue;
       if (idx > 0) {
-        const prevId = globalThis.GYM_ORDER[idx - 1];
+        const prevId = order[idx - 1];
         if (!state.zones[prevId]?.gymDefeated) return false;
       }
+      break; // found in this order, stop
     }
   }
   return true;
@@ -951,20 +955,23 @@ function checkForNewlyUnlockedZones(prevRep) {
   const newZones = ZONES.filter(z => {
     if (!z.rep || z.rep === 0) return false;
     if (z.unlockItem && !state.purchases?.[z.unlockItem]) return false;
-    // Cities require previous city to be defeated (Kanto or Johto order)
+    // Cities require previous city to be defeated (any region gym order)
     if (z.type === 'city') {
-      const johtoIdx = globalThis.JOHTO_GYM_ORDER?.indexOf(z.id) ?? -1;
-      if (johtoIdx >= 0) {
-        if (johtoIdx > 0) {
-          const prevId = globalThis.JOHTO_GYM_ORDER[johtoIdx - 1];
-          if (!state.zones[prevId]?.gymDefeated) return false;
-        }
-      } else {
-        const idx = globalThis.GYM_ORDER.indexOf(z.id);
+      const allOrders = [
+        globalThis.SINNOH_GYM_ORDER,
+        globalThis.HOENN_GYM_ORDER,
+        globalThis.JOHTO_GYM_ORDER,
+        globalThis.GYM_ORDER,
+      ];
+      for (const order of allOrders) {
+        if (!order) continue;
+        const idx = order.indexOf(z.id);
+        if (idx < 0) continue;
         if (idx > 0) {
-          const prevId = globalThis.GYM_ORDER[idx - 1];
+          const prevId = order[idx - 1];
           if (!state.zones[prevId]?.gymDefeated) return false;
         }
+        break;
       }
     }
     return prevRep < z.rep && state.gang.reputation >= z.rep;

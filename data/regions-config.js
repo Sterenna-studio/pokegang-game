@@ -176,10 +176,8 @@ const REGIONS_CONFIG = [
     },
 
     defaultMusic: 'sea',
-    startZoneId:  null, // à définir quand zones-hoenn-data.js existera
+    startZoneId:  'route101',
     color: '#44aa77',
-
-    _todo: 'zones-hoenn-data.js à créer',
   },
 
   // ══ SINNOH (futur) ═══════════════════════════════════════════════
@@ -214,10 +212,8 @@ const REGIONS_CONFIG = [
     },
 
     defaultMusic: 'cave',
-    startZoneId:  null,
+    startZoneId:  'route201_202',
     color: '#9966cc',
-
-    _todo: 'zones-sinnoh-data.js à créer',
   },
 ];
 
