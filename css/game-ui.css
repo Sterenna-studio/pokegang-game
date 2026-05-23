@@ -2884,6 +2884,9 @@
     .gb2-item-tile.active .gb2-item-qty { color: var(--red); }
     .gb2-item-qty.on  { color: var(--green); }
     .gb2-item-qty.off { color: var(--text-dim); opacity: .45; }
+
+    /* Radio buttons or-coloured (sprite mode selector dans gangBase) */
+    .gb-radio-gold { accent-color: var(--gold); cursor: pointer; }
     .gb2-item-rem { font-family: var(--font-pixel); font-size: 6px; color: var(--green); position: absolute; top: 2px; right: 2px; }
 
     .gb2-inc-slot {

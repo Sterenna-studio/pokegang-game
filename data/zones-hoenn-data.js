@@ -158,7 +158,7 @@ const ZONES_HOENN = [
     poolRare:     ['banette','mightyena','shiftry'],
     poolVeryRare: ['absol'],
     poolLegendary:[],
-    trainers:['acetrainerGen3','acetrainerFGen3','ruinmaniac'],
+    trainers:['acetrainerGen3','acetrainerFGen3','ruinmaniac','dragontamer','may'],
     eliteTrainer:'juan' },
 
   { id:'safari_hoenn', fr:'Zone Safari Hoenn', en:'Hoenn Safari Zone', rep:3000, spawnRate:0.08, type:'special',
@@ -188,7 +188,7 @@ const ZONES_HOENN = [
     poolRare:     ['salamence','flygon','gardevoir'],
     poolVeryRare: ['dragonite'],
     poolLegendary:['rayquaza'],
-    trainers:['acetrainerGen3','acetrainerFGen3','ruinmaniac'],
+    trainers:['acetrainerGen3','acetrainerFGen3','ruinmaniac','dragontamer'],
     eliteTrainer:'steven' },
 
 
@@ -263,7 +263,7 @@ const ZONES_HOENN = [
     poolRare:     ['gardevoir','xatu','claydol'],
     poolVeryRare: ['metagross'],
     poolLegendary:[],
-    trainers:['acetrainerGen3','acetrainerFGen3','ruinmaniac'],
+    trainers:['acetrainerGen3','acetrainerFGen3','ruinmaniac','liza'],
     eliteTrainer:'tate', gymLeader:'tate', gymType:'psychic', xpBonus:2.5 },
 
   { id:'sootopolis_gym', fr:'Blanche-Fontaine', en:'Sootopolis City', rep:3350, spawnRate:0.06, type:'city',
@@ -284,7 +284,7 @@ const ZONES_HOENN = [
     poolRare:     ['absol','bagon'],
     poolVeryRare: [],
     poolLegendary:[],
-    trainers:['acetrainerGen3','acetrainerFGen3','veteran','veteranf'],
+    trainers:['acetrainerGen3','acetrainerFGen3','veteran','veteranf','sidney','glacia'],
     eliteTrainer:'steven', gymLeader:'steven', gymType:'mixed', xpBonus:3.5 },
 
 
@@ -300,7 +300,7 @@ const ZONES_HOENN = [
     poolRare:     ['cameruptite','torkoal'],
     poolVeryRare: [],
     poolLegendary:[],
-    trainers:['magmagrunt','magmagruntf','tabitha'],
+    trainers:['magmagrunt','magmagruntf','tabitha','courtney'],
     eliteTrainer:'maxie' },
 
   { id:'team_aqua_hideout', fr:'QG Team Aqua', en:'Team Aqua Hideout', rep:2900, spawnRate:0.05, type:'special',
@@ -311,7 +311,7 @@ const ZONES_HOENN = [
     poolRare:     ['walrein','sharpedo'],
     poolVeryRare: [],
     poolLegendary:[],
-    trainers:['aquagrunt','aquagruntf','matt'],
+    trainers:['aquagrunt','aquagruntf','matt','shelly'],
     eliteTrainer:'archie' },
 
   { id:'cave_of_origin', fr:'Caverne Mystérieuse', en:'Cave of Origin', rep:3300, spawnRate:0.04, type:'special',

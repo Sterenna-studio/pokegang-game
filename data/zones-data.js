@@ -63,7 +63,7 @@ const ZONES = [
     gymLeader:'erika', gymType:'grass', xpBonus:1.8 },
   { id:'fuchsia_gym',   fr:'Parmanie',          en:'Fuchsia City',      rep:650, spawnRate:0.06, type:'city',
     pool:['venonat','venomoth','koffing','weezing','scyther','pinsir','tauros'],
-    trainers:['juggler','psychic','acetrainer'], eliteTrainer:'koga', investCost:12000,
+    trainers:['juggler','psychic','acetrainer','janine'], eliteTrainer:'koga', investCost:12000,
     gymLeader:'koga', gymType:'poison', xpBonus:2.0 },
   { id:'saffron_gym',   fr:'Safrania',          en:'Saffron City',      rep:800, spawnRate:0.06, type:'city',
     pool:['abra','kadabra','alakazam','mr-mime','jynx','hypno','porygon','hitmonlee','hitmonchan'],

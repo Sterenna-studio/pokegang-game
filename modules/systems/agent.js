@@ -227,6 +227,8 @@ function _autoSellCaptured(pokemon) {
   state.gang.money += price;
   state.stats.totalSold++;
   state.stats.totalMoneyEarned += price;
+  EventBus.emit(EVENTS.MONEY_CHANGED, { delta: price, newTotal: state.gang.money });
+  EventBus.emit(EVENTS.POKEMON_SOLD, { pokemonIds: [pokemon.id], totalPrice: price });
   if (!state.stats.mostExpensiveSold || price > (state.stats.mostExpensiveSold.price || 0)) {
     state.stats.mostExpensiveSold = { name: globalThis.speciesName(pokemon.species_en), price };
   }
@@ -541,6 +543,7 @@ function resolveBackgroundSpawnForZone(zoneId) {
 
     state.inventory.pokeball--;
     state.pokemons.push(pokemon); _dirty();
+    EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon, zoneId: state.zoneFocus, agentId: capturer?.id });
     state.stats.totalCaught++;
     capturer.captureCount = (capturer.captureCount || 0) + 1;
     // XP de zone v2

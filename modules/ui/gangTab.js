@@ -4,6 +4,7 @@ import { SHOWCASE_SLOTS, BOSS_TEAM_SLOTS } from '../../data/game-config-data.js'
 import { BALL_SPRITES } from '../../data/assets-data.js';
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
+import { esc as _esc } from '../core/escape.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
 const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
@@ -823,7 +824,7 @@ function _doRenderGangTab() {
         </div>
         <div style="flex:1;min-width:0">
           <div style="font-family:var(--font-pixel);font-size:15px;color:var(--red);line-height:1.3">${g.name}</div>
-          <div style="font-size:11px;color:var(--text-dim);margin-top:2px">Boss : <span style="color:var(--text)">${g.bossName}</span></div>
+          <div style="font-size:11px;color:var(--text-dim);margin-top:2px">Boss : <span style="color:var(--text)">${_esc(g.bossName)}</span></div>
           <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold-dim);margin-top:2px;letter-spacing:.5px">${globalThis.getBossFullTitle?.() || ''}</div>
           ${(() => {
             const tC = globalThis.getTitleLabel?.(g.titleC);

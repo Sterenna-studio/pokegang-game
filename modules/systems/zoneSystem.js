@@ -552,6 +552,7 @@ function rollChestLoot(zoneId, passive = false) {
           pokemon.potential = Math.max(pokemon.potential, 3); // guaranteed 3+ stars
           pokemon.stats = globalThis.calculateStats(pokemon);
           state.pokemons.push(pokemon); _dirty();
+          EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon, zoneId });
           state.stats.totalCaught++;
           if (!state.pokedex[pokemon.species_en]) {
             state.pokedex[pokemon.species_en] = { seen: true, caught: true, shiny: pokemon.shiny, count: 1 };
@@ -622,7 +623,11 @@ function activateEvent(zoneId, event) {
     const amount = globalThis.randInt(reward.money[0], reward.money[1]);
     state.gang.money += amount;
     state.stats.totalMoneyEarned += amount;
-    if (reward.rep) state.gang.reputation += reward.rep;
+    EventBus.emit(EVENTS.MONEY_CHANGED, { delta: amount, newTotal: state.gang.money });
+    if (reward.rep) {
+      state.gang.reputation += reward.rep;
+      EventBus.emit(EVENTS.REP_CHANGED, { delta: reward.rep, newTotal: state.gang.reputation });
+    }
     parts.push(`+${amount.toLocaleString()}₽`);
   }
   if (reward.xpBonus) {
@@ -646,6 +651,7 @@ function activateEvent(zoneId, event) {
         p.level = Math.max(p.level, 20);
         p.stats = globalThis.calculateStats(p);
         state.pokemons.push(p); _dirty();
+        EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: p, zoneId });
         parts.push(`${globalThis.speciesName(reward.pokemonGift)} rejoint le gang !`);
       }
     }
@@ -736,6 +742,7 @@ function tryCapture(zoneId, speciesEN, bonusPotential = 0, spawnCtx = {}) {
   if (!pokemon) return null;
   if (bonusPotential > 0) pokemon.potential = Math.min(5, pokemon.potential + bonusPotential);
   state.pokemons.push(pokemon); _dirty();
+  EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon, zoneId });
   state.stats.totalCaught++;
   globalThis.checkPlayerStatPoints?.();
   // Behavioural log — première capture
@@ -876,6 +883,7 @@ function applyCombatResult(result, playerTeamIds, trainerData) {
     if (result.repGain > 0) {
       const prevRep = state.gang.reputation;
       state.gang.reputation += result.repGain;
+      EventBus.emit(EVENTS.REP_CHANGED, { delta: result.repGain, newTotal: state.gang.reputation });
       checkForNewlyUnlockedZones(prevRep);
     }
     // Ball drops for regular trainer battles — toujours des Poké Balls (ressource unique)

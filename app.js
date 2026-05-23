@@ -486,6 +486,22 @@ function sanitizeSpriteName(en) {
   return en.replace(/[^a-z0-9]/g, '');
 }
 
+// ── HTML escape — pour sécuriser toutes les valeurs user-input injectées
+//    via innerHTML (bossName, gang.name, agent names, etc.). Préviens les
+//    injections type <img onerror=...> stockées dans le state puis exposées
+//    via le cloud Supabase aux autres joueurs (gangCompetition).
+function escapeHtml(str) {
+  if (str == null) return '';
+  const s = String(str);
+  return s.replace(/[&<>"']/g, ch => (
+    ch === '&' ? '&amp;' :
+    ch === '<' ? '&lt;'  :
+    ch === '>' ? '&gt;'  :
+    ch === '"' ? '&quot;':
+                 '&#39;'
+  ));
+}
+
 // ── Pokémon sprite resolution ────────────────────────────────────────────────
 // Variants disponibles (depuis pokemon-sprites-kanto.json) :
 //   'main'         → FireRed/LeafGreen (défaut)
@@ -903,6 +919,25 @@ function _processZoneUnlockQueue()            { return globalThis._zsys_processZ
 // ════════════════════════════════════════════════════════════════
 // 11.  UI — NOTIFICATIONS
 // ════════════════════════════════════════════════════════════════
+
+// ── Economy mutation helpers ─────────────────────────────────────────────────
+// Préférer addMoney/addReputation aux mutations directes :
+//   state.gang.money += delta  ←  ❌ legacy
+//   addMoney(delta)            ←  ✅ émet EVENTS.MONEY_CHANGED + markDirty
+// Les modules réactifs (achievements, missions, audio) peuvent s'abonner.
+function addMoney(delta) {
+  if (!delta) return;
+  state.gang.money = Math.max(0, (state.gang.money || 0) + delta);
+  EventBus.emit(EVENTS.MONEY_CHANGED, { delta, newTotal: state.gang.money });
+  EventBus.emit(EVENTS.STATE_DIRTY);
+}
+function addReputation(delta) {
+  if (!delta) return;
+  state.gang.reputation = Math.max(0, (state.gang.reputation || 0) + delta);
+  EventBus.emit(EVENTS.REP_CHANGED, { delta, newTotal: state.gang.reputation });
+  EventBus.emit(EVENTS.STATE_DIRTY);
+}
+Object.assign(globalThis, { addMoney, addReputation });
 
 function notify(msg, type = '') {
   if (type === 'gold') SFX.play('notify');
@@ -2046,7 +2081,10 @@ let _dailyReloadLastHour = -1;   // prevents double-trigger in same minute
 let _dailyCountdownActive = false;
 
 function startDailyReloadSchedule() {
-  setInterval(_checkDailyReload, TICK_DAILY_CHECK_MS);
+  // Enregistré dans le Scheduler central — `skipWhenHidden:false` car le
+  // check doit tourner même onglet en background (pour proposer le reload
+  // à heure fixe au retour).
+  Scheduler.register('dailyReload', _checkDailyReload, TICK_DAILY_CHECK_MS, { skipWhenHidden: false });
 }
 
 function _checkDailyReload() {
@@ -2249,7 +2287,7 @@ Object.assign(globalThis, {
   updateZoneButtons: _updateZoneButtons,
   // gangBase module — helpers needed by modules/ui/gangBase.js
   // openTeamPicker, openAssignToPicker, openRareCandyPicker — set by modules/ui/pickers.js
-  pokemonDisplayName, sanitizeSpriteName,
+  pokemonDisplayName, sanitizeSpriteName, escapeHtml,
   getDexKantoCaught, getDexJohtoCaught, getDexNationalCaught, getShinySpeciesCount,
   // getBossFullTitle, getTitleLabel → set by modules/systems/titles.js
   KANTO_DEX_SIZE, JOHTO_DEX_SIZE, NATIONAL_DEX_SIZE, COSMETIC_BGS,

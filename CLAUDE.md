@@ -63,7 +63,7 @@ Extracted modules in `modules/` and `modules/systems/` read from `globalThis.*` 
 
 ### State
 
-Single mutable `state` object, plain JS. Shape defined in `app.js` as `DEFAULT_STATE` (also in `state/defaultState.js` for the refactored store — both exist in parallel during the ongoing refactor).
+Single mutable `state` object, plain JS. Shape définie dans **`state/defaultState.js`** (importée par `app.js`). Le `store` réactif de `state/store.js` est instancié au boot (`_createStoreInstance()`) et utilisé pour `load()`/`save()`/migrations — mais les mutations courantes restent directes sur l'objet `state` (pas encore de reactive subscriptions complètes).
 
 ```js
 state.gang        // boss, money, reputation, titles, showcase
@@ -83,7 +83,7 @@ Cloud backup via Supabase (optional). Throttled to 1 save/30s. Uses a custom ree
 
 ### Game loop
 
-`startGameLoop()` wires all intervals:
+`startGameLoop()` enregistre toutes les tâches périodiques dans le **TickManager** (`modules/core/tickManager.js`) — un Scheduler central qui gère un seul tick global et applique `skipWhenHidden` pour économiser le CPU quand l'onglet est en background :
 
 | Interval | What |
 |---|---|
@@ -177,7 +177,7 @@ Isolated in `data/` — edit there, not in `app.js`:
 
 ## Key conventions
 
-**Adding a new field to state**: add it in `DEFAULT_STATE` in `app.js` AND in `state/defaultState.js`, then add a migration guard in `migrate()` in `app.js` (and `state/migrateSave.js`) so existing saves don't break.
+**Adding a new field to state**: add it in `DEFAULT_STATE` dans `state/defaultState.js` (seule source de vérité), puis ajouter une garde de migration dans `state/migrateSave.js` pour préserver les saves existantes.
 
 **Adding a new function accessed by modules**: assign it to `globalThis` after definition in `app.js`:
 ```js
@@ -198,7 +198,7 @@ The codebase is mid-refactor. The target architecture extracts systems from `app
 
 - `modules/systems/` — agent, market, missions, llm, trainingRoom, pension, sessionObjectives
 - `modules/ui/zoneSelector.js` — zone fogmap UI
-- `state/` — store.js, defaultState.js, migrateSave.js, serialization.js (not yet wired to main app.js)
+- `state/` — store.js, defaultState.js, migrateSave.js, serialization.js (✅ wiré dans app.js via `_createStoreInstance()` au boot)
 - `data/` — constants extracted from app.js (all done)
 
 When touching a system that has both an `app.js` implementation and a `modules/` counterpart, check both. Stub functions in `app.js` delegate to the module (`function renderZoneSelector() { _zsRenderSelector(); }`).
