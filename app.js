@@ -663,6 +663,15 @@ function _buildTrainerIndex(data) {
       }
     }
   }
+  // Rafraîchir les images boss de la page de connexion (rendues AVANT le chargement
+  // du JSON trainer-sprites-grouped). Sans ça les sprites tombent sur l'URL Showdown
+  // directe qui peut 404 selon la casse, et le fallback affiche la silhouette SVG.
+  document.querySelectorAll('img.isc-boss-img[data-boss-key]').forEach(img => {
+    const key = img.getAttribute('data-boss-key');
+    if (!key) return;
+    const url = trainerSprite(key);
+    if (url && url !== img.src) img.src = url;
+  });
 }
 
 function trainerSprite(name) {
@@ -1752,7 +1761,9 @@ function showIntro() {
           <div class="isc-left">
             <div class="isc-slot-label">SLOT ${i+1}</div>
             <div class="isc-boss-wrap">
-              ${preview.bossSprite ? `<img src="${trainerSprite(preview.bossSprite)}" style="width:52px;height:52px;image-rendering:pixelated" onerror="this.style.display='none'">` : '<div style="width:52px;height:52px;background:var(--bg);border-radius:4px;opacity:.3"></div>'}
+              ${preview.bossSprite
+                ? `<img src="${trainerSprite(preview.bossSprite)}" class="isc-boss-img" alt="${escapeHtml(preview.bossSprite)}" data-boss-key="${escapeHtml(preview.bossSprite)}" style="width:52px;height:52px;image-rendering:pixelated" onerror="this.src='${FALLBACK_TRAINER_SVG}';this.onerror=null">`
+                : '<div style="width:52px;height:52px;background:var(--bg);border-radius:4px;opacity:.3"></div>'}
               <span class="isc-boss-badge"><img src="${LOGO_SMALL_URL}" alt=""></span>
             </div>
           </div>
