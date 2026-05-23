@@ -11,6 +11,8 @@ import { getDexDesc } from '../../data/dex-helpers.js';
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
 import { esc as _esc } from '../core/escape.js';
+import { getLv100Data as _getLv100Data } from '../systems/pokemonRating.js';
+import { renderTopPowerView as _renderTopPower } from './pcTopPower.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
 const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
@@ -293,6 +295,25 @@ function resetPcSelection() {
   _pcLastClickedIdx = -1;
   _pcSelectedGroups.clear();
 }
+
+// Helper exposé sur globalThis pour les modules externes (ex: pcTopPower.js)
+// qui veulent pré-sélectionner un Pokémon et basculer vers la vue grille.
+function _pcSetSelectedIds(ids) {
+  pcSelectedIds.clear();
+  if (Array.isArray(ids) && ids.length) {
+    ids.forEach(id => pcSelectedIds.add(id));
+    pcSelectedId = ids[0];
+  } else {
+    pcSelectedId = null;
+  }
+}
+Object.assign(globalThis, {
+  _pcSetSelectedIds,
+  // Wrappers d'API exposés pour les sous-modules (pcTopPower, etc.) qui ont
+  // besoin de piloter la vue PC sans dépendance directe vers app.js.
+  setPcView:   (v) => setPcView(v),
+  renderPCTab: () => renderPCTab(),
+});
 
 function resetPcRenderCache() {
   _pcLastRenderKey = '';
@@ -732,6 +753,7 @@ function renderPCTab() {
       switcher.className = 'pc-view-switcher';
       switcher.innerHTML = `
         <button class="pc-view-btn" id="pcBtnGrid" data-pcview="grid">[PC]</button>
+        <button class="pc-view-btn" id="pcBtnTop" data-pcview="top">[🏆 TOP]</button>
         <button class="pc-view-btn" id="pcBtnPension" data-pcview="pension">[PENSION]</button>
         <button class="pc-view-btn" id="pcBtnTraining" data-pcview="training">[FORMATION]</button>
         <button class="pc-view-btn" id="pcBtnLab" data-pcview="lab">[LABO]</button>`;
@@ -763,8 +785,20 @@ function renderPCTab() {
       trainingBtn.textContent = `[FORMATION ${trainOcc}/${trainMax}]`;
     }
 
-    const subViews = ['trainingInPC', 'labInPC', 'pensionInPC'];
-    if (getPcView() === 'training') {
+    const subViews = ['trainingInPC', 'labInPC', 'pensionInPC', 'topInPC'];
+    if (getPcView() === 'top') {
+      pcLayout.style.display = 'none';
+      subViews.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = id === 'topInPC' ? '' : 'none'; });
+      let topInPC = document.getElementById('topInPC');
+      if (!topInPC) {
+        topInPC = document.createElement('div');
+        topInPC.id = 'topInPC';
+        pcLayout.parentNode.appendChild(topInPC);
+      }
+      topInPC.style.display = '';
+      _renderTopPower(topInPC);
+      return;
+    } else if (getPcView() === 'training') {
       pcLayout.style.display = 'none';
       subViews.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = id === 'trainingInPC' ? '' : 'none'; });
       let trainingInPC = document.getElementById('trainingInPC');
@@ -1661,31 +1695,8 @@ function _showEvoPreviewPopup(evolvable, type, onConfirm) {
 
 // ── Helpers communs pour les 3 versions de fiche ─────────────────────────────
 
-function _getLv100Data(p) {
-  const lv100 = { species_en: p.species_en, potential: p.potential, nature: p.nature, level: 100 };
-  lv100.stats = calculateStats(lv100);
-  const lv100PC = getPokemonPower({ ...lv100, pcVariance: p.pcVariance ?? 1, shiny: p.shiny, homesick: false });
-
-  const perfRef = { species_en: p.species_en, potential: 5, nature: 'hardy', level: 100 };
-  perfRef.stats = calculateStats(perfRef);
-  const perfPC = getPokemonPower({ ...perfRef, pcVariance: 1, shiny: false, homesick: false });
-
-  const gradePct = perfPC > 0 ? Math.round(lv100PC / perfPC * 100) : 0;
-  const grade = gradePct >= 95 ? 'S' : gradePct >= 88 ? 'A+' : gradePct >= 80 ? 'A' : gradePct >= 72 ? 'B+' : gradePct >= 63 ? 'B' : 'C';
-  const gradeColor = { S: 'var(--gold)', 'A+': '#4caf50', A: '#81c784', 'B+': '#64b5f6', B: '#90caf9', C: '#aaa' }[grade];
-
-  const NATURES = getNatures();
-  const nat = NATURES[p.nature] || NATURES.hardy || { atk: 1, def: 1, spd: 1 };
-  const natBonus = nat.atk > 1 ? '+ATK' : nat.def > 1 ? '+DEF' : nat.spd > 1 ? '+VIT' : null;
-  const natMalus = nat.atk < 1 ? '−ATK' : nat.def < 1 ? '−DEF' : nat.spd < 1 ? '−VIT' : null;
-
-  const s100 = lv100.stats;
-  const roleKey = s100.atk >= s100.def && s100.atk >= s100.spd ? 'Offensif' :
-                  s100.def >= s100.atk && s100.def >= s100.spd ? 'Défensif' : 'Vitesse';
-  const roleIcon = { Offensif: '⚔', Défensif: '🛡', Vitesse: '⚡' }[roleKey];
-
-  return { lv100, lv100PC, perfPC, gradePct, grade, gradeColor, nat, natBonus, natMalus, s100, roleKey, roleIcon };
-}
+// _getLv100Data extrait vers modules/systems/pokemonRating.js
+// (importé en haut de fichier)
 
 // Fiche stats (V2 validée) — Preview Duel : maintenant | Lv.100
 function _statsV2(p) {
