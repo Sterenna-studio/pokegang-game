@@ -1,6 +1,9 @@
 'use strict';
 
 import { BALLS, SHOP_ITEMS } from '../../data/economy-data.js';
+import { esc as _esc } from '../core/escape.js';
+import { getActiveMarketEvents } from '../systems/marketEvents.js';
+import { getCurrentBulletin, completeBlackMarketListing } from '../systems/blackMarket.js';
 
 // ════════════════════════════════════════════════════════════════
 // 16.  UI — MARKET TAB
@@ -10,6 +13,84 @@ function renderMarketTab() {
   renderSpecialItemPanel();
   renderShopPanel();
   renderBarterPanel();
+  renderBlackMarketPanel();
+}
+
+// ── BLACK MARKET BULLETIN ──────────────────────────────────────────
+
+function renderBlackMarketPanel() {
+  const panel = document.querySelector('#blackMarketPanel .bm-bulletin');
+  if (!panel) return;
+
+  const bulletin = getCurrentBulletin();
+  const events   = getActiveMarketEvents();
+
+  const _fmtRemaining = ms => {
+    if (ms <= 0) return 'expiré';
+    const h = Math.floor(ms / 3600000);
+    const m = Math.floor((ms % 3600000) / 60000);
+    return h > 0 ? `${h}h${String(m).padStart(2,'0')}` : `${m}min`;
+  };
+  const bulletinRemaining = bulletin ? _fmtRemaining(bulletin.expiresAt - Date.now()) : '—';
+
+  // ── Section events de marché ─────────────────────────────────
+  const eventsHtml = events.length ? `
+    <div class="bm-events-section">
+      <div class="bm-section-label">📰 EVENTS ACTIFS</div>
+      ${events.map(ev => `
+        <div class="bm-event" style="border-color:${ev.type.includes('malus') || ev.type === 'shiny_crash' ? '#e57373' : 'var(--gold)'}">
+          <span class="bm-event-emoji">${ev.emoji}</span>
+          <div class="bm-event-body">
+            <div class="bm-event-label">${_esc(ev.label)}</div>
+            <div class="bm-event-detail">${_esc(ev.detail)}</div>
+          </div>
+          <div class="bm-event-timer">${_fmtRemaining(ev.expiresAt - Date.now())}</div>
+        </div>
+      `).join('')}
+    </div>` : '';
+
+  // ── Listings du bulletin ──────────────────────────────────────
+  const listingsHtml = (bulletin?.listings || []).map(listing => {
+    const isDone = listing.completed;
+    const r = listing.reward || {};
+    const rewardParts = [];
+    if (r.money) rewardParts.push(`${r.money.toLocaleString()}₽`);
+    if (r.rep)   rewardParts.push(`+${r.rep} ⭐`);
+    if (r.rareBoost) rewardParts.push(`×${r.rareBoost.multiplier} rares`);
+    return `
+      <div class="bm-listing ${isDone ? 'done' : ''}">
+        <div class="bm-listing-head">
+          <span class="bm-listing-emoji">${listing.emoji}</span>
+          <span class="bm-listing-label">${_esc(listing.label)}</span>
+          ${isDone ? '<span class="bm-listing-done">✓ FAIT</span>' : ''}
+        </div>
+        <div class="bm-listing-detail">${_esc(listing.detail)}</div>
+        <div class="bm-listing-foot">
+          <span class="bm-listing-reward">🎁 ${rewardParts.join(' · ')}</span>
+          ${!isDone ? `<button class="bm-listing-claim" data-bm-id="${listing.id}">Livrer</button>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+
+  panel.innerHTML = `
+    <div class="bm-header">
+      <span class="bm-header-sub">Bulletin renouvelé dans <strong>${bulletinRemaining}</strong></span>
+    </div>
+    ${eventsHtml}
+    <div class="bm-listings">
+      ${listingsHtml || '<div class="bm-empty">Aucune demande active.</div>'}
+    </div>`;
+
+  panel.querySelectorAll('.bm-listing-claim').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.bmId;
+      const ok = completeBlackMarketListing(id);
+      if (ok) {
+        renderBlackMarketPanel();
+        globalThis.updateTopBar?.();
+      }
+    });
+  });
 }
 
 // ── Troc d'objets ─────────────────────────────────────────────

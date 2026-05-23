@@ -41,6 +41,7 @@ import {
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
 import { esc as _esc } from '../core/escape.js';
+import { getDifficultyTier, getDifficultyBadgeHtml } from '../systems/difficultyTier.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
 const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
@@ -1524,7 +1525,10 @@ function renderSpawnInWindow(zoneId, spawnObj) {
   } else if (spawnObj.type === 'raid') {
     // Raid: show the lead trainer sprite (no more Pokéball)
     const raidLeaderKey = spawnObj.raidTrainers?.[0]?.key || spawnObj.trainerKey || 'gymleader';
+    const previewR = getTrainerCombatPreview({ ...spawnObj, zoneId }, null);
+    const tierR    = getDifficultyTier(previewR.attackerPower, previewR.defenderPower);
     el.innerHTML = globalThis.safeTrainerImg(raidLeaderKey, { style: 'width:52px;height:52px;image-rendering:pixelated;filter:drop-shadow(0 0 8px #f44)' }) +
+      getDifficultyBadgeHtml(tierR) +
       `<div style="font-family:var(--font-pixel);font-size:6px;color:#f66;background:rgba(0,0,0,.75);border-radius:2px;padding:1px 4px;margin-top:2px;text-align:center">⚔ RAID</div>`;
     el.title = state.lang === 'fr'
       ? (spawnObj.trainer?.fr ?? spawnObj.trainerKey ?? 'Raid')
@@ -1538,8 +1542,11 @@ function renderSpawnInWindow(zoneId, spawnObj) {
     });
   } else if (spawnObj.type === 'trainer') {
     const extraStyle = spawnObj.elite ? 'filter:drop-shadow(0 0 6px gold)' : '';
-    el.innerHTML = globalThis.safeTrainerImg(spawnObj.trainer?.sprite ?? spawnObj.trainerKey, { style: `width:56px;height:56px;${extraStyle}` });
-    el.title = ((state.lang === 'fr' ? (spawnObj.trainer?.fr ?? spawnObj.trainerKey ?? '???') : (spawnObj.trainer?.en ?? spawnObj.trainerKey ?? '???'))) + (spawnObj.elite ? ' ⭐' : '');
+    const previewT = getTrainerCombatPreview({ ...spawnObj, zoneId }, null);
+    const tierT    = getDifficultyTier(previewT.attackerPower, previewT.defenderPower);
+    el.innerHTML = globalThis.safeTrainerImg(spawnObj.trainer?.sprite ?? spawnObj.trainerKey, { style: `width:56px;height:56px;${extraStyle}` }) +
+      getDifficultyBadgeHtml(tierT);
+    el.title = ((state.lang === 'fr' ? (spawnObj.trainer?.fr ?? spawnObj.trainerKey ?? '???') : (spawnObj.trainer?.en ?? spawnObj.trainerKey ?? '???'))) + (spawnObj.elite ? ' ⭐' : '') + ` · ${tierT.label} (${tierT.rationale})`;
     if (spawnObj.elite) el.style.animation = 'glow 1.5s ease-in-out infinite, float 3s ease-in-out infinite';
     el.addEventListener('click', () => {
       if (el.dataset.challenged) return;
@@ -2045,12 +2052,22 @@ function openCombatPopup(zoneId, spawnObj) {
     spawnEl.appendChild(ov);
   }
 
+  // ── Tier de difficulté (stocké dans currentCombat pour la résolution) ──
+  const combatTier = getDifficultyTier(preview.attackerPower, preview.defenderPower);
+  currentCombat.tier = combatTier;
+
   // ── HUD minimal en bas du viewport ─
   const hud = document.createElement('div');
   hud.className = 'zone-combat-hud zone-combat-hud-minimal';
   hud.id = `zchud-${zoneId}`;
   hud.innerHTML = `
-    <span class="zchud-vs">⚔ ${trainerName} <span style="color:var(--text-dim);font-size:7px">${enemyPool.length} Pok. · ⚡${fmtCombatNum(preview.attackerPower)} / 🛡${fmtCombatNum(preview.defenderPower)}</span></span>
+    <div class="combat-tier-header" style="border-color:${combatTier.color};color:${combatTier.color}">
+      <span class="ct-emoji">${combatTier.emoji}</span>
+      <span class="ct-label">${combatTier.label}</span>
+      <span class="ct-ratio">${combatTier.rationale}</span>
+      <span class="ct-reward">×${combatTier.rewardMult}</span>
+    </div>
+    <span class="zchud-vs">⚔ ${_esc(trainerName)} <span style="color:var(--text-dim);font-size:7px">${enemyPool.length} Pok. · ⚡${fmtCombatNum(preview.attackerPower)} / 🛡${fmtCombatNum(preview.defenderPower)}</span></span>
     <div class="zchud-log" id="zchud-log-${zoneId}" style="font-size:8px;color:var(--text-dim);max-height:74px;overflow:hidden;display:flex;flex-direction:column;gap:2px;margin:4px 0"></div>
     <button class="zchud-flee" id="zchud-flee-${zoneId}">Fuir</button>`;
   viewport.appendChild(hud);
@@ -2080,7 +2097,7 @@ function executeCombat() {
     : 0;
   const repGain = globalThis.getCombatRepGain(spawnWithZone.trainerKey || spawnWithZone.trainer?.sprite, result.attackerWin);
 
-  globalThis.applyCombatResult({ win: result.attackerWin, reward, repGain }, teamIds, spawnWithZone);
+  globalThis.applyCombatResult({ win: result.attackerWin, reward, repGain, tier: currentCombat?.tier }, teamIds, spawnWithZone);
   if (result.attackerWin) {
     const zoneState = state.zones[zoneId];
     if (zoneState) zoneState.combatsWon = (zoneState.combatsWon || 0) + 1;

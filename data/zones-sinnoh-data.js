@@ -534,6 +534,48 @@ const SPECIAL_EVENTS_SINNOH = [
     desc_fr:'Des Griknot sortent des cavernes et mordent tout ce qui passe. Gardez vos distances !',
     desc_en:'Gible emerge from caverns and bite everything in sight. Keep your distance!' },
 
+  // ── Légendaires/Fabuleux extra-rares — récupération via event ────
+  { id:'cresselia_dream', fr:'Songes de Cresselia', en:"Cresselia's Dream", icon:'🌙',
+    trainerKey:null, chance:0.006, minRep:4800,
+    zoneIds:['lake_trio_shores','sendoff_spring'],
+    reward:{ eggGift:['cresselia'], shinyBoost:120000, rareBoost:200000 },
+    desc_fr:"Un éclat lunaire illumine la rive. Cresselia laisse une plume d'œuf...",
+    desc_en:'Lunar light illuminates the shore. Cresselia leaves an egg feather...' },
+
+  { id:'darkrai_nightmare', fr:'Cauchemar de Darkrai', en:"Darkrai's Nightmare", icon:'🌑',
+    trainerKey:null, chance:0.005, minRep:5000,
+    zoneIds:['sendoff_spring','turnback_cave'],
+    reward:{ eggGift:['darkrai'], shinyBoost:150000, xpBonus:120 },
+    desc_fr:'Les ombres ondulent. Un œuf noir apparaît dans la pénombre...',
+    desc_en:'Shadows ripple. A dark egg materialises in the gloom...' },
+
+  { id:'shaymin_grace', fr:'Grâce de Shaymin', en:"Shaymin's Grace", icon:'🌸',
+    trainerKey:null, chance:0.007, minRep:4400,
+    zoneIds:['eterna_forest','route205_207','route208_210'],
+    reward:{ eggGift:['shaymin'], rareBoost:120000, shinyBoost:60000 },
+    desc_fr:'Les fleurs autour de vous se mettent à briller. Un œuf vert pâle est là.',
+    desc_en:'Flowers around you start to glow. A pale-green egg appears.' },
+
+  { id:'manaphy_drift', fr:'Dérive de Manaphy', en:"Manaphy's Drift", icon:'💧',
+    trainerKey:null, chance:0.006, minRep:5000,
+    zoneIds:['route218_221','lake_trio_shores'],
+    reward:{ eggGift:['manaphy','phione'], rareBoost:180000 },
+    desc_fr:"Un œuf bleu transparent flotte à la surface — Manaphy ou Phione, qui sait ?",
+    desc_en:'A translucent blue egg floats at the surface — Manaphy or Phione, who knows?' },
+
+  { id:'regigigas_summon', fr:'Réveil de Regigigas', en:'Regigigas Awakens', icon:'⛰️',
+    trainerKey:null, chance:0.004, minRep:5500,
+    zoneIds:['snowpoint_gym'],
+    reward:{ eggGift:['regigigas'], rareBoost:250000 },
+    desc_fr:"Les Régis (Roc, Glace, Acier) résonnent à l'unisson — leur maître stirre.",
+    desc_en:'The Regis (Rock, Ice, Steel) resonate in unison — their master stirs.' },
+
+  { id:'jirachi_wish', fr:'Vœu de Jirachi', en:"Jirachi's Wish", icon:'🌟',
+    trainerKey:null, chance:0.003, minRep:4200,
+    reward:{ eggGift:['jirachi'], shinyBoost:300000, rareBoost:300000 },
+    desc_fr:'Une étoile filante traverse le ciel — votre vœu est-il assez fort ?',
+    desc_en:'A shooting star crosses the sky — is your wish strong enough?' },
+
 ];
 
 
