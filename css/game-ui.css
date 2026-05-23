@@ -1962,39 +1962,42 @@
     /* ── Boss stage compact (v1 nettoyé) ───────────────────────── */
     .base-boss-stage-compact {
       display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: 100%;
+      padding: 10px 12px 12px;
+    }
+    /* Ligne du haut : sprite + infos boss */
+    .base-boss-header {
+      display: flex;
       flex-direction: row;
       align-items: center;
-      gap: 14px;
-      width: 100%;
-      padding: 12px 16px;
-      text-align: left;
+      gap: 12px;
     }
     .base-boss-stage-compact .base-boss-frame {
-      width: 88px;
-      height: 88px;
-      flex: 0 0 88px;
+      width: 72px;
+      height: 72px;
+      flex: 0 0 72px;
     }
     .base-boss-stage-compact .base-boss-sprite,
     .base-boss-stage-compact .base-boss-empty {
-      width: 72px;
-      height: 72px;
+      width: 64px;
+      height: 64px;
     }
     .base-boss-info {
       flex: 1;
       min-width: 0;
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 4px;
     }
     .base-boss-stage-compact .base-boss-name {
       font-size: 11px;
-      text-align: left;
     }
     .base-boss-stage-compact .base-boss-zone {
-      max-width: 100%;
-      text-align: left;
       font-size: 8px;
       line-height: 1.4;
+      color: var(--text-dim);
       display: -webkit-box;
       -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
@@ -2006,17 +2009,15 @@
       font-size: 7px;
       letter-spacing: 0.04em;
     }
+    /* Équipe pleine largeur sous le header */
     .base-boss-stage-compact .base-team-slots {
-      margin-top: 4px;
       display: grid;
-      grid-template-columns: repeat(2, 38px);
-      grid-template-rows: repeat(3, 38px);
+      grid-template-columns: repeat(6, 1fr);
       gap: 4px;
-      justify-content: flex-start;
+      width: 100%;
     }
     .base-team-slot {
-      width: 38px;
-      height: 38px;
+      aspect-ratio: 1;
       background: rgba(0,0,0,.55);
       border: 1px dashed rgba(255,255,255,.18);
       border-radius: var(--radius-sm);
@@ -2027,10 +2028,11 @@
       transition: border-color .15s, background .15s;
       font-size: 14px;
       color: var(--text-dim);
+      overflow: hidden;
     }
     .base-team-slot:hover { border-color: var(--gold); background: rgba(255,255,255,.05); }
     .base-team-slot.filled { border-style: solid; border-color: var(--red); }
-    .base-team-slot img { width: 32px; height: 32px; image-rendering: pixelated; }
+    .base-team-slot img { width: 80%; height: 80%; image-rendering: pixelated; object-fit: contain; }
 
     /* ── Strip territoire compact (4 metrics inline) ───────────── */
     .base-status-strip {
@@ -2246,10 +2248,8 @@
       .base-status-grid,
       .base-status-strip,
       .base-modules-grid { grid-template-columns: 1fr; }
-      .base-boss-stage-compact { flex-direction: column; text-align: center; gap: 8px; }
-      .base-boss-stage-compact .base-boss-zone,
-      .base-boss-stage-compact .base-boss-name { text-align: center; }
-      .base-boss-stage-compact .base-team-slots { justify-content: center; }
+      .base-boss-header { gap: 8px; }
+      .base-boss-stage-compact .base-team-slots { grid-template-columns: repeat(6, 1fr); }
     }
 
     /* ── Team Picker ──────────────────────────────────────────────── */
