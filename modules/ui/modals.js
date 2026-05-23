@@ -9,6 +9,7 @@
 // classic-script data globals used by import modals: POKEMON_GEN1, ZONES
 
 import { SFX } from './audio.js';
+import { esc as _esc } from '../core/escape.js';
 
 let modalCtx = {};
 
@@ -216,8 +217,8 @@ function openImportPreviewModal(raw) {
             <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim)">SAVE IMPORTÉE</div>
             ${versionBadge}
           </div>
-          <div style="font-family:var(--font-pixel);font-size:12px;color:var(--red)">${gangName}</div>
-          <div style="font-size:9px;color:var(--text-dim)">Boss : <span style="color:var(--text)">${bossName}</span></div>
+          <div style="font-family:var(--font-pixel);font-size:12px;color:var(--red)">${_esc(gangName)}</div>
+          <div style="font-size:9px;color:var(--text-dim)">Boss : <span style="color:var(--text)">${_esc(bossName)}</span></div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:4px">
             <div style="font-size:8px;color:var(--text-dim)">🎯 Pokémon <span style="color:var(--text)">${pokeCount}</span></div>
             <div style="font-size:8px;color:var(--text-dim)">👤 Agents <span style="color:var(--text)">${agentCount}</span></div>
@@ -464,8 +465,8 @@ function openHubImportModal(raw) {
       <!-- Save preview -->
       <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;display:flex;flex-direction:column;gap:6px">
         <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);margin-bottom:4px">SAVE IMPORTÉE</div>
-        <div style="font-family:var(--font-pixel);font-size:13px;color:var(--red)">${gangName}</div>
-        <div style="font-size:9px;color:var(--text-dim)">Boss : <span style="color:var(--text)">${bossName}</span></div>
+        <div style="font-family:var(--font-pixel);font-size:13px;color:var(--red)">${_esc(gangName)}</div>
+        <div style="font-size:9px;color:var(--text-dim)">Boss : <span style="color:var(--text)">${_esc(bossName)}</span></div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-top:4px">
           <div style="font-size:8px;color:var(--text-dim)">🎯 Pokémon <span style="color:var(--text)">${pokeCount}</span></div>
           <div style="font-size:8px;color:var(--text-dim)">👤 Agents <span style="color:var(--text)">${agentCount}</span></div>

@@ -32,6 +32,7 @@ import {
 } from '../systems/gangCompetition.js';
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
+import { esc as _esc } from '../core/escape.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
 const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
@@ -226,7 +227,7 @@ function _renderDefensePanel(el) {
     return `<div style="display:flex;align-items:center;gap:8px;padding:6px;background:var(--bg);border:1px solid ${agentDefaulted ? 'var(--gold-dim)' : 'var(--border)'};border-radius:var(--radius-sm)">
       <img src="https://play.pokemonshowdown.com/sprites/gen5/${agent.spriteKey ?? ''}.png" style="width:32px;height:32px;image-rendering:pixelated" onerror="this.style.display='none'">
       <div style="flex:1;min-width:0">
-        <div style="font-size:9px">${i + 1}. ${agent.name}</div>
+        <div style="font-size:9px">${i + 1}. ${_esc(agent.name)}</div>
         <div style="font-size:8px;color:var(--text-dim)">Lv.${agent.level} · ${agent.title} · ⚡${_fmtNum(_agentPower(agent, s))}${agentDefaulted ? ' · AUTO' : ''}</div>
       </div>
       <button class="comp-pick-agent" data-slot="${i}" style="background:none;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer;font-size:8px;padding:3px 6px">Changer</button>
@@ -463,7 +464,7 @@ async function _loadAndRenderGangs(panelEl) {
     const powerInfo = `<span style="font-size:8px;color:var(--gold-dim)">🛡 ${_fmtNum(preview.defenderPower)}</span>`;
 
     const agentInfo = defenseAgents.length
-      ? `<span style="font-size:8px;color:var(--text-dim)">🧑‍✈️ ${defenseAgents.map(a => `${a.name} Lv.${a.level}${a.defaulted ? ' AUTO' : ''}`).join(' · ')}</span>`
+      ? `<span style="font-size:8px;color:var(--text-dim)">🧑‍✈️ ${defenseAgents.map(a => `${_esc(a.name)} Lv.${a.level}${a.defaulted ? ' AUTO' : ''}`).join(' · ')}</span>`
       : '';
 
     const zoneInfo = g.defense_zone
@@ -488,8 +489,8 @@ async function _loadAndRenderGangs(panelEl) {
         ? `<img src="https://play.pokemonshowdown.com/sprites/gen5/${g.boss_sprite}.png" style="width:40px;height:40px;image-rendering:pixelated;flex-shrink:0" onerror="this.style.display='none'">`
         : `<div style="width:40px;height:40px;background:var(--bg);border-radius:4px;flex-shrink:0"></div>`}
       <div style="flex:1;min-width:0">
-        <div style="font-family:var(--font-pixel);font-size:9px;margin-bottom:2px">${g.gang_name}</div>
-        <div style="font-size:8px;color:var(--text-dim);margin-bottom:4px">${g.boss_name} · ⭐ ${_fmtNum(g.reputation_snapshot)} rép.</div>
+        <div style="font-family:var(--font-pixel);font-size:9px;margin-bottom:2px">${_esc(g.gang_name)}</div>
+        <div style="font-size:8px;color:var(--text-dim);margin-bottom:4px">${_esc(g.boss_name)} · ⭐ ${_fmtNum(g.reputation_snapshot)} rép.</div>
         <div style="display:flex;gap:2px;flex-wrap:wrap;align-items:center;margin-bottom:3px">${miniPokemons}</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">${powerInfo}${agentInfo}${zoneInfo}${noDefenseInfo}</div>
       </div>
@@ -570,8 +571,8 @@ function _openAttackPrepModal(defData, panelEl) {
         <input type="checkbox" data-agent-id="${a.id}" ${sel ? 'checked' : ''} ${disabled ? 'disabled' : ''} style="accent-color:var(--red);flex-shrink:0">
         <img src="https://play.pokemonshowdown.com/sprites/gen5/${a.spriteKey ?? ''}.png" style="width:28px;height:28px;image-rendering:pixelated" onerror="this.style.display='none'">
         <div style="flex:1;min-width:0">
-          <div style="font-size:9px">${a.name}</div>
-          <div style="font-size:8px;color:var(--text-dim)">Lv.${a.level} · ${a.title} · ⚡${_fmtNum(ap)}</div>
+          <div style="font-size:9px">${_esc(a.name)}</div>
+          <div style="font-size:8px;color:var(--text-dim)">Lv.${a.level} · ${_esc(a.title)} · ⚡${_fmtNum(ap)}</div>
         </div>
         ${sel ? '<span style="font-size:16px">✓</span>' : ''}
       </label>`;
@@ -583,8 +584,8 @@ function _openAttackPrepModal(defData, panelEl) {
       <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg);border-radius:var(--radius-sm);border:1px solid var(--border)">
         ${defBossEl}
         <div>
-          <div style="font-size:9px;color:var(--gold)">${defData.gang_name}</div>
-          <div style="font-size:8px;color:var(--text-dim)">${defData.boss_name} · ⭐ ${_fmtNum(defData.reputation_snapshot)} rép.</div>
+          <div style="font-size:9px;color:var(--gold)">${_esc(defData.gang_name)}</div>
+          <div style="font-size:8px;color:var(--text-dim)">${_esc(defData.boss_name)} · ⭐ ${_fmtNum(defData.reputation_snapshot)} rép.</div>
         </div>
       </div>
 
@@ -767,13 +768,13 @@ function _openRaidCinematic(defData, agentIds, result, onDone) {
           <div style="font-size:7px;color:var(--text-dim);font-family:var(--font-pixel);letter-spacing:.06em">VOTRE GANG</div>
           <div style="display:flex;gap:3px;flex-wrap:wrap;justify-content:center;max-width:150px">
             ${myBossSprite
-              ? `<img src="https://play.pokemonshowdown.com/sprites/gen5/${myBossSprite}.png" style="width:38px;height:38px;image-rendering:pixelated" onerror="this.style.display='none'" title="${myBossName}">`
+              ? `<img src="https://play.pokemonshowdown.com/sprites/gen5/${myBossSprite}.png" style="width:38px;height:38px;image-rendering:pixelated" onerror="this.style.display='none'" title="${_esc(myBossName)}">`
               : `<div style="width:38px;height:38px;background:var(--bg-panel);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:16px">👤</div>`}
             ${selectedAgents.map(a =>
-              `<img src="https://play.pokemonshowdown.com/sprites/gen5/${a.spriteKey ?? ''}.png" style="width:30px;height:30px;image-rendering:pixelated" onerror="this.style.display='none'" title="${a.name}">`
+              `<img src="https://play.pokemonshowdown.com/sprites/gen5/${a.spriteKey ?? ''}.png" style="width:30px;height:30px;image-rendering:pixelated" onerror="this.style.display='none'" title="${_esc(a.name)}">`
             ).join('')}
           </div>
-          <div style="font-size:7px;color:var(--text-dim)">${myGangName}</div>
+          <div style="font-size:7px;color:var(--text-dim)">${_esc(myGangName)}</div>
         </div>
 
         <div style="font-family:var(--font-pixel);font-size:12px;color:rgba(255,255,255,.2);align-self:center">⚔</div>
@@ -788,7 +789,7 @@ function _openRaidCinematic(defData, agentIds, result, onDone) {
                 ).join('')
               : `<span style="font-size:8px;color:var(--red)">${defAgents.length ? 'Boss sans équipe' : 'Base vide'}</span>`}
             ${defAgents.map(a =>
-              `<img src="https://play.pokemonshowdown.com/sprites/gen5/${a.sprite ?? ''}.png" style="width:30px;height:30px;image-rendering:pixelated" onerror="this.style.display='none'" title="${a.name}">`
+              `<img src="https://play.pokemonshowdown.com/sprites/gen5/${a.sprite ?? ''}.png" style="width:30px;height:30px;image-rendering:pixelated" onerror="this.style.display='none'" title="${_esc(a.name)}">`
             ).join('')}
           </div>
           <div style="font-size:7px;color:var(--text-dim)">${defGangName}</div>
@@ -864,8 +865,8 @@ function _openAgentPicker(defPanelEl, slotIndex = 0) {
     ">
       <img src="https://play.pokemonshowdown.com/sprites/gen5/${a.spriteKey ?? ''}.png" style="width:32px;height:32px;image-rendering:pixelated" onerror="this.style.display='none'">
       <div style="flex:1;min-width:0">
-        <div style="font-size:9px">${a.name}</div>
-        <div style="font-size:8px;color:var(--text-dim)">Lv.${a.level} · ${a.title} · Combat ${a.stats?.combat ?? 0}</div>
+        <div style="font-size:9px">${_esc(a.name)}</div>
+        <div style="font-size:8px;color:var(--text-dim)">Lv.${a.level} · ${_esc(a.title)} · Combat ${a.stats?.combat ?? 0}</div>
       </div>
       ${disabled ? '<span style="font-size:8px;color:var(--red)">Déjà en DEF</span>' : ''}
     </div>`;

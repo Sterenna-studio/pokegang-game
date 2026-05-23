@@ -107,7 +107,7 @@ const ZONES_JOHTO = [
     poolRare:     ['miltank','hypno'],
     poolVeryRare: ['ampharos'],
     poolLegendary:[],
-    trainers:['camperGen2','picnicker','swimmer','fisherman'],
+    trainers:['camperGen2','picnicker','swimmer','fisherman','bikerGen2','birdkeeperGen2'],
     eliteTrainer:'acetrainerGen2' },
 
   { id:'ice_path', fr:'Route de Glace', en:'Ice Path', rep:650, spawnRate:0.04, type:'route',
@@ -175,7 +175,7 @@ const ZONES_JOHTO = [
     poolRare:     ['eevee','miltank'],
     poolVeryRare: ['togetic'],
     poolLegendary:[],
-    trainers:['lass','beautyGen2','youngster','pokefan','pokefanf','guitarist'],
+    trainers:['lass','beautyGen2','youngster','pokefan','pokefanf','guitarist','gentlemanGen2','pokemaniacGen2'],
     eliteTrainer:'whitney', gymLeader:'whitney', gymType:'normal', xpBonus:1.8 },
 
   { id:'ecruteak_gym', fr:'Ecorcia', en:'Ecruteak City', rep:400, spawnRate:0.05, type:'city',
@@ -186,7 +186,7 @@ const ZONES_JOHTO = [
     poolVeryRare: [],
     poolLegendary:[],
     ghostZone: true,
-    trainers:['medium','kimonogirl','psychicGen2'],
+    trainers:['medium','kimonogirl','psychicGen2','jugglerGen2'],
     eliteTrainer:'morty', gymLeader:'morty', gymType:'ghost', xpBonus:2.0 },
 
   { id:'cianwood_gym', fr:'Irisia', en:'Cianwood City', rep:500, spawnRate:0.06, type:'city',
@@ -237,7 +237,7 @@ const ZONES_JOHTO = [
     poolRare:     ['blissey','heracross'],
     poolVeryRare: [],
     poolLegendary:[],
-    trainers:['acetrainerGen2','acetrainerFGen2','pokemonranger'],
+    trainers:['acetrainerGen2','acetrainerFGen2','pokemonranger','ethan','kris','gold'],
     eliteTrainer:'lance', gymLeader:'lance', gymType:'mixed', xpBonus:3.0 },
 
 

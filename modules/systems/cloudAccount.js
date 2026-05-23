@@ -9,6 +9,7 @@
 // ════════════════════════════════════════════════════════════════
 
 import { initNitroBridge, redirectToNitroLogin } from '../nitro/nitro-bridge.js';
+import { esc as _esc } from '../core/escape.js';
 
 let cloudContext = {};
 
@@ -978,7 +979,7 @@ async function renderCompteTab() {
             ? `<img src="https://play.pokemonshowdown.com/sprites/gen5/${state.gang.bossSprite}.png" style="width:64px;height:64px;image-rendering:pixelated">`
             : ''}
           <div style="flex:1;min-width:160px">
-            <div style="font-family:var(--font-pixel);font-size:11px;margin-bottom:6px">${state.gang.name}</div>
+            <div style="font-family:var(--font-pixel);font-size:11px;margin-bottom:6px">${_esc(state.gang.name)}</div>
             <div style="font-size:10px;color:var(--text-dim);margin-bottom:4px">${user.email}</div>
             <div style="font-size:10px">⭐ <b style="color:var(--gold)">${state.gang.reputation || 0}</b> réputation</div>
           </div>

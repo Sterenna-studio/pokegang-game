@@ -40,6 +40,7 @@ import {
 } from '../systems/zoneCombat.js';
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
+import { esc as _esc } from '../core/escape.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
 const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
@@ -192,7 +193,7 @@ function showCollectionEncounter(zoneId, agentIds, income, items) {
             : ''}
           ${zoneAgents.length > 0 ? `<div style="display:flex;flex-direction:column;align-items:center;gap:2px">${agentSpritesHtml}</div>` : ''}
           <div style="display:flex;gap:3px;margin-top:2px">${bossPksHtml}</div>
-          <span style="font-family:var(--font-pixel);font-size:7px;color:var(--text)">${state.gang.bossName}</span>
+          <span style="font-family:var(--font-pixel);font-size:7px;color:var(--text)">${_esc(state.gang.bossName)}</span>
         </div>
 
         <!-- VS -->

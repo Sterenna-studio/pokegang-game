@@ -1,6 +1,7 @@
 ﻿'use strict';
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
+import { esc as _esc } from '../core/escape.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
 const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
@@ -480,7 +481,7 @@ export function openGiovanniIntro({ slotIdx = 0, onComplete } = {}) {
               style="width:52px;height:52px;image-rendering:pixelated"
               onerror="this.style.opacity='.2'">
             <div>
-              <div style="font-size:15px;color:#e8e8e8;font-weight:600">${bossName}</div>
+              <div style="font-size:15px;color:#e8e8e8;font-weight:600">${_esc(bossName)}</div>
               <div style="font-size:11px;color:rgba(255,255,255,.45);margin-top:2px">${gangName}</div>
             </div>
             <div style="margin-left:auto;text-align:center">

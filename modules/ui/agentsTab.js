@@ -2,6 +2,10 @@
 
 import { BALL_SPRITES, FALLBACK_TRAINER_SVG } from '../../data/assets-data.js';
 
+// HTML escape — sécurise les strings user-input avant injection via innerHTML
+const _esc = s => String(s ?? '').replace(/[&<>"']/g, ch => (
+  ch === '&' ? '&amp;' : ch === '<' ? '&lt;' : ch === '>' ? '&gt;' : ch === '"' ? '&quot;' : '&#39;'));
+
 // 18b. UI — AGENTS TAB
 // ════════════════════════════════════════════════════════════════
 
@@ -35,7 +39,7 @@ function renderAgentsTab() {
       <div class="agent-header">
         ${state.gang.bossSprite ? `<img src="${trainerSprite(state.gang.bossSprite)}" alt="Boss" style="width:44px;height:44px;image-rendering:pixelated">` : '<div style="width:44px;height:44px;background:var(--bg-card);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:20px">👤</div>'}
         <div class="agent-meta">
-          <div class="agent-name" style="color:var(--gold)">${state.gang.bossName || 'Boss'}</div>
+          <div class="agent-name" style="color:var(--gold)">${_esc(state.gang.bossName || 'Boss')}</div>
           <div class="agent-title" style="color:var(--gold)">${bossTitle || 'Chef de gang'}</div>
           <div style="font-size:8px;color:var(--text-dim)">
             ${state.pokemons.length} Pokémon · ${state.agents.filter(a => !a.legacyLocked).length} agents actifs · REP ${bossRep}
@@ -439,7 +443,7 @@ function renderAgentTree(container) {
     ${state.gang.bossSprite ? `<img src="${trainerSprite(state.gang.bossSprite)}" style="width:36px;height:36px;image-rendering:pixelated">` : '<span style="font-size:26px">👤</span>'}
     <div>
       <div style="font-family:var(--font-pixel);font-size:7px;color:var(--gold)">BOSS</div>
-      <div style="font-size:9px;margin-top:1px">${state.gang.bossName || 'Boss'}</div>
+      <div style="font-size:9px;margin-top:1px">${_esc(state.gang.bossName || 'Boss')}</div>
       <div style="font-size:8px;color:var(--text-dim);margin-top:1px">${getBossFullTitle()}</div>
     </div>
   </div>`;

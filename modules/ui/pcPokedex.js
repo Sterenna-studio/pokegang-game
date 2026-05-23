@@ -10,6 +10,7 @@
 import { getDexDesc } from '../../data/dex-helpers.js';
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
+import { esc as _esc } from '../core/escape.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
 const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
@@ -2719,7 +2720,7 @@ function openPlayerStatModal() {
     overlay.innerHTML = `
       <div style="background:var(--bg-panel);border:2px solid var(--gold);border-radius:var(--radius);padding:24px;width:320px;max-width:96vw">
         <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold);margin-bottom:4px">📊 FICHE JOUEUR</div>
-        <div style="font-size:9px;color:var(--text-dim);margin-bottom:12px">${state.gang.bossName || 'Boss'} · 1 pt tous les ${PLAYER_STAT_POINT_EVERY} captures</div>
+        <div style="font-size:9px;color:var(--text-dim);margin-bottom:12px">${_esc(state.gang.bossName || 'Boss')} · 1 pt tous les ${PLAYER_STAT_POINT_EVERY} captures</div>
         <div style="font-family:var(--font-pixel);font-size:9px;margin-bottom:14px;color:${pts > 0 ? 'var(--gold)' : 'var(--text-dim)'}">
           Points disponibles : <b style="font-size:12px">${pts}</b>
         </div>

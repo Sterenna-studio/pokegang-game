@@ -33,6 +33,10 @@ const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
 const _topBar = ()               => EventBus.emit(EVENTS.UI_TOPBAR_UPDATE);
 const _save   = ()               => globalThis.saveState?.();
 
+// HTML escape — sécurise les strings user-input (bossName, gangName) avant injection via innerHTML
+const _esc = s => String(s ?? '').replace(/[&<>"']/g, ch => (
+  ch === '&' ? '&amp;' : ch === '<' ? '&lt;' : ch === '>' ? '&gt;' : ch === '"' ? '&quot;' : '&#39;'));
+
 // ── Sprite helpers — wrappers lazy (résolus à l'appel, pas au chargement du module) ───
 const pokeSprite    = (...a) => globalThis.pokeSprite?.(...a)    ?? '';
 const trainerSprite = (...a) => globalThis.trainerSprite?.(...a) ?? '';
@@ -562,7 +566,7 @@ function renderGangBaseWindow() {
     <div class="base-window-header base-command-header">
       <div class="base-header-gang">
         <span class="base-hq-icon">HQ</span>
-        <span><strong>${state.gang.name}</strong><em>${state.gang.bossName} · ${bossTitle}</em></span>
+        <span><strong>${_esc(state.gang.name)}</strong><em>${_esc(state.gang.bossName)} · ${bossTitle}</em></span>
       </div>
       <div class="base-header-stats">
         <span>₽${(state.gang.money || 0).toLocaleString()}</span>
@@ -584,7 +588,7 @@ function renderGangBaseWindow() {
                 : '<div class="base-boss-empty">?</div>'}
             </div>
             <div class="base-boss-info">
-              <div class="base-boss-name">${state.gang.bossName}</div>
+              <div class="base-boss-name">${_esc(state.gang.bossName)}</div>
               <div class="base-boss-title-line">${bossTitle}</div>
             </div>
           </div>
@@ -831,8 +835,8 @@ function renderGangBaseWindowV2() {
     <div class="gb2-header">
       <div class="gb2-h-left">
         <span class="base-hq-icon gb2-hq-icon">HQ</span>
-        <span class="gb2-h-name">${state.gang.name}</span>
-        <span class="gb2-h-boss">— ${state.gang.bossName}</span>
+        <span class="gb2-h-name">${_esc(state.gang.name)}</span>
+        <span class="gb2-h-boss">— ${_esc(state.gang.bossName)}</span>
       </div>
       <div class="gb2-h-right">
         <span class="gb2-h-money">₽${(state.gang.money||0).toLocaleString()}</span>
@@ -856,7 +860,7 @@ function renderGangBaseWindowV2() {
               ${bossPatches}
             </div>
             <div class="gb2-boss-main-info">
-              <div class="gb2-gang-name">${state.gang.name}</div>
+              <div class="gb2-gang-name">${_esc(state.gang.name)}</div>
               <div class="gb2-boss-title">${bossTitle}</div>
               <div class="gb2-mini-stats">
                 <div class="gb2-stat"><span>${(state.gang.reputation||0) >= 1000 ? Math.floor((state.gang.reputation||0)/1000)+'k' : (state.gang.reputation||0)}</span><em>REP</em></div>
@@ -1554,9 +1558,9 @@ function openExportModal() {
       <div style="display:flex;flex-direction:column;gap:8px">
         <div style="font-size:8px;color:var(--text-dim);font-family:var(--font-pixel);border-bottom:1px solid var(--border);padding-bottom:4px">STYLE DE SPRITES</div>
         <div style="display:flex;flex-direction:column;gap:6px">
-          <label style="${radioStyle}"><input type="radio" name="xpSprite" value="game" checked style="accent-color:var(--gold);cursor:pointer"> 🎮 Sprites du jeu</label>
-          <label style="${radioStyle}"><input type="radio" name="xpSprite" value="gen5" style="accent-color:var(--gold);cursor:pointer"> 🖼 Showdown Gen 5 (BW)</label>
-          <label style="${radioStyle}"><input type="radio" name="xpSprite" value="gen1" style="accent-color:var(--gold);cursor:pointer"> 👾 Rétro Gen 1</label>
+          <label style="${radioStyle}"><input type="radio" name="xpSprite" value="game" checked class="gb-radio-gold"> 🎮 Sprites du jeu</label>
+          <label style="${radioStyle}"><input type="radio" name="xpSprite" value="gen5" class="gb-radio-gold"> 🖼 Showdown Gen 5 (BW)</label>
+          <label style="${radioStyle}"><input type="radio" name="xpSprite" value="gen1" class="gb-radio-gold"> 👾 Rétro Gen 1</label>
         </div>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
@@ -1625,6 +1629,11 @@ function _exportAsPDF(opts) {
   _notify('📄 PDF prêt dans un nouvel onglet', 'success');
 }
 
+// ── EXPORT CARD ───────────────────────────────────────────────────────────
+// ⚠️ Les styles inline ci-dessous sont DÉLIBÉRÉS : la carte d'export est
+// capturée vers une image (canvas/html2canvas). Les classes externes (game-ui.css)
+// ne sont PAS appliquées lors de la capture → les styles doivent être inline pour
+// rendre correctement dans l'export. NE PAS extraire ces styles vers CSS.
 function buildExportCard(opts = {}) {
   const state           = globalThis.state;
   const calculateStats  = globalThis.calculateStats;
@@ -1745,7 +1754,7 @@ function buildExportCard(opts = {}) {
       </div>
       <div style="flex:1;display:flex;flex-direction:column;gap:5px">
         <div style="font-family:'Press Start 2P',monospace;font-size:18px;color:#cc3333;line-height:1.2">${g.name}</div>
-        <div style="font-size:10px;color:#aaa">Boss : <strong style="color:#e0e0e0">${g.bossName}</strong></div>
+        <div style="font-size:10px;color:#aaa">Boss : <strong style="color:#e0e0e0">${_esc(g.bossName)}</strong></div>
         ${titlesBlock}
         <div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:4px">
           <span style="font-size:9px;color:#ffcc5a">⭐ ${g.reputation.toLocaleString()} rep</span>
