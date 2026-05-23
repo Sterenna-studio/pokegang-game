@@ -478,6 +478,14 @@ const SPECIAL_EVENTS_HOENN = [
     desc_fr:'Des Draby émergent des canyons et sautent de leurs falaises en rêvant de voler !',
     desc_en:'Bagon emerge from canyons and leap from cliffs dreaming of flight!' },
 
+  // ── Fabuleux ──────────────────────────────────────────────────
+  { id:'deoxys_descent', fr:'Descente de Deoxys', en:'Deoxys Descent', icon:'☄️',
+    trainerKey:null, chance:0.004, minRep:3500,
+    zoneIds:['sky_pillar','mt_chimney','ever_grande_hoenn'],
+    reward:{ eggGift:['deoxys'], shinyBoost:200000, rareBoost:250000 },
+    desc_fr:"Une météorite s'écrase. La forme ADN palpite dans le cratère...",
+    desc_en:'A meteorite crashes. The DNA form pulses in the crater...' },
+
 ];
 
 

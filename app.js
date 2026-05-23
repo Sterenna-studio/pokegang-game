@@ -6,6 +6,9 @@
 
 import { Scheduler } from './modules/core/tickManager.js';
 import { EventBus, EVENTS } from './modules/core/eventBus.js';
+import { getDifficultyTier as _getDifficultyTier } from './modules/systems/difficultyTier.js';
+import { marketEventsTick } from './modules/systems/marketEvents.js';
+import { blackMarketTick } from './modules/systems/blackMarket.js';
 import {
   checkSecretCode,
   configureSecretCodes,
@@ -946,7 +949,7 @@ function addReputation(delta) {
   EventBus.emit(EVENTS.REP_CHANGED, { delta, newTotal: state.gang.reputation });
   EventBus.emit(EVENTS.STATE_DIRTY);
 }
-Object.assign(globalThis, { addMoney, addReputation });
+Object.assign(globalThis, { addMoney, addReputation, _getDifficultyTier });
 
 function notify(msg, type = '') {
   if (type === 'gold') SFX.play('notify');
@@ -1994,6 +1997,10 @@ function startGameLoop() {
   Scheduler.register('passiveXP',       _tickPassiveXP,     TICK_PASSIVE_XP_MS,   { skipWhenHidden: true  });
   Scheduler.register('zoneRefresh',     _tickZoneRefresh,   TICK_ZONE_REFRESH_MS, { skipWhenHidden: true  });
   Scheduler.register('marketDecay',     decayMarketSales,   TICK_MARKET_DECAY_MS, { skipWhenHidden: true  });
+  // Events marché (boosts/maluses temporaires sur prix de vente) — 30 min
+  Scheduler.register('marketEvents',    marketEventsTick,   30 * 60 * 1000,       { skipWhenHidden: false });
+  // Bulletin du marché noir (4 demandes pour 2h) — vérification toutes les 15 min
+  Scheduler.register('blackMarket',     blackMarketTick,    15 * 60 * 1000,       { skipWhenHidden: false });
 
   // Persistance — tourne même en arrière-plan
   Scheduler.register('autoSave',        _autoSave,          TICK_AUTO_SAVE_MS,    { skipWhenHidden: false });

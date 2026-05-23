@@ -429,7 +429,9 @@ function _applyResolvedAgentCombat(zoneId, spawnObj, combatAgents, result) {
   const mainAgent  = combatAgents[0];
   const trainerName = trainer.fr || trainer.en || trainerData.trainerKey || 'dresseur';
 
-  globalThis.applyCombatResult({ win: result.attackerWin, reward, repGain }, teamIds, trainerData);
+  // Tier auto-résolu pour les combats agents en background (sans UI)
+  const _bgTier = globalThis._getDifficultyTier?.(result.attackerPower, result.defenderPower);
+  globalThis.applyCombatResult({ win: result.attackerWin, reward, repGain, tier: _bgTier }, teamIds, trainerData);
 
   if (result.attackerWin) {
     const zoneState = state.zones[zoneId];

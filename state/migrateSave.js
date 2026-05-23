@@ -122,6 +122,8 @@ export function migrateSave(saved, deps) {
 
   // ── Tableaux de base ─────────────────────────────────────────────────────────────
   if (!merged.marketSales)              merged.marketSales  = {};
+  if (!Array.isArray(merged.marketEvents)) merged.marketEvents = [];
+  if (typeof merged.blackMarketBulletin === 'undefined') merged.blackMarketBulletin = null;
   if (!Array.isArray(merged.favorites)) merged.favorites    = [];
   if (!Array.isArray(merged.favoriteZones)) merged.favoriteZones = [];
   if (!Array.isArray(merged.eggs))      merged.eggs         = [];

@@ -30,7 +30,9 @@ function calculatePrice(pokemon) {
   const shinyMult = pokemon.shiny ? 10 : 1;
   const nat = globalThis.NATURES[pokemon.nature];
   const natMult = nat ? (nat.atk + nat.def + nat.spd) / 3 : 1;
-  return Math.round(base * potMult * shinyMult * natMult);
+  // Multiplicateur d'événements de marché actifs (boosts/maluses temporaires)
+  const eventMult = globalThis.getMarketPriceMultiplier?.(pokemon)?.mult ?? 1;
+  return Math.round(base * potMult * shinyMult * natMult * eventMult);
 }
 
 // Returns the supply pressure as a percentage (0 = normal, 60 = max saturation)

@@ -873,10 +873,16 @@ function applyCombatResult(result, playerTeamIds, trainerData) {
       // Appliquer le multiplicateur de revenus du niveau de zone
       const _lvlBonuses = globalThis.getZoneLevelBonuses?.(trainerData.zoneId) || {};
       const _moneyMult  = 1 + (_lvlBonuses.moneyMult || 0);
-      const _finalReward = Math.round(result.reward * _moneyMult);
+      // Appliquer le multiplicateur de tier de difficulté
+      const _tierMult = result.tier?.rewardMult ?? 1;
+      const _finalReward = Math.round(result.reward * _moneyMult * _tierMult);
       const zs = initZone(trainerData.zoneId);
       zs.pendingIncome = (zs.pendingIncome || 0) + _finalReward;
       result = { ...result, reward: _finalReward }; // mise à jour pour le log
+    }
+    // Bonus rep proportionnel au tier (pour challenges difficiles)
+    if (result.tier?.rewardMult && result.tier.rewardMult > 1 && result.repGain) {
+      result = { ...result, repGain: Math.round(result.repGain * result.tier.rewardMult) };
     }
     state.stats.totalMoneyEarned += result.reward;
     // Rep sur toutes les victoires (spécial = +10, normal = +1)
