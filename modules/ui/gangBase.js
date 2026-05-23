@@ -558,19 +558,21 @@ function renderGangBaseWindow() {
 
     <div class="base-command-shell">
       <section class="base-command-main">
-        <!-- Boss stage compact : sprite + nom + zone desc + 6 slots équipe -->
+        <!-- Boss stage compact : sprite + nom/zone | équipe pleine largeur -->
         <div class="base-boss-stage base-boss-stage-compact">
-          <div class="base-boss-frame">
-            ${bossPatches}
-            ${state.gang.bossSprite
-              ? `<img class="base-boss-sprite" src="${trainerSprite(state.gang.bossSprite)}" alt="Boss" onerror="this.src='${FALLBACK_TRAINER_SVG}';this.onerror=null">`
-              : '<div class="base-boss-empty">?</div>'}
+          <div class="base-boss-header">
+            <div class="base-boss-frame">
+              ${bossPatches}
+              ${state.gang.bossSprite
+                ? `<img class="base-boss-sprite" src="${trainerSprite(state.gang.bossSprite)}" alt="Boss" onerror="this.src='${FALLBACK_TRAINER_SVG}';this.onerror=null">`
+                : '<div class="base-boss-empty">?</div>'}
+            </div>
+            <div class="base-boss-info">
+              <div class="base-boss-name">${state.gang.bossName}</div>
+              <div class="base-boss-zone"><span class="base-zone-tag">${focusName}</span> · ${zoneDesc}</div>
+            </div>
           </div>
-          <div class="base-boss-info">
-            <div class="base-boss-name">${state.gang.bossName}</div>
-            <div class="base-boss-zone"><span class="base-zone-tag">${focusName}</span> · ${zoneDesc}</div>
-            <div class="base-team-slots">${bossTeamHtml}</div>
-          </div>
+          <div class="base-team-slots">${bossTeamHtml}</div>
         </div>
 
         <!-- Strip territoire : 4 métriques compactes en ligne -->
@@ -1009,13 +1011,18 @@ function bindGangBaseV2(container) {
       const idx  = parseInt(slot.dataset.bossSlot);
       const pkId = state.gang.bossTeam[idx];
       if (pkId) {
+        // Retirer le pokémon → refresh immédiat
         state.gang.bossTeam.splice(idx, 1);
         _save();
         globalThis.renderZoneWindows?.();
+        renderGangBasePanel();
       } else {
-        globalThis.openTeamPicker('boss', null, () => globalThis.renderZoneWindows?.());
+        // Ajouter via picker → refresh dans le callback, après sélection
+        globalThis.openTeamPicker('boss', null, () => {
+          globalThis.renderZoneWindows?.();
+          renderGangBasePanel();
+        });
       }
-      renderGangBasePanel();
     });
   });
 
