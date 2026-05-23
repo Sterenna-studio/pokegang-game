@@ -1663,6 +1663,9 @@
       color: var(--gold);
       line-height: 1;
     }
+    .base-item-qty.zero { color: var(--text-dim); opacity: .4; }
+    .base-item-qty.on   { color: var(--green); }
+    .base-item-qty.off  { color: var(--text-dim); opacity: .35; }
     .base-item-rem {
       position: absolute;
       bottom: 18px;
@@ -1741,11 +1744,13 @@
     .base-inc-slot.ready {
       border-color: var(--green);
       border-style: solid;
+      cursor: pointer;
       animation: incReady .8s ease-in-out infinite alternate;
     }
     .base-inc-slot.empty { cursor: default; }
     @keyframes incReady { from { box-shadow: none; } to { box-shadow: 0 0 8px rgba(90,230,90,.5); } }
     .base-inc-egg { width: 34px; height: 34px; image-rendering: pixelated; }
+    .base-inc-placeholder { font-size: 18px; opacity: .25; }
     .base-inc-bar {
       width: 90%;
       height: 3px;
@@ -1755,9 +1760,11 @@
     }
     .base-inc-fill {
       height: 100%;
+      background: var(--gold);
       border-radius: 2px;
       transition: width .5s;
     }
+    .base-inc-fill.done { background: var(--green); }
     .base-inc-time {
       font-size: 6px;
       font-family: var(--font-pixel);
@@ -2061,6 +2068,14 @@
       background: rgba(255,255,255,.05);
       color: var(--text-dim);
       border: 1px solid var(--border);
+    }
+    /* Idle state : no zone selected */
+    .base-boss-location.idle .base-loc-name {
+      color: var(--text-dim);
+      font-size: 9px;
+      font-family: inherit;
+      letter-spacing: normal;
+      opacity: .7;
     }
 
     /* Équipe pleine largeur sous le header */
@@ -2707,6 +2722,26 @@
     }
     .gb2-header .gb2-h-left { display: flex; align-items: center; gap: 6px; }
     .gb2-header .gb2-h-right { display: flex; align-items: center; gap: 6px; }
+    .gb2-hq-icon   { font-size: 9px !important; padding: 3px 6px !important; }
+    .gb2-h-name    { font-family: var(--font-pixel); font-size: 7px; color: var(--red); }
+    .gb2-h-boss    { font-size: 8px; color: var(--text-dim); }
+    .gb2-h-money   { font-family: var(--font-pixel); font-size: 7px; color: var(--gold); }
+    .gb2-h-rep     { font-family: var(--font-pixel); font-size: 7px; color: var(--text-dim); }
+
+    /* ── V2 boss sprite / placeholder ────────────────────────────── */
+    .gb2-boss-sprite-img {
+      width: 64px; height: 64px;
+      image-rendering: pixelated;
+      filter: drop-shadow(0 0 8px rgba(204,51,51,.35));
+    }
+    .gb2-boss-placeholder {
+      width: 64px; height: 64px;
+      background: var(--bg-card);
+      border: 1px dashed var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px; color: var(--text-dim);
+    }
+    .gb2-boss-main-info { flex: 1; min-width: 0; }
 
     /* 3-column shell */
     .gb2-shell {

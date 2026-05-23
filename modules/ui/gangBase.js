@@ -447,7 +447,7 @@ function renderGangBaseWindow() {
     const remStr   = isBoosted ? `<span class="base-item-rem">${Math.ceil(boostRemaining(id))}s</span>` : '';
     const qtyBadge = owned
       ? `<span class="base-item-qty">${qty > 99 ? '99+' : '×'+qty}</span>`
-      : `<span class="base-item-qty" style="color:var(--text-dim);opacity:.4">0</span>`;
+      : `<span class="base-item-qty zero">0</span>`;
     return `<div class="base-item-tile${isActive ? ' active' : ''}${isBoosted ? ' boosted' : ''}" data-bag-item="${id}" title="${id} ×${qty}">
       <div class="base-item-sprite${owned ? '' : ' locked'}">${itemSprite(id)}</div>
       ${qtyBadge}${remStr}
@@ -458,8 +458,8 @@ function renderGangBaseWindow() {
     const qty   = state.inventory?.[id] || 0;
     const owned = qty > 0;
     const badge = owned
-      ? `<span class="base-item-qty" style="color:var(--green)">✓</span>`
-      : `<span class="base-item-qty" style="color:var(--text-dim);opacity:.35">✗</span>`;
+      ? `<span class="base-item-qty on">✓</span>`
+      : `<span class="base-item-qty off">✗</span>`;
     return `<div class="base-item-tile${owned ? '' : ' locked-key'}" data-bag-item="${id}" title="${id}${owned ? ' — Obtenu' : ' — Non obtenu'}">
       <div class="base-item-sprite${owned ? '' : ' locked'}">${itemSprite(id)}</div>
       ${badge}
@@ -491,18 +491,17 @@ function renderGangBaseWindow() {
         const eggSrc = globalThis.eggSprite?.(egg, isReady) || '';
         incSlotsHtml += `
           <div class="base-inc-slot ${isReady ? 'ready' : 'active'}" data-egg-id="${egg.id}"
-            title="${egg.species_en}${isReady ? ' — PRÊT !' : timeLeftMin !== null ? ' — '+timeLeftMin+'min' : ''}"
-            style="${isReady ? 'cursor:pointer;' : ''}">
+            title="${egg.species_en}${isReady ? ' — PRÊT !' : timeLeftMin !== null ? ' — '+timeLeftMin+'min' : ''}">
             <img src="${eggSrc}" class="base-inc-egg" alt="">
             <div class="base-inc-bar">
-              <div class="base-inc-fill" style="width:${isReady ? 100 : progress}%;background:${isReady ? 'var(--green)' : 'var(--gold)'}"></div>
+              <div class="base-inc-fill ${isReady ? 'done' : ''}" style="width:${isReady ? 100 : progress}%"></div>
             </div>
             ${isReady
               ? `<span class="base-inc-ready">!</span>`
               : timeLeftMin !== null ? `<span class="base-inc-time">${timeLeftMin}m</span>` : ''}
           </div>`;
       } else {
-        incSlotsHtml += `<div class="base-inc-slot empty"><span style="font-size:18px;opacity:.25">🥚</span></div>`;
+        incSlotsHtml += `<div class="base-inc-slot empty"><span class="base-inc-placeholder">🥚</span></div>`;
       }
     }
   }
@@ -543,7 +542,7 @@ function renderGangBaseWindow() {
       </div>`
     : `<div class="base-boss-location idle">
         <span class="base-loc-pin">📍</span>
-        <span class="base-loc-name" style="color:var(--text-dim);font-size:9px">Ouvrez une zone pour lancer les operations</span>
+        <span class="base-loc-name">Ouvrez une zone pour lancer les operations</span>
       </div>`;
 
   const territoryCards = [
@@ -835,13 +834,13 @@ function renderGangBaseWindowV2() {
     <!-- Header -->
     <div class="gb2-header">
       <div class="gb2-h-left">
-        <span class="base-hq-icon" style="font-size:9px;padding:3px 6px">HQ</span>
-        <span style="font-family:var(--font-pixel);font-size:7px;color:var(--red);margin-left:6px">${state.gang.name}</span>
-        <span style="font-size:8px;color:var(--text-dim)">— ${state.gang.bossName}</span>
+        <span class="base-hq-icon gb2-hq-icon">HQ</span>
+        <span class="gb2-h-name">${state.gang.name}</span>
+        <span class="gb2-h-boss">— ${state.gang.bossName}</span>
       </div>
       <div class="gb2-h-right">
-        <span style="font-family:var(--font-pixel);font-size:7px;color:var(--gold)">₽${(state.gang.money||0).toLocaleString()}</span>
-        <span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">⭐${(state.gang.reputation||0).toLocaleString()}</span>
+        <span class="gb2-h-money">₽${(state.gang.money||0).toLocaleString()}</span>
+        <span class="gb2-h-rep">⭐${(state.gang.reputation||0).toLocaleString()}</span>
         <button class="gb-view-toggle v2-active" data-gb-view="v1" title="Vue v1 — Compacte">V1</button>
         <button class="base-export-btn" title="Exporter">📷</button>
       </div>
@@ -856,11 +855,11 @@ function renderGangBaseWindowV2() {
           <div class="gb2-boss-main">
             <div class="gb2-boss-sprite-wrap">
               ${state.gang.bossSprite
-                ? `<img src="${trainerSprite(state.gang.bossSprite)}" alt="Boss" style="width:64px;height:64px;image-rendering:pixelated;filter:drop-shadow(0 0 8px rgba(204,51,51,.35))">`
-                : `<div style="width:64px;height:64px;background:var(--bg-card);border:1px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--text-dim)">?</div>`}
+                ? `<img src="${trainerSprite(state.gang.bossSprite)}" class="gb2-boss-sprite-img" alt="Boss">`
+                : `<div class="gb2-boss-placeholder">?</div>`}
               ${bossPatches}
             </div>
-            <div style="flex:1;min-width:0">
+            <div class="gb2-boss-main-info">
               <div class="gb2-gang-name">${state.gang.name}</div>
               <div class="gb2-boss-title">${bossTitle}</div>
               <div class="gb2-mini-stats">
