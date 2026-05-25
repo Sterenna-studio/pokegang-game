@@ -66,7 +66,7 @@ const ZONES_HOENN = [
     trainers:['youngster','lass','tuber','tuberf','fisherGen3'],
     eliteTrainer:'brendan' },
 
-  { id:'granite_cave', fr:'Grotte des Granit', en:'Granite Cave', rep:2180, spawnRate:0.05, type:'route',
+  { id:'granite_cave', fr:'Grotte Granite', en:'Granite Cave', rep:2180, spawnRate:0.05, type:'route',
     zoneLevelBonus:58, investCost:4000,
     poolCommon:   ['zubat','geodude','aron'],
     poolUncommon: ['makuhita','sableye','mawile'],
@@ -250,7 +250,7 @@ const ZONES_HOENN = [
     zoneLevelBonus:68, investCost:20000,
     poolCommon:   ['taillow','swablu','wingull'],
     poolUncommon: ['swellow','altaria','pelipper'],
-    poolRare:     ['tropius','birdkeeperGen3','xatu'],
+    poolRare:     ['tropius','skarmory','xatu'],
     poolVeryRare: ['skarmory'],
     poolLegendary:[],
     trainers:['birdkeeperGen3','acetrainerGen3','acetrainerFGen3'],
@@ -297,7 +297,7 @@ const ZONES_HOENN = [
     unlockItem:'magma_hideout_key',
     poolCommon:   ['numel','slugma','golbat'],
     poolUncommon: ['camerupt','mightyena','electrode'],
-    poolRare:     ['cameruptite','torkoal'],
+    poolRare:     ['camerupt','torkoal'],
     poolVeryRare: [],
     poolLegendary:[],
     trainers:['magmagrunt','magmagruntf','tabitha','courtney'],
@@ -314,7 +314,7 @@ const ZONES_HOENN = [
     trainers:['aquagrunt','aquagruntf','matt','shelly'],
     eliteTrainer:'archie' },
 
-  { id:'cave_of_origin', fr:'Caverne Mystérieuse', en:'Cave of Origin', rep:3300, spawnRate:0.04, type:'special',
+  { id:'cave_of_origin', fr:'Caverne Originelle', en:'Cave of Origin', rep:3300, spawnRate:0.04, type:'special',
     zoneLevelBonus:71, investCost:38000,
     unlockItem:'cave_origin_pass',
     poolCommon:   ['zubat','golbat','whismur'],
@@ -325,7 +325,7 @@ const ZONES_HOENN = [
     trainers:['acetrainerGen3','acetrainerFGen3'],
     eliteTrainer:'juan' },
 
-  { id:'scorched_slab', fr:'Caverne Brûlée', en:'Scorched Slab', rep:2650, spawnRate:0.05, type:'special',
+  { id:'scorched_slab', fr:'Roche Ardente', en:'Scorched Slab', rep:2650, spawnRate:0.05, type:'special',
     zoneLevelBonus:64, investCost:15000,
     poolCommon:   ['slugma','vulpix','growlithe'],
     poolUncommon: ['magcargo','ninetales','arcanine'],
@@ -406,7 +406,7 @@ const SPECIAL_EVENTS_HOENN = [
     desc_fr:"Rayquaza traverse la stratosphère. Sa présence fait s'éveiller les Dracolosse !",
     desc_en:"Rayquaza tears through the stratosphere. Its presence awakens Dragonite!" },
 
-  { id:'kyogre_surge', fr:'Surge de Kyogre !', en:'Kyogre Surge!', icon:'🌧️',
+  { id:'kyogre_surge', fr:'Déferlante de Kyogre !', en:'Kyogre Surge!', icon:'🌧️',
     trainerKey:null, chance:0.01, minRep:3200,
     reward:{ rareBoost:200000, shinyBoost:90000, eggGift:['mudkip'] },
     desc_fr:"La pluie inonde soudainement la zone — Kyogre est proche. Les Pokémon Eau affluent.",
@@ -444,7 +444,7 @@ const SPECIAL_EVENTS_HOENN = [
     desc_en:"Steven, Hoenn's Champion, descends from the League to test your gang." },
 
   // ── Elite Four Hoenn ─────────────────────────────────────────
-  { id:'phoebe_haunts', fr:'Spectras de Phoebe !', en:"Phoebe's Haunts!", icon:'👻',
+  { id:'phoebe_haunts', fr:'Cauchemar de Spectra !', en:"Phoebe's Haunts!", icon:'👻',
     trainerKey:'phoebe', chance:0.02, minRep:3600,
     reward:{ money:[8000,16000], rep:30, shinyBoost:60000 },
     desc_fr:"Spectra du Conseil 4 de Hoenn envoie ses Pokémon Spectre dans l'obscurité.",
