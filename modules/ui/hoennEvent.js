@@ -529,8 +529,8 @@ async function _step2() {
     'Le colosse d\'acier vous fixe de ses quatre yeux rouges.\n\n' +
     'Pas d\'hostilité — une jauge froide, mécanique.\n' +
     'Il évalue votre puissance comme un instrument calibré.\n\n' +
-    'À ses pattes métalliques : une enveloppe scellée d\'une\n' +
-    'empreinte en forme de feuille brillante.',
+    'Sous l\'une de ses griffes métalliques : une enveloppe\n' +
+    'scellée d\'un cachet argenté en forme de rocher taillé.',
   );
 
   await _wait(300);
@@ -655,21 +655,21 @@ async function _step4() {
     { delay: 400,  metaHp: 98, gangHp: 88,
       html: '<span class="sys">— Combat lancé —</span>' },
     { delay: 800,  metaHp: 98, gangHp: 88,
-      html: '<span class="meta">Metagross</span> <span class="hit">observe — il calibre votre puissance</span>' },
+      html: '<span class="meta">Metagross</span> <span class="hit">observe — il calibre votre puissance avec froideur</span>' },
     { delay: 1400, metaHp: 98, gangHp: 75,
-      html: '<span class="meta">Metagross</span> attaque avec <span class="hit">Météores / Frustration</span>' },
+      html: '<span class="meta">Metagross</span> frappe avec <span class="hit">Poing Météore</span> — impact lourd, métal contre chair' },
     { delay: 2000, metaHp: 80, gangHp: 75,
-      html: '<span class="boss">Votre gang</span> riposte — <span class="hit">coup solide</span>' },
+      html: '<span class="boss">Votre gang</span> riposte — <span class="hit">coup coordonné, solide</span>' },
     { delay: 2700, metaHp: 80, gangHp: 60,
-      html: '<span class="meta">Metagross</span> — <span class="hit">Bouclier d\'acier</span> — l\'impact ne le recule pas' },
+      html: '<span class="meta">Metagross</span> — <span class="hit">Armure de Fer</span> — sa défense se durcit, l\'impact l\'effleure à peine' },
     { delay: 3400, metaHp: 65, gangHp: 60,
-      html: '<span class="boss">Votre gang</span> — <span class="hit">enchaînement coordonné</span> — Metagross accuse' },
+      html: '<span class="boss">Votre gang</span> — <span class="hit">enchaînement ciblé</span> — Metagross accuse le coup' },
     { delay: 4100, metaHp: 65, gangHp: 45,
-      html: '<span class="meta">Metagross</span> — <span class="hit">Combo Griffe</span> — le sol tremble' },
+      html: '<span class="meta">Metagross</span> — <span class="hit">Séisme</span> — le sol de la jetée se fissure' },
     { delay: 4700, metaHp: 50, gangHp: 45,
       html: '<span class="boss">Votre gang</span> tient bon — <span class="hit">contre-attaque précise</span>' },
     { delay: 5400, metaHp: 50, gangHp: 30,
-      html: '<span class="meta">Metagross</span> — <span class="hit">Éclate-Armure</span> — votre garde se fissure' },
+      html: '<span class="meta">Metagross</span> — <span class="hit">Frappe Atlas</span> — votre garde se fissure sous le poids de métal' },
     { delay: 6000, metaHp: 35, gangHp: 30,
       html: '<span class="boss">Votre gang</span> — effort combiné — <span class="hit">Metagross recule d\'un pas</span>' },
     { delay: 6600, metaHp: 35, gangHp: 30,
@@ -746,18 +746,17 @@ async function _step5() {
   box.appendChild(voice);
 
   const MESSAGE =
-    `« ${bossName}.\n\n` +
-    `Mon Metagross ne recule que face à ce qui mérite respect.\n` +
-    `Vous y avez droit.\n\n` +
-    `Hoenn n'est pas Kanto. La mer peut tuer. Les volcans peuvent ` +
-    `réveiller Groudon. Les abysses cachent Kyogre. Nos équipes ` +
-    `criminelles sont prêtes à déclencher une catastrophe mondiale ` +
-    `pour gagner leur guerre idiote.\n\n` +
-    `Ma proposition tient : les routes d'Hoenn vous sont ouvertes. ` +
-    `Pas comme conquérants — comme force indépendante. ` +
-    `Si votre gang met de l'ordre, nous n'aurons aucun litige.\n\n` +
-    `Hoenn est magnifique. Et dangereuse.\n` +
-    `Bonne chance. »`;
+    `« Bien.\n\n` +
+    `Mon Metagross ne reconnaît que ce qui mérite respect.\n` +
+    `Ce soir, c'est vous.\n\n` +
+    `L'accord de ma lettre tient toujours. Hoenn vous est ouverte — ` +
+    `pas comme envahisseurs, mais comme force indépendante.\n\n` +
+    `Une chose que je n'ai pas écrite : la situation est pire que ` +
+    `ce que Kanto imagine. Magma et Aqua ne cherchent pas seulement ` +
+    `à s'affronter — ils veulent réveiller Groudon et Kyogre. Si ` +
+    `l'un d'eux y parvient, plus aucune règion ne sera épargnée.\n\n` +
+    `Faites ce que vous savez faire.\n` +
+    `Hoenn a besoin de gens qui n'hésitent pas. »`;
 
   await _typewrite(voice, MESSAGE, 18);
 

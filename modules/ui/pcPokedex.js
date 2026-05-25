@@ -2447,7 +2447,7 @@ function renderPokemonHistory(pokemon) {
 // ════════════════════════════════════════════════════════════════
 
 let dexSelectedEn  = null;
-let dexViewFilter  = 'kanto'; // 'kanto' | 'national' | 'shiny' | 'missing'
+let dexViewFilter  = 'kanto'; // 'kanto' | 'johto' | 'hoenn' | 'sinnoh' | 'national' | 'shiny' | 'missing' | 'trainers'
 
 function getSpawnZones(species_en) {
   return ZONES
@@ -2958,11 +2958,31 @@ function renderPokedexTab() {
   const grid = document.getElementById('pokedexGrid');
   if (!grid) return;
 
-  // ── Counter bar (Kanto / Johto / National / Chromas) ──────────
+  // ── Unlock state ───────────────────────────────────────────────
+  const _purchases     = getState()?.purchases ?? {};
+  const johtoUnlocked  = !!_purchases.johtoUnlocked;
+  const hoennUnlocked  = !!_purchases.hoennUnlocked;
+  const sinnohUnlocked = !!_purchases.sinnohUnlocked;
+
+  // Guard: if active filter belongs to a locked region, reset to kanto
+  if (dexViewFilter === 'hoenn'  && !hoennUnlocked)  dexViewFilter = 'kanto';
+  if (dexViewFilter === 'sinnoh' && !sinnohUnlocked) dexViewFilter = 'kanto';
+  if (dexViewFilter === 'johto'  && !johtoUnlocked)  dexViewFilter = 'kanto';
+
+  // ── Counter bar ────────────────────────────────────────────────
   const kantoCaught    = getDexKantoCaught();
   const johtoCaught    = getDexJohtoCaught();
   const nationalCaught = getDexNationalCaught();
   const shinySpecies   = getShinySpeciesCount();
+
+  // Hoenn / Sinnoh counts computed inline (no new context dep needed)
+  const _allSp = POKEMON_GEN1;
+  const _hoennSp  = hoennUnlocked  ? _allSp.filter(sp => !sp.hidden && sp.dex >= 252 && sp.dex <= 386) : [];
+  const _sinnohSp = sinnohUnlocked ? _allSp.filter(sp => !sp.hidden && sp.dex >= 387 && sp.dex <= 493) : [];
+  const hoennTotal    = _hoennSp.length;
+  const sinnohTotal   = _sinnohSp.length;
+  const hoennCaught   = _hoennSp.filter(sp => state.pokedex[sp.en]?.caught).length;
+  const sinnohCaught  = _sinnohSp.filter(sp => state.pokedex[sp.en]?.caught).length;
 
   let dexCounter = document.getElementById('dexCounter');
   if (!dexCounter) {
@@ -2973,7 +2993,9 @@ function renderPokedexTab() {
   }
   dexCounter.innerHTML = `
     <span title="Pokédex Kanto (151 espèces originales)">📖 Kanto&nbsp;<b style="color:var(--text)">${kantoCaught}/${getKantoDexSize()}</b></span>
-    <span title="Pokédex Johto (espèces #152–251)" style="opacity:.85">🗾 Johto&nbsp;<b style="color:var(--text)">${johtoCaught}/${getJohtoDexSize()}</b></span>
+    ${johtoUnlocked  ? `<span title="Pokédex Johto (espèces #152–251)" style="opacity:.85">🗾 Johto&nbsp;<b style="color:var(--text)">${johtoCaught}/${getJohtoDexSize()}</b></span>` : ''}
+    ${hoennUnlocked  ? `<span title="Pokédex Hoenn (espèces #252–386)" style="opacity:.85">🌊 Hoenn&nbsp;<b style="color:var(--text)">${hoennCaught}/${hoennTotal}</b></span>` : ''}
+    ${sinnohUnlocked ? `<span title="Pokédex Sinnoh (espèces #387–493)" style="opacity:.85">❄️ Sinnoh&nbsp;<b style="color:var(--text)">${sinnohCaught}/${sinnohTotal}</b></span>` : ''}
     <span title="Pokédex National (toutes espèces disponibles)" style="opacity:.7">🌐 National&nbsp;<b style="color:var(--text)">${nationalCaught}/${getNationalDexSize()}</b></span>
     <span title="Espèces uniques dont au moins un exemplaire chromatique">✨&nbsp;<b style="color:var(--gold)">${shinySpecies}</b></span>
     <button id="dexRebuildBtn" title="Reconstruire le Pokédex depuis tes Pokémon réels" style="margin-left:auto;font-family:var(--font-pixel);font-size:7px;padding:3px 7px;background:rgba(255,204,90,.08);border:1px solid rgba(255,204,90,.35);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer;white-space:nowrap">🔄 Recalibrer</button>
@@ -2982,12 +3004,14 @@ function renderPokedexTab() {
 
   // ── Filter tabs ────────────────────────────────────────────────
   const DEX_FILTERS = [
-    { id: 'kanto',    label: 'Kanto',       title: 'Pokémon #001–151' },
-    { id: 'johto',    label: 'Johto',       title: 'Pokémon #152–251' },
-    { id: 'national', label: 'National',    title: 'Toutes les espèces disponibles' },
-    { id: 'shiny',    label: '✨ Chromas',  title: 'Espèces dont tu possèdes un chromatique' },
-    { id: 'missing',  label: '❓ Manquants',title: 'Espèces non encore capturées' },
-    { id: 'trainers', label: '⚔ Dresseurs', title: 'Statistiques de rencontres par dresseur' },
+    { id: 'kanto',    label: 'Kanto',        title: 'Pokémon #001–151' },
+    ...(johtoUnlocked  ? [{ id: 'johto',  label: 'Johto',  title: 'Pokémon #152–251' }] : []),
+    ...(hoennUnlocked  ? [{ id: 'hoenn',  label: 'Hoenn',  title: 'Pokémon #252–386' }] : []),
+    ...(sinnohUnlocked ? [{ id: 'sinnoh', label: 'Sinnoh', title: 'Pokémon #387–493' }] : []),
+    { id: 'national', label: 'National',     title: 'Toutes les espèces disponibles' },
+    { id: 'shiny',    label: '✨ Chromas',   title: 'Espèces dont tu possèdes un chromatique' },
+    { id: 'missing',  label: '❓ Manquants', title: 'Espèces non encore capturées' },
+    { id: 'trainers', label: '⚔ Dresseurs',  title: 'Statistiques de rencontres par dresseur' },
   ];
   let dexFilterBar = document.getElementById('dexFilterBar');
   if (!dexFilterBar) {
@@ -3018,20 +3042,24 @@ function renderPokedexTab() {
     return;
   }
 
-  // ── Build species pool (always complete — filter only dims) ──────
+  // ── Build species pool ─────────────────────────────────────────
   const search = document.getElementById('dexSearchInput')?.value?.toLowerCase() || '';
 
-  // Pool = full dex for this view (never shrinks due to filter)
   let pool;
   if (dexViewFilter === 'national' || dexViewFilter === 'shiny' || dexViewFilter === 'missing') {
     pool = POKEMON_GEN1.filter(sp => !sp.hidden);
   } else if (dexViewFilter === 'johto') {
     pool = POKEMON_GEN1.filter(sp => !sp.hidden && sp.dex >= 152 && sp.dex <= 251);
+  } else if (dexViewFilter === 'hoenn') {
+    pool = POKEMON_GEN1.filter(sp => !sp.hidden && sp.dex >= 252 && sp.dex <= 386);
+  } else if (dexViewFilter === 'sinnoh') {
+    pool = POKEMON_GEN1.filter(sp => !sp.hidden && sp.dex >= 387 && sp.dex <= 493);
   } else {
+    // kanto (default)
     pool = POKEMON_GEN1.filter(sp => !sp.hidden && sp.dex >= 1 && sp.dex <= 151);
   }
 
-  // Text search hides entries (intentional user action)
+  // Text search
   if (search) {
     pool = pool.filter(sp =>
       sp.en.includes(search) || sp.fr.toLowerCase().includes(search) ||
@@ -3044,7 +3072,7 @@ function renderPokedexTab() {
     switch (dexViewFilter) {
       case 'shiny':   return !!state.pokedex[sp.en]?.shiny;
       case 'missing': return !state.pokedex[sp.en]?.caught;
-      default:        return true; // kanto / national → tout est mis en avant
+      default:        return true;
     }
   }
   const hasActiveOverlay = dexViewFilter === 'shiny' || dexViewFilter === 'missing';
@@ -3086,10 +3114,10 @@ function renderPokedexTab() {
   // Restore detail panel
   if (dexSelectedEn) renderDexDetail(dexSelectedEn);
 
-  // ── Sinnoh tease — affiché si la cinématique Darkrai a été vue ──
-  const sinnohUnlocked = !!state.discoveryProgress?.sinnohTeaseUnlocked;
+  // ── Sinnoh tease — affiché si la cinématique Darkrai a été vue (mais Sinnoh pas encore débloqué) ──
+  const _sinnohTeased = !!state.discoveryProgress?.sinnohTeaseUnlocked;
   let sinnohSection = document.getElementById('dexSinnohTease');
-  if (sinnohUnlocked && (dexViewFilter === 'national' || dexViewFilter === 'kanto')) {
+  if (_sinnohTeased && !sinnohUnlocked && (dexViewFilter === 'national' || dexViewFilter === 'kanto')) {
     if (!sinnohSection) {
       sinnohSection = document.createElement('div');
       sinnohSection.id = 'dexSinnohTease';
