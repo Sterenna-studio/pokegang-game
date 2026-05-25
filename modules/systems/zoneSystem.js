@@ -869,6 +869,15 @@ function applyCombatResult(result, playerTeamIds, trainerData) {
   }
   if (result.win && result.reward >= 0) {
     state.stats.totalFightsWon++;
+    // Progression des bounty contracts du marché noir : tier ≥ 'hard' compte
+    if (result.tier && ['hard','elite','extreme','impossible'].includes(result.tier.id)) {
+      state.bountyProgress = state.bountyProgress || {};
+      for (const listing of (state.blackMarketBulletin?.listings || [])) {
+        if (listing.type === 'trainer_bounty' && !listing.completed) {
+          state.bountyProgress[listing.id] = (state.bountyProgress[listing.id] || 0) + 1;
+        }
+      }
+    }
     if (result.reward > 0) {
       // Appliquer le multiplicateur de revenus du niveau de zone
       const _lvlBonuses = globalThis.getZoneLevelBonuses?.(trainerData.zoneId) || {};

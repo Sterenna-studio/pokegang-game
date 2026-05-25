@@ -674,8 +674,6 @@
     .fog-tile.fog-event .fog-tile-status { color: var(--gold); }
     .fog-tile.fog-auto     { border-color: rgba(100,180,255,.5); }
     .fog-tile.fog-auto .fog-tile-status  { color: rgba(100,180,255,.9); }
-    .fog-tile.fog-contested { border-color: #cc4400; border-width: 2px; }
-    .fog-tile.fog-contested .fog-tile-status { color: #cc4400; }
     .fog-tile-overlay {
       position: absolute; inset: 0;
       background: rgba(0,0,0,0.45);
@@ -3078,7 +3076,22 @@
     .bm-listing-done { font-family: var(--font-pixel); font-size: 7px; color: var(--green); }
     .bm-listing-detail { font-size: 9px; color: var(--text-dim); margin-bottom: 6px; line-height: 1.4; }
     .bm-listing-foot { display: flex; justify-content: space-between; align-items: center; }
-    .bm-listing-reward { font-family: var(--font-pixel); font-size: 8px; color: var(--gold); }
+    .bm-listing-reward { font-family: var(--font-pixel); font-size: 8px; color: var(--gold); display: flex; flex-wrap: wrap; gap: 6px; }
+    .bm-reward-money { color: var(--gold); }
+    .bm-reward-rep   { color: #ffcc5a; }
+    .bm-reward-item  { color: #81c784; }
+    .bm-reward-boost { color: #64b5f6; }
+
+    .bm-progress-bar {
+      height: 5px;
+      background: rgba(0,0,0,.45);
+      border-radius: 3px;
+      overflow: hidden;
+      margin: 5px 0 2px;
+    }
+    .bm-progress-fill { height: 100%; background: linear-gradient(90deg, #b58cf0, #ffcc5a); transition: width .3s; }
+    .bm-progress-label { font-size: 8px; color: var(--text-dim); text-align: right; margin-bottom: 5px; }
+
     .bm-listing-claim {
       font-family: var(--font-pixel);
       font-size: 8px;

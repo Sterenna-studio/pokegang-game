@@ -50,13 +50,32 @@ function renderBlackMarketPanel() {
     </div>` : '';
 
   // ── Listings du bulletin ──────────────────────────────────────
+  const ITEM_LABELS = { masterball:'Master Ball', ultraball:'Hyper Ball', evostone:'Pierre Évo', rarecandy:'Super Bonbon', aura:'Aura Shiny' };
+  const state = globalThis.state;
   const listingsHtml = (bulletin?.listings || []).map(listing => {
     const isDone = listing.completed;
     const r = listing.reward || {};
     const rewardParts = [];
-    if (r.money) rewardParts.push(`${r.money.toLocaleString()}₽`);
-    if (r.rep)   rewardParts.push(`+${r.rep} ⭐`);
-    if (r.rareBoost) rewardParts.push(`×${r.rareBoost.multiplier} rares`);
+    if (r.money) rewardParts.push(`<span class="bm-reward-money">${r.money.toLocaleString()}₽</span>`);
+    if (r.rep)   rewardParts.push(`<span class="bm-reward-rep">+${r.rep} ⭐</span>`);
+    if (r.items) {
+      for (const [iid, qty] of Object.entries(r.items)) {
+        if (!qty) continue;
+        rewardParts.push(`<span class="bm-reward-item">${qty}× ${ITEM_LABELS[iid] || iid}</span>`);
+      }
+    }
+    if (r.rareBoost) rewardParts.push(`<span class="bm-reward-boost">×${r.rareBoost.multiplier} rares 4h</span>`);
+    // Progression spécifique bounty
+    let progressBar = '';
+    if (listing.type === 'trainer_bounty' && !isDone) {
+      const progress = state.bountyProgress?.[listing.id] || 0;
+      const pct = Math.min(100, (progress / listing.qty) * 100);
+      progressBar = `
+        <div class="bm-progress-bar">
+          <div class="bm-progress-fill" style="width:${pct}%"></div>
+        </div>
+        <div class="bm-progress-label">${progress} / ${listing.qty}</div>`;
+    }
     return `
       <div class="bm-listing ${isDone ? 'done' : ''}">
         <div class="bm-listing-head">
@@ -65,6 +84,7 @@ function renderBlackMarketPanel() {
           ${isDone ? '<span class="bm-listing-done">✓ FAIT</span>' : ''}
         </div>
         <div class="bm-listing-detail">${_esc(listing.detail)}</div>
+        ${progressBar}
         <div class="bm-listing-foot">
           <span class="bm-listing-reward">🎁 ${rewardParts.join(' · ')}</span>
           ${!isDone ? `<button class="bm-listing-claim" data-bm-id="${listing.id}">Livrer</button>` : ''}
