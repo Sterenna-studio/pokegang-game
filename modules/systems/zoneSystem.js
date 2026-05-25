@@ -944,6 +944,14 @@ function applyCombatResult(result, playerTeamIds, trainerData) {
           // Darkrai Nightmare — pour les nouveaux joueurs (cinématique non vue)
           setTimeout(() => globalThis.triggerDarkraiOnLeagueVictory?.(), 4000);
         }
+        // Ligue Johto — vérifier si Hoenn se débloque
+        if (trainerData.zoneId === 'indigo_johto') {
+          setTimeout(() => globalThis.checkHoennUnlock?.(), 3000);
+        }
+        // Ligue Hoenn — vérifier si Sinnoh se débloque
+        if (trainerData.zoneId === 'ever_grande_hoenn') {
+          setTimeout(() => globalThis.checkSinnohUnlock?.(), 3000);
+        }
       }
       if (trainerData.isGymRaid) {
         zs.gymRaidLastFight = Date.now();

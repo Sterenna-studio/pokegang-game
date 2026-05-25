@@ -154,11 +154,11 @@ const REGIONS_CONFIG = [
     dexRange: [252, 386],
 
     unlock: {
-      type:         'rep+item',
-      repThreshold: 2000,
-      itemId:       'hoenn_pass',
-      hint_fr: 'Atteignez 2 000 REP et obtenez le Pass Hoenn.',
-      hint_en: 'Reach 2 000 REP and obtain the Hoenn Pass.',
+      type:          'gang_power',
+      repThreshold:  2000,
+      powerThreshold: 2500,
+      hint_fr: 'Ligue Johto vaincue · 2 000 REP · Puissance de gang ≥ 2 500 PC',
+      hint_en: 'Defeat Johto League · 2 000 REP · Gang power ≥ 2 500 PC',
     },
 
     poolTiers: {
