@@ -129,6 +129,7 @@ import './modules/systems/sinnoh.js';
 import './modules/ui/pickers.js';
 import { configureIntro, openGiovanniIntro, openStarterGiftPopup } from './modules/ui/intro.js';
 import { checkDarkraiCutscene, triggerDarkraiOnLeagueVictory } from './modules/ui/darkraiEvent.js';
+import './modules/ui/hoennEvent.js';
 import './modules/systems/pokemon.js';
 import './modules/systems/titles.js';
 import './modules/ui/cosmetics.js';
@@ -1998,6 +1999,10 @@ function startGameLoop() {
   Scheduler.register('zoneRefresh',     _tickZoneRefresh,   TICK_ZONE_REFRESH_MS, { skipWhenHidden: true  });
   Scheduler.register('marketDecay',     decayMarketSales,   TICK_MARKET_DECAY_MS, { skipWhenHidden: true  });
   // Events marché (boosts/maluses temporaires sur prix de vente) — 30 min
+  Scheduler.register('regionUnlockCheck', () => {
+    if (!state.purchases?.hoennUnlocked)  checkHoennUnlock();
+    if (!state.purchases?.sinnohUnlocked) checkSinnohUnlock();
+  }, 5 * 60 * 1000, { skipWhenHidden: true });
   Scheduler.register('marketEvents',    marketEventsTick,   30 * 60 * 1000,       { skipWhenHidden: false });
   // Bulletin du marché noir (4 demandes pour 2h) — vérification toutes les 15 min
   Scheduler.register('blackMarket',     blackMarketTick,    15 * 60 * 1000,       { skipWhenHidden: false });

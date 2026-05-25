@@ -154,6 +154,10 @@ export function migrateSave(saved, deps) {
   if (merged.gang.introSeen         === undefined) merged.gang.introSeen         = false;
   // darkraiCutsceneSeen — false for all; existing initialized players will see it on next boot
   if (merged.gang.darkraiCutsceneSeen === undefined) merged.gang.darkraiCutsceneSeen = false;
+  // hoennCinematicSeen — false by default; existing players who already unlocked Hoenn skip it
+  if (merged.gang.hoennCinematicSeen  === undefined) {
+    merged.gang.hoennCinematicSeen = merged.purchases?.hoennUnlocked ? true : false;
+  }
   // competition — online PvP system
   if (!merged.gang.competition || typeof merged.gang.competition !== 'object' || Array.isArray(merged.gang.competition)) {
     merged.gang.competition = structuredClone(DEFAULT_STATE.gang.competition);

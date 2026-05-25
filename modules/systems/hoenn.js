@@ -1,12 +1,16 @@
 'use strict';
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
+import { getBossTeamPower } from './bossPower.js';
 
-const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
+const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type });
 const _save   = ()               => globalThis.saveState?.();
 
 // ── Hoenn region unlock system ───────────────────────────────────────────────
-// Logique d'activation et de cinématique de déblocage de la région Hoenn.
+// Conditions de déblocage basées sur la puissance du gang (pas d'item requis).
+//
+// SEUIL : puissance combinée (équipe boss + agents de combat) >= HOENN_POWER_THRESHOLD
+//         + Ligue Johto vaincue + réputation >= 2000
 //
 // Dépendances classiques (bare name — classic <script> globals) :
 //   ZONES, ZONES_HOENN, ZONE_BY_ID, ZONE_MUSIC_MAP, ZONE_MUSIC_MAP_HOENN
@@ -14,7 +18,29 @@ const _save   = ()               => globalThis.saveState?.();
 //
 // Dépendances globalThis :
 //   state, notify, saveState, trainerSprite, renderZonesTab, switchTab,
-//   activeTab, _zsel_setActiveRegion
+//   activeTab, _zsel_setActiveRegion, showHoennCinematic (set by hoennEvent.js)
+
+// Puissance de gang minimale pour déclencher la cinématique Hoenn.
+// Représente une équipe boss d'environ 4-5 Pokémon niv.30+ + quelques agents.
+const HOENN_POWER_THRESHOLD = 2500;
+
+// ── Helpers puissance gang ────────────────────────────────────────────────────
+
+function _getAgentsTotalPower() {
+  const agents = globalThis.state?.agents ?? [];
+  // getAgentCombatPower est exposé par agent.js sur globalThis
+  const fn = globalThis.getAgentCombatPower;
+  if (!fn) return 0;
+  return agents.reduce((sum, a) => sum + fn(a), 0);
+}
+
+function getGangPower() {
+  const bossTeamPower = getBossTeamPower();
+  const agentPower    = _getAgentsTotalPower();
+  return bossTeamPower + agentPower;
+}
+
+// ── Activation de la région ────────────────────────────────────────────────────
 
 function registerHoennSpecialEvents() {
   if (typeof SPECIAL_EVENTS === 'undefined' || typeof SPECIAL_EVENTS_HOENN === 'undefined') return;
@@ -39,6 +65,8 @@ function activateHoennRegion() {
   _save();
 }
 
+// ── Modal silencieux (fallback si cinématique déjà vue mais unlock pas encore fait) ────
+
 function showHoennUnlockModal() {
   const state = globalThis.state;
   if (state.purchases?.hoennUnlocked) return;
@@ -57,7 +85,6 @@ function showHoennUnlockModal() {
     `Ne laissez pas Maxie ou Archie faire une erreur que le monde entier paierait.\n\n` +
     `Bonne chance. »`;
 
-  // ── Overlay ───────────────────────────────────────────────────────────────
   const overlay = document.createElement('div');
   overlay.id = 'hoenn-intro-overlay';
   overlay.style.cssText = `
@@ -78,7 +105,6 @@ function showHoennUnlockModal() {
 
   const stage = overlay.querySelector('#hi-stage');
 
-  // ── Portrait Steven ───────────────────────────────────────────────────────
   const portrait = document.createElement('div');
   portrait.style.cssText = `
     position:absolute;top:0;left:50%;transform:translateX(-50%);
@@ -100,7 +126,6 @@ function showHoennUnlockModal() {
     </div>`;
   overlay.appendChild(portrait);
 
-  // ── Boîte de dialogue ─────────────────────────────────────────────────────
   const dialog = document.createElement('div');
   dialog.style.cssText = `
     width:100%;max-width:560px;
@@ -125,7 +150,6 @@ function showHoennUnlockModal() {
       animation:hi-blink 1s ease-in-out infinite;display:none">▶</div>`;
   stage.appendChild(dialog);
 
-  // ── Animations CSS ────────────────────────────────────────────────────────
   const style = document.createElement('style');
   style.textContent = `
     @keyframes hi-bob   { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
@@ -152,7 +176,6 @@ function showHoennUnlockModal() {
   `;
   document.head.appendChild(style);
 
-  // ── Machine à écrire ──────────────────────────────────────────────────────
   const textEl    = dialog.querySelector('#hi-text');
   const actionsEl = dialog.querySelector('#hi-actions');
   const cursor    = dialog.querySelector('#hi-cursor');
@@ -216,20 +239,38 @@ function showHoennUnlockModal() {
   setTimeout(() => _typewrite(MESSAGE, _showActions), 400);
 }
 
+// ── Vérification de déclenchement ─────────────────────────────────────────────
+
 function checkHoennUnlock() {
   const state = globalThis.state;
   if (state.purchases?.hoennUnlocked) return;
-  // Débloqué après la victoire à la Ligue Johto + rep suffisante + pass Hoenn
+
+  // Pré-requis 1 : Ligue Johto vaincue
   if (!state.zones?.['indigo_johto']?.gymDefeated) return;
+
+  // Pré-requis 2 : Réputation suffisante
   if ((state.gang?.reputation ?? 0) < 2000) return;
-  if (!state.inventory?.hoenn_pass) return;
-  setTimeout(() => showHoennUnlockModal(), 1800);
+
+  // Pré-requis 3 : Puissance de gang suffisante
+  const gangPower = getGangPower();
+  if (gangPower < HOENN_POWER_THRESHOLD) return;
+
+  // Si la cinématique a déjà été vue mais Hoenn n'est pas encore activé
+  // (ex: joueur a cliqué "Pas encore") → modal simple de confirmation
+  if (state.gang?.hoennCinematicSeen) {
+    setTimeout(() => showHoennUnlockModal(), 1200);
+    return;
+  }
+
+  // Sinon : déclencher la cinématique complète
+  setTimeout(() => globalThis.showHoennCinematic?.(), 1800);
 }
 
 Object.assign(globalThis, {
   activateHoennRegion,
   showHoennUnlockModal,
   checkHoennUnlock,
+  getGangPower,
 });
 
 export {};
