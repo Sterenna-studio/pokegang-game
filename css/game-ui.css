@@ -2101,6 +2101,44 @@
     .base-team-slot.filled { border-style: solid; border-color: var(--red); }
     .base-team-slot img { width: 80%; height: 80%; image-rendering: pixelated; object-fit: contain; }
 
+    /* ── Boss auto-combat toggle ────────────────────────────────── */
+    .base-boss-auto-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 5px 2px 2px;
+      gap: 8px;
+    }
+    .base-boss-auto-label {
+      font-family: var(--font-pixel, monospace);
+      font-size: 7px;
+      color: var(--text-dim);
+      letter-spacing: .5px;
+    }
+    .base-boss-auto-toggle {
+      font-family: var(--font-pixel, monospace);
+      font-size: 7px;
+      padding: 3px 10px;
+      border: 1px solid rgba(255,255,255,.18);
+      background: rgba(0,0,0,.4);
+      color: var(--text-dim);
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+      letter-spacing: 1px;
+      transition: border-color .15s, color .15s, background .15s;
+      min-width: 36px;
+      text-align: center;
+    }
+    .base-boss-auto-toggle:hover {
+      border-color: var(--gold);
+      color: var(--gold);
+    }
+    .base-boss-auto-toggle.active {
+      border-color: var(--red);
+      color: var(--red);
+      background: rgba(204,17,17,.12);
+    }
+
     /* ── Strip territoire compact (4 metrics inline) ───────────── */
     .base-status-strip {
       display: grid;

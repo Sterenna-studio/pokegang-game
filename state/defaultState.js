@@ -43,6 +43,7 @@ export const DEFAULT_STATE = {
     introSeen: false,         // true once the Giovanni intro (or catch-up gift) has been completed
     darkraiCutsceneSeen: false,   // true once the Darkrai Nightmare cutscene has played
     hoennCinematicSeen: false,    // true once the Steven Stone / Hoenn cinematic has played
+    bossAutoCombat: false,        // le boss engage automatiquement les dresseurs dans sa zone
     competition: {
       defenseTeam: [null, null, null, null, null, null],
       defenseAgents: [null, null, null],

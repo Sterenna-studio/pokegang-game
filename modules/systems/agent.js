@@ -778,6 +778,29 @@ function agentTick() {
       agentOpenChest(agent, zoneId, chestSpawn);
     }
   }
+
+  // ── Boss auto-combat (indépendant des agents) ─────────────────
+  // Si activé, le boss s'engage automatiquement contre les dresseurs
+  // dans sa zone ouverte, même sans agent assigné.
+  const bossZoneId = state.gang?.bossZone;
+  if (
+    state.gang?.bossAutoCombat &&
+    bossZoneId &&
+    openZones.has(bossZoneId) &&
+    !zoneDone.has(bossZoneId)
+  ) {
+    const bossSpawns = zoneSpawns[bossZoneId];
+    if (bossSpawns && bossSpawns.length > 0) {
+      const raidSpawn    = bossSpawns.find(s => s.type === 'raid'    && !s._agentClaimed);
+      const trainerSpawn = bossSpawns.find(s => s.type === 'trainer' && !s._agentClaimed);
+      const target = raidSpawn || trainerSpawn;
+      if (target) {
+        target._agentClaimed = true;
+        zoneDone.add(bossZoneId);
+        _bossAutoCombat(bossZoneId, target);
+      }
+    }
+  }
 }
 
 // Agent captures a visible pokemon spawn with ball throw animation
@@ -876,6 +899,84 @@ function agentCaptureVisibleSpawn(agent, zoneId, spawnObj) {
       spawnObj._agentClaimed = false;
     }
   }, 380);
+}
+
+// ── Boss auto-combat (sans agent) ────────────────────────────────
+// Déclenché par agentTick() quand state.gang.bossAutoCombat = true
+// et que le boss est dans une zone ouverte avec un spawn trainer/raid.
+function _bossAutoCombat(zoneId, spawnObj) {
+  if (globalThis.currentCombat) { spawnObj._agentClaimed = false; return; }
+  const state = globalThis.state;
+  const bossName = state.gang?.bossName || 'Boss';
+
+  // Vérifier que le boss a une équipe non vide dans cette zone
+  const bossTeam = (state.gang.bossTeam || []).filter(id =>
+    id && state.pokemons.some(p => p.id === id)
+  );
+  if (bossTeam.length === 0) { spawnObj._agentClaimed = false; return; }
+
+  // Badge visuel (VS) sur le spawn
+  const _win = document.getElementById(`zw-${zoneId}`);
+  const _vp  = _win?.querySelector('.zone-viewport');
+  const _el  = _vp?.querySelector(`[data-spawn-id="${spawnObj.id}"]`);
+  if (_el) globalThis._addVSBadge?.(_el);
+
+  setTimeout(() => {
+    if (globalThis.currentCombat) { spawnObj._agentClaimed = false; return; }
+
+    // resolveTrainerCombat avec agentIds=[] : boss auto-inclus via bossZone === zoneId
+    const result = resolveTrainerCombat({ ...spawnObj, zoneId }, []);
+    if (!result) { spawnObj._agentClaimed = false; return; }
+
+    const trainer    = spawnObj.trainer || {};
+    const rewardRange = trainer.reward || [10, 50];
+    const reward     = result.attackerWin
+      ? Math.min(globalThis.MAX_COMBAT_REWARD, globalThis.randInt(rewardRange[0], rewardRange[1]))
+      : 0;
+    const repGain    = globalThis.getCombatRepGain(spawnObj.trainerKey || trainer.sprite, result.attackerWin);
+    const trainerName = trainer.fr || trainer.en || spawnObj.trainerKey || 'Dresseur';
+    const _bgTier    = globalThis._getDifficultyTier?.(result.attackerPower, result.defenderPower);
+
+    // Appliquer argent + rep + stats
+    globalThis.applyCombatResult(
+      { win: result.attackerWin, reward, repGain, tier: _bgTier },
+      bossTeam,
+      { ...spawnObj, zoneId },
+    );
+
+    if (result.attackerWin) {
+      const zs = state.zones[zoneId];
+      if (zs) zs.combatsWon = (zs.combatsWon || 0) + 1;
+      globalThis.addZoneXP?.(zoneId, 'combat_win');
+      _notify(`⚔️ ${bossName} +${reward}₽ +${repGain}rep`, 'success');
+      globalThis.addLog?.(globalThis.t?.('agent_win', { agent: bossName }) ?? `${bossName} a vaincu ${trainerName}.`);
+    } else {
+      _notify(`💀 ${bossName} — défaite contre ${trainerName}`, 'error');
+      globalThis.addLog?.(globalThis.t?.('agent_lose', { agent: bossName }) ?? `${bossName} a perdu contre ${trainerName}.`);
+    }
+
+    globalThis.addBattleLogEntry?.({
+      ts: Date.now(),
+      zoneName: `[Boss] ${bossName} — ${(typeof ZONE_BY_ID !== 'undefined' ? ZONE_BY_ID[zoneId]?.fr : null) || zoneId}`,
+      win:      result.attackerWin,
+      reward,
+      repGain,
+      lines: [
+        `${bossName} vs ${trainerName} — ⚡${Math.round(result.attackerPower)} / 🛡${Math.round(result.defenderPower)}`,
+        result.attackerWin ? `Victoire ! +${reward}₽ +${repGain}rep` : `Défaite contre ${trainerName}.`,
+      ],
+      trainerKey: spawnObj.trainerKey,
+      isAgent: true,
+    });
+
+    globalThis.removeSpawn(zoneId, spawnObj.id);
+    _save();
+    _topBar();
+    globalThis.updateZoneTimers?.(zoneId);
+    globalThis.refreshZoneIncomeTile?.(zoneId);
+    globalThis.updateZoneButtons?.();
+    if (globalThis.activeTab === 'tabGang') globalThis.renderGangTab();
+  }, 360);
 }
 
 // Agent auto-fights a trainer

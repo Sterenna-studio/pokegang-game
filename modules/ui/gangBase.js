@@ -594,6 +594,16 @@ function renderGangBaseWindow() {
           </div>
           ${locationHtml}
           <div class="base-team-slots">${bossTeamHtml}</div>
+          <div class="base-boss-auto-row">
+            <span class="base-boss-auto-label">⚔️ Combat auto</span>
+            <button
+              class="base-boss-auto-toggle${state.gang.bossAutoCombat ? ' active' : ''}"
+              data-base-boss-auto
+              title="${state.gang.bossAutoCombat
+                ? 'Le boss engage automatiquement les dresseurs'
+                : 'Le boss attend votre ordre pour combattre'}"
+            >${state.gang.bossAutoCombat ? 'ON' : 'OFF'}</button>
+          </div>
         </div>
 
         <!-- Strip territoire : 4 métriques compactes en ligne -->
@@ -1043,6 +1053,22 @@ function bindGangBaseV2(container) {
     });
   });
 
+  // Boss auto-combat toggle (V2)
+  container.querySelector('[data-base-boss-auto]')?.addEventListener('click', btn => {
+    const el = btn.currentTarget;
+    state.gang.bossAutoCombat = !state.gang.bossAutoCombat;
+    const on = state.gang.bossAutoCombat;
+    el.textContent = on ? 'ON' : 'OFF';
+    el.classList.toggle('active', on);
+    el.title = on
+      ? 'Le boss engage automatiquement les dresseurs'
+      : 'Le boss attend votre ordre pour combattre';
+    _save();
+    _notify(on
+      ? `⚔️ ${state.gang.bossName} — combat automatique activé`
+      : `🛑 ${state.gang.bossName} — combat manuel`, '');
+  });
+
   // Export
   container.querySelector('.base-export-btn')?.addEventListener('click', openExportModal);
 
@@ -1252,10 +1278,30 @@ function bindGangBase(container) {
         state.gang.bossTeam.splice(idx, 1);
         _save();
         globalThis.renderZoneWindows();
+        renderGangBasePanel();
       } else {
-        globalThis.openTeamPicker('boss', null, () => globalThis.renderZoneWindows());
+        globalThis.openTeamPicker('boss', null, () => {
+          globalThis.renderZoneWindows();
+          renderGangBasePanel();
+        });
       }
     });
+  });
+
+  // Boss auto-combat toggle
+  container.querySelector('[data-base-boss-auto]')?.addEventListener('click', btn => {
+    const el = btn.currentTarget;
+    state.gang.bossAutoCombat = !state.gang.bossAutoCombat;
+    const on = state.gang.bossAutoCombat;
+    el.textContent = on ? 'ON' : 'OFF';
+    el.classList.toggle('active', on);
+    el.title = on
+      ? 'Le boss engage automatiquement les dresseurs'
+      : 'Le boss attend votre ordre pour combattre';
+    _save();
+    _notify(on
+      ? `⚔️ ${state.gang.bossName} — combat automatique activé`
+      : `🛑 ${state.gang.bossName} — combat manuel`, '');
   });
 
   // Incubator section background → pension tab
