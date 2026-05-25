@@ -50,8 +50,6 @@ export const EVENTS = {
   // Zones
   ZONE_OPENED:       'zone:opened',       // { zoneId }
   ZONE_CLOSED:       'zone:closed',       // { zoneId }
-  ZONE_CONTESTED:    'zone:contested',    // { zoneId }
-  ZONE_RECLAIMED:    'zone:reclaimed',    // { zoneId }
 
   // Agents
   AGENT_ASSIGNED:    'agent:assigned',    // { agentId, zoneId }

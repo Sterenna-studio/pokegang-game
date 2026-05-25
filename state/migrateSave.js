@@ -124,6 +124,7 @@ export function migrateSave(saved, deps) {
   if (!merged.marketSales)              merged.marketSales  = {};
   if (!Array.isArray(merged.marketEvents)) merged.marketEvents = [];
   if (typeof merged.blackMarketBulletin === 'undefined') merged.blackMarketBulletin = null;
+  if (!merged.bountyProgress || typeof merged.bountyProgress !== 'object') merged.bountyProgress = {};
   if (!Array.isArray(merged.favorites)) merged.favorites    = [];
   if (!Array.isArray(merged.favoriteZones)) merged.favoriteZones = [];
   if (!Array.isArray(merged.eggs))      merged.eggs         = [];
@@ -320,10 +321,10 @@ export function migrateSave(saved, deps) {
       if (zs.unlocked === undefined) {
         zs.unlocked = (zs.combatsWon > 0 || zs.captures > 0 || zs.invested === true);
       }
-      // alpha — zone contestée
-      if (zs.lossStreak   === undefined) zs.lossStreak   = 0;
-      if (zs.contested    === undefined) zs.contested    = false;
-      if (zs.reclaimWins  === undefined) zs.reclaimWins  = 0;
+      // Cleanup système "zone contestée" retiré — supprimer les anciens champs
+      delete zs.lossStreak;
+      delete zs.contested;
+      delete zs.reclaimWins;
     }
     // Rebuild assignedAgents depuis agent.assignedZone (source de vérité)
     for (const agent of merged.agents) {

@@ -139,8 +139,9 @@ export const DEFAULT_STATE = {
   },
   log: [],
   marketSales: {},
-  marketEvents: [],         // Boosts/malus actifs (marketEvents.js)
-  blackMarketBulletin: null,// Bulletin marché noir (2h, blackMarket.js)
+  marketEvents: [],          // Boosts/malus actifs (marketEvents.js)
+  blackMarketBulletin: null, // Bulletin marché noir (2h, blackMarket.js)
+  bountyProgress: {},        // Progression des contrats trainer_bounty (par listing.id)
   favorites: [],
   trainingRoom: {
     pokemon: [],

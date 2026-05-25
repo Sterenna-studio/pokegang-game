@@ -362,7 +362,6 @@ function _buildTile(zone) {
     const hasAgent     = state.agents.some(a => a.assignedZone === zone.id);
     const activityMode = globalThis.getZoneActivityMode?.(zone.id) || 'idle';
     const hasEvent     = activityMode === 'event';
-    const isContested  = globalThis.isZoneContested?.(zone.id);
 
     let displayName = name;
     if (isCity) {
@@ -400,20 +399,17 @@ function _buildTile(zone) {
     // Calcul du statut affiché sur la tuile
     const statusText = isOpen
       ? '[OUVERT]'
-      : isContested
-        ? '[CONTESTÉE]'
-        : hasEvent
-          ? '[ÉVÉNEMENT]'
-          : degraded
-            ? '[COMBAT]'
-            : hasAgent
+      : hasEvent
+        ? '[ÉVÉNEMENT]'
+        : degraded
+          ? '[COMBAT]'
+          : hasAgent
               ? '[AUTO]'
               : '[ENTRER]';
 
     const tileClass = [
       'fog-tile unlocked',
       isOpen      ? 'fog-open'      : '',
-      isContested ? 'fog-contested' : '',
       degraded    ? 'fog-degraded'  : '',
       hasEvent    ? 'fog-event'     : '',
       hasAgent && !isOpen ? 'fog-auto' : '',
@@ -568,10 +564,8 @@ export function refreshZoneTile(zoneId) {
   const hasAgent     = state?.agents?.some(a => a.assignedZone === zoneId);
   const activityMode = globalThis.getZoneActivityMode?.(zoneId) || 'idle';
   const hasEvent     = activityMode === 'event';
-  const isContested  = globalThis.isZoneContested?.(zoneId);
 
   tile.classList.toggle('fog-open',      !!isOpen);
-  tile.classList.toggle('fog-contested', !!isContested && !isOpen);
   tile.classList.toggle('fog-degraded',  !!degraded);
   tile.classList.toggle('fog-event',     !!hasEvent && !isOpen);
   tile.classList.toggle('fog-auto',      !!hasAgent && !isOpen);
@@ -579,7 +573,6 @@ export function refreshZoneTile(zoneId) {
   const statusEl = tile.querySelector('.fog-tile-status');
   if (statusEl) statusEl.textContent = isOpen
     ? '[OUVERT]'
-    : isContested ? '[CONTESTÉE]'
     : hasEvent    ? '[ÉVÉNEMENT]'
     : degraded    ? '[COMBAT]'
     : hasAgent    ? '[AUTO]'
