@@ -23,6 +23,7 @@
 //
 //  Classic-script globals accessed by bare name:
 //    ZONES, ZONE_BY_ID, ZONES_JOHTO, ZONE_JOHTO_BY_ID,
+//    ZONES_HOENN, ZONE_HOENN_BY_ID, ZONES_SINNOH, ZONE_SINNOH_BY_ID,
 //    SPECIES_BY_EN, TRAINER_TYPES, SPECIAL_EVENTS
 // ════════════════════════════════════════════════════════════════
 
@@ -61,10 +62,20 @@ function _zwActiveRegion() {
 function _zwIsJohtoZone(zoneId) {
   return typeof ZONE_JOHTO_BY_ID !== 'undefined' && !!ZONE_JOHTO_BY_ID[zoneId];
 }
+function _zwIsHoennZone(zoneId) {
+  return typeof ZONE_HOENN_BY_ID !== 'undefined' && !!ZONE_HOENN_BY_ID[zoneId];
+}
+function _zwIsSinnohZone(zoneId) {
+  return typeof ZONE_SINNOH_BY_ID !== 'undefined' && !!ZONE_SINNOH_BY_ID[zoneId];
+}
 
 function _zwActiveZones() {
-  if (_zwActiveRegion() === 'johto') return ZONES_JOHTO;
-  return ZONES.filter(z => !_zwIsJohtoZone(z.id));
+  const region = _zwActiveRegion();
+  if (region === 'johto')  return typeof ZONES_JOHTO  !== 'undefined' ? ZONES_JOHTO  : [];
+  if (region === 'hoenn')  return typeof ZONES_HOENN  !== 'undefined' ? ZONES_HOENN  : [];
+  if (region === 'sinnoh') return typeof ZONES_SINNOH !== 'undefined' ? ZONES_SINNOH : [];
+  // kanto — filter out all other regions
+  return ZONES.filter(z => !_zwIsJohtoZone(z.id) && !_zwIsHoennZone(z.id) && !_zwIsSinnohZone(z.id));
 }
 
 // ── Wing drop config ──────────────────────────────────────────
@@ -523,35 +534,78 @@ let _zonesViewMode = 'fog';
 function renderZonesTab() {
   const switcher = document.getElementById('regionSwitcher');
   if (switcher) {
-    // Always visible — Johto button shows locked/available/active states
+    // Always visible — region buttons show locked/available/active states
     switcher.style.display = 'flex';
     const state = globalThis.state;
-    const johtoUnlocked = !!state?.purchases?.johtoUnlocked;
+    const johtoUnlocked  = !!state?.purchases?.johtoUnlocked;
+    const hoennUnlocked  = !!state?.purchases?.hoennUnlocked;
+    const sinnohUnlocked = !!state?.purchases?.sinnohUnlocked;
+
     const johtoQualified = !johtoUnlocked &&
       !!state?.zones?.['indigo_plateau']?.gymDefeated &&
       (state?.gang?.reputation || 0) >= 500;
 
-    if (!johtoUnlocked && _zwActiveRegion() !== 'kanto') {
+    const hoennQualified = !hoennUnlocked && johtoUnlocked &&
+      !!state?.zones?.['indigo_johto']?.gymDefeated &&
+      (state?.gang?.reputation || 0) >= 2000 &&
+      (globalThis.getGangPower?.() || 0) >= 2500;
+
+    const sinnohQualified = !sinnohUnlocked && hoennUnlocked &&
+      !!state?.zones?.['ever_grande_hoenn']?.gymDefeated &&
+      (state?.gang?.reputation || 0) >= 5000;
+
+    // Guard: fall back to an unlocked region if the active one is unavailable
+    const ar = _zwActiveRegion();
+    if (ar === 'sinnoh' && !sinnohUnlocked) {
+      globalThis._zsel_setActiveRegion?.(hoennUnlocked ? 'hoenn' : johtoUnlocked ? 'johto' : 'kanto');
+    } else if (ar === 'hoenn' && !hoennUnlocked) {
+      globalThis._zsel_setActiveRegion?.(johtoUnlocked ? 'johto' : 'kanto');
+    } else if (ar === 'johto' && !johtoUnlocked) {
       globalThis._zsel_setActiveRegion?.('kanto');
     }
+
+    // Show Hoenn/Sinnoh buttons only once their prerequisite region is unlocked
+    const hoennBtn  = switcher.querySelector('[data-region="hoenn"]');
+    const sinnohBtn = switcher.querySelector('[data-region="sinnoh"]');
+    if (hoennBtn)  hoennBtn.style.display  = johtoUnlocked ? '' : 'none';
+    if (sinnohBtn) sinnohBtn.style.display = hoennUnlocked ? '' : 'none';
 
     if (!switcher._bound) {
       switcher._bound = true;
       switcher.querySelectorAll('.region-btn').forEach(btn => {
         btn.addEventListener('click', () => {
-          const region = btn.dataset.region;
+          const region    = btn.dataset.region;
           const jUnlocked = !!globalThis.state?.purchases?.johtoUnlocked;
+          const hUnlocked = !!globalThis.state?.purchases?.hoennUnlocked;
+          const sUnlocked = !!globalThis.state?.purchases?.sinnohUnlocked;
+
           if (region === 'johto' && !jUnlocked) {
-            // Show unlock offer if qualified, otherwise hint at the requirement
             const jQual = !!globalThis.state?.zones?.['indigo_plateau']?.gymDefeated &&
               (globalThis.state?.gang?.reputation || 0) >= 500;
-            if (jQual) {
-              globalThis.showJohtoUnlockModal?.();
-            } else {
-              _notify('🔒 Johto — Vainquez le Champion Lance au Plateau Indigo d\'abord !', 'error');
-            }
+            if (jQual) { globalThis.showJohtoUnlockModal?.(); }
+            else { _notify("🔒 Johto — Vainquez le Champion Lance au Plateau Indigo d'abord !", 'error'); }
             return;
           }
+
+          if (region === 'hoenn' && !hUnlocked) {
+            const hQual = jUnlocked &&
+              !!globalThis.state?.zones?.['indigo_johto']?.gymDefeated &&
+              (globalThis.state?.gang?.reputation || 0) >= 2000 &&
+              (globalThis.getGangPower?.() || 0) >= 2500;
+            if (hQual) { globalThis.checkHoennUnlock?.(); }
+            else { _notify('🔒 Hoenn — Ligue Johto vaincue · 2 000 REP · Puissance ≥ 2 500 PC', 'error'); }
+            return;
+          }
+
+          if (region === 'sinnoh' && !sUnlocked) {
+            const sQual = hUnlocked &&
+              !!globalThis.state?.zones?.['ever_grande_hoenn']?.gymDefeated &&
+              (globalThis.state?.gang?.reputation || 0) >= 5000;
+            if (sQual) { globalThis.checkSinnohUnlock?.(); }
+            else { _notify('🔒 Sinnoh — Ligue Hoenn vaincue · 5 000 REP', 'error'); }
+            return;
+          }
+
           globalThis._zsel_setActiveRegion?.(region);
           switcher.querySelectorAll('.region-btn').forEach(b => {
             b.classList.toggle('active', b.dataset.region === region);
@@ -563,12 +617,14 @@ function renderZonesTab() {
 
     // Update button visual state on every render
     const activeRegion = _zwActiveRegion();
+
     const johtoBtn = switcher.querySelector('[data-region="johto"]');
     if (johtoBtn) {
       johtoBtn.classList.remove('active', 'region-btn-locked', 'region-btn-available');
       if (johtoUnlocked) {
         johtoBtn.classList.toggle('active', activeRegion === 'johto');
         johtoBtn.textContent = 'Johto';
+        johtoBtn.title = '';
       } else if (johtoQualified) {
         johtoBtn.classList.add('region-btn-available');
         johtoBtn.textContent = 'Johto ✉';
@@ -579,7 +635,42 @@ function renderZonesTab() {
         johtoBtn.title = 'Vainquez le Champion Lance au Plateau Indigo pour débloquer';
       }
     }
-    switcher.querySelector('[data-region="kanto"]')?.classList.toggle('active', activeRegion === 'kanto' || !johtoUnlocked);
+
+    if (hoennBtn) {
+      hoennBtn.classList.remove('active', 'region-btn-locked', 'region-btn-available');
+      if (hoennUnlocked) {
+        hoennBtn.classList.toggle('active', activeRegion === 'hoenn');
+        hoennBtn.textContent = 'Hoenn';
+        hoennBtn.title = '';
+      } else if (hoennQualified) {
+        hoennBtn.classList.add('region-btn-available');
+        hoennBtn.textContent = 'Hoenn ✉';
+        hoennBtn.title = 'Steven Stone vous contacte — cliquez pour découvrir';
+      } else {
+        hoennBtn.classList.add('region-btn-locked');
+        hoennBtn.textContent = 'Hoenn 🔒';
+        hoennBtn.title = 'Ligue Johto vaincue · 2 000 REP · Puissance de gang ≥ 2 500 PC';
+      }
+    }
+
+    if (sinnohBtn) {
+      sinnohBtn.classList.remove('active', 'region-btn-locked', 'region-btn-available');
+      if (sinnohUnlocked) {
+        sinnohBtn.classList.toggle('active', activeRegion === 'sinnoh');
+        sinnohBtn.textContent = 'Sinnoh';
+        sinnohBtn.title = '';
+      } else if (sinnohQualified) {
+        sinnohBtn.classList.add('region-btn-available');
+        sinnohBtn.textContent = 'Sinnoh ✉';
+        sinnohBtn.title = 'Cynthia vous contacte — cliquez pour découvrir';
+      } else {
+        sinnohBtn.classList.add('region-btn-locked');
+        sinnohBtn.textContent = 'Sinnoh 🔒';
+        sinnohBtn.title = 'Ligue Hoenn vaincue · 5 000 REP';
+      }
+    }
+
+    switcher.querySelector('[data-region="kanto"]')?.classList.toggle('active', activeRegion === 'kanto');
   }
 
   _zsRenderSelector();
