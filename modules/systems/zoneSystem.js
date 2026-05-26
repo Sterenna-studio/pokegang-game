@@ -960,10 +960,14 @@ function applyCombatResult(result, playerTeamIds, trainerData) {
         if (trainerData.zoneId === 'indigo_johto') {
           setTimeout(() => globalThis.checkHoennUnlock?.(), 3000);
         }
-        // Ligue Hoenn — vérifier si Sinnoh se débloque + quête Deoxys
+        // Ligue Hoenn — vérifier si Sinnoh se débloque + quêtes légendaires
         if (trainerData.zoneId === 'ever_grande_hoenn') {
           setTimeout(() => globalThis.checkSinnohUnlock?.(), 3000);
           setTimeout(() => globalThis.checkDeoxysMissionUnlock?.(), 5000);
+        }
+        // Ligue Johto — déclencher les quêtes Groudon/Kyogre si Hoenn déjà débloqué
+        if (trainerData.zoneId === 'indigo_johto') {
+          setTimeout(() => globalThis.checkLegendaryMissionsUnlock?.(), 4500);
         }
       }
       if (trainerData.isGymRaid) {

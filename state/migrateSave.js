@@ -290,8 +290,40 @@ export function migrateSave(saved, deps) {
   // trainingRoom extraSlots
   if (merged.trainingRoom.extraSlots === undefined) merged.trainingRoom.extraSlots = 0;
 
-  // ── Inventory : meteore ────────────────────────────────────────────────────────
-  if (merged.inventory.meteore === undefined) merged.inventory.meteore = 0;
+  // ── Inventory : items légendaires ─────────────────────────────────────────────
+  if (merged.inventory.meteore     === undefined) merged.inventory.meteore     = 0;
+  if (merged.inventory.sigle_magma === undefined) merged.inventory.sigle_magma = 0;
+  if (merged.inventory.sceau_aqua  === undefined) merged.inventory.sceau_aqua  = 0;
+
+  // ── Groudon Mission ────────────────────────────────────────────────────────────
+  if (!merged.groudonMission || typeof merged.groudonMission !== 'object') {
+    merged.groudonMission = structuredClone(DEFAULT_STATE.groudonMission);
+  } else {
+    const gm = merged.groudonMission;
+    if (gm.active           === undefined) gm.active           = false;
+    if (gm.step             === undefined) gm.step             = 0;
+    if (gm.magmaFightsWon   === undefined) gm.magmaFightsWon   = 0;
+    if (gm.hideoutFightsWon === undefined) gm.hideoutFightsWon = 0;
+    if (gm.adminDefeated    === undefined) gm.adminDefeated    = false;
+    if (gm.maxieDefeated    === undefined) gm.maxieDefeated    = false;
+    if (gm.groudonOwned     === undefined) gm.groudonOwned     = false;
+    if (gm.totalCaptures    === undefined) gm.totalCaptures    = 0;
+  }
+
+  // ── Kyogre Mission ─────────────────────────────────────────────────────────────
+  if (!merged.kyogreMission || typeof merged.kyogreMission !== 'object') {
+    merged.kyogreMission = structuredClone(DEFAULT_STATE.kyogreMission);
+  } else {
+    const km = merged.kyogreMission;
+    if (km.active           === undefined) km.active           = false;
+    if (km.step             === undefined) km.step             = 0;
+    if (km.aquaFightsWon    === undefined) km.aquaFightsWon    = 0;
+    if (km.hideoutFightsWon === undefined) km.hideoutFightsWon = 0;
+    if (km.adminDefeated    === undefined) km.adminDefeated    = false;
+    if (km.archieDefeated   === undefined) km.archieDefeated   = false;
+    if (km.kyogreOwned      === undefined) km.kyogreOwned      = false;
+    if (km.totalCaptures    === undefined) km.totalCaptures    = 0;
+  }
 
   // ── Deoxys Mission ─────────────────────────────────────────────────────────────
   if (!merged.deoxysMission || typeof merged.deoxysMission !== 'object') {
