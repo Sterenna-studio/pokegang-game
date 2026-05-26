@@ -674,6 +674,47 @@ function renderZonesTab() {
 
     switcher.querySelector('[data-region="kanto"]')?.classList.toggle('active', activeRegion === 'kanto');
 
+    // ── Bouton quêtes Légendaires Groudon/Kyogre ──
+    let lgmBtn = document.getElementById('lgm-quest-btn');
+    const showLgm = hoennUnlocked && (state?.gang?.reputation || 0) >= 2500;
+    if (showLgm) {
+      if (!lgmBtn) {
+        lgmBtn = document.createElement('button');
+        lgmBtn.id = 'lgm-quest-btn';
+        lgmBtn.style.cssText = `
+          font-family:var(--font-pixel,monospace);font-size:7px;letter-spacing:1px;
+          padding:4px 10px;border-radius:3px;cursor:pointer;
+          background:rgba(180,60,200,.07);color:rgba(200,140,50,.85);
+          border:1px solid rgba(200,140,50,.25);
+          transition:background .15s,color .15s;margin-left:6px;
+        `;
+        lgmBtn.onmouseenter = () => { lgmBtn.style.background='rgba(200,140,50,.14)'; lgmBtn.style.color='#ffcc5a'; };
+        lgmBtn.onmouseleave = () => { lgmBtn.style.background='rgba(180,60,200,.07)'; lgmBtn.style.color='rgba(200,140,50,.85)'; };
+        lgmBtn.onclick = () => globalThis.openLegendaryMissions?.();
+        switcher.appendChild(lgmBtn);
+      }
+      lgmBtn.style.display = '';
+      const gStep = state?.groudonMission?.step ?? 0;
+      const kStep = state?.kyogreMission?.step  ?? 0;
+      const gDone = gStep === 6;
+      const kDone = kStep === 6;
+      if (gDone && kDone) {
+        lgmBtn.textContent = '🌋🌊 ✓✓';
+        lgmBtn.title = 'Groudon & Kyogre capturés — Rejouer avec Sigle/Sceau';
+        lgmBtn.style.borderColor = 'rgba(0,255,136,.3)'; lgmBtn.style.color = '#00ff88';
+      } else if (!state?.groudonMission?.active) {
+        lgmBtn.textContent = '🌋🌊 Quêtes';
+        lgmBtn.title = 'Quêtes légendaires Groudon & Kyogre disponibles !';
+        lgmBtn.style.borderColor = 'rgba(255,204,90,.4)'; lgmBtn.style.color = '#ffcc5a';
+      } else {
+        const total = (gStep > 0 ? gStep : 0) + (kStep > 0 ? kStep : 0);
+        lgmBtn.textContent = `🌋🌊 ${Math.min(gStep, 5)}·${Math.min(kStep, 5)}`;
+        lgmBtn.title = `Légendaires — Magma étape ${gStep}/5 · Aqua étape ${kStep}/5`;
+      }
+    } else if (lgmBtn) {
+      lgmBtn.style.display = 'none';
+    }
+
     // ── Bouton quête Deoxys (visible si Hoenn débloqué + quest active ou débloquée) ──
     let dxqBtn = document.getElementById('dxq-quest-btn');
     const deoxysMission = state?.deoxysMission;

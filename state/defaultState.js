@@ -70,6 +70,8 @@ export const DEFAULT_STATE = {
     incubator: 0,
     egg_scanner: 0,
     meteore: 0,         // Fragment météorique — relance le combat contre Deoxys
+    sigle_magma: 0,     // Emblème Magma — relance le combat contre Groudon
+    sceau_aqua: 0,      // Sceau Aqua — relance le combat contre Kyogre
   },
   activeBall: 'pokeball', // skin cosmétique actif (boss/joueur)
   activeBoosts: {
@@ -205,6 +207,26 @@ export const DEFAULT_STATE = {
   },
   discoveryProgress: {
     sinnohTeaseUnlocked: false, // true after Darkrai cutscene — unlocks Sinnoh section in pokédex
+  },
+  groudonMission: {
+    active:          false,
+    step:            0,     // 0=off 1=magma fights 2=hideout 3=admin 4=maxie 5=groudon 6=done
+    magmaFightsWon:  0,     // step 1: target 20
+    hideoutFightsWon: 0,    // step 2: target 12
+    adminDefeated:   false, // step 3 (Tabitha)
+    maxieDefeated:   false, // step 4
+    groudonOwned:    false,
+    totalCaptures:   0,
+  },
+  kyogreMission: {
+    active:          false,
+    step:            0,     // 0=off 1=aqua fights 2=hideout 3=admin 4=archie 5=kyogre 6=done
+    aquaFightsWon:   0,     // step 1: target 20
+    hideoutFightsWon: 0,    // step 2: target 12
+    adminDefeated:   false, // step 3 (Matt)
+    archieDefeated:  false, // step 4
+    kyogreOwned:     false,
+    totalCaptures:   0,
   },
   deoxysMission: {
     active:           false,  // true once quest intro shown

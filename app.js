@@ -132,6 +132,7 @@ import { checkDarkraiCutscene, triggerDarkraiOnLeagueVictory } from './modules/u
 import './modules/ui/hoennEvent.js';
 import './modules/ui/johtoEvent.js';
 import { checkDeoxysMissionUnlock } from './modules/systems/deoxysMission.js';
+import { checkLegendaryMissionsUnlock } from './modules/systems/legendaryMissions.js';
 import './modules/systems/pokemon.js';
 import './modules/systems/titles.js';
 import './modules/ui/cosmetics.js';
@@ -2832,9 +2833,18 @@ function boot() {
     setTimeout(() => checkDarkraiCutscene(), 1600);
   }
 
+  // Legendary Missions (Groudon + Kyogre) — mid-Hoenn (rep 2500)
+  if (state.purchases?.hoennUnlocked) {
+    const gm = state.groudonMission;
+    const km = state.kyogreMission;
+    if (!gm?.active || !km?.active) {
+      setTimeout(() => checkLegendaryMissionsUnlock(), JOHTO_UNLOCK_DELAY_MS + 1500);
+    }
+  }
+
   // Deoxys Mission — late-game quest (Hoenn unlocked + Ever Grande + rep 4000)
   if (state.purchases?.hoennUnlocked && !state.deoxysMission?.active) {
-    setTimeout(() => checkDeoxysMissionUnlock(), JOHTO_UNLOCK_DELAY_MS + 2000);
+    setTimeout(() => checkDeoxysMissionUnlock(), JOHTO_UNLOCK_DELAY_MS + 2500);
   }
 }
 
