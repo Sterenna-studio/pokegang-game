@@ -564,11 +564,13 @@ function renderZonesTab() {
       globalThis._zsel_setActiveRegion?.('kanto');
     }
 
-    // Show Hoenn/Sinnoh buttons only once their prerequisite region is unlocked
-    const hoennBtn  = switcher.querySelector('[data-region="hoenn"]');
-    const sinnohBtn = switcher.querySelector('[data-region="sinnoh"]');
-    if (hoennBtn)  hoennBtn.style.display  = johtoUnlocked ? '' : 'none';
-    if (sinnohBtn) sinnohBtn.style.display = hoennUnlocked ? '' : 'none';
+    // Show Hoenn/Sinnoh buttons (+ separator) only once their prerequisite region is unlocked
+    const hoennBtn    = switcher.querySelector('[data-region="hoenn"]');
+    const sinnohBtn   = switcher.querySelector('[data-region="sinnoh"]');
+    const hoennDivider = document.getElementById('regionDividerHoenn');
+    if (hoennBtn)    hoennBtn.style.display    = johtoUnlocked ? '' : 'none';
+    if (sinnohBtn)   sinnohBtn.style.display   = hoennUnlocked ? '' : 'none';
+    if (hoennDivider) hoennDivider.style.display = johtoUnlocked ? '' : 'none';
 
     if (!switcher._bound) {
       switcher._bound = true;
