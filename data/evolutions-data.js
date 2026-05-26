@@ -113,6 +113,58 @@ const EVOLUTIONS = [
   ['eevee','umbreon','item'],
   ['seadra','kingdra','item'],
   ['chansey','blissey',30],
+
+  // ── Gen 3 : Starters Hoenn ──────────────────────────────────────
+  ['treecko','grovyle',16],['grovyle','sceptile',36],
+  ['torchic','combusken',16],['combusken','blaziken',36],
+  ['mudkip','marshtomp',16],['marshtomp','swampert',36],
+
+  // ── Gen 3 : Lignes communes ─────────────────────────────────────
+  ['poochyena','mightyena',18],
+  ['zigzagoon','linoone',20],
+  ['wurmple','silcoon',7],        // split avec cascoon
+  ['wurmple','cascoon',7],
+  ['silcoon','beautifly',10],
+  ['cascoon','dustox',10],
+  ['lotad','lombre',14],['lombre','ludicolo','item'],
+  ['seedot','nuzleaf',14],['nuzleaf','shiftry','item'],
+  ['taillow','swellow',22],
+  ['wingull','pelipper',25],
+  ['ralts','kirlia',20],['kirlia','gardevoir',30],
+  ['surskit','masquerain',22],
+  ['shroomish','breloom',23],
+  ['slakoth','vigoroth',18],['vigoroth','slaking',36],
+  ['nincada','ninjask',20],
+  ['whismur','loudred',20],['loudred','exploud',40],
+  ['makuhita','hariyama',24],
+  ['azurill','marill',15],        // bébé → Gen 2 (amitié → lv15 dans ce jeu)
+  ['skitty','delcatty','item'],
+  ['aron','lairon',32],['lairon','aggron',42],
+  ['meditite','medicham',37],
+  ['electrike','manectric',26],
+  ['gulpin','swalot',26],
+  ['carvanha','sharpedo',30],
+  ['wailmer','wailord',40],
+  ['numel','camerupt',33],
+  ['spoink','grumpig',32],
+  ['trapinch','vibrava',35],['vibrava','flygon',45],
+  ['cacnea','cacturne',32],
+  ['swablu','altaria',35],
+  ['barboach','whiscash',30],
+  ['corphish','crawdaunt',30],
+  ['baltoy','claydol',36],
+  ['lileep','cradily',40],
+  ['anorith','armaldo',40],
+  ['feebas','milotic','item'],    // beauté → Pierre dans ce jeu
+  ['shuppet','banette',37],
+  ['duskull','dusclops',37],
+  ['wynaut','wobbuffet',15],      // bébé
+  ['snorunt','glalie',42],
+  ['spheal','sealeo',32],['sealeo','walrein',44],
+  ['clamperl','huntail','item'],  // split avec gorebyss
+  ['clamperl','gorebyss','item'],
+  ['bagon','shelgon',30],['shelgon','salamence',50],
+  ['beldum','metang',20],['metang','metagross',45],
 ];
 
 const EVO_BY_SPECIES = {};

@@ -29,10 +29,14 @@ let _ctxMenu       = null;  // active context menu DOM node
 // ── Classic-script globals (const → pas sur window, mais dans la portée ──
 // lexicale globale partagée entre tous les scripts de la page).
 // Déclarés ici pour que les moteurs strict-mode ne les rejettent pas.
-/* globals ZONES, ZONE_BY_ID, ZONES_JOHTO, ZONE_JOHTO_BY_ID, SPECIES_BY_EN */
+/* globals ZONES, ZONE_BY_ID, ZONES_JOHTO, ZONE_JOHTO_BY_ID,
+           ZONES_HOENN, ZONE_HOENN_BY_ID, ZONES_SINNOH, ZONE_SINNOH_BY_ID,
+           SPECIES_BY_EN */
+
+const _REGIONS = ['kanto', 'johto', 'hoenn', 'sinnoh'];
 
 function setActiveRegion(region) {
-  _activeRegion = region === 'johto' ? 'johto' : 'kanto';
+  _activeRegion = _REGIONS.includes(region) ? region : 'kanto';
 }
 
 function getActiveRegion() {
@@ -42,19 +46,34 @@ function getActiveRegion() {
 function _isJohtoZone(zoneId) {
   return typeof ZONE_JOHTO_BY_ID !== 'undefined' && !!ZONE_JOHTO_BY_ID[zoneId];
 }
+function _isHoennZone(zoneId) {
+  return typeof ZONE_HOENN_BY_ID !== 'undefined' && !!ZONE_HOENN_BY_ID[zoneId];
+}
+function _isSinnohZone(zoneId) {
+  return typeof ZONE_SINNOH_BY_ID !== 'undefined' && !!ZONE_SINNOH_BY_ID[zoneId];
+}
 
 function _getActiveZones() {
-  if (_activeRegion === 'johto') return ZONES_JOHTO;
-  // Legacy unlock code may extend ZONES with Johto for shared systems.
-  return ZONES.filter(z => !_isJohtoZone(z.id));
+  if (_activeRegion === 'johto')  return typeof ZONES_JOHTO  !== 'undefined' ? ZONES_JOHTO  : [];
+  if (_activeRegion === 'hoenn')  return typeof ZONES_HOENN  !== 'undefined' ? ZONES_HOENN  : [];
+  if (_activeRegion === 'sinnoh') return typeof ZONES_SINNOH !== 'undefined' ? ZONES_SINNOH : [];
+  // Kanto — exclure les zones des autres régions qui ont été pushées dans ZONES
+  return ZONES.filter(z => !_isJohtoZone(z.id) && !_isHoennZone(z.id) && !_isSinnohZone(z.id));
 }
 
 function _getActiveZoneById() {
-  return _activeRegion === 'johto' ? ZONE_JOHTO_BY_ID : ZONE_BY_ID;
+  if (_activeRegion === 'johto')  return typeof ZONE_JOHTO_BY_ID  !== 'undefined' ? ZONE_JOHTO_BY_ID  : ZONE_BY_ID;
+  if (_activeRegion === 'hoenn')  return typeof ZONE_HOENN_BY_ID  !== 'undefined' ? ZONE_HOENN_BY_ID  : ZONE_BY_ID;
+  if (_activeRegion === 'sinnoh') return typeof ZONE_SINNOH_BY_ID !== 'undefined' ? ZONE_SINNOH_BY_ID : ZONE_BY_ID;
+  return ZONE_BY_ID;
 }
 
 function _getAnyZoneById(zoneId) {
-  return ZONE_BY_ID?.[zoneId] || ZONE_JOHTO_BY_ID?.[zoneId];
+  return ZONE_BY_ID?.[zoneId]
+    || (typeof ZONE_JOHTO_BY_ID  !== 'undefined' && ZONE_JOHTO_BY_ID?.[zoneId])
+    || (typeof ZONE_HOENN_BY_ID  !== 'undefined' && ZONE_HOENN_BY_ID?.[zoneId])
+    || (typeof ZONE_SINNOH_BY_ID !== 'undefined' && ZONE_SINNOH_BY_ID?.[zoneId])
+    || null;
 }
 
 // ── Dex completion helpers ────────────────────────────────────
