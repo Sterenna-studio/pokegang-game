@@ -131,6 +131,7 @@ import { configureIntro, openGiovanniIntro, openStarterGiftPopup } from './modul
 import { checkDarkraiCutscene, triggerDarkraiOnLeagueVictory } from './modules/ui/darkraiEvent.js';
 import './modules/ui/hoennEvent.js';
 import './modules/ui/johtoEvent.js';
+import { checkDeoxysMissionUnlock } from './modules/systems/deoxysMission.js';
 import './modules/systems/pokemon.js';
 import './modules/systems/titles.js';
 import './modules/ui/cosmetics.js';
@@ -2829,6 +2830,11 @@ function boot() {
   if (state.gang?.initialized && !state.gang?.darkraiCutsceneSeen) {
     // Delay slightly so any other boot popups (starter gift, johto) register first
     setTimeout(() => checkDarkraiCutscene(), 1600);
+  }
+
+  // Deoxys Mission — late-game quest (Hoenn unlocked + Ever Grande + rep 4000)
+  if (state.purchases?.hoennUnlocked && !state.deoxysMission?.active) {
+    setTimeout(() => checkDeoxysMissionUnlock(), JOHTO_UNLOCK_DELAY_MS + 2000);
   }
 }
 
