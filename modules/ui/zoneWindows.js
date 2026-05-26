@@ -1079,7 +1079,19 @@ function renderZoneWindows() {
   const container = document.getElementById('zoneWindows');
   if (!container) return;
 
-  const zoneIds = [...openZones].filter(id => ZONE_BY_ID[id] && ZONE_BY_ID[id].type !== 'gang_park');
+  // Filtrer par région active — seules les zones de la région sélectionnée sont affichées
+  const activeRegion = _zwActiveRegion();
+  const zoneIds = [...openZones].filter(id => {
+    if (!ZONE_BY_ID[id] || ZONE_BY_ID[id].type === 'gang_park') return false;
+    const isJohto  = _zwIsJohtoZone(id);
+    const isHoenn  = _zwIsHoennZone(id);
+    const isSinnoh = _zwIsSinnohZone(id);
+    if (activeRegion === 'johto')  return isJohto;
+    if (activeRegion === 'hoenn')  return isHoenn;
+    if (activeRegion === 'sinnoh') return isSinnoh;
+    // kanto — exclure toutes les autres régions
+    return !isJohto && !isHoenn && !isSinnoh;
+  });
 
   // "No zones" placeholder
   let placeholder = container.querySelector('.zone-placeholder');
