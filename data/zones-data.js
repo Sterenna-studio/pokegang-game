@@ -284,7 +284,23 @@ const SPECIAL_EVENTS = [
     zoneIds:['lavender_town'],
     reward:{ rareBoost:120000, shinyBoost:60000, eggGift:['gengar','haunter'] },
     desc_fr:'Un spectre ancien et sans nom erre dans Lavanville… Tout le monde fuit. Des œufs apparaissent.',
-    desc_en:'An ancient nameless ghost wanders Lavender Town… Everyone flees. Eggs appear.' }];
+    desc_en:'An ancient nameless ghost wanders Lavender Town… Everyone flees. Eggs appear.' },
+
+  // --- Plume Sacrée (plume_sacree) — relance combat Oiseaux Légendaires Kanto ---
+  { id:'sacred_feather_kanto', fr:'Plume Sacrée trouvée !', en:'Sacred Feather Found!', icon:'🪶',
+    trainerKey:null, chance:0.01, minRep:700,
+    zoneIds:['seafoam_islands','power_plant','victory_road','cinnabar_gym','indigo_plateau'],
+    reward:{ itemGift:'plume_sacree' },
+    desc_fr:"Une plume sacrée brille dans la zone — elle vibre d'une énergie légendaire d'oiseau...",
+    desc_en:"A sacred feather gleams in the area — it pulses with legendary bird energy..." },
+
+  // --- Rapport Sylphe (rapport_sylphe) — relance combat Mewtwo ---
+  { id:'silph_secret_report', fr:'Rapport Secret Sylphe !', en:'Silph Secret Report!', icon:'📂',
+    trainerKey:null, chance:0.03, minRep:700,
+    zoneIds:['silph_co','saffron_gym'],
+    reward:{ itemGift:'rapport_sylphe' },
+    desc_fr:"Des documents confidentiels du Sylphe Co. révèlent la localisation de Mewtwo dans la Grotte...",
+    desc_en:"Confidential Silph Co. documents reveal Mewtwo's location in the Cave..." }];
 
 // ── Treasure Chest Loot Table ──────────────────────────────────
 const CHEST_LOOT = [

@@ -68,6 +68,9 @@ const ITEM_SPRITE_URLS = {
   rainbow_wing:      'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/rainbow-wing.png',
   tourbillon_permit: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/silver-wing.png',
   carillon_permit:   'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/rainbow-wing.png',
+  cristal_bete:      'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/blue-shard.png',
+  rapport_sylphe:    'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/silph-scope.png',
+  plume_sacree:      'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/sharp-beak.png',
 };
 
 // Chest sprite URL

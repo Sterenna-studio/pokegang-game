@@ -291,9 +291,14 @@ export function migrateSave(saved, deps) {
   if (merged.trainingRoom.extraSlots === undefined) merged.trainingRoom.extraSlots = 0;
 
   // ── Inventory : items légendaires ─────────────────────────────────────────────
-  if (merged.inventory.meteore     === undefined) merged.inventory.meteore     = 0;
-  if (merged.inventory.sigle_magma === undefined) merged.inventory.sigle_magma = 0;
-  if (merged.inventory.sceau_aqua  === undefined) merged.inventory.sceau_aqua  = 0;
+  if (merged.inventory.meteore      === undefined) merged.inventory.meteore      = 0;
+  if (merged.inventory.sigle_magma  === undefined) merged.inventory.sigle_magma  = 0;
+  if (merged.inventory.sceau_aqua   === undefined) merged.inventory.sceau_aqua   = 0;
+  if (merged.inventory.silver_wing  === undefined) merged.inventory.silver_wing  = 0;
+  if (merged.inventory.rainbow_wing === undefined) merged.inventory.rainbow_wing = 0;
+  if (merged.inventory.cristal_bete  === undefined) merged.inventory.cristal_bete  = 0;
+  if (merged.inventory.rapport_sylphe === undefined) merged.inventory.rapport_sylphe = 0;
+  if (merged.inventory.plume_sacree  === undefined) merged.inventory.plume_sacree  = 0;
 
   // ── Groudon Mission ────────────────────────────────────────────────────────────
   if (!merged.groudonMission || typeof merged.groudonMission !== 'object') {
@@ -337,6 +342,87 @@ export function migrateSave(saved, deps) {
     if (dm.labBossDefeated  === undefined) dm.labBossDefeated  = false;
     if (dm.deoxysOwned      === undefined) dm.deoxysOwned      = false;
     if (dm.totalCaptures    === undefined) dm.totalCaptures    = 0;
+  }
+
+  // ── Bêtes Sacrées Mission ──────────────────────────────────────────────────────
+  if (!merged.betesMission || typeof merged.betesMission !== 'object') {
+    merged.betesMission = structuredClone(DEFAULT_STATE.betesMission);
+  } else {
+    const bm = merged.betesMission;
+    if (bm.active          === undefined) bm.active          = false;
+    if (bm.step            === undefined) bm.step            = 0;
+    if (bm.rocketFightsWon === undefined) bm.rocketFightsWon = 0;
+    if (bm.hqFightsWon     === undefined) bm.hqFightsWon     = 0;
+    if (bm.petrelDefeated  === undefined) bm.petrelDefeated  = false;
+    if (bm.arianaDefeated  === undefined) bm.arianaDefeated  = false;
+    if (bm.chosenBeast     === undefined) bm.chosenBeast     = null;
+    if (bm.beastOwned      === undefined) bm.beastOwned      = false;
+    if (bm.totalCaptures   === undefined) bm.totalCaptures   = 0;
+  }
+
+  // ── Lugia Mission ─────────────────────────────────────────────────────────────
+  if (!merged.lugiaMission || typeof merged.lugiaMission !== 'object') {
+    merged.lugiaMission = structuredClone(DEFAULT_STATE.lugiaMission);
+  } else {
+    const lm = merged.lugiaMission;
+    if (lm.active          === undefined) lm.active          = false;
+    if (lm.step            === undefined) lm.step            = 0;
+    if (lm.marineFightsWon === undefined) lm.marineFightsWon = 0;
+    if (lm.silverWings     === undefined) lm.silverWings     = 0;
+    if (lm.eusineDefeated  === undefined) lm.eusineDefeated  = false;
+    if (lm.whirlFightsWon  === undefined) lm.whirlFightsWon  = 0;
+    if (lm.lugiaOwned      === undefined) lm.lugiaOwned      = false;
+    if (lm.totalCaptures   === undefined) lm.totalCaptures   = 0;
+  }
+
+  // ── Ho-Oh Mission ─────────────────────────────────────────────────────────────
+  if (!merged.hoohMission || typeof merged.hoohMission !== 'object') {
+    merged.hoohMission = structuredClone(DEFAULT_STATE.hoohMission);
+  } else {
+    const hm = merged.hoohMission;
+    if (hm.active          === undefined) hm.active          = false;
+    if (hm.step            === undefined) hm.step            = 0;
+    if (hm.ruralFightsWon  === undefined) hm.ruralFightsWon  = 0;
+    if (hm.rainbowWings    === undefined) hm.rainbowWings    = 0;
+    if (hm.kimonoDefeated  === undefined) hm.kimonoDefeated  = false;
+    if (hm.tinFightsWon    === undefined) hm.tinFightsWon    = 0;
+    if (hm.hoohOwned       === undefined) hm.hoohOwned       = false;
+    if (hm.totalCaptures   === undefined) hm.totalCaptures   = 0;
+  }
+
+  // ── Birds Mission ─────────────────────────────────────────────────────────────
+  if (!merged.birdsMission || typeof merged.birdsMission !== 'object') {
+    merged.birdsMission = structuredClone(DEFAULT_STATE.birdsMission);
+  } else {
+    const birds = DEFAULT_STATE.birdsMission;
+    for (const key of ['articuno', 'zapdos', 'moltres']) {
+      if (!merged.birdsMission[key] || typeof merged.birdsMission[key] !== 'object') {
+        merged.birdsMission[key] = structuredClone(birds[key]);
+      } else {
+        const b = merged.birdsMission[key];
+        if (b.active       === undefined) b.active       = false;
+        if (b.step         === undefined) b.step         = 0;
+        if (b.fightsWon    === undefined) b.fightsWon    = 0;
+        if (b.bossDefeated === undefined) b.bossDefeated = false;
+        if (b.owned        === undefined) b.owned        = false;
+        if (b.captures     === undefined) b.captures     = 0;
+      }
+    }
+  }
+
+  // ── Mewtwo Mission ────────────────────────────────────────────────────────────
+  if (!merged.mewtwoMission || typeof merged.mewtwoMission !== 'object') {
+    merged.mewtwoMission = structuredClone(DEFAULT_STATE.mewtwoMission);
+  } else {
+    const mm = merged.mewtwoMission;
+    if (mm.active            === undefined) mm.active            = false;
+    if (mm.step              === undefined) mm.step              = 0;
+    if (mm.rocketFightsWon   === undefined) mm.rocketFightsWon   = 0;
+    if (mm.rapportSylphe     === undefined) mm.rapportSylphe     = 0;
+    if (mm.mansionFightsWon  === undefined) mm.mansionFightsWon  = 0;
+    if (mm.giovanniDefeated  === undefined) mm.giovanniDefeated  = false;
+    if (mm.mewtwoOwned       === undefined) mm.mewtwoOwned       = false;
+    if (mm.totalCaptures     === undefined) mm.totalCaptures     = 0;
   }
 
   // ── Agents : slots par rang (v10 → v11) ──────────────────────────────────────────
