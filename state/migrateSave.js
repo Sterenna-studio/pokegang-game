@@ -290,6 +290,23 @@ export function migrateSave(saved, deps) {
   // trainingRoom extraSlots
   if (merged.trainingRoom.extraSlots === undefined) merged.trainingRoom.extraSlots = 0;
 
+  // ── Inventory : meteore ────────────────────────────────────────────────────────
+  if (merged.inventory.meteore === undefined) merged.inventory.meteore = 0;
+
+  // ── Deoxys Mission ─────────────────────────────────────────────────────────────
+  if (!merged.deoxysMission || typeof merged.deoxysMission !== 'object') {
+    merged.deoxysMission = structuredClone(DEFAULT_STATE.deoxysMission);
+  } else {
+    const dm = merged.deoxysMission;
+    if (dm.active           === undefined) dm.active           = false;
+    if (dm.step             === undefined) dm.step             = 0;
+    if (dm.trainersDefeated === undefined) dm.trainersDefeated = 0;
+    if (dm.labFightsWon     === undefined) dm.labFightsWon     = 0;
+    if (dm.labBossDefeated  === undefined) dm.labBossDefeated  = false;
+    if (dm.deoxysOwned      === undefined) dm.deoxysOwned      = false;
+    if (dm.totalCaptures    === undefined) dm.totalCaptures    = 0;
+  }
+
   // ── Agents : slots par rang (v10 → v11) ──────────────────────────────────────────
   // Avant v11 : slots déterminés par captureCount (0/50/150 → 1/2/3).
   // Depuis v11 : slots déterminés par rang (grunt=1, sergent=2, lieutenant+=3).

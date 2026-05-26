@@ -191,6 +191,19 @@ const ZONES_HOENN = [
     trainers:['acetrainerGen3','acetrainerFGen3','ruinmaniac','dragontamer'],
     eliteTrainer:'steven' },
 
+  // ── Laboratoire Spatial (Quête Deoxys — débloqué via la mission) ─
+  { id:'laboratoire_spatial', fr:'Laboratoire Spatial Devon', en:'Devon Space Research Lab', rep:4500, spawnRate:0.05, type:'building',
+    zoneLevelBonus:84, investCost:60000,
+    poolCommon:   ['porygon','beldum'],
+    poolUncommon: ['metang','claydol','porygon2'],
+    poolRare:     ['metagross'],
+    poolVeryRare: [],
+    poolLegendary:[],
+    trainers:['engineerGen3','ruinmaniac','acetrainerGen3','acetrainerFGen3','collectorGen3'],
+    eliteTrainer:'steven',
+    desc_fr:'Les chercheurs de Devon ont capté un signal extraterrestre. L\'accès est restreint — des données cosmiques y sont jalousement gardées.',
+    desc_en:'Devon Corp researchers detected an alien signal. Access is restricted — cosmic data is guarded jealously here.' },
+
 
   // ══════════════════════════════════════════════════════════════
   // VILLES / ARÈNES
@@ -479,12 +492,13 @@ const SPECIAL_EVENTS_HOENN = [
     desc_en:'Bagon emerge from canyons and leap from cliffs dreaming of flight!' },
 
   // ── Fabuleux ──────────────────────────────────────────────────
-  { id:'deoxys_descent', fr:'Descente de Deoxys', en:'Deoxys Descent', icon:'☄️',
-    trainerKey:null, chance:0.004, minRep:3500,
-    zoneIds:['sky_pillar','mt_chimney','ever_grande_hoenn'],
-    reward:{ eggGift:['deoxys'], shinyBoost:200000, rareBoost:250000 },
-    desc_fr:"Une météorite s'écrase. La forme ADN palpite dans le cratère...",
-    desc_en:'A meteorite crashes. The DNA form pulses in the crater...' },
+  // ── Météore (drop → utilisé pour relancer le combat Deoxys) ──────
+  { id:'meteore_crash', fr:'Pluie de Météores', en:'Meteor Shower', icon:'☄️',
+    trainerKey:null, chance:0.005, minRep:3500,
+    zoneIds:['sky_pillar','mt_chimney','ever_grande_hoenn','laboratoire_spatial','cave_of_origin'],
+    reward:{ itemGift:'meteore' },
+    desc_fr:"Une météorite s'écrase aux alentours. Un fragment lumineux reste dans le cratère...",
+    desc_en:'A meteorite crashes nearby. A glowing fragment remains in the crater...' },
 
 ];
 
@@ -521,11 +535,12 @@ const ZONE_MUSIC_MAP_HOENN = {
   sootopolis_gym:     'gym',
   ever_grande_hoenn:  'elite4',
   // Lieux spéciaux
-  team_magma_hideout: 'silph',
-  team_aqua_hideout:  'silph',
-  cave_of_origin:     'cave',
-  scorched_slab:      'cave',
-  island_cave_ruins:  'cave',
+  team_magma_hideout:   'silph',
+  team_aqua_hideout:    'silph',
+  cave_of_origin:       'cave',
+  scorched_slab:        'cave',
+  island_cave_ruins:    'cave',
+  laboratoire_spatial:  'silph',
 };
 
 

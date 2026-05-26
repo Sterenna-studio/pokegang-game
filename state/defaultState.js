@@ -69,6 +69,7 @@ export const DEFAULT_STATE = {
     rarecandy: 0,
     incubator: 0,
     egg_scanner: 0,
+    meteore: 0,         // Fragment météorique — relance le combat contre Deoxys
   },
   activeBall: 'pokeball', // skin cosmétique actif (boss/joueur)
   activeBoosts: {
@@ -204,6 +205,15 @@ export const DEFAULT_STATE = {
   },
   discoveryProgress: {
     sinnohTeaseUnlocked: false, // true after Darkrai cutscene — unlocks Sinnoh section in pokédex
+  },
+  deoxysMission: {
+    active:           false,  // true once quest intro shown
+    step:             0,      // 0=not started 1=trainers 2=meteores 3=lab 4=director 5=deoxys 6=complete
+    trainersDefeated: 0,      // step 1: target 20
+    labFightsWon:     0,      // step 3: target 10
+    labBossDefeated:  false,  // step 4
+    deoxysOwned:      false,  // captured at least once
+    totalCaptures:    0,      // total Deoxys captures (repeatable)
   },
   behaviourLogs: {
     firstCombatAt: 0,

@@ -667,6 +667,18 @@ function activateEvent(zoneId, event) {
       parts.push('🥚 Un œuf mystérieux est apparu…');
     }
   }
+  if (reward.itemGift) {
+    const itemId = reward.itemGift;
+    if (state.inventory[itemId] !== undefined) {
+      state.inventory[itemId] = (state.inventory[itemId] || 0) + 1;
+    } else {
+      state.inventory[itemId] = 1;
+    }
+    // Notify quest module if it's listening
+    globalThis.onItemGiftReceived?.(itemId);
+    const itemLabel = { meteore: '☄️ Météore' }[itemId] ?? itemId;
+    parts.push(`${itemLabel} récupéré !`);
+  }
 
   // Single notification for the whole event
   const suffix = parts.length > 0 ? ` — ${parts.join(' · ')}` : '';
@@ -948,9 +960,10 @@ function applyCombatResult(result, playerTeamIds, trainerData) {
         if (trainerData.zoneId === 'indigo_johto') {
           setTimeout(() => globalThis.checkHoennUnlock?.(), 3000);
         }
-        // Ligue Hoenn — vérifier si Sinnoh se débloque
+        // Ligue Hoenn — vérifier si Sinnoh se débloque + quête Deoxys
         if (trainerData.zoneId === 'ever_grande_hoenn') {
           setTimeout(() => globalThis.checkSinnohUnlock?.(), 3000);
+          setTimeout(() => globalThis.checkDeoxysMissionUnlock?.(), 5000);
         }
       }
       if (trainerData.isGymRaid) {

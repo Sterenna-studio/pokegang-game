@@ -673,6 +673,51 @@ function renderZonesTab() {
     }
 
     switcher.querySelector('[data-region="kanto"]')?.classList.toggle('active', activeRegion === 'kanto');
+
+    // ── Bouton quête Deoxys (visible si Hoenn débloqué + quest active ou débloquée) ──
+    let dxqBtn = document.getElementById('dxq-quest-btn');
+    const deoxysMission = state?.deoxysMission;
+    const showDxq = hoennUnlocked && !!state?.zones?.['ever_grande_hoenn']?.gymDefeated;
+    if (showDxq) {
+      if (!dxqBtn) {
+        dxqBtn = document.createElement('button');
+        dxqBtn.id = 'dxq-quest-btn';
+        dxqBtn.style.cssText = `
+          font-family:var(--font-pixel,monospace);font-size:7px;letter-spacing:1px;
+          padding:4px 10px;border-radius:3px;cursor:pointer;
+          background:rgba(0,200,255,.08);color:rgba(0,200,255,.8);
+          border:1px solid rgba(0,200,255,.25);
+          transition:background .15s,color .15s;margin-left:6px;
+        `;
+        dxqBtn.onmouseenter = () => { dxqBtn.style.background='rgba(0,200,255,.15)'; dxqBtn.style.color='#00e5ff'; };
+        dxqBtn.onmouseleave = () => { dxqBtn.style.background='rgba(0,200,255,.08)'; dxqBtn.style.color='rgba(0,200,255,.8)'; };
+        dxqBtn.onclick = () => globalThis.openDeoxysMission?.();
+        switcher.appendChild(dxqBtn);
+      }
+      const step = deoxysMission?.step ?? 0;
+      dxqBtn.style.display = '';
+      if (!deoxysMission?.active) {
+        dxqBtn.textContent = '☄️ Quête';
+        dxqBtn.title = 'Quête Deoxys disponible — cliquez pour commencer';
+        dxqBtn.style.borderColor = 'rgba(255,204,90,.4)';
+        dxqBtn.style.color = '#ffcc5a';
+        dxqBtn.style.background = 'rgba(255,204,90,.06)';
+      } else if (step === 6) {
+        dxqBtn.textContent = '☄️ Deoxys ✓';
+        dxqBtn.title = `Quête Deoxys — Complète ! Utilisez un Météore pour relancer.`;
+        dxqBtn.style.borderColor = 'rgba(0,255,136,.3)';
+        dxqBtn.style.color = '#00ff88';
+        dxqBtn.style.background = 'rgba(0,255,136,.05)';
+      } else {
+        dxqBtn.textContent = `☄️ Deoxys ${step}/5`;
+        dxqBtn.title = `Quête Deoxys — Étape ${step}/5 en cours`;
+        dxqBtn.style.borderColor = 'rgba(0,200,255,.25)';
+        dxqBtn.style.color = 'rgba(0,200,255,.8)';
+        dxqBtn.style.background = 'rgba(0,200,255,.08)';
+      }
+    } else if (dxqBtn) {
+      dxqBtn.style.display = 'none';
+    }
   }
 
   _zsRenderSelector();
