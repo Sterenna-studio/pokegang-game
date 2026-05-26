@@ -113,10 +113,13 @@
 
       <!-- ── Zones ── -->
       <section id="tabZones" class="tab-pane active">
-        <!-- Region switcher — visible seulement si Johto est débloqué -->
-        <div id="regionSwitcher" style="display:none;padding:4px 10px;border-bottom:1px solid var(--border);gap:6px;align-items:center">
+        <!-- Region switcher — visible dès que Johto est débloqué ; Hoenn/Sinnoh apparaissent progressivement -->
+        <div id="regionSwitcher" style="display:none;padding:4px 10px;border-bottom:1px solid var(--border);gap:6px;align-items:center;flex-wrap:wrap">
           <button class="region-btn active" data-region="kanto" style="font-family:var(--font-pixel);font-size:8px;padding:4px 10px;border-radius:4px;cursor:pointer">Kanto</button>
-          <button class="region-btn" data-region="johto" style="font-family:var(--font-pixel);font-size:8px;padding:4px 10px;border-radius:4px;cursor:pointer">Johto</button>
+          <button class="region-btn" data-region="johto"  style="font-family:var(--font-pixel);font-size:8px;padding:4px 10px;border-radius:4px;cursor:pointer">Johto</button>
+          <span id="regionDividerHoenn" style="display:none;width:1px;height:18px;background:var(--border);align-self:center;flex-shrink:0;opacity:.6"></span>
+          <button class="region-btn" data-region="hoenn"  style="font-family:var(--font-pixel);font-size:8px;padding:4px 10px;border-radius:4px;cursor:pointer;display:none">Hoenn</button>
+          <button class="region-btn" data-region="sinnoh" style="font-family:var(--font-pixel);font-size:8px;padding:4px 10px;border-radius:4px;cursor:pointer;display:none">Sinnoh</button>
         </div>
 
         <!-- Filter bar -->
