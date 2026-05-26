@@ -196,7 +196,7 @@ const ZONES_HOENN = [
   // VILLES / ARÈNES
   // ══════════════════════════════════════════════════════════════
 
-  { id:'rustboro_gym', fr:'Bourg-Enroché', en:'Rustboro City', rep:2050, spawnRate:0.06, type:'city',
+  { id:'rustboro_gym', fr:'Bourg-en-Roc', en:'Rustboro City', rep:2050, spawnRate:0.06, type:'city',
     zoneLevelBonus:56, investCost:2500,
     poolCommon:   ['geodude','nosepass','aron'],
     poolUncommon: ['graveler','lairon'],
@@ -422,7 +422,7 @@ const SPECIAL_EVENTS_HOENN = [
   { id:'roxanne_challenge', fr:'Défi de Sandra !', en:"Roxanne's Challenge!", icon:'⛏️',
     trainerKey:'roxanne', chance:0.04, minRep:2050,
     reward:{ money:[2000,4500], rep:12, xpBonus:25 },
-    desc_fr:"Sandra, la Reine des Pierres de Bourg-Enroché, bloque l'accès à la forêt !",
+    desc_fr:"Sandra, la Reine des Pierres de Bourg-en-Roc, bloque l'accès à la forêt !",
     desc_en:"Roxanne, Rustboro's Rock-type master, blocks the forest entrance!" },
 
   { id:'flannery_inferno', fr:'Enfer de Lavandia !', en:"Flannery's Inferno!", icon:'🔥',
