@@ -405,6 +405,11 @@ const SPECIAL_EVENTS_JOHTO = [
     reward: { rareBoost:90000, shinyBoost:30000, xpBonus:60 },
     desc_fr:"Un éclair traverse la zone — Raikou est là ! Les Pokémon Électrik afflent !",
     desc_en:'A bolt strikes the area — Raikou is here! Electric Pokémon surge in!' },
+  { id:'entei_rampage', fr:"Charge d'Entei !", en:"Entei's Rampage!", icon:'🔥',
+    trainerKey:null, chance:0.015, minRep:350,
+    reward: { rareBoost:90000, shinyBoost:30000, money:[3000,7000] },
+    desc_fr:"Le volcan gronde — Entei surgit ! Un déluge de feu ravage la zone !",
+    desc_en:"The volcano rumbles — Entei erupts! A deluge of fire rages through the area!" },
   { id:'suicune_blessing', fr:'Bénédiction de Suicune !', en:"Suicune's Blessing!", icon:'💧',
     trainerKey:null, chance:0.02, minRep:350,
     reward: { rareBoost:90000, shinyBoost:45000, chestBoost:45000 },
@@ -553,6 +558,30 @@ const SPECIAL_EVENTS_JOHTO = [
     reward: { money:[2000,5000], rep:10, rareBoost:30000 },
     desc_fr:"Des Crachefeux itinérants exhibent leurs Pokémon Feu dans la Tour Cendrée. Arrêtez le spectacle !",
     desc_en:'Itinerant Firebreathers show off their Fire Pokémon in the Burned Tower. Crash the show!' },
+
+  // --- Argent'Aile (silver_wing) — pour quête Lugia + Permis Tourbillon ---
+  { id:'silver_wing_found', fr:"Argent'Aile trouvée !", en:'Silver Wing Found!', icon:'🪶',
+    trainerKey:null, chance:0.02, minRep:400,
+    zoneIds:['whirl_islands','tin_tower','mt_mortar','ice_path','mt_silver_johto'],
+    reward: { itemGift:'silver_wing' },
+    desc_fr:"Une plume argentée brille dans la zone — une Argent'Aile ! Elle attire Lugia...",
+    desc_en:"A silver feather shines in the area — a Silver Wing! It draws Lugia near..." },
+
+  // --- Arcenci'Aile (rainbow_wing) — pour quête Ho-Oh + Permis Carillon ---
+  { id:'rainbow_wing_found', fr:"Arcenci'Aile trouvée !", en:'Rainbow Wing Found!', icon:'🌈',
+    trainerKey:null, chance:0.02, minRep:400,
+    zoneIds:['tin_tower','burned_tower','ruins_of_alph','ecruteak_gym','national_park'],
+    reward: { itemGift:'rainbow_wing' },
+    desc_fr:"Une plume irisée descend du ciel — une Arcenci'Aile ! Ho-Oh n'est pas loin...",
+    desc_en:"An iridescent feather falls from the sky — a Rainbow Wing! Ho-Oh is close..." },
+
+  // --- Cristal Bête (cristal_bete) — relance combat Bêtes Sacrées ---
+  { id:'beast_crystal_shard', fr:'Éclat Cristal Bête !', en:'Beast Crystal Shard!', icon:'💎',
+    trainerKey:null, chance:0.015, minRep:600,
+    zoneIds:['burned_tower','whirl_islands','mt_silver_johto','mt_silver_summit','dark_cave'],
+    reward: { itemGift:'cristal_bete' },
+    desc_fr:"Un fragment cristallin palpite d'une énergie bestiale. Il contient l'âme des trois Bêtes Sacrées.",
+    desc_en:"A crystalline shard pulses with bestial energy. It holds the soul of the three Sacred Beasts." },
 
 ];
 

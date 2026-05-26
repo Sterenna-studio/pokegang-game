@@ -674,9 +674,17 @@ function activateEvent(zoneId, event) {
     } else {
       state.inventory[itemId] = 1;
     }
-    // Notify quest module if it's listening
+    // Notify quest modules via EventBus (fan-out) + legacy single-handler
+    EventBus.emit(EVENTS.ITEM_RECEIVED, { itemId, qty: 1 });
     globalThis.onItemGiftReceived?.(itemId);
-    const itemLabel = { meteore: '☄️ Météore' }[itemId] ?? itemId;
+    const itemLabel = {
+      meteore:        '☄️ Météore',
+      silver_wing:    "🪶 Argent'Aile",
+      rainbow_wing:   "🌈 Arcenci'Aile",
+      cristal_bete:   '💎 Cristal Bête',
+      rapport_sylphe: '📂 Rapport Sylphe',
+      plume_sacree:   '🪶 Plume Sacrée',
+    }[itemId] ?? itemId;
     parts.push(`${itemLabel} récupéré !`);
   }
 
@@ -968,6 +976,11 @@ function applyCombatResult(result, playerTeamIds, trainerData) {
         // Ligue Johto — déclencher les quêtes Groudon/Kyogre si Hoenn déjà débloqué
         if (trainerData.zoneId === 'indigo_johto') {
           setTimeout(() => globalThis.checkLegendaryMissionsUnlock?.(), 4500);
+          setTimeout(() => globalThis.checkJohtoMissionsUnlock?.(), 3500);
+        }
+        // Ligue Indigo (Kanto) — déclencher quêtes Kanto après victoire
+        if (trainerData.zoneId === 'indigo_plateau') {
+          setTimeout(() => globalThis.checkKantoMissionsUnlock?.(), 3500);
         }
       }
       if (trainerData.isGymRaid) {

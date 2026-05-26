@@ -72,6 +72,11 @@ export const DEFAULT_STATE = {
     meteore: 0,         // Fragment météorique — relance le combat contre Deoxys
     sigle_magma: 0,     // Emblème Magma — relance le combat contre Groudon
     sceau_aqua: 0,      // Sceau Aqua — relance le combat contre Kyogre
+    silver_wing: 0,     // Argent'Aile — collecte pour Lugia (quête + permit ×50)
+    rainbow_wing: 0,    // Arcenci'Aile — collecte pour Ho-Oh (quête + permit ×50)
+    cristal_bete: 0,    // Cristal Bête — relance le combat contre la Bête Sacrée choisie
+    rapport_sylphe: 0,  // Rapport Sylphe — relance le combat contre Mewtwo
+    plume_sacree: 0,    // Plume Sacrée — relance le combat contre un Oiseau Légendaire Kanto
   },
   activeBall: 'pokeball', // skin cosmétique actif (boss/joueur)
   activeBoosts: {
@@ -236,6 +241,54 @@ export const DEFAULT_STATE = {
     labBossDefeated:  false,  // step 4
     deoxysOwned:      false,  // captured at least once
     totalCaptures:    0,      // total Deoxys captures (repeatable)
+  },
+  // ── Quêtes Johto ─────────────────────────────────────────────────────────────
+  betesMission: {
+    active:          false,
+    step:            0,      // 0=off 1=rocket fights 2=hq fights 3=petrel 4=ariana 5=beast 6=done
+    rocketFightsWon: 0,      // step 1: target 30
+    hqFightsWon:     0,      // step 2: target 15
+    petrelDefeated:  false,  // step 3
+    arianaDefeated:  false,  // step 4
+    chosenBeast:     null,   // 'raikou'|'entei'|'suicune' — chosen at step 5
+    beastOwned:      false,
+    totalCaptures:   0,
+  },
+  lugiaMission: {
+    active:           false,
+    step:             0,      // 0=off 1=marine fights 2=silver wings 3=eusine 4=whirl fights 5=lugia 6=done
+    marineFightsWon:  0,      // step 1: target 20
+    silverWings:      0,      // step 2: target 5 (auto-increments on silver_wing pickup)
+    eusineDefeated:   false,  // step 3
+    whirlFightsWon:   0,      // step 4: target 15
+    lugiaOwned:       false,
+    totalCaptures:    0,
+  },
+  hoohMission: {
+    active:           false,
+    step:             0,      // 0=off 1=rural fights 2=rainbow wings 3=kimono 4=tin fights 5=hooh 6=done
+    ruralFightsWon:   0,      // step 1: target 20
+    rainbowWings:     0,      // step 2: target 5 (auto-increments on rainbow_wing pickup)
+    kimonoDefeated:   false,  // step 3
+    tinFightsWon:     0,      // step 4: target 15
+    hoohOwned:        false,
+    totalCaptures:    0,
+  },
+  // ── Quêtes Kanto ─────────────────────────────────────────────────────────────
+  birdsMission: {
+    articuno: { active: false, step: 0, fightsWon: 0, bossDefeated: false, owned: false, captures: 0 },
+    zapdos:   { active: false, step: 0, fightsWon: 0, bossDefeated: false, owned: false, captures: 0 },
+    moltres:  { active: false, step: 0, fightsWon: 0, bossDefeated: false, owned: false, captures: 0 },
+  },
+  mewtwoMission: {
+    active:           false,
+    step:             0,      // 0=off 1=rocket fights 2=rapport 3=mansion fights 4=giovanni 5=mewtwo 6=done
+    rocketFightsWon:  0,      // step 1: target 20
+    rapportSylphe:    0,      // step 2: target 3 (auto-increments on rapport_sylphe pickup)
+    mansionFightsWon: 0,      // step 3: target 15
+    giovanniDefeated: false,  // step 4
+    mewtwoOwned:      false,
+    totalCaptures:    0,
   },
   behaviourLogs: {
     firstCombatAt: 0,

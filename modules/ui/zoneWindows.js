@@ -759,6 +759,85 @@ function renderZonesTab() {
     } else if (dxqBtn) {
       dxqBtn.style.display = 'none';
     }
+
+    // ── Bouton quêtes Johto (Bêtes · Lugia · Ho-Oh) ──
+    let jhmBtn = document.getElementById('jhm-quest-btn');
+    const showJhm = johtoUnlocked && (state?.gang?.reputation || 0) >= 800
+                  && (state?.betesMission?.active || state?.lugiaMission?.active || state?.hoohMission?.active);
+    if (showJhm) {
+      if (!jhmBtn) {
+        jhmBtn = document.createElement('button');
+        jhmBtn.id = 'jhm-quest-btn';
+        jhmBtn.style.cssText = `
+          font-family:var(--font-pixel,monospace);font-size:7px;letter-spacing:1px;
+          padding:4px 10px;border-radius:3px;cursor:pointer;
+          background:rgba(50,150,50,.08);color:rgba(100,200,100,.85);
+          border:1px solid rgba(80,180,80,.25);
+          transition:background .15s,color .15s;margin-left:6px;
+        `;
+        jhmBtn.onmouseenter = () => { jhmBtn.style.background='rgba(50,150,50,.18)'; jhmBtn.style.color='#90ee90'; };
+        jhmBtn.onmouseleave = () => { jhmBtn.style.background='rgba(50,150,50,.08)'; jhmBtn.style.color='rgba(100,200,100,.85)'; };
+        jhmBtn.onclick = () => globalThis.openJohtoMissions?.();
+        switcher.appendChild(jhmBtn);
+      }
+      jhmBtn.style.display = '';
+      const bStep = state?.betesMission?.step ?? 0;
+      const lStep = state?.lugiaMission?.step  ?? 0;
+      const hStep = state?.hoohMission?.step   ?? 0;
+      const allDone = bStep === 6 && lStep === 6 && hStep === 6;
+      if (allDone) {
+        jhmBtn.textContent = '🐅🌊🌈 ✓';
+        jhmBtn.title = 'Toutes les quêtes Johto complètes !';
+        jhmBtn.style.borderColor = 'rgba(0,255,136,.3)'; jhmBtn.style.color = '#00ff88';
+      } else {
+        jhmBtn.textContent = `🐅🌊🌈 ${Math.min(bStep,5)}·${Math.min(lStep,5)}·${Math.min(hStep,5)}`;
+        jhmBtn.title = `Johto — Bêtes ${bStep}/5 · Lugia ${lStep}/5 · Ho-Oh ${hStep}/5`;
+      }
+    } else if (jhmBtn) {
+      jhmBtn.style.display = 'none';
+    }
+
+    // ── Bouton quêtes Kanto (Oiseaux · Mewtwo) ──
+    let ktmBtn = document.getElementById('ktm-quest-btn');
+    const birdsMission  = state?.birdsMission;
+    const mewtwoMission = state?.mewtwoMission;
+    const anyBirdActive = birdsMission &&
+      (birdsMission.articuno?.active || birdsMission.zapdos?.active || birdsMission.moltres?.active);
+    const showKtm = anyBirdActive || mewtwoMission?.active;
+    if (showKtm) {
+      if (!ktmBtn) {
+        ktmBtn = document.createElement('button');
+        ktmBtn.id = 'ktm-quest-btn';
+        ktmBtn.style.cssText = `
+          font-family:var(--font-pixel,monospace);font-size:7px;letter-spacing:1px;
+          padding:4px 10px;border-radius:3px;cursor:pointer;
+          background:rgba(50,80,180,.08);color:rgba(120,160,230,.85);
+          border:1px solid rgba(100,140,220,.25);
+          transition:background .15s,color .15s;margin-left:6px;
+        `;
+        ktmBtn.onmouseenter = () => { ktmBtn.style.background='rgba(50,80,180,.18)'; ktmBtn.style.color='#aac0ff'; };
+        ktmBtn.onmouseleave = () => { ktmBtn.style.background='rgba(50,80,180,.08)'; ktmBtn.style.color='rgba(120,160,230,.85)'; };
+        ktmBtn.onclick = () => globalThis.openKantoMissions?.();
+        switcher.appendChild(ktmBtn);
+      }
+      ktmBtn.style.display = '';
+      const aStep = birdsMission?.articuno?.step ?? 0;
+      const zStep = birdsMission?.zapdos?.step   ?? 0;
+      const mStep = birdsMission?.moltres?.step  ?? 0;
+      const mwStep = mewtwoMission?.step ?? 0;
+      const allKantoDone = aStep >= 6 && zStep >= 6 && mStep >= 6 && mwStep >= 6;
+      if (allKantoDone) {
+        ktmBtn.textContent = '❄️⚡🔥🧬 ✓';
+        ktmBtn.title = 'Toutes les quêtes Kanto complètes !';
+        ktmBtn.style.borderColor = 'rgba(0,255,136,.3)'; ktmBtn.style.color = '#00ff88';
+      } else {
+        const bDone = [aStep,zStep,mStep].filter(s => s >= 6).length;
+        ktmBtn.textContent = `❄️⚡🔥${bDone}/3 · 🧬${Math.min(mwStep,5)}/5`;
+        ktmBtn.title = `Kanto — Artikodin ${aStep}/3 · Électhor ${zStep}/3 · Sulfura ${mStep}/3 · Mewtwo ${mwStep}/5`;
+      }
+    } else if (ktmBtn) {
+      ktmBtn.style.display = 'none';
+    }
   }
 
   _zsRenderSelector();

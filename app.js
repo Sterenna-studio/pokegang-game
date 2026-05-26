@@ -133,6 +133,8 @@ import './modules/ui/hoennEvent.js';
 import './modules/ui/johtoEvent.js';
 import { checkDeoxysMissionUnlock } from './modules/systems/deoxysMission.js';
 import { checkLegendaryMissionsUnlock } from './modules/systems/legendaryMissions.js';
+import { checkJohtoMissionsUnlock } from './modules/systems/johtoMissions.js';
+import { checkKantoMissionsUnlock } from './modules/systems/kantoMissions.js';
 import './modules/systems/pokemon.js';
 import './modules/systems/titles.js';
 import './modules/ui/cosmetics.js';
@@ -2845,6 +2847,27 @@ function boot() {
   // Deoxys Mission — late-game quest (Hoenn unlocked + Ever Grande + rep 4000)
   if (state.purchases?.hoennUnlocked && !state.deoxysMission?.active) {
     setTimeout(() => checkDeoxysMissionUnlock(), JOHTO_UNLOCK_DELAY_MS + 2500);
+  }
+
+  // Johto Missions (Bêtes Sacrées + Lugia + Ho-Oh) — mid-Johto (rep 800+)
+  if (state.purchases?.johtoUnlocked) {
+    const bm = state.betesMission;
+    const lm = state.lugiaMission;
+    const hm = state.hoohMission;
+    if (!bm?.active || !lm?.active || !hm?.active) {
+      setTimeout(() => checkJohtoMissionsUnlock(), JOHTO_UNLOCK_DELAY_MS + 1200);
+    }
+  }
+
+  // Kanto Missions (Oiseaux + Mewtwo) — available from rep 600/900
+  {
+    const birds = state.birdsMission;
+    const mm    = state.mewtwoMission;
+    const allBirdsActive = birds &&
+      birds.articuno?.active && birds.zapdos?.active && birds.moltres?.active;
+    if (!allBirdsActive || !mm?.active) {
+      setTimeout(() => checkKantoMissionsUnlock(), JOHTO_UNLOCK_DELAY_MS + 800);
+    }
   }
 }
 

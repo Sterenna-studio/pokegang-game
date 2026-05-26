@@ -63,6 +63,9 @@ export const EVENTS = {
   // Economy
   MONEY_CHANGED:     'economy:money',     // { delta, newTotal }
   REP_CHANGED:       'economy:rep',       // { delta, newTotal }
+
+  // Inventory
+  ITEM_RECEIVED:     'inventory:item',    // { itemId, qty } — fired when itemGift is applied
 };
 
 // ── Internal store ────────────────────────────────────────────
