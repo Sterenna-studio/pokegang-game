@@ -154,6 +154,10 @@ export function migrateSave(saved, deps) {
   if (merged.gang.introSeen         === undefined) merged.gang.introSeen         = false;
   // darkraiCutsceneSeen — false for all; existing initialized players will see it on next boot
   if (merged.gang.darkraiCutsceneSeen === undefined) merged.gang.darkraiCutsceneSeen = false;
+  // johtoCinematicSeen — true pour les saves qui ont déjà Johto débloqué (ils n'ont pas besoin de revoir la cinématique)
+  if (merged.gang.johtoCinematicSeen === undefined) {
+    merged.gang.johtoCinematicSeen = merged.purchases?.johtoUnlocked ? true : false;
+  }
   // hoennCinematicSeen — false by default; existing players who already unlocked Hoenn skip it
   if (merged.gang.hoennCinematicSeen  === undefined) {
     merged.gang.hoennCinematicSeen = merged.purchases?.hoennUnlocked ? true : false;

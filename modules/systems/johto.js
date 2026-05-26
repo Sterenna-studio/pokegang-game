@@ -221,7 +221,15 @@ function checkJohtoUnlock() {
   if (state.purchases?.johtoUnlocked) return;
   if (!state.zones?.['indigo_plateau']?.gymDefeated) return;
   if (state.gang.reputation < 500) return;
-  setTimeout(() => showJohtoUnlockModal(), 1800);
+
+  // Cinématique déjà vue (joueur avait cliqué "Pas encore") → modal simple
+  if (state.gang?.johtoCinematicSeen) {
+    setTimeout(() => showJohtoUnlockModal(), 1200);
+    return;
+  }
+
+  // Première fois → cinématique complète (johtoEvent.js)
+  setTimeout(() => globalThis.showJohtoCinematic?.(), 1800);
 }
 
 Object.assign(globalThis, {
