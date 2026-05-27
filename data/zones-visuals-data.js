@@ -113,6 +113,43 @@ const ZONE_BGS = {
   cave_of_origin:    { url:`${SD_BG}mountain.png`,        fb:'#080420,#040214' },
   scorched_slab:     { url:`${SD_BG}desert.png`,          fb:'#300c04,#1e0802' },
   island_cave_ruins: { url:`${SD_BG}mountain.png`,        fb:'#141020,#0a0c18' },
+
+  // ── Sinnoh : Routes & nature ──────────────────────────────────
+  sinnoh_gang_hq:    { url:`${SD_BG}meadow.png`,          fb:'#0a2808,#051404' },
+  route201_202:      { url:`${SD_BG}meadow.png`,          fb:'#183a08,#0d2004' },
+  ravaged_path:      { url:`${SD_BG}mountain.png`,        fb:'#141028,#0a0820' },
+  eterna_forest:     { url:`${SD_BG}forest.png`,          fb:'#042810,#021808' },
+  route205_207:      { url:`${SD_BG}river.png`,           fb:'#082818,#041410' },
+  mt_coronet_base:   { url:`${SD_BG}mountain.png`,        fb:'#101828,#080c1c' },
+  great_marsh:       { url:`${SD_BG}river.png`,           fb:'#062018,#03100c' },
+  route208_210:      { url:`${SD_BG}forest.png`,          fb:'#0a2808,#041404' },
+  solaceon_ruins:    { url:`${SD_BG}mountain.png`,        fb:'#1a1408,#0e0e04' },
+  route211_215:      { url:`${SD_BG}meadow.png`,          fb:'#181a08,#0e0e04' },
+  mt_coronet_peak:   { url:`${SD_BG}mountain.png`,        fb:'#0c1428,#06081c' },
+  iron_island:       { url:`${SD_BG}mountain.png`,        fb:'#101420,#080a18' },
+  route216_217:      { url:`${SD_BG}mountain.png`,        fb:'#0c1828,#060c1c' },
+  lake_trio_shores:  { url:`${SD_BG}river.png`,           fb:'#082038,#041428' },
+  route218_221:      { url:`${SD_BG}beach.png`,           fb:'#081a30,#041020' },
+  victory_road_sinnoh:{ url:`${SD_BG}mountain.png`,       fb:'#201808,#140e04' },
+
+  // ── Sinnoh : Arènes ────────────────────────────────────────────
+  oreburgh_gym:      { url:`${SD_BG}mountain.png`,        fb:'#201808,#140e04' },
+  eterna_gym:        { url:`${SD_BG}forest.png`,          fb:'#082808,#041604' },
+  veilstone_gym:     { url:`${SD_BG}city.png`,            fb:'#1a1008,#0e0804' },
+  pastoria_gym:      { url:`${SD_BG}river.png`,           fb:'#081a30,#041228' },
+  hearthome_gym:     { url:`${SD_BG}city.png`,            fb:'#100820,#060410' },
+  canalave_gym:      { url:`${SD_BG}beach.png`,           fb:'#0c1820,#060c16' },
+  snowpoint_gym:     { url:`${SD_BG}mountain.png`,        fb:'#0a1430,#040a20' },
+  sunyshore_gym:     { url:`${SD_BG}beach.png`,           fb:'#201a04,#140e02' },
+  pokemon_league_sinnoh:{ url:`${SD_BG}mountain.png`,     fb:'#1a1a2a,#0c0c1c' },
+
+  // ── Sinnoh : Lieux spéciaux ────────────────────────────────────
+  galactic_hq:       { url:`${SD_BG}city.png`,            fb:'#04081c,#020410' },
+  spear_pillar:      { url:`${SD_BG}mountain.png`,        fb:'#080428,#04021c' },
+  turnback_cave:     { url:`${SD_BG}mountain.png`,        fb:'#0c0420,#080214' },
+  stark_mountain:    { url:`${SD_BG}desert.png`,          fb:'#380804,#240402' },
+  sendoff_spring:    { url:`${SD_BG}river.png`,           fb:'#040c20,#020814' },
+  hall_of_origin:    { url:`${SD_BG}mountain.png`,        fb:'#060420,#030214' },
 };
 
 // Cosmetic backgrounds purchasable for the game screen

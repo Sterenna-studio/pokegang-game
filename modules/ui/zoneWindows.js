@@ -838,6 +838,53 @@ function renderZonesTab() {
     } else if (ktmBtn) {
       ktmBtn.style.display = 'none';
     }
+
+    // ── Bouton quêtes Sinnoh (Galaxie · Giratina · Trio du Lac) ──
+    let snmBtn = document.getElementById('snm-quest-btn');
+    const galaxieMission  = state?.galaxieMission;
+    const giratinaMission = state?.giratinaMission;
+    const lakeMission     = state?.lakeMission;
+    const anyLakeActive   = lakeMission &&
+      (lakeMission.uxie?.active || lakeMission.mesprit?.active || lakeMission.azelf?.active);
+    const showSnm = (galaxieMission?.active || anyLakeActive || giratinaMission?.active) &&
+                    state?.purchases?.sinnohUnlocked;
+    if (showSnm) {
+      if (!snmBtn) {
+        snmBtn = document.createElement('button');
+        snmBtn.id = 'snm-quest-btn';
+        snmBtn.style.cssText = `
+          font-family:var(--font-pixel,monospace);font-size:7px;letter-spacing:1px;
+          padding:4px 10px;border-radius:3px;cursor:pointer;
+          background:rgba(60,40,100,.08);color:rgba(160,120,230,.85);
+          border:1px solid rgba(130,90,200,.25);
+          transition:background .15s,color .15s;margin-left:6px;
+        `;
+        snmBtn.onmouseenter = () => { snmBtn.style.background='rgba(60,40,100,.2)'; snmBtn.style.color='#c0a0ff'; };
+        snmBtn.onmouseleave = () => { snmBtn.style.background='rgba(60,40,100,.08)'; snmBtn.style.color='rgba(160,120,230,.85)'; };
+        snmBtn.onclick = () => globalThis.openSinnohMissions?.();
+        switcher.appendChild(snmBtn);
+      }
+      snmBtn.style.display = '';
+      const gxStep = galaxieMission?.step ?? 0;
+      const lkDone = ['uxie','mesprit','azelf'].filter(k => lakeMission?.[k]?.owned).length;
+      const lkActive = ['uxie','mesprit','azelf'].filter(k => lakeMission?.[k]?.active).length;
+      const gtDone   = giratinaMission?.giratinaOwned ? '✓' : giratinaMission?.active ? `${giratinaMission.step}/3` : '';
+      const allDone  = gxStep >= 6 && lkDone >= 3 && giratinaMission?.giratinaOwned;
+      if (allDone) {
+        snmBtn.textContent = '🌌💎👁️💛🩷💙 ✓';
+        snmBtn.title = 'Toutes les quêtes Sinnoh complètes !';
+        snmBtn.style.borderColor = 'rgba(0,255,136,.3)'; snmBtn.style.color = '#00ff88';
+      } else {
+        const parts = [];
+        if (galaxieMission?.active) parts.push(`🌌${Math.min(gxStep,5)}/5`);
+        if (giratinaMission?.active) parts.push(`👁️${gtDone}`);
+        if (lkActive) parts.push(`💛🩷💙${lkDone}/${lkActive}`);
+        snmBtn.textContent = parts.join(' · ');
+        snmBtn.title = `Sinnoh — Galaxie ét.${gxStep}/5 · Giratina · Lac ${lkDone}/3`;
+      }
+    } else if (snmBtn) {
+      snmBtn.style.display = 'none';
+    }
   }
 
   _zsRenderSelector();

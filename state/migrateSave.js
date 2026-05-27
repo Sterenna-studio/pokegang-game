@@ -425,6 +425,60 @@ export function migrateSave(saved, deps) {
     if (mm.totalCaptures     === undefined) mm.totalCaptures     = 0;
   }
 
+  // ── Sinnoh inventory items ────────────────────────────────────────────────────
+  if (merged.inventory.fragment_temporel === undefined) merged.inventory.fragment_temporel = 0;
+  if (merged.inventory.onde_distorsion   === undefined) merged.inventory.onde_distorsion   = 0;
+  if (merged.inventory.cristal_lac       === undefined) merged.inventory.cristal_lac       = 0;
+
+  // ── Galaxie Mission (Dialga/Palkia) ──────────────────────────────────────────
+  if (!merged.galaxieMission || typeof merged.galaxieMission !== 'object') {
+    merged.galaxieMission = structuredClone(DEFAULT_STATE.galaxieMission);
+  } else {
+    const gx = merged.galaxieMission;
+    if (gx.active            === undefined) gx.active            = false;
+    if (gx.step              === undefined) gx.step              = 0;
+    if (gx.galacticFightsWon === undefined) gx.galacticFightsWon = 0;
+    if (gx.marsDefeated      === undefined) gx.marsDefeated      = false;
+    if (gx.jupiterDefeated   === undefined) gx.jupiterDefeated   = false;
+    if (gx.spearFightsWon    === undefined) gx.spearFightsWon    = 0;
+    if (gx.cyrusDefeated     === undefined) gx.cyrusDefeated     = false;
+    if (gx.chosenLegend      === undefined) gx.chosenLegend      = null;
+    if (gx.legendOwned       === undefined) gx.legendOwned       = false;
+    if (gx.totalCaptures     === undefined) gx.totalCaptures     = 0;
+  }
+
+  // ── Giratina Mission ──────────────────────────────────────────────────────────
+  if (!merged.giratinaMission || typeof merged.giratinaMission !== 'object') {
+    merged.giratinaMission = structuredClone(DEFAULT_STATE.giratinaMission);
+  } else {
+    const gtm = merged.giratinaMission;
+    if (gtm.active            === undefined) gtm.active            = false;
+    if (gtm.step              === undefined) gtm.step              = 0;
+    if (gtm.turnbackFightsWon === undefined) gtm.turnbackFightsWon = 0;
+    if (gtm.saturnDefeated    === undefined) gtm.saturnDefeated    = false;
+    if (gtm.giratinaOwned     === undefined) gtm.giratinaOwned     = false;
+    if (gtm.totalCaptures     === undefined) gtm.totalCaptures     = 0;
+  }
+
+  // ── Lake Mission (Uxie/Mesprit/Azelf) ────────────────────────────────────────
+  if (!merged.lakeMission || typeof merged.lakeMission !== 'object') {
+    merged.lakeMission = structuredClone(DEFAULT_STATE.lakeMission);
+  } else {
+    const lk = DEFAULT_STATE.lakeMission;
+    for (const key of ['uxie', 'mesprit', 'azelf']) {
+      if (!merged.lakeMission[key] || typeof merged.lakeMission[key] !== 'object') {
+        merged.lakeMission[key] = structuredClone(lk[key]);
+      } else {
+        const l = merged.lakeMission[key];
+        if (l.active    === undefined) l.active    = false;
+        if (l.step      === undefined) l.step      = 0;
+        if (l.fightsWon === undefined) l.fightsWon = 0;
+        if (l.owned     === undefined) l.owned     = false;
+        if (l.captures  === undefined) l.captures  = 0;
+      }
+    }
+  }
+
   // ── Agents : slots par rang (v10 → v11) ──────────────────────────────────────────
   // Avant v11 : slots déterminés par captureCount (0/50/150 → 1/2/3).
   // Depuis v11 : slots déterminés par rang (grunt=1, sergent=2, lieutenant+=3).

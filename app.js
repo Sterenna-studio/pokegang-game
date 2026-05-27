@@ -135,6 +135,7 @@ import { checkDeoxysMissionUnlock } from './modules/systems/deoxysMission.js';
 import { checkLegendaryMissionsUnlock } from './modules/systems/legendaryMissions.js';
 import { checkJohtoMissionsUnlock } from './modules/systems/johtoMissions.js';
 import { checkKantoMissionsUnlock } from './modules/systems/kantoMissions.js';
+import { checkSinnohMissionsUnlock } from './modules/systems/sinnohMissions.js';
 import './modules/systems/pokemon.js';
 import './modules/systems/titles.js';
 import './modules/ui/cosmetics.js';
@@ -2867,6 +2868,16 @@ function boot() {
       birds.articuno?.active && birds.zapdos?.active && birds.moltres?.active;
     if (!allBirdsActive || !mm?.active) {
       setTimeout(() => checkKantoMissionsUnlock(), JOHTO_UNLOCK_DELAY_MS + 800);
+    }
+  }
+
+  // Sinnoh Missions (Trio du Lac + Galaxie + Giratina) — gated by sinnohUnlocked + rep
+  if (state.purchases?.sinnohUnlocked) {
+    const gx = state.galaxieMission;
+    const lk = state.lakeMission;
+    const allLakeActive = lk && lk.uxie?.active && lk.mesprit?.active && lk.azelf?.active;
+    if (!gx?.active || !allLakeActive) {
+      setTimeout(() => checkSinnohMissionsUnlock(), JOHTO_UNLOCK_DELAY_MS + 1600);
     }
   }
 }

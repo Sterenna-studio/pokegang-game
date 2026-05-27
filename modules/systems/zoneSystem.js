@@ -678,12 +678,15 @@ function activateEvent(zoneId, event) {
     EventBus.emit(EVENTS.ITEM_RECEIVED, { itemId, qty: 1 });
     globalThis.onItemGiftReceived?.(itemId);
     const itemLabel = {
-      meteore:        '☄️ Météore',
-      silver_wing:    "🪶 Argent'Aile",
-      rainbow_wing:   "🌈 Arcenci'Aile",
-      cristal_bete:   '💎 Cristal Bête',
-      rapport_sylphe: '📂 Rapport Sylphe',
-      plume_sacree:   '🪶 Plume Sacrée',
+      meteore:           '☄️ Météore',
+      silver_wing:       "🪶 Argent'Aile",
+      rainbow_wing:      "🌈 Arcenci'Aile",
+      cristal_bete:      '💎 Cristal Bête',
+      rapport_sylphe:    '📂 Rapport Sylphe',
+      plume_sacree:      '🪶 Plume Sacrée',
+      fragment_temporel: '💎 Fragment Temporel',
+      onde_distorsion:   '👁️ Onde Distorsion',
+      cristal_lac:       '💙 Cristal du Lac',
     }[itemId] ?? itemId;
     parts.push(`${itemLabel} récupéré !`);
   }
@@ -981,6 +984,10 @@ function applyCombatResult(result, playerTeamIds, trainerData) {
         // Ligue Indigo (Kanto) — déclencher quêtes Kanto après victoire
         if (trainerData.zoneId === 'indigo_plateau') {
           setTimeout(() => globalThis.checkKantoMissionsUnlock?.(), 3500);
+        }
+        // Ligue Sinnoh — déclencher quêtes légendaires Sinnoh
+        if (trainerData.zoneId === 'pokemon_league_sinnoh') {
+          setTimeout(() => globalThis.checkSinnohMissionsUnlock?.(), 3500);
         }
       }
       if (trainerData.isGymRaid) {
