@@ -216,13 +216,17 @@ function showSinnohUnlockModal() {
   setTimeout(() => _typewrite(MESSAGE, _showActions), 400);
 }
 
+const SINNOH_POWER_THRESHOLD = 5000;
+
 function checkSinnohUnlock() {
   const state = globalThis.state;
   if (state.purchases?.sinnohUnlocked) return;
-  // Débloqué après la victoire à la Ligue Hoenn + rep suffisante + pass Sinnoh
+  // Débloqué après la victoire à la Ligue Hoenn + rep + puissance de gang suffisante
   if (!state.zones?.['ever_grande_hoenn']?.gymDefeated) return;
   if ((state.gang?.reputation ?? 0) < 3500) return;
-  if (!state.inventory?.sinnoh_pass) return;
+  // Vérification puissance (équipe boss + agents de combat)
+  const gangPower = globalThis.getGangPower?.() ?? 0;
+  if (gangPower < SINNOH_POWER_THRESHOLD) return;
   setTimeout(() => showSinnohUnlockModal(), 1800);
 }
 
