@@ -1629,38 +1629,40 @@ function openExportModal() {
 }
 
 function _exportAsPDF(opts) {
-  const state = globalThis.state;
-  const g    = state.gang;
-  const card = buildExportCard(opts);
+  const state       = globalThis.state;
+  const g           = state.gang;
+  const card        = buildExportCard(opts);
   const spriteLabel = { game: 'Jeu', gen5: 'Gen 5', gen1: 'Gen 1' }[opts.spriteGen] || 'Jeu';
+  const initials    = (g.name || 'PG').split(' ').map(w => (w[0] || '').toUpperCase()).join('').slice(0, 4) || 'PG';
 
   const html = `<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <title>PokéGang — ${g.name}</title>
+  <title>PokéGang — Dossier ${_esc(g.name)}</title>
   <link rel="icon" href="assets/pokegang_logo/pokegang_logo_little.png">
-  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Special+Elite&family=Stardos+Stencil:wght@400;700&display=swap" rel="stylesheet">
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-    body{background:#0a0404;display:flex;flex-direction:column;align-items:center;padding:54px 16px 40px;min-height:100vh}
+    body{background:#0a0404;display:flex;flex-direction:column;align-items:center;padding:54px 16px 40px;min-height:100vh;font-family:'Special Elite','Courier New',monospace}
     .toolbar{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,4,4,.97);border-bottom:2px solid #cc3333;display:flex;align-items:center;justify-content:space-between;padding:10px 20px;gap:12px;flex-wrap:wrap}
-    .toolbar-title{font-family:'Press Start 2P',monospace;font-size:9px;color:#cc3333;white-space:nowrap}
-    .toolbar-hint{font-size:9px;color:#555;flex:1;text-align:center}
+    .toolbar::after{content:"";position:absolute;left:0;right:0;bottom:-8px;height:6px;background:repeating-linear-gradient(135deg,#1a0e0e 0 14px,#ffcc5a 14px 28px);opacity:.55}
+    .toolbar-title{font-family:'Stardos Stencil',monospace;font-weight:700;font-size:13px;color:#cc3333;letter-spacing:.18em;white-space:nowrap}
+    .toolbar-hint{font-size:11px;color:#777;flex:1;text-align:center;font-family:'Special Elite',monospace}
     .btns{display:flex;gap:8px;flex-shrink:0}
-    .btn{font-family:'Press Start 2P',monospace;font-size:8px;padding:8px 12px;border-radius:4px;cursor:pointer;border:1px solid;background:transparent;transition:all .15s}
+    .btn{font-family:'Stardos Stencil',monospace;font-size:11px;letter-spacing:.12em;padding:8px 14px;border-radius:2px;cursor:pointer;border:1px solid;background:transparent;transition:all .15s}
     .btn-pdf{border-color:#aaa;color:#aaa}.btn-pdf:hover{background:rgba(255,255,255,.1)}
     .btn-png{border-color:#4fc3f7;color:#4fc3f7}.btn-png:hover{background:rgba(79,195,247,.1)}
-    @media print{.toolbar{display:none!important}body{padding:0;background:#0a0404!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{margin:5mm;size:A4 portrait;background:#0a0404}}
+    @media print{.toolbar{display:none!important}body{padding:0!important;background:#0a0404!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{margin:5mm;size:A4 portrait;background:#0a0404}}
   </style>
 </head>
 <body>
   <div class="toolbar">
-    <span class="toolbar-title">PokéGang — ${g.name}</span>
-    <span class="toolbar-hint">Sprites : ${spriteLabel}</span>
+    <span class="toolbar-title">&#9646; DOSSIER &#8212; ${_esc(g.name)}</span>
+    <span class="toolbar-hint">CLASSIFICATION&nbsp;: RESTREINTE &middot; Sprites&nbsp;: ${spriteLabel}</span>
     <div class="btns">
-      <button class="btn btn-pdf" onclick="window.print()">🖨 Imprimer / PDF</button>
-      <button class="btn btn-png" onclick="const el=document.querySelector('#export-card-root');if(el){el.style.outline='3px solid #4fc3f7';setTimeout(()=>el.style.outline='',2000);}alert('Clic droit sur la carte → Enregistrer l\\'image')">🖼 Aide PNG</button>
+      <button class="btn btn-pdf" onclick="window.print()">&#9113; IMPRIMER / PDF</button>
+      <button class="btn btn-png" onclick="const el=document.querySelector('#export-card-root');if(el){el.style.outline='3px solid #4fc3f7';setTimeout(()=>el.style.outline='',2000);}alert('Clic droit sur la carte → Enregistrer l\\'image')">&#8862; AIDE PNG</button>
     </div>
   </div>
   ${card.outerHTML}
@@ -1672,7 +1674,7 @@ function _exportAsPDF(opts) {
   win.document.open();
   win.document.write(html);
   win.document.close();
-  _notify('📄 PDF prêt dans un nouvel onglet', 'success');
+  _notify('📄 Dossier prêt dans un nouvel onglet', 'success');
 }
 
 // ── EXPORT CARD ───────────────────────────────────────────────────────────
@@ -1681,180 +1683,372 @@ function _exportAsPDF(opts) {
 // ne sont PAS appliquées lors de la capture → les styles doivent être inline pour
 // rendre correctement dans l'export. NE PAS extraire ces styles vers CSS.
 function buildExportCard(opts = {}) {
-  const state           = globalThis.state;
-  const calculateStats  = globalThis.calculateStats;
-  const calculatePrice  = globalThis.calculatePrice;
+  const state              = globalThis.state;
+  const calculatePrice     = globalThis.calculatePrice;
   const pokemonDisplayName = globalThis.pokemonDisplayName;
   const sanitizeSpriteName = globalThis.sanitizeSpriteName;
-  const COSMETIC_BGS    = globalThis.COSMETIC_BGS;
 
   const g = state.gang;
   const s = state.stats;
 
-  const LOGO_FULL  = 'assets/pokegang_logo/pokegang_logo_full_B.png';
-  const LOGO_SMALL = 'assets/pokegang_logo/pokegang_logo_medium.png';
-
+  // ── Sprite helper ────────────────────────────────────────────────────────
   const gen = opts.spriteGen || 'game';
   function _pkSprite(species_en, shiny) {
     if (gen === 'gen5') {
       const base = shiny ? 'gen5-shiny' : 'gen5';
-      return `https://play.pokemonshowdown.com/sprites/${base}/${sanitizeSpriteName(species_en)}.png`;
+      return 'https://play.pokemonshowdown.com/sprites/' + base + '/' + sanitizeSpriteName(species_en) + '.png';
     }
     if (gen === 'gen1') {
       const base = shiny ? 'gen2-shiny' : 'gen1';
-      return `https://play.pokemonshowdown.com/sprites/${base}/${sanitizeSpriteName(species_en)}.png`;
+      return 'https://play.pokemonshowdown.com/sprites/' + base + '/' + sanitizeSpriteName(species_en) + '.png';
     }
     return pokeSprite(species_en, shiny);
   }
 
-  const img = (src, w, h) =>
-    `<img src="${src}" width="${w}" height="${h}" style="image-rendering:pixelated;display:block;object-fit:contain" onerror="this.style.visibility='hidden'">`;
-  const sec = label =>
-    `<div style="font-family:'Press Start 2P',monospace;font-size:7px;color:#555;text-align:center;padding:8px 0 6px;letter-spacing:.12em">— ${label} —</div>`;
-  const hr = () =>
-    `<div style="height:1px;background:rgba(204,51,51,.35);margin:0 20px"></div>`;
+  // ── Dossier metadata ─────────────────────────────────────────────────────
+  const initials  = (g.name || 'PG').split(' ').map(w => (w[0] || '').toUpperCase()).join('').slice(0, 4) || 'PG';
+  const yr        = new Date().getFullYear();
+  const repK      = String(Math.floor((g.reputation || 0) / 100)).padStart(3, '0');
+  const fileRef   = initials + '-' + yr + '-' + repK;
+  const bookingNr = initials + '—' + String(g.reputation || 0).replace(/(\d)(?=(\d{3})+$)/g, '$1 ');
+  const dateStr   = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+  const purchases = state.purchases || {};
+  const regionStr = ['KANTO',
+    purchases.johtoUnlocked  ? 'JOHTO'  : null,
+    purchases.hoennUnlocked  ? 'HOENN'  : null,
+    purchases.sinnohUnlocked ? 'SINNOH' : null,
+  ].filter(Boolean).join(' · ');
 
-  const bgKey   = state.cosmetics?.gameBg;
-  const bgUrl   = bgKey ? COSMETIC_BGS[bgKey]?.url : null;
-  const bgStyle = bgUrl
-    ? `background-image:url('${bgUrl}');background-size:cover;background-position:center`
-    : 'background:linear-gradient(180deg,#180606 0%,#200d0d 45%,#160808 80%,#0e0404 100%)';
-
-  const teamPks      = g.bossTeam.map(id => state.pokemons.find(p => p.id === id)).filter(Boolean);
-  const mvp          = state.pokemons.length > 0
+  // ── Game data ────────────────────────────────────────────────────────────
+  const teamPks     = g.bossTeam.map(id => state.pokemons.find(p => p.id === id)).filter(Boolean);
+  const mvp         = state.pokemons.length > 0
     ? state.pokemons.reduce((best, p) => calculatePrice(p) > calculatePrice(best) ? p : best)
     : null;
-  const showcaseIds  = Array.from({ length: SHOWCASE_SLOTS }, (_, i) => (g.showcase?.[i] ?? null));
-  const showcasePks  = showcaseIds.map(id => (id ? state.pokemons.find(p => p.id === id) : null) || null);
-  const kantoCaught  = globalThis.getDexKantoCaught();
-  const kantoTotal   = globalThis.KANTO_DEX_SIZE;
-  const natCaught    = globalThis.getDexNationalCaught();
-  const natTotal     = globalThis.NATIONAL_DEX_SIZE;
-  const shinySpecies = globalThis.getShinySpeciesCount();
-  const mainTitle    = globalThis.getBossFullTitle();
-  const tC           = globalThis.getTitleLabel(g.titleC);
-  const tD           = globalThis.getTitleLabel(g.titleD);
-  const agents       = state.agents.slice(0, 16);
-  const col1         = agents.slice(0, 8);
-  const col2         = agents.slice(8, 16);
+  const showcaseIds = Array.from({ length: SHOWCASE_SLOTS }, (_, i) => (g.showcase?.[i] ?? null));
+  const showcasePks = showcaseIds.map(id => (id ? state.pokemons.find(p => p.id === id) : null) || null);
+  const kantoCaught = globalThis.getDexKantoCaught();
+  const kantoTotal  = globalThis.KANTO_DEX_SIZE;
+  const natCaught   = globalThis.getDexNationalCaught();
+  const natTotal    = globalThis.NATIONAL_DEX_SIZE;
+  const shinySpecies= globalThis.getShinySpeciesCount();
+  const mainTitle   = globalThis.getBossFullTitle();
+  const tC          = globalThis.getTitleLabel(g.titleC);
+  const tD          = globalThis.getTitleLabel(g.titleD);
+  const agents      = state.agents.slice(0, 16);
 
   const badges = [];
-  if (kantoCaught >= kantoTotal)          badges.push({ label:'Kanto Complet',   color:'#ffcc5a', icon:'🏅' });
-  if (natCaught >= natTotal)              badges.push({ label:'National Complet', color:'#4fc3f7', icon:'🌐' });
-  if (shinySpecies >= 30)                 badges.push({ label:'Chasseur Shiny',   color:'#e879f9', icon:'✨' });
-  if ((s.totalFightsWon||0) >= 100)       badges.push({ label:'Vétéran',          color:'#f97316', icon:'⚔' });
-  if ((s.totalCaught||0) >= 500)          badges.push({ label:'Grand Chasseur',   color:'#22c55e', icon:'🎯' });
+  if (kantoCaught >= kantoTotal)     badges.push({ label:'KANTO COMPLET',   color:'#ffcc5a', icon:'🏅' });
+  if (natCaught   >= natTotal)       badges.push({ label:'NATIONAL COMPLET', color:'#4fc3f7', icon:'🌐' });
+  if (shinySpecies >= 30)            badges.push({ label:'CHASSEUR SHINY',   color:'#e879f9', icon:'✦' });
+  if ((s.totalFightsWon||0) >= 100)  badges.push({ label:'VÉTÉRAN',          color:'#f97316', icon:'⚔' });
+  if ((s.totalCaught||0)   >= 500)   badges.push({ label:'GRAND CHASSEUR',   color:'#22c55e', icon:'◎' });
 
-  function _agentRow(ag) {
-    const agPks    = ag.team.map(id => state.pokemons.find(p => p.id === id)).filter(Boolean);
-    const zoneName = ag.assignedZone ? (ZONE_BY_ID[ag.assignedZone]?.fr || ag.assignedZone) : 'Sans zone';
-    const miniPks  = agPks.slice(0, 6).map(pk =>
-      `<div style="display:flex;flex-direction:column;align-items:center">
-        ${img(_pkSprite(pk.species_en, pk.shiny), 30, 30)}
-        <span style="font-size:6px;color:${pk.shiny ? '#ffcc5a' : '#555'}">${pk.level}</span>
-      </div>`
-    ).join('');
-    return `
-      <div style="display:flex;align-items:center;gap:8px;padding:5px 10px;border-bottom:1px solid rgba(255,255,255,.06)">
-        ${img(ag.sprite || trainerSprite('acetrainer'), 38, 38)}
-        <div style="flex:0 0 105px;overflow:hidden">
-          <div style="font-size:9px;color:#e0e0e0;font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${ag.name}</div>
-          <div style="font-size:7px;color:#888">Lv.${ag.level} · ${zoneName.slice(0,14)}</div>
-          <div style="font-size:6px;color:#555">ATK:${ag.stats?.combat||0} CAP:${ag.stats?.capture||0} LCK:${ag.stats?.luck||0}</div>
-        </div>
-        <div style="display:flex;gap:2px;flex-wrap:wrap;flex:1">${miniPks}</div>
-      </div>`;
-  }
-  function _agentCol(list) {
-    if (!list.length) return '';
-    return `<div style="flex:1;min-width:0;border:1px solid rgba(255,255,255,.1);border-radius:4px;overflow:hidden">${list.map(_agentRow).join('')}</div>`;
-  }
+  // ── Layout helpers ───────────────────────────────────────────────────────
+  const hazardBand = (h, op) =>
+    '<div style="height:' + h + 'px;background:repeating-linear-gradient(135deg,#1a0e0e 0 18px,#ffcc5a 18px 36px);opacity:' + op + '"></div>';
 
+  const sectionHdr = (label, sub) =>
+    '<div style="display:flex;align-items:center;gap:10px;margin:6px 0 14px">' +
+    '<div style="flex:0 0 auto;background:#cc3333;color:#070202;font-family:\'Stardos Stencil\',monospace;font-weight:700;font-size:11px;letter-spacing:.18em;padding:4px 10px">▮ ' + label + '</div>' +
+    '<div style="flex:1;height:1px;background:repeating-linear-gradient(90deg,#cc3333 0 8px,transparent 8px 14px)"></div>' +
+    (sub ? '<div style="font-family:\'Special Elite\',monospace;font-size:9px;color:#888;letter-spacing:.1em">— ' + sub + ' —</div>' : '') +
+    '</div>';
+
+  const perfDivider = () =>
+    '<div style="height:10px;margin:6px 14px;background:radial-gradient(circle at 7px 5px,#0a0404 3px,transparent 3.5px) 0 0/14px 10px,' +
+    'repeating-linear-gradient(90deg,rgba(204,51,51,.4) 0 8px,transparent 8px 12px) center/100% 1px no-repeat"></div>';
+
+  const threatOf = pot => {
+    if ((pot || 0) >= 5) return ['ÉLEVÉE',  '#a81c1c'];
+    if ((pot || 0) >= 4) return ['HAUTE',    '#f97316'];
+    if ((pot || 0) >= 3) return ['MODÉRÉE',  '#ffcc5a'];
+    return                     ['FAIBLE',   '#888888'];
+  };
+
+  // ── Build sections ───────────────────────────────────────────────────────
   let sections = '';
 
-  sections += `
-    <div style="text-align:center;padding:18px 0 12px;background:rgba(0,0,0,.45)">
-      <img src="${LOGO_FULL}" style="height:44px;width:auto;max-width:320px" onerror="this.style.display='none'" alt="PokéGang">
-    </div>${hr()}`;
+  // ─ Header strip ─────────────────────────────────────────────────────────
+  sections +=
+    '<div style="position:relative;z-index:2;background:#070202;border-bottom:1px solid #2a0a0a">' +
+    hazardBand(14, '.85') +
+    '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 22px 10px;gap:14px">' +
+    '<div style="display:flex;align-items:center;gap:14px">' +
+    '<div style="display:inline-block;background:#cc3333;color:#070202;font-family:\'Stardos Stencil\',monospace;font-weight:700;font-size:11px;letter-spacing:.16em;padding:5px 10px;clip-path:polygon(0 0,100% 0,calc(100% - 8px) 100%,0 100%)">' +
+      'DOSSIER Nº ' + fileRef +
+    '</div>' +
+    '<div style="font-family:\'Stardos Stencil\',monospace;font-size:10px;letter-spacing:.22em;color:#888">SECTION : CRIME ORGANISÉ • ' + regionStr + '</div>' +
+    '</div>' +
+    '<div style="font-family:\'Special Elite\',monospace;font-size:10px;color:#666;letter-spacing:.06em">OUVERT : ' + dateStr + '</div>' +
+    '</div>' +
+    '<div style="border-top:1px solid rgba(204,51,51,.4);border-bottom:1px dashed rgba(204,51,51,.35);padding:6px 22px;font-family:\'Stardos Stencil\',monospace;font-size:10px;letter-spacing:.32em;color:#cc3333">' +
+    '▮▮ CLASSIFICATION : NOIR-ROUGE — DIFFUSION RESTREINTE ▮▮</div>' +
+    '</div>';
 
-  const titlesBlock = opts.showTitres ? `
-    <div style="font-family:'Press Start 2P',monospace;font-size:9px;color:#ffcc5a;margin-top:2px">${mainTitle}</div>
-    ${(tC||tD) ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:3px">
-      ${tC ? `<span style="font-size:7px;padding:2px 8px;border-radius:10px;border:1px solid #4fc3f7;color:#4fc3f7">${tC}</span>` : ''}
-      ${tD ? `<span style="font-size:7px;padding:2px 8px;border-radius:10px;border:1px solid #ce93d8;color:#ce93d8">${tD}</span>` : ''}
-    </div>` : ''}` : '';
+  // ─ Suspect card (manila) ─────────────────────────────────────────────────
+  const pids       = state.cosmetics?.activePatches || [];
+  const patchUrlFn = globalThis.patchUrl;
+  const _ppos      = ['bottom:0;right:0', 'bottom:0;left:0', 'top:0;right:0'];
+  const patchesHtml = (pids.length && patchUrlFn)
+    ? pids.slice(0, 3).map((pid, i) =>
+        '<img src="' + patchUrlFn(pid) + '" style="position:absolute;width:22px;height:22px;' + _ppos[i] + ';object-fit:contain;image-rendering:pixelated" onerror="this.style.display=\'none\'">'
+      ).join('')
+    : '';
 
-  sections += `
-    <div style="display:flex;align-items:flex-start;gap:16px;padding:16px 20px 14px">
-      <div style="position:relative;flex-shrink:0;width:96px;height:96px">
-        ${g.bossSprite ? img(trainerSprite(g.bossSprite), 96, 96) : ''}
-        ${(() => {
-          const pids = globalThis.state?.cosmetics?.activePatches || [];
-          const patchUrlFn = globalThis.patchUrl;
-          if (!pids.length || !patchUrlFn) return '';
-          const positions = ['bottom:0;right:0','bottom:0;left:0','top:0;right:0'];
-          return pids.slice(0,3).map((pid,i) =>
-            `<img src="${patchUrlFn(pid)}" style="position:absolute;width:28px;height:28px;${positions[i]};object-fit:contain;image-rendering:pixelated;filter:drop-shadow(0 1px 2px rgba(0,0,0,.8))" onerror="this.style.display='none'">`
-          ).join('');
-        })()}
-      </div>
-      <div style="flex:1;display:flex;flex-direction:column;gap:5px">
-        <div style="font-family:'Press Start 2P',monospace;font-size:18px;color:#cc3333;line-height:1.2">${g.name}</div>
-        <div style="font-size:10px;color:#aaa">Boss : <strong style="color:#e0e0e0">${_esc(g.bossName)}</strong></div>
-        ${titlesBlock}
-        <div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:4px">
-          <span style="font-size:9px;color:#ffcc5a">⭐ ${g.reputation.toLocaleString()} rep</span>
-          <span style="font-size:9px;color:#e0e0e0">₽ ${g.money.toLocaleString()}</span>
-          <span style="font-size:9px;color:#888">🐾 ${state.pokemons.length} Pokémon</span>
-        </div>
-      </div>
-    </div>${hr()}`;
+  sections +=
+    '<div style="position:relative;z-index:2;padding:18px 18px 14px">' +
+    '<div style="position:relative;background:linear-gradient(180deg,#d8c79a 0%,#c8b783 50%,#bda671 100%);border:1px solid #6b5630;border-radius:2px;box-shadow:0 2px 0 #4a3a1f,0 6px 14px rgba(0,0,0,.5);padding:18px 18px 16px;overflow:hidden">' +
+    // paper grain overlay
+    '<div style="position:absolute;inset:0;background-image:repeating-linear-gradient(90deg,rgba(74,58,31,.06) 0 1px,transparent 1px 4px),repeating-linear-gradient(0deg,rgba(74,58,31,.08) 0 1px,transparent 1px 6px),radial-gradient(circle at 70% 20%,rgba(74,58,31,.18) 0,transparent 50%);pointer-events:none;mix-blend-mode:multiply"></div>' +
+    // coffee stain
+    '<div style="position:absolute;top:-22px;right:38px;width:64px;height:64px;border-radius:50%;background:radial-gradient(circle,rgba(94,42,18,.32) 0,rgba(94,42,18,.18) 50%,transparent 70%);pointer-events:none"></div>' +
+    // CLASSIFIÉ stamp
+    '<div style="position:absolute;top:8px;right:14px;transform:rotate(-9deg);font-family:\'Stardos Stencil\',monospace;font-weight:700;font-size:24px;letter-spacing:.18em;color:rgba(168,28,28,.55);border:3px solid rgba(168,28,28,.55);padding:4px 12px;border-radius:2px;pointer-events:none;mix-blend-mode:multiply">CLASSIFIÉ</div>' +
+    '<div style="position:relative;display:flex;align-items:flex-start;gap:18px;z-index:1">' +
+    // mugshot frame
+    '<div style="flex-shrink:0;width:112px">' +
+    '<div style="position:relative;width:112px;height:128px;background:linear-gradient(180deg,#1a0e08 0%,#2a1810 100%);border:2px solid #3a2410;box-shadow:inset 0 0 0 1px #6b5630,inset 0 0 22px rgba(0,0,0,.7);display:flex;align-items:flex-end;justify-content:center;overflow:hidden">' +
+    '<div style="position:absolute;left:3px;top:6px;bottom:6px;display:flex;flex-direction:column;justify-content:space-between;font-family:\'Special Elite\',monospace;font-size:7px;color:rgba(216,199,154,.75);line-height:1"><span>6\'2</span><span>—</span><span>6\'0</span><span>—</span><span>5\'10</span><span>—</span><span>5\'8</span></div>' +
+    (g.bossSprite
+      ? '<img src="' + trainerSprite(g.bossSprite) + '" width="88" height="88" style="image-rendering:pixelated;display:block;margin-bottom:4px;filter:contrast(1.05)" onerror="this.style.visibility=\'hidden\'">'
+      : '<div style="width:88px;height:88px;margin-bottom:4px;display:flex;align-items:center;justify-content:center;color:rgba(216,199,154,.3);font-size:32px">?</div>') +
+    patchesHtml +
+    '</div>' +
+    '<div style="margin-top:4px;background:#1a0e08;border:1px solid #3a2410;color:#d8c79a;font-family:\'Stardos Stencil\',monospace;font-size:10px;letter-spacing:.16em;text-align:center;padding:3px 0">' + bookingNr + '</div>' +
+    '</div>' +
+    // dossier form
+    '<div style="flex:1;color:#2a1a0e;min-width:0">' +
+    '<div style="font-family:\'Stardos Stencil\',monospace;font-size:10px;letter-spacing:.22em;color:#5a3a1a;border-bottom:1px solid #6b5630;padding-bottom:3px;margin-bottom:8px">▮ FICHE D\'IDENTIFICATION SUSPECT Nº1</div>' +
+    '<div style="font-family:\'Press Start 2P\',monospace;font-size:20px;color:#a81c1c;line-height:1.1;text-shadow:1px 1px 0 rgba(74,58,31,.35);margin-bottom:6px">' + _esc(g.name) + '</div>' +
+    '<div style="display:flex;flex-direction:column;gap:3px;font-family:\'Special Elite\',monospace;font-size:11px;line-height:1.35">' +
+    '<div style="display:flex;gap:6px"><span style="color:#6b5630;min-width:74px">ALIAS :</span><span style="flex:1;border-bottom:1px dotted #6b5630;color:#1a0a04;font-weight:700">' + _esc(g.bossName) + '</span></div>' +
+    (opts.showTitres && mainTitle
+      ? '<div style="display:flex;gap:6px"><span style="color:#6b5630;min-width:74px">TITRE :</span><span style="flex:1;border-bottom:1px dotted #6b5630;color:#7a4a14">' + _esc(mainTitle) + '</span></div>'
+      : '') +
+    ((tC || tD) && opts.showTitres
+      ? '<div style="display:flex;gap:6px"><span style="color:#6b5630;min-width:74px">ÉTIQUETTES :</span><span style="display:inline-flex;gap:4px;flex-wrap:wrap">' +
+        (tC ? '<span style="font-size:9px;padding:1px 7px;border:1px solid #2a6b8a;color:#1a4a6b;background:rgba(79,195,247,.18);border-radius:1px">' + _esc(tC) + '</span>' : '') +
+        (tD ? '<span style="font-size:9px;padding:1px 7px;border:1px solid #6b2a8a;color:#4a1a6b;background:rgba(206,147,216,.18);border-radius:1px">' + _esc(tD) + '</span>' : '') +
+        '</span></div>'
+      : '') +
+    '</div>' +
+    // key figures
+    '<div style="display:flex;gap:16px;margin-top:10px;padding:8px 10px;background:rgba(74,58,31,.12);border:1px dashed #6b5630;border-radius:1px">' +
+    '<div style="flex:1"><div style="font-family:\'Stardos Stencil\',monospace;font-size:8px;letter-spacing:.18em;color:#6b5630">RÉPUTATION</div><div style="font-family:\'Press Start 2P\',monospace;font-size:11px;color:#1a0a04;margin-top:3px">' + (g.reputation || 0).toLocaleString() + '<span style="font-size:8px;color:#7a4a14"> rep</span></div></div>' +
+    '<div style="flex:1;border-left:1px dashed #6b5630;padding-left:14px"><div style="font-family:\'Stardos Stencil\',monospace;font-size:8px;letter-spacing:.18em;color:#6b5630">CAPITAL CIRC.</div><div style="font-family:\'Press Start 2P\',monospace;font-size:11px;color:#1a0a04;margin-top:3px">' + (g.money || 0).toLocaleString() + '<span style="font-size:8px;color:#7a4a14"> ₽</span></div></div>' +
+    '<div style="flex:1;border-left:1px dashed #6b5630;padding-left:14px"><div style="font-family:\'Stardos Stencil\',monospace;font-size:8px;letter-spacing:.18em;color:#6b5630">EFFECTIF</div><div style="font-family:\'Press Start 2P\',monospace;font-size:11px;color:#1a0a04;margin-top:3px">' + state.pokemons.length + '<span style="font-size:8px;color:#7a4a14"> pkmn</span></div></div>' +
+    '</div>' +
+    // signature line
+    '<div style="display:flex;justify-content:space-between;font-family:\'Special Elite\',monospace;font-size:9px;color:#6b5630;margin-top:10px"><span>SIGNATURE AGENT : ____________________</span><span>DATE : __ / __ / __</span></div>' +
+    '</div>' + // end dossier form
+    '</div>' + // end flex row
+    '</div>' + // end manila
+    '</div>';  // end section wrapper
 
+  // ─ Vitrine (Pièces à conviction) ─────────────────────────────────────────
   if (opts.showVitrine) {
-    const showcaseHtml = showcasePks.map((pk, i) => {
-      if (!pk) return `<div style="width:130px;text-align:center;opacity:.3"><div style="width:80px;height:80px;border:2px dashed rgba(255,255,255,.2);border-radius:6px;margin:0 auto;display:flex;align-items:center;justify-content:center;font-size:24px">?</div><div style="font-size:8px;color:#555;margin-top:6px">Slot ${i+1}</div></div>`;
-      return `<div style="width:130px;text-align:center"><div style="display:flex;justify-content:center">${img(_pkSprite(pk.species_en,pk.shiny),80,80)}</div><div style="font-size:9px;color:${pk.shiny?'#ffcc5a':'#e0e0e0'};margin-top:6px">${pokemonDisplayName(pk)}${pk.shiny?' ✨':''}</div><div style="font-size:7px;color:#888">Lv.${pk.level} · ${'★'.repeat(pk.potential)}</div><div style="font-size:8px;color:#ffcc5a">${calculatePrice(pk).toLocaleString()}₽</div></div>`;
+    const polRots  = ['-1.2deg', '.8deg', '-.4deg', '1.4deg'];
+    const tapeRots = ['-3deg',   '2deg',  '-1deg',  '3deg'];
+    const polHtml  = showcasePks.map((pk, i) => {
+      const rot  = polRots[i % 4];
+      const tape = tapeRots[i % 4];
+      if (!pk) {
+        return '<div style="position:relative;width:158px;background:rgba(216,199,154,.08);padding:10px 10px 32px;border:1px dashed #6b5630;transform:rotate(' + rot + ');opacity:.5">' +
+          '<div style="background:rgba(0,0,0,.5);height:118px;display:flex;align-items:center;justify-content:center;border:1px dashed #6b5630;font-family:\'Stardos Stencil\',monospace;font-size:11px;letter-spacing:.18em;color:#6b5630">VACANT</div>' +
+          '<div style="font-family:\'Special Elite\',monospace;font-size:10px;color:#6b5630;margin-top:8px">— en attente —</div>' +
+          '<div style="position:absolute;bottom:-10px;left:-8px;transform:rotate(-3deg);background:#3a2410;color:#d8c79a;font-family:\'Stardos Stencil\',monospace;font-size:9px;letter-spacing:.14em;padding:3px 8px;border:1px solid #1a0a04">Nº A-00' + (i + 1) + '</div>' +
+          '</div>';
+      }
+      return '<div style="position:relative;width:158px;background:#ebe2cd;padding:10px 10px 32px;border:1px solid #6b5630;box-shadow:0 4px 10px rgba(0,0,0,.55);transform:rotate(' + rot + ')">' +
+        '<div style="position:absolute;top:-6px;left:50%;transform:translateX(-50%) rotate(' + tape + ');width:48px;height:14px;background:rgba(255,204,90,.55);border:1px solid rgba(107,86,48,.4);box-shadow:0 1px 2px rgba(0,0,0,.3)"></div>' +
+        '<div style="background:#1a0e08;height:118px;display:flex;align-items:center;justify-content:center;border:1px solid #3a2410">' +
+        '<img src="' + _pkSprite(pk.species_en, pk.shiny) + '" width="86" height="86" style="image-rendering:pixelated;filter:contrast(1.05)" onerror="this.style.visibility=\'hidden\'">' +
+        '</div>' +
+        '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:8px;color:#2a1a0e">' +
+        '<span style="font-family:\'Special Elite\',monospace;font-size:11px;font-weight:700">' + _esc(pokemonDisplayName(pk)) + (pk.shiny ? ' ✦' : '') + '</span>' +
+        '<span style="font-family:\'Special Elite\',monospace;font-size:8px;color:#7a4a14">Lv.' + (pk.level || 1) + '</span>' +
+        '</div>' +
+        '<div style="font-family:\'Special Elite\',monospace;font-size:8px;color:#7a4a14">POTENTIEL ' + '★'.repeat(pk.potential || 0) + '</div>' +
+        '<div style="position:absolute;bottom:-10px;left:-8px;transform:rotate(-' + (3 + i) + 'deg);background:#cc3333;color:#fff;font-family:\'Stardos Stencil\',monospace;font-size:9px;letter-spacing:.14em;padding:3px 8px;border:1px solid #4a0c0c;box-shadow:0 1px 3px rgba(0,0,0,.6)">Nº A-00' + (i + 1) + ' · ' + calculatePrice(pk).toLocaleString() + '₽</div>' +
+        '</div>';
     }).join('');
-    sections += `${sec('VITRINE')}<div style="display:flex;justify-content:center;gap:24px;padding:10px 20px 16px;flex-wrap:wrap">${showcaseHtml}</div>${hr()}`;
+
+    sections +=
+      '<div style="position:relative;z-index:2;padding:4px 22px 24px">' +
+      sectionHdr('PIÈCES À CONVICTION', 'VITRINE / EXHIBITS') +
+      '<div style="display:flex;justify-content:center;gap:18px;flex-wrap:wrap">' + polHtml + '</div>' +
+      '</div>';
+    sections += perfDivider();
   }
 
+  // ─ Boss team (Complices identifiés) ──────────────────────────────────────
   if (opts.showBossTeam) {
-    const teamHtml = teamPks.map(pk => `
-      <div style="display:flex;flex-direction:column;align-items:center;gap:3px">
-        <div style="display:flex;justify-content:center">${img(_pkSprite(pk.species_en,pk.shiny),72,72)}</div>
-        <span style="font-size:8px;color:${pk.shiny?'#ffcc5a':'#aaa'}">${speciesName(pk.species_en)}</span>
-        <span style="font-size:7px;color:#666">${'★'.repeat(pk.potential)} Lv.${pk.level}</span>
-      </div>`).join('');
-    const mvpHtml = mvp ? `<div style="border:2px solid #ffcc5a;border-radius:6px;padding:10px 14px;background:rgba(255,204,90,.08);text-align:center;flex-shrink:0;min-width:110px"><div style="font-size:7px;color:#ffcc5a;margin-bottom:6px;font-family:'Press Start 2P',monospace">💰 POKÉMON MVP</div><div style="display:flex;justify-content:center">${img(_pkSprite(mvp.species_en,mvp.shiny),72,72)}</div><div style="font-size:9px;color:#e0e0e0;margin-top:6px">${speciesName(mvp.species_en)}${mvp.shiny?' ✨':''}</div><div style="font-size:10px;color:#ffcc5a;font-weight:bold">${calculatePrice(mvp).toLocaleString()}₽</div></div>` : '';
-    sections += `${sec('ÉQUIPE BOSS')}<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:10px 20px 16px;flex-wrap:wrap"><div style="display:flex;gap:10px;flex-wrap:wrap;flex:1">${teamHtml}</div>${mvpHtml}</div>${hr()}`;
+    const tcols        = teamPks.length > 3 ? 3 : Math.max(teamPks.length, 1);
+    const mugshotsHtml = teamPks.map((pk, i) => {
+      const [threat, tColor] = threatOf(pk.potential);
+      return '<div style="background:linear-gradient(180deg,#1a0e08,#0a0404);border:1px solid #3a2410;padding:8px;position:relative">' +
+        '<div style="position:absolute;top:-1px;left:8px;font-family:\'Stardos Stencil\',monospace;font-size:8px;color:#a81c1c;background:#0a0404;padding:0 4px;letter-spacing:.16em">Nº C-' + String(i + 1).padStart(3, '0') + '</div>' +
+        '<div style="background:#070202;height:84px;display:flex;align-items:center;justify-content:center;border:1px solid #2a1810;margin-top:4px">' +
+        '<img src="' + _pkSprite(pk.species_en, pk.shiny) + '" width="72" height="72" style="image-rendering:pixelated;filter:grayscale(.4) contrast(1.1)" onerror="this.style.visibility=\'hidden\'">' +
+        '</div>' +
+        '<div style="font-family:\'Special Elite\',monospace;font-size:10px;color:#e0e0e0;font-weight:700;margin-top:6px">' + _esc(speciesName(pk.species_en)) + (pk.shiny ? ' ✦' : '') + '</div>' +
+        '<div style="display:flex;justify-content:space-between;font-family:\'Special Elite\',monospace;font-size:8px;color:#888;margin-top:1px"><span>' + '★'.repeat(pk.potential || 0) + '</span><span>Lv.' + (pk.level || 1) + '</span></div>' +
+        '<div style="font-family:\'Special Elite\',monospace;font-size:7px;color:' + tColor + ';letter-spacing:.1em;margin-top:3px">MENACE : ' + threat + '</div>' +
+        '</div>';
+    }).join('');
+
+    const mvpHtml = mvp
+      ? '<div style="flex:0 0 200px;position:relative;background:linear-gradient(180deg,#2a1a08,#1a0e04);border:2px solid #ffcc5a;padding:10px;box-shadow:0 0 14px rgba(255,204,90,.25),inset 0 0 0 1px #4a3a1f">' +
+        '<div style="position:absolute;top:-2px;left:-2px;width:14px;height:14px;border-top:3px solid #cc3333;border-left:3px solid #cc3333"></div>' +
+        '<div style="position:absolute;top:-2px;right:-2px;width:14px;height:14px;border-top:3px solid #cc3333;border-right:3px solid #cc3333"></div>' +
+        '<div style="position:absolute;bottom:-2px;left:-2px;width:14px;height:14px;border-bottom:3px solid #cc3333;border-left:3px solid #cc3333"></div>' +
+        '<div style="position:absolute;bottom:-2px;right:-2px;width:14px;height:14px;border-bottom:3px solid #cc3333;border-right:3px solid #cc3333"></div>' +
+        '<div style="text-align:center;font-family:\'Stardos Stencil\',monospace;font-weight:700;font-size:10px;letter-spacing:.2em;color:#ffcc5a;border-bottom:1px dashed rgba(255,204,90,.4);padding-bottom:6px;margin-bottom:8px">⚠ PRIORITÉ MAXIMALE</div>' +
+        '<div style="background:#070202;height:108px;display:flex;align-items:center;justify-content:center;border:1px solid #4a3a1f;position:relative">' +
+        '<div style="position:absolute;inset:0;background:linear-gradient(90deg,transparent 49%,rgba(204,51,51,.35) 49%,rgba(204,51,51,.35) 51%,transparent 51%),linear-gradient(0deg,transparent 49%,rgba(204,51,51,.35) 49%,rgba(204,51,51,.35) 51%,transparent 51%);mix-blend-mode:screen"></div>' +
+        '<div style="position:absolute;inset:14px;border:1px dashed rgba(255,204,90,.35);border-radius:50%"></div>' +
+        '<img src="' + _pkSprite(mvp.species_en, mvp.shiny) + '" width="92" height="92" style="image-rendering:pixelated;position:relative" onerror="this.style.visibility=\'hidden\'">' +
+        '</div>' +
+        '<div style="text-align:center;font-family:\'Special Elite\',monospace;font-size:12px;color:#fff;margin-top:8px;font-weight:700">' + _esc(speciesName(mvp.species_en)) + (mvp.shiny ? ' ✦' : '') + '</div>' +
+        '<div style="text-align:center;font-family:\'Stardos Stencil\',monospace;font-size:9px;letter-spacing:.18em;color:#ffcc5a;margin-top:2px">PRIME : ' + calculatePrice(mvp).toLocaleString() + ' ₽</div>' +
+        '</div>'
+      : '';
+
+    sections +=
+      '<div style="position:relative;z-index:2;padding:6px 22px 14px">' +
+      sectionHdr('COMPLICES IDENTIFIÉS', 'ÉQUIPE BOSS / KNOWN ASSOCIATES') +
+      '<div style="display:flex;align-items:flex-start;gap:14px">' +
+      (teamPks.length
+        ? '<div style="flex:1;display:grid;grid-template-columns:repeat(' + tcols + ',1fr);gap:10px">' + mugshotsHtml + '</div>'
+        : '<div style="flex:1;font-family:\'Special Elite\',monospace;font-size:11px;color:#555;padding:10px 0">— Aucun complice répertorié —</div>') +
+      mvpHtml +
+      '</div>' +
+      '</div>';
+    sections += perfDivider();
   }
 
+  // ─ Stats + Badges (Casier judiciaire) ────────────────────────────────────
   if (opts.showStats || opts.showBadges) {
-    const statRows = [
-      ['⚔ Victoires', s.totalFightsWon||0, '🎯 Captures', s.totalCaught||0],
-      ['✨ Chromas cap.', s.shinyCaught||0, '🌈 Espèces shiny', shinySpecies],
-      ['📦 Coffres', s.chestsOpened||0, '👥 Agents', state.agents.length],
-      ['₽ Actuels', `${g.money.toLocaleString()}₽`, '₽ Gagné', `${(s.totalMoneyEarned||0).toLocaleString()}₽`],
-      ['📖 Kanto', `${kantoCaught}/${kantoTotal}`, '🌐 National', `${natCaught}/${natTotal}`],
-    ].map(([l1,v1,l2,v2]) => `<div style="display:flex;gap:6px;padding:3px 0;font-size:9px"><span style="flex:1;color:#aaa">${l1} : <strong style="color:#e0e0e0">${v1}</strong></span><span style="flex:1;color:#aaa">${l2} : <strong style="color:#e0e0e0">${v2}</strong></span></div>`).join('');
-    const badgesHtml = badges.map(b => `<div style="display:flex;align-items:center;gap:6px;padding:5px 10px;border:1px solid ${b.color};border-radius:4px;background:rgba(0,0,0,.35)"><span style="font-size:14px">${b.icon}</span><span style="font-size:7px;color:${b.color};font-family:'Press Start 2P',monospace">${b.label}</span></div>`).join('');
-    sections += `${sec('STATISTIQUES & BADGES')}<div style="display:flex;gap:20px;padding:10px 20px 16px;align-items:flex-start">${opts.showStats?`<div style="flex:1">${statRows}</div>`:''}${opts.showBadges&&badges.length?`<div style="flex:0 0 210px;display:flex;flex-direction:column;gap:6px">${badgesHtml}</div>`:''}</div>${hr()}`;
+    const statEntries = [
+      ['⚔ Victoires',     (s.totalFightsWon || 0).toLocaleString(),         '#fff'],
+      ['◎ Captures',      (s.totalCaught    || 0).toLocaleString(),         '#fff'],
+      ['✦ Chromas cap.',  (s.shinyCaught    || 0).toLocaleString(),         '#ffcc5a'],
+      ['◇ Espèces shiny', String(shinySpecies),                        '#ffcc5a'],
+      ['◰ Coffres',       (s.chestsOpened   || 0).toLocaleString(),         '#fff'],
+      ['⌖ Agents',        String(state.agents.length),                      '#fff'],
+      ['₽ Actuels',       (g.money           || 0).toLocaleString() + '₽','#fff'],
+      ['₽ Cumulé',   (s.totalMoneyEarned||0).toLocaleString() + '₽','#fff'],
+      ['▤ Kanto',         kantoCaught + ' / ' + kantoTotal,       '#4fc3f7'],
+      ['⊕ National',      natCaught   + ' / ' + natTotal,         '#fff'],
+    ];
+    const statRowsHtml = opts.showStats
+      ? statEntries.map(([label, value, color]) =>
+          '<div style="display:flex;align-items:baseline;gap:6px;padding:4px 0;border-bottom:1px dotted rgba(204,51,51,.18)">' +
+          '<span style="color:#888;font-family:\'Special Elite\',monospace;font-size:11px">' + label + '</span>' +
+          '<span style="flex:1;border-bottom:1px dotted rgba(170,170,170,.18);min-height:1px"></span>' +
+          '<span style="color:' + color + ';font-weight:700;font-family:\'Special Elite\',monospace;font-size:11px">' + value + '</span>' +
+          '</div>'
+        ).join('')
+      : '';
+
+    const badgesHtml = opts.showBadges && badges.length
+      ? badges.map(b =>
+          '<div style="position:relative;background:linear-gradient(180deg,rgba(26,14,8,.9),rgba(14,6,4,.9));border:1px solid ' + b.color + ';padding:6px 12px 6px 22px;display:flex;align-items:center;gap:8px">' +
+          '<span style="position:absolute;left:6px;top:50%;transform:translateY(-50%);width:8px;height:8px;border-radius:50%;background:' + b.color + ';box-shadow:0 0 4px ' + b.color + '"></span>' +
+          '<span style="font-size:13px">' + b.icon + '</span>' +
+          '<span style="font-family:\'Stardos Stencil\',monospace;font-size:9px;letter-spacing:.12em;color:' + b.color + '">' + b.label + '</span>' +
+          '</div>'
+        ).join('')
+      : '';
+
+    sections +=
+      '<div style="position:relative;z-index:2;padding:6px 22px 14px">' +
+      sectionHdr('CASIER JUDICIAIRE', 'STATISTIQUES OFFICIELLES') +
+      '<div style="display:flex;gap:16px;align-items:flex-start">' +
+      (opts.showStats
+        ? '<div style="flex:1;background:linear-gradient(180deg,rgba(216,199,154,.04),rgba(216,199,154,.02));border:1px solid rgba(107,86,48,.45);padding:12px 14px;position:relative">' +
+          '<div style="position:absolute;top:-7px;left:10px;background:#0a0404;padding:0 6px;font-family:\'Stardos Stencil\',monospace;font-size:9px;letter-spacing:.18em;color:#cc3333">FORMULAIRE F-04 / B</div>' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 22px">' + statRowsHtml + '</div>' +
+          '</div>'
+        : '') +
+      (opts.showBadges && badges.length
+        ? '<div style="flex:0 0 210px;display:flex;flex-direction:column;gap:8px">' +
+          '<div style="font-family:\'Stardos Stencil\',monospace;font-size:9px;letter-spacing:.2em;color:#888;text-align:right">— DISTINCTIONS —</div>' +
+          badgesHtml +
+          '</div>'
+        : '') +
+      '</div>' +
+      '</div>';
+    sections += perfDivider();
   }
 
+  // ─ Agents (Informants) ────────────────────────────────────────────────────
   if (opts.showAgents && agents.length > 0) {
-    sections += `${sec('AGENTS')}<div style="display:flex;gap:10px;padding:10px 16px 16px">${_agentCol(col1)}${col2.length?_agentCol(col2):(col1.length?'<div style="flex:1"></div>':'')}</div>${hr()}`;
+    const agRowsHtml = agents.map((ag, idx) => {
+      const agPks    = ag.team.map(id => state.pokemons.find(p => p.id === id)).filter(Boolean);
+      const zoneName = ag.assignedZone ? (ZONE_BY_ID[ag.assignedZone]?.fr || ag.assignedZone) : 'Sans zone';
+      const miniPks  = agPks.slice(0, 3).map(pk =>
+        '<div style="display:flex;flex-direction:column;align-items:center">' +
+        '<img src="' + _pkSprite(pk.species_en, pk.shiny) + '" width="30" height="30" style="image-rendering:pixelated" onerror="this.style.visibility=\'hidden\'">' +
+        '<span style="font-size:6px;color:#555">' + (pk.level || 1) + '</span>' +
+        '</div>'
+      ).join('');
+      return '<div style="display:flex;align-items:center;gap:8px;background:linear-gradient(180deg,#1a0e08,#0e0606);border:1px solid #2a1810;border-left:3px solid #cc3333;padding:6px 8px;position:relative">' +
+        '<div style="position:absolute;top:2px;right:6px;font-family:\'Special Elite\',monospace;font-size:7px;color:#555;letter-spacing:.1em">Nº I-' + String(idx + 1).padStart(2, '0') + '</div>' +
+        '<img src="' + (ag.sprite || trainerSprite('acetrainer')) + '" width="38" height="38" style="image-rendering:pixelated;filter:grayscale(.3)" onerror="this.style.visibility=\'hidden\'">' +
+        '<div style="flex:0 0 110px;overflow:hidden">' +
+        '<div style="font-family:\'Special Elite\',monospace;font-size:11px;color:#e0e0e0;font-weight:700">' + _esc(ag.name) + ' <span style="color:#888;font-size:9px;font-weight:400">Lv.' + (ag.level || 1) + '</span></div>' +
+        '<div style="font-family:\'Special Elite\',monospace;font-size:8px;color:#888">' + _esc(zoneName.slice(0, 16)) + '</div>' +
+        '<div style="font-family:\'Special Elite\',monospace;font-size:7px;color:#555">ATK:' + (ag.stats?.combat || 0) + ' CAP:' + (ag.stats?.capture || 0) + ' LCK:' + (ag.stats?.luck || 0) + '</div>' +
+        '</div>' +
+        '<div style="display:flex;gap:4px;flex:1">' + miniPks + '</div>' +
+        '</div>';
+    }).join('');
+
+    sections +=
+      '<div style="position:relative;z-index:2;padding:6px 22px 18px">' +
+      sectionHdr('INFORMANTS / SUBORDONNÉS', 'ROSTER') +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 10px">' + agRowsHtml + '</div>' +
+      '</div>';
   }
 
-  sections += `<div style="display:flex;align-items:center;justify-content:center;padding:14px 0 16px;background:rgba(0,0,0,.45)"><img src="${LOGO_SMALL}" style="height:22px;width:auto;opacity:.35" onerror="this.style.display='none'" alt="PokéGang"></div>`;
+  // ─ Footer ─────────────────────────────────────────────────────────────────
+  sections +=
+    '<div style="position:relative;z-index:2;background:#070202;border-top:1px solid #2a0a0a;margin-top:6px">' +
+    '<div style="display:flex;align-items:center;gap:14px;padding:14px 22px">' +
+    '<div style="flex:0 0 auto;transform:rotate(-4deg);font-family:\'Stardos Stencil\',monospace;font-weight:700;font-size:14px;letter-spacing:.18em;color:rgba(204,51,51,.6);border:2px solid rgba(204,51,51,.6);padding:3px 10px">FIN DU DOSSIER</div>' +
+    '<div style="flex:1;font-family:\'Special Elite\',monospace;font-size:9px;color:#666;text-align:center;line-height:1.5">' +
+    '<div>« Reproduction interdite — usage interne uniquement »</div>' +
+    '<div style="color:#444;margin-top:2px">PokéGang Bureau Central · Section Crime Organisé · ' + regionStr + '-' + yr + '</div>' +
+    '</div>' +
+    '<div style="font-family:\'Stardos Stencil\',monospace;font-size:10px;letter-spacing:.16em;color:#cc3333;text-align:right">PAGE 1 / 1</div>' +
+    '</div>' +
+    hazardBand(14, '.85') +
+    '</div>';
 
+  // ── Assemble DOM card ─────────────────────────────────────────────────────
   const card = document.createElement('div');
   card.id = 'export-card-root';
-  card.style.cssText = ['width:794px;min-width:794px','font-family:Courier New,monospace;color:#e0e0e0','border:2px solid #cc3333;border-radius:6px;overflow:hidden','box-shadow:0 0 48px rgba(204,51,51,.28)',bgStyle,'position:relative'].join(';');
-  const darkLayer = document.createElement('div');
-  darkLayer.style.cssText = 'position:absolute;inset:0;background:rgba(10,4,4,.84);pointer-events:none;z-index:0';
-  card.appendChild(darkLayer);
+  card.style.cssText = [
+    'width:794px;min-width:794px',
+    "font-family:'Special Elite','Courier New',monospace;color:#e0e0e0",
+    'border:3px double #cc3333;border-radius:2px',
+    'box-shadow:0 0 48px rgba(204,51,51,.4),inset 0 0 0 1px rgba(0,0,0,.4)',
+    'background:#0a0404;position:relative',
+  ].join(';');
+
+  // Subtle grunge overlay (sections sit at z-index:2, this at z-index:1)
+  const grunge = document.createElement('div');
+  grunge.style.cssText = [
+    'position:absolute;inset:0;pointer-events:none;z-index:1',
+    'background-image:radial-gradient(circle at 20% 30%,rgba(204,51,51,.06) 0,transparent 40%),' +
+      'radial-gradient(circle at 80% 70%,rgba(204,51,51,.05) 0,transparent 45%),' +
+      'repeating-linear-gradient(0deg,transparent 0 2px,rgba(0,0,0,.18) 2px 3px)',
+  ].join(';');
+  card.appendChild(grunge);
+
   const content = document.createElement('div');
-  content.style.cssText = 'position:relative;z-index:1';
+  content.style.cssText = 'position:relative;z-index:2';
   content.innerHTML = sections;
   card.appendChild(content);
   return card;
