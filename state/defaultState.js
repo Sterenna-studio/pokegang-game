@@ -119,6 +119,9 @@ export const DEFAULT_STATE = {
     eggsHatched: 0,
     blueDefeated: 0,
     agentsEliteCount: 0,
+    // Captures & combats par région (missions région-aware)
+    kantoCaught:    0, johtoCaught:    0, hoennCaught:    0, sinnohCaught:    0,
+    kantoFightsWon: 0, johtoFightsWon: 0, hoennFightsWon: 0, sinnohFightsWon: 0,
   },
   settings: {
     llmEnabled: false,

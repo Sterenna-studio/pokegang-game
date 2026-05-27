@@ -91,9 +91,15 @@ function renderMissionsTab() {
   const weeklyD = Math.floor(weeklyRem / 86400000);
   const weeklyH = Math.floor((weeklyRem % 86400000) / 3600000);
 
-  const dailyMissions = MISSIONS.filter(m => m.type === 'daily');
-  const weeklyMissions = MISSIONS.filter(m => m.type === 'weekly');
-  const storyMissions = MISSIONS.filter(m => m.type === 'story');
+  // Filtrer par région débloquée (les missions sans région sont toujours visibles)
+  const _purchases   = state.purchases || {};
+  const _regionOk    = m => !m.region
+    || (m.region === 'johto'  && _purchases.johtoUnlocked)
+    || (m.region === 'hoenn'  && _purchases.hoennUnlocked)
+    || (m.region === 'sinnoh' && _purchases.sinnohUnlocked);
+  const dailyMissions  = MISSIONS.filter(m => m.type === 'daily'  && _regionOk(m));
+  const weeklyMissions = MISSIONS.filter(m => m.type === 'weekly' && _regionOk(m));
+  const storyMissions  = MISSIONS.filter(m => m.type === 'story');
   const unclaimedStory = storyMissions.filter(m => !isMissionClaimed(m));
   const claimedStory = storyMissions.filter(m => isMissionClaimed(m));
 

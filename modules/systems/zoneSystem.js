@@ -1284,6 +1284,34 @@ function _catchupHiddenZones() {
 // Exposé pour l'orchestrateur offlineReport.js
 globalThis._catchupHiddenZones = _catchupHiddenZones;
 
+// ── Pause / Resume total — zéro CPU en background ────────────────────────────
+// Appelé par offlineReport.js à chaque visibilitychange.
+// Sur masquage : snapshot hiddenSince + clear tous les setInterval.
+// Sur retour   : syncActiveZones() relance exactement les timers nécessaires.
+// Puis _catchupHiddenZones() batch-rattrape les ticks manqués (déjà appelé par offlineReport).
+
+function _pauseAllZoneTimers() {
+  const now        = Date.now();
+  const zoneTimers = globalThis.zoneTimers;
+  if (!zoneTimers) return;
+  for (const zoneId of Object.keys(zoneTimers)) {
+    // N'écraser que si on n'a pas encore de marque (cas où _onVisibilityChange
+    // est appelé plusieurs fois de suite, ou race avec un tick in-flight)
+    if (!_zoneHiddenSince.has(zoneId)) _zoneHiddenSince.set(zoneId, now);
+    clearInterval(zoneTimers[zoneId]);
+    delete zoneTimers[zoneId];
+  }
+}
+
+function _resumeAllZoneTimers() {
+  // syncActiveZones relit openZones + agents et (re)démarre exactement
+  // les timers nécessaires — rien de plus.
+  syncActiveZones();
+}
+
+globalThis._pauseAllZoneTimers  = _pauseAllZoneTimers;
+globalThis._resumeAllZoneTimers = _resumeAllZoneTimers;
+
 // Aliases de compatibilité (appelés depuis app.js wrappers, gardés temporairement)
 const startBackgroundZone = startActiveZone;
 const stopBackgroundZone  = stopActiveZone;
@@ -1327,6 +1355,9 @@ Object.assign(globalThis, {
   _zsys_startBackgroundZone:          startActiveZone,
   _zsys_stopBackgroundZone:           stopActiveZone,
   _zsys_syncBackgroundZones:          syncActiveZones,
+  // Pause/resume globaux (utilisés par offlineReport.js)
+  _zsys_pauseAllZoneTimers:           _pauseAllZoneTimers,
+  _zsys_resumeAllZoneTimers:          _resumeAllZoneTimers,
   ZONE_DIFFICULTY_SCALING,
 });
 

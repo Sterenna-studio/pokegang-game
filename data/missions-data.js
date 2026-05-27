@@ -141,6 +141,45 @@ const MISSIONS = [
     stat:'_zonesWithCapture', target:15, reward:{ money:25000, rep:25 }, icon:'geodude',
     desc_fr:'Capturer au moins 1 Pokémon dans 15 zones différentes. Explorer tout Kanto !',
     desc_en:'Catch at least 1 Pokémon in 15 different zones. Explore all of Kanto!' },
+  // ── Missions Johto (affichées uniquement si Johto débloqué) ──────
+  { id:'johto_daily_catch', type:'daily', region:'johto',
+    fr:'Capturer 5 Pokémon en Johto',    en:'Catch 5 Pokémon in Johto',
+    stat:'johtoCaught', target:5, reward:{ money:2500 }, icon:'chikorita' },
+  { id:'johto_daily_fight', type:'daily', region:'johto',
+    fr:'Gagner 5 combats en Johto',      en:'Win 5 fights in Johto',
+    stat:'johtoFightsWon', target:5, reward:{ money:3000, rep:8 }, icon:'totodile' },
+  { id:'johto_weekly_catch', type:'weekly', region:'johto',
+    fr:'Capturer 50 Pokémon en Johto',   en:'Catch 50 Pokémon in Johto',
+    stat:'johtoCaught', target:50, reward:{ money:18000, rep:28 }, icon:'pichu' },
+  { id:'johto_weekly_fight', type:'weekly', region:'johto',
+    fr:'Gagner 30 combats en Johto',     en:'Win 30 fights in Johto',
+    stat:'johtoFightsWon', target:30, reward:{ money:22000, rep:38 }, icon:'snubbull' },
+  // ── Missions Hoenn (affichées uniquement si Hoenn débloqué) ──────
+  { id:'hoenn_daily_catch', type:'daily', region:'hoenn',
+    fr:'Capturer 5 Pokémon en Hoenn',    en:'Catch 5 Pokémon in Hoenn',
+    stat:'hoennCaught', target:5, reward:{ money:3500 }, icon:'treecko' },
+  { id:'hoenn_daily_fight', type:'daily', region:'hoenn',
+    fr:'Gagner 5 combats en Hoenn',      en:'Win 5 fights in Hoenn',
+    stat:'hoennFightsWon', target:5, reward:{ money:4500, rep:12 }, icon:'torchic' },
+  { id:'hoenn_weekly_catch', type:'weekly', region:'hoenn',
+    fr:'Capturer 50 Pokémon en Hoenn',   en:'Catch 50 Pokémon in Hoenn',
+    stat:'hoennCaught', target:50, reward:{ money:25000, rep:42 }, icon:'ralts' },
+  { id:'hoenn_weekly_fight', type:'weekly', region:'hoenn',
+    fr:'Gagner 30 combats en Hoenn',     en:'Win 30 fights in Hoenn',
+    stat:'hoennFightsWon', target:30, reward:{ money:30000, rep:55 }, icon:'hariyama' },
+  // ── Missions Sinnoh (affichées uniquement si Sinnoh débloqué) ────
+  { id:'sinnoh_daily_catch', type:'daily', region:'sinnoh',
+    fr:'Capturer 5 Pokémon en Sinnoh',   en:'Catch 5 Pokémon in Sinnoh',
+    stat:'sinnohCaught', target:5, reward:{ money:5000 }, icon:'turtwig' },
+  { id:'sinnoh_daily_fight', type:'daily', region:'sinnoh',
+    fr:'Gagner 5 combats en Sinnoh',     en:'Win 5 fights in Sinnoh',
+    stat:'sinnohFightsWon', target:5, reward:{ money:6000, rep:16 }, icon:'chimchar' },
+  { id:'sinnoh_weekly_catch', type:'weekly', region:'sinnoh',
+    fr:'Capturer 50 Pokémon en Sinnoh',  en:'Catch 50 Pokémon in Sinnoh',
+    stat:'sinnohCaught', target:50, reward:{ money:35000, rep:58 }, icon:'budew' },
+  { id:'sinnoh_weekly_fight', type:'weekly', region:'sinnoh',
+    fr:'Gagner 30 combats en Sinnoh',    en:'Win 30 fights in Sinnoh',
+    stat:'sinnohFightsWon', target:30, reward:{ money:42000, rep:70 }, icon:'lucario' },
 ];
 
 // ── Quêtes horaires (pool aléatoire 3 medium + 2 hard, reset 1h) ──
@@ -164,6 +203,21 @@ const HOURLY_QUEST_POOL = [
   { id:'hq_rocket3',  diff:'hard',   fr:'Vaincre 3 Rocket',      icon:'ekans',    stat:'rocketDefeated',   target:3,   reward:{ money:4500, rep:20 } },
   { id:'hq_shiny',    diff:'hard',   fr:'Capturer un Shiny',     icon:'eevee',    stat:'shinyCaught',      target:1,   reward:{ money:9000, rep:30 } },
   { id:'hq_chest5',   diff:'hard',   fr:'Ouvrir 5 coffres',      icon:'snorlax',  stat:'chestsOpened',     target:5,   reward:{ money:3000, rep:12 } },
+  // ── Quêtes région Johto (disponibles si Johto débloqué) ──
+  { id:'hq_j_catch3', diff:'medium', region:'johto', fr:'Attraper 3 Pokémon en Johto',  icon:'chikorita', stat:'johtoCaught',    target:3, reward:{ money:1500, rep:4  } },
+  { id:'hq_j_earn2k', diff:'medium', region:'johto', fr:'Gagner 2 000₽ en Johto',        icon:'meowth',    stat:'totalMoneyEarned', target:2000, reward:{ money:1200, rep:3 } },
+  { id:'hq_j_win5',   diff:'hard',   region:'johto', fr:'Gagner 5 combats en Johto',    icon:'totodile',  stat:'johtoFightsWon', target:5, reward:{ money:3500, rep:12 } },
+  { id:'hq_j_catch10',diff:'hard',   region:'johto', fr:'Attraper 10 Pokémon en Johto', icon:'chikorita', stat:'johtoCaught',    target:10, reward:{ money:4500, rep:15 } },
+  // ── Quêtes région Hoenn (disponibles si Hoenn débloqué) ──
+  { id:'hq_h_catch3', diff:'medium', region:'hoenn', fr:'Attraper 3 Pokémon en Hoenn',  icon:'treecko',   stat:'hoennCaught',    target:3, reward:{ money:2000, rep:5  } },
+  { id:'hq_h_earn3k', diff:'medium', region:'hoenn', fr:'Gagner 3 000₽ en Hoenn',        icon:'meowth',    stat:'totalMoneyEarned', target:3000, reward:{ money:1600, rep:4 } },
+  { id:'hq_h_win5',   diff:'hard',   region:'hoenn', fr:'Gagner 5 combats en Hoenn',    icon:'torchic',   stat:'hoennFightsWon', target:5, reward:{ money:5000, rep:16 } },
+  { id:'hq_h_catch10',diff:'hard',   region:'hoenn', fr:'Attraper 10 Pokémon en Hoenn', icon:'treecko',   stat:'hoennCaught',    target:10, reward:{ money:6000, rep:18 } },
+  // ── Quêtes région Sinnoh (disponibles si Sinnoh débloqué) ──
+  { id:'hq_s_catch3', diff:'medium', region:'sinnoh', fr:'Attraper 3 Pokémon en Sinnoh', icon:'turtwig',  stat:'sinnohCaught',    target:3, reward:{ money:2800, rep:6  } },
+  { id:'hq_s_earn4k', diff:'medium', region:'sinnoh', fr:'Gagner 4 000₽ en Sinnoh',       icon:'meowth',   stat:'totalMoneyEarned', target:4000, reward:{ money:2200, rep:5 } },
+  { id:'hq_s_win5',   diff:'hard',   region:'sinnoh', fr:'Gagner 5 combats en Sinnoh',   icon:'chimchar',  stat:'sinnohFightsWon', target:5, reward:{ money:6500, rep:20 } },
+  { id:'hq_s_catch10',diff:'hard',   region:'sinnoh', fr:'Attraper 10 Pokémon en Sinnoh',icon:'turtwig',  stat:'sinnohCaught',    target:10, reward:{ money:8000, rep:22 } },
 ];
 
 export { MISSIONS, HOURLY_QUEST_POOL };

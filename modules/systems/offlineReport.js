@@ -403,11 +403,17 @@ let _hiddenSince = null;
 function _onVisibilityChange() {
   if (document.hidden) {
     _hiddenSince = Date.now();
+    // Stopper immédiatement tous les setInterval de zone → zéro CPU en background.
+    // _pauseAllZoneTimers enregistre hiddenSince par zone pour le catchup au retour.
+    globalThis._pauseAllZoneTimers?.();
     return;
   }
   // Tab redevient visible
   const absentSince = _hiddenSince ?? null;
   _hiddenSince = null;
+
+  // Relancer les timers de zone avant le catchup (syncActiveZones repart proprement)
+  globalThis._resumeAllZoneTimers?.();
 
   // Si on n'a jamais vu le tab partir hidden (1er focus du jour), inutile de catchup
   if (!absentSince) return;

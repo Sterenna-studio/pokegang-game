@@ -18,6 +18,35 @@ const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
 const _topBar = ()               => EventBus.emit(EVENTS.UI_TOPBAR_UPDATE);
 const _save   = ()               => globalThis.saveState?.();
 
+// ── Tracking des stats par région ───────────────────────────────────────────
+// Lit ZONE_BY_ID (classic-script global) pour déduire la région de chaque capture/combat.
+// Appelé une seule fois au boot via _initRegionTracking().
+
+let _regionTrackingInit = false;
+
+function _initRegionTracking() {
+  if (_regionTrackingInit) return;
+  _regionTrackingInit = true;
+
+  EventBus.on(EVENTS.POKEMON_CAPTURED, ({ zoneId } = {}) => {
+    if (!zoneId || zoneId === 'pension') return;
+    const region = (typeof ZONE_BY_ID !== 'undefined' ? ZONE_BY_ID[zoneId]?.region : null) || 'kanto';
+    const state = globalThis.state;
+    if (!state?.stats) return;
+    const key = region + 'Caught';
+    state.stats[key] = (state.stats[key] || 0) + 1;
+  });
+
+  EventBus.on(EVENTS.COMBAT_WON, ({ zoneId } = {}) => {
+    if (!zoneId) return;
+    const region = (typeof ZONE_BY_ID !== 'undefined' ? ZONE_BY_ID[zoneId]?.region : null) || 'kanto';
+    const state = globalThis.state;
+    if (!state?.stats) return;
+    const key = region + 'FightsWon';
+    state.stats[key] = (state.stats[key] || 0) + 1;
+  });
+}
+
 // ════════════════════════════════════════════════════════════════
 //  7b. MISSIONS MODULE
 // ════════════════════════════════════════════════════════════════
@@ -60,6 +89,8 @@ function getMissionStat(statKey) {
 
 function initMissions() {
   const state = globalThis.state;
+  // Démarrer le tracking région au premier appel
+  _initRegionTracking();
   if (!state.missions) {
     state.missions = { completed: [], daily: { reset: 0, progress: {}, claimed: [] }, weekly: { reset: 0, progress: {}, claimed: [] } };
   }
@@ -93,9 +124,15 @@ function initHourlyQuests() {
   const h = state.missions.hourly;
   if (Date.now() - h.reset >= HOUR_MS) {
     const HOURLY_QUEST_POOL = globalThis.HOURLY_QUEST_POOL;
+    // Filtrer par région débloquée (les quêtes sans région sont toujours disponibles)
+    const purchases = state.purchases || {};
+    const _regionOk = q => !q.region
+      || (q.region === 'johto'  && purchases.johtoUnlocked)
+      || (q.region === 'hoenn'  && purchases.hoennUnlocked)
+      || (q.region === 'sinnoh' && purchases.sinnohUnlocked);
     // Draw 3 medium + 2 hard from pool (no duplicates)
-    const medium = HOURLY_QUEST_POOL.filter(q => q.diff === 'medium');
-    const hard   = HOURLY_QUEST_POOL.filter(q => q.diff === 'hard');
+    const medium = HOURLY_QUEST_POOL.filter(q => q.diff === 'medium' && _regionOk(q));
+    const hard   = HOURLY_QUEST_POOL.filter(q => q.diff === 'hard'   && _regionOk(q));
     const pickRand = (arr, n) => {
       const shuffled = [...arr].sort(() => Math.random() - 0.5);
       return shuffled.slice(0, n).map(q => q.id);
