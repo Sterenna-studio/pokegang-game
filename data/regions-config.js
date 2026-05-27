@@ -190,11 +190,11 @@ const REGIONS_CONFIG = [
     dexRange: [387, 493],
 
     unlock: {
-      type:         'rep+item',
+      type:         'rep+power',
       repThreshold: 3500,
-      itemId:       'sinnoh_pass',
-      hint_fr: 'Atteignez 3 500 REP et obtenez le Pass Sinnoh.',
-      hint_en: 'Reach 3 500 REP and obtain the Sinnoh Pass.',
+      powerThreshold: 5000,
+      hint_fr: 'Atteignez 3 500 REP, battez la Ligue Hoenn et atteignez 5 000 de puissance.',
+      hint_en: 'Reach 3 500 REP, defeat the Hoenn League and reach 5 000 power.',
     },
 
     poolTiers: {

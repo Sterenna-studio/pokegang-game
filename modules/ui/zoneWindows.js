@@ -552,7 +552,8 @@ function renderZonesTab() {
 
     const sinnohQualified = !sinnohUnlocked && hoennUnlocked &&
       !!state?.zones?.['ever_grande_hoenn']?.gymDefeated &&
-      (state?.gang?.reputation || 0) >= 5000;
+      (state?.gang?.reputation || 0) >= 3500 &&
+      (globalThis.getGangPower?.() || 0) >= 5000;
 
     // Guard: fall back to an unlocked region if the active one is unavailable
     const ar = _zwActiveRegion();
@@ -668,7 +669,7 @@ function renderZonesTab() {
       } else {
         sinnohBtn.classList.add('region-btn-locked');
         sinnohBtn.textContent = 'Sinnoh 🔒';
-        sinnohBtn.title = 'Ligue Hoenn vaincue · 5 000 REP';
+        sinnohBtn.title = 'Ligue Hoenn vaincue · 3 500 REP · Puissance de gang ≥ 5 000 PC';
       }
     }
 
