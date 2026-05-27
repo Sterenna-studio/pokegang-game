@@ -576,6 +576,32 @@ const SPECIAL_EVENTS_SINNOH = [
     desc_fr:'Une étoile filante traverse le ciel — votre vœu est-il assez fort ?',
     desc_en:'A shooting star crosses the sky — is your wish strong enough?' },
 
+  // ── Drops objets quêtes Sinnoh ─────────────────────────────────────────────
+
+  // Fragment Temporel — relance combat Dialga ou Palkia
+  { id:'fragment_temporel_drop', fr:'Fragment Temporel !', en:'Temporal Fragment!', icon:'💎',
+    trainerKey:null, chance:0.015, minRep:4200,
+    zoneIds:['spear_pillar','mt_coronet_peak','mt_coronet_base','turnback_cave','galactic_hq'],
+    reward: { itemGift:'fragment_temporel' },
+    desc_fr:'Un cristal pulsant entre vos mains — il porte l\'écho du temps et de l\'espace.',
+    desc_en:'A pulsing crystal in your hands — it carries the echo of time and space.' },
+
+  // Onde Distorsion — relance combat Giratina
+  { id:'onde_distorsion_drop', fr:'Onde Distorsion !', en:'Distortion Wave!', icon:'👁️',
+    trainerKey:null, chance:0.012, minRep:4500,
+    zoneIds:['turnback_cave','sendoff_spring','spear_pillar','mt_coronet_peak','stark_mountain'],
+    reward: { itemGift:'onde_distorsion' },
+    desc_fr:'Une onde froide traverse l\'espace — le monde inversé de Giratina frémit.',
+    desc_en:'A cold wave tears through space — Giratina\'s distorted world trembles.' },
+
+  // Cristal du Lac — relance combat trio du Lac
+  { id:'cristal_lac_drop', fr:'Cristal du Lac !', en:'Lake Crystal!', icon:'💙',
+    trainerKey:null, chance:0.018, minRep:4200,
+    zoneIds:['lake_trio_shores','route211_215','solaceon_ruins','great_marsh','route208_210'],
+    reward: { itemGift:'cristal_lac' },
+    desc_fr:'Un cristal translucide flotte à la surface du lac — Uxie, Mesprit ou Azelf n\'est pas loin.',
+    desc_en:'A translucent crystal floats on the lake surface — Uxie, Mesprit, or Azelf is near.' },
+
 ];
 
 

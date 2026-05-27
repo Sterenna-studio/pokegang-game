@@ -71,6 +71,9 @@ const ITEM_SPRITE_URLS = {
   cristal_bete:      'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/blue-shard.png',
   rapport_sylphe:    'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/silph-scope.png',
   plume_sacree:      'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/sharp-beak.png',
+  fragment_temporel: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/adamant-orb.png',
+  onde_distorsion:   'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/griseous-orb.png',
+  cristal_lac:       'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/lustrous-orb.png',
 };
 
 // Chest sprite URL

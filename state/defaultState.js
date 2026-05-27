@@ -77,6 +77,9 @@ export const DEFAULT_STATE = {
     cristal_bete: 0,    // Cristal Bête — relance le combat contre la Bête Sacrée choisie
     rapport_sylphe: 0,  // Rapport Sylphe — relance le combat contre Mewtwo
     plume_sacree: 0,    // Plume Sacrée — relance le combat contre un Oiseau Légendaire Kanto
+    fragment_temporel: 0,  // Fragment Temporel — relance le combat contre Dialga ou Palkia
+    onde_distorsion: 0,    // Onde Distorsion — relance le combat contre Giratina
+    cristal_lac: 0,        // Cristal du Lac — relance le combat contre un légendaire du Lac
   },
   activeBall: 'pokeball', // skin cosmétique actif (boss/joueur)
   activeBoosts: {
@@ -289,6 +292,32 @@ export const DEFAULT_STATE = {
     giovanniDefeated: false,  // step 4
     mewtwoOwned:      false,
     totalCaptures:    0,
+  },
+  // ── Quêtes Sinnoh ─────────────────────────────────────────────────────────────
+  galaxieMission: {
+    active:              false,
+    step:                0,      // 0=off 1=galactic fights 2=commanders 3=spear pillar 4=cyrus 5=legend choice 6=done
+    galacticFightsWon:   0,      // step 1: target 20
+    marsDefeated:        false,  // step 2a
+    jupiterDefeated:     false,  // step 2b
+    spearFightsWon:      0,      // step 3: target 12
+    cyrusDefeated:       false,  // step 4
+    chosenLegend:        null,   // 'dialga'|'palkia'
+    legendOwned:         false,
+    totalCaptures:       0,
+  },
+  giratinaMission: {
+    active:              false,
+    step:                0,      // 0=off 1=turnback fights 2=saturn 3=giratina 4=done
+    turnbackFightsWon:   0,      // step 1: target 10
+    saturnDefeated:      false,  // step 2
+    giratinaOwned:       false,
+    totalCaptures:       0,
+  },
+  lakeMission: {
+    uxie:    { active: false, step: 0, fightsWon: 0, owned: false, captures: 0 },
+    mesprit: { active: false, step: 0, fightsWon: 0, owned: false, captures: 0 },
+    azelf:   { active: false, step: 0, fightsWon: 0, owned: false, captures: 0 },
   },
   behaviourLogs: {
     firstCombatAt: 0,
