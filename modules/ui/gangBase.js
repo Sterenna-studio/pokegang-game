@@ -1710,7 +1710,7 @@ function buildExportCard(opts = {}) {
   const yr        = new Date().getFullYear();
   const repK      = String(Math.floor((g.reputation || 0) / 100)).padStart(3, '0');
   const fileRef   = initials + '-' + yr + '-' + repK;
-  const bookingNr = initials + '—' + String(g.reputation || 0).replace(/(\d)(?=(\d{3})+$)/g, '$1 ');
+  const bookingNr = initials + '—' + String(g.money || 0).replace(/(\d)(?=(\d{3})+$)/g, '$1 ');
   const dateStr   = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' });
   const purchases = state.purchases || {};
   const regionStr = ['KANTO',
@@ -1744,8 +1744,8 @@ function buildExportCard(opts = {}) {
   if ((s.totalCaught||0)   >= 500)   badges.push({ label:'GRAND CHASSEUR',   color:'#22c55e', icon:'◎' });
 
   // ── Layout helpers ───────────────────────────────────────────────────────
-  const hazardBand = (h, op) =>
-    '<div style="height:' + h + 'px;background:repeating-linear-gradient(135deg,#1a0e0e 0 18px,#ffcc5a 18px 36px);opacity:' + op + '"></div>';
+  const hazardBand = (h, op, extra='') =>
+    '<div style="height:' + h + 'px;background:repeating-linear-gradient(135deg,#1a0e0e 0 18px,#ffcc5a 18px 36px);opacity:' + op + (extra ? ';'+extra : '') + '"></div>';
 
   const sectionHdr = (label, sub) =>
     '<div style="display:flex;align-items:center;gap:10px;margin:6px 0 14px">' +
@@ -1771,11 +1771,11 @@ function buildExportCard(opts = {}) {
   // ─ Header strip ─────────────────────────────────────────────────────────
   sections +=
     '<div style="position:relative;z-index:2;background:#070202;border-bottom:1px solid #2a0a0a">' +
-    hazardBand(14, '.85') +
+    hazardBand(14, '.85', 'border-bottom:1px solid rgba(0,0,0,.6)') +
     '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 22px 10px;gap:14px">' +
     '<div style="display:flex;align-items:center;gap:14px">' +
     '<div style="display:inline-block;background:#cc3333;color:#070202;font-family:\'Stardos Stencil\',monospace;font-weight:700;font-size:11px;letter-spacing:.16em;padding:5px 10px;clip-path:polygon(0 0,100% 0,calc(100% - 8px) 100%,0 100%)">' +
-      'DOSSIER Nº ' + fileRef +
+      'DOSSIER № ' + fileRef +
     '</div>' +
     '<div style="font-family:\'Stardos Stencil\',monospace;font-size:10px;letter-spacing:.22em;color:#888">SECTION : CRIME ORGANISÉ • ' + regionStr + '</div>' +
     '</div>' +
@@ -1799,7 +1799,7 @@ function buildExportCard(opts = {}) {
     '<div style="position:relative;z-index:2;padding:18px 18px 14px">' +
     '<div style="position:relative;background:linear-gradient(180deg,#d8c79a 0%,#c8b783 50%,#bda671 100%);border:1px solid #6b5630;border-radius:2px;box-shadow:0 2px 0 #4a3a1f,0 6px 14px rgba(0,0,0,.5);padding:18px 18px 16px;overflow:hidden">' +
     // paper grain overlay
-    '<div style="position:absolute;inset:0;background-image:repeating-linear-gradient(90deg,rgba(74,58,31,.06) 0 1px,transparent 1px 4px),repeating-linear-gradient(0deg,rgba(74,58,31,.08) 0 1px,transparent 1px 6px),radial-gradient(circle at 70% 20%,rgba(74,58,31,.18) 0,transparent 50%);pointer-events:none;mix-blend-mode:multiply"></div>' +
+    '<div style="position:absolute;inset:0;background-image:repeating-linear-gradient(90deg,rgba(74,58,31,.06) 0 1px,transparent 1px 4px),repeating-linear-gradient(0deg,rgba(74,58,31,.08) 0 1px,transparent 1px 6px),radial-gradient(circle at 70% 20%,rgba(74,58,31,.18) 0,transparent 50%),radial-gradient(circle at 20% 80%,rgba(74,58,31,.15) 0,transparent 45%);pointer-events:none;mix-blend-mode:multiply"></div>' +
     // coffee stain
     '<div style="position:absolute;top:-22px;right:38px;width:64px;height:64px;border-radius:50%;background:radial-gradient(circle,rgba(94,42,18,.32) 0,rgba(94,42,18,.18) 50%,transparent 70%);pointer-events:none"></div>' +
     // CLASSIFIÉ stamp
@@ -1810,7 +1810,7 @@ function buildExportCard(opts = {}) {
     '<div style="position:relative;width:112px;height:128px;background:linear-gradient(180deg,#1a0e08 0%,#2a1810 100%);border:2px solid #3a2410;box-shadow:inset 0 0 0 1px #6b5630,inset 0 0 22px rgba(0,0,0,.7);display:flex;align-items:flex-end;justify-content:center;overflow:hidden">' +
     '<div style="position:absolute;left:3px;top:6px;bottom:6px;display:flex;flex-direction:column;justify-content:space-between;font-family:\'Special Elite\',monospace;font-size:7px;color:rgba(216,199,154,.75);line-height:1"><span>6\'2</span><span>—</span><span>6\'0</span><span>—</span><span>5\'10</span><span>—</span><span>5\'8</span></div>' +
     (g.bossSprite
-      ? '<img src="' + trainerSprite(g.bossSprite) + '" width="88" height="88" style="image-rendering:pixelated;display:block;margin-bottom:4px;filter:contrast(1.05)" onerror="this.style.visibility=\'hidden\'">'
+      ? '<img src="' + trainerSprite(g.bossSprite) + '" width="96" height="96" style="image-rendering:pixelated;display:block;margin-bottom:4px;filter:contrast(1.05)" onerror="this.style.visibility=\'hidden\'">'
       : '<div style="width:88px;height:88px;margin-bottom:4px;display:flex;align-items:center;justify-content:center;color:rgba(216,199,154,.3);font-size:32px">?</div>') +
     patchesHtml +
     '</div>' +
@@ -1819,7 +1819,7 @@ function buildExportCard(opts = {}) {
     // dossier form
     '<div style="flex:1;color:#2a1a0e;min-width:0">' +
     '<div style="font-family:\'Stardos Stencil\',monospace;font-size:10px;letter-spacing:.22em;color:#5a3a1a;border-bottom:1px solid #6b5630;padding-bottom:3px;margin-bottom:8px">▮ FICHE D\'IDENTIFICATION SUSPECT Nº1</div>' +
-    '<div style="font-family:\'Press Start 2P\',monospace;font-size:20px;color:#a81c1c;line-height:1.1;text-shadow:1px 1px 0 rgba(74,58,31,.35);margin-bottom:6px">' + _esc(g.name) + '</div>' +
+    '<div style="font-family:\'Press Start 2P\',monospace;font-size:24px;color:#a81c1c;line-height:1.1;text-shadow:1px 1px 0 rgba(74,58,31,.35);margin-bottom:6px">' + _esc(g.name) + '</div>' +
     '<div style="display:flex;flex-direction:column;gap:3px;font-family:\'Special Elite\',monospace;font-size:11px;line-height:1.35">' +
     '<div style="display:flex;gap:6px"><span style="color:#6b5630;min-width:74px">ALIAS :</span><span style="flex:1;border-bottom:1px dotted #6b5630;color:#1a0a04;font-weight:700">' + _esc(g.bossName) + '</span></div>' +
     (opts.showTitres && mainTitle
@@ -2023,7 +2023,7 @@ function buildExportCard(opts = {}) {
     '</div>' +
     '<div style="font-family:\'Stardos Stencil\',monospace;font-size:10px;letter-spacing:.16em;color:#cc3333;text-align:right">PAGE 1 / 1</div>' +
     '</div>' +
-    hazardBand(14, '.85') +
+    hazardBand(14, '.85', 'border-top:1px solid rgba(0,0,0,.6)') +
     '</div>';
 
   // ── Assemble DOM card ─────────────────────────────────────────────────────
