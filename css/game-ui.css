@@ -3400,3 +3400,129 @@
       .tp-col-stats, .tp-col-role { display: none; }
       .top-power-stats { flex-direction: column; gap: 4px; }
     }
+
+    /* ══════════════════════════════════════════════════════════════
+       RESPONSIVE — Mobile breakpoints
+       ≤ 760px  tablet / large phone
+       ≤ 600px  phone portrait
+       ≤ 480px  small phone
+       ≤ 380px  very small (SE, old Android)
+    ══════════════════════════════════════════════════════════════ */
+
+    /* ── 760px — tablet ────────────────────────────────────────── */
+    @media (max-width: 760px) {
+      /* Top bar : réduit le gang name et la rep */
+      #gangNameDisplay { max-width: 140px; font-size: 11px; }
+      #repDisplay      { font-size: 10px; }
+
+      /* Pokédex : panel détail passe en bas */
+      .dex-layout { flex-direction: column; }
+      .dex-detail {
+        width: 100%;
+        max-height: 320px;
+        flex-shrink: 0;
+      }
+
+      /* Zone selector : fog-map, masque la sidebar favoris */
+      .fog-fav-sidebar { display: none; }
+      .fog-map-layout  { display: block; }
+
+      /* Missions : retrait des infos secondaires dans les cartes */
+      #tabMissions { padding: 8px; }
+
+      /* Agents grid : 1 colonne */
+      #tabAgents .agents-grid { grid-template-columns: 1fr; }
+    }
+
+    /* ── 600px — phone portrait ────────────────────────────────── */
+    @media (max-width: 600px) {
+      /* Shell */
+      #app            { padding: 0 4px; }
+      #tabContent     { padding: 8px 6px; }
+
+      /* Top bar : rend l'argent et la rep plus compacts */
+      #topBar         { gap: 6px; padding: 6px 0; }
+      #gangNameDisplay { max-width: 100px; font-size: 10px; }
+      #moneyDisplay   { font-size: 11px; }
+      #repDisplay     { font-size: 9px; }
+
+      /* Tabs : scroll horizontal, taille réduite */
+      .tab-btn        { font-size: 8px; padding: 8px 10px; }
+
+      /* Zone windows : pleine largeur, hauteur adaptée */
+      .zone-window    { width: 100% !important; max-width: 100% !important; }
+
+      /* Fog-map tiles : plus petites */
+      .fog-tile       { min-height: 52px; }
+      .fog-tile-name  { font-size: 7px; }
+
+      /* PC : colonne unique déjà gérée à 700px, padding réduit */
+      .pc-list        { padding: 6px 4px; }
+
+      /* Pokedex grid : icônes encore plus petites */
+      #pokedexGrid    { grid-template-columns: repeat(auto-fill, minmax(50px, 1fr)); gap: 3px; }
+      .dex-entry      { width: auto; }
+      .dex-entry img  { width: 30px; height: 30px; }
+
+      /* Gang base : simplifié */
+      .base-boss-frame { width: 60px; height: 60px; flex: 0 0 60px; }
+
+      /* Modals : pleine largeur */
+      .modal-box      { width: 96vw !important; max-width: none !important; }
+    }
+
+    /* ── 480px — small phone ───────────────────────────────────── */
+    @media (max-width: 480px) {
+      /* Top bar : masque la rep sur très petit écran */
+      #repDisplay     { display: none; }
+      #gangNameDisplay { max-width: 80px; font-size: 9px; }
+      #moneyDisplay   { font-size: 10px; }
+
+      /* Tabs : encore plus petits */
+      .tab-btn        { font-size: 7px; padding: 6px 8px; }
+      #tabNav         { gap: 1px; }
+
+      /* Zones : fenêtres compactes */
+      .zone-window    { border-radius: 4px; }
+      .zone-viewport  { height: 110px !important; }
+
+      /* Fog-map : 2 colonnes max */
+      .fog-map        { grid-template-columns: repeat(2, 1fr) !important; }
+
+      /* Missions : retrait padding */
+      #tabMissions > div { padding: 6px !important; }
+
+      /* Market : 1 colonne */
+      #tabMarket .market-layout { grid-template-columns: 1fr !important; }
+
+      /* Pokedex detail pleine page */
+      .dex-detail     { max-height: 280px; }
+    }
+
+    /* ── 380px — very small ────────────────────────────────────── */
+    @media (max-width: 380px) {
+      /* Top bar : gang name + money seulement, reste masqué */
+      #supaIndicator  { display: none !important; }
+      #btnSettings    { width: 28px; height: 28px; font-size: 16px; }
+      #gangNameDisplay { max-width: 70px; font-size: 8px; }
+
+      /* Tabs : icônes seuls via text-overflow */
+      .tab-btn        { font-size: 6px; padding: 5px 6px; }
+
+      /* Fog-map : 1 colonne */
+      .fog-map        { grid-template-columns: 1fr !important; }
+
+      /* PC list : icônes Pokémon plus petites */
+      .pc-pokemon     { width: 40px; height: 40px; }
+      .pc-pokemon img { width: 36px; height: 36px; }
+    }
+
+    /* ── Touch : disable hover effects on touch devices ─────────── */
+    @media (hover: none) {
+      .tab-btn:hover,
+      .fog-tile.unlocked:hover,
+      .dex-entry:hover,
+      .zone-window:hover          { border-color: inherit; background: inherit; }
+      .btn-claim-mission,
+      .btn-claim-hourly           { animation: none; }
+    }
