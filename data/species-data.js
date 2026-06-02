@@ -546,3 +546,8 @@ const SPECIES_BY_DEX = {};
 POKEMON_GEN1.forEach(s => { SPECIES_BY_EN[s.en] = s; SPECIES_BY_DEX[s.dex] = s; });
 POKEMON_GEN3.forEach(s => { SPECIES_BY_EN[s.en] = s; SPECIES_BY_DEX[s.dex] = s; });
 POKEMON_GEN4.forEach(s => { SPECIES_BY_EN[s.en] = s; SPECIES_BY_DEX[s.dex] = s; });
+
+// Fusionner Gen 3 + Gen 4 dans POKEMON_GEN1 pour en faire le tableau universel.
+// Tout le code (Pokédex, missions, stats) utilise POKEMON_GEN1 comme source unique —
+// les filtres par plage de dex (1-151, 152-251, etc.) restent valides après la fusion.
+POKEMON_GEN1.push(...POKEMON_GEN3, ...POKEMON_GEN4);
