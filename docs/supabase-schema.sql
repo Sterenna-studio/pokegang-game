@@ -377,3 +377,57 @@ create index if not exists gang_raids_attacker_idx
   on public.pokegang_gang_raids(attacker_id, executed_at desc);
 create index if not exists gang_raids_defender_idx
   on public.pokegang_gang_raids(defender_id, executed_at desc);
+
+-- ============================================================================
+-- Public API — colonnes supplémentaires sur pokegang_players
+-- Migration à appliquer pour activer l'API publique PokéGang.
+-- ============================================================================
+
+-- Opt-in profil public + token unique de partage
+alter table public.pokegang_players add column if not exists public_profile     boolean     not null default false;
+alter table public.pokegang_players add column if not exists profile_token      text        unique;
+
+-- Données richies pour la fiche API
+alter table public.pokegang_players add column if not exists boss_sprite        text;
+alter table public.pokegang_players add column if not exists title_full         text;
+alter table public.pokegang_players add column if not exists total_fights_won   integer     not null default 0;
+alter table public.pokegang_players add column if not exists chests_opened      integer     not null default 0;
+alter table public.pokegang_players add column if not exists pokemon_count      integer     not null default 0;
+alter table public.pokegang_players add column if not exists money              bigint      not null default 0;
+alter table public.pokegang_players add column if not exists total_money_earned bigint      not null default 0;
+alter table public.pokegang_players add column if not exists regions_data       jsonb       default '["kanto"]'::jsonb;
+alter table public.pokegang_players add column if not exists showcase_data      jsonb       default '[]'::jsonb;
+alter table public.pokegang_players add column if not exists boss_team_data     jsonb       default '[]'::jsonb;
+alter table public.pokegang_players add column if not exists badges_data        jsonb       default '[]'::jsonb;
+
+-- Génère automatiquement un token unique si public_profile passe à true
+create or replace function public.pg_generate_profile_token()
+returns trigger language plpgsql as $$
+begin
+  if new.public_profile = true and (old.profile_token is null or old.profile_token = '') then
+    new.profile_token := lower(
+      replace(new.gang_name, ' ', '-') || '-' ||
+      substring(encode(gen_random_bytes(4), 'hex'), 1, 6)
+    );
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists pg_profile_token_trigger on public.pokegang_players;
+create trigger pg_profile_token_trigger
+  before update on public.pokegang_players
+  for each row execute function public.pg_generate_profile_token();
+
+-- Politique de lecture publique : accessible sans authentification
+-- si le joueur a activé son profil public
+drop policy if exists "players_select_public" on public.pokegang_players;
+create policy "players_select_public"
+  on public.pokegang_players for select
+  to anon
+  using (public_profile = true);
+
+-- Index pour la recherche par nom et par token
+create index if not exists players_gang_name_idx    on public.pokegang_players (lower(gang_name));
+create index if not exists players_profile_token_idx on public.pokegang_players (profile_token)
+  where public_profile = true;

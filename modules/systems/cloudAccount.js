@@ -524,29 +524,132 @@ async function supaRestoreSnapshot(snapshotId) {
   );
 }
 
+// ── Sérialise la vitrine pour l'API publique ─────────────────────────────────
+function _buildShowcaseData() {
+  const calcPrice  = globalThis.calculatePrice;
+  const pokeSprite = globalThis.pokeSprite;
+  const specName   = globalThis.speciesName;
+  return (state.gang.showcase || []).map((id, i) => {
+    if (!id) return { slot: i, empty: true };
+    const pk = state.pokemons.find(p => p.id === id);
+    if (!pk) return { slot: i, empty: true };
+    return {
+      slot:       i,
+      species_en: pk.species_en,
+      species_fr: globalThis.SPECIES_BY_EN?.[pk.species_en]?.fr || pk.species_en,
+      level:      pk.level     || 1,
+      potential:  pk.potential || 0,
+      shiny:      pk.shiny     || false,
+      price:      calcPrice    ? calcPrice(pk) : 0,
+      sprite:     `https://play.pokemonshowdown.com/sprites/gen5/${pk.species_en}.png`,
+    };
+  });
+}
+
+// ── Sérialise l'équipe du boss pour l'API publique ───────────────────────────
+function _buildBossTeamData() {
+  return (state.gang.bossTeam || []).map((id, i) => {
+    const pk = state.pokemons.find(p => p.id === id);
+    if (!pk) return null;
+    const pot = pk.potential || 0;
+    const threat = pot >= 5 ? 'ÉLEVÉE' : pot >= 4 ? 'HAUTE' : pot >= 3 ? 'MODÉRÉE' : 'FAIBLE';
+    return {
+      slot:       i,
+      species_en: pk.species_en,
+      species_fr: globalThis.SPECIES_BY_EN?.[pk.species_en]?.fr || pk.species_en,
+      level:      pk.level || 1,
+      potential:  pot,
+      shiny:      pk.shiny || false,
+      threat,
+      sprite:     `https://play.pokemonshowdown.com/sprites/gen5/${pk.species_en}.png`,
+    };
+  }).filter(Boolean);
+}
+
+// ── Calcule les badges pour l'API publique ───────────────────────────────────
+function _buildBadgesData() {
+  const kantoCaught   = globalThis.getDexKantoCaught?.()        ?? 0;
+  const natCaught     = globalThis.getDexNationalCaught?.()     ?? 0;
+  const shinySpecies  = globalThis.getShinySpeciesCount?.()     ?? 0;
+  const kantoTotal    = globalThis.KANTO_DEX_SIZE               ?? 151;
+  const natTotal      = globalThis.NATIONAL_DEX_SIZE            ?? 493;
+  const badges = [];
+  if (kantoCaught >= kantoTotal)                badges.push({ id: 'kanto_complete',    label: 'Kanto Complet',    icon: '🏅', color: '#ffcc5a' });
+  if (natCaught   >= natTotal)                  badges.push({ id: 'national_complete', label: 'National Complet', icon: '🌐', color: '#4fc3f7' });
+  if (shinySpecies >= 30)                       badges.push({ id: 'shiny_hunter',      label: 'Chasseur Shiny',   icon: '✦', color: '#e879f9' });
+  if ((state.stats?.totalFightsWon || 0) >= 100) badges.push({ id: 'veteran',          label: 'Vétéran',          icon: '⚔', color: '#f97316' });
+  if ((state.stats?.totalCaught    || 0) >= 500) badges.push({ id: 'great_hunter',     label: 'Grand Chasseur',   icon: '◎', color: '#22c55e' });
+  return badges;
+}
+
 async function supaUpdateLeaderboard() {
   if (!_supabase || !supaSession) return;
   try {
-    const { error } = await _supabase.from('pokegang_players').upsert({
+    const purchases  = state.purchases || {};
+    const regions    = ['kanto',
+      purchases.johtoUnlocked  ? 'johto'  : null,
+      purchases.hoennUnlocked  ? 'hoenn'  : null,
+      purchases.sinnohUnlocked ? 'sinnoh' : null,
+    ].filter(Boolean);
+
+    const publicProfile = state.settings?.publicProfile ?? false;
+
+    const payload = {
       user_id:            supaSession.user.id,
       gang_name:          state.gang.name        || 'Team ???',
       boss_name:          state.gang.bossName    || 'Boss',
       reputation:         state.gang.reputation  || 0,
-      total_caught:       state.stats?.totalCaught  || 0,
-      total_sold:         state.stats?.totalSold    || 0,
-      shiny_count:        state.stats?.shinyCaught  || 0,
-      shiny_species_count: getShinySpeciesCount(),
-      dex_kanto_count:    getDexKantoCaught(),
-      dex_national_count: getDexNationalCaught(),
+      total_caught:       state.stats?.totalCaught     || 0,
+      total_sold:         state.stats?.totalSold       || 0,
+      shiny_count:        state.stats?.shinyCaught     || 0,
+      shiny_species_count: globalThis.getShinySpeciesCount?.() || 0,
+      dex_kanto_count:    globalThis.getDexKantoCaught?.()     || 0,
+      dex_national_count: globalThis.getDexNationalCaught?.()  || 0,
       agents_count:       (state.agents || []).length,
-      agents_elite_count: state.stats?.agentsEliteCount || 0,
+      agents_elite_count: state.stats?.agentsEliteCount        || 0,
       updated_at:         new Date().toISOString(),
-    });
+      // ── Champs API publique ──────────────────────────────────────────
+      public_profile:     publicProfile,
+      boss_sprite:        state.gang.bossSprite   || null,
+      title_full:         globalThis.getBossFullTitle?.()  || null,
+      total_fights_won:   state.stats?.totalFightsWon      || 0,
+      chests_opened:      state.stats?.chestsOpened        || 0,
+      pokemon_count:      state.pokemons?.length           || 0,
+      money:              state.gang.money                 || 0,
+      total_money_earned: state.stats?.totalMoneyEarned    || 0,
+      regions_data:       regions,
+      showcase_data:      publicProfile ? _buildShowcaseData()  : [],
+      boss_team_data:     publicProfile ? _buildBossTeamData()  : [],
+      badges_data:        publicProfile ? _buildBadgesData()    : [],
+    };
+
+    const { error } = await _supabase.from('pokegang_players').upsert(payload);
     if (error) console.warn('PokéForge: pokegang_players sync failed', error.message);
   } catch (err) {
     console.warn('PokéForge: pokegang_players sync failed', err?.message ?? err);
   }
 }
+
+// ── Toggle opt-in profil public ───────────────────────────────────────────────
+async function supaTogglePublicProfile(enable) {
+  if (!_supabase || !supaSession) return { error: 'Non connecté' };
+  if (!state.settings) state.settings = {};
+  state.settings.publicProfile = !!enable;
+  globalThis.saveState?.();
+  await supaUpdateLeaderboard();
+  // Récupère le token généré par le trigger SQL
+  if (enable) {
+    const { data } = await _supabase
+      .from('pokegang_players')
+      .select('profile_token')
+      .eq('user_id', supaSession.user.id)
+      .maybeSingle();
+    return { token: data?.profile_token || null };
+  }
+  return { ok: true };
+}
+
+globalThis.supaTogglePublicProfile = supaTogglePublicProfile;
 
 // ── Monthly leaderboard snapshot (localStorage) ──────────────────
 // Tracks cumulative stats at the start of each calendar month so we can
@@ -1011,6 +1114,35 @@ async function renderCompteTab() {
           </div>
         </div>
 
+        <!-- Profil Public API -->
+        ${(function() {
+          const isPublic = state.settings?.publicProfile ?? false;
+          const token    = state.settings?.profileToken  ?? null;
+          const apiUrl   = token ? `https://pokegang.sterenna.fr/api/gang?token=${token}` : null;
+          return `
+        <div style="background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:16px">
+          <div style="font-family:var(--font-pixel);font-size:9px;color:var(--blue);margin-bottom:8px">🔗 PROFIL PUBLIC / API</div>
+          <div style="font-size:9px;color:var(--text-dim);margin-bottom:10px;line-height:1.6">
+            Rends ta fiche gang publique pour l'intégrer sur d'autres sites via l'API.<br>
+            <a href="/docs/api.html" target="_blank" style="color:var(--blue)">→ Documentation API</a>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:9px;color:var(--text)">
+              <input type="checkbox" id="chkPublicProfile" ${isPublic ? 'checked' : ''} style="accent-color:var(--blue);width:16px;height:16px">
+              Profil public activé
+            </label>
+            ${isPublic && apiUrl ? `
+            <div style="flex:1;min-width:200px">
+              <input id="apiUrlDisplay" type="text" readonly value="${apiUrl}"
+                style="width:100%;padding:5px 8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:8px;color:var(--text-dim);cursor:pointer"
+                onclick="this.select()" title="Cliquer pour sélectionner">
+            </div>
+            <button id="btnCopyApiUrl" style="font-size:8px;padding:5px 10px;background:var(--bg);border:1px solid var(--blue);border-radius:var(--radius-sm);color:var(--blue);cursor:pointer;white-space:nowrap">📋 Copier</button>
+            ` : ''}
+          </div>
+        </div>`;
+        })()}
+
         <!-- Lien classement -->
         <div style="background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);padding:14px;display:flex;align-items:center;gap:12px">
           <div style="flex:1">
@@ -1035,6 +1167,29 @@ async function renderCompteTab() {
       showConfirm('Se déconnecter du compte cloud ?', async () => { await supaSignOut(); }, null, { danger: true, confirmLabel: 'Déconnecter', cancelLabel: 'Annuler' });
     });
     tab.querySelector('#btnGoLeaderboard')?.addEventListener('click', () => switchTab('tabLeaderboard'));
+
+    // Toggle profil public
+    tab.querySelector('#chkPublicProfile')?.addEventListener('change', async (e) => {
+      const enable = e.target.checked;
+      const result = await supaTogglePublicProfile(enable);
+      if (enable && result?.token) {
+        if (!state.settings) state.settings = {};
+        state.settings.profileToken = result.token;
+        globalThis.saveState?.();
+      }
+      renderCompteTab(); // refresh pour afficher l'URL
+    });
+
+    // Copier l'URL API
+    tab.querySelector('#btnCopyApiUrl')?.addEventListener('click', () => {
+      const url = tab.querySelector('#apiUrlDisplay')?.value;
+      if (url) {
+        navigator.clipboard.writeText(url).then(() => {
+          const btn = tab.querySelector('#btnCopyApiUrl');
+          if (btn) { btn.textContent = '✅ Copié !'; setTimeout(() => { btn.textContent = '📋 Copier'; }, 2000); }
+        });
+      }
+    });
 
     // Charger les snapshots en async
     supaFetchSnapshots().then(snapshots => {

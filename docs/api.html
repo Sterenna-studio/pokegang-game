@@ -1,0 +1,1148 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PokéGang API — Documentation</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,700;1,400&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:        #0a0a0a;
+  --bg1:       #0f0f0f;
+  --bg2:       #141414;
+  --bg3:       #1a1a1a;
+  --border:    #222;
+  --border2:   #2a2a2a;
+  --red:       #cc3333;
+  --red2:      #e63535;
+  --gold:      #ffcc5a;
+  --gold2:     #ffe08a;
+  --green:     #22c55e;
+  --blue:      #38bdf8;
+  --purple:    #a78bfa;
+  --text:      #e0e0e0;
+  --text2:     #aaa;
+  --text3:     #666;
+  --font-code: 'JetBrains Mono', monospace;
+  --font-ui:   'Share Tech Mono', monospace;
+  --sidebar-w: 240px;
+  --header-h:  64px;
+}
+
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-code);
+  font-size: 13px;
+  line-height: 1.7;
+  min-height: 100vh;
+}
+
+/* ── Scanline overlay ───────────────────────────────────────── */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0px,
+    transparent 2px,
+    rgba(0,0,0,.08) 2px,
+    rgba(0,0,0,.08) 4px
+  );
+}
+
+/* ── Header ─────────────────────────────────────────────────── */
+#site-header {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  height: var(--header-h);
+  background: rgba(10,10,10,.97);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 20px;
+  padding: 0 28px;
+}
+#site-header::after {
+  content: '';
+  position: absolute; bottom: -3px; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, var(--red) 0%, var(--gold) 50%, var(--red) 100%);
+  animation: glowBar 4s ease-in-out infinite;
+}
+@keyframes glowBar {
+  0%,100% { opacity:.6; }
+  50% { opacity:1; box-shadow: 0 0 8px var(--gold); }
+}
+
+.logo {
+  font-family: var(--font-ui);
+  font-size: 18px;
+  color: var(--red);
+  letter-spacing: .12em;
+  display: flex; align-items: center; gap: 10px;
+}
+.logo .skull { font-size: 22px; animation: pulse 3s ease-in-out infinite; }
+@keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
+
+.version-badge {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  padding: 2px 8px;
+  border: 1px solid var(--gold);
+  color: var(--gold);
+  border-radius: 2px;
+  letter-spacing: .14em;
+}
+
+.header-tagline {
+  font-size: 11px;
+  color: var(--text3);
+  letter-spacing: .04em;
+  flex: 1;
+}
+
+.header-link {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  color: var(--text3);
+  text-decoration: none;
+  padding: 5px 10px;
+  border: 1px solid var(--border2);
+  border-radius: 2px;
+  transition: color .15s, border-color .15s;
+  letter-spacing: .08em;
+}
+.header-link:hover { color: var(--text); border-color: var(--border); }
+
+/* ── Layout ─────────────────────────────────────────────────── */
+#layout {
+  display: flex;
+  margin-top: var(--header-h);
+  min-height: calc(100vh - var(--header-h));
+  position: relative; z-index: 1;
+}
+
+/* ── Sidebar ─────────────────────────────────────────────────── */
+#sidebar {
+  width: var(--sidebar-w);
+  flex-shrink: 0;
+  position: sticky;
+  top: var(--header-h);
+  height: calc(100vh - var(--header-h));
+  overflow-y: auto;
+  border-right: 1px solid var(--border);
+  background: var(--bg1);
+  padding: 24px 0 40px;
+}
+#sidebar::-webkit-scrollbar { width: 3px; }
+#sidebar::-webkit-scrollbar-thumb { background: var(--border2); }
+
+.sb-section {
+  padding: 6px 0;
+  margin-bottom: 4px;
+}
+.sb-heading {
+  font-family: var(--font-ui);
+  font-size: 9px;
+  letter-spacing: .22em;
+  color: var(--text3);
+  padding: 4px 20px;
+  text-transform: uppercase;
+}
+.sb-link {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 20px 5px 18px;
+  font-size: 11px;
+  color: var(--text2);
+  text-decoration: none;
+  border-left: 2px solid transparent;
+  transition: color .12s, border-color .12s, background .12s;
+  letter-spacing: .02em;
+}
+.sb-link:hover { color: var(--text); background: rgba(255,255,255,.03); }
+.sb-link.active { color: var(--gold); border-left-color: var(--gold); background: rgba(255,204,90,.05); }
+.sb-link.sub { padding-left: 32px; font-size: 10px; color: var(--text3); }
+.sb-link.sub:hover { color: var(--text2); }
+.sb-link.sub.active { color: var(--red); border-left-color: var(--red); background: rgba(204,51,51,.05); }
+
+.sb-method {
+  font-size: 8px;
+  padding: 1px 5px;
+  border-radius: 2px;
+  font-weight: 700;
+  letter-spacing: .06em;
+}
+.sb-get { background: rgba(34,197,94,.15); color: var(--green); }
+
+.sb-status {
+  margin: 20px 20px 0;
+  padding: 10px 12px;
+  background: rgba(34,197,94,.06);
+  border: 1px solid rgba(34,197,94,.18);
+  border-radius: 4px;
+  font-size: 9px;
+  color: var(--green);
+  letter-spacing: .06em;
+}
+.sb-status::before { content: '● '; animation: blink 2s step-end infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+
+/* ── Main content ────────────────────────────────────────────── */
+#main {
+  flex: 1;
+  min-width: 0;
+  padding: 40px 48px 80px;
+  max-width: 900px;
+}
+
+/* ── Sections ────────────────────────────────────────────────── */
+.doc-section {
+  margin-bottom: 64px;
+  animation: fadeIn .4s ease both;
+}
+@keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+
+.section-anchor {
+  display: block;
+  height: calc(var(--header-h) + 16px);
+  margin-top: calc(-1 * var(--header-h) - 16px);
+  pointer-events: none;
+}
+
+.section-title {
+  font-family: var(--font-ui);
+  font-size: 20px;
+  color: var(--text);
+  letter-spacing: .08em;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 12px;
+}
+.section-title .num {
+  font-size: 11px;
+  color: var(--red);
+  border: 1px solid var(--red);
+  padding: 1px 7px;
+  border-radius: 2px;
+  letter-spacing: .14em;
+}
+
+.section-sub {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  color: var(--text);
+  letter-spacing: .06em;
+  margin: 32px 0 16px;
+  display: flex; align-items: center; gap: 10px;
+}
+
+/* ── Base URL box ────────────────────────────────────────────── */
+.base-url {
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-left: 3px solid var(--red);
+  border-radius: 4px;
+  padding: 14px 18px;
+  margin: 20px 0;
+  font-size: 12px;
+  color: var(--gold);
+  letter-spacing: .04em;
+}
+.base-url span { color: var(--text3); font-size: 10px; display: block; margin-bottom: 4px; letter-spacing: .1em; font-family: var(--font-ui); }
+
+/* ── Info pills ──────────────────────────────────────────────── */
+.pills { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0; }
+.pill {
+  font-family: var(--font-ui);
+  font-size: 9px;
+  padding: 3px 10px;
+  border-radius: 2px;
+  letter-spacing: .1em;
+}
+.pill-green  { background: rgba(34,197,94,.12);  border: 1px solid rgba(34,197,94,.3);  color: var(--green); }
+.pill-gold   { background: rgba(255,204,90,.10);  border: 1px solid rgba(255,204,90,.3); color: var(--gold); }
+.pill-blue   { background: rgba(56,189,248,.10);  border: 1px solid rgba(56,189,248,.3); color: var(--blue); }
+.pill-red    { background: rgba(204,51,51,.10);    border: 1px solid rgba(204,51,51,.3);  color: var(--red2); }
+
+/* ── Endpoint card ───────────────────────────────────────────── */
+.endpoint {
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  margin-bottom: 32px;
+  overflow: hidden;
+}
+.endpoint-header {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 20px;
+  background: var(--bg3);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  user-select: none;
+  transition: background .15s;
+}
+.endpoint-header:hover { background: rgba(255,255,255,.03); }
+
+.method {
+  font-family: var(--font-ui);
+  font-size: 11px; font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 3px;
+  letter-spacing: .1em;
+}
+.method-get { background: rgba(34,197,94,.18); color: var(--green); border: 1px solid rgba(34,197,94,.35); }
+
+.endpoint-path {
+  font-size: 14px;
+  color: var(--text);
+  letter-spacing: .04em;
+  flex: 1;
+}
+.endpoint-path em { color: var(--text3); font-style: normal; }
+
+.endpoint-desc { font-size: 11px; color: var(--text2); }
+
+.endpoint-body { padding: 20px; }
+
+/* ── Parameter table ─────────────────────────────────────────── */
+.param-table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+.param-table th {
+  font-family: var(--font-ui);
+  font-size: 9px;
+  letter-spacing: .14em;
+  color: var(--text3);
+  padding: 6px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.param-table td { padding: 9px 12px; border-bottom: 1px solid rgba(255,255,255,.04); font-size: 11px; vertical-align: top; }
+.param-table tr:last-child td { border-bottom: none; }
+.param-name { color: var(--gold); font-weight: 500; }
+.param-type { color: var(--purple); font-size: 10px; }
+.param-req { color: var(--red); font-size: 9px; font-family: var(--font-ui); letter-spacing: .1em; }
+.param-opt { color: var(--text3); font-size: 9px; font-family: var(--font-ui); letter-spacing: .1em; }
+.param-desc { color: var(--text2); }
+.param-enum code { font-size: 9px; color: var(--blue); background: rgba(56,189,248,.08); padding: 0 4px; border-radius: 2px; }
+
+/* ── Code blocks ─────────────────────────────────────────────── */
+.code-block {
+  position: relative;
+  background: #080808;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  margin: 16px 0;
+  overflow: hidden;
+}
+.code-block-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 14px;
+  background: rgba(255,255,255,.03);
+  border-bottom: 1px solid var(--border);
+}
+.code-lang {
+  font-family: var(--font-ui);
+  font-size: 9px; letter-spacing: .14em;
+  color: var(--text3);
+}
+.copy-btn {
+  font-family: var(--font-ui);
+  font-size: 9px; letter-spacing: .1em;
+  padding: 3px 10px;
+  background: transparent;
+  border: 1px solid var(--border2);
+  border-radius: 2px;
+  color: var(--text3);
+  cursor: pointer;
+  transition: color .15s, border-color .15s;
+}
+.copy-btn:hover { color: var(--gold); border-color: var(--gold); }
+.copy-btn.copied { color: var(--green); border-color: var(--green); }
+
+.code-content {
+  padding: 16px 18px;
+  overflow-x: auto;
+  font-size: 12px;
+  line-height: 1.8;
+  white-space: pre;
+  tab-size: 2;
+}
+.code-content::-webkit-scrollbar { height: 4px; }
+.code-content::-webkit-scrollbar-thumb { background: var(--border2); }
+
+/* Syntax highlighting */
+.t-key    { color: #7dd3fc; }  /* JSON keys */
+.t-str    { color: #86efac; }  /* strings */
+.t-num    { color: #fbbf24; }  /* numbers */
+.t-bool   { color: #f472b6; }  /* booleans */
+.t-null   { color: #94a3b8; }  /* null */
+.t-brace  { color: #94a3b8; }  /* braces */
+.t-cmt    { color: #4a5568; font-style: italic; }  /* comments */
+.t-kw     { color: #f472b6; }  /* keywords (JS) */
+.t-fn     { color: #7dd3fc; }  /* function names */
+.t-var    { color: #fbbf24; }  /* variables */
+.t-py-kw  { color: #f472b6; }  /* Python keywords */
+.t-py-fn  { color: #7dd3fc; }  /* Python functions */
+.t-sh-cmd { color: var(--green); }  /* shell commands */
+.t-sh-str { color: #86efac; }  /* shell strings */
+.t-sh-url { color: #7dd3fc; }  /* URLs */
+
+/* ── Tabs ────────────────────────────────────────────────────── */
+.tabs { margin: 16px 0; }
+.tab-bar {
+  display: flex; gap: 2px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0;
+}
+.tab-btn {
+  font-family: var(--font-ui);
+  font-size: 10px; letter-spacing: .1em;
+  padding: 7px 16px;
+  background: transparent;
+  border: none; border-bottom: 2px solid transparent;
+  color: var(--text3);
+  cursor: pointer;
+  transition: color .15s, border-color .15s;
+  margin-bottom: -1px;
+}
+.tab-btn:hover { color: var(--text2); }
+.tab-btn.active { color: var(--gold); border-bottom-color: var(--gold); }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ── Response table ──────────────────────────────────────────── */
+.resp-table { width: 100%; border-collapse: collapse; }
+.resp-table th {
+  font-family: var(--font-ui);
+  font-size: 9px; letter-spacing: .14em;
+  color: var(--text3);
+  padding: 8px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.resp-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(255,255,255,.03);
+  font-size: 11px;
+  vertical-align: top;
+}
+.resp-table tr:last-child td { border-bottom: none; }
+.resp-table tbody tr:hover td { background: rgba(255,255,255,.02); }
+.resp-path { color: var(--gold); font-size: 11px; white-space: nowrap; }
+.resp-type { color: var(--purple); font-size: 10px; }
+.resp-desc { color: var(--text2); }
+
+/* ── Error table ─────────────────────────────────────────────── */
+.error-table { width: 100%; border-collapse: collapse; }
+.error-table th {
+  font-family: var(--font-ui);
+  font-size: 9px; letter-spacing: .14em;
+  color: var(--text3);
+  padding: 8px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.error-table td { padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,.03); font-size: 11px; }
+.error-table tr:last-child td { border-bottom: none; }
+.error-code { font-size: 14px; font-weight: 700; font-family: var(--font-ui); }
+.e-400 { color: var(--gold); }
+.e-404 { color: #fb923c; }
+.e-405 { color: var(--purple); }
+.e-500 { color: var(--red2); }
+.error-msg { color: var(--text); }
+.error-desc { color: var(--text2); }
+
+/* ── Widget section ──────────────────────────────────────────── */
+.widget-preview {
+  background: var(--bg1);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  padding: 28px;
+  margin: 20px 0;
+  display: flex; justify-content: center;
+}
+
+/* ── Inline code ─────────────────────────────────────────────── */
+code {
+  font-family: var(--font-code);
+  font-size: .92em;
+  color: var(--gold);
+  background: rgba(255,204,90,.08);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+/* ── Prose ───────────────────────────────────────────────────── */
+.prose { color: var(--text2); line-height: 1.8; }
+.prose p { margin-bottom: 12px; }
+.prose strong { color: var(--text); }
+.prose ul { padding-left: 20px; margin-bottom: 12px; }
+.prose li { margin-bottom: 4px; }
+.prose a { color: var(--blue); text-decoration: none; }
+.prose a:hover { text-decoration: underline; }
+
+/* ── Note box ────────────────────────────────────────────────── */
+.note {
+  display: flex; gap: 12px;
+  padding: 12px 16px;
+  background: rgba(56,189,248,.06);
+  border: 1px solid rgba(56,189,248,.2);
+  border-radius: 4px;
+  margin: 16px 0;
+  font-size: 11px;
+  color: var(--text2);
+  line-height: 1.6;
+}
+.note-icon { font-size: 16px; flex-shrink: 0; }
+
+/* ── Scrollbar ───────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+/* ── Responsive ──────────────────────────────────────────────── */
+@media (max-width: 800px) {
+  :root { --sidebar-w: 0px; }
+  #sidebar { display: none; }
+  #main { padding: 24px 20px 60px; }
+  .section-title { font-size: 16px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── Header ──────────────────────────────────────────────────── -->
+<header id="site-header">
+  <div class="logo">
+    <span class="skull">💀</span>
+    PokéGang API
+  </div>
+  <span class="version-badge">v1.0</span>
+  <span class="header-tagline">REST API publique · CORS activé · JSON</span>
+  <a href="../index.html" class="header-link">← Jouer</a>
+</header>
+
+<!-- ── Layout ──────────────────────────────────────────────────── -->
+<div id="layout">
+
+  <!-- Sidebar -->
+  <nav id="sidebar">
+    <div class="sb-section">
+      <div class="sb-heading">Navigation</div>
+      <a href="#intro" class="sb-link active">01 · Introduction</a>
+      <a href="#endpoints" class="sb-link">02 · Endpoints</a>
+      <a href="#ep-gang" class="sb-link sub"><span class="sb-method sb-get">GET</span> /gang</a>
+      <a href="#ep-leaderboard" class="sb-link sub"><span class="sb-method sb-get">GET</span> /leaderboard</a>
+      <a href="#ep-status" class="sb-link sub"><span class="sb-method sb-get">GET</span> /status</a>
+      <a href="#responses" class="sb-link">03 · Réponses</a>
+      <a href="#errors" class="sb-link">04 · Codes d'erreur</a>
+      <a href="#examples" class="sb-link">05 · Exemples</a>
+      <a href="#widget" class="sb-link">06 · Widget</a>
+    </div>
+    <div class="sb-status">API OPÉRATIONNELLE</div>
+  </nav>
+
+  <!-- Main -->
+  <main id="main">
+
+    <!-- ── Hero ──────────────────────────────────────────────── -->
+    <div class="doc-section" style="margin-bottom:48px">
+      <h1 style="font-family:var(--font-ui);font-size:32px;color:var(--red);letter-spacing:.1em;margin-bottom:8px">
+        PokéGang <span style="color:var(--gold)">API</span>
+      </h1>
+      <p style="color:var(--text2);font-size:13px;margin-bottom:24px;letter-spacing:.02em">
+        REST API publique — Intégrez les données de gang dans vos projets
+      </p>
+      <div class="base-url">
+        <span>BASE URL</span>
+        https://<em style="color:var(--text3)">{project}</em>.supabase.co/functions/v1/pokegang-api
+      </div>
+      <div class="pills">
+        <span class="pill pill-green">✓ CORS ACTIVÉ</span>
+        <span class="pill pill-gold">✓ AUCUNE AUTH REQUISE</span>
+        <span class="pill pill-blue">✓ FORMAT JSON</span>
+        <span class="pill pill-red">60 req/min par IP</span>
+      </div>
+    </div>
+
+    <!-- ── 01 Introduction ───────────────────────────────────── -->
+    <div class="doc-section">
+      <span class="section-anchor" id="intro"></span>
+      <h2 class="section-title"><span class="num">01</span> Introduction</h2>
+
+      <div class="prose">
+        <p>
+          L'API PokéGang permet à des sites et applications tiers d'accéder aux données
+          publiques des gangs. Les joueurs peuvent <strong>opt-in</strong> depuis leur onglet
+          <strong>Compte</strong> dans le jeu pour rendre leur fiche visible.
+        </p>
+        <p>
+          L'API est hébergée sur <strong>Supabase Edge Functions</strong> (Deno runtime).
+          Toutes les réponses sont en <strong>UTF-8 JSON</strong>. Les images Pokémon
+          proviennent de Showdown et peuvent être utilisées librement dans vos intégrations.
+        </p>
+        <ul>
+          <li>Seuls les joueurs ayant activé <code>public_profile</code> sont accessibles</li>
+          <li>Chaque profil public reçoit un <code>token</code> unique et stable</li>
+          <li>Les données sont synchronisées à chaque sauvegarde cloud (~30s)</li>
+        </ul>
+      </div>
+
+      <div class="note">
+        <span class="note-icon">ℹ</span>
+        <span>Pour activer votre profil public : <strong>onglet Compte → Profil Public / API → cocher la case</strong>. Un token unique est généré automatiquement.</span>
+      </div>
+    </div>
+
+    <!-- ── 02 Endpoints ──────────────────────────────────────── -->
+    <div class="doc-section">
+      <span class="section-anchor" id="endpoints"></span>
+      <h2 class="section-title"><span class="num">02</span> Endpoints</h2>
+
+      <!-- GET /gang -->
+      <span class="section-anchor" id="ep-gang"></span>
+      <div class="endpoint">
+        <div class="endpoint-header" onclick="toggleEndpoint(this)">
+          <span class="method method-get">GET</span>
+          <span class="endpoint-path">/pokegang-api<strong>/gang</strong><em>?name=…</em></span>
+          <span class="endpoint-desc">Fiche complète d'un gang</span>
+          <span style="color:var(--text3);font-size:16px;margin-left:8px">▾</span>
+        </div>
+        <div class="endpoint-body">
+          <div class="prose"><p>Retourne la fiche complète d'un gang public. Recherche par nom de gang (insensible à la casse) ou par token public.</p></div>
+
+          <h3 class="section-sub">Paramètres</h3>
+          <table class="param-table">
+            <thead><tr>
+              <th>Paramètre</th><th>Type</th><th>Requis</th><th>Description</th>
+            </tr></thead>
+            <tbody>
+              <tr>
+                <td class="param-name">name</td>
+                <td class="param-type">string</td>
+                <td class="param-opt">optionnel*</td>
+                <td class="param-desc">Nom du gang (insensible à la casse). Ex: <code>Team BZH</code></td>
+              </tr>
+              <tr>
+                <td class="param-name">token</td>
+                <td class="param-type">string</td>
+                <td class="param-opt">optionnel*</td>
+                <td class="param-desc">Token public unique du gang. Ex: <code>team-bzh-a1b2c3</code><br><span style="color:var(--text3);font-size:10px">* L'un des deux est requis</span></td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h3 class="section-sub">Réponse exemple</h3>
+          <div class="code-block">
+            <div class="code-block-header">
+              <span class="code-lang">JSON — 200 OK</span>
+              <button class="copy-btn" onclick="copyCode(this)">COPIER</button>
+            </div>
+            <div class="code-content"><span class="t-brace">{</span>
+  <span class="t-key">"ok"</span><span class="t-brace">:</span> <span class="t-bool">true</span><span class="t-brace">,</span>
+  <span class="t-key">"data"</span><span class="t-brace">: {</span>
+    <span class="t-key">"profile"</span><span class="t-brace">: {</span>
+      <span class="t-key">"token"</span><span class="t-brace">:</span>      <span class="t-str">"team-bzh-a1b2c3"</span><span class="t-brace">,</span>
+      <span class="t-key">"gang_name"</span><span class="t-brace">:</span>  <span class="t-str">"Team BZH"</span><span class="t-brace">,</span>
+      <span class="t-key">"boss_name"</span><span class="t-brace">:</span>  <span class="t-str">"Dark Muten"</span><span class="t-brace">,</span>
+      <span class="t-key">"boss_sprite"</span><span class="t-brace">:</span> <span class="t-str">"blackbelt"</span><span class="t-brace">,</span>   <span class="t-cmt">// clé Showdown trainers</span>
+      <span class="t-key">"title"</span><span class="t-brace">:</span>      <span class="t-str">"L'Intouchable Maître des Chronicles"</span><span class="t-brace">,</span>
+      <span class="t-key">"reputation"</span><span class="t-brace">:</span> <span class="t-num">54240</span><span class="t-brace">,</span>
+      <span class="t-key">"regions"</span><span class="t-brace">:</span>    <span class="t-brace">[</span><span class="t-str">"kanto"</span><span class="t-brace">,</span> <span class="t-str">"johto"</span><span class="t-brace">,</span> <span class="t-str">"hoenn"</span><span class="t-brace">],</span>
+      <span class="t-key">"updated_at"</span><span class="t-brace">:</span> <span class="t-str">"2026-06-02T18:30:00.000Z"</span>
+    <span class="t-brace">},</span>
+    <span class="t-key">"stats"</span><span class="t-brace">: {</span>
+      <span class="t-key">"total_caught"</span><span class="t-brace">:</span>       <span class="t-num">12388</span><span class="t-brace">,</span>
+      <span class="t-key">"total_fights_won"</span><span class="t-brace">:</span>   <span class="t-num">10773</span><span class="t-brace">,</span>
+      <span class="t-key">"shiny_caught"</span><span class="t-brace">:</span>       <span class="t-num">121</span><span class="t-brace">,</span>
+      <span class="t-key">"shiny_species"</span><span class="t-brace">:</span>      <span class="t-num">62</span><span class="t-brace">,</span>
+      <span class="t-key">"chests_opened"</span><span class="t-brace">:</span>      <span class="t-num">1844</span><span class="t-brace">,</span>
+      <span class="t-key">"pokemon_count"</span><span class="t-brace">:</span>      <span class="t-num">965</span><span class="t-brace">,</span>
+      <span class="t-key">"agents_count"</span><span class="t-brace">:</span>       <span class="t-num">9</span><span class="t-brace">,</span>
+      <span class="t-key">"money"</span><span class="t-brace">:</span>              <span class="t-num">1102982</span><span class="t-brace">,</span>
+      <span class="t-key">"total_money_earned"</span><span class="t-brace">:</span> <span class="t-num">63063254</span><span class="t-brace">,</span>
+      <span class="t-key">"dex"</span><span class="t-brace">: {</span>
+        <span class="t-key">"kanto"</span><span class="t-brace">:</span>    <span class="t-brace">{</span> <span class="t-key">"caught"</span><span class="t-brace">:</span> <span class="t-num">151</span><span class="t-brace">,</span> <span class="t-key">"total"</span><span class="t-brace">:</span> <span class="t-num">151</span> <span class="t-brace">},</span>
+        <span class="t-key">"national"</span><span class="t-brace">:</span> <span class="t-brace">{</span> <span class="t-key">"caught"</span><span class="t-brace">:</span> <span class="t-num">168</span><span class="t-brace">,</span> <span class="t-key">"total"</span><span class="t-brace">:</span> <span class="t-num">493</span> <span class="t-brace">}</span>
+      <span class="t-brace">}</span>
+    <span class="t-brace">},</span>
+    <span class="t-key">"showcase"</span><span class="t-brace">: [</span>
+      <span class="t-brace">{</span>
+        <span class="t-key">"slot"</span><span class="t-brace">:</span>       <span class="t-num">0</span><span class="t-brace">,</span>
+        <span class="t-key">"species_en"</span><span class="t-brace">:</span> <span class="t-str">"beedrill"</span><span class="t-brace">,</span>
+        <span class="t-key">"species_fr"</span><span class="t-brace">:</span> <span class="t-str">"Dardargnan"</span><span class="t-brace">,</span>
+        <span class="t-key">"level"</span><span class="t-brace">:</span>      <span class="t-num">70</span><span class="t-brace">,</span>
+        <span class="t-key">"potential"</span><span class="t-brace">:</span>  <span class="t-num">5</span><span class="t-brace">,</span>       <span class="t-cmt">// 1–5 étoiles</span>
+        <span class="t-key">"shiny"</span><span class="t-brace">:</span>      <span class="t-bool">true</span><span class="t-brace">,</span>
+        <span class="t-key">"price"</span><span class="t-brace">:</span>      <span class="t-num">37500</span><span class="t-brace">,</span>    <span class="t-cmt">// en ₽</span>
+        <span class="t-key">"sprite"</span><span class="t-brace">:</span>     <span class="t-str">"https://play.pokemonshowdown.com/sprites/gen5/beedrill.png"</span>
+      <span class="t-brace">}</span>
+    <span class="t-brace">],</span>
+    <span class="t-key">"boss_team"</span><span class="t-brace">: [</span>
+      <span class="t-brace">{</span>
+        <span class="t-key">"slot"</span><span class="t-brace">:</span>       <span class="t-num">0</span><span class="t-brace">,</span>
+        <span class="t-key">"species_en"</span><span class="t-brace">:</span> <span class="t-str">"lapras"</span><span class="t-brace">,</span>
+        <span class="t-key">"species_fr"</span><span class="t-brace">:</span> <span class="t-str">"Lokhlass"</span><span class="t-brace">,</span>
+        <span class="t-key">"level"</span><span class="t-brace">:</span>      <span class="t-num">100</span><span class="t-brace">,</span>
+        <span class="t-key">"potential"</span><span class="t-brace">:</span>  <span class="t-num">5</span><span class="t-brace">,</span>
+        <span class="t-key">"shiny"</span><span class="t-brace">:</span>      <span class="t-bool">false</span><span class="t-brace">,</span>
+        <span class="t-key">"threat"</span><span class="t-brace">:</span>     <span class="t-str">"ÉLEVÉE"</span><span class="t-brace">,</span>  <span class="t-cmt">// ÉLEVÉE | HAUTE | MODÉRÉE | FAIBLE</span>
+        <span class="t-key">"sprite"</span><span class="t-brace">:</span>     <span class="t-str">"https://play.pokemonshowdown.com/sprites/gen5/lapras.png"</span>
+      <span class="t-brace">}</span>
+    <span class="t-brace">],</span>
+    <span class="t-key">"badges"</span><span class="t-brace">: [</span>
+      <span class="t-brace">{</span> <span class="t-key">"id"</span><span class="t-brace">:</span> <span class="t-str">"kanto_complete"</span><span class="t-brace">,</span> <span class="t-key">"label"</span><span class="t-brace">:</span> <span class="t-str">"Kanto Complet"</span><span class="t-brace">,</span> <span class="t-key">"icon"</span><span class="t-brace">:</span> <span class="t-str">"🏅"</span><span class="t-brace">,</span> <span class="t-key">"color"</span><span class="t-brace">:</span> <span class="t-str">"#ffcc5a"</span> <span class="t-brace">}</span>
+    <span class="t-brace">]</span>
+  <span class="t-brace">},</span>
+  <span class="t-key">"_api_version"</span><span class="t-brace">:</span> <span class="t-str">"1.0.0"</span>
+<span class="t-brace">}</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- GET /leaderboard -->
+      <span class="section-anchor" id="ep-leaderboard"></span>
+      <div class="endpoint">
+        <div class="endpoint-header" onclick="toggleEndpoint(this)">
+          <span class="method method-get">GET</span>
+          <span class="endpoint-path">/pokegang-api<strong>/leaderboard</strong><em>?sort=reputation</em></span>
+          <span class="endpoint-desc">Top gangs publics</span>
+          <span style="color:var(--text3);font-size:16px;margin-left:8px">▾</span>
+        </div>
+        <div class="endpoint-body">
+          <div class="prose"><p>Retourne le classement des gangs ayant activé leur profil public.</p></div>
+
+          <h3 class="section-sub">Paramètres</h3>
+          <table class="param-table">
+            <thead><tr><th>Paramètre</th><th>Type</th><th>Défaut</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr>
+                <td class="param-name">limit</td>
+                <td class="param-type">integer</td>
+                <td style="color:var(--text3);font-size:10px">50</td>
+                <td class="param-desc">Nombre de résultats. Maximum : <code>100</code></td>
+              </tr>
+              <tr>
+                <td class="param-name">sort</td>
+                <td class="param-type">enum</td>
+                <td style="color:var(--text3);font-size:10px">reputation</td>
+                <td class="param-desc">
+                  Critère de tri :<br>
+                  <span class="param-enum">
+                    <code>reputation</code> <code>caught</code> <code>shiny</code>
+                    <code>shiny_species</code> <code>fights</code> <code>dex_national</code>
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h3 class="section-sub">Réponse exemple</h3>
+          <div class="code-block">
+            <div class="code-block-header">
+              <span class="code-lang">JSON — 200 OK</span>
+              <button class="copy-btn" onclick="copyCode(this)">COPIER</button>
+            </div>
+            <div class="code-content"><span class="t-brace">{</span>
+  <span class="t-key">"ok"</span><span class="t-brace">:</span> <span class="t-bool">true</span><span class="t-brace">,</span>
+  <span class="t-key">"data"</span><span class="t-brace">: {</span>
+    <span class="t-key">"sort"</span><span class="t-brace">:</span>  <span class="t-str">"reputation"</span><span class="t-brace">,</span>
+    <span class="t-key">"limit"</span><span class="t-brace">:</span> <span class="t-num">50</span><span class="t-brace">,</span>
+    <span class="t-key">"count"</span><span class="t-brace">:</span> <span class="t-num">3</span><span class="t-brace">,</span>
+    <span class="t-key">"entries"</span><span class="t-brace">: [</span>
+      <span class="t-brace">{</span>
+        <span class="t-key">"rank"</span><span class="t-brace">:</span>         <span class="t-num">1</span><span class="t-brace">,</span>
+        <span class="t-key">"gang_name"</span><span class="t-brace">:</span>    <span class="t-str">"Team BZH"</span><span class="t-brace">,</span>
+        <span class="t-key">"boss_name"</span><span class="t-brace">:</span>    <span class="t-str">"Dark Muten"</span><span class="t-brace">,</span>
+        <span class="t-key">"token"</span><span class="t-brace">:</span>        <span class="t-str">"team-bzh-a1b2c3"</span><span class="t-brace">,</span>
+        <span class="t-key">"reputation"</span><span class="t-brace">:</span>   <span class="t-num">54240</span><span class="t-brace">,</span>
+        <span class="t-key">"total_caught"</span><span class="t-brace">:</span> <span class="t-num">12388</span><span class="t-brace">,</span>
+        <span class="t-key">"shiny_count"</span><span class="t-brace">:</span>  <span class="t-num">121</span><span class="t-brace">,</span>
+        <span class="t-key">"dex_kanto"</span><span class="t-brace">:</span>    <span class="t-num">151</span><span class="t-brace">,</span>
+        <span class="t-key">"dex_national"</span><span class="t-brace">:</span> <span class="t-num">168</span><span class="t-brace">,</span>
+        <span class="t-key">"updated_at"</span><span class="t-brace">:</span>   <span class="t-str">"2026-06-02T18:30:00.000Z"</span>
+      <span class="t-brace">}</span>
+    <span class="t-brace">]</span>
+  <span class="t-brace">},</span>
+  <span class="t-key">"_api_version"</span><span class="t-brace">:</span> <span class="t-str">"1.0.0"</span>
+<span class="t-brace">}</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- GET /status -->
+      <span class="section-anchor" id="ep-status"></span>
+      <div class="endpoint">
+        <div class="endpoint-header" onclick="toggleEndpoint(this)">
+          <span class="method method-get">GET</span>
+          <span class="endpoint-path">/pokegang-api<strong>/status</strong></span>
+          <span class="endpoint-desc">Health check</span>
+          <span style="color:var(--text3);font-size:16px;margin-left:8px">▾</span>
+        </div>
+        <div class="endpoint-body">
+          <div class="code-block">
+            <div class="code-block-header">
+              <span class="code-lang">JSON — 200 OK</span>
+              <button class="copy-btn" onclick="copyCode(this)">COPIER</button>
+            </div>
+            <div class="code-content"><span class="t-brace">{</span> <span class="t-key">"ok"</span><span class="t-brace">:</span> <span class="t-bool">true</span><span class="t-brace">,</span> <span class="t-key">"version"</span><span class="t-brace">:</span> <span class="t-str">"1.0.0"</span><span class="t-brace">,</span> <span class="t-key">"timestamp"</span><span class="t-brace">:</span> <span class="t-str">"2026-06-02T18:30:00.000Z"</span> <span class="t-brace">}</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── 03 Réponses ───────────────────────────────────────── -->
+    <div class="doc-section">
+      <span class="section-anchor" id="responses"></span>
+      <h2 class="section-title"><span class="num">03</span> Champs de réponse</h2>
+
+      <div class="prose" style="margin-bottom:16px"><p>Tous les champs retournés par <code>GET /gang</code> :</p></div>
+
+      <div style="overflow-x:auto">
+      <table class="resp-table">
+        <thead><tr>
+          <th>Chemin</th><th>Type</th><th>Description</th>
+        </tr></thead>
+        <tbody>
+          <tr><td class="resp-path">data.profile.token</td><td class="resp-type">string</td><td class="resp-desc">Identifiant public unique et stable</td></tr>
+          <tr><td class="resp-path">data.profile.gang_name</td><td class="resp-type">string</td><td class="resp-desc">Nom du gang</td></tr>
+          <tr><td class="resp-path">data.profile.boss_name</td><td class="resp-type">string</td><td class="resp-desc">Nom du boss / alias du joueur</td></tr>
+          <tr><td class="resp-path">data.profile.boss_sprite</td><td class="resp-type">string | null</td><td class="resp-desc">Clé sprite Showdown — URL: <code>https://play.pokemonshowdown.com/sprites/trainers/{key}.png</code></td></tr>
+          <tr><td class="resp-path">data.profile.title</td><td class="resp-type">string | null</td><td class="resp-desc">Titre complet du boss</td></tr>
+          <tr><td class="resp-path">data.profile.reputation</td><td class="resp-type">integer</td><td class="resp-desc">Réputation totale accumulée</td></tr>
+          <tr><td class="resp-path">data.profile.regions</td><td class="resp-type">string[]</td><td class="resp-desc">Régions débloquées : <code>kanto</code> <code>johto</code> <code>hoenn</code> <code>sinnoh</code></td></tr>
+          <tr><td class="resp-path">data.profile.updated_at</td><td class="resp-type">ISO 8601</td><td class="resp-desc">Dernière synchronisation cloud</td></tr>
+          <tr><td colspan="3" style="padding:8px 12px;background:rgba(255,255,255,.02);color:var(--text3);font-size:10px;font-family:var(--font-ui);letter-spacing:.1em">— STATISTIQUES —</td></tr>
+          <tr><td class="resp-path">data.stats.total_caught</td><td class="resp-type">integer</td><td class="resp-desc">Captures totales (toutes régions)</td></tr>
+          <tr><td class="resp-path">data.stats.total_fights_won</td><td class="resp-type">integer</td><td class="resp-desc">Combats de dresseurs gagnés</td></tr>
+          <tr><td class="resp-path">data.stats.shiny_caught</td><td class="resp-type">integer</td><td class="resp-desc">Pokémon chromatiques capturés</td></tr>
+          <tr><td class="resp-path">data.stats.shiny_species</td><td class="resp-type">integer</td><td class="resp-desc">Espèces chromatiques uniques possédées</td></tr>
+          <tr><td class="resp-path">data.stats.pokemon_count</td><td class="resp-type">integer</td><td class="resp-desc">Pokémon actuellement dans le PC</td></tr>
+          <tr><td class="resp-path">data.stats.money</td><td class="resp-type">integer</td><td class="resp-desc">Capital actuel en ₽</td></tr>
+          <tr><td class="resp-path">data.stats.total_money_earned</td><td class="resp-type">integer</td><td class="resp-desc">Capital total gagné en ₽</td></tr>
+          <tr><td class="resp-path">data.stats.dex.kanto.caught</td><td class="resp-type">integer</td><td class="resp-desc">Espèces Kanto capturées (sur 151)</td></tr>
+          <tr><td class="resp-path">data.stats.dex.national.caught</td><td class="resp-type">integer</td><td class="resp-desc">Espèces National capturées (sur 493)</td></tr>
+          <tr><td colspan="3" style="padding:8px 12px;background:rgba(255,255,255,.02);color:var(--text3);font-size:10px;font-family:var(--font-ui);letter-spacing:.1em">— VITRINE (6 slots max) —</td></tr>
+          <tr><td class="resp-path">data.showcase[].slot</td><td class="resp-type">integer 0–5</td><td class="resp-desc">Position dans la vitrine</td></tr>
+          <tr><td class="resp-path">data.showcase[].species_en</td><td class="resp-type">string</td><td class="resp-desc">Nom anglais (utilisé pour les sprites Showdown)</td></tr>
+          <tr><td class="resp-path">data.showcase[].potential</td><td class="resp-type">integer 1–5</td><td class="resp-desc">Potentiel (★ rating)</td></tr>
+          <tr><td class="resp-path">data.showcase[].shiny</td><td class="resp-type">boolean</td><td class="resp-desc">Pokémon chromatique</td></tr>
+          <tr><td class="resp-path">data.showcase[].price</td><td class="resp-type">integer</td><td class="resp-desc">Valeur estimée en ₽</td></tr>
+          <tr><td class="resp-path">data.showcase[].sprite</td><td class="resp-type">URL</td><td class="resp-desc">URL directe du sprite Showdown gen5</td></tr>
+          <tr><td colspan="3" style="padding:8px 12px;background:rgba(255,255,255,.02);color:var(--text3);font-size:10px;font-family:var(--font-ui);letter-spacing:.1em">— BADGES —</td></tr>
+          <tr><td class="resp-path">data.badges[].id</td><td class="resp-type">string</td><td class="resp-desc"><code>kanto_complete</code> <code>national_complete</code> <code>shiny_hunter</code> <code>veteran</code> <code>great_hunter</code></td></tr>
+          <tr><td class="resp-path">data.badges[].color</td><td class="resp-type">hex string</td><td class="resp-desc">Couleur CSS du badge pour vos styles</td></tr>
+        </tbody>
+      </table>
+      </div>
+    </div>
+
+    <!-- ── 04 Erreurs ────────────────────────────────────────── -->
+    <div class="doc-section">
+      <span class="section-anchor" id="errors"></span>
+      <h2 class="section-title"><span class="num">04</span> Codes d'erreur</h2>
+
+      <div style="overflow-x:auto">
+      <table class="error-table">
+        <thead><tr>
+          <th>Code HTTP</th><th>Message</th><th>Cause</th>
+        </tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="error-code e-400">400</span></td>
+            <td class="error-msg">Paramètre requis</td>
+            <td class="error-desc">Ni <code>name</code> ni <code>token</code> fourni</td>
+          </tr>
+          <tr>
+            <td><span class="error-code e-404">404</span></td>
+            <td class="error-msg">Gang introuvable</td>
+            <td class="error-desc">Gang inexistant ou profil non public</td>
+          </tr>
+          <tr>
+            <td><span class="error-code e-405">405</span></td>
+            <td class="error-msg">Méthode non autorisée</td>
+            <td class="error-desc">Seule la méthode GET est acceptée</td>
+          </tr>
+          <tr>
+            <td><span class="error-code e-500">500</span></td>
+            <td class="error-msg">Erreur base de données</td>
+            <td class="error-desc">Erreur interne Supabase — réessayer dans quelques secondes</td>
+          </tr>
+        </tbody>
+      </table>
+      </div>
+
+      <div class="prose" style="margin-top:16px">
+        <p>Toutes les erreurs ont la forme : <code>{ "ok": false, "error": "message" }</code></p>
+      </div>
+    </div>
+
+    <!-- ── 05 Exemples ───────────────────────────────────────── -->
+    <div class="doc-section">
+      <span class="section-anchor" id="examples"></span>
+      <h2 class="section-title"><span class="num">05</span> Exemples de code</h2>
+
+      <div class="tabs">
+        <div class="tab-bar">
+          <button class="tab-btn active" onclick="switchTab(this,'js')">JavaScript</button>
+          <button class="tab-btn" onclick="switchTab(this,'python')">Python</button>
+          <button class="tab-btn" onclick="switchTab(this,'curl')">cURL</button>
+        </div>
+
+        <!-- JS -->
+        <div class="tab-panel active" data-tab="js">
+          <div class="code-block">
+            <div class="code-block-header">
+              <span class="code-lang">JAVASCRIPT — fetch API</span>
+              <button class="copy-btn" onclick="copyCode(this)">COPIER</button>
+            </div>
+            <div class="code-content"><span class="t-cmt">// Fiche d'un gang par nom</span>
+<span class="t-kw">const</span> <span class="t-var">BASE</span> = <span class="t-str">'https://{project}.supabase.co/functions/v1/pokegang-api'</span>;
+
+<span class="t-kw">async function</span> <span class="t-fn">getGang</span>(<span class="t-var">name</span>) {
+  <span class="t-kw">const</span> <span class="t-var">res</span> = <span class="t-kw">await</span> <span class="t-fn">fetch</span>(<span class="t-str">`<span class="t-var">${BASE}</span>/gang?name=<span class="t-var">${encodeURIComponent(name)}</span>`</span>);
+  <span class="t-kw">if</span> (!<span class="t-var">res</span>.<span class="t-var">ok</span>) <span class="t-kw">throw new</span> <span class="t-fn">Error</span>(<span class="t-str">`HTTP <span class="t-var">${res.status}</span>`</span>);
+  <span class="t-kw">const</span> { <span class="t-var">data</span> } = <span class="t-kw">await</span> <span class="t-var">res</span>.<span class="t-fn">json</span>();
+  <span class="t-kw">return</span> <span class="t-var">data</span>;
+}
+
+<span class="t-cmt">// Par token public (plus stable que le nom)</span>
+<span class="t-kw">async function</span> <span class="t-fn">getGangByToken</span>(<span class="t-var">token</span>) {
+  <span class="t-kw">const</span> <span class="t-var">res</span> = <span class="t-kw">await</span> <span class="t-fn">fetch</span>(<span class="t-str">`<span class="t-var">${BASE}</span>/gang?token=<span class="t-var">${token}</span>`</span>);
+  <span class="t-kw">return</span> (<span class="t-kw">await</span> <span class="t-var">res</span>.<span class="t-fn">json</span>()).<span class="t-var">data</span>;
+}
+
+<span class="t-cmt">// Utilisation</span>
+<span class="t-kw">const</span> <span class="t-var">gang</span> = <span class="t-kw">await</span> <span class="t-fn">getGang</span>(<span class="t-str">'Team BZH'</span>);
+<span class="t-fn">console</span>.<span class="t-fn">log</span>(<span class="t-var">gang</span>.<span class="t-var">profile</span>.<span class="t-var">reputation</span>);   <span class="t-cmt">// 54240</span>
+<span class="t-fn">console</span>.<span class="t-fn">log</span>(<span class="t-var">gang</span>.<span class="t-var">stats</span>.<span class="t-var">total_caught</span>);   <span class="t-cmt">// 12388</span>
+<span class="t-fn">console</span>.<span class="t-fn">log</span>(<span class="t-var">gang</span>.<span class="t-var">showcase</span>[<span class="t-num">0</span>].<span class="t-var">sprite</span>);   <span class="t-cmt">// URL sprite Showdown</span>
+
+<span class="t-cmt">// Classement top 10 par captures</span>
+<span class="t-kw">const</span> <span class="t-var">lb</span> = <span class="t-kw">await</span> (<span class="t-kw">await</span> <span class="t-fn">fetch</span>(<span class="t-str">`<span class="t-var">${BASE}</span>/leaderboard?limit=10&sort=caught`</span>)).<span class="t-fn">json</span>();
+<span class="t-var">lb</span>.<span class="t-var">data</span>.<span class="t-var">entries</span>.<span class="t-fn">forEach</span>(<span class="t-var">e</span> => <span class="t-fn">console</span>.<span class="t-fn">log</span>(<span class="t-str">`#<span class="t-var">${e.rank}</span> <span class="t-var">${e.gang_name}</span>`</span>));</div>
+          </div>
+        </div>
+
+        <!-- Python -->
+        <div class="tab-panel" data-tab="python">
+          <div class="code-block">
+            <div class="code-block-header">
+              <span class="code-lang">PYTHON 3 — requests</span>
+              <button class="copy-btn" onclick="copyCode(this)">COPIER</button>
+            </div>
+            <div class="code-content"><span class="t-py-kw">import</span> requests
+
+BASE = <span class="t-str">"https://{project}.supabase.co/functions/v1/pokegang-api"</span>
+
+<span class="t-cmt"># Fiche par nom</span>
+<span class="t-py-kw">def</span> <span class="t-fn">get_gang</span>(name: str) -> dict:
+    resp = requests.<span class="t-fn">get</span>(f<span class="t-str">"{BASE}/gang"</span>, params={<span class="t-str">"name"</span>: name})
+    resp.<span class="t-fn">raise_for_status</span>()
+    <span class="t-py-kw">return</span> resp.<span class="t-fn">json</span>()[<span class="t-str">"data"</span>]
+
+<span class="t-cmt"># Fiche par token</span>
+<span class="t-py-kw">def</span> <span class="t-fn">get_gang_by_token</span>(token: str) -> dict:
+    resp = requests.<span class="t-fn">get</span>(f<span class="t-str">"{BASE}/gang"</span>, params={<span class="t-str">"token"</span>: token})
+    resp.<span class="t-fn">raise_for_status</span>()
+    <span class="t-py-kw">return</span> resp.<span class="t-fn">json</span>()[<span class="t-str">"data"</span>]
+
+<span class="t-cmt"># Exemple</span>
+gang = <span class="t-fn">get_gang</span>(<span class="t-str">"Team BZH"</span>)
+<span class="t-py-fn">print</span>(gang[<span class="t-str">"profile"</span>][<span class="t-str">"reputation"</span>])  <span class="t-cmt"># 54240</span>
+<span class="t-py-fn">print</span>(gang[<span class="t-str">"stats"</span>][<span class="t-str">"total_caught"</span>])   <span class="t-cmt"># 12388</span>
+
+<span class="t-cmt"># Classement</span>
+lb = requests.<span class="t-fn">get</span>(
+    f<span class="t-str">"{BASE}/leaderboard"</span>,
+    params={<span class="t-str">"limit"</span>: <span class="t-num">10</span>, <span class="t-str">"sort"</span>: <span class="t-str">"caught"</span>}
+).<span class="t-fn">json</span>()[<span class="t-str">"data"</span>]
+<span class="t-py-kw">for</span> e <span class="t-py-kw">in</span> lb[<span class="t-str">"entries"</span>]:
+    <span class="t-py-fn">print</span>(f<span class="t-str">"#{e['rank']} {e['gang_name']} — {e['reputation']} rep"</span>)</div>
+          </div>
+        </div>
+
+        <!-- cURL -->
+        <div class="tab-panel" data-tab="curl">
+          <div class="code-block">
+            <div class="code-block-header">
+              <span class="code-lang">cURL</span>
+              <button class="copy-btn" onclick="copyCode(this)">COPIER</button>
+            </div>
+            <div class="code-content"><span class="t-cmt"># Fiche par token (recommandé — stable)</span>
+<span class="t-sh-cmd">curl</span> <span class="t-sh-str">-s</span> <span class="t-sh-url">"https://{project}.supabase.co/functions/v1/pokegang-api/gang?token=team-bzh-a1b2c3"</span> | python3 -m json.tool
+
+<span class="t-cmt"># Fiche par nom</span>
+<span class="t-sh-cmd">curl</span> <span class="t-sh-str">-s</span> <span class="t-sh-url">"https://{project}.supabase.co/functions/v1/pokegang-api/gang?name=Team%20BZH"</span>
+
+<span class="t-cmt"># Top 5 par chromas</span>
+<span class="t-sh-cmd">curl</span> <span class="t-sh-str">-s</span> <span class="t-sh-url">"https://{project}.supabase.co/functions/v1/pokegang-api/leaderboard?limit=5&sort=shiny"</span>
+
+<span class="t-cmt"># Health check</span>
+<span class="t-sh-cmd">curl</span> <span class="t-sh-str">-s</span> <span class="t-sh-url">"https://{project}.supabase.co/functions/v1/pokegang-api/status"</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── 06 Widget ─────────────────────────────────────────── -->
+    <div class="doc-section">
+      <span class="section-anchor" id="widget"></span>
+      <h2 class="section-title"><span class="num">06</span> Intégration Widget</h2>
+
+      <div class="prose" style="margin-bottom:20px">
+        <p>Copiez ce snippet pour afficher une fiche gang sur n'importe quel site. Remplacez <code>TOKEN</code> par le token du gang à afficher. Aucune dépendance externe.</p>
+      </div>
+
+      <!-- Preview -->
+      <div class="widget-preview">
+        <div id="pg-widget" style="
+          font-family:'Courier New',monospace;
+          background:#0f0f0f;
+          border:1px solid #2a2a2a;
+          border-left:3px solid #cc3333;
+          border-radius:6px;
+          padding:16px 20px;
+          max-width:360px;
+          width:100%;
+          box-shadow:0 4px 24px rgba(0,0,0,.5);
+        ">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+            <img id="pgw-sprite"
+              src="https://play.pokemonshowdown.com/sprites/trainers/blackbelt.png"
+              style="width:52px;height:52px;image-rendering:pixelated"
+              onerror="this.style.display='none'">
+            <div>
+              <div style="font-size:14px;color:#cc3333;letter-spacing:.04em;font-weight:700" id="pgw-name">Team BZH</div>
+              <div style="font-size:11px;color:#aaa;margin-top:2px" id="pgw-boss">Boss : Dark Muten</div>
+              <div style="font-size:10px;color:#ffcc5a;margin-top:2px" id="pgw-rep">⭐ 54 240 réputation</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap" id="pgw-showcase">
+            <img src="https://play.pokemonshowdown.com/sprites/gen5/beedrill.png" style="width:36px;height:36px;image-rendering:pixelated" title="Dardargnan Lv.70">
+            <img src="https://play.pokemonshowdown.com/sprites/gen5/lapras.png"   style="width:36px;height:36px;image-rendering:pixelated" title="Lokhlass Lv.100">
+          </div>
+          <div style="margin-top:10px;font-size:9px;color:#555;text-align:right;letter-spacing:.06em">
+            pokegang.sterenna.fr
+          </div>
+        </div>
+      </div>
+
+      <div class="code-block">
+        <div class="code-block-header">
+          <span class="code-lang">HTML — widget auto-intégré</span>
+          <button class="copy-btn" onclick="copyCode(this)">COPIER</button>
+        </div>
+        <div class="code-content"><span class="t-cmt">&lt;!-- Widget PokéGang — remplacer TOKEN --&gt;</span>
+&lt;<span class="t-kw">div</span> <span class="t-var">id</span>=<span class="t-str">"pg-gang-card"</span>&gt;&lt;/<span class="t-kw">div</span>&gt;
+&lt;<span class="t-kw">script</span>&gt;
+(<span class="t-kw">async</span> () => {
+  <span class="t-kw">const</span> <span class="t-var">TOKEN</span>    = <span class="t-str">'team-bzh-a1b2c3'</span>; <span class="t-cmt">// ← votre token</span>
+  <span class="t-kw">const</span> <span class="t-var">BASE</span>     = <span class="t-str">'https://{project}.supabase.co/functions/v1/pokegang-api'</span>;
+  <span class="t-kw">const</span> <span class="t-var">SHOWDOWN</span> = <span class="t-str">'https://play.pokemonshowdown.com/sprites'</span>;
+
+  <span class="t-kw">const</span> { <span class="t-var">data</span> } = <span class="t-kw">await</span> (<span class="t-kw">await</span> <span class="t-fn">fetch</span>(<span class="t-str">`<span class="t-var">${BASE}</span>/gang?token=<span class="t-var">${TOKEN}</span>`</span>)).<span class="t-fn">json</span>();
+  <span class="t-kw">const</span> { <span class="t-var">profile</span>, <span class="t-var">stats</span>, <span class="t-var">showcase</span> } = <span class="t-var">data</span>;
+
+  <span class="t-var">document</span>.<span class="t-fn">getElementById</span>(<span class="t-str">'pg-gang-card'</span>).<span class="t-var">innerHTML</span> = <span class="t-str">`
+    &lt;div style="font-family:'Courier New',monospace;background:#0f0f0f;
+      border:1px solid #2a2a2a;border-left:3px solid #cc3333;
+      border-radius:6px;padding:16px 20px;max-width:360px"&gt;
+      &lt;div style="display:flex;align-items:center;gap:12px;margin-bottom:12px"&gt;
+        &lt;img src="<span class="t-var">${SHOWDOWN}</span>/trainers/<span class="t-var">${profile.boss_sprite || 'acetrainer'}</span>.png"
+          style="width:52px;height:52px;image-rendering:pixelated"&gt;
+        &lt;div&gt;
+          &lt;div style="font-size:14px;color:#cc3333;font-weight:700"&gt;<span class="t-var">${profile.gang_name}</span>&lt;/div&gt;
+          &lt;div style="font-size:11px;color:#aaa"&gt;Boss : <span class="t-var">${profile.boss_name}</span>&lt;/div&gt;
+          &lt;div style="font-size:10px;color:#ffcc5a"&gt;⭐ <span class="t-var">${profile.reputation.toLocaleString()}</span> rép.&lt;/div&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+      &lt;div style="display:flex;gap:6px;flex-wrap:wrap"&gt;
+        <span class="t-var">${showcase.filter(s => !s.empty).map(s =>
+          `&lt;img src="${s.sprite}" title="${s.species_fr} Lv.${s.level}"
+            style="width:36px;height:36px;image-rendering:pixelated"&gt;`
+        ).join('')}</span>
+      &lt;/div&gt;
+      &lt;div style="margin-top:8px;font-size:9px;color:#555;text-align:right"&gt;
+        pokegang.sterenna.fr
+      &lt;/div&gt;
+    &lt;/div&gt;`</span>;
+})();
+&lt;/<span class="t-kw">script</span>&gt;</div>
+      </div>
+
+      <div class="note">
+        <span class="note-icon">💡</span>
+        <span>Préférez toujours le <strong>token</strong> au nom — il est stable même si le joueur renomme son gang. Récupérez-le depuis l'onglet <strong>Compte → Profil Public</strong> du jeu.</span>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div style="border-top:1px solid var(--border);padding-top:24px;margin-top:40px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+      <div style="font-family:var(--font-ui);font-size:10px;color:var(--text3);letter-spacing:.08em">
+        POKEGANG API v1.0 · Supabase Edge Functions · Deno Runtime
+      </div>
+      <div style="font-size:10px;color:var(--text3)">
+        <a href="../index.html" style="color:var(--text3);text-decoration:none">← Retour au jeu</a>
+        &nbsp;·&nbsp;
+        <a href="supabase-schema.sql" style="color:var(--text3);text-decoration:none">Schema SQL</a>
+        &nbsp;·&nbsp;
+        <a href="supabase-setup.md" style="color:var(--text3);text-decoration:none">Guide setup</a>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// ── Tab switching ──────────────────────────────────────────────
+function switchTab(btn, id) {
+  const tabs = btn.closest('.tabs');
+  tabs.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  tabs.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  tabs.querySelector(`[data-tab="${id}"]`)?.classList.add('active');
+}
+
+// ── Copy code ──────────────────────────────────────────────────
+function copyCode(btn) {
+  const content = btn.closest('.code-block').querySelector('.code-content');
+  const text = content.innerText || content.textContent;
+  navigator.clipboard.writeText(text.trim()).then(() => {
+    btn.textContent = 'COPIÉ ✓';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'COPIER'; btn.classList.remove('copied'); }, 2200);
+  });
+}
+
+// ── Toggle endpoint ────────────────────────────────────────────
+function toggleEndpoint(header) {
+  const body = header.nextElementSibling;
+  const arrow = header.querySelector('span:last-child');
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : 'block';
+  arrow.textContent = open ? '▸' : '▾';
+}
+
+// ── Active sidebar link via IntersectionObserver ───────────────
+const sbLinks = document.querySelectorAll('.sb-link');
+const sections = document.querySelectorAll('.section-anchor');
+
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      const id = entry.target.id;
+      sbLinks.forEach(link => {
+        link.classList.toggle('active', link.getAttribute('href') === `#${id}`);
+      });
+    }
+  });
+}, { rootMargin: `-${64+16}px 0px -60% 0px` });
+
+sections.forEach(s => observer.observe(s));
+</script>
+
+</body>
+</html>
