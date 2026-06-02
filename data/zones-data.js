@@ -19,7 +19,7 @@ const ZONES = [
   // ══ ROUTES & NATURE (captures + investissement) ══
   { id:'route1',        fr:'Route 1',           en:'Route 1',           rep:0,   spawnRate:0.07, type:'route',
     pool:['rattata','pidgey','caterpie','weedle','spearow','nidoran-f','nidoran-m'],
-    trainers:['youngster','lass'], eliteTrainer:'acetrainer', investCost:0 },
+    trainers:['youngster','lass'], eliteTrainer:'acetrainer', investCost:1500 },
   { id:'viridian_forest',fr:'Forêt de Jade',    en:'Viridian Forest',   rep:15,  spawnRate:0.08, type:'route',
     pool:['pikachu','caterpie','metapod','butterfree','weedle','kakuna','beedrill','oddish','bellsprout','gloom'],
     trainers:['bugcatcher','youngster'], eliteTrainer:'acetrainer', investCost:3000 },
@@ -141,7 +141,7 @@ const ZONES = [
     trainers:['scientist','supernerd','acetrainer'], eliteTrainer:'blaine', investCost:25000 },
   { id:'mt_silver',     fr:'Mt. Argenté',        en:'Mt. Silver',        rep:1200,spawnRate:0.03, type:'route',
     pool:['dragonite','gyarados','snorlax','lapras','pikachu','chansey'],
-    trainers:['acetrainer','blackbelt'], eliteTrainer:'red', investCost:0 },
+    trainers:['acetrainer','blackbelt'], eliteTrainer:'red', investCost:40000 },
 
   // ══ LAVANVILLE ══
   { id:'lavender_town', fr:'Lavanville',          en:'Lavender Town',     rep:480, spawnRate:0.05, type:'city',

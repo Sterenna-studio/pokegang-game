@@ -2565,8 +2565,32 @@ configureSettingsModal({
 });
 
 // ── Intercepteur global des rejets non gérés GoTrue ──────────────────
+// ── Error boundary global ─────────────────────────────────────────────────────
+// Attrape les erreurs JS non gérées et les promet rejetées pour :
+//   1. Afficher une notification discrète au joueur (sans crash silencieux)
+//   2. Logger le contexte utile pour le debug
+//   3. Absorber le bruit GoTrue (locks Supabase)
+
+window.onerror = function(msg, src, line, col, err) {
+  const context = {
+    tab:    globalThis.activeTab ?? '?',
+    schema: globalThis.state?._schemaVersion ?? '?',
+    rep:    globalThis.state?.gang?.reputation ?? '?',
+  };
+  console.error('[PokéGang] Erreur non gérée', { msg, src, line, col, err, context });
+  // Notification discrète — n'utilise pas notify() car ça peut être cassé
+  try {
+    const el = document.getElementById('notification');
+    if (el) {
+      el.textContent = '⚠ Une erreur est survenue — la partie continue (F12 pour détails)';
+      el.className = 'notification show error';
+      setTimeout(() => el.classList.remove('show'), 6000);
+    }
+  } catch (_) {}
+  return false; // ne supprime pas le log console natif
+};
+
 // GoTrue peut générer des "unhandledrejection" liés aux locks ou aux timeouts réseau.
-// On les absorbe silencieusement pour éviter le bruit console côté dev.
 window.addEventListener('unhandledrejection', e => {
   const msg = e.reason?.message || String(e.reason || '');
   if (
@@ -2576,7 +2600,13 @@ window.addEventListener('unhandledrejection', e => {
     msg.includes('Supabase request timeout')
   ) {
     e.preventDefault(); // supprime le log "Uncaught (in promise)"
+    return;
   }
+  // Autres rejections non gérées — log avec contexte
+  console.error('[PokéGang] Promise rejetée', {
+    reason: e.reason,
+    tab: globalThis.activeTab ?? '?',
+  });
 });
 
 function boot() {
