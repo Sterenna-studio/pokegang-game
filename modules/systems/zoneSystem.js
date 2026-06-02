@@ -1047,6 +1047,24 @@ function checkForNewlyUnlockedZones(prevRep) {
   newZones.forEach((zone, i) => {
     setTimeout(() => showZoneUnlockPopup(zone), 400 + i * 300);
   });
+
+  // ── Déclencher les checks de quêtes légendaires quand la rep franchit leurs seuils ──
+  // Ces checks ne sont appelés qu'au boot + après certains combats élites.
+  // On les relance ici pour couvrir les gains de rep mid-session (missions, combats...).
+  const _rep = state.gang.reputation;
+
+  // Kanto : Zapdos 700 · Artikodin 800 · Sulfura 950
+  if ([700, 800, 950].some(t => prevRep < t && _rep >= t)) {
+    setTimeout(() => globalThis.checkKantoMissionsUnlock?.(), 500);
+  }
+  // Johto : Bêtes Sacrées 800 · Lugia + Ho-Oh 1000
+  if ([800, 1000].some(t => prevRep < t && _rep >= t)) {
+    setTimeout(() => globalThis.checkJohtoMissionsUnlock?.(), 600);
+  }
+  // Sinnoh : Trio du Lac 4200 · Team Galaxie 4500
+  if ([4200, 4500].some(t => prevRep < t && _rep >= t)) {
+    setTimeout(() => globalThis.checkSinnohMissionsUnlock?.(), 700);
+  }
 }
 
 let _zoneUnlockQueue = [];
