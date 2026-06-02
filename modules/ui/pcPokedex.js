@@ -2287,7 +2287,8 @@ function openRenameModal(pokemonId) {
 }
 
 // ── Vue détail en mode "Grouper" ─────────────────────────────
-let _grpPotFilter = 0; // 0 = tous, 1-5 = filtre par potentiel
+let _grpPotFilter    = 0;     // 0 = tous, 1-5 = filtre par potentiel
+let _grpIncludeShiny = false; // inclure chromas dans la vente groupée
 
 function renderPokemonDetailGroup(species) {
   const panel = document.getElementById('pokemonDetail');
@@ -2301,8 +2302,8 @@ function renderPokemonDetailGroup(species) {
 
   // Potential filter
   const pks = _grpPotFilter ? allPks.filter(p => p.potential === _grpPotFilter) : allPks;
-  // Shinies excluded from group sell — but CAN evolve
-  const sellable = pks.filter(p => !p.favorite && !p.shiny && !tIds.has(p.id));
+  // Shinies exclus par défaut — toggle _grpIncludeShiny pour les inclure
+  const sellable = pks.filter(p => !p.favorite && (!p.shiny || _grpIncludeShiny) && !tIds.has(p.id));
   const totalValue = sellable.reduce((s, p) => s + calculatePrice(p), 0);
   const shinyCount = allPks.filter(p => p.shiny).length;
   const maxPot = Math.max(...allPks.map(p => p.potential));
@@ -2349,12 +2350,22 @@ function renderPokemonDetailGroup(species) {
         💎 Évoluer Pierre (${gdStoneEvo.length}) — ${gdStoneHave} dispo
       </button>` : ''}
 
-      <!-- Vente groupée (shinies exclus) -->
+      <!-- Toggle chromatiques + vente groupée -->
+      ${shinyCount > 0 ? `
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:8px;color:var(--gold);padding:3px 0">
+        <input type="checkbox" id="grpIncludeShiny" ${_grpIncludeShiny ? 'checked' : ''} style="accent-color:var(--gold)">
+        ✨ Inclure chromatiques dans la vente (×${shinyCount})
+      </label>` : ''}
+      ${state.purchases?.autoSellAgent && shinyCount > 0 ? `
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:8px;color:var(--text-dim);padding:2px 0">
+        <input type="checkbox" id="grpShinyUnprotect" ${state.pokedex[species]?.shinyUnprotected ? 'checked' : ''} style="accent-color:var(--red)">
+        ⚠ Autoriser vente auto (agents)
+      </label>` : ''}
       ${sellable.length > 0 ? `
-      <div style="font-size:8px;color:var(--text-dim);text-align:center">${sellable.length} vendables — <span style="color:var(--gold)">${totalValue.toLocaleString()}₽</span>${shinyCount > 0 ? ` <span style="color:var(--gold)">· ✨×${shinyCount} exclu vente</span>` : ''}</div>
+      <div style="font-size:8px;color:var(--text-dim);text-align:center">${sellable.length} vendables — <span style="color:var(--gold)">${totalValue.toLocaleString()}₽</span></div>
       <button id="btnGroupSellAll" style="width:100%;font-family:var(--font-pixel);font-size:8px;padding:5px;background:var(--red-dark);border:1px solid var(--red);border-radius:var(--radius-sm);color:var(--text);cursor:pointer">
         Vendre ${sellable.length} (${totalValue.toLocaleString()}₽)
-      </button>` : (shinyCount > 0 ? `<div style="font-size:8px;color:var(--text-dim);text-align:center">✨ Chromatiques non vendables ici</div>` : '')}
+      </button>` : (shinyCount > 0 && !_grpIncludeShiny ? `<div style="font-size:8px;color:var(--text-dim);text-align:center">✨ Cochez "Inclure chromatiques" pour vendre</div>` : '')}
     </div>
 
     <div style="display:flex;flex-direction:column;gap:3px;max-height:280px;overflow-y:auto">
@@ -2394,17 +2405,38 @@ function renderPokemonDetailGroup(species) {
     _showEvoPreviewPopup(gdStoneEvo, 'stone', evolvePks => _stoneBulkEvolve(evolvePks));
   });
 
+  // Toggle : inclure chromatiques dans la vente
+  document.getElementById('grpIncludeShiny')?.addEventListener('change', e => {
+    _grpIncludeShiny = e.target.checked;
+    renderPokemonDetailGroup(species);
+  });
+
+  // Toggle : autoriser vente auto (agents) pour les chromas de cette espèce
+  document.getElementById('grpShinyUnprotect')?.addEventListener('change', e => {
+    if (!state.pokedex[species]) state.pokedex[species] = {};
+    state.pokedex[species].shinyUnprotected = e.target.checked;
+    saveState();
+    notify(e.target.checked
+      ? `⚠ Shinies de ${speciesName(species)} déprotégés.`
+      : `✅ Shinies de ${speciesName(species)} à nouveau protégés.`,
+      e.target.checked ? '' : 'success');
+  });
+
   document.getElementById('btnGroupSellAll')?.addEventListener('click', () => {
     const ids = sellable.map(p => p.id);
-    showConfirm(`Vendre <b>${ids.length}</b> ${speciesName(species)} pour <b style="color:var(--gold)">${totalValue.toLocaleString()}₽</b> ?`, () => {
-      sellPokemon(ids); pcGroupSpecies = null; _grpPotFilter = 0;
+    const shinyInSell = sellable.filter(p => p.shiny).length;
+    const label = shinyInSell > 0
+      ? `Vendre <b>${ids.length}</b> ${speciesName(species)} <span style="color:var(--gold)">(dont ✨×${shinyInSell})</span> pour <b style="color:var(--gold)">${totalValue.toLocaleString()}₽</b> ?`
+      : `Vendre <b>${ids.length}</b> ${speciesName(species)} pour <b style="color:var(--gold)">${totalValue.toLocaleString()}₽</b> ?`;
+    showConfirm(label, () => {
+      sellPokemon(ids); pcGroupSpecies = null; _grpPotFilter = 0; _grpIncludeShiny = false;
       _pcLastRenderKey = ''; updateTopBar(); renderPCTab();
     }, null, { confirmLabel: 'Vendre', cancelLabel: 'Annuler', danger: true });
   });
 
   panel.querySelectorAll('.grp-detail-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      pcGroupMode = false; pcGroupSpecies = null; _grpPotFilter = 0;
+      pcGroupMode = false; pcGroupSpecies = null; _grpPotFilter = 0; _grpIncludeShiny = false;
       const chk = document.getElementById('pcGroupChk');
       if (chk) chk.checked = false;
       pcSelectedId = btn.dataset.pkId;
@@ -2669,11 +2701,8 @@ function renderDexDetail(species_en) {
       </button>
     </div>` : ''}
     ${state.purchases.autoSellAgent && entry.shiny ? `
-    <div style="margin-top:10px;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm)">
-      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:9px">
-        <input type="checkbox" id="dexShinyUnprotect" ${entry.shinyUnprotected ? 'checked' : ''} style="width:14px;height:14px">
-        <span>✨ Autoriser la vente auto du Shiny<br><span style="color:var(--text-dim);font-size:8px">Les shinies de cette espèce pourront être auto-vendus</span></span>
-      </label>
+    <div style="margin-top:6px;font-size:8px;color:var(--text-dim)">
+      ⚠ Vente auto chroma : gérable depuis le PC (mode Grouper)
     </div>` : ''}
     <div style="margin-top:8px">
       ${_getDexAssistantCostHtml(sp)}
@@ -2687,12 +2716,7 @@ function renderDexDetail(species_en) {
 
   document.getElementById('dexFilterPCBtn')?.addEventListener('click', () => filterPCBySpecies(sp.en));
   document.getElementById('dexAssistantBtn')?.addEventListener('click', () => openDexAssistant(species_en));
-  document.getElementById('dexShinyUnprotect')?.addEventListener('change', (e) => {
-    if (!state.pokedex[sp.en]) state.pokedex[sp.en] = {};
-    state.pokedex[sp.en].shinyUnprotected = e.target.checked;
-    saveState();
-    notify(e.target.checked ? `⚠ Shinies de ${speciesName(sp.en)} déprotégés.` : `✅ Shinies de ${speciesName(sp.en)} à nouveau protégés.`, e.target.checked ? '' : 'success');
-  });
+  // dexShinyUnprotect déplacé dans renderPokemonDetailGroup (PC — mode Grouper)
 }
 
 // ── Player stat modal ────────────────────────────────────────────

@@ -714,11 +714,16 @@ export function checkKantoMissionsUnlock() {
     s.mewtwoMission = { active:false, step:0, rocketFightsWon:0, rapportSylphe:0, mansionFightsWon:0, giovanniDefeated:false, mewtwoOwned:false, totalCaptures:0 };
   }
 
-  // Unlock birds at rep >= 600
-  if (rep >= 600) {
-    for (const key of ['articuno','zapdos','moltres']) {
+  // Unlock birds individually when their zone becomes accessible
+  // Seuils alignés sur les rep requis des zones (zones-data.js) :
+  //   zapdos   → power_plant    : rep 700
+  //   articuno → seafoam_islands: rep 800
+  //   moltres  → victory_road   : rep 950
+  const BIRD_THRESHOLDS = { zapdos: 700, articuno: 800, moltres: 950 };
+  for (const [key, threshold] of Object.entries(BIRD_THRESHOLDS)) {
+    if (rep >= threshold) {
       const b = s.birdsMission[key];
-      if (!b.active) {
+      if (b && !b.active) {
         b.active = true; b.step = 1;
         const bird = BIRDS[key];
         _notify(`${bird.icon} Quête débloquée : ${bird.name} — explorez ${bird.zoneLabel} !`, 'gold');
