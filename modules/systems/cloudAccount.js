@@ -280,8 +280,10 @@ async function supaSignIn(email, password) {
   if (!_supabase) return { error: 'Supabase non configuré' };
   const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
   if (error) return { error: error.message };
+  supaSession = data.session || supaSession;
   // Après connexion : proposer de charger la save cloud si plus récente
   await supaCheckCloudLoad();
+  await supaUpdateLeaderboard();
   return { data };
 }
 
@@ -334,6 +336,7 @@ async function supaCloudSave() {
     if (!error) {
       supaLastSync = Date.now();
       _cloudSaveFingerprint = fp;
+      await supaUpdateLeaderboard();
     }
   } catch { /* silencieux — la save locale est toujours là */ }
   supaSyncing = false;
@@ -385,6 +388,7 @@ async function supaCheckCloudLoad() {
       saveState();
       renderAll();
       notify('Sauvegarde cloud chargée !', 'success');
+      supaUpdateLeaderboard();
     },
     null,
     { confirmLabel: 'Charger le cloud', cancelLabel: 'Garder le local' }
@@ -412,6 +416,7 @@ async function supaForceCloudLoad() {
       saveState();
       renderAll();
       notify('Sauvegarde cloud chargée !', 'success');
+      supaUpdateLeaderboard();
     },
     null,
     { confirmLabel: 'Charger', cancelLabel: 'Annuler', danger: true }
@@ -512,6 +517,7 @@ async function supaRestoreSnapshot(snapshotId) {
       saveState();
       renderAll();
       notify(`⏪ Snapshot du ${fmt} restauré !`, 'success');
+      supaUpdateLeaderboard();
     },
     null,
     { confirmLabel: 'Restaurer', cancelLabel: 'Annuler', danger: true }
@@ -520,21 +526,26 @@ async function supaRestoreSnapshot(snapshotId) {
 
 async function supaUpdateLeaderboard() {
   if (!_supabase || !supaSession) return;
-  await _supabase.from('pokegang_players').upsert({
-    user_id:            supaSession.user.id,
-    gang_name:          state.gang.name        || 'Team ???',
-    boss_name:          state.gang.bossName    || 'Boss',
-    reputation:         state.gang.reputation  || 0,
-    total_caught:       state.stats?.totalCaught  || 0,
-    total_sold:         state.stats?.totalSold    || 0,
-    shiny_count:        state.stats?.shinyCaught  || 0,
-    shiny_species_count: getShinySpeciesCount(),
-    dex_kanto_count:    getDexKantoCaught(),
-    dex_national_count: getDexNationalCaught(),
-    agents_count:       (state.agents || []).length,
-    agents_elite_count: state.stats?.agentsEliteCount || 0,
-    updated_at:         new Date().toISOString(),
-  });
+  try {
+    const { error } = await _supabase.from('pokegang_players').upsert({
+      user_id:            supaSession.user.id,
+      gang_name:          state.gang.name        || 'Team ???',
+      boss_name:          state.gang.bossName    || 'Boss',
+      reputation:         state.gang.reputation  || 0,
+      total_caught:       state.stats?.totalCaught  || 0,
+      total_sold:         state.stats?.totalSold    || 0,
+      shiny_count:        state.stats?.shinyCaught  || 0,
+      shiny_species_count: getShinySpeciesCount(),
+      dex_kanto_count:    getDexKantoCaught(),
+      dex_national_count: getDexNationalCaught(),
+      agents_count:       (state.agents || []).length,
+      agents_elite_count: state.stats?.agentsEliteCount || 0,
+      updated_at:         new Date().toISOString(),
+    });
+    if (error) console.warn('PokéForge: pokegang_players sync failed', error.message);
+  } catch (err) {
+    console.warn('PokéForge: pokegang_players sync failed', err?.message ?? err);
+  }
 }
 
 // ── Monthly leaderboard snapshot (localStorage) ──────────────────
@@ -612,6 +623,7 @@ async function supaUpdateLeaderboardAnon() {
       shiny_monthly:         monthly.shiny_monthly,
       shiny_species_monthly: monthly.shiny_species_monthly,
     }, { onConflict: 'token' });
+    await supaUpdateLeaderboard();
   } catch { /* silencieux */ }
 }
 
