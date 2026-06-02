@@ -36,16 +36,20 @@ const ZONES = [
     pool:['gastly','haunter','gengar','cubone','marowak','zubat','koffing','weezing','grimer'],
     trainers:['channeler','psychic','rocketgrunt'], eliteTrainer:'agatha', investCost:15000 },
   { id:'power_plant',   fr:'Centrale Électrique', en:'Power Plant',     rep:700, spawnRate:0.03, type:'route',
-    pool:['voltorb','electrode','magnemite','magneton','electabuzz','pikachu','raichu','zapdos'],
+    pool:['voltorb','electrode','magnemite','magneton','electabuzz','pikachu','raichu'],
+    // Zapdos retiré du pool — accessible uniquement via la quête Oiseaux Légendaires
     trainers:['scientist','supernerd'], eliteTrainer:'ltsurge', investCost:20000 },
   { id:'seafoam_islands',fr:'Îles Écume',       en:'Seafoam Islands',   rep:800, spawnRate:0.06, type:'route',
-    pool:['tentacool','shellder','staryu','seel','dewgong','horsea','seadra','lapras','articuno','psyduck','goldeen','jynx'],
+    pool:['tentacool','shellder','staryu','seel','dewgong','horsea','seadra','lapras','psyduck','goldeen','jynx'],
+    // Artikodin retiré du pool — accessible uniquement via la quête Oiseaux Légendaires
     trainers:['swimmer','acetrainer'], eliteTrainer:'lorelei', investCost:22000 },
   { id:'victory_road',  fr:'Route Victoire',    en:'Victory Road',      rep:950, spawnRate:0.04, type:'route',
-    pool:['machoke','geodude','graveler','onix','marowak','golbat','dragonair','gyarados','moltres'],
+    pool:['machoke','geodude','graveler','onix','marowak','golbat','dragonair','gyarados'],
+    // Sulfura retiré du pool — accessible uniquement via la quête Oiseaux Légendaires
     trainers:['acetrainer','blackbelt'], eliteTrainer:'lance', investCost:35000 },
   { id:'unknown_cave',  fr:'Caverne Azurée',    en:'Cerulean Cave',     rep:1100,spawnRate:0.03, type:'route',
-    pool:['mewtwo','ditto','kadabra','alakazam','electrode','rhydon','chansey','wigglytuff'],
+    pool:['ditto','kadabra','alakazam','electrode','rhydon','chansey','wigglytuff'],
+    // Mewtwo retiré du pool — accessible uniquement via la quête Mewtwo
     trainers:['lorelei','bruno','agatha','lance','blue'], eliteTrainer:'red', investCost:60000 },
 
   // ══ VILLES (spawn + arène) ══
