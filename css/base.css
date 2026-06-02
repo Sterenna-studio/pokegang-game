@@ -27,8 +27,10 @@
     html, body { background: var(--bg); color: var(--text); font-family: var(--font-body); font-size: 20px; line-height: 1.5; min-height: 100vh; zoom: var(--ui-scale); }
 
     img { image-rendering: pixelated; }
-    button { cursor: pointer; font-family: inherit; }
+    button { cursor: pointer; font-family: inherit; touch-action: manipulation; }
     input, select, textarea { font-family: inherit; }
+    /* Prevent double-tap zoom on buttons */
+    button, a { touch-action: manipulation; }
 
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: var(--bg); }
