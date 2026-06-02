@@ -511,16 +511,42 @@ async function _step2() {
   _location(box, '◈ Barge — 02h35');
   _title(box, '— L\'émissaire —');
 
-  // Metagross silhouette
+  // Metagross silhouette + 4 yeux rouges
   const sw  = document.createElement('div');
   sw.className = 'hoe-sprite-wrap steel-aura';
-  sw.style.cssText = 'display:block;text-align:center;margin-bottom:18px;';
+  sw.style.cssText = 'display:inline-block;position:relative;text-align:center;margin-bottom:18px;';
   const img = document.createElement('img');
   img.src       = METAGROSS_SPRITE;
   img.className = 'hoe-sprite silhouette';
   img.alt       = '???';
   sw.appendChild(img);
-  box.appendChild(sw);
+  // 4 yeux rouges positionnés sur la croix du visage de Métaloss (sprite 112×112)
+  // Les 4 yeux forment un carré centré sur la croix faciale
+  [
+    { top: '40%', left: '26%' },
+    { top: '40%', left: '62%' },
+    { top: '55%', left: '26%' },
+    { top: '55%', left: '62%' },
+  ].forEach(pos => {
+    const eye = document.createElement('div');
+    eye.style.cssText = [
+      'position:absolute',
+      `top:${pos.top}`,
+      `left:${pos.left}`,
+      'width:7px;height:7px',
+      'border-radius:50%',
+      'background:#cc1111',
+      'box-shadow:0 0 6px 2px rgba(200,20,20,.9),0 0 14px 5px rgba(200,20,20,.45)',
+      'animation:hoe-steel-pulse 1.6s ease-in-out infinite',
+      'pointer-events:none',
+    ].join(';');
+    sw.appendChild(eye);
+  });
+  // Centrage du wrapper dans le box
+  const swWrap = document.createElement('div');
+  swWrap.style.cssText = 'text-align:center;';
+  swWrap.appendChild(sw);
+  box.appendChild(swWrap);
 
   const txt = _text(box);
   const ch  = _choices(box);
