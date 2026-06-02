@@ -1,0 +1,46 @@
+# Supabase project config — PokéGang
+# https://supabase.com/docs/guides/cli/config
+#
+# Deploy la Edge Function :
+#   supabase login
+#   supabase link --project-ref YOUR_PROJECT_REF
+#   supabase functions deploy pokegang-api
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 15
+
+[studio]
+enabled = true
+port = 54323
+
+[inbucket]
+enabled = true
+port = 54324
+
+[storage]
+enabled = true
+
+[auth]
+enabled = true
+site_url = "https://pokegang.sterenna.fr"
+additional_redirect_urls = ["https://pokegang.sterenna.fr"]
+jwt_expiry = 3600
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = false
+
+[functions.pokegang-api]
+# Accès public — pas besoin de JWT
+verify_jwt = false

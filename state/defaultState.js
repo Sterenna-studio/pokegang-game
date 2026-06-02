@@ -153,6 +153,8 @@ export const DEFAULT_STATE = {
       allowShiny: false,
     },
     protectedSpecies: [],  // species_en never auto-sold by any system
+    publicProfile: false,  // API publique opt-in
+    profileToken:  null,   // token unique généré par Supabase au premier opt-in
   },
   log: [],
   marketSales: {},

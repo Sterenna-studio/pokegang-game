@@ -116,6 +116,8 @@ export function migrateSave(saved, deps) {
   if (!merged.settings.autoSellAgent) merged.settings.autoSellAgent = { mode: 'all', potentials: [] };
   if (!merged.settings.autoSellEggs)  merged.settings.autoSellEggs  = { mode: 'all', potentials: [], allowShiny: false };
   if (!Array.isArray(merged.settings.protectedSpecies)) merged.settings.protectedSpecies = [];
+  if (merged.settings.publicProfile === undefined) merged.settings.publicProfile = false;
+  if (merged.settings.profileToken  === undefined) merged.settings.profileToken  = null;
   // Migration clés legacy top-level si présentes (placement erroné temporaire)
   if (merged.autoSellAgentSettings) { Object.assign(merged.settings.autoSellAgent, merged.autoSellAgentSettings); delete merged.autoSellAgentSettings; }
   if (merged.autoSellEggsSettings)  { Object.assign(merged.settings.autoSellEggs,  merged.autoSellEggsSettings);  delete merged.autoSellEggsSettings;  }

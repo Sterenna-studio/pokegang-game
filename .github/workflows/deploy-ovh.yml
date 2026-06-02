@@ -43,6 +43,11 @@ jobs:
             --exclude='.github/' \
             --exclude='README.md' \
             --exclude='LICENSE' \
-            --exclude='docs/' \
+            --exclude='supabase/' \
+            --exclude='tools/' \
+            --exclude='test/' \
+            --exclude='info/' \
+            --exclude='docs/*.md' \
+            --exclude='docs/*.sql' \
             -e "ssh -i ~/.ssh/ovh_key" \
             ./ "${{ secrets.OVH_USER }}@${{ secrets.OVH_HOST }}:~/pokegang/"
