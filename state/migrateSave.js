@@ -286,6 +286,8 @@ export function migrateSave(saved, deps) {
   if (merged.purchases.autoSellEggs      === undefined) merged.purchases.autoSellEggs      = false;
   if (merged.purchases.mysteryEggCount  === undefined) merged.purchases.mysteryEggCount  = 0;
   if (merged.purchases.johtoUnlocked    === undefined) merged.purchases.johtoUnlocked    = false;
+  if (merged.purchases.hoennUnlocked    === undefined) merged.purchases.hoennUnlocked    = false;
+  if (merged.purchases.sinnohUnlocked   === undefined) merged.purchases.sinnohUnlocked   = false;
 
   // trainingRoom extraSlots
   if (merged.trainingRoom.extraSlots === undefined) merged.trainingRoom.extraSlots = 0;
