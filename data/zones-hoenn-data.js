@@ -37,7 +37,7 @@ const ZONES_HOENN = [
   // ── Début Hoenn (Rep 2000–2300) ───────────────────────────────
 
   { id:'route101', fr:'Route 101', en:'Route 101', rep:2000, spawnRate:0.07, type:'route',
-    zoneLevelBonus:55, investCost:0,
+    zoneLevelBonus:55, investCost:8000,
     poolCommon:   ['poochyena','zigzagoon','wurmple'],
     poolUncommon: ['lotad','seedot','taillow'],
     poolRare:     ['ralts','shroomish'],

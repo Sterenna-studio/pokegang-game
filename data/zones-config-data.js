@@ -36,9 +36,44 @@ const ZONE_BGS = {
   saffron_gym:      { url:`${SD_BG}city.png`,            fb:'#181830,#0c0c22' },
   cinnabar_gym:     { url:`${SD_BG}desert.png`,          fb:'#3a0808,#280404' },
   indigo_plateau:   { url:`${SD_BG}mountain.png`,        fb:'#1a1a2a,#0c0c1c' },
-  // ── Lieux spéciaux ───────────────────────────────────────────
+  // ── Lieux spéciaux Kanto ─────────────────────────────────────
   safari_zone:      { url:`${SD_BG}meadow.png`,          fb:'#082008,#041204' },
   celadon_casino:   { url:`${SD_BG}city.png`,            fb:'#1a0030,#100020' },
+
+  // ── Hoenn — Routes & nature ───────────────────────────────────
+  route101:         { url:`${SD_BG}meadow.png`,          fb:'#0a2204,#061402' },
+  petalburg_woods:  { url:`${SD_BG}forest.png`,          fb:'#062208,#031404' },
+  route102_103:     { url:`${SD_BG}meadow.png`,          fb:'#0c2608,#081808' },
+  route104_106:     { url:`${SD_BG}beach.png`,           fb:'#062038,#041428' },
+  route110:         { url:`${SD_BG}meadow.png`,          fb:'#0a1e08,#061208' },
+  route111_desert:  { url:`${SD_BG}desert.png`,          fb:'#2a1e04,#1a1402' },
+  route114_115:     { url:`${SD_BG}river.png`,           fb:'#082820,#041a14' },
+  route119:         { url:`${SD_BG}river.png`,           fb:'#062a10,#041a08' },
+  route120_121:     { url:`${SD_BG}forest.png`,          fb:'#082208,#041404' },
+  safari_hoenn:     { url:`${SD_BG}meadow.png`,          fb:'#0a2008,#061204' },
+  // ── Hoenn — Grottes & montagnes ───────────────────────────────
+  granite_cave:     { url:`${SD_BG}mountain.png`,        fb:'#18180a,#0e0e06' },
+  mt_chimney:       { url:`${SD_BG}desert.png`,          fb:'#2e0a04,#1e0402' },
+  jagged_pass:      { url:`${SD_BG}mountain.png`,        fb:'#2a0e04,#1a0802' },
+  victory_road_hoenn:{ url:`${SD_BG}mountain.png`,       fb:'#1a1420,#0c0e18' },
+  sky_pillar:       { url:`${SD_BG}mountain.png`,        fb:'#100830,#08041e' },
+  cave_of_origin:   { url:`${SD_BG}mountain.png`,        fb:'#04102a,#020c1e' },
+  scorched_slab:    { url:`${SD_BG}desert.png`,          fb:'#2e1804,#1e0e02' },
+  island_cave_ruins:{ url:`${SD_BG}mountain.png`,        fb:'#0c1428,#060e1c' },
+  // ── Hoenn — Bases ennemies ────────────────────────────────────
+  team_magma_hideout:{ url:`${SD_BG}mountain.png`,       fb:'#300808,#200404' },
+  team_aqua_hideout:{ url:`${SD_BG}deepsea.png`,         fb:'#041428,#02091c' },
+  laboratoire_spatial:{ url:`${SD_BG}city.png`,          fb:'#080c1a,#040810' },
+  // ── Hoenn — Arènes ───────────────────────────────────────────
+  rustboro_gym:     { url:`${SD_BG}mountain.png`,        fb:'#1a1408,#0e0c04' },
+  dewford_gym:      { url:`${SD_BG}beach.png`,           fb:'#0a1828,#06101c' },
+  mauville_gym:     { url:`${SD_BG}city.png`,            fb:'#1a1a08,#101004' },
+  lavaridge_gym:    { url:`${SD_BG}desert.png`,          fb:'#2a0c04,#1c0802' },
+  petalburg_gym:    { url:`${SD_BG}forest.png`,          fb:'#0a1a08,#061204' },
+  fortree_gym:      { url:`${SD_BG}forest.png`,          fb:'#061c06,#041004' },
+  mossdeep_gym:     { url:`${SD_BG}deepsea.png`,         fb:'#060c28,#04081c' },
+  sootopolis_gym:   { url:`${SD_BG}mountain.png`,        fb:'#081828,#04101c' },
+  ever_grande_hoenn:{ url:`${SD_BG}mountain.png`,        fb:'#14102a,#0c0820' },
 };
 
 // Cosmetic backgrounds purchasable for the game screen

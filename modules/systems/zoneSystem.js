@@ -1061,6 +1061,10 @@ function checkForNewlyUnlockedZones(prevRep) {
   if ([800, 1000].some(t => prevRep < t && _rep >= t)) {
     setTimeout(() => globalThis.checkJohtoMissionsUnlock?.(), 600);
   }
+  // Hoenn : Groudon + Kyogre 2500 (nécessite aussi hoennUnlocked)
+  if (prevRep < 2500 && _rep >= 2500) {
+    setTimeout(() => globalThis.checkLegendaryMissionsUnlock?.(), 650);
+  }
   // Sinnoh : Trio du Lac 4200 · Team Galaxie 4500
   if ([4200, 4500].some(t => prevRep < t && _rep >= t)) {
     setTimeout(() => globalThis.checkSinnohMissionsUnlock?.(), 700);
