@@ -319,7 +319,6 @@ const CHEST_LOOT = [
   { weight:4,  type:'item',    itemId:'potion',   qty:3,          fr:'Potions',          en:'Potions'        },
   { weight:3,  type:'item',    itemId:'lure',     qty:1,          fr:'Leurre',           en:'Lure'           },
   { weight:2,  type:'item',    itemId:'evostone', qty:1,          fr:'Pierre Évolution', en:'Evolution Stone'},
-  { weight:2,  type:'item',    itemId:'rarecandy',qty:1,          fr:'Super Bonbon',     en:'Rare Candy'     },
   { weight:5,  type:'event',                                      fr:'Événement !',      en:'Event!'         },
 ];
 

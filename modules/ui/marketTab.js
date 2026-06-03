@@ -50,7 +50,7 @@ function renderBlackMarketPanel() {
     </div>` : '';
 
   // ── Listings du bulletin ──────────────────────────────────────
-  const ITEM_LABELS = { masterball:'Master Ball', ultraball:'Hyper Ball', evostone:'Pierre Évo', rarecandy:'Super Bonbon', aura:'Aura Shiny' };
+  const ITEM_LABELS = { masterball:'Master Ball', ultraball:'Hyper Ball', evostone:'Pierre Évo', aura:'Aura Shiny' };
   const state = globalThis.state;
   const listingsHtml = (bulletin?.listings || []).map(listing => {
     const isDone = listing.completed;
@@ -118,9 +118,7 @@ const BARTER_RECIPES = [
   // [donnerItemId, donnerQty, recevoirItemId, recevoirQty, label]
   ['lure',       5, 'superlure',  1,   '5 Leurres → 1 Super Leurre'],
   ['superlure',  3, 'evostone',   1,   '3 Super Leurres → 1 Pierre Évol.'],
-  ['rarecandy',  3, 'evostone',   1,   '3 Super Bonbons → 1 Pierre Évol.'],
   ['incense',    3, 'aura',       1,   '3 Encens → 1 Aura Shiny'],
-  ['potion',    10, 'rarecandy',  1,   '10 Potions → 1 Super Bonbon'],
 ];
 
 function renderBarterPanel() {

@@ -59,6 +59,13 @@ export function migrateSave(saved, deps) {
   delete merged.inventory.ultraball;
   delete merged.inventory.duskball;
   delete merged.inventory.masterball;
+  // ── Super Bonbons retirés → remboursement au prix shop (3 000₽/unité) ──────
+  // Le consommable rarecandy est remplacé par l'achat direct de niveaux
+  // (Scientifique). On rembourse le stock existant et on supprime la clé morte.
+  if (saved.inventory?.rarecandy > 0) {
+    merged.gang.money = (merged.gang.money || 0) + saved.inventory.rarecandy * 3000;
+  }
+  delete merged.inventory.rarecandy;
   merged.stats        = { ...structuredClone(DEFAULT_STATE.stats),        ...ensureObject(saved.stats) };
   merged.settings     = { ...structuredClone(DEFAULT_STATE.settings),     ...ensureObject(saved.settings) };
   merged.activeBoosts = { ...structuredClone(DEFAULT_STATE.activeBoosts), ...ensureObject(saved.activeBoosts) };

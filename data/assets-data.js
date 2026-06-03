@@ -54,7 +54,6 @@ const ITEM_SPRITE_URLS = {
   rarescope:  'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/scope-lens.png',
   aura:       'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/shiny-stone.png',
   evostone:   'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/fire-stone.png',
-  rarecandy:  'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/rare-candy.png',
   chestBoost: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/big-nugget.png',
   translator: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-flute.png',
   mysteryegg: 'https://www.pokepedia.fr/images/b/b1/Miniature_%C5%92uf_EV.png',

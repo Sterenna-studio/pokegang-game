@@ -1642,7 +1642,6 @@ function _refreshRaidBtn(zoneId)                                   { return glob
 // 18d. UI — BAG TAB
 // ════════════════════════════════════════════════════════════════
 
-function openRareCandyPicker() { globalThis.openRareCandyPicker?.(); }
 
 function renderBagTab() {
   return renderBagTabImpl();
@@ -2211,7 +2210,6 @@ configureBagTab({
   boostRemaining: (...args) => globalThis.boostRemaining?.(...args),
   activateBoost: (...args) => globalThis.activateBoost?.(...args),
   itemSprite: (...args) => globalThis.itemSprite?.(...args),
-  openRareCandyPicker,
   renderPCTab,
 });
 
@@ -2316,7 +2314,7 @@ Object.assign(globalThis, {
   refreshZoneIncomeTile: _refreshZoneIncomeTile,
   updateZoneButtons: _updateZoneButtons,
   // gangBase module — helpers needed by modules/ui/gangBase.js
-  // openTeamPicker, openAssignToPicker, openRareCandyPicker — set by modules/ui/pickers.js
+  // openTeamPicker, openAssignToPicker — set by modules/ui/pickers.js
   pokemonDisplayName, sanitizeSpriteName, escapeHtml,
   getDexKantoCaught, getDexJohtoCaught, getDexNationalCaught, getShinySpeciesCount,
   // getBossFullTitle, getTitleLabel → set by modules/systems/titles.js
