@@ -179,7 +179,7 @@ function renderLabTabInEl(tab) {
                      <span style="font-family:var(--font-pixel);font-size:7px;color:${enabled ? 'var(--green)' : 'var(--text-dim)'}">${enabled ? '✓ EN POSTE' : '✗ RENVOYÉ'}</span>
                      <button id="btnLabToggleScientist" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid ${enabled ? 'var(--red)' : 'var(--green)'};border-radius:var(--radius-sm);color:${enabled ? 'var(--red)' : 'var(--green)'};cursor:pointer">${enabled ? 'Renvoyer' : 'Rappeler'}</button>
                    </div>`
-                : `<button id="btnLabBuyScientist" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">Engager — 5 000 000₽</button>`}
+                : `<button id="btnLabBuyScientist" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">Engager — 15 000₽</button>`}
             </div>
           </div>`;
         })()}
@@ -190,9 +190,9 @@ function renderLabTabInEl(tab) {
 
   // ── Scientist card handlers (Lab) ──
   tab.querySelector('#btnLabBuyScientist')?.addEventListener('click', () => {
-    if (state.gang.money < 5_000_000) { notify('Fonds insuffisants.', 'error'); return; }
-    showConfirm('Engager le Scientifique peu scrupuleux pour <b>5 000 000₽</b> ?<br><span style="font-size:10px;color:var(--text-dim)">Permet la mutation artificielle depuis ce Labo et le menu contextuel du PC.</span>', () => {
-      state.gang.money -= 5_000_000;
+    if (state.gang.money < 15_000) { notify('Fonds insuffisants.', 'error'); return; }
+    showConfirm('Engager le Scientifique peu scrupuleux pour <b>15 000₽</b> ?<br><span style="font-size:10px;color:var(--text-dim)">Permet la mutation artificielle depuis ce Labo et le menu contextuel du PC.</span>', () => {
+      state.gang.money -= 15_000;
       state.purchases.scientist = true;
       state.purchases.scientistEnabled = true;
       saveState(); updateTopBar(); SFX.play('unlock');

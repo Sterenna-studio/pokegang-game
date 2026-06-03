@@ -461,7 +461,7 @@ function renderPensionView(container) {
              <span style="font-family:var(--font-pixel);font-size:7px;color:${scEnabled ? 'var(--green)' : 'var(--text-dim)'}">${scEnabled ? '✓ EN POSTE' : '✗ RENVOYÉ'}</span>
              <button id="btnToggleScientistPension" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid ${scEnabled ? 'var(--red)' : 'var(--green)'};border-radius:var(--radius-sm);color:${scEnabled ? 'var(--red)' : 'var(--green)'};cursor:pointer">${scEnabled ? 'Renvoyer' : 'Rappeler'}</button>
            </div>`
-        : `<button id="btnBuyScientistPension" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">Engager — 5 000 000₽</button>`}
+        : `<button id="btnBuyScientistPension" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">Engager — 15 000₽</button>`}
     </div>
   </div>`;
 
@@ -643,10 +643,10 @@ function renderPensionView(container) {
   });
 
   container.querySelector('#btnBuyScientistPension')?.addEventListener('click', () => {
-    if (state.gang.money < 5_000_000) { notify('Fonds insuffisants.', 'error'); return; }
-    globalThis.showConfirm?.('Engager le Scientifique peu scrupuleux pour 5 000 000₽ ?', () => {
-      state.gang.money -= 5_000_000;
-      state.stats.totalMoneySpent = (state.stats.totalMoneySpent || 0) + 5_000_000;
+    if (state.gang.money < 15_000) { notify('Fonds insuffisants.', 'error'); return; }
+    globalThis.showConfirm?.('Engager le Scientifique peu scrupuleux pour 15 000₽ ?', () => {
+      state.gang.money -= 15_000;
+      state.stats.totalMoneySpent = (state.stats.totalMoneySpent || 0) + 15_000;
       state.purchases.scientist = true;
       state.purchases.scientistEnabled = true;
       saveState();
