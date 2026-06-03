@@ -620,7 +620,7 @@ function _buildServicesHtml(state) {
              <span style="font-family:var(--font-pixel);font-size:7px;color:${enSc ? 'var(--green)' : 'var(--text-dim)'}">${enSc ? '✓ EN POSTE' : '✗ RENVOYÉ'}</span>
              <button id="btnToggleScientist" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid ${enSc ? 'var(--red)' : 'var(--green)'};border-radius:var(--radius-sm);color:${enSc ? 'var(--red)' : 'var(--green)'};cursor:pointer">${enSc ? 'Renvoyer' : 'Rappeler'}</button>
            </div>`
-        : `<button id="btnBuyScientist" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">Engager — 5 000 000₽</button>`}
+        : `<button id="btnBuyScientist" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">Engager — 15 000₽</button>`}
     </div>
   </div>`);
 
@@ -941,9 +941,9 @@ function _doRenderGangTab() {
   // Services handlers
   tab.querySelector('#btnBuyScientist')?.addEventListener('click', () => {
     const st = globalThis.state;
-    if (st.gang.money < 5_000_000) { _notify('Fonds insuffisants.', 'error'); return; }
-    globalThis.showConfirm('Engager le <b>Scientifique peu scrupuleux</b> pour <b>5 000 000₽</b> ?', () => {
-      st.gang.money -= 5_000_000; st.purchases.scientist = true; st.purchases.scientistEnabled = true;
+    if (st.gang.money < 15_000) { _notify('Fonds insuffisants.', 'error'); return; }
+    globalThis.showConfirm('Engager le <b>Scientifique peu scrupuleux</b> pour <b>15 000₽</b> ?', () => {
+      st.gang.money -= 15_000; st.purchases.scientist = true; st.purchases.scientistEnabled = true;
       _save(); _topBar(); globalThis.SFX.play('unlock');
       _notify('🧬 Le scientifique est en poste !', 'gold'); renderGangTab();
     }, null, { confirmLabel: 'Engager', cancelLabel: 'Annuler' });
