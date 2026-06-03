@@ -28,6 +28,14 @@ import { EventBus, EVENTS } from '../core/eventBus.js';
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
 const _save   = ()               => globalThis.saveState?.();
 
+// ── Feature flag — Événements de zone V2 ──────────────────────────────────────
+// Le système d'événements de zone (Contrôle Renforcé, Chasse à la Prime,
+// Invasion Rivale, Tournoi, Apparition Légendaire) est désactivé : conçu en
+// alpha mais jamais finalisé (pas de résolution active côté UI, équilibrage
+// inexistant). Les NIVEAUX/XP de zone restent actifs — seuls les ÉVÉNEMENTS
+// sont neutralisés. Repasser à true pour réactiver le système.
+const ZONE_EVENTS_ENABLED = false;
+
 // ── Helpers internes ──────────────────────────────────────────
 
 function _state()   { return globalThis.state; }
@@ -132,6 +140,7 @@ function addZoneXP(zoneId, source) {
  * Délai aléatoire (min–max) réduit par le niveau de zone.
  */
 function scheduleNextZoneEvent(zoneId) {
+  if (!ZONE_EVENTS_ENABLED) return; // système d'événements désactivé
   const z = _initZone(zoneId);
   if (!z) return;
   const level     = getZoneLevel(zoneId);
@@ -243,6 +252,7 @@ function resolveZoneEvent(zoneId) {
  * Déclenche les événements dont le timer a expiré, expire les événements finis.
  */
 function tickZoneEvents(zoneId) {
+  if (!ZONE_EVENTS_ENABLED) return; // système d'événements désactivé
   const z = _state()?.zones?.[zoneId];
   if (!z) return;
   const now = Date.now();
@@ -266,6 +276,7 @@ function tickZoneEvents(zoneId) {
  * À appeler depuis startGameLoop (setInterval ~60s).
  */
 function tickAllZoneEvents() {
+  if (!ZONE_EVENTS_ENABLED) return; // système d'événements désactivé
   const state = _state();
   if (!state) return;
   // Uniquement les zones avec des agents assignés
@@ -303,7 +314,18 @@ function initZoneLevels() {
   for (const zone of allZones) {
     ensureZoneV2Fields(zone.id);
     const z = _state()?.zones?.[zone.id];
-    if (z && !z.nextEventAt) scheduleNextZoneEvent(zone.id);
+    if (z && ZONE_EVENTS_ENABLED && !z.nextEventAt) scheduleNextZoneEvent(zone.id);
+  }
+
+  // Système d'événements désactivé : purge exhaustive des événements résiduels
+  // sur TOUTES les zones (y compris Hoenn/Sinnoh non listées ci-dessus) pour
+  // éviter les badges figés type « Contrôle Renforcé » sur d'anciennes saves.
+  if (!ZONE_EVENTS_ENABLED) {
+    const zones = _state()?.zones || {};
+    for (const z of Object.values(zones)) {
+      if (z && z.activeEvent) z.activeEvent = null;
+      if (z) z.nextEventAt = 0;
+    }
   }
 }
 
