@@ -2769,17 +2769,36 @@ function boot() {
   // Init session tracking (must be after state is loaded)
   initSession();
 
-  // Auto-ouvre les zones favorites au chargement
-  for (const zId of (state.favoriteZones || [])) {
-    if (isZoneUnlocked(zId) && !openZones.has(zId)) {
-      openZones.add(zId);
-      initZone(zId);
-      zoneSpawns[zId] = [];
-      startActiveZone(zId); // timer unifié (tickZoneSpawn car zone ouverte)
-      if (!state.openZoneOrder) state.openZoneOrder = [];
-      if (!state.openZoneOrder.includes(zId)) state.openZoneOrder.push(zId);
-    }
+  // ── Réactiver les régions débloquées AVANT de restaurer les zones ────────
+  // Sinon les zones Johto/Hoenn/Sinnoh ne sont pas encore enregistrées dans
+  // ZONE_BY_ID et seraient écartées à tort comme « zones fantômes » par la
+  // passe de nettoyage ci-dessous.
+  if (state.purchases?.johtoUnlocked)  activateJohtoRegion();
+  if (state.purchases?.hoennUnlocked)  activateHoennRegion();
+  if (state.purchases?.sinnohUnlocked) activateSinnohRegion();
+
+  // ── Restaurer les zones ouvertes de la session précédente ────────────────
+  // Le joueur reprend exactement là où il s'était arrêté (plus de priorité aux
+  // favoris). Une passe de nettoyage « cleaned » écarte les zones fantômes :
+  //   • ID inconnu (absent de ZONE_BY_ID — zone supprimée/renommée)
+  //   • zone de type gang_park (non jouable)
+  //   • zone verrouillée (région reset, item d'unlock manquant…)
+  //   • doublons
+  // L'ordre d'origine est préservé et la liste nettoyée est réécrite dans
+  // state.openZoneOrder pour éviter l'accumulation d'entrées fantômes.
+  const _restoredOrder = [];
+  for (const zId of (state.openZoneOrder || [])) {
+    if (_restoredOrder.includes(zId))            continue; // doublon
+    if (!ZONE_BY_ID[zId])                        continue; // zone fantôme (ID inconnu)
+    if (ZONE_BY_ID[zId].type === 'gang_park')    continue; // non jouable
+    if (!isZoneUnlocked(zId))                    continue; // verrouillée
+    openZones.add(zId);
+    initZone(zId);
+    zoneSpawns[zId] = [];
+    startActiveZone(zId); // timer unifié (mode visuel car zone ouverte)
+    _restoredOrder.push(zId);
   }
+  state.openZoneOrder = _restoredOrder; // liste nettoyée persistée
 
   // Apply saved UI scale
   const savedScale = state.settings?.uiScale ?? DEFAULT_UI_SCALE;
@@ -2814,10 +2833,8 @@ function boot() {
     });
   }
 
-  // Réactiver les régions si déjà débloquées (save existante)
-  if (state.purchases?.johtoUnlocked)  activateJohtoRegion();
-  if (state.purchases?.hoennUnlocked)  activateHoennRegion();
-  if (state.purchases?.sinnohUnlocked) activateSinnohRegion();
+  // (Réactivation des régions déplacée plus haut — avant la restauration des
+  //  zones — pour que ZONE_BY_ID soit peuplé au moment du nettoyage cleaned.)
 
   // Configure intro module
   configureIntro({
