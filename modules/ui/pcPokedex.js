@@ -1448,6 +1448,62 @@ function renderPokemonGrid(forceRebuild = false) {
   }
 }
 
+// ── Super Bonbons (achat direct de niveaux, débloqué par le Scientifique) ──────
+// Courbe de prix croissante : coût pour passer du niveau L au niveau L+1.
+function _superCandyCost(level) {
+  return Math.round(50 * Math.pow(level, 1.6));
+}
+// Coût total + nombre réel de niveaux gagnés (plafonné à 100) pour `n` niveaux.
+function _superCandyQuote(fromLevel, n) {
+  let cost = 0, levels = 0;
+  for (let L = fromLevel; L < 100 && levels < n; L++, levels++) {
+    cost += _superCandyCost(L);
+  }
+  return { cost, levels };
+}
+
+function renderSuperCandyPanel(p) {
+  // Réservé au Scientifique (synthétise les Super Bonbons)
+  const owned   = !!state.purchases?.scientist;
+  const enabled = state.purchases?.scientistEnabled !== false;
+  if (!owned || !enabled) return '';
+  if (p.level >= 100) {
+    return `<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">
+      <div style="font-size:9px;color:var(--text-dim);margin-bottom:4px">🧬 SUPER BONBONS — Scientifique</div>
+      <div style="font-size:10px;color:var(--gold);text-align:center;padding:4px">Niveau maximum atteint (100)</div>
+    </div>`;
+  }
+
+  const money = state.gang.money || 0;
+  const options = [
+    { n: 1,   label: '+1' },
+    { n: 5,   label: '+5' },
+    { n: 10,  label: '+10' },
+    { n: 100, label: 'MAX' }, // plafonné automatiquement à Lv.100
+  ];
+
+  const btns = options.map(opt => {
+    const { cost, levels } = _superCandyQuote(p.level, opt.n);
+    if (levels === 0) return '';
+    const afford = money >= cost;
+    const sub = opt.n === 100 ? `→ Lv.100` : `+${levels} niv.`;
+    return `<button class="btn-super-candy" data-candy-n="${opt.n}"
+      style="flex:1;min-width:0;font-size:9px;padding:5px 4px;background:var(--bg);
+      border:1px solid ${afford ? 'var(--gold)' : 'var(--border)'};border-radius:var(--radius-sm);
+      color:${afford ? 'var(--gold)' : 'var(--text-dim)'};cursor:${afford ? 'pointer' : 'default'};
+      display:flex;flex-direction:column;gap:1px;align-items:center"${afford ? '' : ' disabled'}>
+      <span style="font-family:var(--font-pixel);font-size:9px">🍬 ${opt.label}</span>
+      <span style="font-size:7px;opacity:.85">${sub}</span>
+      <span style="font-size:7px;color:${afford ? 'var(--gold)' : 'var(--red)'}">${cost.toLocaleString()}₽</span>
+    </button>`;
+  }).filter(Boolean).join('');
+
+  return `<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">
+    <div style="font-size:9px;color:var(--text-dim);margin-bottom:6px">🧬 SUPER BONBONS — Scientifique</div>
+    <div style="display:flex;gap:5px">${btns}</div>
+  </div>`;
+}
+
 function renderPotentialUpgradePanel(p) {
   if (p.potential >= 5) return '';
   const teamIds = new Set([...state.gang.bossTeam]);
@@ -2015,6 +2071,7 @@ function renderPokemonDetail() {
         🔍 Voir tous les ${speciesName(p.species_en)} (×${state.pokemons.filter(x => x.species_en === p.species_en).length})
       </button>
     </div>
+    ${renderSuperCandyPanel(p)}
     ${renderEvolutionPanel(p)}
     ${renderPotentialUpgradePanel(p)}
     ${renderPokemonHistory(p)}
@@ -2055,6 +2112,35 @@ function renderPokemonDetail() {
     notify(`🍬 ${speciesName(p.species_en)} → Lv.${p.level}`, 'gold');
     renderPCTab();
     updateTopBar();
+  });
+
+  // ── Super Bonbons : achat direct de niveaux (Scientifique) ──
+  panel.querySelectorAll('.btn-super-candy').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const n = parseInt(btn.dataset.candyN, 10);
+      if (!n || p.level >= 100) return;
+      const { cost, levels } = _superCandyQuote(p.level, n);
+      if (levels === 0) return;
+      if ((state.gang.money || 0) < cost) { notify('Pokédollars insuffisants.', 'error'); return; }
+      const fromLevel = p.level;
+      // Monte niveau par niveau pour gérer correctement les évolutions par palier
+      for (let i = 0; i < levels && p.level < 100; i++) {
+        p.level++;
+        tryAutoEvolution(p);
+      }
+      p.xp = 0;
+      p.stats = calculateStats(p);
+      state.gang.money -= cost;
+      state.stats.totalMoneySpent = (state.stats.totalMoneySpent || 0) + cost;
+      if (Array.isArray(p.history)) {
+        p.history.push({ type: 'levelup', ts: Date.now(), level: p.level });
+      }
+      saveState();
+      notify(`🍬 ${speciesName(p.species_en)} : Lv.${fromLevel} → Lv.${p.level} (−${cost.toLocaleString()}₽)`, 'gold');
+      globalThis.SFX?.play('levelUp');
+      renderPCTab();
+      updateTopBar();
+    });
   });
 
   document.getElementById('btnSellOne')?.addEventListener('click', () => {
