@@ -339,7 +339,7 @@ function renderShopPanel() {
   const shopItems = SHOP_ITEMS.filter(item => !ZONE_UNLOCK_ITEM_IDS.has(item.id) && !item.ballSkin);
 
   // ── Multiplier toolbar ─────────────────────────────────────────
-  const multBar = [1,5,10].map(m =>
+  const multBar = [1,5,10,100].map(m =>
     `<button class="shop-mult-btn" data-mult="${m}" style="font-family:var(--font-pixel);font-size:9px;padding:4px 10px;border-radius:var(--radius-sm);cursor:pointer;
       background:${shopMultiplier===m?'var(--gold-dim)':'var(--bg)'};
       border:1px solid ${shopMultiplier===m?'var(--gold)':'var(--border)'};
@@ -419,9 +419,7 @@ function renderShopPanel() {
       const item = SHOP_ITEMS[parseInt(btn.dataset.shopIdx)];
       const mult = parseInt(btn.dataset.shopMult) || 1;
       if (!item || btn.disabled) return;
-      for (let i = 0; i < mult; i++) {
-        if (!buyItem(item)) break;
-      }
+      buyItemBulk(item, mult);
       updateTopBar();
       renderShopPanel();
       if (activeTab === 'tabZones') renderZoneWindows();
