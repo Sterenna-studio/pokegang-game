@@ -83,7 +83,7 @@ const LISTING_TYPES = {
         emoji: '🌳',
         label: `Lignée complète : ${headName}`,
         detail: `Livrez 1 spécimen de chaque évolution (${family.length} pokémon).`,
-        reward: { money, rep: 60 + family.length * 15, items: { evostone: 2, rarecandy: 3 } },
+        reward: { money, rep: 60 + family.length * 15, items: { evostone: 5 } },
       };
     },
   },
@@ -156,7 +156,7 @@ const LISTING_TYPES = {
         emoji: '⭐',
         label: `Spécimen parfait : ${speciesName} 5★ Lv.${minLevel}+`,
         detail: `Un sponsor cherche un ${speciesName} de potentiel maximum (5 étoiles).`,
-        reward: { money: 1500000, rep: 180, items: { rarecandy: 5 } },
+        reward: { money: 1500000, rep: 180, items: { evostone: 5 } },
       };
     },
   },
@@ -181,7 +181,6 @@ const LISTING_TYPES = {
     weight: 8,
     generate() {
       const POOLS = [
-        { id: 'rarecandy',  qty: [3, 6],  reward: 80000  },
         { id: 'evostone',   qty: [2, 4],  reward: 120000 },
         { id: 'aura',       qty: [1, 2],  reward: 200000 },
         { id: 'ultraball',  qty: [5, 10], reward: 60000  },
@@ -189,7 +188,7 @@ const LISTING_TYPES = {
       ];
       const pool = POOLS[Math.floor(Math.random() * POOLS.length)];
       const qty = pool.qty[0] + Math.floor(Math.random() * (pool.qty[1] - pool.qty[0] + 1));
-      const ITEM_LABELS = { rarecandy:'Super Bonbon', evostone:'Pierre Évolution', aura:'Aura Shiny', ultraball:'Hyper Ball', masterball:'Master Ball' };
+      const ITEM_LABELS = { evostone:'Pierre Évolution', aura:'Aura Shiny', ultraball:'Hyper Ball', masterball:'Master Ball' };
       const label = ITEM_LABELS[pool.id] || pool.id;
       return {
         type: 'item_smuggle', target: pool.id, qty,

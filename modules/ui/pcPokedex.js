@@ -1242,7 +1242,6 @@ function _bindPCCardListeners(el) {
     if (!pk) return;
     const price = calculatePrice(pk);
     const inTeam = state.gang.bossTeam.includes(pk.id) || state.agents.some(a => a.team.includes(pk.id));
-    const hasCandy = (state.inventory.rarecandy || 0) > 0;
     const sameSpecies = state.pokemons.filter(p => p.species_en === pk.species_en && p.id !== pk.id && !p.shiny);
     const sameSpeciesTotal = calculatePrice(pk) * sameSpecies.length;
     const has5StarDonor = state.pokemons.some(p =>
@@ -1288,7 +1287,17 @@ function _bindPCCardListeners(el) {
       inTeam
         ? { action:'unteam', label:'Retirer de l\'equipe', fn: () => { state.gang.bossTeam = state.gang.bossTeam.filter(id => id !== pk.id); state.agents.forEach(a => { a.team = a.team.filter(id => id !== pk.id); }); saveState(); renderPCTab(); } }
         : { action:'team', label:'Attribuer a...', fn: () => { openAssignToPicker(pk.id); } },
-      { action:'candy', label:`Super Bonbon${hasCandy ? '' : ' (aucun)'}`, fn: () => { if (!hasCandy) return; state.inventory.rarecandy--; if (pk.level < 100) { pk.level++; pk.xp = 0; pk.stats = calculateStats(pk); tryAutoEvolution(pk); } saveState(); notify(`🍬 ${speciesName(pk.species_en)} → Lv.${pk.level}`, 'gold'); renderPCTab(); updateTopBar(); } },
+      (state.purchases.scientist && state.purchases.scientistEnabled !== false && pk.level < 100)
+        ? { action:'candy', label:`🍬 +1 niveau (${_superCandyCost(pk.level).toLocaleString()}₽)`, fn: () => {
+            const cost = _superCandyCost(pk.level);
+            if ((state.gang.money || 0) < cost) { notify('Pokédollars insuffisants.', 'error'); return; }
+            state.gang.money -= cost;
+            state.stats.totalMoneySpent = (state.stats.totalMoneySpent || 0) + cost;
+            pk.level++; pk.xp = 0; tryAutoEvolution(pk); pk.stats = calculateStats(pk);
+            saveState(); notify(`🍬 ${speciesName(pk.species_en)} → Lv.${pk.level} (−${cost.toLocaleString()}₽)`, 'gold');
+            globalThis.SFX?.play('levelUp'); renderPCTab(); updateTopBar();
+          } }
+        : null,
       { action:'fav', label: pk.favorite ? 'Retirer favori' : 'Ajouter favori', fn: () => { pk.favorite = !pk.favorite; saveState(); renderPCTab(); } },
     ].filter(Boolean);
     showContextMenu(e.clientX, e.clientY, items);
@@ -2024,10 +2033,6 @@ function renderPokemonDetail() {
       <button id="btnFavToggle" style="font-size:10px;padding:4px 10px;background:${p.favorite ? 'var(--gold-dim)' : 'var(--bg)'};border:1px solid ${p.favorite ? 'var(--gold)' : 'var(--border)'};border-radius:var(--radius-sm);color:${p.favorite ? 'var(--bg)' : 'var(--text-dim)'};cursor:pointer">${p.favorite ? '⭐ Favori' : '☆ Favori'}</button>
     </div>
     ${(() => {
-      const hasCandy = (state.inventory.rarecandy || 0) > 0;
-      return `<div style="margin-bottom:8px"><button id="btnRareCandy" style="width:100%;font-size:10px;padding:5px;background:${hasCandy ? 'var(--bg)' : 'var(--bg)'};border:1px solid ${hasCandy ? 'var(--gold)' : 'var(--border)'};border-radius:var(--radius-sm);color:${hasCandy ? 'var(--gold)' : 'var(--text-dim)'};cursor:${hasCandy ? 'pointer' : 'default'}"${hasCandy ? '' : ' disabled'}>🍬 Super Bonbon (+1 niveau) — stock: ${state.inventory.rarecandy || 0}</button></div>`;
-    })()}
-    ${(() => {
       // Check if in a team
       const inBossTeam = state.gang.bossTeam.includes(p.id);
       const inAgentTeam = state.agents.find(a => a.team.includes(p.id));
@@ -2102,16 +2107,6 @@ function renderPokemonDetail() {
       },
       null, { confirmLabel: 'Changer', cancelLabel: 'Annuler' }
     );
-  });
-
-  document.getElementById('btnRareCandy')?.addEventListener('click', () => {
-    if ((state.inventory.rarecandy || 0) <= 0) return;
-    state.inventory.rarecandy--;
-    if (p.level < 100) { p.level++; p.xp = 0; p.stats = calculateStats(p); tryAutoEvolution(p); }
-    saveState();
-    notify(`🍬 ${speciesName(p.species_en)} → Lv.${p.level}`, 'gold');
-    renderPCTab();
-    updateTopBar();
   });
 
   // ── Super Bonbons : achat direct de niveaux (Scientifique) ──

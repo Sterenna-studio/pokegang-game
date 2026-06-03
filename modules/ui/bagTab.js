@@ -2,7 +2,7 @@
 
 // deps via configureBagTab(ctx):
 // - getState, getActiveTab, notify, saveState, updateTopBar, switchTab, showConfirm
-// - isBoostActive, boostRemaining, activateBoost, itemSprite, openRareCandyPicker, renderPCTab
+// - isBoostActive, boostRemaining, activateBoost, itemSprite, renderPCTab
 // data imports: BALLS
 
 import { BALLS } from '../../data/economy-data.js';
@@ -26,7 +26,6 @@ function isBoostActive(...args) { return callCtx('isBoostActive', ...args); }
 function boostRemaining(...args) { return callCtx('boostRemaining', ...args) ?? 0; }
 function activateBoost(...args) { return callCtx('activateBoost', ...args); }
 function itemSprite(...args) { return callCtx('itemSprite', ...args) ?? ''; }
-function openRareCandyPicker(...args) { return callCtx('openRareCandyPicker', ...args); }
 function renderPCTab(...args) { return callCtx('renderPCTab', ...args); }
 
 function renderBagTab() {
@@ -45,7 +44,6 @@ function renderBagTab() {
     { id: 'rarescope', icon: 'SC', fr: 'Rarioscope',       en: 'Rare Scope',     desc_fr: 'Spawns rares x3 90s',   desc_en: 'Rare spawns x3 90s', usable: true },
     { id: 'aura',      icon: 'AU', fr: 'Aura Shiny',       en: 'Shiny Aura',     desc_fr: 'Shiny x5 90s',          desc_en: 'Shiny x5 90s',       usable: true },
     { id: 'evostone',  icon: 'EV', fr: 'Pierre Evol.',     en: 'Evo Stone',      desc_fr: 'Evolution par pierre',  desc_en: 'Stone evolution' },
-    { id: 'rarecandy', icon: 'RC', fr: 'Super Bonbon',     en: 'Rare Candy',     desc_fr: '+1 niveau',              desc_en: '+1 level',          usable: true },
     { id: 'masterball',icon: 'MB', fr: 'Master Ball',      en: 'Master Ball',    desc_fr: '***** garanti',         desc_en: '***** guaranteed' },
   ];
 
@@ -90,9 +88,7 @@ function renderBagTab() {
   grid.querySelectorAll('[data-use-item]').forEach(btn => {
     btn.addEventListener('click', () => {
       const itemId = btn.dataset.useItem;
-      if (itemId === 'rarecandy') {
-        openRareCandyPicker();
-      } else if (activateBoost(itemId)) {
+      if (activateBoost(itemId)) {
         notify(state.lang === 'fr' ? 'Boost activé !' : 'Boost activated!', 'success');
       }
       renderBagTab();

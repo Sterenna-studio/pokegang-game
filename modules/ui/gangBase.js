@@ -8,7 +8,7 @@
 //    speciesName, pokeSprite, trainerSprite, itemSprite, pokemonDisplayName
 //    getPokemonPower, calculateStats, calculatePrice
 //    isBoostActive, boostRemaining, activateBoost
-//    openTeamPicker, openRareCandyPicker, switchTab
+//    openTeamPicker, switchTab
 //    getBossFullTitle, getTitleLabel
 //    getDexKantoCaught, getDexNationalCaught, getShinySpeciesCount
 //    sanitizeSpriteName
@@ -164,7 +164,7 @@ let _lastRenderSig = '';
 
 const _BALL_IDS  = ['pokeball','greatball','ultraball','duskball','masterball'];
 const _BOOST_IDS = ['lure','superlure','incense','rarescope','aura'];
-const _CRAFT_IDS = ['rarecandy','evostone'];
+const _CRAFT_IDS = ['evostone'];
 const _KEY_IDS   = ['incubator','map_pallet','casino_ticket','silph_keycard','boat_ticket'];
 
 /**
@@ -438,7 +438,7 @@ function renderGangBaseWindow() {
   // ── Item tiles
   const BALL_IDS  = ['pokeball','greatball','ultraball','duskball','masterball'];
   const BOOST_IDS = ['lure','superlure','incense','rarescope','aura'];
-  const CRAFT_IDS = ['rarecandy','evostone'];
+  const CRAFT_IDS = ['evostone'];
   const KEY_IDS   = ['incubator','map_pallet','casino_ticket','silph_keycard','boat_ticket'];
 
   function makeItemTile(id) {
@@ -714,7 +714,7 @@ function renderGangBaseWindowV2() {
   // ── Inventaire ──
   const BALL_IDS  = ['pokeball','greatball','ultraball','duskball','masterball'];
   const BOOST_IDS = ['lure','superlure','incense','rarescope','aura'];
-  const CRAFT_IDS = ['rarecandy','evostone'];
+  const CRAFT_IDS = ['evostone'];
   const KEY_IDS   = ['incubator','map_pallet','casino_ticket','silph_keycard','boat_ticket'];
 
   function _v2tile(id, isKey = false) {
@@ -1109,7 +1109,6 @@ function bindGangBaseV2(container) {
         renderGangBasePanel();
         return;
       }
-      if (id === 'rarecandy') { globalThis.openRareCandyPicker?.(); return; }
       if (BOOST_IDS.includes(id)) {
         const uses = Math.min(_boostMult, qty);
         if (uses > 0) {
@@ -1347,7 +1346,6 @@ function bindGangBase(container) {
         renderGangBasePanel();
         return;
       }
-      if (id === 'rarecandy') { globalThis.openRareCandyPicker(); return; }
       if (BOOST_IDS.includes(id)) {
         const uses = Math.min(_boostMult, qty);
         if (uses > 0) {

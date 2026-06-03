@@ -13,7 +13,6 @@ const _save   = ()               => globalThis.saveState?.();
 // ── Picker modals ────────────────────────────────────────────────────────────
 // openTeamPicker      — choisir un Pokémon pour une équipe (boss ou agent)
 // openAssignToPicker  — choisir une destination depuis le PC
-// openRareCandyPicker — donner un Super Bonbon à un Pokémon
 //
 // Dépendances globalThis :
 //   state, notify, saveState, pokeSprite, speciesName, getPokemonPower,
@@ -199,86 +198,12 @@ function openAssignToPicker(pokemonId) {
   });
 }
 
-// ── Super Bonbon — choisir un Pokémon cible ──────────────────────────────────
-function openRareCandyPicker() {
-  const state = globalThis.state;
-  if ((state.inventory.rarecandy || 0) <= 0) return;
-
-  const teamIds = new Set([...state.gang.bossTeam]);
-  for (const a of state.agents) a.team.forEach(id => teamIds.add(id));
-
-  const candidates = state.pokemons
-    .filter(p => p.level < 100)
-    .sort((a, b) => {
-      const aT = teamIds.has(a.id) ? 1 : 0;
-      const bT = teamIds.has(b.id) ? 1 : 0;
-      if (bT !== aT) return bT - aT;
-      return globalThis.getPokemonPower(b) - globalThis.getPokemonPower(a);
-    });
-
-  if (candidates.length === 0) {
-    _notify(state.lang === 'fr' ? 'Tous les Pokémon sont au max !' : 'All Pokémon are maxed!');
-    return;
-  }
-
-  const overlay = document.createElement('div');
-  overlay.id = 'rareCandyOverlay';
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:3000;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;animation:fadeIn .2s ease';
-
-  const listHtml = candidates.slice(0, 25).map(p => {
-    const inTeam = teamIds.has(p.id);
-    return `<div class="picker-pokemon" data-candy-id="${p.id}"
-      style="display:flex;align-items:center;gap:8px;padding:8px;border-bottom:1px solid var(--border);cursor:pointer">
-      <img src="${globalThis.pokeSprite(p.species_en, p.shiny)}" style="width:40px;height:40px">
-      <div style="flex:1">
-        <div style="font-size:12px">${inTeam ? '[EQ] ' : ''}${globalThis.speciesName(p.species_en)} ${'*'.repeat(p.potential)}${p.shiny ? ' [S]' : ''}</div>
-        <div style="font-size:10px;color:var(--text-dim)">Lv.${p.level} → Lv.~${Math.min(100, p.level + 5)}</div>
-      </div>
-      ${inTeam ? '<span style="font-size:9px;color:var(--green)">Équipe</span>' : ''}
-    </div>`;
-  }).join('');
-
-  overlay.innerHTML = `<div style="background:var(--bg-panel);border:2px solid var(--gold);border-radius:var(--radius);width:90%;max-width:380px;max-height:70vh;display:flex;flex-direction:column">
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:2px solid var(--border)">
-      <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold)">🍬 Super Bonbon — stock: ${state.inventory.rarecandy}</div>
-      <button id="btnCloseCandy" style="background:none;border:none;color:var(--text-dim);font-size:20px;cursor:pointer">&times;</button>
-    </div>
-    <div style="overflow-y:auto;flex:1">${listHtml}</div>
-  </div>`;
-
-  document.body.appendChild(overlay);
-  overlay.querySelector('#btnCloseCandy').addEventListener('click', () => overlay.remove());
-  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
-
-  overlay.querySelectorAll('[data-candy-id]').forEach(el => {
-    el.addEventListener('mouseenter', () => { el.style.background = 'var(--bg-hover)'; });
-    el.addEventListener('mouseleave', () => { el.style.background = ''; });
-    el.addEventListener('click', () => {
-      if ((state.inventory.rarecandy || 0) <= 0) { overlay.remove(); return; }
-      const p = state.pokemons.find(pk => pk.id === el.dataset.candyId);
-      if (!p) return;
-      const oldLv = p.level;
-      state.inventory.rarecandy--;
-      if (p.level < 100) {
-        p.level++;
-        p.xp = 0;
-        p.stats = globalThis.calculateStats(p);
-        globalThis.tryAutoEvolution(p);
-      }
-      _save();
-      _notify(`🍬 ${globalThis.speciesName(p.species_en)} Lv.${oldLv} → Lv.${p.level}`, 'gold');
-      overlay.remove();
-      globalThis.renderBagTab?.();
-      if (globalThis.activeTab === 'tabPC') globalThis.renderPCTab?.();
-      _topBar();
-    });
-  });
-}
+// openRareCandyPicker supprimé — le Super Bonbon consommable a été remplacé par
+// l'achat direct de niveaux (Scientifique) dans la fiche Pokémon (pcPokedex.js).
 
 Object.assign(globalThis, {
   openTeamPicker,
   openAssignToPicker,
-  openRareCandyPicker,
 });
 
 export {};
