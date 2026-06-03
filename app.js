@@ -1998,7 +1998,8 @@ function startGameLoop() {
   Scheduler.register('passiveAgentTick',passiveAgentTick,   TICK_PASSIVE_AGENT_MS,{ skipWhenHidden: true  });
   Scheduler.register('tickHourlyCheck', _tickHourlyCheck,   TICK_HOURLY_CHECK_MS, { skipWhenHidden: true  });
   Scheduler.register('tickMissionsUI',  _tickMissionsUI,    TICK_MISSIONS_UI_MS,  { skipWhenHidden: true  });
-  Scheduler.register('zoneEvents',      tickAllZoneEvents,  TICK_TRAINING_MS,     { skipWhenHidden: true  });
+  // 'zoneEvents' désactivé — système d'événements de zone V2 neutralisé
+  // (cf. ZONE_EVENTS_ENABLED dans modules/systems/zoneLevels.js)
   Scheduler.register('trainingRoom',    trainingRoomTick,   TICK_TRAINING_MS,     { skipWhenHidden: true  });
   Scheduler.register('pensionTick',     pensionTick,        TICK_PENSION_MS,      { skipWhenHidden: true  });
   Scheduler.register('passiveXP',       _tickPassiveXP,     TICK_PASSIVE_XP_MS,   { skipWhenHidden: true  });
