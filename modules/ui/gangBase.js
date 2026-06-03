@@ -619,7 +619,7 @@ function renderGangBaseWindow() {
           <div class="base-module-head">
             <span>Boosts</span>
             <div class="base-boost-tabs">
-              ${[1,5,10].map(n => `<button data-boost-mult="${n}" class="${_boostMult === n ? 'active' : ''}">×${n}</button>`).join('')}
+              ${[1,5,10,100].map(n => `<button data-boost-mult="${n}" class="${_boostMult === n ? 'active' : ''}">×${n}</button>`).join('')}
             </div>
           </div>
           <div class="base-inv-row">${boostsHtml}</div>
@@ -948,7 +948,7 @@ function renderGangBaseWindowV2() {
             <div class="gb2-inv-block-head">
               <span class="gb2-inv-section-label">Boosts</span>
               <div class="gb2-boost-tabs">
-                ${[1,5,10].map(n => `<button class="gb2-boost-tab${_boostMult===n?' active':''}" data-boost-mult="${n}">×${n}</button>`).join('')}
+                ${[1,5,10,100].map(n => `<button class="gb2-boost-tab${_boostMult===n?' active':''}" data-boost-mult="${n}">×${n}</button>`).join('')}
               </div>
             </div>
             <div class="gb2-inv-row">${boostsHtml}</div>

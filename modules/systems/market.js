@@ -316,6 +316,45 @@ function buyItem(itemDef) {
   return true;
 }
 
+// ── Achat groupé (×N) — consommables empilables uniquement ──────────────────────
+// Évite le spam de notifications/sauvegardes du buyItem unitaire en boucle.
+// Les objets non-empilables (one-off, déblocages, skins, permis ailes) retombent
+// sur l'achat unitaire. L'achat est plafonné au budget disponible.
+function buyItemBulk(itemDef, count = 1) {
+  const state = globalThis.state;
+  const SINGLE_ONLY = new Set([
+    'mysteryegg', 'incubator', 'translator', 'autoSellAgent',
+    'map_pallet', 'casino_ticket', 'silph_keycard', 'boat_ticket',
+    'tourbillon_permit', 'carillon_permit', 'silver_permit',
+    'rocket_hq_keycard', 'rocket_uniform',
+  ]);
+  if (count <= 1 || SINGLE_ONLY.has(itemDef.id) || itemDef.ballSkin || itemDef.wingCost) {
+    return buyItem(itemDef);
+  }
+  const unit = itemDef.cost;
+  if (!unit || unit <= 0) return buyItem(itemDef);
+
+  const affordable = Math.min(count, Math.floor((state.gang.money || 0) / unit));
+  if (affordable <= 0) {
+    _notify(globalThis.t('not_enough'));
+    globalThis.SFX.play('error');
+    return false;
+  }
+  state.gang.money -= unit * affordable;
+  state.stats.totalMoneySpent += unit * affordable;
+  if (!state.behaviourLogs) state.behaviourLogs = {};
+  if (!state.behaviourLogs.firstPurchaseAt) state.behaviourLogs.firstPurchaseAt = Date.now();
+  state.inventory[itemDef.id] = (state.inventory[itemDef.id] || 0) + itemDef.qty * affordable;
+  const name = state.lang === 'fr'
+    ? (itemDef.fr || globalThis.BALLS[itemDef.id]?.fr || itemDef.id)
+    : (itemDef.en || globalThis.BALLS[itemDef.id]?.en || itemDef.id);
+  _notify(`${itemDef.qty * affordable}× ${name} → sac`, 'success');
+  globalThis.SFX.play('buy');
+  globalThis.playSE?.('buy', 0.5);
+  _save();
+  return true;
+}
+
 Object.assign(globalThis, {
   calculatePrice,
   getMarketSaturation,
@@ -324,5 +363,6 @@ Object.assign(globalThis, {
   sellPokemon,
   BOOST_ITEMS,
   buyItem,
+  buyItemBulk,
 });
 export {};
