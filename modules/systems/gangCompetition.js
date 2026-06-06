@@ -470,6 +470,13 @@ export async function executeRaid(defData, agentIds = null) {
   const session = getSupaSession();
   if (!db || !session) { notify('Connexion requise pour raider.', 'error'); return null; }
 
+  // Garde anti self-raid : impossible de se raider soi-même pour minter de l'or.
+  // (loadGangList exclut déjà soi-même côté UI, ceci est le filet défensif.)
+  if (defData?.user_id && defData.user_id === session.user.id) {
+    notify('Impossible de raider son propre gang.', 'error');
+    return null;
+  }
+
   const state = getState();
   const comp  = state.gang.competition;
 
