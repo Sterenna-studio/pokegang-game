@@ -43,11 +43,23 @@ Supabase recommends enabling Row Level Security on tables exposed through the Da
 Access model:
 
 - `pokegang_saves`, `pokegang_save_snapshots`, `pokegang_players`: authenticated users can only read/write their own rows.
-- `pokegang_leaderboard`: public read and public write are enabled because the current game supports anonymous pokegang_leaderboard rows using a local browser token.
+- `pokegang_leaderboard`: public read only. Direct browser writes are revoked — all writes go through the `pokegang-leaderboard-submit` Edge Function (service role), which validates, sanitizes (anti-XSS) and clamps the payload. Anonymous players are still supported via a local browser token; the function links `user_id` only when a valid access token is supplied.
 - `pokegang_gang_defenses`: public read, authenticated pokegang_players write only their own published defense. The `defense_agent` column stores a JSON array of up to 3 defender agents; legacy rows can still contain a single object and are handled by the app.
 - `pokegang_gang_raids`: authenticated attackers can insert raids; attackers and defenders can read their raids; defenders can only update `seen_by_defender` to acknowledge raids. PvP raids do not transfer reputation anymore, only money rewards and penalties are recorded.
 
-Important tradeoff: the current anonymous pokegang_leaderboard is not anti-cheat. A browser client can write pokegang_leaderboard rows. If this needs to be hardened, move pokegang_leaderboard writes to a Supabase Edge Function or server endpoint and keep only reads public.
+Scope note: the leaderboard write path now goes through an Edge Function that
+sanitizes names (kills stored XSS) and clamps numeric fields, and revokes direct
+browser writes. This stops injection and blatant garbage, and prevents overwriting
+another authenticated player's row. It is NOT full score anti-cheat: the game is
+100% client-side, so a determined client can still report inflated-but-well-formed
+stats. True score verification would require moving game logic server-side.
+
+Rollout order (important): deploy the Edge Function FIRST, then run the schema SQL
+(which revokes direct writes). Reversing the order makes leaderboard writes fail
+silently until the function is live.
+
+  supabase functions deploy pokegang-leaderboard-submit
+  # then re-run docs/supabase-schema.sql in the SQL editor
 
 ## 4. Auth settings
 

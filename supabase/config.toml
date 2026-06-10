@@ -1,10 +1,17 @@
 # Supabase project config — PokéGang
 # https://supabase.com/docs/guides/cli/config
 #
-# Deploy la Edge Function :
+# Deploy les Edge Functions :
 #   supabase login
 #   supabase link --project-ref YOUR_PROJECT_REF
 #   supabase functions deploy pokegang-api
+#   supabase functions deploy pokegang-leaderboard-submit
+#
+# ⚠ Ordre de rollout pour le durcissement leaderboard :
+#   1) déployer pokegang-leaderboard-submit
+#   2) PUIS rejouer docs/supabase-schema.sql (qui révoque l'écriture directe)
+#   Inverser l'ordre = les écritures leaderboard échouent (silencieusement) le
+#   temps que la fonction soit en ligne.
 
 [api]
 enabled = true
@@ -43,4 +50,11 @@ enable_confirmations = false
 
 [functions.pokegang-api]
 # Accès public — pas besoin de JWT
+verify_jwt = false
+
+[functions.pokegang-leaderboard-submit]
+# Les joueurs anonymes (sans compte) doivent pouvoir soumettre leur score :
+# on n'exige donc pas de JWT au niveau de la plateforme. La fonction vérifie
+# elle-même l'access token quand il est présent (pour lier user_id), et assainit
+# tout le payload côté serveur. L'écriture directe sur la table est révoquée (RLS).
 verify_jwt = false
