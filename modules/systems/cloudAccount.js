@@ -701,31 +701,43 @@ async function supaUpdateLeaderboardAnon() {
 
   const monthly = _getMonthlyDeltas();
 
+  // L'écriture directe sur pokegang_leaderboard est révoquée côté anon/authenticated
+  // (RLS) : on passe par l'Edge Function pokegang-leaderboard-submit, qui valide,
+  // assainit (anti-XSS) et écrit via service role. user_id / is_anonymous /
+  // updated_at sont dérivés serveur — inutile de les envoyer.
+  const { url, anonKey } = getSupabaseConfig();
+  const accessToken = supaSession?.access_token || anonKey;
+
   try {
-    await _supabase.from('pokegang_leaderboard').upsert({
-      token:               getLeaderboardToken(),
-      user_id:             supaSession?.user?.id ?? null,
-      gang_name:           state.gang.name        || 'Team ???',
-      boss_name:           state.gang.bossName    || 'Boss',
-      boss_sprite:         state.gang.bossSprite  || null,
-      reputation:          state.gang.reputation  || 0,
-      total_caught:        state.stats?.totalCaught        || 0,
-      shiny_count:         state.stats?.shinyCaught        || 0,
-      shiny_species_count: getShinySpeciesCount(),
-      dex_kanto_count:     getDexKantoCaught(),
-      dex_national_count:  getDexNationalCaught(),
-      total_sold:          state.stats?.totalSold          || 0,
-      total_money_earned:  state.stats?.totalMoneyEarned   || 0,
-      agents_count:        (state.agents || []).length,
-      is_anonymous:        !supaSession,
-      updated_at:          new Date().toISOString(),
-      // monthly deltas
-      month_key:             monthly.month_key,
-      rep_monthly:           monthly.rep_monthly,
-      caught_monthly:        monthly.caught_monthly,
-      shiny_monthly:         monthly.shiny_monthly,
-      shiny_species_monthly: monthly.shiny_species_monthly,
-    }, { onConflict: 'token' });
+    await _supaFetch(`${url}/functions/v1/pokegang-leaderboard-submit`, {
+      method: 'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'apikey':        anonKey,
+        'Authorization': `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        token:               getLeaderboardToken(),
+        gang_name:           state.gang.name        || 'Team ???',
+        boss_name:           state.gang.bossName    || 'Boss',
+        boss_sprite:         state.gang.bossSprite  || null,
+        reputation:          state.gang.reputation  || 0,
+        total_caught:        state.stats?.totalCaught        || 0,
+        shiny_count:         state.stats?.shinyCaught        || 0,
+        shiny_species_count: getShinySpeciesCount(),
+        dex_kanto_count:     getDexKantoCaught(),
+        dex_national_count:  getDexNationalCaught(),
+        total_sold:          state.stats?.totalSold          || 0,
+        total_money_earned:  state.stats?.totalMoneyEarned   || 0,
+        agents_count:        (state.agents || []).length,
+        // monthly deltas
+        month_key:             monthly.month_key,
+        rep_monthly:           monthly.rep_monthly,
+        caught_monthly:        monthly.caught_monthly,
+        shiny_monthly:         monthly.shiny_monthly,
+        shiny_species_monthly: monthly.shiny_species_monthly,
+      }),
+    });
     await supaUpdateLeaderboard();
   } catch { /* silencieux */ }
 }

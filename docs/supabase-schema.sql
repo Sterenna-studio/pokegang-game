@@ -174,9 +174,12 @@ create policy "players_delete_own"
   using ((select auth.uid()) = user_id);
 
 -- ============================================================================
--- Public pokegang_leaderboard. This intentionally allows anonymous browser writes because
--- the current game supports pokegang_leaderboard rows without an authenticated account.
--- For an anti-cheat pokegang_leaderboard, replace these writes with an Edge Function.
+-- Public pokegang_leaderboard.
+-- Lecture publique (anon + authenticated). ÉCRITURE révoquée côté navigateur :
+-- toutes les écritures passent désormais par l'Edge Function
+-- pokegang-leaderboard-submit (service role), qui valide, assainit (anti-XSS) et
+-- borne les valeurs. Voir la section « durcissement » plus bas et
+-- supabase/functions/pokegang-leaderboard-submit/index.ts.
 -- ============================================================================
 
 create table if not exists public.pokegang_leaderboard (
@@ -235,16 +238,14 @@ create policy "leaderboard_read_public"
   to anon, authenticated
   using (true);
 
-create policy "leaderboard_insert_public"
-  on public.pokegang_leaderboard for insert
-  to anon, authenticated
-  with check (true);
-
-create policy "leaderboard_update_public"
-  on public.pokegang_leaderboard for update
-  to anon, authenticated
-  using (true)
-  with check (true);
+-- Durcissement (anti-XSS / anti-pollution) : plus AUCUNE policy d'écriture pour
+-- anon/authenticated. Les anciennes policies ouvertes sont droppées ci-dessus et
+-- NE sont PAS recréées. Toutes les écritures passent par l'Edge Function
+-- pokegang-leaderboard-submit, qui utilise la clé de service role (bypass RLS) et
+-- valide/assainit le payload. Pour réappliquer sur une base existante, il suffit
+-- de rejouer ce fichier : les `drop policy if exists` ci-dessus suffisent à
+-- retirer les écritures publiques héritées.
+revoke insert, update, delete on public.pokegang_leaderboard from anon, authenticated;
 
 create index if not exists leaderboard_reputation_idx on public.pokegang_leaderboard(reputation desc);
 create index if not exists leaderboard_month_rep_idx on public.pokegang_leaderboard(month_key, rep_monthly desc);
