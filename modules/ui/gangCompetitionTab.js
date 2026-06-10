@@ -457,7 +457,7 @@ async function _loadAndRenderGangs(panelEl) {
     const preview = getRaidPreview(g);
     const miniPokemons = defensePokemons.length
       ? defensePokemons.slice(0, PVP_BOSS_TEAM_SLOTS).map(p =>
-      `<img src="${pokeSprite(p.species_en, p.shiny)}" style="width:24px;height:24px;image-rendering:pixelated" title="${p.species_en} Lv.${p.level}">`
+      `<img src="${_esc(pokeSprite(p.species_en, p.shiny))}" style="width:24px;height:24px;image-rendering:pixelated" title="${_esc(p.species_en)} Lv.${_esc(p.level)}">`
       ).join('')
       : `<span style="font-size:8px;color:${noDefense ? 'var(--red)' : 'var(--text-dim)'}">${noDefense ? 'Sans défense' : 'Aucune équipe'}</span>`;
 
@@ -468,7 +468,7 @@ async function _loadAndRenderGangs(panelEl) {
       : '';
 
     const zoneInfo = g.defense_zone
-      ? `<span style="font-size:8px;color:var(--text-dim)">🗺 ${g.defense_zone}</span>`
+      ? `<span style="font-size:8px;color:var(--text-dim)">🗺 ${_esc(g.defense_zone)}</span>`
       : '';
 
     const noDefenseInfo = defaultDefense
@@ -486,7 +486,7 @@ async function _loadAndRenderGangs(panelEl) {
 
     return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
       ${g.boss_sprite
-        ? `<img src="https://play.pokemonshowdown.com/sprites/gen5/${g.boss_sprite}.png" style="width:40px;height:40px;image-rendering:pixelated;flex-shrink:0" onerror="this.style.display='none'">`
+        ? `<img src="https://play.pokemonshowdown.com/sprites/gen5/${_esc(g.boss_sprite)}.png" style="width:40px;height:40px;image-rendering:pixelated;flex-shrink:0" onerror="this.style.display='none'">`
         : `<div style="width:40px;height:40px;background:var(--bg);border-radius:4px;flex-shrink:0"></div>`}
       <div style="flex:1;min-width:0">
         <div style="font-family:var(--font-pixel);font-size:9px;margin-bottom:2px">${_esc(g.gang_name)}</div>
@@ -560,7 +560,7 @@ function _openAttackPrepModal(defData, panelEl) {
     const matchupColor = preview.defenderPower <= 0 || ratio >= 1.15 ? 'var(--green)' : ratio >= 0.85 ? 'var(--gold)' : 'var(--red)';
     const goldCap = preview.goldOnWin >= RAID_GOLD_MAX ? ' · plafond' : '';
     const defBossEl = defData.boss_sprite
-      ? `<img src="https://play.pokemonshowdown.com/sprites/gen5/${defData.boss_sprite}.png" style="width:40px;height:40px;image-rendering:pixelated" onerror="this.style.display='none'">`
+      ? `<img src="https://play.pokemonshowdown.com/sprites/gen5/${_esc(defData.boss_sprite)}.png" style="width:40px;height:40px;image-rendering:pixelated" onerror="this.style.display='none'">`
       : `<div style="width:40px;height:40px;background:var(--bg);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:20px">👤</div>`;
 
     const agentRows = agents.map(a => {
@@ -743,14 +743,14 @@ function _openRaidCinematic(defData, agentIds, result, onDone) {
       <div style="display:flex;gap:14px;align-items:flex-start">
         <div style="flex-shrink:0;text-align:center">
           ${defBossSprite
-            ? `<img src="https://play.pokemonshowdown.com/sprites/gen5/${defBossSprite}.png" style="width:72px;height:72px;image-rendering:pixelated" onerror="this.style.display='none'">`
+            ? `<img src="https://play.pokemonshowdown.com/sprites/gen5/${_esc(defBossSprite)}.png" style="width:72px;height:72px;image-rendering:pixelated" onerror="this.style.display='none'">`
             : `<div style="width:72px;height:72px;background:var(--bg-panel);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:26px">👤</div>`}
-          <div style="font-size:7px;color:var(--text-dim);margin-top:3px;font-family:var(--font-pixel)">${defBossName}</div>
+          <div style="font-size:7px;color:var(--text-dim);margin-top:3px;font-family:var(--font-pixel)">${_esc(defBossName)}</div>
         </div>
         <div style="flex:1;background:#0d1119;border:2px solid var(--red);border-radius:8px;border-top-left-radius:2px;padding:12px;position:relative">
           <div style="position:absolute;left:-10px;top:16px;width:0;height:0;border-top:7px solid transparent;border-bottom:7px solid transparent;border-right:10px solid var(--red)"></div>
-          <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold);margin-bottom:3px">${defBossName}</div>
-          <div style="font-size:8px;color:var(--text-dim);margin-bottom:8px">${defBossTitle} · Chef de ${defGangName}</div>
+          <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold);margin-bottom:3px">${_esc(defBossName)}</div>
+          <div style="font-size:8px;color:var(--text-dim);margin-bottom:8px">${_esc(defBossTitle)} · Chef de ${_esc(defGangName)}</div>
           <div style="font-size:9px;color:var(--text);font-style:italic">"${taunt}"</div>
         </div>
       </div>
@@ -785,14 +785,14 @@ function _openRaidCinematic(defData, agentIds, result, onDone) {
           <div style="display:flex;gap:3px;flex-wrap:wrap;justify-content:center;max-width:150px">
             ${defPokemons.length > 0
               ? defPokemons.slice(0, PVP_BOSS_TEAM_SLOTS).map(p =>
-                  `<img src="${pokeSprite(p.species_en, p.shiny)}" style="width:30px;height:30px;image-rendering:pixelated" title="${p.species_en}">`
+                  `<img src="${_esc(pokeSprite(p.species_en, p.shiny))}" style="width:30px;height:30px;image-rendering:pixelated" title="${_esc(p.species_en)}">`
                 ).join('')
               : `<span style="font-size:8px;color:var(--red)">${defAgents.length ? 'Boss sans équipe' : 'Base vide'}</span>`}
             ${defAgents.map(a =>
-              `<img src="https://play.pokemonshowdown.com/sprites/gen5/${a.sprite ?? ''}.png" style="width:30px;height:30px;image-rendering:pixelated" onerror="this.style.display='none'" title="${_esc(a.name)}">`
+              `<img src="https://play.pokemonshowdown.com/sprites/gen5/${_esc(a.sprite ?? '')}.png" style="width:30px;height:30px;image-rendering:pixelated" onerror="this.style.display='none'" title="${_esc(a.name)}">`
             ).join('')}
           </div>
-          <div style="font-size:7px;color:var(--text-dim)">${defGangName}</div>
+          <div style="font-size:7px;color:var(--text-dim)">${_esc(defGangName)}</div>
         </div>
       </div>
 
