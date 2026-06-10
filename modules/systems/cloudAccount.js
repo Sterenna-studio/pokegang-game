@@ -927,7 +927,7 @@ async function _loadLeaderboardTable() {
         const _s   = (n) => (n > 0 ? '+' : '') + n.toLocaleString('fr-FR');
         const repColor = repM < 0 ? 'var(--red)' : 'var(--text-dim)';
         myEntryEl.innerHTML = `
-          <span style="color:var(--gold);font-family:var(--font-pixel);font-size:9px">${myRow.gang_name}</span>
+          <span style="color:var(--gold);font-family:var(--font-pixel);font-size:9px">${_esc(myRow.gang_name)}</span>
           <span style="margin-left:12px">Rang <b style="color:var(--gold)">${myRank}</b></span>
           <span style="margin-left:12px;color:${repColor}">⭐ ${_s(repM)} rép.</span>
           <span style="margin-left:12px;color:var(--text-dim)">🎯 ${_s(capM)}</span>
@@ -935,7 +935,7 @@ async function _loadLeaderboardTable() {
           <span style="margin-left:auto;font-size:8px;opacity:.6">${isSameMonth ? `maj ${updAgo}` : 'pas encore de données ce mois'}</span>`;
       } else {
         myEntryEl.innerHTML = `
-          <span style="color:var(--gold);font-family:var(--font-pixel);font-size:9px">${myRow.gang_name}</span>
+          <span style="color:var(--gold);font-family:var(--font-pixel);font-size:9px">${_esc(myRow.gang_name)}</span>
           <span style="margin-left:12px">Rang <b style="color:var(--gold)">${myRank}</b></span>
           <span style="margin-left:12px;color:var(--text-dim)">⭐ ${(myRow.reputation||0).toLocaleString('fr-FR')}</span>
           <span style="margin-left:12px;color:var(--text-dim)">✨ ${myRow.shiny_species_count||0}</span>
@@ -974,9 +974,9 @@ async function _loadLeaderboardTable() {
         : `<span style="font-family:var(--font-pixel);font-size:9px;color:var(--text-dim)">${i+1}</span>`;
       const nameTag = p.is_anonymous
         ? `<span style="font-size:8px;color:var(--text-dim)">Joueur anonyme <span style="opacity:.5">#${p.token.slice(-5)}</span></span>`
-        : `<span style="font-size:9px">${p.gang_name}</span>`;
+        : `<span style="font-size:9px">${_esc(p.gang_name)}</span>`;
       const sprite = p.boss_sprite
-        ? `<img src="https://play.pokemonshowdown.com/sprites/gen5/${p.boss_sprite}.png" style="width:32px;height:32px;image-rendering:pixelated" onerror="this.style.display='none'">`
+        ? `<img src="https://play.pokemonshowdown.com/sprites/gen5/${_esc(p.boss_sprite)}.png" style="width:32px;height:32px;image-rendering:pixelated" onerror="this.style.display='none'">`
         : `<div style="width:32px;height:32px;background:var(--bg);border-radius:4px"></div>`;
       const val    = p[col] ?? 0;
       const valStr = isMonthly ? _fmt(val) : (typeof val === 'number' ? val.toLocaleString('fr-FR') : String(val ?? 0));
@@ -991,8 +991,8 @@ async function _loadLeaderboardTable() {
         <span style="text-align:center">${medal}</span>
         ${sprite}
         <div style="min-width:0">
-          ${isMe ? `<div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">${p.gang_name} <span style="font-size:7px;opacity:.7">◄ toi</span></div>` : nameTag}
-          <div style="font-size:8px;color:var(--text-dim);margin-top:1px">${p.boss_name || ''}${ago ? ` · ${ago}` : ''}</div>
+          ${isMe ? `<div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">${_esc(p.gang_name)} <span style="font-size:7px;opacity:.7">◄ toi</span></div>` : nameTag}
+          <div style="font-size:8px;color:var(--text-dim);margin-top:1px">${_esc(p.boss_name || '')}${ago ? ` · ${ago}` : ''}</div>
         </div>
         <div style="text-align:right;flex-shrink:0">
           <div style="font-family:var(--font-pixel);font-size:9px;color:${valColor}">${valStr}</div>
@@ -1210,7 +1210,7 @@ async function renderCompteTab() {
         const label   = ts.toLocaleString('fr-FR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
         return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border)">
           <div style="flex:1;min-width:0">
-            <div style="font-size:9px;color:var(--text)">${s.gang_name}</div>
+            <div style="font-size:9px;color:var(--text)">${_esc(s.gang_name)}</div>
             <div style="font-size:8px;color:var(--text-dim)">⭐ ${(s.rep||0).toLocaleString('fr-FR')} rép · ${label} <span style="opacity:.6">(${ago})</span></div>
           </div>
           <button data-snapshot-id="${s.id}" style="flex-shrink:0;font-family:var(--font-pixel);font-size:7px;padding:4px 8px;background:var(--bg);border:1px solid var(--blue);border-radius:var(--radius-sm);color:var(--blue);cursor:pointer;white-space:nowrap">⏪ Restaurer</button>
