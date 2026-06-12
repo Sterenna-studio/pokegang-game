@@ -222,7 +222,9 @@ function showPokemonLevelPopup(pokemon, newLevel) {
   });
 }
 
-function levelUpPokemon(pokemon, xpGain) {
+// opts.autoPick : propagé à tryAutoEvolution pour résoudre les évolutions
+// multi-branches sans popup (level-ups non supervisés : rattrapage hors-ligne).
+function levelUpPokemon(pokemon, xpGain, opts = {}) {
   const state = globalThis.state;
   pokemon.xp += xpGain;
   const xpNeeded = pokemon.level * 20;
@@ -237,7 +239,7 @@ function levelUpPokemon(pokemon, xpGain) {
   }
   if (leveled) {
     pokemon.stats = calculateStats(pokemon);
-    tryAutoEvolution(pokemon);
+    tryAutoEvolution(pokemon, opts);
     const isBossTeam   = state.gang.bossTeam.includes(pokemon.id);
     const isInTraining = state.trainingRoom?.pokemon?.includes(pokemon.id);
     if (isBossTeam || isInTraining) {
