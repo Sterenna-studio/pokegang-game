@@ -97,7 +97,8 @@ function _catchupPassiveXP(elapsedMs) {
 
   for (const id of teamIds) {
     const p = state.pokemons?.find(pk => pk.id === id);
-    if (p && globalThis.levelUpPokemon) globalThis.levelUpPokemon(p, totalXP);
+    // autoPick : level-ups hors-ligne non supervisés → évolutions sans popup au boot.
+    if (p && globalThis.levelUpPokemon) globalThis.levelUpPokemon(p, totalXP, { autoPick: true });
   }
   return ticksOf30s;
 }
@@ -123,11 +124,12 @@ function _catchupTraining(elapsedMs) {
   const winXP  = Math.round(25 * mult * 1.25 * ticks);
   const loseXP = Math.round(10 * mult * ticks);
 
-  // Distribuer l'XP agrégée à tous les fighters (offline = pas de distinction W/L)
+  // Distribuer l'XP agrégée à tous les fighters (offline = pas de distinction W/L).
+  // autoPick : rattrapage non supervisé → résoudre les évolutions sans popup au boot.
+  // (levelUpPokemon gère déjà l'évolution en interne — pas de second appel redondant.)
   const avgXP = Math.round((winXP + loseXP) / 2);
   for (const p of fighters) {
-    globalThis.levelUpPokemon?.(p, avgXP);
-    globalThis.tryAutoEvolution?.(p);
+    globalThis.levelUpPokemon?.(p, avgXP, { autoPick: true });
   }
 
   return ticks;
