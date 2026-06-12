@@ -30,6 +30,24 @@ function err(message: string, status = 400) {
   return json({ ok: false, error: message }, status);
 }
 
+// Assainissement défensif : les noms de gang/boss (et tout champ texte renvoyé)
+// proviennent d'une saisie joueur stockée sans nettoyage dans pokegang_players.
+// On retire les caractères de contrôle et les chevrons < > pour qu'AUCUN
+// consommateur de l'API (site tiers, widget) ne puisse recevoir d'injection de
+// balise — même s'il rend la réponse via innerHTML sans échapper.
+const STRIP_RE = new RegExp('[\\u0000-\\u001f<>]', 'g');
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function sanitizeDeep(v: any): any {
+  if (typeof v === 'string') return v.replace(STRIP_RE, '');
+  if (Array.isArray(v))      return v.map(sanitizeDeep);
+  if (v && typeof v === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const k of Object.keys(v)) out[k] = sanitizeDeep(v[k]);
+    return out;
+  }
+  return v;
+}
+
 // ── Build standardised gang profile from a DB row ────────────────────────────
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function buildProfile(row: Record<string, any>) {
@@ -40,7 +58,7 @@ function buildProfile(row: Record<string, any>) {
 
   return {
     ok: true,
-    data: {
+    data: sanitizeDeep({
       profile: {
         token:       row.profile_token  ?? null,
         gang_name:   row.gang_name      ?? 'Team ???',
@@ -69,7 +87,7 @@ function buildProfile(row: Record<string, any>) {
       showcase:  showcase.slice(0, 6),
       boss_team: bossTeam.slice(0, 6),
       badges,
-    },
+    }),
     _api_version: VERSION,
   };
 }
@@ -136,7 +154,7 @@ async function handleLeaderboard(url: URL, supabase: ReturnType<typeof createCli
 
   return json({
     ok: true,
-    data: {
+    data: sanitizeDeep({
       sort,
       limit,
       count: data?.length ?? 0,
@@ -152,7 +170,7 @@ async function handleLeaderboard(url: URL, supabase: ReturnType<typeof createCli
         dex_national: row.dex_national_count,
         updated_at:   row.updated_at,
       })),
-    },
+    }),
     _api_version: VERSION,
   });
 }
