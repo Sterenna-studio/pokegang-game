@@ -116,7 +116,7 @@ function updateTopBar() { return callContext('updateTopBar'); }
 function t(...args) { return callContext('t', ...args) ?? args[0]; }
 function calculateStats(pokemon) { return callContext('calculateStats', pokemon) ?? pokemon.stats ?? {}; }
 function evolvePokemon(pokemon, targetEN) { return callContext('evolvePokemon', pokemon, targetEN); }
-function tryAutoEvolution(pokemon) { return callContext('tryAutoEvolution', pokemon); }
+function tryAutoEvolution(pokemon, opts) { return callContext('tryAutoEvolution', pokemon, opts); }
 function rollMoves(speciesEN) { return callContext('rollMoves', speciesEN) ?? []; }
 function getPokemonPower(pokemon) { return callContext('getPokemonPower', pokemon) ?? 0; }
 function getBaseSpecies(en) { return callContext('getBaseSpecies', en) ?? en; }
@@ -2118,10 +2118,12 @@ function renderPokemonDetail() {
       if (levels === 0) return;
       if ((state.gang.money || 0) < cost) { notify('Pokédollars insuffisants.', 'error'); return; }
       const fromLevel = p.level;
-      // Monte niveau par niveau pour gérer correctement les évolutions par palier
+      // Monte niveau par niveau pour gérer correctement les évolutions par palier.
+      // autoPick : résout les évolutions multi-branches sans popup (sinon un modal
+      // par palier s'empilerait et le niveau grimperait sans attendre le choix).
       for (let i = 0; i < levels && p.level < 100; i++) {
         p.level++;
-        tryAutoEvolution(p);
+        tryAutoEvolution(p, { autoPick: true });
       }
       p.xp = 0;
       p.stats = calculateStats(p);

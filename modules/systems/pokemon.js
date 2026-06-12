@@ -190,13 +190,17 @@ function evolvePokemon(pokemon, targetEN) {
   return true;
 }
 
-function tryAutoEvolution(pokemon) {
+// opts.autoPick : résout les évolutions multi-branches automatiquement (choix
+// aléatoire) au lieu d'ouvrir le popup. Indispensable pour les opérations en masse
+// (achat de plusieurs niveaux d'un coup), où un popup par palier empilerait des
+// modales et laisserait le niveau grimper sans attendre le choix → évolution ratée.
+function tryAutoEvolution(pokemon, opts = {}) {
   const evos = EVO_BY_SPECIES[pokemon.species_en];
   if (!evos) return false;
   const valid = evos.filter(e => e.req !== 'item' && typeof e.req === 'number' && pokemon.level >= e.req);
   if (valid.length === 0) return false;
 
-  if (valid.length === 1 || globalThis.state?.settings?.autoEvoChoice) {
+  if (valid.length === 1 || opts.autoPick || globalThis.state?.settings?.autoEvoChoice) {
     evolvePokemon(pokemon, valid[Math.floor(Math.random() * valid.length)].to);
     return true;
   }
