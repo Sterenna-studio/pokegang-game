@@ -381,7 +381,7 @@ async function _renderPendingRaidsPanel(el) {
       return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
         <span style="font-size:16px">${won ? '🛡' : '💀'}</span>
         <div style="flex:1;min-width:0">
-          <div style="font-size:9px">${won ? 'Défense réussie' : 'Défense échouée'} vs <b>${r.attacker_gang ?? '?'}</b></div>
+          <div style="font-size:9px">${won ? 'Défense réussie' : 'Défense échouée'} vs <b>${_esc(r.attacker_gang ?? '?')}</b></div>
           <div style="font-size:8px;color:var(--text-dim)">${ts}</div>
         </div>
         <div style="text-align:right;font-family:var(--font-pixel);font-size:9px">${delta}</div>
