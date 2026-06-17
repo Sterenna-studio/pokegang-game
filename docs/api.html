@@ -1043,6 +1043,11 @@ lb = requests.<span class="t-fn">get</span>(
   <span class="t-kw">const</span> <span class="t-var">BASE</span>     = <span class="t-str">'https://{project}.supabase.co/functions/v1/pokegang-api'</span>;
   <span class="t-kw">const</span> <span class="t-var">SHOWDOWN</span> = <span class="t-str">'https://play.pokemonshowdown.com/sprites'</span>;
 
+  <span class="t-cmt">// esc() échappe le HTML — appliquez-le à TOUTE donnée distante avant de l'insérer dans le DOM</span>
+  <span class="t-kw">const</span> <span class="t-var">esc</span> = (<span class="t-var">v</span>) => <span class="t-fn">String</span>(<span class="t-var">v</span> ?? <span class="t-str">''</span>).<span class="t-fn">replace</span>(<span class="t-str">/[&amp;&lt;&gt;"']/g</span>, <span class="t-var">c</span> => (({
+    <span class="t-str">'&amp;'</span>: <span class="t-str">'&amp;amp;'</span>, <span class="t-str">'&lt;'</span>: <span class="t-str">'&amp;lt;'</span>, <span class="t-str">'&gt;'</span>: <span class="t-str">'&amp;gt;'</span>, <span class="t-str">'"'</span>: <span class="t-str">'&amp;quot;'</span>, <span class="t-str">"'"</span>: <span class="t-str">'&amp;#39;'</span>
+  })[<span class="t-var">c</span>]));
+
   <span class="t-kw">const</span> { <span class="t-var">data</span> } = <span class="t-kw">await</span> (<span class="t-kw">await</span> <span class="t-fn">fetch</span>(<span class="t-str">`<span class="t-var">${BASE}</span>/gang?token=<span class="t-var">${TOKEN}</span>`</span>)).<span class="t-fn">json</span>();
   <span class="t-kw">const</span> { <span class="t-var">profile</span>, <span class="t-var">stats</span>, <span class="t-var">showcase</span> } = <span class="t-var">data</span>;
 
@@ -1051,17 +1056,17 @@ lb = requests.<span class="t-fn">get</span>(
       border:1px solid #2a2a2a;border-left:3px solid #cc3333;
       border-radius:6px;padding:16px 20px;max-width:360px"&gt;
       &lt;div style="display:flex;align-items:center;gap:12px;margin-bottom:12px"&gt;
-        &lt;img src="<span class="t-var">${SHOWDOWN}</span>/trainers/<span class="t-var">${profile.boss_sprite || 'acetrainer'}</span>.png"
+        &lt;img src="<span class="t-var">${SHOWDOWN}</span>/trainers/<span class="t-var">${esc(profile.boss_sprite || 'acetrainer')}</span>.png"
           style="width:52px;height:52px;image-rendering:pixelated"&gt;
         &lt;div&gt;
-          &lt;div style="font-size:14px;color:#cc3333;font-weight:700"&gt;<span class="t-var">${profile.gang_name}</span>&lt;/div&gt;
-          &lt;div style="font-size:11px;color:#aaa"&gt;Boss : <span class="t-var">${profile.boss_name}</span>&lt;/div&gt;
+          &lt;div style="font-size:14px;color:#cc3333;font-weight:700"&gt;<span class="t-var">${esc(profile.gang_name)}</span>&lt;/div&gt;
+          &lt;div style="font-size:11px;color:#aaa"&gt;Boss : <span class="t-var">${esc(profile.boss_name)}</span>&lt;/div&gt;
           &lt;div style="font-size:10px;color:#ffcc5a"&gt;⭐ <span class="t-var">${profile.reputation.toLocaleString()}</span> rép.&lt;/div&gt;
         &lt;/div&gt;
       &lt;/div&gt;
       &lt;div style="display:flex;gap:6px;flex-wrap:wrap"&gt;
         <span class="t-var">${showcase.filter(s => !s.empty).map(s =>
-          `&lt;img src="${s.sprite}" title="${s.species_fr} Lv.${s.level}"
+          `&lt;img src="${esc(s.sprite)}" title="${esc(s.species_fr)} Lv.${esc(s.level)}"
             style="width:36px;height:36px;image-rendering:pixelated"&gt;`
         ).join('')}</span>
       &lt;/div&gt;
@@ -1071,6 +1076,11 @@ lb = requests.<span class="t-fn">get</span>(
     &lt;/div&gt;`</span>;
 })();
 &lt;/<span class="t-kw">script</span>&gt;</div>
+      </div>
+
+      <div class="note">
+        <span class="note-icon">🔒</span>
+        <span><strong>Sécurité :</strong> <code>gang_name</code>, <code>boss_name</code>, <code>species_fr</code> et <code>title</code> sont des saisies joueur. Ne les injectez jamais bruts dans <code>innerHTML</code> — passez-les par <code>esc()</code> (ci-dessus), ou construisez les nœuds avec <code>document.createElement()</code> + <code>textContent</code>. Sinon vous exposez vos visiteurs à du XSS stocké si un champ contient du HTML.</span>
       </div>
 
       <div class="note">
