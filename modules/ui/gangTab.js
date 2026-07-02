@@ -1091,6 +1091,27 @@ function _doRenderGangTab() {
   }
 }
 
+// ── Refresh automatique via EventBus ──────────────────────────────────────────
+// Filet de sécurité : ces événements changent des données affichées dans le tab
+// (argent, rep, stats de captures/ventes/combats) et doivent le rafraîchir
+// quel que soit l'endroit du code qui les déclenche — plutôt que de compter sur
+// un appel manuel `if (activeTab === 'tabGang') renderGangTab()` ajouté à la main
+// à chaque nouveau point d'entrée (source d'oublis constatée dans agent.js,
+// zoneWindows.js, etc.). Les cas plus spécifiques (loot de coffre, promotion
+// d'agent, déblocage de titre) restent gérés par leurs appels directs existants.
+let _gangTabEventsRegistered = false;
+function _registerGangTabEvents() {
+  if (_gangTabEventsRegistered) return;
+  _gangTabEventsRegistered = true;
+  const _refreshIfActive = () => { if (globalThis.activeTab === 'tabGang') renderGangTab(); };
+  EventBus.on(EVENTS.MONEY_CHANGED,    _refreshIfActive);
+  EventBus.on(EVENTS.REP_CHANGED,      _refreshIfActive);
+  EventBus.on(EVENTS.POKEMON_CAPTURED, _refreshIfActive);
+  EventBus.on(EVENTS.POKEMON_SOLD,     _refreshIfActive);
+  EventBus.on(EVENTS.COMBAT_WON,       _refreshIfActive);
+}
+_registerGangTabEvents();
+
 Object.assign(globalThis, {
   _gtab_renderGangTab: renderGangTab,
   lockGangTab,
