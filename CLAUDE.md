@@ -14,6 +14,12 @@ No bundler, no transpiler, no `package.json` at the moment. Any static server is
 
 `index.html` loads an optional local `config.js` for Supabase credentials. The game still boots without that file; the browser may simply report a 404 for it in local dev.
 
+### Cache-busting
+
+Every local `<script src="...">`/`<link href="...">` in `index.html` carries a `?v=<hash>` query string. That hash is a content hash of the referenced file (`sha1`, first 8 hex chars), regenerated automatically by `tools/cache-bust.js` from the `pre-commit` git hook (`.githooks/pre-commit`, enable once via `git config core.hooksPath .githooks`). This means the version tag only ever changes when the file's content actually changes — no more manually incrementing `?v=N` and no risk of forgetting to bump it, which used to allow browsers to serve stale cached assets after a deploy.
+
+To regenerate manually: `node tools/cache-bust.js`. Safe to run anytime; it's a no-op if nothing changed.
+
 ---
 
 ## Architecture overview
