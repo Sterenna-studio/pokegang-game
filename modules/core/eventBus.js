@@ -32,8 +32,6 @@
 export const EVENTS = {
   // State
   STATE_DIRTY:       'state:dirty',       // state muté, autosave requis
-  STATE_SAVED:       'state:saved',       // saveState() terminé
-  STATE_LOADED:      'state:loaded',      // état chargé depuis localStorage
 
   // UI
   UI_NOTIFY:         'ui:notify',         // { msg, type } → notify()
@@ -42,23 +40,10 @@ export const EVENTS = {
 
   // Pokémon
   POKEMON_CAPTURED:  'pokemon:captured',  // { pokemon, zoneId, agentId? }
-  POKEMON_EVOLVED:   'pokemon:evolved',   // { pokemon, fromSpecies }
   POKEMON_SOLD:      'pokemon:sold',      // { pokemonIds, totalPrice }
-  POKEMON_RELEASED:  'pokemon:released',  // { pokemonId }
-  POKEMON_LEVELUP:   'pokemon:levelup',   // { pokemon, oldLevel, newLevel }
-
-  // Zones
-  ZONE_OPENED:       'zone:opened',       // { zoneId }
-  ZONE_CLOSED:       'zone:closed',       // { zoneId }
-
-  // Agents
-  AGENT_ASSIGNED:    'agent:assigned',    // { agentId, zoneId }
-  AGENT_UNASSIGNED:  'agent:unassigned',  // { agentId, zoneId }
-  AGENT_LEVELUP:     'agent:levelup',     // { agent, newLevel }
 
   // Combat
   COMBAT_WON:        'combat:won',        // { zoneId, trainerKey }
-  COMBAT_LOST:       'combat:lost',       // { zoneId }
 
   // Economy
   MONEY_CHANGED:     'economy:money',     // { delta, newTotal }

@@ -64,10 +64,6 @@ import {
   playTone,
 } from './modules/ui/audio.js';
 import {
-  configureBagTab,
-  renderBagTab as renderBagTabImpl,
-} from './modules/ui/bagTab.js';
-import {
   configureModals,
   openHubImportModal as openHubImportModalImpl,
   openImportPreviewModal as openImportPreviewModalImpl,
@@ -1630,15 +1626,6 @@ function _refreshRaidBtn(zoneId)                                   { return glob
 // ════════════════════════════════════════════════════════════════
 
 // ════════════════════════════════════════════════════════════════
-// 18d. UI — BAG TAB
-// ════════════════════════════════════════════════════════════════
-
-
-function renderBagTab() {
-  return renderBagTabImpl();
-}
-
-// ════════════════════════════════════════════════════════════════
 // 19.  UI — INTRO OVERLAY + HUB MODALS  (extracted → modules/ui/hubModals.js)
 // ════════════════════════════════════════════════════════════════
 
@@ -2189,21 +2176,6 @@ configureModals({
   getSlotPreview,
 });
 
-configureBagTab({
-  getState: () => state,
-  getActiveTab: () => activeTab,
-  notify,
-  saveState,
-  updateTopBar,
-  switchTab,
-  showConfirm,
-  isBoostActive: (...args) => globalThis.isBoostActive?.(...args),
-  boostRemaining: (...args) => globalThis.boostRemaining?.(...args),
-  activateBoost: (...args) => globalThis.activateBoost?.(...args),
-  itemSprite: (...args) => globalThis.itemSprite?.(...args),
-  renderPCTab,
-});
-
 configureTabRouter({
   getState: () => state,
   getActiveTab: () => activeTab,
@@ -2291,7 +2263,6 @@ Object.assign(globalThis, {
   // tryAutoEvolution → set by modules/systems/pokemon.js
   pokeSprite,
   // pension module
-  renderBagTab,
   showConfirm, showInfoModal, renderPCTab, switchTab, showContextMenu,
   openPlayerStatModal, resetPcRenderCache,
   getMaxPensionSlots, getPensionSlotIds,

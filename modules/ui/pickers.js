@@ -16,7 +16,7 @@ const _save   = ()               => globalThis.saveState?.();
 //
 // Dépendances globalThis :
 //   state, notify, saveState, pokeSprite, speciesName, getPokemonPower,
-//   trainerSprite, renderPCTab, renderBagTab, calculateStats, tryAutoEvolution,
+//   trainerSprite, renderPCTab, calculateStats, tryAutoEvolution,
 //   updateTopBar, activeTab, removePokemonFromAllAssignments
 
 // ── Sélecteur de Pokémon pour une équipe ────────────────────────────────────

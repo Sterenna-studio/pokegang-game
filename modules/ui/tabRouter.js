@@ -69,8 +69,6 @@ function getTabHint(tabId) {
       if (!hasZone) return `Clique sur <b>Route 1</b> puis sur <b>Ouvrir</b> pour explorer ta première zone.`;
       if (bossTeam === 0) return `Entre dans une zone avec ton boss — assigne d'abord un Pokémon à ton équipe depuis le ${hintLink('PC', 'tabPC')}.`;
       return `Capture des Pokémon, bats des dresseurs. 10 victoires → combats élites. Clique 💰 pour collecter les revenus.`;
-    case 'tabBag':
-      return null;
     case 'tabMarket':
       if (money < 500) return `Tu n'as presque plus d'argent. Bats des dresseurs ou vends des Pokémon en double depuis le ${hintLink('PC', 'tabPC')}.`;
       if (!state.inventory.pokeball) return `Achète des Pokéballs (100₽) dans la boutique pour pouvoir capturer des Pokémon.`;
@@ -165,7 +163,6 @@ function renderActiveTab() {
     case 'tabPC':       renderPCTab(); break;
     case 'tabPokedex':  renderPokedexTab(); break;
     case 'tabAgents':   renderAgentsTab(); break;
-    case 'tabBag':        switchTab('tabMarket'); break;
     case 'tabMissions':    renderMissionsTab(); break;
     case 'tabBattleLog':   renderBattleLogTab(); break;
     case 'tabTraining': setPcView('training'); switchTab('tabPC'); break;

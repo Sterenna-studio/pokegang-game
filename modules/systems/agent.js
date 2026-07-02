@@ -171,14 +171,14 @@ function openAgentRecruitModal(onAfterRecruit) {
 function assignAgentToZone(agentId, zoneId) {
   const state = globalThis.state;
   const agent = state.agents.find(a => a.id === agentId);
-  if (!agent) return;
+  if (!agent) return false;
 
   // ── Hard cap : 1 agent par zone ──────────────────────────────
   if (zoneId) {
     const occupant = state.agents.find(a => a.id !== agentId && a.assignedZone === zoneId);
     if (occupant) {
       _notify(`${occupant.name} est déjà assigné à cette zone.`, 'error');
-      return;
+      return false;
     }
   }
 
@@ -199,6 +199,7 @@ function assignAgentToZone(agentId, zoneId) {
   }
   _save();
   globalThis.syncActiveZones?.();
+  return true;
 }
 
 // ── Auto-sell on agent capture ────────────────────────────────────
