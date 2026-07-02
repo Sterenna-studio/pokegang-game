@@ -1,14 +1,24 @@
 #!/bin/sh
 # ════════════════════════════════════════════════════════════════
-#  pre-commit hook — bump deploy-trigger.txt on every commit
+#  pre-commit hook — cache-bust + bump deploy-trigger.txt
 #
-#  Met à jour deploy-trigger.txt avant chaque commit pour qu'un
-#  marqueur horodaté soit toujours présent dans le commit, et
-#  garantit que le push déclenche le workflow GitHub Actions.
+#  1. Recalcule les `?v=` de index.html à partir d'un hash du contenu
+#     de chaque fichier référencé (tools/cache-bust.js), pour ne
+#     jamais servir un asset périmé après déploiement.
+#  2. Met à jour deploy-trigger.txt avant chaque commit pour qu'un
+#     marqueur horodaté soit toujours présent dans le commit, et
+#     garantit que le push déclenche le workflow GitHub Actions.
 #
 #  Activation (à faire une seule fois sur la machine) :
 #      git config core.hooksPath .githooks
 # ════════════════════════════════════════════════════════════════
+
+if command -v node >/dev/null 2>&1; then
+  node tools/cache-bust.js
+  git add index.html
+else
+  echo "[cache-bust] node introuvable — étape ignorée (voir tools/cache-bust.js)" >&2
+fi
 
 DATE="$(date '+%Y-%m-%d %H:%M:%S %z')"
 BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo '?')"
