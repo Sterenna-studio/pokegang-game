@@ -83,6 +83,7 @@ export function migrateSave(saved, deps) {
   if (merged.cosmetics.fabricMode === undefined)  merged.cosmetics.fabricMode  = 'repeat';
   if (merged.cosmetics.fabricSize === undefined)  merged.cosmetics.fabricSize  = 320;
   if (merged.cosmetics.fabricOpacity === undefined) merged.cosmetics.fabricOpacity = 72;
+  if (merged.cosmetics.bgsSeenCount === undefined)   merged.cosmetics.bgsSeenCount = 0;
   // Strip legacy _emb keys (Embroidered feature removed)
   merged.cosmetics.unlockedBgs = (merged.cosmetics.unlockedBgs || []).filter(k => !k.endsWith('_emb'));
   merged.cosmetics.favoriteBgs = (merged.cosmetics.favoriteBgs || []).filter(k => !k.endsWith('_emb'));

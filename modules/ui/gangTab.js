@@ -57,26 +57,6 @@ function _ensureGangFocusOutHandler(tab) {
 }
 const FABRIC_SHOP_COST = 100_000;
 
-// ── Fabric slider freeze — préserve la scrollbar quand le joueur survole la grille ──
-// Lorsque _fabricFrozen est vrai, renderAppearancePanel détache le slider existant
-// avant de reconstruire le HTML et le réinsère ensuite (scroll intact).
-let _fabricFrozen = false;
-let _fabricFreezeTimer = null;
-function _freezeFabric()  {
-  clearTimeout(_fabricFreezeTimer);
-  _fabricFrozen = true;
-}
-function _thawFabric(delay = 1500) {
-  clearTimeout(_fabricFreezeTimer);
-  _fabricFreezeTimer = setTimeout(() => { _fabricFrozen = false; }, delay);
-}
-function _wireFabricFreeze(sliderEl) {
-  sliderEl.addEventListener('mouseenter', _freezeFabric);
-  sliderEl.addEventListener('mouseleave', () => _thawFabric(1500));
-  sliderEl.addEventListener('touchstart', _freezeFabric, { passive: true });
-  sliderEl.addEventListener('touchend',   () => _thawFabric(3000), { passive: true });
-}
-
 // ── Music panel ───────────────────────────────────────────────────────────────
 function renderMusicPanel(container) {
   const JUKEBOX_TRACKS = [
@@ -201,13 +181,6 @@ function _buildBallSkinsHtml(state) {
 // ── Appearance panel (backgrounds + pins) ────────────────────────────────────
 function renderAppearancePanel(container) {
   // ── Détache le slider si le joueur est dessus (évite le reset de scrollbar) ──
-  const _existingSlider = container.querySelector('#fabricSlider');
-  let   _detachedSlider = null;
-  if (_fabricFrozen && _existingSlider) {
-    _detachedSlider = _existingSlider;
-    _existingSlider.remove();         // retiré du DOM, mais conservé en mémoire
-  }
-
   const state         = globalThis.state;
   const unlocked      = new Set(state.cosmetics?.unlockedBgs || []);
   const active        = state.cosmetics?.gameBg || null;
@@ -350,7 +323,7 @@ function renderAppearancePanel(container) {
         style="font-family:var(--font-pixel);font-size:8px;padding:4px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text-dim);cursor:pointer">⭐ Favoris</button>
     </div>
     <div id="fabricSlider"
-      style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;overflow-y:auto;max-height:380px;padding:4px 2px 10px;scrollbar-width:thin">
+      style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;padding:4px 2px 10px">
       ${fabricUnlocked.length > 0
         ? fabricUnlocked.map(_buildFabricCard).join('')
         : '<div style="font-size:9px;color:var(--text-dim);padding:12px;grid-column:1/-1">Capture des Pokémon pour débloquer des fonds tissu !</div>'}
@@ -363,20 +336,6 @@ function renderAppearancePanel(container) {
     <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">${patchesHtml}</div>
 
     ${_buildBallSkinsHtml(state)}`;
-
-  // ── Réinsère le slider détaché (freeze) ou câble le nouveau ──────────────────
-  {
-    const newSlider = container.querySelector('#fabricSlider');
-    if (_detachedSlider && newSlider) {
-      // Le joueur était dessus : on rebranche le slider existant (scroll préservé)
-      newSlider.parentNode.replaceChild(_detachedSlider, newSlider);
-      // Patch les états actifs sans reconstruire
-      _patchActiveFabric(container, active);
-      _wireFabricFreeze(_detachedSlider);
-    } else if (newSlider) {
-      _wireFabricFreeze(newSlider);
-    }
-  }
 
   // ── wallpaper handlers ──
   container.querySelectorAll('.cosm-card:not(.cosm-fabric-card)').forEach(el => {
@@ -450,9 +409,8 @@ function renderAppearancePanel(container) {
       });
     });
   };
-  // N'attache les handlers que sur le nouveau slider (pas sur le slider réinséré frozen)
   const fabricSlider = container.querySelector('#fabricSlider');
-  if (fabricSlider && fabricSlider !== _detachedSlider) _bindFabricHandlers(fabricSlider);
+  if (fabricSlider) _bindFabricHandlers(fabricSlider);
 
   // ── filter buttons ──
   container.querySelectorAll('.fabric-filter-btn').forEach(btn => {
@@ -469,8 +427,6 @@ function renderAppearancePanel(container) {
         ? keys.map(_buildFabricCard).join('')
         : '<div style="font-size:9px;color:var(--text-dim);padding:12px">Aucun fond dans cette catégorie.</div>';
       _bindFabricHandlers(slider);
-      // Re-freeze dès que le contenu change (le mouseenter peut avoir disparu pendant le rebuild)
-      _wireFabricFreeze(slider);
     });
   });
 
@@ -749,6 +705,15 @@ function _doRenderGangTab() {
   const activeSlot = g.activeBossTeamSlot || 0;
   const teamPks    = (g.bossTeam || []).map(id => state.pokemons.find(p => p.id === id)).filter(Boolean);
 
+  // ── Badge "!" — nouveau fond débloqué depuis la dernière visite du panneau ──
+  const _bgUnlockedCount = (state.cosmetics?.unlockedBgs || []).length;
+  const _hasNewBg        = _bgUnlockedCount > (state.cosmetics?.bgsSeenCount ?? 0);
+  if (_hasNewBg && !_gangCollapsed.appearance) {
+    // Panneau déjà déplié : le joueur le voit tout de suite, marquer vu pour la prochaine fois
+    state.cosmetics.bgsSeenCount = _bgUnlockedCount;
+    _save();
+  }
+
   // Vitrine
   const showcaseArr = [...(g.showcase || [])];
   while (showcaseArr.length < SHOWCASE_SLOTS) showcaseArr.push(null);
@@ -817,6 +782,17 @@ function _doRenderGangTab() {
 
   tab.innerHTML = `
   <div class="gang-card-layout">
+    <div class="gang-section-label gang-collapsible-header" data-section="stats" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none">
+      <span>— STATISTIQUES —</span>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button id="btnToggleStatsView" onclick="event.stopPropagation()" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:${_isSession ? 'var(--gold)' : 'var(--text-dim)'};cursor:pointer">${_isSession ? '⏱ SESSION' : '🌐 GLOBAL'}</button>
+        <span class="gang-collapse-arrow" style="font-size:9px;color:var(--text-dim)">${_gangCollapsed.stats ? '▶' : '▼'}</span>
+      </div>
+    </div>
+    <div class="gang-collapsible-body" data-section-body="stats" style="${_gangCollapsed.stats ? 'display:none' : ''}">
+      <div class="gang-stats-row">${statsHtml}</div>
+    </div>
+
     <div class="gang-card-header" style="flex-direction:column;gap:0;padding:0">
       <div style="display:flex;align-items:flex-start;gap:14px;padding:14px">
         <div class="gang-boss-sprite">
@@ -863,35 +839,24 @@ function _doRenderGangTab() {
     </div>
 
     <div class="gang-section-label gang-collapsible-header" data-section="services" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none">
-      <span>— SERVICES —</span><span style="font-size:9px;color:var(--text-dim)">${_gangCollapsed.services ? '▶' : '▼'}</span>
+      <span>— SERVICES —</span><span class="gang-collapse-arrow" style="font-size:9px;color:var(--text-dim)">${_gangCollapsed.services ? '▶' : '▼'}</span>
     </div>
     <div class="gang-collapsible-body" data-section-body="services" style="${_gangCollapsed.services ? 'display:none' : ''}">
       <div style="padding:0 2px 8px;display:flex;flex-direction:column;gap:8px">${_buildServicesHtml(state)}</div>
     </div>
 
     <div class="gang-section-label gang-collapsible-header" data-section="music" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none">
-      <span>— MUSIQUE —</span><span style="font-size:9px;color:var(--text-dim)">${_gangCollapsed.music ? '▶' : '▼'}</span>
+      <span>— MUSIQUE —</span><span class="gang-collapse-arrow" style="font-size:9px;color:var(--text-dim)">${_gangCollapsed.music ? '▶' : '▼'}</span>
     </div>
     <div class="gang-collapsible-body" data-section-body="music" style="${_gangCollapsed.music ? 'display:none' : ''}">
       <div id="gangMusicContainer" style="padding:0 2px 8px"></div>
     </div>
 
     <div class="gang-section-label gang-collapsible-header" data-section="appearance" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none">
-      <span>— APPARENCE —</span><span style="font-size:9px;color:var(--text-dim)">${_gangCollapsed.appearance ? '▶' : '▼'}</span>
+      <span>— APPARENCE —${_hasNewBg ? ' <span class="gang-new-bg-badge" style="color:var(--red);font-family:var(--font-pixel)" title="Nouveau fond débloqué">!</span>' : ''}</span><span class="gang-collapse-arrow" style="font-size:9px;color:var(--text-dim)">${_gangCollapsed.appearance ? '▶' : '▼'}</span>
     </div>
     <div class="gang-collapsible-body" data-section-body="appearance" style="${_gangCollapsed.appearance ? 'display:none' : ''}">
       <div id="gangAppearanceContainer" style="padding:0 2px 8px"></div>
-    </div>
-
-    <div class="gang-section-label gang-collapsible-header" data-section="stats" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none">
-      <span>— STATISTIQUES —</span>
-      <div style="display:flex;align-items:center;gap:8px">
-        <button id="btnToggleStatsView" onclick="event.stopPropagation()" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:${_isSession ? 'var(--gold)' : 'var(--text-dim)'};cursor:pointer">${_isSession ? '⏱ SESSION' : '🌐 GLOBAL'}</button>
-        <span style="font-size:9px;color:var(--text-dim)">${_gangCollapsed.stats ? '▶' : '▼'}</span>
-      </div>
-    </div>
-    <div class="gang-collapsible-body" data-section-body="stats" style="${_gangCollapsed.stats ? 'display:none' : ''}">
-      <div class="gang-stats-row">${statsHtml}</div>
     </div>
 
     <div style="margin-top:16px;text-align:center;font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);letter-spacing:1px;opacity:.5">${globalThis.GAME_VERSION || ''}</div>
@@ -906,9 +871,15 @@ function _doRenderGangTab() {
       const section = header.dataset.section;
       _gangCollapsed[section] = !_gangCollapsed[section];
       const body  = tab.querySelector(`[data-section-body="${section}"]`);
-      const arrow = header.querySelector('span:last-child');
+      const arrow = header.querySelector('.gang-collapse-arrow');
       if (body)  body.style.display  = _gangCollapsed[section] ? 'none' : '';
       if (arrow) arrow.textContent   = _gangCollapsed[section] ? '▶' : '▼';
+      // Ouverture du panneau Apparence : marquer les fonds vus, retirer le badge "!"
+      if (section === 'appearance' && !_gangCollapsed.appearance) {
+        state.cosmetics.bgsSeenCount = (state.cosmetics.unlockedBgs || []).length;
+        _save();
+        header.querySelector('.gang-new-bg-badge')?.remove();
+      }
     });
   });
 
