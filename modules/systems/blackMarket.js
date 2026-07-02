@@ -457,12 +457,9 @@ function _consumeListing(listing) {
     case 'rare_collection':
     case 'perfect_specimen':
     case 'elite_squad':
-      // Retirer les pokémon des assignations + collection
+      // Retirer les pokémon des assignations (agents, boss, vitrine, favoris...) + collection
       for (const p of valid.candidates) {
-        for (const agent of state.agents) {
-          agent.team = (agent.team || []).filter(id => id !== p.id);
-        }
-        state.gang.bossTeam = state.gang.bossTeam.filter(id => id !== p.id);
+        globalThis.removePokemonFromAllAssignments?.(p.id);
         const idx = state.pokemons.findIndex(pk => pk.id === p.id);
         if (idx >= 0) state.pokemons.splice(idx, 1);
       }

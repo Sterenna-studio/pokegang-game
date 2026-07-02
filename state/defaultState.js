@@ -173,6 +173,7 @@ export const DEFAULT_STATE = {
     gameBg: null,
     bossBg: null,
     unlockedBgs: [],
+    bgsSeenCount: 0,      // unlockedBgs.length déjà vu — sert au badge "!" nouveau fond
     favoriteBgs: [],      // array of bg keys (fabric, image, gradient)
     activePatches: [],    // array of patch pids (max 3)
     fabricMode: 'repeat', // 'repeat' | 'full'

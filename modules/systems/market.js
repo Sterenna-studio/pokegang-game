@@ -61,8 +61,23 @@ function decayMarketSales() {
 
 function removePokemonFromAllAssignments(pkId) {
   const state = globalThis.state;
-  // Équipe Boss
+  // Agents
+  for (const agent of state.agents) {
+    agent.team = (agent.team || []).filter(id => id !== pkId);
+  }
+  // Équipe Boss (slot actif + les 3 slots sauvegardés)
   state.gang.bossTeam = state.gang.bossTeam.filter(id => id !== pkId);
+  if (Array.isArray(state.gang.bossTeamSlots)) {
+    state.gang.bossTeamSlots = state.gang.bossTeamSlots.map(slot => (slot || []).filter(id => id !== pkId));
+  }
+  // Vitrine
+  if (Array.isArray(state.gang.showcase)) {
+    state.gang.showcase = state.gang.showcase.map(id => id === pkId ? null : id);
+  }
+  // Favoris
+  if (Array.isArray(state.favorites)) {
+    state.favorites = state.favorites.filter(id => id !== pkId);
+  }
   // Formation
   if (state.trainingRoom) state.trainingRoom.pokemon = (state.trainingRoom.pokemon || []).filter(id => id !== pkId);
   // Pension
@@ -138,13 +153,8 @@ function sellPokemon(pokemonIds, _shinyConfirmed = false) {
 
   let total = 0;
   const toRemove = new Set(pokemonIds);
-  // Unassign from agents/boss
-  for (const agent of state.agents) {
-    agent.team = agent.team.filter(id => !toRemove.has(id));
-  }
-  state.gang.bossTeam = state.gang.bossTeam.filter(id => !toRemove.has(id));
-  // Remove from favorites
-  state.favorites = state.favorites.filter(id => !toRemove.has(id));
+  // Unassign from agents, boss (slot actif + sauvegardés), vitrine, favoris, formation, pension
+  for (const id of toRemove) removePokemonFromAllAssignments(id);
 
   for (const id of pokemonIds) {
     const idx = state.pokemons.findIndex(p => p.id === id);
