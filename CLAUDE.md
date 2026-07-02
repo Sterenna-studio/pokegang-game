@@ -106,7 +106,7 @@ Cloud backup via Supabase (optional). Throttled to 1 save/30s. Uses a custom ree
 
 ### Tab system
 
-Tabs: `tabZones`, `tabPC`, `tabAgents`, `tabMarket`, `tabGang`, `tabPokedex`, `tabCosmetics`, `tabBattleLog`, `tabMissions`, `tabCompte`.
+Tabs: `tabZones`, `tabPC`, `tabAgents`, `tabMarket`, `tabGang`, `tabPokedex`, `tabBattleLog`, `tabMissions`, `tabCompte`.
 
 `switchTab(tabId)` → sets `activeTab` → calls `renderActiveTab()` → dispatches to the appropriate `render*Tab()` function. Tabs render lazily (only when activated). Some tabs are hidden until discovery milestones are reached (`state.discoveryProgress`).
 

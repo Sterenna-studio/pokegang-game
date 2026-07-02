@@ -62,7 +62,6 @@ function saveState() { return requireContext('saveState')(); }
 function getTitles() { return requireContext('getTitles')(); }
 function getActiveTab() { return requireContext('getActiveTab')(); }
 function renderGangTab() { return requireContext('renderGangTab')(); }
-function renderCosmeticsTab() { return requireContext('renderCosmeticsTab')(); }
 function makePokemon(...args) { return requireContext('makePokemon')(...args); }
 function getSpeciesList() { return requireContext('getSpeciesList')(); }
 function pokeSprite(...args) { return requireContext('pokeSprite')(...args); }
@@ -86,7 +85,6 @@ export const _mkTitleExec = (titleId) => (claim) => {
   claim(); saveState();
   notify(`🏆 Titre débloqué : "${t?.label || titleId}" !`, 'gold');
   if (getActiveTab() === 'tabGang') renderGangTab();
-  if (getActiveTab() === 'tabCosmetics') renderCosmeticsTab();
 };
 
 function refreshPcGridAfterSecretReward() {
