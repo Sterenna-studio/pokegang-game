@@ -679,11 +679,14 @@ function _resolveOccupiedZoneRaid(zoneId, agents) {
     const moneyGain = Math.round(zoneDiff * 200 * (1 + Math.random()));
     state.gang.reputation = (state.gang.reputation || 0) + repGain;
     state.gang.money      = (state.gang.money || 0) + moneyGain;
+    EventBus.emit(EVENTS.REP_CHANGED,   { delta: repGain, newTotal: state.gang.reputation });
+    EventBus.emit(EVENTS.MONEY_CHANGED, { delta: moneyGain, newTotal: state.gang.money });
     _notify(`🛡 Raid repoussé sur ${zoneName} ! +${repGain} REP +${moneyGain.toLocaleString()}₽`, 'gold');
     globalThis.pushFeedEvent?.({ category: 'raid', title: `Raid repoussé — ${zoneName}`, detail: `Défense ${defensePower} vs Attaque ${attackPower} · +${repGain} REP`, win: true });
   } else {
     const moneyLoss = Math.round(Math.min(state.gang.money * 0.03, zoneDiff * 500));
     state.gang.money = Math.max(0, (state.gang.money || 0) - moneyLoss);
+    EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -moneyLoss, newTotal: state.gang.money });
     _notify(`⚠️ Raid ennemi sur ${zoneName} ! −${moneyLoss.toLocaleString()}₽`, 'error');
     globalThis.pushFeedEvent?.({ category: 'raid', title: `Raid subi — ${zoneName}`, detail: `Défense ${defensePower} vs Attaque ${attackPower} · −${moneyLoss.toLocaleString()}₽`, win: false });
   }
