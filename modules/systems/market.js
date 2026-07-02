@@ -171,6 +171,8 @@ function sellPokemon(pokemonIds, _shinyConfirmed = false) {
   }
   state.gang.money += total;
   state.stats.totalMoneyEarned += total;
+  EventBus.emit(EVENTS.MONEY_CHANGED, { delta: total, newTotal: state.gang.money });
+  EventBus.emit(EVENTS.POKEMON_SOLD, { pokemonIds, totalPrice: total });
   _notify(globalThis.t('sold', { n: pokemonIds.length, price: total }), 'gold');
   globalThis.addLog(globalThis.t('sold', { n: pokemonIds.length, price: total }));
   globalThis.SFX.play('sell');
