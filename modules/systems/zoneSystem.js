@@ -1007,6 +1007,7 @@ function applyCombatResult(result, playerTeamIds, trainerData) {
     }
   } else {
     state.gang.reputation = Math.max(0, state.gang.reputation + result.repGain);
+    EventBus.emit(EVENTS.REP_CHANGED, { delta: result.repGain, newTotal: state.gang.reputation });
     for (const id of playerTeamIds) {
       const p = globalThis.pokemonById?.(id) ?? state.pokemons.find(pk => pk.id === id);
       if (p) {
