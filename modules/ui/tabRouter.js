@@ -3,7 +3,7 @@
 // deps via configureTabRouter(ctx):
 // - getState, getActiveTab, getOpenZones, switchTab, setPcView
 // - renderGangTab, renderZonesTab, renderMarketTab, renderPCTab, renderPokedexTab,
-//   renderAgentsTab, renderCosmeticsTab, renderMissionsTab, renderBattleLogTab,
+//   renderAgentsTab, renderMissionsTab, renderBattleLogTab,
 //   renderLeaderboardTab, renderCompteTab, renderGangCompetitionTab
 // - getDexKantoCaught, getDexNationalCaught, getShinySpeciesCount, dex size getters
 // classic-script data globals used by hints: POKEMON_GEN1
@@ -34,7 +34,6 @@ function renderMarketTab(...args) { return callCtx('renderMarketTab', ...args); 
 function renderPCTab(...args) { return callCtx('renderPCTab', ...args); }
 function renderPokedexTab(...args) { return callCtx('renderPokedexTab', ...args); }
 function renderAgentsTab(...args) { return callCtx('renderAgentsTab', ...args); }
-function renderCosmeticsTab(...args) { return callCtx('renderCosmeticsTab', ...args); }
 function renderMissionsTab(...args) { return callCtx('renderMissionsTab', ...args); }
 function renderBattleLogTab(...args) { return callCtx('renderBattleLogTab', ...args); }
 function renderLeaderboardTab(...args) { return callCtx('renderLeaderboardTab', ...args); }
@@ -167,7 +166,6 @@ function renderActiveTab() {
     case 'tabPokedex':  renderPokedexTab(); break;
     case 'tabAgents':   renderAgentsTab(); break;
     case 'tabBag':        switchTab('tabMarket'); break;
-    case 'tabCosmetics':   renderCosmeticsTab(); break;
     case 'tabMissions':    renderMissionsTab(); break;
     case 'tabBattleLog':   renderBattleLogTab(); break;
     case 'tabTraining': setPcView('training'); switchTab('tabPC'); break;

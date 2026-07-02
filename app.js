@@ -110,7 +110,6 @@ import {
 } from './modules/ui/pcPokedex.js';
 import { renderAgentsTab } from './modules/ui/agentsTab.js';
 import { renderBattleLogTab } from './modules/ui/battleLogTab.js';
-import { renderCosmeticsTab } from './modules/ui/cosmeticsTab.js';
 import { renderLabTab, renderLabTabInEl } from './modules/ui/labTab.js';
 import { renderMarketTab } from './modules/ui/marketTab.js';
 import { renderMissionsTab } from './modules/ui/missionsTab.js';
@@ -1018,8 +1017,6 @@ function tryCheatCode(inputId) {
   // 1. Essaie d'abord SECRET_CODES (codes titres, codes spéciaux)
   if (checkSecretCode(raw)) {
     // checkSecretCode gère déjà les notifications et la sauvegarde
-    // Refresh cosmétiques si tab actif
-    if (activeTab === 'tabCosmetics') renderCosmeticsTab();
     return;
   }
 
@@ -1040,7 +1037,6 @@ function tryCheatCode(inputId) {
     notify(`🏆 Titre obtenu : ${code.title}`, 'gold');
   }
   saveState();
-  if (activeTab === 'tabCosmetics') renderCosmeticsTab();
 }
 
 // ── Gym Raid (manual + auto) ──────────────────────────────────
@@ -1117,7 +1113,6 @@ function initKeyboardShortcuts() {
       case '4': switchTab('tabMarket');   break;
       case '5': switchTab('tabGang');     break;
       case '6': switchTab('tabPokedex');  break;
-      case '7': switchTab('tabCosmetics'); break;
 
       // ── Sous-vues PC ─────────────────────────────────────────
       case 'p': case 'P':
@@ -1617,10 +1612,6 @@ function executeCombat()                                           { return glob
 function closeCombatPopup()                                        { return globalThis._zwin_closeCombatPopup(); }
 function _refreshRaidBtn(zoneId)                                   { return globalThis._zwin_refreshRaidBtn(zoneId); }
 
-
-// ════════════════════════════════════════════════════════════════
-// 15b. UI — COSMETICS TAB (extracted to modules/ui/cosmeticsTab.js)
-// ════════════════════════════════════════════════════════════════
 
 // ════════════════════════════════════════════════════════════════
 // 16.  UI — MARKET TAB (extracted to modules/ui/marketTab.js)
@@ -2230,7 +2221,6 @@ configureTabRouter({
   renderPCTab,
   renderPokedexTab,
   renderAgentsTab,
-  renderCosmeticsTab,
   renderMissionsTab,
   renderBattleLogTab,
   renderLeaderboardTab,
@@ -2250,7 +2240,7 @@ Object.assign(globalThis, {
   // UI / state helpers
   notify, saveState, setState, migrate, renderAll, slimPokemon,
   updateTopBar, tryAutoIncubate,
-  renderMarketTab, renderMissionsTab, renderCosmeticsTab, renderBattleLogTab, renderLabTab,
+  renderMarketTab, renderMissionsTab, renderBattleLogTab, renderLabTab,
   renderZonesTab, renderGangTab, renderAgentsTab, renderPokemonGrid, renderEggsView, renderGangBasePanel,
   // activateJohtoRegion, showJohtoUnlockModal, checkJohtoUnlock   — set by modules/systems/johto.js
   // activateHoennRegion, showHoennUnlockModal, checkHoennUnlock   — set by modules/systems/hoenn.js
@@ -2345,7 +2335,6 @@ configureSecretCodes({
   getTitles: () => TITLES,
   getActiveTab: () => activeTab,
   renderGangTab,
-  renderCosmeticsTab,
   makePokemon,
   getSpeciesList: () => POKEMON_GEN1,
   pokeSprite,

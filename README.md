@@ -221,7 +221,6 @@ modules/ui/
   missionsTab.js            Onglet Missions
   battleLogTab.js           Onglet BattleLog
   pcPokedex.js              Onglet PC + Pokédex intégré
-  cosmeticsTab.js           Section cosmétiques
   labTab.js                 Laboratoire (tracking espèces)
   bagTab.js                 Sac (items et boosts actifs)
   settingsModal.js          Modale paramètres
