@@ -343,7 +343,11 @@ function renderAgentsTab() {
       const zoneItems = unlockedZones.slice(0, 8).map(z => ({
         action: 'zone_' + z.id,
         label: (state.lang === 'fr' ? z.fr : z.en),
-        fn: () => { agent.assignedZone = z.id; saveState(); renderAgentsTab(); notify(agent.name + ' -> ' + (state.lang === 'fr' ? z.fr : z.en), 'success'); syncBackgroundZones(); }
+        fn: () => {
+          if (!assignAgentToZone(agent.id, z.id)) return;
+          renderAgentsTab();
+          notify(agent.name + ' -> ' + (state.lang === 'fr' ? z.fr : z.en), 'success');
+        }
       }));
       showContextMenu(e.clientX, e.clientY, [
         { action:'clearteam', label:'Vider l\'equipe', fn: () => { agent.team = []; saveState(); renderAgentsTab(); } },
@@ -356,7 +360,7 @@ function renderAgentsTab() {
           saveState(); renderAgentsTab(); notify('Equipe auto assignee', 'success');
         }},
         ...zoneItems.length ? [{ action:'envoyer', label:'Envoyer en zone', fn: () => {} }, ...zoneItems] : [],
-        { action:'unassign', label:'Retirer de la zone', fn: () => { agent.assignedZone = null; saveState(); renderAgentsTab(); syncBackgroundZones(); } },
+        { action:'unassign', label:'Retirer de la zone', fn: () => { assignAgentToZone(agent.id, null); renderAgentsTab(); } },
       ]);
     });
   });

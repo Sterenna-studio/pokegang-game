@@ -222,7 +222,6 @@ modules/ui/
   battleLogTab.js           Onglet BattleLog
   pcPokedex.js              Onglet PC + Pokédex intégré
   labTab.js                 Laboratoire (tracking espèces)
-  bagTab.js                 Sac (items et boosts actifs)
   settingsModal.js          Modale paramètres
   modals.js                 Modales info, confirmation, nommage, sprites
   sprites.js                Helpers sprite (pokeIcon, pokeSprite, trainerSprite)
