@@ -57,7 +57,7 @@ export const EVENTS = {
   AGENT_LEVELUP:     'agent:levelup',     // { agent, newLevel }
 
   // Combat
-  COMBAT_WON:        'combat:won',        // { zoneId, reward }
+  COMBAT_WON:        'combat:won',        // { zoneId, trainerKey }
   COMBAT_LOST:       'combat:lost',       // { zoneId }
 
   // Economy
