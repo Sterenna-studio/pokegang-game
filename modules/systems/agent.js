@@ -1014,7 +1014,9 @@ function agentOpenChest(agent, zoneId, spawnObj) {
   const state = globalThis.state;
   state.stats.chestsOpened = (state.stats.chestsOpened || 0) + 1;
   const loot = globalThis.rollChestLoot(zoneId);
-  _notify(`${agent.name}: ${loot.msg}`, loot.type);
+  if (agent?.notifyCaptures !== false) {
+    _notify(`${agent.name}: ${loot.msg}`, loot.type);
+  }
   grantAgentXP(agent, 1);
   globalThis.SFX.play('chest');
   globalThis.removeSpawn(zoneId, spawnObj.id);

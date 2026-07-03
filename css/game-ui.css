@@ -1367,39 +1367,38 @@
       animation: shinyFlash .8s ease-out forwards !important;
     }
 
-    /* Shiny popup overlay */
+    /* Shiny popup overlay — coin discret en haut à droite, ne bloque pas la vue */
     #shinyPopup {
       position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%) scale(0);
+      top: 60px;
+      right: 24px;
       z-index: 9999;
       background: rgba(10,8,0,.9);
-      border: 2px solid var(--gold);
+      border: 1px solid var(--gold);
       border-radius: var(--radius);
-      padding: 20px 32px;
+      padding: 8px 14px;
       display: flex;
-      flex-direction: column;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
       pointer-events: none;
-      box-shadow: 0 0 40px var(--gold), 0 0 80px rgba(255,204,90,.3);
-      transition: transform .3s cubic-bezier(.17,.67,.23,1.4), opacity .3s;
+      box-shadow: 0 0 16px rgba(255,204,90,.4);
+      transition: transform .35s ease, opacity .35s ease;
       opacity: 0;
+      transform: translateX(120%);
     }
     #shinyPopup.show {
-      transform: translate(-50%, -50%) scale(1);
       opacity: 1;
+      transform: translateX(0);
     }
-    #shinyPopup .popup-icon { font-size: 40px; animation: shinyIconBounce 1s ease infinite; }
+    #shinyPopup .popup-icon { font-size: 20px; animation: shinyIconBounce 1s ease infinite; }
     #shinyPopup .popup-label {
       font-family: var(--font-pixel);
-      font-size: 11px;
+      font-size: 9px;
       color: var(--gold);
-      text-shadow: 0 0 10px var(--gold);
-      text-align: center;
+      text-shadow: 0 0 6px var(--gold);
+      text-align: left;
     }
-    #shinyPopup .popup-sprite { image-rendering: pixelated; width: 64px; height: 64px; animation: shinyIconBounce 1s .1s ease infinite; filter: drop-shadow(0 0 8px gold); }
+    #shinyPopup .popup-sprite { image-rendering: pixelated; width: 40px; height: 40px; animation: shinyIconBounce 1s .1s ease infinite; filter: drop-shadow(0 0 6px gold); }
 
     /* Rare popup (non-shiny but rare) */
     #rarePopup {
