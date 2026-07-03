@@ -3,6 +3,7 @@
 import { BALLS, SHOP_ITEMS } from '../../data/economy-data.js';
 import { esc as _esc } from '../core/escape.js';
 import { getActiveMarketEvents } from '../systems/marketEvents.js';
+import { EventBus, EVENTS } from '../core/eventBus.js';
 import { getCurrentBulletin, completeBlackMarketListing } from '../systems/blackMarket.js';
 
 // ════════════════════════════════════════════════════════════════
@@ -199,6 +200,7 @@ function renderBarterPanel() {
       if ((state.inventory?.[giveId] || 0) < giveQty) { SFX.play('error'); return; }
       state.inventory[giveId] -= giveQty;
       state.inventory[getId] = (state.inventory[getId] || 0) + getQty;
+      EventBus.emit(EVENTS.ITEM_RECEIVED, { itemId: getId, qty: getQty });
       saveState(); updateTopBar(); SFX.play('buy');
       notify(`Troc effectué !`, 'success');
       renderBarterPanel();
@@ -212,6 +214,7 @@ function renderBarterPanel() {
       if ((state.inventory?.[wx.giveId] || 0) < wx.giveQty) { SFX.play('error'); return; }
       state.inventory[wx.giveId] -= wx.giveQty;
       state.inventory[wx.getId] = (state.inventory[wx.getId] || 0) + wx.getQty;
+      EventBus.emit(EVENTS.ITEM_RECEIVED, { itemId: wx.getId, qty: wx.getQty });
       saveState(); updateTopBar(); SFX.play('buy');
       notify(`🪶 Échange effectué !`, 'success');
       renderBarterPanel();

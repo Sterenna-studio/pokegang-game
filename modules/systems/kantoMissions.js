@@ -605,6 +605,7 @@ async function _launchLegendary(key) {
         });
         if (pk) {
           s.pokemons.push(pk);
+          EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: pk, zoneId: BIRDS[key]?.zone ?? null });
           if (!s.pokedex[cfg.species]) s.pokedex[cfg.species] = {};
           s.pokedex[cfg.species].caught = true;
           // totalCaptures
