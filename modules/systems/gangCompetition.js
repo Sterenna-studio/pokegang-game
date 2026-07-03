@@ -19,7 +19,7 @@ import {
 } from '../../data/power-config-data.js';
 import { EventBus, EVENTS } from '../core/eventBus.js';
 
-const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
+const _notify = (msg, type = '', category = null) => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type, category });
 const _save   = ()               => globalThis.saveState?.();
 
 const RAID_PENALTY      = 100_000;   // pokédollars perdus si raid échoue
@@ -40,7 +40,7 @@ export function configureGangCompetition(ctx = {}) {
 
 function getState()           { return _ctx.getState?.() ?? globalThis.state ?? {}; }
 function saveState()          { return _ctx.saveState?.(); }
-function notify(msg, type)    { return _ctx.notify?.(msg, type) ?? _notify(msg, type); }
+function notify(msg, type, category) { return _ctx.notify?.(msg, type, category) ?? _notify(msg, type, category); }
 function slimPokemon(p)       { return _ctx.slimPokemon?.(p) ?? p; }
 function getSupabaseClient()  { return _ctx.getSupabaseClient?.(); }
 function getSupaSession()     { return _ctx.getSupaSession?.(); }
@@ -532,13 +532,13 @@ export async function executeRaid(defData, agentIds = null) {
     EventBus.emit(EVENTS.MONEY_CHANGED, { delta: goldWon, newTotal: state.gang.money });
     comp.wins.attack      = (comp.wins.attack ?? 0) + 1;
     const bonus = defaultDefense ? ` ×${RAID_NO_DEFENSE_PENALTY_MULT}` : '';
-    notify(`Raid réussi${bonus} ! +${goldWon.toLocaleString('fr-FR')} ₽`, 'success');
+    notify(`Raid réussi${bonus} ! +${goldWon.toLocaleString('fr-FR')} ₽`, 'success', 'combat');
   } else {
     state.gang.money  = Math.max(0, (state.gang.money ?? 0) - moneyPenalty);
     EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -moneyPenalty, newTotal: state.gang.money });
     comp.losses.attack = (comp.losses.attack ?? 0) + 1;
     const reason = noDefense ? 'base vide' : 'défense trop forte';
-    notify(`Raid échoué — ${reason}. -${moneyPenalty.toLocaleString('fr-FR')} ₽`, 'error');
+    notify(`Raid échoué — ${reason}. -${moneyPenalty.toLocaleString('fr-FR')} ₽`, 'error', 'combat');
   }
 
   saveState();
@@ -611,8 +611,8 @@ export async function acknowledgeRaids() {
 
   const parts = [];
   if (totalGoldGain > 0) parts.push(`+${totalGoldGain.toLocaleString('fr-FR')} ₽`);
-  if (parts.length) notify(`Raids acquittés : ${parts.join('  ')}`, 'success');
-  else notify('Raids acquittés.', 'success');
+  if (parts.length) notify(`Raids acquittés : ${parts.join('  ')}`, 'success', 'combat');
+  else notify('Raids acquittés.', 'success', 'combat');
 }
 
 // ── Cooldown restant pour une cible (ms) ─────────────────────────

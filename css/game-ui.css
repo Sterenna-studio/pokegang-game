@@ -942,6 +942,8 @@
     .notif-ticker-success { border-left-color: var(--green); }
     .notif-ticker-error   { border-left-color: var(--red); }
     .notif-ticker-levelup { border-left-color: var(--gold); }
+    .notif-ticker-capture { border-left-color: var(--red); }
+    .notif-ticker-combat  { border-left-color: var(--blue); }
     .notif-ticker-icon    { font-size: 14px; flex-shrink: 0; }
     .notif-ticker-text    { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -1083,6 +1085,8 @@
     .notif-entry-success .notif-entry-icon { color: var(--green); }
     .notif-entry-error   .notif-entry-icon { color: var(--red); }
     .notif-entry-levelup .notif-entry-icon { color: var(--gold); }
+    .notif-entry-capture .notif-entry-icon { color: var(--red); }
+    .notif-entry-combat  .notif-entry-icon { color: var(--blue); }
 
 
     /* ── Settings Modal ──────────────────────────────────────────── */
