@@ -285,7 +285,7 @@ export function showZoneContextMenu(zoneId, x, y) {
         const isAssigned = btn.classList.contains('assigned');
         if (isAssigned) {
           globalThis.assignAgentToZone?.(agentId, null);
-          _notify(`Agent retiré de ${name}`, 'info');
+          _notify(`Agent retiré de ${name}`, 'success');
         } else {
           globalThis.assignAgentToZone?.(agentId, zoneId);
         }
