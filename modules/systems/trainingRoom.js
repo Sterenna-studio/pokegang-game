@@ -6,6 +6,8 @@
 //   renderTrainingTab (self-referential)
 // ════════════════════════════════════════════════════════════════
 
+import { EventBus, EVENTS } from '../core/eventBus.js';
+
 let _trSearch = '';           // persisté entre re-renders
 let _trSelected = new Set(); // IDs cochés pour ajout groupé
 
@@ -138,6 +140,7 @@ function renderTrainingTab() {
     if (cost === undefined) return;
     if (state.gang.money < cost) { notify('Fonds insuffisants.'); return; }
     state.gang.money -= cost;
+    EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -cost, newTotal: state.gang.money });
     state.stats.totalMoneySpent = (state.stats.totalMoneySpent || 0) + cost;
     tr.extraSlots = extra + 1;
     saveState();
@@ -153,6 +156,7 @@ function renderTrainingTab() {
     const cost = Math.round(5000 * Math.pow(2, lvl - 1));
     if (state.gang.money < cost) { notify('Fonds insuffisants.'); return; }
     state.gang.money -= cost;
+    EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -cost, newTotal: state.gang.money });
     state.stats.totalMoneySpent = (state.stats.totalMoneySpent || 0) + cost;
     state.trainingRoom.level = lvl + 1;
     saveState();

@@ -465,7 +465,8 @@ function _consumeListing(listing) {
       }
       break;
     case 'bulk_money':
-      state.gang.money -= listing.qty;
+      state.gang.money = Math.max(0, state.gang.money - listing.qty);
+      EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -listing.qty, newTotal: state.gang.money });
       break;
     case 'item_smuggle':
       state.inventory[listing.target] = (state.inventory[listing.target] || 0) - listing.qty;

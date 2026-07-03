@@ -193,6 +193,7 @@ function renderLabTabInEl(tab) {
     if (state.gang.money < 15_000) { notify('Fonds insuffisants.', 'error'); return; }
     showConfirm('Engager le Scientifique peu scrupuleux pour <b>15 000₽</b> ?<br><span style="font-size:10px;color:var(--text-dim)">Permet la mutation artificielle depuis ce Labo et le menu contextuel du PC.</span>', () => {
       state.gang.money -= 15_000;
+      EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -15_000, newTotal: state.gang.money });
       state.purchases.scientist = true;
       state.purchases.scientistEnabled = true;
       saveState(); updateTopBar(); SFX.play('unlock');

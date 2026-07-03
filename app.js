@@ -964,7 +964,7 @@ function notify(msg, type = '') {
 function checkMoneyMilestone() {
   if (state?.purchases?.chromaCharm) return;
   if (state.gang.money >= CHROMA_CHARM_COST) {
-    state.gang.money -= CHROMA_CHARM_COST;
+    addMoney(-CHROMA_CHARM_COST);
     state.purchases.chromaCharm = true;
     saveState();
     SFX.play('unlock');
@@ -1023,7 +1023,7 @@ function tryCheatCode(inputId) {
   if (!code) { notify('❌ Code invalide', 'error'); SFX.play('error'); return; }
   _usedCodes.add(key);
   if (code.money) {
-    state.gang.money += code.money;
+    addMoney(code.money);
     updateTopBar();
     notify(`💰 +${code.money.toLocaleString()}₽ !`, 'gold');
     SFX.play('unlock');
@@ -1198,7 +1198,7 @@ function _updateTopBarImpl() {
       const ballDef = BALLS[ballId];
       if (ballDef && state.gang.money >= ballDef.cost) {
         state.inventory[ballId] = (state.inventory[ballId] || 0) + 1;
-        state.gang.money -= ballDef.cost;
+        addMoney(-ballDef.cost);
         notify(`🔄 Achat auto : 1× ${ballDef.fr}`, 'success');
       }
     }

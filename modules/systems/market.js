@@ -191,6 +191,7 @@ function buyItem(itemDef) {
     return false;
   }
   state.gang.money -= actualCost;
+  EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -actualCost, newTotal: state.gang.money });
   state.stats.totalMoneySpent += actualCost;
   // Behavioural log — premier achat
   if (!state.behaviourLogs) state.behaviourLogs = {};
@@ -202,6 +203,7 @@ function buyItem(itemDef) {
     if (state.purchases[itemDef.id]) {
       _notify(state.lang === 'fr' ? 'Déjà possédé !' : 'Already owned!');
       state.gang.money += actualCost;
+      EventBus.emit(EVENTS.MONEY_CHANGED, { delta: actualCost, newTotal: state.gang.money });
       state.stats.totalMoneySpent -= actualCost;
       return false;
     }
@@ -249,6 +251,7 @@ function buyItem(itemDef) {
     if (state.purchases[itemDef.id]) {
       _notify(state.lang === 'fr' ? 'Déjà possédé !' : 'Already owned!');
       state.gang.money += actualCost; // refund
+      EventBus.emit(EVENTS.MONEY_CHANGED, { delta: actualCost, newTotal: state.gang.money });
       state.stats.totalMoneySpent -= actualCost;
       return false;
     }
@@ -267,6 +270,7 @@ function buyItem(itemDef) {
     if (state.purchases.silver_permit) {
       _notify(state.lang === 'fr' ? 'Déjà possédé !' : 'Already owned!');
       state.gang.money += actualCost;
+      EventBus.emit(EVENTS.MONEY_CHANGED, { delta: actualCost, newTotal: state.gang.money });
       state.stats.totalMoneySpent -= actualCost;
       return false;
     }
@@ -280,6 +284,7 @@ function buyItem(itemDef) {
         : 'You must defeat all Kanto + Johto gyms to obtain this permit.';
       _notify(msg, 'error');
       state.gang.money += actualCost;
+      EventBus.emit(EVENTS.MONEY_CHANGED, { delta: actualCost, newTotal: state.gang.money });
       state.stats.totalMoneySpent -= actualCost;
       return false;
     }
@@ -296,6 +301,7 @@ function buyItem(itemDef) {
     if (state.purchases[skinKey]) {
       _notify(state.lang === 'fr' ? 'Déjà possédé !' : 'Already owned!');
       state.gang.money += actualCost;
+      EventBus.emit(EVENTS.MONEY_CHANGED, { delta: actualCost, newTotal: state.gang.money });
       state.stats.totalMoneySpent -= actualCost;
       return false;
     }
@@ -352,8 +358,10 @@ function buyItemBulk(itemDef, count = 1) {
     globalThis.SFX.play('error');
     return false;
   }
-  state.gang.money -= unit * affordable;
-  state.stats.totalMoneySpent += unit * affordable;
+  const _bulkCost = unit * affordable;
+  state.gang.money -= _bulkCost;
+  EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -_bulkCost, newTotal: state.gang.money });
+  state.stats.totalMoneySpent += _bulkCost;
   if (!state.behaviourLogs) state.behaviourLogs = {};
   if (!state.behaviourLogs.firstPurchaseAt) state.behaviourLogs.firstPurchaseAt = Date.now();
   state.inventory[itemDef.id] = (state.inventory[itemDef.id] || 0) + itemDef.qty * affordable;

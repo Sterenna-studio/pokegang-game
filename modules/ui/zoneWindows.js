@@ -255,6 +255,7 @@ function startZoneCollection(zoneId, agentIds) {
   const collected = Math.round(income * (win ? 1.0 : 0.50));
 
   state.gang.money += collected;
+  EventBus.emit(EVENTS.MONEY_CHANGED, { delta: collected, newTotal: state.gang.money });
   globalThis.checkMoneyMilestone();
   zs.pendingIncome = 0;
 
@@ -266,7 +267,9 @@ function startZoneCollection(zoneId, agentIds) {
   if (win) {
     state.stats.totalFightsWon = (state.stats.totalFightsWon || 0) + 1;
   } else {
+    const _repBefore = state.gang.reputation;
     state.gang.reputation = Math.max(0, state.gang.reputation - 3);
+    EventBus.emit(EVENTS.REP_CHANGED, { delta: state.gang.reputation - _repBefore, newTotal: state.gang.reputation });
   }
 
   _save();
@@ -402,6 +405,7 @@ function autoCollectZone(zoneId) {
   const items = { ...zs.pendingItems };
   if (income === 0 && Object.keys(items).length === 0) return 0;
   state.gang.money += income;
+  EventBus.emit(EVENTS.MONEY_CHANGED, { delta: income, newTotal: state.gang.money });
   globalThis.checkMoneyMilestone();
   zs.pendingIncome = 0;
   for (const [id, qty] of Object.entries(items)) {
@@ -484,9 +488,15 @@ function collectAllZones() {
     zs.pendingItems = {};
   }
   state.gang.money += collected;
+  EventBus.emit(EVENTS.MONEY_CHANGED, { delta: collected, newTotal: state.gang.money });
   globalThis.checkMoneyMilestone();
-  if (!win) state.gang.reputation = Math.max(0, state.gang.reputation - 3);
-  else state.stats.totalFightsWon = (state.stats.totalFightsWon || 0) + 1;
+  if (!win) {
+    const _repBefore = state.gang.reputation;
+    state.gang.reputation = Math.max(0, state.gang.reputation - 3);
+    EventBus.emit(EVENTS.REP_CHANGED, { delta: state.gang.reputation - _repBefore, newTotal: state.gang.reputation });
+  } else {
+    state.stats.totalFightsWon = (state.stats.totalFightsWon || 0) + 1;
+  }
   _save();
   _topBar();
 

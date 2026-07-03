@@ -529,11 +529,13 @@ export async function executeRaid(defData, agentIds = null) {
   // Appliquer résultat immédiat côté attaquant
   if (attackerWin) {
     state.gang.money      = (state.gang.money ?? 0) + goldWon;
+    EventBus.emit(EVENTS.MONEY_CHANGED, { delta: goldWon, newTotal: state.gang.money });
     comp.wins.attack      = (comp.wins.attack ?? 0) + 1;
     const bonus = defaultDefense ? ` ×${RAID_NO_DEFENSE_PENALTY_MULT}` : '';
     notify(`Raid réussi${bonus} ! +${goldWon.toLocaleString('fr-FR')} ₽`, 'success');
   } else {
     state.gang.money  = Math.max(0, (state.gang.money ?? 0) - moneyPenalty);
+    EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -moneyPenalty, newTotal: state.gang.money });
     comp.losses.attack = (comp.losses.attack ?? 0) + 1;
     const reason = noDefense ? 'base vide' : 'défense trop forte';
     notify(`Raid échoué — ${reason}. -${moneyPenalty.toLocaleString('fr-FR')} ₽`, 'error');
@@ -600,6 +602,7 @@ export async function acknowledgeRaids() {
   }
 
   state.gang.money         = (state.gang.money ?? 0) + totalGoldGain;
+  if (totalGoldGain) EventBus.emit(EVENTS.MONEY_CHANGED, { delta: totalGoldGain, newTotal: state.gang.money });
   comp.wins.defense        = (comp.wins.defense  ?? 0) + defWins;
   comp.losses.defense      = (comp.losses.defense ?? 0) + defLosses;
   comp.pendingRaids        = [];

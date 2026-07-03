@@ -161,6 +161,8 @@ function _autoSellHatched(pokemon) {
   state.gang.money += price;
   state.stats.totalSold = (state.stats.totalSold || 0) + 1;
   state.stats.totalMoneyEarned = (state.stats.totalMoneyEarned || 0) + price;
+  EventBus.emit(EVENTS.MONEY_CHANGED, { delta: price, newTotal: state.gang.money });
+  EventBus.emit(EVENTS.POKEMON_SOLD, { pokemonIds: [pokemon.id], totalPrice: price });
   globalThis.addLog?.(`[Auto-vente œuf] ${globalThis.speciesName(pokemon.species_en)} → ${price.toLocaleString()}₽`);
   return true;
 }
@@ -593,6 +595,7 @@ function renderPensionView(container) {
     const cost = SLOT_PRICES[maxSlots];
     if (state.gang.money < cost) { notify('Fonds insuffisants.', 'error'); return; }
     state.gang.money -= cost;
+    EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -cost, newTotal: state.gang.money });
     state.pension.extraSlotsPurchased = (state.pension.extraSlotsPurchased || 0) + 1;
     saveState();
     notify(`Slot de pension débloqué ! (${globalThis.getMaxPensionSlots()} slots)`, 'gold');
@@ -625,6 +628,7 @@ function renderPensionView(container) {
     if (state.gang.money < 300000) { notify('Fonds insuffisants.', 'error'); return; }
     globalThis.showConfirm?.('Embaucher l\'Infirmière Joëlle corrompue pour 300 000₽ ? (permanent)', () => {
       state.gang.money -= 300000;
+      EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -300000, newTotal: state.gang.money });
       state.purchases.autoIncubator = true;
       state.purchases.autoIncubatorEnabled = true;
       saveState();
@@ -646,6 +650,7 @@ function renderPensionView(container) {
     if (state.gang.money < 15_000) { notify('Fonds insuffisants.', 'error'); return; }
     globalThis.showConfirm?.('Engager le Scientifique peu scrupuleux pour 15 000₽ ?', () => {
       state.gang.money -= 15_000;
+      EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -15_000, newTotal: state.gang.money });
       state.stats.totalMoneySpent = (state.stats.totalMoneySpent || 0) + 15_000;
       state.purchases.scientist = true;
       state.purchases.scientistEnabled = true;
@@ -660,6 +665,7 @@ function renderPensionView(container) {
     if (state.gang.money < 5_000_000) { notify('Fonds insuffisants.', 'error'); return; }
     globalThis.showConfirm?.('Acheter la vente automatique des éclots pour 5 000 000₽ ?', () => {
       state.gang.money -= 5_000_000;
+      EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -5_000_000, newTotal: state.gang.money });
       state.purchases.autoSellEggs = true;
       state.purchases.autoSellEggsEnabled = true;
       saveState();
@@ -756,6 +762,7 @@ function renderPensionView(container) {
       if (!egg || egg.revealed) return;
       if (state.gang.money < 10000) { notify('Fonds insuffisants (10 000₽).', 'error'); return; }
       state.gang.money -= 10000;
+      EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -10000, newTotal: state.gang.money });
       egg.revealed = true;
       saveState();
       _topBar();

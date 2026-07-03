@@ -1,6 +1,7 @@
 'use strict';
 
 import { BALL_SPRITES, FALLBACK_TRAINER_SVG } from '../../data/assets-data.js';
+import { EventBus, EVENTS } from '../core/eventBus.js';
 
 // HTML escape — sécurise les strings user-input avant injection via innerHTML
 const _esc = s => String(s ?? '').replace(/[&<>"']/g, ch => (
@@ -374,6 +375,7 @@ function renderAgentsTab() {
       if (!agent) return;
       openNameModal({ title: `Renommer ${agent.name}`, current: agent.name, cost: 2000, onConfirm: (val) => {
         state.gang.money -= 2000;
+        EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -2000, newTotal: state.gang.money });
         agent.name = val;
         saveState(); renderAgentsTab();
         notify(`Agent renommé : ${val}`, 'gold');
@@ -388,6 +390,7 @@ function renderAgentsTab() {
       if (!agent) return;
       openSpritePicker(null, (newSprite) => {
         state.gang.money -= 5000;
+        EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -5000, newTotal: state.gang.money });
         agent.sprite = trainerSprite(newSprite);
         saveState(); renderAgentsTab();
         notify(`Sprite de ${agent.name} mis à jour !`, 'gold');
