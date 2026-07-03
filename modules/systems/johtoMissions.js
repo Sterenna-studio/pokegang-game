@@ -878,6 +878,8 @@ async function _launchLegendary(key) {
         });
         if (pk) {
           s.pokemons.push(pk);
+          const _legendZoneMap = { lugia: _WHIRL_ZONE, hooh: _TIN_ZONE };
+          EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: pk, zoneId: _legendZoneMap[key] ?? null });
           if (!s.pokedex[cfg.species]) s.pokedex[cfg.species] = {};
           s.pokedex[cfg.species].caught = true;
           // Increment totalCaptures on the right mission state

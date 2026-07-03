@@ -116,6 +116,7 @@ function _captureLegend(species, level, catchBase, pot, missionKey, ownedField) 
   if (!pk) return;
   if (!s.pokemons) s.pokemons = [];
   s.pokemons.push(pk);
+  EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: pk, zoneId: null });
   if (missionKey && ownedField && s[missionKey]) {
     s[missionKey][ownedField] = true;
     s[missionKey].totalCaptures = (s[missionKey].totalCaptures ?? 0) + 1;
@@ -149,6 +150,7 @@ function _captureLakeLegend(key) {
   if (!pk) return;
   if (!s.pokemons) s.pokemons = [];
   s.pokemons.push(pk);
+  EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: pk, zoneId: null });
   s.lakeMission[key].owned    = true;
   s.lakeMission[key].captures = (s.lakeMission[key].captures ?? 0) + 1;
   s.lakeMission[key].step     = 3; // done
