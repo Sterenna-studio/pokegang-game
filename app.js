@@ -1280,7 +1280,8 @@ function openShowcasePicker(slotIdx) {
 
   const modal = document.createElement('div');
   modal.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center';
-  const listHtml = candidates.map(p => `
+
+  const _renderItems = (filtered) => filtered.map(p => `
     <div class="showcase-pick-item" data-pk-id="${p.id}" style="display:flex;align-items:center;gap:8px;padding:6px;border-bottom:1px solid var(--border);cursor:pointer">
       <img src="${pokeSprite(p.species_en, p.shiny)}" style="width:36px;height:36px;image-rendering:pixelated">
       <div style="flex:1">
@@ -1292,21 +1293,36 @@ function openShowcasePicker(slotIdx) {
   modal.innerHTML = `
     <div style="background:var(--bg-panel);border:2px solid var(--gold-dim);border-radius:var(--radius);padding:20px;max-width:360px;width:90%;display:flex;flex-direction:column;gap:12px;max-height:80vh">
       <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">VITRINE — SLOT ${slotIdx + 1}</div>
-      <div style="overflow-y:auto;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);max-height:360px">${listHtml}</div>
+      <input type="text" id="showcasePickSearch" placeholder="Rechercher un Pokémon…" style="font-family:var(--font-body);font-size:11px;padding:7px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text)">
+      <div id="showcasePickList" style="overflow-y:auto;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);max-height:360px">${_renderItems(candidates)}</div>
       <button id="showcasePickCancel" style="font-family:var(--font-pixel);font-size:8px;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">Annuler</button>
     </div>`;
   document.body.appendChild(modal);
 
-  modal.querySelectorAll('.showcase-pick-item').forEach(el => {
-    el.addEventListener('click', () => {
-      if (!state.gang.showcase) state.gang.showcase = [];
-      while (state.gang.showcase.length < SHOWCASE_SLOTS) state.gang.showcase.push(null);
-      state.gang.showcase[slotIdx] = el.dataset.pkId;
-      saveState();
-      modal.remove();
-      renderGangTab();
+  const listEl = modal.querySelector('#showcasePickList');
+  function _wireItems() {
+    listEl.querySelectorAll('.showcase-pick-item').forEach(el => {
+      el.addEventListener('click', () => {
+        if (!state.gang.showcase) state.gang.showcase = [];
+        while (state.gang.showcase.length < SHOWCASE_SLOTS) state.gang.showcase.push(null);
+        state.gang.showcase[slotIdx] = el.dataset.pkId;
+        saveState();
+        modal.remove();
+        renderGangTab();
+      });
     });
+  }
+  _wireItems();
+
+  modal.querySelector('#showcasePickSearch').addEventListener('input', e => {
+    const q = e.target.value.trim().toLowerCase();
+    const filtered = q
+      ? candidates.filter(p => pokemonDisplayName(p).toLowerCase().includes(q) || p.species_en.toLowerCase().includes(q))
+      : candidates;
+    listEl.innerHTML = _renderItems(filtered);
+    _wireItems();
   });
+
   modal.querySelector('#showcasePickCancel').addEventListener('click', () => modal.remove());
   modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
 }
