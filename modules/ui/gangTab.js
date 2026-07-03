@@ -1101,11 +1101,24 @@ function _doRenderGangTab() {
 // à chaque nouveau point d'entrée (source d'oublis constatée dans agent.js,
 // zoneWindows.js, etc.). Les cas plus spécifiques (loot de coffre, promotion
 // d'agent, déblocage de titre) restent gérés par leurs appels directs existants.
+// Debounce dédié (plus large que les 80ms de renderGangTab) : avec plusieurs
+// agents actifs en arrière-plan, ces events peuvent arriver en rafale
+// (plusieurs combats/captures résolus à quelques centaines de ms d'intervalle).
+// On regroupe cette rafale en un seul rebuild plutôt que d'en déclencher un par
+// event — le chemin des clics utilisateur (renderGangTab() appelé directement
+// depuis les handlers du tab) n'est pas affecté, il garde son debounce rapide.
+const GANG_TAB_EVENT_DEBOUNCE_MS = 400;
+let _gangTabEventDebounceTimer = null;
+
 let _gangTabEventsRegistered = false;
 function _registerGangTabEvents() {
   if (_gangTabEventsRegistered) return;
   _gangTabEventsRegistered = true;
-  const _refreshIfActive = () => { if (globalThis.activeTab === 'tabGang') renderGangTab(); };
+  const _refreshIfActive = () => {
+    if (globalThis.activeTab !== 'tabGang') return;
+    clearTimeout(_gangTabEventDebounceTimer);
+    _gangTabEventDebounceTimer = setTimeout(renderGangTab, GANG_TAB_EVENT_DEBOUNCE_MS);
+  };
   EventBus.on(EVENTS.MONEY_CHANGED,    _refreshIfActive);
   EventBus.on(EVENTS.REP_CHANGED,      _refreshIfActive);
   EventBus.on(EVENTS.POKEMON_CAPTURED, _refreshIfActive);
