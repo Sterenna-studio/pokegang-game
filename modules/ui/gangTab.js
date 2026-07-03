@@ -356,6 +356,7 @@ function renderAppearancePanel(container) {
         if (state.gang.money < c.cost) { _notify('Fonds insuffisants.', 'error'); return; }
         globalThis.showConfirm(`Acheter "${c.fr}" pour ${c.cost.toLocaleString()}₽ ?`, () => {
           state.gang.money -= c.cost;
+          EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -c.cost, newTotal: state.gang.money });
           state.cosmetics.unlockedBgs = [...(state.cosmetics.unlockedBgs || []), key];
           state.cosmetics.gameBg = key;
           _save(); globalThis.applyCosmetics(); _topBar();
@@ -398,6 +399,7 @@ function renderAppearancePanel(container) {
           if (state.gang.money < FABRIC_SHOP_COST) { _notify('Fonds insuffisants (100 000₽).', 'error'); return; }
           globalThis.showConfirm(`Acheter le fond tissu "${fr}" pour ${FABRIC_SHOP_COST.toLocaleString()}₽ ?`, () => {
             state.gang.money -= FABRIC_SHOP_COST;
+            EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -FABRIC_SHOP_COST, newTotal: state.gang.money });
             state.cosmetics.unlockedBgs = [...(state.cosmetics.unlockedBgs || []), key];
             state.cosmetics.gameBg = key;
             _save(); globalThis.applyCosmetics(); _topBar();

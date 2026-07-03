@@ -343,6 +343,7 @@ function _handleRename(agent, onDone) {
   const newName = window.prompt('Nouveau nom de l\'agent :', agent.name);
   if (!newName || !newName.trim()) return;
   state.gang.money -= 2000;
+  EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -2000, newTotal: state.gang.money });
   agent.name = newName.trim().slice(0, 20);
   _save();
   _notify(`Agent renommé → ${agent.name}`, 'success');
@@ -357,6 +358,7 @@ function _handleSpriteChange(agent, onDone) {
   // Réutilise le sprite picker existant (openSpritePicker de pickers.js)
   globalThis.openSpritePicker?.(agent.spriteKey, (newSprite) => {
     state.gang.money -= 5000;
+    EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -5000, newTotal: state.gang.money });
     agent.spriteKey = newSprite;
     agent.sprite    = globalThis.trainerSprite?.(newSprite) || agent.sprite;
     _save();

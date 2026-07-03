@@ -1144,6 +1144,7 @@ function renderEggsView(container) {
         () => {
           state.eggs = state.eggs.filter(e => e.id !== egg.id);
           state.gang.money += price;
+          EventBus.emit(EVENTS.MONEY_CHANGED, { delta: price, newTotal: state.gang.money });
           saveState();
           renderPCTab();
           notify(`Oeuf vendu — ${price}₽`, 'gold');
@@ -1292,6 +1293,7 @@ function _bindPCCardListeners(el) {
             const cost = _superCandyCost(pk.level);
             if ((state.gang.money || 0) < cost) { notify('Pokédollars insuffisants.', 'error'); return; }
             state.gang.money -= cost;
+            EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -cost, newTotal: state.gang.money });
             state.stats.totalMoneySpent = (state.stats.totalMoneySpent || 0) + cost;
             pk.level++; pk.xp = 0; tryAutoEvolution(pk); pk.stats = calculateStats(pk);
             saveState(); notify(`🍬 ${speciesName(pk.species_en)} → Lv.${pk.level} (−${cost.toLocaleString()}₽)`, 'gold');
@@ -1749,7 +1751,9 @@ function _showEvoPreviewPopup(evolvable, type, onConfirm) {
     if (confirmDisabled) return;
     modal.remove();
     if (type === 'stone' && shortage > 0 && canBuyMore) {
-      state.gang.money -= shortage * 5000;
+      const _stoneCost = shortage * 5000;
+      state.gang.money -= _stoneCost;
+      EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -_stoneCost, newTotal: state.gang.money });
       state.inventory.evostone = (state.inventory.evostone || 0) + shortage;
       updateTopBar();
     }
@@ -2098,6 +2102,7 @@ function renderPokemonDetail() {
     showConfirm(`Changer les attaques de <b>${speciesName(p.species_en)}</b> pour <b>10 000₽</b> ?<br><span style="color:var(--text-dim);font-size:10px">Les nouvelles attaques seront tirées aléatoirement dans le pool de l'espèce.</span>`,
       () => {
         state.gang.money -= cost;
+        EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -cost, newTotal: state.gang.money });
         state.stats.totalMoneySpent = (state.stats.totalMoneySpent || 0) + cost;
         p.moves = rollMoves(p.species_en);
         saveState();
@@ -2128,6 +2133,7 @@ function renderPokemonDetail() {
       p.xp = 0;
       p.stats = calculateStats(p);
       state.gang.money -= cost;
+      EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -cost, newTotal: state.gang.money });
       state.stats.totalMoneySpent = (state.stats.totalMoneySpent || 0) + cost;
       if (Array.isArray(p.history)) {
         p.history.push({ type: 'levelup', ts: Date.now(), level: p.level });
@@ -2703,6 +2709,7 @@ function openDexAssistant(species_en) {
 
   // Déduire le prix
   state.gang.money -= price;
+  EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -price, newTotal: state.gang.money });
   updateTopBar();
   saveState();
 

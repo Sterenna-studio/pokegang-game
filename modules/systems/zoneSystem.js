@@ -535,6 +535,7 @@ function rollChestLoot(zoneId, passive = false) {
         zs.pendingIncome = (zs.pendingIncome || 0) + amount;
       } else {
         state.gang.money += amount;
+        EventBus.emit(EVENTS.MONEY_CHANGED, { delta: amount, newTotal: state.gang.money });
       }
       state.stats.totalMoneyEarned += amount;
       return { msg: `📦 ${amount}₽`, type: 'gold' };
@@ -568,6 +569,7 @@ function rollChestLoot(zoneId, passive = false) {
       }
       // Fallback
       state.gang.money += 1000;
+      EventBus.emit(EVENTS.MONEY_CHANGED, { delta: 1000, newTotal: state.gang.money });
       return { msg: `📦 1000₽`, type: 'gold' };
     }
     case 'item': {
@@ -589,10 +591,12 @@ function rollChestLoot(zoneId, passive = false) {
         return { msg: `📦 ${state.lang === 'fr' ? event.fr : event.en}`, type: 'gold' };
       }
       state.gang.money += 2000;
+      EventBus.emit(EVENTS.MONEY_CHANGED, { delta: 2000, newTotal: state.gang.money });
       return { msg: `📦 2000₽`, type: 'gold' };
     }
     default:
       state.gang.money += 500;
+      EventBus.emit(EVENTS.MONEY_CHANGED, { delta: 500, newTotal: state.gang.money });
       return { msg: `📦 500₽`, type: 'success' };
   }
 }
@@ -624,11 +628,11 @@ function activateEvent(zoneId, event) {
     state.gang.money += amount;
     state.stats.totalMoneyEarned += amount;
     EventBus.emit(EVENTS.MONEY_CHANGED, { delta: amount, newTotal: state.gang.money });
-    if (reward.rep) {
-      state.gang.reputation += reward.rep;
-      EventBus.emit(EVENTS.REP_CHANGED, { delta: reward.rep, newTotal: state.gang.reputation });
-    }
     parts.push(`+${amount.toLocaleString()}₽`);
+  }
+  if (reward.rep) {
+    state.gang.reputation += reward.rep;
+    EventBus.emit(EVENTS.REP_CHANGED, { delta: reward.rep, newTotal: state.gang.reputation });
   }
   if (reward.xpBonus) {
     // Grant XP to all pokemon in zone agents
@@ -733,6 +737,7 @@ function investInZone(zoneId) {
     return false;
   }
   state.gang.money -= cost;
+  EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -cost, newTotal: state.gang.money });
   state.stats.totalMoneySpent += cost;
   zState.unlocked = true;  // persistent: zone stays accessible even if rep drops later
   zState.invested = true;
@@ -1166,6 +1171,7 @@ function triggerGymRaid(zoneId, isAuto) {
       const reward = Math.min(globalThis.MAX_COMBAT_REWARD, globalThis.randInt(raidTrainer.reward[0], raidTrainer.reward[1]));
       zs.pendingIncome = (zs.pendingIncome || 0) + reward;
       state.gang.reputation += raidTrainer.rep;
+      EventBus.emit(EVENTS.REP_CHANGED, { delta: raidTrainer.rep, newTotal: state.gang.reputation });
       state.stats.totalMoneyEarned += reward;
       state.stats.totalFights++;
       state.stats.totalFightsWon++;

@@ -156,6 +156,7 @@ function openAgentRecruitModal(onAfterRecruit) {
     btn.addEventListener('click', () => {
       const idx = parseInt(btn.dataset.idx);
       state.gang.money -= cost;
+      EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -cost, newTotal: state.gang.money });
       recruitAgent(candidates[idx]);
       _notify(`${candidates[idx].name} rejoint votre organisation !`, 'gold');
       _topBar();
@@ -1047,6 +1048,7 @@ function unlockAgent(agentId) {
      </span>`,
     () => {
       state.gang.money -= cost;
+      EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -cost, newTotal: state.gang.money });
       agent.legacyLocked = false;
       _save();
       _notify(`✅ ${agent.name} intègre officiellement votre organisation !`, 'success');

@@ -236,8 +236,14 @@ function resolveZoneEvent(zoneId) {
   const repGain   = def.repReward  || 0;
   const xpGain    = def.xpReward   || 0;
 
-  if (moneyGain) state.gang.money      += moneyGain;
-  if (repGain)   state.gang.reputation += repGain;
+  if (moneyGain) {
+    state.gang.money += moneyGain;
+    EventBus.emit(EVENTS.MONEY_CHANGED, { delta: moneyGain, newTotal: state.gang.money });
+  }
+  if (repGain) {
+    state.gang.reputation += repGain;
+    EventBus.emit(EVENTS.REP_CHANGED, { delta: repGain, newTotal: state.gang.reputation });
+  }
   if (xpGain)    addZoneXP(zoneId, 'event_complete');
   state.stats.eventsCompleted = (state.stats.eventsCompleted || 0) + 1;
 

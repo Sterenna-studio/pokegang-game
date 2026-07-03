@@ -168,8 +168,15 @@ function claimHourlyQuest(idx) {
   if (!q || !isHourlyComplete(q) || isHourlyClaimed(idx)) return;
   if (!state.missions.hourly.claimed) state.missions.hourly.claimed = [];
   state.missions.hourly.claimed.push(idx);
-  if (q.reward.money) { state.gang.money += q.reward.money; state.stats.totalMoneyEarned += q.reward.money; }
-  if (q.reward.rep)   { const prev = state.gang.reputation; state.gang.reputation += q.reward.rep; globalThis.checkForNewlyUnlockedZones(prev); }
+  if (q.reward.money) {
+    state.gang.money += q.reward.money; state.stats.totalMoneyEarned += q.reward.money;
+    EventBus.emit(EVENTS.MONEY_CHANGED, { delta: q.reward.money, newTotal: state.gang.money });
+  }
+  if (q.reward.rep) {
+    const prev = state.gang.reputation; state.gang.reputation += q.reward.rep;
+    EventBus.emit(EVENTS.REP_CHANGED, { delta: q.reward.rep, newTotal: state.gang.reputation });
+    globalThis.checkForNewlyUnlockedZones(prev);
+  }
   _notify(`✓ Quête : ${q.fr} — +${q.reward.money?.toLocaleString() || 0}₽${q.reward.rep ? ' +'+q.reward.rep+' rep' : ''}`, 'gold');
   globalThis.SFX.play('coin');
   _save();
@@ -184,10 +191,16 @@ function rerollHourlyQuest(idx) {
   const current = getHourlyQuest(idx);
   if (!current) return;
   state.gang.money -= HOURLY_QUEST_REROLL_COST;
+  EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -HOURLY_QUEST_REROLL_COST, newTotal: state.gang.money });
   // Pick a different quest of same difficulty
   const HOURLY_QUEST_POOL = globalThis.HOURLY_QUEST_POOL;
   const pool = HOURLY_QUEST_POOL.filter(q => q.diff === current.diff && q.id !== current.id && !h.slots.includes(q.id));
-  if (pool.length === 0) { _notify('Aucune quête disponible pour le reroll'); state.gang.money += HOURLY_QUEST_REROLL_COST; return; }
+  if (pool.length === 0) {
+    _notify('Aucune quête disponible pour le reroll');
+    state.gang.money += HOURLY_QUEST_REROLL_COST;
+    EventBus.emit(EVENTS.MONEY_CHANGED, { delta: HOURLY_QUEST_REROLL_COST, newTotal: state.gang.money });
+    return;
+  }
   const newQ = pool[Math.floor(Math.random() * pool.length)];
   h.slots[idx] = newQ.id;
   if (h.baseline[newQ.stat] === undefined) h.baseline[newQ.stat] = getMissionStat(newQ.stat);
@@ -224,9 +237,11 @@ function claimMission(mission) {
   if (mission.reward.money) {
     state.gang.money += mission.reward.money;
     state.stats.totalMoneyEarned += mission.reward.money;
+    EventBus.emit(EVENTS.MONEY_CHANGED, { delta: mission.reward.money, newTotal: state.gang.money });
   }
   if (mission.reward.rep) {
     state.gang.reputation += mission.reward.rep;
+    EventBus.emit(EVENTS.REP_CHANGED, { delta: mission.reward.rep, newTotal: state.gang.reputation });
   }
   // Mark as claimed
   if (mission.type === 'story') {
