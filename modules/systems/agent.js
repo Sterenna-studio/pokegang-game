@@ -7,7 +7,7 @@ import { resolveTrainerCombat } from './zoneCombat.js';
 import { EventBus, EVENTS } from '../core/eventBus.js';
 
 // ── Convenience shims (progressive migration from globalThis.*) ─
-const _notify     = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
+const _notify     = (msg, type = '', category = null) => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type, category });
 const _dirty      = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
 const _topBar     = ()               => EventBus.emit(EVENTS.UI_TOPBAR_UPDATE);
 const _save       = ()               => globalThis.saveState?.();
@@ -442,7 +442,7 @@ function _applyResolvedAgentCombat(zoneId, spawnObj, combatAgents, result) {
     if (_collecting) {
       globalThis.OfflineReport.pushCombat(true, reward);
     } else if (mainAgent?.notifyCaptures !== false) {
-      _notify(`⚔️ ${mainAgent.name} +${reward}₽ +${repGain}rep`, 'success');
+      _notify(`⚔️ ${mainAgent.name} +${reward}₽ +${repGain}rep`, 'success', 'combat');
     }
     globalThis.addLog(globalThis.t('agent_win', { agent: mainAgent?.name || 'Agent' }));
   } else {
@@ -450,7 +450,7 @@ function _applyResolvedAgentCombat(zoneId, spawnObj, combatAgents, result) {
     if (_collecting) {
       globalThis.OfflineReport.pushCombat(false, 0);
     } else if (mainAgent?.notifyCaptures !== false) {
-      _notify(`💀 ${mainAgent?.name || 'Agent'} — défaite`, 'error');
+      _notify(`💀 ${mainAgent?.name || 'Agent'} — défaite`, 'error', 'combat');
     }
     globalThis.addLog(globalThis.t('agent_lose', { agent: mainAgent?.name || 'Agent' }));
   }
@@ -569,12 +569,12 @@ function resolveBackgroundSpawnForZone(zoneId) {
         byAgent:    capturer.name,
       });
     } else if (pokemon.shiny) {
-      _notify(`✨ ${capturer.name} — SHINY ! ${name} ${stars} ✨`, 'gold');
+      _notify(`✨ ${capturer.name} — SHINY ! ${name} ${stars} ✨`, 'gold', 'capture');
       setTimeout(() => globalThis.showShinyPopup?.(pokemon.species_en), 200);
     } else if (rarity === 'legendary') {
-      _notify(`🏆 ${capturer.name} — LÉGENDAIRE ! ${name} ${stars}`, 'gold');
+      _notify(`🏆 ${capturer.name} — LÉGENDAIRE ! ${name} ${stars}`, 'gold', 'capture');
     } else if (rarity === 'very_rare') {
-      _notify(`⭐ ${capturer.name} — Très rare ! ${name} ${stars}`, 'gold');
+      _notify(`⭐ ${capturer.name} — Très rare ! ${name} ${stars}`, 'gold', 'capture');
     }
     globalThis.addLog(globalThis.t('agent_catch', { agent: capturer.name, pokemon: name }));
     globalThis.pushFeedEvent?.({
@@ -682,13 +682,13 @@ function _resolveOccupiedZoneRaid(zoneId, agents) {
     state.gang.money      = (state.gang.money || 0) + moneyGain;
     EventBus.emit(EVENTS.REP_CHANGED,   { delta: repGain, newTotal: state.gang.reputation });
     EventBus.emit(EVENTS.MONEY_CHANGED, { delta: moneyGain, newTotal: state.gang.money });
-    _notify(`🛡 Raid repoussé sur ${zoneName} ! +${repGain} REP +${moneyGain.toLocaleString()}₽`, 'gold');
+    _notify(`🛡 Raid repoussé sur ${zoneName} ! +${repGain} REP +${moneyGain.toLocaleString()}₽`, 'gold', 'combat');
     globalThis.pushFeedEvent?.({ category: 'raid', title: `Raid repoussé — ${zoneName}`, detail: `Défense ${defensePower} vs Attaque ${attackPower} · +${repGain} REP`, win: true });
   } else {
     const moneyLoss = Math.round(Math.min(state.gang.money * 0.03, zoneDiff * 500));
     state.gang.money = Math.max(0, (state.gang.money || 0) - moneyLoss);
     EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -moneyLoss, newTotal: state.gang.money });
-    _notify(`⚠️ Raid ennemi sur ${zoneName} ! −${moneyLoss.toLocaleString()}₽`, 'error');
+    _notify(`⚠️ Raid ennemi sur ${zoneName} ! −${moneyLoss.toLocaleString()}₽`, 'error', 'combat');
     globalThis.pushFeedEvent?.({ category: 'raid', title: `Raid subi — ${zoneName}`, detail: `Défense ${defensePower} vs Attaque ${attackPower} · −${moneyLoss.toLocaleString()}₽`, win: false });
   }
   _save();
@@ -876,11 +876,11 @@ function agentCaptureVisibleSpawn(agent, zoneId, spawnObj) {
       const zoneName = ZONE_BY_ID?.[zoneId]?.fr || zoneId;
       const ballName = globalThis.BALLS?.[usedBall]?.fr || usedBall;
       if (caught.shiny) {
-        _notify(`✨ ${agent.name} — SHINY ! ${cName} ${cStars} ✨`, 'gold');
+        _notify(`✨ ${agent.name} — SHINY ! ${cName} ${cStars} ✨`, 'gold', 'capture');
       } else if (cRarity === 'legendary') {
-        _notify(`🏆 ${agent.name} — LÉGENDAIRE ! ${cName} ${cStars}`, 'gold');
+        _notify(`🏆 ${agent.name} — LÉGENDAIRE ! ${cName} ${cStars}`, 'gold', 'capture');
       } else if (cRarity === 'very_rare') {
-        _notify(`⭐ ${agent.name} — Très rare ! ${cName} ${cStars}`, 'gold');
+        _notify(`⭐ ${agent.name} — Très rare ! ${cName} ${cStars}`, 'gold', 'capture');
       }
       globalThis.addLog(globalThis.t('agent_catch', { agent: agent.name, pokemon: cName }));
       globalThis.pushFeedEvent({
@@ -953,10 +953,10 @@ function _bossAutoCombat(zoneId, spawnObj) {
       const zs = state.zones[zoneId];
       if (zs) zs.combatsWon = (zs.combatsWon || 0) + 1;
       globalThis.addZoneXP?.(zoneId, 'combat_win');
-      _notify(`⚔️ ${bossName} +${reward}₽ +${repGain}rep`, 'success');
+      _notify(`⚔️ ${bossName} +${reward}₽ +${repGain}rep`, 'success', 'combat');
       globalThis.addLog?.(globalThis.t?.('agent_win', { agent: bossName }) ?? `${bossName} a vaincu ${trainerName}.`);
     } else {
-      _notify(`💀 ${bossName} — défaite contre ${trainerName}`, 'error');
+      _notify(`💀 ${bossName} — défaite contre ${trainerName}`, 'error', 'combat');
       globalThis.addLog?.(globalThis.t?.('agent_lose', { agent: bossName }) ?? `${bossName} a perdu contre ${trainerName}.`);
     }
 

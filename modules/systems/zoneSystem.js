@@ -30,7 +30,7 @@ import {
 } from '../../data/power-config-data.js';
 import { EventBus, EVENTS } from '../core/eventBus.js';
 
-const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
+const _notify = (msg, type = '', category = null) => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type, category });
 const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
 const _topBar = ()               => EventBus.emit(EVENTS.UI_TOPBAR_UPDATE);
 const _save   = ()               => globalThis.saveState?.();
@@ -793,10 +793,10 @@ function tryCapture(zoneId, speciesEN, bonusPotential = 0, spawnCtx = {}) {
   const stars = '★'.repeat(pokemon.potential) + '☆'.repeat(5 - pokemon.potential);
   const shinyTag = pokemon.shiny ? ' ✨SHINY✨' : '';
   if (pokemon.shiny) {
-    _notify(`${name} ${stars}${shinyTag}`, 'gold');
+    _notify(`${name} ${stars}${shinyTag}`, 'gold', 'capture');
     setTimeout(() => globalThis.showShinyPopup?.(pokemon.species_en), 200);
   } else {
-    _notify(`${name} ${stars}`, pokemon.potential >= 4 ? 'gold' : 'success');
+    _notify(`${name} ${stars}`, pokemon.potential >= 4 ? 'gold' : 'success', 'capture');
   }
   globalThis.addLog(globalThis.t('catch_success', { name }) + ` [${stars}]`);
   // Feed event — skip si un agent gère son propre feed event (évite les doublons)

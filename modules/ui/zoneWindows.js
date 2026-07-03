@@ -44,7 +44,7 @@ import { EventBus, EVENTS } from '../core/eventBus.js';
 import { esc as _esc } from '../core/escape.js';
 import { getDifficultyTier, getDifficultyBadgeHtml } from '../systems/difficultyTier.js';
 
-const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
+const _notify = (msg, type = '', category = null) => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type, category });
 const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
 const _topBar = ()               => EventBus.emit(EVENTS.UI_TOPBAR_UPDATE);
 const _save   = ()               => globalThis.saveState?.();
@@ -2434,7 +2434,7 @@ function executeCombat() {
       globalThis.clearZoneActivity?.(zoneId);
     }
   } else {
-    _notify(`Défaite contre ${trainerCombatName(spawnWithZone)} — aucun loot.`, 'error');
+    _notify(`Défaite contre ${trainerCombatName(spawnWithZone)} — aucun loot.`, 'error', 'combat');
   }
   _save();
 

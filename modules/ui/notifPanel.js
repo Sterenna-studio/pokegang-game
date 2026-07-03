@@ -31,11 +31,15 @@ const CATS = {
   success: { icon: '✓',  label: 'Succès'     },
   error:   { icon: '⚠',  label: 'Erreurs'    },
   levelup: { icon: '📈', label: 'Niveaux'    },
+  capture: { icon: '🔴', label: 'Captures'   },
+  combat:  { icon: '⚔',  label: 'Combats'    },
   system:  { icon: '🔔', label: 'Système'    },
 };
 
 const FILTER_TABS = [
   { key: 'all',     label: 'Tout'   },
+  { key: 'capture', label: '🔴'     },
+  { key: 'combat',  label: '⚔'     },
   { key: 'gold',    label: '⭐'     },
   { key: 'success', label: '✓'     },
   { key: 'error',   label: '⚠'     },
@@ -44,7 +48,8 @@ const FILTER_TABS = [
 
 // ── Push ─────────────────────────────────────────────────────────
 function _push({ category = 'system', title = '', detail = '', type = '' } = {}) {
-  const effectiveCat = (type && CATS[type]) ? type : (CATS[category] ? category : 'system');
+  // category (explicite, ex: 'capture'/'combat') prime sur type (ex: 'gold'/'error')
+  const effectiveCat = (category && CATS[category]) ? category : (type && CATS[type]) ? type : 'system';
   const cat = CATS[effectiveCat];
 
   // Dedup : même titre en tête de queue → incrémenter le compteur

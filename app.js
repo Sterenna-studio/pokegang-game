@@ -953,11 +953,11 @@ function addReputation(delta) {
 }
 Object.assign(globalThis, { addMoney, addReputation, _getDifficultyTier });
 
-function notify(msg, type = '') {
+function notify(msg, type = '', category = null) {
   if (type === 'gold') SFX.play('notify');
   // Routed to notification panel (replaces old #notifications toast system)
-  // category = type if recognized, otherwise 'system'
-  globalThis._npanel_push?.({ category: type || 'system', title: msg, type });
+  // category explicite (ex: 'capture'/'combat') sinon dérivée du type, sinon 'system'
+  globalThis._npanel_push?.({ category: category || type || 'system', title: msg, type });
 }
 
 // Milestone : CHROMA_CHARM_COST₽ → Charme Chroma
@@ -2814,7 +2814,7 @@ function boot() {
   // ── EventBus bridges ─────────────────────────────────────────
   // Modules can emit these events instead of calling globalThis.fn()
   // directly. Both pathways work during the progressive migration.
-  EventBus.on(EVENTS.UI_NOTIFY,        ({ msg, type = '' } = {}) => notify(msg, type));
+  EventBus.on(EVENTS.UI_NOTIFY,        ({ msg, type = '', category = null } = {}) => notify(msg, type, category));
   EventBus.on(EVENTS.UI_TOPBAR_UPDATE, ()                        => updateTopBar());
   EventBus.on(EVENTS.STATE_DIRTY,      ()                        => markDirty());
 
