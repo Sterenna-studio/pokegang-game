@@ -1022,6 +1022,8 @@ function applyCombatResult(result, playerTeamIds, trainerData) {
   }
   if (result.win) {
     EventBus.emit(EVENTS.COMBAT_WON, { zoneId: trainerData.zoneId, trainerKey: trainerData.trainerKey });
+  } else {
+    EventBus.emit(EVENTS.COMBAT_LOST, { zoneId: trainerData.zoneId, trainerKey: trainerData.trainerKey });
   }
   _save();
 }

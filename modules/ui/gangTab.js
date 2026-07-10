@@ -693,6 +693,29 @@ function renderGangTab() {
   }, 80);
 }
 
+// ── Fragments partagés rebuild complet / patch ciblé ──────────────
+function _buildGangStatsHtml(state) {
+  const s          = state.stats;
+  const _sb        = globalThis._gangSessionStatsBase || {};
+  const _isSession = _statsViewMode === 'session';
+  const _sv        = k => _isSession ? Math.max(0, (s[k] || 0) - (_sb[k] || 0)) : (s[k] || 0);
+  return [
+    [state.pokemons.length,                                                      'Possédés'],
+    [_sv('totalCaught'),                                                         'Capturés'],
+    [_sv('totalSold'),                                                           'Vendus'],
+    [_isSession ? _sv('shinyCaught') : globalThis.getShinySpeciesCount?.(),      _isSession ? '✨ Chromas' : '✨ Espèces chroma'],
+    [_isSession ? '' : s.shinyCaught,                                            _isSession ? '' : '✨ Chromas (total)'],
+    [`${_sv('totalFightsWon')}/${_sv('totalFights')}`,                           'Combats'],
+    [`${_sv('totalMoneyEarned').toLocaleString()}₽`,                             'Gains'],
+  ].filter(([val]) => val !== '').map(([val, label]) =>
+    `<div class="gang-stat-card"><div class="stat-value">${val}</div><div class="stat-label">${label}</div></div>`
+  ).join('');
+}
+
+function _gangHeaderDexHtml() {
+  return `📖 ${globalThis.getDexKantoCaught?.() ?? 0}/${globalThis.KANTO_DEX_SIZE ?? 151} <span style="font-size:8px;opacity:.6">[${globalThis.getDexNationalCaught?.() ?? 0}/${globalThis.NATIONAL_DEX_SIZE ?? 151}]</span>`;
+}
+
 function _doRenderGangTab() {
   const tab = document.getElementById('tabGang');
   if (!tab) return;
@@ -703,7 +726,6 @@ function _doRenderGangTab() {
 
   const state      = globalThis.state;
   const g          = state.gang;
-  const s          = state.stats;
   const activeSlot = g.activeBossTeamSlot || 0;
   const teamPks    = (g.bossTeam || []).map(id => state.pokemons.find(p => p.id === id)).filter(Boolean);
 
@@ -727,7 +749,7 @@ function _doRenderGangTab() {
       return `<div class="gang-showcase-slot filled" data-showcase-idx="${i}">
         <img src="${globalThis.pokeSprite(pk.species_en, pk.shiny)}" style="width:48px;height:48px;image-rendering:pixelated;${pk.shiny ? 'filter:drop-shadow(0 0 4px var(--gold))' : ''}">
         <div style="font-size:7px;margin-top:2px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%">${globalThis.pokemonDisplayName(pk)}${pk.shiny ? ' ✨' : ''}</div>
-        <div style="font-size:7px;color:var(--text-dim)">Lv.${pk.level} ${'★'.repeat(pk.potential)}</div>
+        <div class="gang-slot-lv" style="font-size:7px;color:var(--text-dim)">Lv.${pk.level} ${'★'.repeat(pk.potential)}</div>
         <div style="display:flex;gap:3px;margin-top:3px;align-items:center;justify-content:center">
           ${evoHint}
           <button class="gang-showcase-remove" data-idx="${i}" style="font-size:7px;padding:1px 4px;background:var(--bg);border:1px solid var(--red);border-radius:2px;color:var(--red);cursor:pointer">✕</button>
@@ -759,26 +781,14 @@ function _doRenderGangTab() {
     if (pk) return `<div class="gang-team-slot filled" data-boss-slot="${i}" title="${globalThis.pokemonDisplayName(pk)} Lv.${pk.level}">
       <img src="${globalThis.pokeIcon(pk.species_en)}" style="width:40px;height:30px;image-rendering:pixelated;${pk.shiny ? 'filter:drop-shadow(0 0 3px var(--gold))' : ''}" onerror="this.src='${globalThis.pokeSprite(pk.species_en, pk.shiny)}';this.style.width='40px';this.style.height='40px'">
       <div style="font-size:7px;margin-top:2px;color:${pk.shiny ? 'var(--gold)' : 'var(--text)'}">${globalThis.pokemonDisplayName(pk)}</div>
-      <div style="font-size:7px;color:var(--text-dim)">Lv.${pk.level}</div>
+      <div class="gang-slot-lv" style="font-size:7px;color:var(--text-dim)">Lv.${pk.level}</div>
     </div>`;
     return `<div class="gang-team-slot empty" data-boss-slot="${i}"><span style="font-size:7px;color:var(--text-dim)">Slot ${i+1}</span></div>`;
   }).join('');
 
-  // Stats
-  const _sb        = globalThis._gangSessionStatsBase || {};
+  // Stats (fragment partagé avec _patchGangTabDynamic)
   const _isSession = _statsViewMode === 'session';
-  const _sv        = k => _isSession ? Math.max(0, (s[k] || 0) - (_sb[k] || 0)) : (s[k] || 0);
-  const statsHtml  = [
-    [state.pokemons.length,                                                      'Possédés'],
-    [_sv('totalCaught'),                                                         'Capturés'],
-    [_sv('totalSold'),                                                           'Vendus'],
-    [_isSession ? _sv('shinyCaught') : globalThis.getShinySpeciesCount?.(),      _isSession ? '✨ Chromas' : '✨ Espèces chroma'],
-    [_isSession ? '' : s.shinyCaught,                                            _isSession ? '' : '✨ Chromas (total)'],
-    [`${_sv('totalFightsWon')}/${_sv('totalFights')}`,                           'Combats'],
-    [`${_sv('totalMoneyEarned').toLocaleString()}₽`,                             'Gains'],
-  ].filter(([val]) => val !== '').map(([val, label]) =>
-    `<div class="gang-stat-card"><div class="stat-value">${val}</div><div class="stat-label">${label}</div></div>`
-  ).join('');
+  const statsHtml  = _buildGangStatsHtml(state);
 
   const repPct = Math.min(100, g.reputation);
 
@@ -814,12 +824,12 @@ function _doRenderGangTab() {
           })()}
           <button id="btnOpenTitles" style="margin-top:4px;font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">🏆 Titres</button>
           <div style="display:flex;gap:14px;margin-top:6px;flex-wrap:wrap">
-            <span style="font-size:10px;color:var(--gold)">⭐ ${g.reputation.toLocaleString()}</span>
-            <span style="font-size:10px;color:var(--text)">₽ ${g.money.toLocaleString()}</span>
-            <span style="font-size:10px;color:var(--text-dim)" title="Pokédex Kanto / National">📖 ${globalThis.getDexKantoCaught?.() ?? 0}/${globalThis.KANTO_DEX_SIZE ?? 151} <span style="font-size:8px;opacity:.6">[${globalThis.getDexNationalCaught?.() ?? 0}/${globalThis.NATIONAL_DEX_SIZE ?? 151}]</span></span>
+            <span id="gangHeaderRep" style="font-size:10px;color:var(--gold)">⭐ ${g.reputation.toLocaleString()}</span>
+            <span id="gangHeaderMoney" style="font-size:10px;color:var(--text)">₽ ${g.money.toLocaleString()}</span>
+            <span id="gangHeaderDex" style="font-size:10px;color:var(--text-dim)" title="Pokédex Kanto / National">${_gangHeaderDexHtml()}</span>
           </div>
           <div style="margin-top:8px;background:var(--border);border-radius:2px;height:4px;max-width:200px">
-            <div style="background:var(--gold-dim);height:4px;border-radius:2px;width:${repPct}%;transition:width .5s"></div>
+            <div id="gangRepBarFill" style="background:var(--gold-dim);height:4px;border-radius:2px;width:${repPct}%;transition:width .5s"></div>
           </div>
         </div>
         <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end;flex-shrink:0">
@@ -1093,6 +1103,66 @@ function _doRenderGangTab() {
   }
 }
 
+// ── Patch ciblé des valeurs dynamiques ────────────────────────────
+// Pendant l'activité background (agents qui combattent/capturent), seuls les
+// chiffres bougent : stats, argent/rep du header, niveaux vitrine/équipe.
+// On met à jour ces nœuds en place au lieu de reconstruire les ~1100 lignes de
+// HTML du tab à chaque rafale d'events. Le rebuild complet reste réservé aux
+// changements structurels : composition vitrine/équipe modifiée (vente d'un
+// Pokémon exposé), nouveau fond débloqué (badge "!" à faire apparaître) —
+// détectés ici et déroutés vers renderGangTab().
+function _patchGangTabDynamic() {
+  if (globalThis.activeTab !== 'tabGang') return;
+  const tab = document.getElementById('tabGang');
+  if (!tab) return;
+  const state = globalThis.state;
+  const g     = state.gang;
+
+  // Nouveau fond débloqué pendant qu'on est sur le tab : la pleine passe de
+  // render gère les deux cas (badge si replié, marquer vu si déplié). Rare
+  // (une fois par espèce), le coût du rebuild est acceptable.
+  const _hasNewBg = (state.cosmetics?.unlockedBgs || []).length > (state.cosmetics?.bgsSeenCount ?? 0);
+  if (_hasNewBg && !tab.querySelector('.gang-new-bg-badge')) { renderGangTab(); return; }
+
+  const statsRow = tab.querySelector('.gang-stats-row');
+  if (!statsRow) { renderGangTab(); return; } // structure inattendue → rebuild
+  statsRow.innerHTML = _buildGangStatsHtml(state);
+
+  const repEl = tab.querySelector('#gangHeaderRep');
+  if (repEl) repEl.textContent = `⭐ ${g.reputation.toLocaleString()}`;
+  const moneyEl = tab.querySelector('#gangHeaderMoney');
+  if (moneyEl) moneyEl.textContent = `₽ ${g.money.toLocaleString()}`;
+  const dexEl = tab.querySelector('#gangHeaderDex');
+  if (dexEl) dexEl.innerHTML = _gangHeaderDexHtml();
+  const repFill = tab.querySelector('#gangRepBarFill');
+  if (repFill) repFill.style.width = `${Math.min(100, g.reputation)}%`;
+
+  // Vitrine + équipe boss : niveaux (XP passif/combats). Si la composition a
+  // changé sous nos pieds (slot rempli↔vide), c'est structurel → rebuild.
+  let structural = false;
+  const showcaseArr = [...(g.showcase || [])];
+  tab.querySelectorAll('.gang-showcase-slot[data-showcase-idx]').forEach(el => {
+    const i  = parseInt(el.dataset.showcaseIdx, 10);
+    const pk = showcaseArr[i] ? state.pokemons.find(p => p.id === showcaseArr[i]) : null;
+    if (!!pk !== el.classList.contains('filled')) { structural = true; return; }
+    if (pk) {
+      const lv = el.querySelector('.gang-slot-lv');
+      if (lv) lv.textContent = `Lv.${pk.level} ${'★'.repeat(pk.potential)}`;
+    }
+  });
+  const teamPks = (g.bossTeam || []).map(id => state.pokemons.find(p => p.id === id)).filter(Boolean);
+  tab.querySelectorAll('.gang-team-slot[data-boss-slot]').forEach(el => {
+    const i  = parseInt(el.dataset.bossSlot, 10);
+    const pk = teamPks[i];
+    if (!!pk !== el.classList.contains('filled')) { structural = true; return; }
+    if (pk) {
+      const lv = el.querySelector('.gang-slot-lv');
+      if (lv) lv.textContent = `Lv.${pk.level}`;
+    }
+  });
+  if (structural) renderGangTab();
+}
+
 // ── Refresh automatique via EventBus ──────────────────────────────────────────
 // Filet de sécurité : ces événements changent des données affichées dans le tab
 // (argent, rep, stats de captures/ventes/combats) et doivent le rafraîchir
@@ -1101,12 +1171,10 @@ function _doRenderGangTab() {
 // à chaque nouveau point d'entrée (source d'oublis constatée dans agent.js,
 // zoneWindows.js, etc.). Les cas plus spécifiques (loot de coffre, promotion
 // d'agent, déblocage de titre) restent gérés par leurs appels directs existants.
-// Debounce dédié (plus large que les 80ms de renderGangTab) : avec plusieurs
-// agents actifs en arrière-plan, ces events peuvent arriver en rafale
-// (plusieurs combats/captures résolus à quelques centaines de ms d'intervalle).
-// On regroupe cette rafale en un seul rebuild plutôt que d'en déclencher un par
-// event — le chemin des clics utilisateur (renderGangTab() appelé directement
-// depuis les handlers du tab) n'est pas affecté, il garde son debounce rapide.
+// Debounce dédié : avec plusieurs agents actifs en arrière-plan, ces events
+// arrivent en rafale — on regroupe la rafale en UN patch ciblé (pas un rebuild,
+// voir _patchGangTabDynamic). Le chemin des clics utilisateur (renderGangTab()
+// appelé directement depuis les handlers du tab) garde son rebuild complet.
 const GANG_TAB_EVENT_DEBOUNCE_MS = 400;
 let _gangTabEventDebounceTimer = null;
 
@@ -1117,7 +1185,7 @@ function _registerGangTabEvents() {
   const _refreshIfActive = () => {
     if (globalThis.activeTab !== 'tabGang') return;
     clearTimeout(_gangTabEventDebounceTimer);
-    _gangTabEventDebounceTimer = setTimeout(renderGangTab, GANG_TAB_EVENT_DEBOUNCE_MS);
+    _gangTabEventDebounceTimer = setTimeout(_patchGangTabDynamic, GANG_TAB_EVENT_DEBOUNCE_MS);
   };
   EventBus.on(EVENTS.MONEY_CHANGED,    _refreshIfActive);
   EventBus.on(EVENTS.REP_CHANGED,      _refreshIfActive);
