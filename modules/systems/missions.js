@@ -180,6 +180,7 @@ function claimHourlyQuest(idx) {
   _notify(`✓ Quête : ${q.fr} — +${q.reward.money?.toLocaleString() || 0}₽${q.reward.rep ? ' +'+q.reward.rep+' rep' : ''}`, 'gold');
   globalThis.SFX.play('coin');
   _save();
+  _topBar();
 }
 
 function rerollHourlyQuest(idx) {
@@ -199,12 +200,14 @@ function rerollHourlyQuest(idx) {
     _notify('Aucune quête disponible pour le reroll');
     state.gang.money += HOURLY_QUEST_REROLL_COST;
     EventBus.emit(EVENTS.MONEY_CHANGED, { delta: HOURLY_QUEST_REROLL_COST, newTotal: state.gang.money });
+    _topBar();
     return;
   }
   const newQ = pool[Math.floor(Math.random() * pool.length)];
   h.slots[idx] = newQ.id;
   if (h.baseline[newQ.stat] === undefined) h.baseline[newQ.stat] = getMissionStat(newQ.stat);
   _save();
+  _topBar();
   _notify(`Reroll : ${newQ.fr}`, 'success');
 }
 
@@ -240,8 +243,10 @@ function claimMission(mission) {
     EventBus.emit(EVENTS.MONEY_CHANGED, { delta: mission.reward.money, newTotal: state.gang.money });
   }
   if (mission.reward.rep) {
+    const prevRep = state.gang.reputation;
     state.gang.reputation += mission.reward.rep;
     EventBus.emit(EVENTS.REP_CHANGED, { delta: mission.reward.rep, newTotal: state.gang.reputation });
+    globalThis.checkForNewlyUnlockedZones(prevRep);
   }
   // Mark as claimed
   if (mission.type === 'story') {
