@@ -24,6 +24,7 @@
 // ════════════════════════════════════════════════════════════════
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
+import { resolveSpecialCombat } from './specialCombat.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type });
 const _save   = ()               => globalThis.saveState?.();
@@ -372,6 +373,7 @@ function _injectStyles() {
     }
     .dxq-badge.gold  { color:#ffcc5a; border-color:rgba(255,204,90,.4); }
     .dxq-badge.green { color:#00ff88; border-color:rgba(0,255,136,.4); }
+    .dxq-badge.red   { color:#ff8080; border-color:rgba(255,128,128,.4); }
   `;
   document.head.appendChild(style);
 }
@@ -754,7 +756,9 @@ async function _launchDirectorFight() {
       _flash();
       await _wait(700);
       _clearOverlay();
-      await _directorVictory();
+      const { win } = resolveSpecialCombat({ power: bosspower, requiredPower: DIRECTOR_POWER_THRESHOLD });
+      if (win) await _directorVictory();
+      else     await _directorDefeat();
     };
     ch.appendChild(bFight);
   }
@@ -797,6 +801,33 @@ async function _directorVictory() {
   const bTrack = _btn('← Retour au tracker');
   bTrack.onclick = () => { _clearOverlay(); _renderTracker(); };
   ch.appendChild(bNext);
+  ch.appendChild(bTrack);
+}
+
+async function _directorDefeat() {
+  const box = _box();
+  _label(box, 'Étape 4 — Résultat');
+
+  const badge = document.createElement('div');
+  badge.className = 'dxq-badge red';
+  badge.textContent = '✗  Directeur Devon Stone — Défaite';
+  box.appendChild(badge);
+
+  const txt = _textEl(box);
+  await _typewrite(txt,
+    'Metang encaisse le dernier assaut sans broncher.\n\n' +
+    '"Revenez quand vous serez prêts."\n\n' +
+    'Renforcez votre équipe et retentez votre chance.',
+  );
+
+  _notify('☄️ Défaite contre le Directeur Devon Stone.', 'error');
+
+  const ch = _choices(box);
+  const bRetry = _btn('⚔  Retenter →', 'cyan');
+  bRetry.onclick = () => { _clearOverlay(); setTimeout(_launchDirectorFight, 300); };
+  const bTrack = _btn('← Retour au tracker');
+  bTrack.onclick = () => { _clearOverlay(); _renderTracker(); };
+  ch.appendChild(bRetry);
   ch.appendChild(bTrack);
 }
 
@@ -917,8 +948,12 @@ async function _deoxysResolution(bosspower) {
 
   const qualified = bosspower >= DEOXYS_POWER_THRESHOLD;
   const powerRatio = bosspower / DEOXYS_POWER_THRESHOLD;
-  const winChance  = qualified ? Math.min(0.5 + (powerRatio - 1) * 0.4, 0.95) : powerRatio * 0.3;
-  const won        = Math.random() < winChance;
+  // Tentative "quand même" sous le seuil : chance réduite dédiée (pas la formule
+  // partagée, qui suppose un jet normal au-dessus du seuil requis).
+  const winChance = qualified
+    ? resolveSpecialCombat({ power: bosspower, requiredPower: DEOXYS_POWER_THRESHOLD, baseChance: 0.5 }).chance
+    : powerRatio * 0.3;
+  const won = Math.random() < winChance;
 
   _label(box, 'Résultat du combat');
 

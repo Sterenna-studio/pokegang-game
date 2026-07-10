@@ -35,6 +35,7 @@
 // ════════════════════════════════════════════════════════════════
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
+import { resolveSpecialCombat } from './specialCombat.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type });
 const _save   = ()               => globalThis.saveState?.();
@@ -211,8 +212,8 @@ function _launchBoss(trainerKey, afterFn) {
     if (action === 'close') { overlay.remove(); return; }
     if (action === 'fight') {
       overlay.remove();
-      const won = Math.random() < Math.min(0.95, 0.55 + (power - cfg.required) / cfg.required * 0.4);
-      if (!won) { _notify(`❌ Défaite contre ${cfg.name} — renforcez votre équipe !`, 'error'); return; }
+      const { win } = resolveSpecialCombat({ power, requiredPower: cfg.required });
+      if (!win) { _notify(`❌ Défaite contre ${cfg.name} — renforcez votre équipe !`, 'error'); return; }
       _notify(`🏆 ${cfg.name} vaincu !`, 'success');
       afterFn?.();
     }
