@@ -31,6 +31,7 @@
 // ════════════════════════════════════════════════════════════════
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
+import { resolveSpecialCombat } from './specialCombat.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type });
 const _save   = ()               => globalThis.saveState?.();
@@ -507,6 +508,14 @@ async function _launchBoss(key, birdKey) {
       const resEl = div.querySelector('#ktm-boss-result');
       resEl.innerHTML = `<div class="ktm-result-banner" style="color:${cfg.accent}">⚔️ Combat en cours…</div>`;
       await _wait(900);
+      const { win } = resolveSpecialCombat({ power, requiredPower: cfg.power });
+      if (!win) {
+        resEl.innerHTML = `<div class="ktm-result-banner" style="color:#ff8080">✗ Défaite…</div>
+          <div style="font-family:var(--font-pixel,monospace);font-size:7.5px;color:#b0c0e0;line-height:2;margin-top:6px">${cfg.name} vous a repoussé. Renforcez votre équipe et retentez votre chance.</div>`;
+        await _wait(2000);
+        div.remove();
+        return;
+      }
       cfg.winFn();
       _save();
       resEl.innerHTML = `<div class="ktm-result-banner" style="color:#90ee90">✓ Victoire !</div>

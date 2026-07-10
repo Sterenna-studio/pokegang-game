@@ -42,6 +42,7 @@
 // ════════════════════════════════════════════════════════════════
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
+import { resolveSpecialCombat } from './specialCombat.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type });
 const _save   = ()               => globalThis.saveState?.();
@@ -761,6 +762,14 @@ async function _launchBoss(key) {
       const resEl = div.querySelector('#jhm-fight-result');
       resEl.innerHTML = `<div class="jhm-result-banner" style="color:${boss.accent}">⚔️ Combat en cours…</div>`;
       await _wait(900);
+      const { win } = resolveSpecialCombat({ power, requiredPower: needed });
+      if (!win) {
+        resEl.innerHTML = `<div class="jhm-result-banner" style="color:#ff8080">✗ Défaite…</div>
+          <div style="font-family:var(--font-pixel,monospace);font-size:7.5px;color:#c0d8c0;line-height:2;margin-top:6px">${boss.name} vous a repoussé. Renforcez votre équipe et retentez votre chance.</div>`;
+        await _wait(2200);
+        div.remove();
+        return;
+      }
       boss.winFn();
       _save();
       resEl.innerHTML = `<div class="jhm-result-banner" style="color:#90ee90">✓ Victoire !</div>

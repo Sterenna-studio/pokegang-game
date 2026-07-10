@@ -34,6 +34,7 @@
 // ════════════════════════════════════════════════════════════════
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
+import { resolveSpecialCombat } from './specialCombat.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type });
 const _save   = ()               => globalThis.saveState?.();
@@ -336,6 +337,7 @@ function _injectStyles() {
       padding:8px 14px; margin-bottom:14px;
     }
     .lgm-badge.green { color:#00ff88; border-color:rgba(0,255,136,.35); }
+    .lgm-badge.red   { color:#ff8080; border-color:rgba(255,128,128,.35); }
 
     /* Warn text */
     .lgm-warn {
@@ -828,7 +830,9 @@ async function _launchBossFight(rank, questId) {
       _flash();
       await _wait(650);
       _clearOv();
-      await _bossVictory(rank, questId, npcCfg.name);
+      const { win } = resolveSpecialCombat({ power: bosspower, requiredPower: npcCfg.power });
+      if (win) await _bossVictory(rank, questId, npcCfg.name);
+      else     await _bossDefeat(rank, questId, npcCfg.name);
     };
     ch.appendChild(bFight);
   }
@@ -880,6 +884,32 @@ async function _bossVictory(rank, questId, npcName) {
   const bTrack = _btn('← Tracker');
   bTrack.onclick = () => { _clearOv(); _renderDualTracker(); };
   ch.appendChild(bNext);
+  ch.appendChild(bTrack);
+}
+
+async function _bossDefeat(rank, questId, npcName) {
+  const cfg = QUESTS[questId];
+  const box = _box(questId);
+
+  const badge = document.createElement('div');
+  badge.className = 'lgm-badge red';
+  badge.textContent = `✗  ${npcName} — Défaite`;
+  box.appendChild(badge);
+
+  const txt = _textEl(box);
+  await _typewrite(txt,
+    `${npcName} repousse votre assaut sans peine.\n\n"Revenez quand vous serez prêts."\n\nRenforcez votre équipe et retentez votre chance.`,
+    22,
+  );
+
+  _notify(`${cfg.theme.label} — défaite contre ${npcName}.`, 'error');
+
+  const ch = _choices(box);
+  const bRetry = _btn(`⚔  Retenter →`, 'accent');
+  bRetry.onclick = () => { _clearOv(); setTimeout(() => _launchBossFight(rank, questId), 300); };
+  const bTrack = _btn('← Tracker');
+  bTrack.onclick = () => { _clearOv(); _renderDualTracker(); };
+  ch.appendChild(bRetry);
   ch.appendChild(bTrack);
 }
 
@@ -949,8 +979,12 @@ async function _legendaryResolution(questId, bosspower) {
 
   const qualified  = bosspower >= leg.power;
   const ratio      = bosspower / leg.power;
-  const winChance  = qualified ? Math.min(0.45 + (ratio - 1) * 0.45, 0.92) : ratio * 0.25;
-  const won        = Math.random() < winChance;
+  // Tentative "quand même" sous le seuil : chance réduite dédiée (pas la formule
+  // partagée, qui suppose un jet normal au-dessus du seuil requis).
+  const winChance = qualified
+    ? resolveSpecialCombat({ power: bosspower, requiredPower: leg.power, baseChance: 0.45, maxChance: 0.92, slope: 0.45 }).chance
+    : ratio * 0.25;
+  const won = Math.random() < winChance;
 
   _sublabel(box, `Résultat — ${cfg.theme.label}`);
 
