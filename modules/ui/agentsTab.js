@@ -24,7 +24,58 @@ const BEHAVIOR_FLAGS = [
   { key:'autoCapture', icon:'🎯', label:'Capture' },
 ];
 
+// ── Render guard — même pattern que gangTab.js ────────────────────
+// Debounce 80 ms pour regrouper les appels rapides successifs, et report du
+// rebuild si l'utilisateur est en train d'interagir avec un champ du tab
+// (le <select> d'assignation de zone serait reset en pleine ouverture sinon).
+// Les checkboxes sont exclues de la garde : pas d'état "en cours de saisie".
+let _agentsTabTimer         = null;
+let _agentsTabPendingRender = false;
+let _agentsFocusOutWired    = false;
+
+function _ensureAgentsFocusOutHandler(grid) {
+  if (_agentsFocusOutWired) return;
+  _agentsFocusOutWired = true;
+  grid.addEventListener('focusout', function onFocusOut(e) {
+    if (grid.contains(e.relatedTarget)) return;
+    _agentsFocusOutWired = false;
+    grid.removeEventListener('focusout', onFocusOut);
+    if (_agentsTabPendingRender) { _agentsTabPendingRender = false; renderAgentsTab(); }
+  });
+}
+
 function renderAgentsTab() {
+  if (_agentsTabTimer) { clearTimeout(_agentsTabTimer); _agentsTabTimer = null; }
+  _agentsTabTimer = setTimeout(() => {
+    _agentsTabTimer = null;
+    const grid = document.getElementById('agentsGrid');
+    if (!grid) return;
+    const focused = document.activeElement;
+    const isBlockingField = focused && grid.contains(focused)
+      && ['INPUT', 'SELECT', 'TEXTAREA'].includes(focused.tagName)
+      && focused.type !== 'checkbox';
+    if (isBlockingField) {
+      _agentsTabPendingRender = true;
+      _ensureAgentsFocusOutHandler(grid);
+      return;
+    }
+    _doRenderAgentsTab();
+  }, 80);
+}
+
+// ── Fragment énergie/repos d'une carte agent ──────────────────────
+// Partagé entre le rebuild complet et le patch ciblé (_patchAgentsTabDynamic).
+function _agentEnergyRowHtml(a, agentTeamSlots) {
+  return a.resting
+    ? `<span style="font-family:var(--font-pixel);font-size:7px;color:var(--red)">💤 REPOS ${Math.max(0, Math.round(((a.restUntil || 0) - Date.now()) / 60000))}min</span>`
+    : `<div style="flex:1;height:3px;background:var(--border);border-radius:2px;overflow:hidden">
+         <div style="width:${Math.round((a.energy ?? 10) / (a.maxEnergy || 10) * 100)}%;height:100%;background:${(a.energy ?? 10) <= 3 ? 'var(--red)' : 'var(--green)'};border-radius:2px"></div>
+       </div>
+       <span style="font-size:8px;color:var(--text-dim)">${a.energy ?? 10}⚡</span>
+       <span style="font-size:8px;color:var(--text-dim);margin-left:4px">${agentTeamSlots} slot${agentTeamSlots > 1 ? 's' : ''}</span>`;
+}
+
+function _doRenderAgentsTab() {
   const grid = document.getElementById('agentsGrid');
   if (!grid) return;
 
@@ -42,7 +93,7 @@ function renderAgentsTab() {
         <div class="agent-meta">
           <div class="agent-name" style="color:var(--gold)">${_esc(state.gang.bossName || 'Boss')}</div>
           <div class="agent-title" style="color:var(--gold)">${bossTitle || 'Chef de gang'}</div>
-          <div style="font-size:8px;color:var(--text-dim)">
+          <div id="agentBossCounters" style="font-size:8px;color:var(--text-dim)">
             ${state.pokemons.length} Pokémon · ${state.agents.filter(a => !a.legacyLocked).length} agents actifs · REP ${bossRep}
           </div>
         </div>
@@ -125,7 +176,7 @@ function renderAgentsTab() {
     }
 
     const cosmUnlockedAgent = state.purchases?.cosmeticsPanel;
-    html += `<div class="agent-card-full" data-agent-id="${a.id}">
+    html += `<div class="agent-card-full" data-agent-id="${a.id}" data-rank="${a.title || 'grunt'}">
       <div class="agent-header">
         <img src="${a.sprite}" alt="${a.name}" onerror="this.src='${FALLBACK_TRAINER_SVG}';this.onerror=null"
           style="cursor:pointer" class="agent-sprite-open-sheet" data-agent-id="${a.id}" title="Voir la fiche">
@@ -133,18 +184,11 @@ function renderAgentsTab() {
           <div class="agent-title agent-rank-${a.title}" style="display:flex;align-items:baseline;gap:5px;flex-wrap:nowrap;overflow:hidden">
             <span style="font-size:7px;opacity:.75;flex-shrink:0">[${getAgentRankLabel(a)}]</span>
             <span style="font-family:var(--font-pixel);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.name}</span>
-            <span style="font-size:8px;opacity:.7;flex-shrink:0">Lv.${a.level}</span>
+            <span class="agent-lv" style="font-size:8px;opacity:.7;flex-shrink:0">Lv.${a.level}</span>
           </div>
           <div class="agent-xp-bar"><div class="agent-xp-fill" style="width:${xpPct}%"></div></div>
-          <div style="display:flex;align-items:center;gap:4px;margin-top:2px">
-            ${a.resting
-              ? `<span style="font-family:var(--font-pixel);font-size:7px;color:var(--red)">💤 REPOS ${Math.max(0, Math.round(((a.restUntil || 0) - Date.now()) / 60000))}min</span>`
-              : `<div style="flex:1;height:3px;background:var(--border);border-radius:2px;overflow:hidden">
-                   <div style="width:${Math.round((a.energy ?? 10) / (a.maxEnergy || 10) * 100)}%;height:100%;background:${(a.energy ?? 10) <= 3 ? 'var(--red)' : 'var(--green)'};border-radius:2px"></div>
-                 </div>
-                 <span style="font-size:8px;color:var(--text-dim)">${a.energy ?? 10}⚡</span>
-                 <span style="font-size:8px;color:var(--text-dim);margin-left:4px">${agentTeamSlots} slot${agentTeamSlots > 1 ? 's' : ''}</span>`
-            }
+          <div class="agent-energy-row" style="display:flex;align-items:center;gap:4px;margin-top:2px">
+            ${_agentEnergyRowHtml(a, agentTeamSlots)}
           </div>
         </div>
         <div style="display:flex;flex-direction:column;gap:3px;margin-left:auto;padding-left:6px">
@@ -201,10 +245,12 @@ function renderAgentsTab() {
 
   grid.innerHTML = html;
 
-  // Agent tree toggle
+  // Agent tree toggle (once, guarded — le bouton vit hors du grid, il survit aux rebuilds :
+  // sans garde, chaque render empilait un listener de plus et un clic togglait N fois)
   const treeBtn = document.getElementById('btnToggleAgentTree');
   const treeCon = document.getElementById('agentTreeContainer');
-  if (treeBtn && treeCon) {
+  if (treeBtn && treeCon && !treeBtn.dataset.wired) {
+    treeBtn.dataset.wired = '1';
     treeBtn.addEventListener('click', () => {
       const open = treeCon.style.display === 'none';
       treeCon.style.display = open ? 'block' : 'none';
@@ -486,6 +532,63 @@ function renderAgentTree(container) {
       ⚠ PROTO — L'assignation hiérarchique n'est pas encore implémentée.
     </div>`;
 }
+
+// ── Patch ciblé des valeurs dynamiques ────────────────────────────
+// Pendant l'activité background (agents qui combattent/capturent), seuls
+// niveau, XP, énergie et compteurs bougent — on met à jour ces nœuds en place
+// au lieu de reconstruire toute la grille (cartes complexes × nombre d'agents,
+// le coût exact qui explose en late-game). Le rebuild complet reste réservé
+// aux changements structurels : promotion (le rang change les slots d'équipe),
+// recrutement/déblocage (le nombre de cartes change).
+function _patchAgentsTabDynamic() {
+  if (globalThis.activeTab !== 'tabAgents') return;
+  const grid = document.getElementById('agentsGrid');
+  if (!grid) return;
+  const state = globalThis.state;
+
+  const counters = grid.querySelector('#agentBossCounters');
+  if (counters) {
+    counters.textContent =
+      `${state.pokemons.length} Pokémon · ${state.agents.filter(a => !a.legacyLocked).length} agents actifs · REP ${state.gang.reputation || 0}`;
+  }
+
+  for (const a of state.agents) {
+    if (a.legacyLocked) continue;
+    const card = grid.querySelector(`.agent-card-full[data-agent-id="${a.id}"]`);
+    // Carte absente (recrutement) ou rang changé (slots d'équipe différents) :
+    // structurel → rebuild complet et on s'arrête là.
+    if (!card || card.dataset.rank !== (a.title || 'grunt')) { renderAgentsTab(); return; }
+
+    const lvEl = card.querySelector('.agent-lv');
+    if (lvEl) lvEl.textContent = `Lv.${a.level}`;
+    const xpFill = card.querySelector('.agent-xp-fill');
+    if (xpFill) xpFill.style.width = `${Math.min(100, (a.xp / (a.level * 30)) * 100)}%`;
+    const energyRow = card.querySelector('.agent-energy-row');
+    if (energyRow) energyRow.innerHTML = _agentEnergyRowHtml(a, getAgentTeamSlots(a));
+  }
+}
+
+// ── Refresh automatique via EventBus (patch ciblé, jamais de rebuild) ─────────
+// Ces events sont émis en rafale par les agents en arrière-plan ; le debounce
+// regroupe la rafale, et le handler ne touche que les nœuds dynamiques.
+const AGENTS_TAB_EVENT_DEBOUNCE_MS = 400;
+let _agentsPatchTimer = null;
+
+let _agentsTabEventsRegistered = false;
+function _registerAgentsTabEvents() {
+  if (_agentsTabEventsRegistered) return;
+  _agentsTabEventsRegistered = true;
+  const _patchIfActive = () => {
+    if (globalThis.activeTab !== 'tabAgents') return;
+    clearTimeout(_agentsPatchTimer);
+    _agentsPatchTimer = setTimeout(_patchAgentsTabDynamic, AGENTS_TAB_EVENT_DEBOUNCE_MS);
+  };
+  EventBus.on(EVENTS.COMBAT_WON,       _patchIfActive); // XP/level agents
+  EventBus.on(EVENTS.COMBAT_LOST,      _patchIfActive); // énergie (baisse sur défaite)
+  EventBus.on(EVENTS.POKEMON_CAPTURED, _patchIfActive); // XP agents + compteur Pokémon
+  EventBus.on(EVENTS.POKEMON_SOLD,     _patchIfActive); // compteur Pokémon (auto-vente)
+}
+_registerAgentsTabEvents();
 
 Object.assign(globalThis, { renderAgentsTab, renderAgentTree });
 export { renderAgentsTab, renderAgentTree };
