@@ -29,7 +29,10 @@ import {
   repairSave,
 } from './state/saveRepair.js';
 import './modules/systems/llm.js';
-import './modules/systems/missions.js';
+import {
+  checkHourlyQuestResetTick,
+  refreshMissionsUiTick,
+} from './modules/systems/missions.js';
 import './modules/systems/market.js';
 import './modules/systems/bossPower.js';
 import './modules/systems/agent.js';
@@ -46,7 +49,7 @@ import {
   renderCompteTab,
   supaCloudSave,
   supaWriteSnapshot,
-  supaUpdateLeaderboardAnon,
+  leaderboardSyncTick,
   getSupabaseClient,
   getSupaSession,
 } from './modules/systems/cloudAccount.js';
@@ -123,7 +126,10 @@ import {
   openSettingsModal,
 } from './modules/ui/settingsModal.js';
 import './modules/ui/notifPanel.js';
-import './modules/ui/zoneWindows.js';
+import {
+  configureZoneWindowTicks,
+  refreshZoneWindowsTick,
+} from './modules/ui/zoneWindows.js';
 import './modules/ui/gangBase.js';
 import './modules/ui/gangTab.js';
 import './modules/systems/johto.js';
@@ -134,12 +140,19 @@ import { configureIntro, openGiovanniIntro, openStarterGiftPopup, showIntro } fr
 import { checkDarkraiCutscene, triggerDarkraiOnLeagueVictory } from './modules/ui/darkraiEvent.js';
 import './modules/ui/hoennEvent.js';
 import './modules/ui/johtoEvent.js';
+import {
+  checkPeriodicRegionUnlocksTick,
+  configureRegionUnlockChecks,
+} from './modules/systems/regionUnlocks.js';
 import { checkDeoxysMissionUnlock } from './modules/systems/deoxysMission.js';
 import { checkLegendaryMissionsUnlock } from './modules/systems/legendaryMissions.js';
 import { checkJohtoMissionsUnlock } from './modules/systems/johtoMissions.js';
 import { checkKantoMissionsUnlock } from './modules/systems/kantoMissions.js';
 import { checkSinnohMissionsUnlock } from './modules/systems/sinnohMissions.js';
-import './modules/systems/pokemon.js';
+import {
+  configurePassiveProgression,
+  grantPassiveTeamXpTick,
+} from './modules/systems/pokemon.js';
 import './modules/systems/titles.js';
 import './modules/ui/cosmetics.js';
 import './modules/ui/hubModals.js';
@@ -147,7 +160,7 @@ import {
   renderZoneSelector    as _zsRenderSelector,
   refreshZoneTile       as _zsRefreshTile,
   refreshZoneIncomeTile as _zsRefreshIncome,
-  refreshAllFogTiles    as _zsRefreshAllTiles,
+  refreshAllFogTiles,
   updateZoneButtons     as _zsUpdateButtons,
   bindZoneActionButtons as _zsBindActions,
   showZoneContextMenu   as _zsShowCtxMenu,
@@ -866,44 +879,7 @@ function showBossSpriteRepairModal(...a) { return globalThis.showBossSpriteRepai
 // ════════════════════════════════════════════════════════════════
 // GAME LOOP VARS
 // ════════════════════════════════════════════════════════════════
-const HOUR_MS = 3600000;
-
 let _gameLoopStarted  = false; // guard against double-start
-
-// ── Fonctions nommées pour le Scheduler ──────────────────────
-// (extraites des lambdas inline de startGameLoop)
-function _tickMissionsUI() {
-  if (activeTab === 'tabMissions') renderMissionsTab();
-}
-function _tickHourlyCheck() {
-  if (!state.missions?.hourly) return;
-  if (Date.now() - state.missions.hourly.reset < HOUR_MS) return;
-  initHourlyQuests();
-  if (activeTab === 'tabMissions') renderMissionsTab();
-  notify('⏰ Nouvelles quêtes horaires disponibles !', 'gold');
-}
-function _tickLeaderboard() {
-  if (!runtimeStore.consumePlayerActivity()) return;
-  supaUpdateLeaderboardAnon();
-}
-function _tickPassiveXP() {
-  const teamIds = new Set([...state.gang.bossTeam]);
-  for (const a of state.agents) a.team.forEach(id => teamIds.add(id));
-  if (teamIds.size === 0) return;
-  let leveled = false;
-  for (const id of teamIds) {
-    const p = pokemonById(id);
-    if (p) leveled = levelUpPokemon(p, PASSIVE_XP_PER_TICK) || leveled;
-  }
-  if (leveled) saveState();
-}
-function _tickZoneRefresh() {
-  for (const zoneId of openZones) {
-    updateZoneTimers(zoneId);
-    _refreshRaidBtn(zoneId);
-  }
-  if (activeTab === 'tabZones') _zsRefreshAllTiles();
-}
 
 // ════════════════════════════════════════════════════════════════
 // JOHTO — Extension régionale
@@ -943,20 +919,17 @@ function startGameLoop() {
   // Gameplay — critique, skip si onglet caché
   Scheduler.register('agentTick',       agentTick,          TICK_AGENT_MS,        { skipWhenHidden: true  });
   Scheduler.register('passiveAgentTick',passiveAgentTick,   TICK_PASSIVE_AGENT_MS,{ skipWhenHidden: true  });
-  Scheduler.register('tickHourlyCheck', _tickHourlyCheck,   TICK_HOURLY_CHECK_MS, { skipWhenHidden: true  });
-  Scheduler.register('tickMissionsUI',  _tickMissionsUI,    TICK_MISSIONS_UI_MS,  { skipWhenHidden: true  });
+  Scheduler.register('tickHourlyCheck', checkHourlyQuestResetTick, TICK_HOURLY_CHECK_MS, { skipWhenHidden: true  });
+  Scheduler.register('tickMissionsUI',  refreshMissionsUiTick,     TICK_MISSIONS_UI_MS,  { skipWhenHidden: true  });
   // 'zoneEvents' désactivé — système d'événements de zone V2 neutralisé
   // (cf. ZONE_EVENTS_ENABLED dans modules/systems/zoneLevels.js)
   Scheduler.register('trainingRoom',    trainingRoomTick,   TICK_TRAINING_MS,     { skipWhenHidden: true  });
   Scheduler.register('pensionTick',     pensionTick,        TICK_PENSION_MS,      { skipWhenHidden: true  });
-  Scheduler.register('passiveXP',       _tickPassiveXP,     TICK_PASSIVE_XP_MS,   { skipWhenHidden: true  });
-  Scheduler.register('zoneRefresh',     _tickZoneRefresh,   TICK_ZONE_REFRESH_MS, { skipWhenHidden: true  });
+  Scheduler.register('passiveXP',       grantPassiveTeamXpTick, TICK_PASSIVE_XP_MS,   { skipWhenHidden: true  });
+  Scheduler.register('zoneRefresh',     refreshZoneWindowsTick, TICK_ZONE_REFRESH_MS, { skipWhenHidden: true  });
   Scheduler.register('marketDecay',     decayMarketSales,   TICK_MARKET_DECAY_MS, { skipWhenHidden: true  });
   // Events marché (boosts/maluses temporaires sur prix de vente) — 30 min
-  Scheduler.register('regionUnlockCheck', () => {
-    if (!state.purchases?.hoennUnlocked)  checkHoennUnlock();
-    if (!state.purchases?.sinnohUnlocked) checkSinnohUnlock();
-  }, 5 * 60 * 1000, { skipWhenHidden: true });
+  Scheduler.register('regionUnlockCheck', checkPeriodicRegionUnlocksTick, 5 * 60 * 1000, { skipWhenHidden: true });
   Scheduler.register('marketEvents',    marketEventsTick,   30 * 60 * 1000,       { skipWhenHidden: false });
   // Bulletin du marché noir (4 demandes pour 2h) — vérification toutes les 15 min
   Scheduler.register('blackMarket',     blackMarketTick,    15 * 60 * 1000,       { skipWhenHidden: false });
@@ -965,7 +938,7 @@ function startGameLoop() {
   Scheduler.register('autoSave',        _autoSave,          TICK_AUTO_SAVE_MS,    { skipWhenHidden: false });
   Scheduler.register('cloudSave',       supaCloudSave,      TICK_CLOUD_SAVE_MS,   { skipWhenHidden: false });
   Scheduler.register('snapshot',        supaWriteSnapshot,  TICK_SNAPSHOT_MS,     { skipWhenHidden: false });
-  Scheduler.register('leaderboard',     _tickLeaderboard,   TICK_LEADERBOARD_MS,  { skipWhenHidden: false });
+  Scheduler.register('leaderboard',     leaderboardSyncTick, TICK_LEADERBOARD_MS,  { skipWhenHidden: false });
   Scheduler.register('versionPoll',     pollRemoteVersion,  TICK_VERSION_POLL_MS, { skipWhenHidden: false });
 
   // Premier poll de version peu après le boot (setTimeout conservé)
@@ -1377,6 +1350,8 @@ configureCloudAccount({
   getState: () => state,
   getActiveTab: () => activeTab,
   getActiveSaveSlot,
+  markPlayerActivity: () => runtimeStore.markPlayerActivity(),
+  consumePlayerActivityForLeaderboard: () => runtimeStore.consumePlayerActivity(),
   getSupabaseConfig: () => ({
     url:     _localSupabaseConfig.url,
     anonKey: _localSupabaseConfig.anonKey,
@@ -1411,6 +1386,25 @@ configureZoneCombat({
   getState: () => state,
   getPokemonPower,
   getTeamPower,
+});
+
+configurePassiveProgression({
+  getState: () => state,
+  pokemonById,
+  saveState,
+  xpPerTick: PASSIVE_XP_PER_TICK,
+});
+
+configureZoneWindowTicks({
+  getOpenZones: () => openZones,
+  getActiveTab: () => activeTab,
+  refreshAllFogTiles,
+});
+
+configureRegionUnlockChecks({
+  getState: () => state,
+  checkHoennUnlock,
+  checkSinnohUnlock,
 });
 
 configurePcPokedex({
