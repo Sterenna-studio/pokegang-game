@@ -171,17 +171,14 @@ import {
   GAME_VERSION,
   SAVE_SCHEMA_VERSION,
   SAVE_KEYS,
-  DEFAULT_STATE,
   createDefaultState,
 } from './state/defaultState.js';
-import { slimPokemon, buildSavePayload, MAX_HISTORY } from './state/serialization.js';
-import { migrateSave, getMigrationSummary } from './state/migrateSave.js';
+import { slimPokemon, MAX_HISTORY } from './state/serialization.js';
+import { createRuntimeStore } from './state/runtimeStore.js';
 import {
-  createStore,
   pokemonById,
   agentById,
   invalidateLookupMaps,
-  loadState,
   exportSave,
   importSave,
 } from './state/store.js';
@@ -254,55 +251,40 @@ function t(key, vars = {}) {
 //  2.  STATE MANAGEMENT
 // ════════════════════════════════════════════════════════════════
 
-// ── Save slot (runtime mutable) ───────────────────────────────────────────────
-let activeSaveSlot = Math.min(2, parseInt(localStorage.getItem('pokeforge.activeSlot') || '0'));
-let SAVE_KEY = SAVE_KEYS[activeSaveSlot];
-
-// Expose activeSaveSlot as a live getter/setter on globalThis so extracted modules can read it
-Object.defineProperty(globalThis, 'activeSaveSlot', {
-  get: () => activeSaveSlot,
-  set: v => { activeSaveSlot = v; },
-  configurable: true,
+const runtimeStore = createRuntimeStore({
+  localStorageRef: localStorage,
+  initialState: createDefaultState(),
+  notify: (msg, type) => notify(msg, type),
+  speciesByEn: SPECIES_BY_EN,
+  uid,
+  now: () => Date.now(),
 });
+let state = runtimeStore.getState();
 
-function setActiveSaveSlotValue(idx, opts = {}) {
-  activeSaveSlot = idx;
-  SAVE_KEY = SAVE_KEYS[idx];
-  if (opts?.persist) localStorage.setItem('pokeforge.activeSlot', String(idx));
-  // Sync store slot so store.save() writes to the right key
-  _store?.setActiveSaveSlot(idx, { persist: false }); // persist géré ligne au-dessus
+function _syncStateRef() {
+  state = runtimeStore.getState();
+  return state;
 }
 
-let state = structuredClone(DEFAULT_STATE);
-globalThis.state = state;
+function getActiveSaveSlot() {
+  return runtimeStore.getActiveSaveSlot();
+}
 
-// ── Store (Chantier 2) ────────────────────────────────────────────────────────
-// Instancié ici ; chargé et utilisé dans boot().
-// Gère la sérialisation, la migration et la persistance localStorage.
-// Le cloudSave est null ici — le tick cloudSave du Scheduler le gère séparément.
-let _store = null; // initialisé dans _createStoreInstance() appelé au boot
+function getSaveKey() {
+  return runtimeStore.getSaveKey();
+}
+
+function setActiveSaveSlotValue(idx, opts = {}) {
+  return runtimeStore.setActiveSaveSlotValue(idx, opts);
+}
 
 function _createStoreInstance() {
-  _store = createStore({
-    localStorageRef: localStorage,
-    initialState:    createDefaultState(),
-    notify:          (msg, type) => notify(msg, type),
-    speciesByEn:     SPECIES_BY_EN,
-    uid,
-    now:             () => Date.now(),
-  });
-  globalThis._store = _store; // debug access
-  return _store;
+  return runtimeStore.createStoreInstance();
 }
 
 function setState(nextState) {
-  state = nextState;
-  globalThis.state = state;
-  // Synchronise le store avec le nouvel objet state (après loadSlot etc.)
-  if (_store) _store.setState(nextState, { emit: false });
-  invalidateLookupMaps(); // new state object — maps must be rebuilt
-  _stateDirty = true;
-  return state;
+  runtimeStore.setState(nextState);
+  return _syncStateRef();
 }
 
 // ── Sérialisation slim des pokémons ──────────────────────────────────────────
@@ -315,19 +297,15 @@ function setState(nextState) {
 // _autoSave — called only by the autosave setInterval.
 // Skips serialization when nothing changed since last save.
 function _autoSave() {
-  if (!_stateDirty) return;
-  saveState();
+  const saved = runtimeStore.autoSave();
+  _syncStateRef();
+  return saved;
 }
 
 function saveState() {
-  _stateDirty = false;
-  globalThis.state = state; // keep modules in sync
-  _playerWasActive = true; // signal leaderboard timer that the player is active
-
-  // Délègue sérialisation/persistance au store (Chantier 2).
-  // Le store gère : marketSales guard, playtime, _savedAt, slim payload, QuotaError.
-  // Cloud sync : géré par le tick cloudSave du Scheduler (pas ici).
-  _store.save();
+  const saved = runtimeStore.saveState();
+  _syncStateRef();
+  return saved;
 }
 
 
@@ -339,13 +317,7 @@ function formatPlaytime(seconds) {
 
 // ── migrate() — délègue à state/migrateSave.js ───────────────────────────────
 function migrate(saved) {
-  return migrateSave(saved, {
-    DEFAULT_STATE,
-    SAVE_SCHEMA_VERSION,
-    SPECIES_BY_EN,
-    uid,
-    now: () => Date.now(),
-  });
+  return runtimeStore.migrate(saved);
 }
 
 // ── loadState/exportSave/importSave (extracted → state/store.js) ────────────
@@ -366,15 +338,8 @@ function openLegacyImportModal(legacyData) {
 // ── Lookup Maps pokemonById/agentById/invalidateLookupMaps
 //    (extracted → state/store.js) ───────────────────────────────────────────
 
-// ── Dirty flag for autosave ───────────────────────────────────────────────────
-// Set to true by markDirty() after any meaningful state mutation.
-// The 10s autosave interval skips the serialization when clean.
-// Explicit saveState() calls (after user actions) always save regardless.
-let _stateDirty = true; // start dirty so first autosave always fires
-
 function markDirty() {
-  _stateDirty = true;
-  invalidateLookupMaps();
+  runtimeStore.markDirty();
 }
 
 // ── RNG & utilitaires (extracted → modules/core/utils.js) ───────────────────
@@ -904,7 +869,6 @@ function showBossSpriteRepairModal(...a) { return globalThis.showBossSpriteRepai
 const HOUR_MS = 3600000;
 
 let _gameLoopStarted  = false; // guard against double-start
-let _playerWasActive = false; // set by saveState(); consumed by the 2h leaderboard timer
 
 // ── Fonctions nommées pour le Scheduler ──────────────────────
 // (extraites des lambdas inline de startGameLoop)
@@ -919,8 +883,7 @@ function _tickHourlyCheck() {
   notify('⏰ Nouvelles quêtes horaires disponibles !', 'gold');
 }
 function _tickLeaderboard() {
-  if (!_playerWasActive) return;
-  _playerWasActive = false;
+  if (!runtimeStore.consumePlayerActivity()) return;
   supaUpdateLeaderboardAnon();
 }
 function _tickPassiveXP() {
@@ -1168,7 +1131,7 @@ configureModals({
   formatPlaytime,
   exportSave,
   createDefaultState,
-  getActiveSaveSlot: () => activeSaveSlot,
+  getActiveSaveSlot,
   getSaveKeys: () => SAVE_KEYS,
   getKantoDexSize: () => KANTO_DEX_SIZE,
   getNationalDexSize: () => NATIONAL_DEX_SIZE,
@@ -1310,7 +1273,7 @@ Object.assign(globalThis, {
   showIntro,
   // Core infrastructure
   Scheduler, EventBus, EVENTS,
-  get _store() { return _store; }, // debug access (also set in _createStoreInstance)
+  get _store() { return runtimeStore.getStore(); }, // debug access (also set in runtimeStore)
 });
 
 configureSecretCodes({
@@ -1333,7 +1296,7 @@ configureSaveSlots({
   getState: () => state,
   setState,
   getSaveKeys: () => SAVE_KEYS,
-  getActiveSaveSlot: () => activeSaveSlot,
+  getActiveSaveSlot,
   setActiveSaveSlot: slotIdx => setActiveSaveSlotValue(slotIdx, { persist: true }),
   localStorage,
   document,
@@ -1413,7 +1376,7 @@ let _localSupabaseConfig = { url: '', anonKey: '' };
 configureCloudAccount({
   getState: () => state,
   getActiveTab: () => activeTab,
-  getActiveSaveSlot: () => activeSaveSlot,
+  getActiveSaveSlot,
   getSupabaseConfig: () => ({
     url:     _localSupabaseConfig.url,
     anonKey: _localSupabaseConfig.anonKey,
@@ -1527,7 +1490,7 @@ configureSettingsModal({
   notify,
   t,
   createDefaultState,
-  getSaveKey: () => SAVE_KEY,
+  getSaveKey,
   getOpenZones: () => openZones,
   closeZoneWindow,
   showIntro,
@@ -1590,12 +1553,9 @@ function boot() {
   _createStoreInstance();
 
   // Try to load saved state via store
-  const loaded = _store.load();   // migre + persiste dans _store.state
+  const loaded = runtimeStore.loadCurrentSlot();   // migre + persiste dans runtimeStore
   if (loaded) {
-    state = _store.getState();    // récupère la référence (même objet)
-    globalThis.state = state;
-    invalidateLookupMaps();
-    _stateDirty = false;          // vient d'être chargé — pas dirty
+    _syncStateRef();              // récupère la référence (même objet)
   }
 
   // Fallback legacy si le store n'a rien trouvé (compatibilité)
@@ -1606,7 +1566,7 @@ function boot() {
   _sessionStatsBase = globalThis._gangSessionStatsBase = { ...state.stats };
 
   // ── Banner de migration si save convertie ────────────────────────────────
-  const migRes = _store.getMigrationResult();
+  const migRes = runtimeStore.getMigrationResult();
   if (migRes) {
     setTimeout(() => showMigrationBanner(migRes), 1200);
   }
@@ -1825,7 +1785,7 @@ function boot() {
     formatPlaytime,
     showConfirm,
     getSaveKeys: () => SAVE_KEYS,
-    getActiveSaveSlot: () => activeSaveSlot,
+    getActiveSaveSlot,
     renderAll,
     loadSlot,
     openHubSlotRepairModal,
