@@ -184,7 +184,12 @@ const BOOST_ITEMS = new Set(['incense', 'rarescope', 'aura', 'lure', 'superlure'
 
 function buyItem(itemDef) {
   const state = globalThis.state;
-  const actualCost = itemDef.id === 'mysteryegg' ? globalThis.getMysteryEggCost() : itemDef.cost;
+  // L'incubateur double de prix à chaque exemplaire déjà possédé — même
+  // formule que l'affichage (marketTab.js), sinon le joueur paie toujours
+  // le prix du premier incubateur quel que soit le nombre déjà acquis.
+  const actualCost = itemDef.id === 'mysteryegg' ? globalThis.getMysteryEggCost()
+    : itemDef.id === 'incubator' ? Math.round(itemDef.cost * Math.pow(2, state.inventory.incubator || 0))
+    : itemDef.cost;
   if (state.gang.money < actualCost) {
     _notify(globalThis.t('not_enough'));
     globalThis.SFX.play('error');

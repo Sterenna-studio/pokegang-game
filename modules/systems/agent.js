@@ -155,6 +155,14 @@ function openAgentRecruitModal(onAfterRecruit) {
   modal.querySelectorAll('.recruit-pick-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const idx = parseInt(btn.dataset.idx);
+      // Revérifier : la modale reste ouverte pendant que le jeu tourne en
+      // arrière-plan (raid hostile, etc.) — le solde a pu baisser depuis
+      // le check initial à l'ouverture.
+      if ((state.gang?.money || 0) < cost) {
+        _notify(`Fonds insuffisants (${cost.toLocaleString()}₽ requis)`, 'error');
+        modal.remove();
+        return;
+      }
       state.gang.money -= cost;
       EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -cost, newTotal: state.gang.money });
       recruitAgent(candidates[idx]);
@@ -365,6 +373,7 @@ function _zoneCombatAgents(zoneId, { isRaid = false, preferredAgent = null } = {
   const preferredId = preferredAgent?.id ?? null;
   return [...(state.agents || [])]
     .filter(agent => agent.assignedZone === zoneId)
+    .filter(agent => !agent.resting)
     .filter(agent => isRaid ? agent.autoRaid !== false : agent.autoCombat !== false)
     .sort((a, b) => {
       if (a.id === preferredId) return -1;
@@ -755,6 +764,13 @@ function agentTick() {
     if (!agent.assignedZone) continue;
     const zoneId = agent.assignedZone;
     if (!openZones.has(zoneId)) continue;
+    // Même règle de repos que resolveBackgroundSpawnForZone (zones fermées) :
+    // sans ce tick+filtre, un agent épuisé assigné à une zone laissée ouverte
+    // continuait de combattre/capturer normalement, ET restait bloqué en
+    // repos pour toujours (rien d'autre ne réévalue restUntil tant que la
+    // zone reste ouverte).
+    _tickAgentEnergy(agent);
+    if (agent.resting) continue;
     const spawns = zoneSpawns[zoneId];
     if (!spawns || spawns.length === 0) continue;
     if (zoneDone.has(zoneId)) continue;
@@ -1000,6 +1016,26 @@ function agentAutoCombat(zoneId, spawnObj, agent) {
     if (globalThis.currentCombat) { spawnObj._agentClaimed = false; return; }
     const result = resolveTrainerCombat({ ...spawnObj, zoneId }, combatAgents.map(a => a.id));
     _applyResolvedAgentCombat(zoneId, spawnObj, combatAgents, result);
+
+    // ── Énergie agent sur défaite — même règle que resolveBackgroundSpawnForZone,
+    // absente ici jusqu'ici : un agent ne pouvait jamais s'épuiser en combattant
+    // dans une zone laissée ouverte à l'écran.
+    if (!result.attackerWin) {
+      const zone = ZONE_BY_ID[zoneId];
+      const tier = zone?.tier || 1;
+      const energyCost = tier >= 4 ? 3 : 2;
+      const mainAgent = combatAgents[0];
+      if (mainAgent) {
+        mainAgent.energy = Math.max(0, (mainAgent.energy ?? 10) - energyCost);
+        if (mainAgent.energy === 0) {
+          mainAgent.resting = true;
+          mainAgent.restUntil = Date.now() + 60 * 60 * 1000; // 1h
+          _notify(`${mainAgent.name} est épuisé — repos 1h.`, 'error');
+          globalThis.pushFeedEvent?.({ category: 'zone', title: `${mainAgent.name} KO — repos forcé`, detail: `Zone ${zoneId} · reprend à 50% d'énergie dans 1h`, win: false });
+        }
+      }
+    }
+
     globalThis.removeSpawn(zoneId, spawnObj.id);
     _topBar();
     globalThis.updateZoneTimers?.(zoneId);
@@ -1049,6 +1085,12 @@ function unlockAgent(agentId) {
        Cet agent rejoindra pleinement votre organisation.
      </span>`,
     () => {
+      // Revérifier : showConfirm est async (attend un clic utilisateur), le
+      // solde a pu baisser depuis le check initial.
+      if ((state.gang?.money || 0) < cost) {
+        _notify(`Fonds insuffisants (${cost.toLocaleString()}₽ requis)`, 'error');
+        return;
+      }
       state.gang.money -= cost;
       EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -cost, newTotal: state.gang.money });
       agent.legacyLocked = false;
