@@ -80,6 +80,18 @@
     }
     .zone-window:hover { border-color: var(--border-light); }
 
+    /* Agrandissement pendant un combat d'événement (PNJ permanent, vrai
+       combat pokémon-par-pokémon) — occupe les 2 colonnes de la grille et
+       laisse plus de place au viewport pour les deux sprites + PV réels. */
+    .zone-window.zone-window-battle {
+      grid-column: span 2;
+      min-height: 380px;
+      transition: min-height .25s ease, border-color .2s;
+    }
+    .zone-window.zone-window-battle .zone-viewport {
+      min-height: 340px;
+    }
+
     .zone-spawn {
       position: absolute;
       cursor: pointer;
@@ -2650,6 +2662,7 @@
       #moneyDisplay { font-size: 11px; }
       .tab-btn { font-size: 8px; padding: 8px 10px; }
       .zone-window { width: 100%; max-width: 380px; }
+      .zone-window.zone-window-battle { grid-column: span 1; min-height: 260px; }
       #tabContent { padding: 10px; }
     }
     /* ── Zone Income Button ───────────────────────────────────────── */

@@ -39,6 +39,7 @@ import {
   getTrainerCombatPreview,
   resolveTrainerCombat,
 } from '../systems/zoneCombat.js';
+import { resolveEventBattle } from '../systems/eventCombat.js';
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
 import { esc as _esc } from '../core/escape.js';
@@ -1731,6 +1732,52 @@ function updateZoneTimers(zoneId) {
       bossCdLabel.style.display = 'none';
     }
   }
+
+  renderEventTrainerInWindow(zoneId);
+}
+
+// ── PNJ d'événement persistant ─────────────────────────────────
+// Contrairement aux spawns normaux (TTL 10-15s via zoneSpawns/tickZoneSpawn),
+// le PNJ d'un événement combat (SPECIAL_EVENTS + trainerKey, ex: Archer /
+// Prise d'Antenne Rocket) reste visible et cliquable pendant toute la
+// fenêtre d'événement — piloté directement depuis zoneActivity[zoneId],
+// idempotent (safe à appeler à chaque tick de updateZoneTimers).
+function renderEventTrainerInWindow(zoneId) {
+  const win = document.getElementById(`zw-${zoneId}`);
+  if (!win) return;
+  const viewport = win.querySelector('.zone-viewport');
+  if (!viewport) return;
+
+  const activeEvt = globalThis.zoneActivity[zoneId];
+  const mode = globalThis.getZoneActivityMode(zoneId);
+  const eventDef = mode === 'event' ? SPECIAL_EVENTS.find(e => e.id === activeEvt?.eventId) : null;
+  const existing = viewport.querySelector('.zone-event-trainer');
+
+  if (!eventDef || !eventDef.trainerKey) {
+    existing?.remove();
+    return;
+  }
+  if (existing || currentCombat) return; // déjà affiché, ou combat en cours (ne pas toucher)
+
+  const trainer = TRAINER_TYPES[eventDef.trainerKey];
+  if (!trainer) return;
+  const state = globalThis.state;
+
+  const el = document.createElement('div');
+  el.className = 'zone-spawn zone-event-trainer pop';
+  el.dataset.eventTrainerZone = zoneId;
+  el.style.left = '150px';
+  el.style.top = '80px';
+  el.innerHTML = globalThis.safeTrainerImg(trainer.sprite, { style: 'width:56px;height:56px;filter:drop-shadow(0 0 8px rgba(255,80,80,.85))' });
+  el.title = (state.lang === 'fr' ? eventDef.fr : eventDef.en) + ' — ' + (state.lang === 'fr' ? trainer.fr : trainer.en);
+  el.style.animation = 'glow 1.2s ease-in-out infinite, float 2.4s ease-in-out infinite';
+  el.addEventListener('click', () => {
+    if (el.dataset.challenged) return;
+    el.dataset.challenged = '1';
+    _addVSBadge(el);
+    openEventBattlePopup(zoneId);
+  });
+  viewport.appendChild(el);
 }
 
 function tickZoneSpawn(zoneId) {
@@ -1743,7 +1790,13 @@ function tickZoneSpawn(zoneId) {
   if (spawns.length >= 5) { updateZoneTimers(zoneId); return; }
 
   const entry = globalThis.spawnInZone(zoneId);
-  if (!entry) return;
+  if (!entry) {
+    // Un événement combat vient peut-être de démarrer sans passer par le
+    // pipeline de spawn à TTL court (voir spawnInZone) — le PNJ permanent
+    // doit apparaître dès ce tick plutôt qu'attendre le refresh 1s suivant.
+    renderEventTrainerInWindow(zoneId);
+    return;
+  }
 
   // Track history
   if (!zoneSpawnHistory[zoneId]) zoneSpawnHistory[zoneId] = { pokemon: 0, trainer: 0, chest: 0, event: 0, total: 0 };
@@ -1951,45 +2004,19 @@ function renderSpawnInWindow(zoneId, spawnObj) {
     });
 
   } else if (spawnObj.type === 'event') {
+    // Événements "boost" uniquement (trainerKey null) — les événements combat
+    // sont rendus à part par renderEventTrainerInWindow (PNJ permanent) et ne
+    // passent plus par ce pipeline de spawn à TTL court.
     const evt = spawnObj.event;
-    // Pokeball sprite based on event difficulty/rarity
-    const evtBallKey = evt.trainerKey
-      ? (evt.minRep >= 70 ? 'masterball' : evt.minRep >= 40 ? 'ultraball' : 'greatball')
-      : 'pokeball';
-    el.innerHTML = `<img src="${ITEM_SPRITE_URLS[evtBallKey]}" style="width:44px;height:44px;image-rendering:pixelated;filter:drop-shadow(0 0 8px rgba(255,204,90,.9))">`;
+    el.innerHTML = `<img src="${ITEM_SPRITE_URLS.pokeball}" style="width:44px;height:44px;image-rendering:pixelated;filter:drop-shadow(0 0 8px rgba(255,204,90,.9))">`;
     el.title = state.lang === 'fr' ? evt.fr : evt.en;
     el.style.animation = 'glow 1s ease-in-out infinite, float 2s ease-in-out infinite';
     el.addEventListener('click', () => {
       if (el.classList.contains('catching')) return;
       el.classList.add('catching');
-      if (evt.trainerKey) {
-        // Event with combat
-        const trainer = TRAINER_TYPES[evt.trainerKey];
-        if (trainer) {
-          const zone = ZONE_BY_ID[zoneId];
-          const team = globalThis.makeTrainerTeam(zone, evt.trainerKey);
-          // Boosted difficulty
-          team.forEach(t => {
-            t.level += 10;
-            t.stats = globalThis.calculateStats({ species_en: t.species_en, level: t.level, nature: 'hardy', potential: 4 });
-          });
-          const combatSpawn = {
-            ...spawnObj,
-            type: 'trainer',
-            trainerKey: evt.trainerKey,
-            trainer: { ...trainer, fr: trainer.fr, en: trainer.en, diff: trainer.diff + 2, reward: [trainer.reward[0] * 4, trainer.reward[1] * 4], rep: trainer.rep * 3 },
-            team,
-            elite: true,
-            isSpecial: true,
-          };
-          openCombatPopup(zoneId, combatSpawn);
-        }
-      } else {
-        // Non-combat event: activate immediately
-        globalThis.activateEvent(zoneId, evt);
-        removeSpawn(zoneId, spawnObj.id);
-        updateZoneTimers(zoneId);
-      }
+      globalThis.activateEvent(zoneId, evt);
+      removeSpawn(zoneId, spawnObj.id);
+      updateZoneTimers(zoneId);
     });
   }
 
@@ -2429,10 +2456,6 @@ function executeCombat() {
   if (result.attackerWin) {
     const zoneState = state.zones[zoneId];
     if (zoneState) zoneState.combatsWon = (zoneState.combatsWon || 0) + 1;
-    if (spawnWithZone.isSpecial) {
-      if (spawnWithZone.event) globalThis.activateEvent(zoneId, spawnWithZone.event);
-      globalThis.clearZoneActivity?.(zoneId);
-    }
   } else {
     _notify(`Défaite contre ${trainerCombatName(spawnWithZone)} — aucun loot.`, 'error', 'combat');
   }
@@ -2532,6 +2555,254 @@ function closeCombatPopup() {
   globalThis.currentCombat = null;
 }
 
+// ════════════════════════════════════════════════════════════════
+// Event Battle — combat réel pokémon-par-pokémon contre un PNJ
+// d'événement (SPECIAL_EVENTS + trainerKey, cf. renderEventTrainerInWindow).
+// Parallèle à openCombatPopup/executeCombat mais résolu via
+// resolveEventBattle (tours réels, PV qui baissent vraiment, relève
+// classique) au lieu du jet de puissance instantané du combat de zone
+// normal. currentCombat.isEventBattle distingue les deux chemins.
+// ════════════════════════════════════════════════════════════════
+
+function openEventBattlePopup(zoneId) {
+  const state = globalThis.state;
+  if (currentCombat) return;
+
+  const activeEvt = globalThis.zoneActivity[zoneId];
+  const mode = globalThis.getZoneActivityMode(zoneId);
+  const eventDef = mode === 'event' ? SPECIAL_EVENTS.find(e => e.id === activeEvt?.eventId) : null;
+  if (!eventDef?.trainerKey) return;
+  const trainerData = TRAINER_TYPES[eventDef.trainerKey];
+  if (!trainerData) return;
+
+  // Le joueur initie un combat → le boss se déplace dans cette zone
+  if (state.gang.bossZone !== zoneId) {
+    state.gang.bossZone = zoneId;
+    globalThis.syncBackgroundZones?.();
+  }
+
+  const playerPokemon = buildPlayerTeamForZone(zoneId);
+  if (playerPokemon.length === 0) {
+    _notify('Équipez votre Boss pour pouvoir combattre !', 'error');
+    return;
+  }
+
+  const win = document.getElementById(`zw-${zoneId}`);
+  const viewport = win?.querySelector('.zone-viewport');
+  const npcEl = viewport?.querySelector('.zone-event-trainer');
+  if (!win || !viewport || !npcEl) return;
+
+  const agentIds = getZoneCombatAgentIds(zoneId);
+  const teamIds = buildTrainerCombatTeamIds(agentIds, zoneId);
+
+  // Équipe ennemie boostée — même formule que l'ancien chemin isSpecial.
+  const zone = ZONE_BY_ID[zoneId];
+  const enemyTeam = globalThis.makeTrainerTeam(zone, eventDef.trainerKey);
+  enemyTeam.forEach(t => {
+    t.level += 10;
+    t.stats = globalThis.calculateStats({ species_en: t.species_en, level: t.level, nature: 'hardy', potential: 4 });
+  });
+
+  win.classList.add('zone-window-battle');
+
+  const anchorPlayerEl = win.querySelector('.zone-boss') || win.querySelector('.zone-agent');
+  const trainerName = state.lang === 'fr' ? (trainerData.fr ?? eventDef.trainerKey) : (trainerData.en ?? eventDef.trainerKey);
+  const zoneDef = ZONE_BY_ID[zoneId];
+  const zoneName = zoneDef ? (state.lang === 'fr' ? zoneDef.fr : zoneDef.en) : zoneId;
+
+  currentCombat = {
+    zoneId, isEventBattle: true, eventDef, trainerData, trainerName, zoneName,
+    viewport, npcEl, anchorPlayerEl, playerPokemon, enemyTeam, teamIds,
+    combatStarted: false, timers: [],
+  };
+  globalThis.currentCombat = currentCombat;
+
+  const hud = document.createElement('div');
+  hud.className = 'zone-combat-hud zone-combat-hud-minimal';
+  hud.id = `zchud-${zoneId}`;
+  hud.innerHTML = `
+    <span class="zchud-vs">⚔ ${_esc(trainerName)} <span style="color:var(--text-dim);font-size:7px">${enemyTeam.length} Pok.</span></span>
+    <div class="zchud-log" id="zchud-log-${zoneId}" style="font-size:8px;color:var(--text-dim);max-height:74px;overflow:hidden;display:flex;flex-direction:column;gap:2px;margin:4px 0"></div>
+    <button class="zchud-flee" id="zchud-flee-${zoneId}">Fuir</button>`;
+  viewport.appendChild(hud);
+
+  const autoTimer = setTimeout(executeEventBattle, 600);
+  currentCombat.timers.push(autoTimer);
+  document.getElementById(`zchud-flee-${zoneId}`)?.addEventListener('click', () => {
+    clearTimeout(autoTimer);
+    closeEventBattle();
+  });
+}
+
+function executeEventBattle() {
+  if (!currentCombat || !currentCombat.isEventBattle) return;
+  if (currentCombat.combatStarted) return;
+  currentCombat.combatStarted = true;
+
+  const { zoneId, npcEl, anchorPlayerEl, playerPokemon, enemyTeam, eventDef, trainerData, trainerName, zoneName, teamIds } = currentCombat;
+  const logEl = document.getElementById(`zchud-log-${zoneId}`);
+  const battle = resolveEventBattle({ playerTeam: playerPokemon, enemyTeam });
+  currentCombat.battle = battle;
+
+  let playerOv = null, enemyOv = null, playerSpriteEl = null;
+
+  function setHpBar(ov, hp, maxHp) {
+    if (!ov) return;
+    const pct = Math.max(0, Math.min(100, Math.round(hp / maxHp * 100)));
+    ov.fill.style.width = pct + '%';
+    ov.txt.textContent = `${Math.max(0, hp)}/${maxHp}`;
+  }
+
+  function ensurePlayerOverlay() {
+    if (!anchorPlayerEl) return null;
+    if (!playerOv) {
+      const ov = document.createElement('div');
+      ov.className = 'combat-hp-overlay combat-hp-gang';
+      ov.innerHTML = `<div class="chp-name"></div><div class="chp-bar"><div class="chp-fill" style="width:100%"></div></div><div class="chp-txt"></div>`;
+      anchorPlayerEl.appendChild(ov);
+      playerOv = { name: ov.querySelector('.chp-name'), fill: ov.querySelector('.chp-fill'), txt: ov.querySelector('.chp-txt') };
+      playerSpriteEl = document.createElement('div');
+      playerSpriteEl.className = 'combat-sent-pk';
+      anchorPlayerEl.appendChild(playerSpriteEl);
+    }
+    return playerOv;
+  }
+  function ensureEnemyOverlay() {
+    if (!enemyOv) {
+      const ov = document.createElement('div');
+      ov.className = 'combat-hp-overlay combat-hp-enemy';
+      ov.innerHTML = `<div class="chp-name"></div><div class="chp-bar"><div class="chp-fill chp-fill-red" style="width:100%"></div></div><div class="chp-txt"></div>`;
+      npcEl.appendChild(ov);
+      enemyOv = { name: ov.querySelector('.chp-name'), fill: ov.querySelector('.chp-fill'), txt: ov.querySelector('.chp-txt') };
+    }
+    return enemyOv;
+  }
+
+  function logLine(text, kind = '') {
+    if (!logEl) return;
+    const line = document.createElement('div');
+    line.className = 'zchud-line';
+    line.textContent = `> ${text}`;
+    if (kind === 'result') { line.style.color = battle.win ? 'var(--gold)' : 'var(--red)'; line.style.fontWeight = '700'; }
+    else if (kind === 'loot') line.style.color = 'var(--gold)';
+    else line.style.color = 'var(--text-dim)';
+    logEl.appendChild(line);
+    while (logEl.children.length > 7) logEl.firstChild.remove();
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  function queueTimer(fn, ms) {
+    const t = setTimeout(fn, ms);
+    currentCombat?.timers?.push(t);
+    return t;
+  }
+
+  function playSwitch(t) {
+    if (t.side === 'player') {
+      const ov = ensurePlayerOverlay();
+      if (ov) {
+        ov.name.textContent = `${globalThis.speciesName(t.species_en)} Lv.${t.level}`;
+        setHpBar(ov, t.hp, t.maxHp);
+        if (playerSpriteEl) playerSpriteEl.innerHTML = `<img src="${globalThis.pokeSpriteBack(t.species_en, t.shiny)}" style="width:40px;height:40px;${t.shiny ? 'filter:drop-shadow(0 0 4px var(--gold))' : ''}">`;
+      }
+    } else {
+      const ov = ensureEnemyOverlay();
+      ov.name.textContent = `${globalThis.speciesName(t.species_en)} Lv.${t.level}`;
+      setHpBar(ov, t.hp, t.maxHp);
+      npcEl.querySelector('.event-enemy-sprite')?.remove();
+      const img = document.createElement('img');
+      img.className = 'event-enemy-sprite';
+      img.src = globalThis.pokeSprite(t.species_en, t.shiny);
+      img.style.cssText = `width:56px;height:56px;image-rendering:pixelated;${t.shiny ? 'filter:drop-shadow(0 0 6px var(--gold))' : ''}`;
+      npcEl.insertBefore(img, npcEl.firstChild);
+    }
+    logLine(`${globalThis.speciesName(t.species_en)} entre en jeu !`);
+  }
+
+  function finalize() {
+    const win = battle.win;
+    const boostedReward = [trainerData.reward[0] * 4, trainerData.reward[1] * 4];
+    const reward = win ? Math.min(globalThis.MAX_COMBAT_REWARD, globalThis.randInt(boostedReward[0], boostedReward[1])) : 0;
+    const repGain = globalThis.getCombatRepGain(eventDef.trainerKey, win);
+    const spawnData = { zoneId, isSpecial: true, trainerKey: eventDef.trainerKey, trainer: trainerData, event: eventDef };
+    globalThis.applyCombatResult({ win, reward, repGain }, teamIds, spawnData);
+
+    if (win) {
+      const zoneState = globalThis.state.zones[zoneId];
+      if (zoneState) zoneState.combatsWon = (zoneState.combatsWon || 0) + 1;
+      globalThis.activateEvent(zoneId, eventDef);
+      globalThis.clearZoneActivity?.(zoneId);
+      logLine('— VICTOIRE ! —', 'result');
+      if (reward > 0) logLine(`+${fmtCombatNum(reward)} ₽ · +${fmtCombatNum(repGain)} rép`, 'loot');
+    } else {
+      logLine('— DÉFAITE... —', 'result');
+      logLine('Aucun loot récupéré.', 'loot');
+      _notify(`Défaite contre ${trainerName} — aucun loot.`, 'error', 'combat');
+    }
+    _save();
+
+    globalThis.pushFeedEvent?.({
+      category: 'combat',
+      title: win ? `Victoire — ${trainerName} +${reward}₽ +${repGain}rep` : `Défaite — ${trainerName}`,
+      detail: `Zone: ${zoneName} · Événement · ${enemyTeam.length} Pok. adverses`,
+      win,
+      combatLog: battle.turns.filter(t => t.type === 'attack').map(t => `${globalThis.speciesName(t.attackerSpecies)} → ${t.move} (${t.damage} dgts)`),
+    });
+
+    const hudEl = document.getElementById(`zchud-${zoneId}`);
+    const fleeBtn = hudEl?.querySelector('.zchud-flee');
+    if (fleeBtn) { fleeBtn.textContent = 'Fermer'; fleeBtn.onclick = closeEventBattle; }
+    queueTimer(closeEventBattle, 1800);
+  }
+
+  let i = 0;
+  const delay = 650;
+  function nextTurn() {
+    if (!currentCombat || currentCombat.zoneId !== zoneId) return;
+    if (i >= battle.turns.length) { finalize(); return; }
+    const t = battle.turns[i++];
+    if (t.type === 'switch') {
+      playSwitch(t);
+    } else if (t.type === 'attack') {
+      const atkName = globalThis.speciesName(t.attackerSpecies);
+      const effTxt = t.effectiveness > 1 ? ' Coup super efficace !'
+        : (t.effectiveness > 0 && t.effectiveness < 1) ? " Ce n'est pas très efficace..."
+        : t.effectiveness === 0 ? " Ça n'affecte pas l'adversaire..." : '';
+      logLine(`${atkName} utilise ${t.move} !${effTxt}`);
+      const targetOv = t.side === 'player' ? ensureEnemyOverlay() : ensurePlayerOverlay();
+      setHpBar(targetOv, t.defenderHp, t.defenderMaxHp);
+    } else if (t.type === 'faint') {
+      logLine(`${globalThis.speciesName(t.species_en)} est mis K.O. !`);
+    }
+    queueTimer(nextTurn, delay);
+  }
+
+  queueTimer(nextTurn, 120);
+}
+
+function closeEventBattle() {
+  if (!currentCombat || !currentCombat.isEventBattle) return;
+  const { zoneId, viewport, npcEl, anchorPlayerEl, trainerData } = currentCombat;
+  for (const t of currentCombat.timers || []) clearTimeout(t);
+  const win = document.getElementById(`zw-${zoneId}`);
+  win?.classList.remove('zone-window-battle');
+  document.getElementById(`zchud-${zoneId}`)?.remove();
+  viewport?.querySelectorAll('.combat-hp-overlay').forEach(el => el.remove());
+  anchorPlayerEl?.querySelectorAll('.combat-sent-pk').forEach(el => el.remove());
+  currentCombat = null;
+  globalThis.currentCombat = null;
+
+  renderEventTrainerInWindow(zoneId); // retire le PNJ si l'événement est terminé (victoire)
+  if (npcEl?.isConnected) {
+    // Toujours là (fuite ou défaite) → restaurer le sprite dresseur, re-cliquable
+    npcEl.innerHTML = globalThis.safeTrainerImg(trainerData.sprite, { style: 'width:56px;height:56px;filter:drop-shadow(0 0 8px rgba(255,80,80,.85))' });
+    delete npcEl.dataset.challenged;
+  }
+  _topBar();
+  updateZoneTimers(zoneId);
+  _refreshRaidBtn(zoneId);
+}
+
 function _refreshRaidBtn(zoneId) {
   const state = globalThis.state;
   const win = document.getElementById(`zw-${zoneId}`);
@@ -2576,6 +2847,10 @@ Object.assign(globalThis, {
   _zwin_openCombatPopup:          openCombatPopup,
   _zwin_executeCombat:            executeCombat,
   _zwin_closeCombatPopup:         closeCombatPopup,
+  _zwin_openEventBattlePopup:     openEventBattlePopup,
+  _zwin_executeEventBattle:       executeEventBattle,
+  _zwin_closeEventBattle:         closeEventBattle,
+  _zwin_renderEventTrainerInWindow: renderEventTrainerInWindow,
   _zwin_refreshRaidBtn:           _refreshRaidBtn,
   _zwin_addVSBadge:               _addVSBadge,
   // Expose constants

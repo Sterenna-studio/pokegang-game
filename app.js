@@ -1622,6 +1622,10 @@ function buildPlayerTeamForZone(zoneId)                            { return glob
 function openCombatPopup(zoneId, spawnObj)                        { return globalThis._zwin_openCombatPopup(zoneId, spawnObj); }
 function executeCombat()                                           { return globalThis._zwin_executeCombat(); }
 function closeCombatPopup()                                        { return globalThis._zwin_closeCombatPopup(); }
+function openEventBattlePopup(zoneId)                              { return globalThis._zwin_openEventBattlePopup(zoneId); }
+function executeEventBattle()                                      { return globalThis._zwin_executeEventBattle(); }
+function closeEventBattle()                                        { return globalThis._zwin_closeEventBattle(); }
+function renderEventTrainerInWindow(zoneId)                        { return globalThis._zwin_renderEventTrainerInWindow(zoneId); }
 function _refreshRaidBtn(zoneId)                                   { return globalThis._zwin_refreshRaidBtn(zoneId); }
 
 
