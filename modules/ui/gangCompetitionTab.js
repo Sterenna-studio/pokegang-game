@@ -709,8 +709,11 @@ function _openRaidCinematic(defData, agentIds, result, onDone) {
     taglines.push(duel.attackerWin ? `${duel.defender.name} tombe.` : `${duel.attacker.name} est hors combat.`);
   }
   if (result.finalBattle?.skipped) {
-    taglines.push('Tous les agents du raid sont neutralisés avant le Boss.');
+    taglines.push(`${myBossName} est mis hors combat avant d'atteindre ${defBossName}.`);
   } else if (result.finalBattle) {
+    if (result.finalBattle.bossFightsBefore > 0) {
+      taglines.push(`${myBossName} arrive fatigué (-${result.finalBattle.bossFightsBefore * 10}% de puissance).`);
+    }
     if (defPokemons.length > 0) {
       const pk     = defPokemons[0];
       const pkName = globalThis.speciesName?.(pk.species_en) ?? pk.species_en;

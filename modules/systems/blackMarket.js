@@ -71,11 +71,24 @@ const LISTING_TYPES = {
   family_complete: {
     weight: 18,
     generate() {
-      const chains = globalThis.EVOLUTION_CHAINS || {};
-      const keys = Object.keys(chains);
-      if (!keys.length) return null;
-      const head = keys[Math.floor(Math.random() * keys.length)];
-      const family = [head, ...(chains[head]?.flatMap(c => c.to ? [c.to] : []) ?? [])];
+      const evoBy = globalThis.EVO_BY_SPECIES || {};
+      // Ne garder que les formes de base (jamais une cible d'évolution) pour
+      // proposer une vraie lignée complète plutôt qu'une lignée tronquée
+      // en cours de chaîne.
+      const allTargets = new Set(Object.values(evoBy).flatMap(list => list.map(e => e.to)));
+      const bases = Object.keys(evoBy).filter(sp => !allTargets.has(sp));
+      if (!bases.length) return null;
+      const head = bases[Math.floor(Math.random() * bases.length)];
+      // Parcourt la chaîne complète (peut ramifier, ex: nidoran-f/nidoran-m).
+      const family = [head];
+      const queue = [head];
+      while (queue.length) {
+        const cur = queue.shift();
+        for (const e of (evoBy[cur] || [])) {
+          if (e.to && !family.includes(e.to)) { family.push(e.to); queue.push(e.to); }
+        }
+      }
+      if (family.length < 2) return null; // pas d'évolution disponible pour cette espèce
       const headName = globalThis.speciesName?.(head) ?? head;
       const money = 160000 + family.length * 50000;
       return {
@@ -100,8 +113,10 @@ const LISTING_TYPES = {
         type: 'zone_boost', target: z.id, qty: 1,
         emoji: '🗺️',
         label: `Rumeurs sur ${z.fr || z.id}`,
-        detail: 'Validez pour booster ×3 le taux de raretés pendant 4h dans cette zone.',
-        reward: { rareBoost: { zoneId: z.id, durationMs: 4 * 3600000, multiplier: 3 }, money: 30000 },
+        // Pas de mécanisme de rareté "par zone" dans le jeu — active le même
+        // boost global rarescope que les récompenses d'événement de zone.
+        detail: 'Validez pour booster ×3 le taux de raretés pendant 4h (toutes zones).',
+        reward: { rareBoost: 4 * 3600000, money: 30000 },
       };
     },
   },
@@ -487,8 +502,10 @@ function _applyListingReward(listing) {
     EventBus.emit(EVENTS.MONEY_CHANGED, { delta: r.money, newTotal: state.gang.money });
   }
   if (r.rep) {
+    const prevRep = state.gang.reputation;
     state.gang.reputation += r.rep;
     EventBus.emit(EVENTS.REP_CHANGED, { delta: r.rep, newTotal: state.gang.reputation });
+    globalThis.checkForNewlyUnlockedZones?.(prevRep);
   }
   if (r.items) {
     state.inventory = state.inventory || {};
@@ -498,18 +515,11 @@ function _applyListingReward(listing) {
     }
   }
   if (r.rareBoost) {
-    if (!state.marketEvents) state.marketEvents = [];
-    state.marketEvents.push({
-      id: `bml-rareBoost-${Math.random().toString(36).slice(2, 7)}`,
-      type: 'zone_rare_boost',
-      target: r.rareBoost.zoneId,
-      mult: r.rareBoost.multiplier,
-      emoji: '🗺️',
-      label: `Boost rares : ${r.rareBoost.zoneId}`,
-      detail: `×${r.rareBoost.multiplier} sur les rares`,
-      startedAt: Date.now(),
-      expiresAt: Date.now() + r.rareBoost.durationMs,
-    });
+    // Même convention que les rewards d'événement de zone (zoneSystem.js) :
+    // rareBoost est une durée en ms qui active le boost global rarescope —
+    // il n'existe pas de mécanisme de rareté "par zone" dans le jeu.
+    state.activeBoosts = state.activeBoosts || {};
+    state.activeBoosts.rarescope = Math.max(state.activeBoosts.rarescope || 0, Date.now() + r.rareBoost);
   }
 }
 
