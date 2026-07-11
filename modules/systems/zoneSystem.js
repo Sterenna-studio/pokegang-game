@@ -377,6 +377,11 @@ function spawnInZone(zoneId) {
       const event = globalThis.pick(eligible);
       // Marquer la zone comme en événement AVANT de retourner
       setZoneActivity(zoneId, 'event', { eventId: event.id, expiresAt: Date.now() + 60000 });
+      // Événement combat (trainerKey) : le PNJ est rendu comme fixture permanente
+      // (renderEventTrainerInWindow, piloté par zoneActivity) et ne doit PAS
+      // passer par le pipeline de spawn à TTL court (zoneSpawns/tickZoneSpawn) —
+      // sinon il pourrait despawn avant que le joueur ne le remarque.
+      if (event.trainerKey) return null;
       return { type: 'event', event };
     }
   }
