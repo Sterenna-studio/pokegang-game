@@ -6,7 +6,8 @@
 // - getKantoDexSize, getNationalDexSize, getSaveSchemaVersion
 // - getAgentRankLabel, pokeSprite, speciesName, switchTab, showIntro
 // - applyAutoMutation, cleanObsoleteData, getSlotPreview
-// classic-script data globals used by import modals: POKEMON_GEN1, ZONES
+// - getOpenZones, renderZonesTab (showShinyPopup/showRarePopup)
+// classic-script data globals used by import modals: POKEMON_GEN1, ZONES, ZONE_BY_ID
 
 import { SFX } from './audio.js';
 import { esc as _esc } from '../core/escape.js';
@@ -155,7 +156,89 @@ function showInfoModal(tabId) {
   document.getElementById('infoModal').classList.add('active');
 }
 
+// ── Dopamine popups — shiny / rare aperçu ─────────────────────────────────
+function getOpenZones() { return modalCtx.getOpenZones?.() ?? new Set(); }
+function renderZonesTab(...args) { return callCtx('renderZonesTab', ...args); }
 
+let _shinyPopupTimer = null;
+
+function showShinyPopup(species_en) {
+  try {
+    const el = document.getElementById('shinyPopup');
+    const sprite = document.getElementById('shinyPopupSprite');
+    const label  = document.getElementById('shinyPopupLabel');
+    if (!el) return;
+    sprite.src = pokeSprite(species_en, true);
+    label.textContent = (getState().lang === 'fr' ? '✨ SHINY ' : '✨ SHINY ') + speciesName(species_en) + ' !';
+    el.classList.add('show');
+    clearTimeout(_shinyPopupTimer);
+    _shinyPopupTimer = setTimeout(() => el.classList.remove('show'), 3000);
+  } catch {}
+}
+
+let _rarePopupTimer = null;
+
+function showRarePopup(species_en, zoneId) {
+  try {
+    const el     = document.getElementById('rarePopup');
+    const sprite = document.getElementById('rarePopupSprite');
+    const label  = document.getElementById('rarePopupLabel');
+    const hint   = document.getElementById('rarePopupHint');
+    if (!el) return;
+    const state = getState();
+    sprite.src = pokeSprite(species_en);
+    label.textContent = (state.lang === 'fr' ? '⚡ Rare aperçu : ' : '⚡ Rare spotted: ') + speciesName(species_en);
+
+    // Afficher le nom de la zone et le hint cliquable
+    if (zoneId && hint) {
+      const zone = ZONE_BY_ID[zoneId];
+      const zoneName = zone ? (state.lang === 'fr' ? zone.fr : zone.en) : zoneId;
+      hint.textContent = `→ ${zoneName}`;
+    } else if (hint) {
+      hint.textContent = '';
+    }
+
+    // Stocker le zoneId pour le clic
+    el.dataset.targetZone = zoneId || '';
+
+    el.classList.add('show');
+    clearTimeout(_rarePopupTimer);
+    _rarePopupTimer = setTimeout(() => el.classList.remove('show'), 3500);
+  } catch {}
+}
+
+// ── Clic sur le popup rare → switch vers la zone ──────────────
+(function _bindRarePopupClick() {
+  document.addEventListener('DOMContentLoaded', () => {
+    const el = document.getElementById('rarePopup');
+    if (!el) return;
+    el.addEventListener('click', () => {
+      const zoneId = el.dataset.targetZone;
+      if (!zoneId) return;
+      clearTimeout(_rarePopupTimer);
+      el.classList.remove('show');
+      // Ouvrir l'onglet Zones et y ouvrir la zone cible
+      switchTab('tabZones');
+      // S'assurer que la zone est ouverte dans les fenêtres
+      const openZones = getOpenZones();
+      if (!openZones.has(zoneId)) {
+        openZones.add(zoneId);
+        const state = getState();
+        if (!state.openZoneOrder) state.openZoneOrder = [];
+        if (!state.openZoneOrder.includes(zoneId)) state.openZoneOrder.push(zoneId);
+      }
+      renderZonesTab();
+      // Scroll vers la fenêtre de zone après le rendu
+      setTimeout(() => {
+        const zoneWin = document.getElementById(`zw-${zoneId}`);
+        zoneWin?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Bref highlight visuel
+        zoneWin?.classList.add('zone-highlight');
+        setTimeout(() => zoneWin?.classList.remove('zone-highlight'), 1500);
+      }, 100);
+    });
+  });
+})();
 
 function openImportPreviewModal(raw) {
   const overlay = document.createElement('div');
@@ -675,4 +758,6 @@ export {
   showConfirm,
   showInfoModal,
   showMigrationBanner,
+  showShinyPopup,
+  showRarePopup,
 };

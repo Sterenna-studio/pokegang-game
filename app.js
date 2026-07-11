@@ -73,6 +73,8 @@ import {
   showConfirm as showConfirmImpl,
   showInfoModal as showInfoModalImpl,
   showMigrationBanner as showMigrationBannerImpl,
+  showShinyPopup,
+  showRarePopup,
 } from './modules/ui/modals.js';
 import {
   configureTabRouter,
@@ -513,90 +515,7 @@ let _sessionStatsBase = null;     // snapshot of state.stats at session start (a
 
 // ── Audio extracted to modules/ui/audio.js ───────────────────────
 
-// ════════════════════════════════════════════════════════════════
-//  3c.  DOPAMINE POPUP HELPERS
-// ════════════════════════════════════════════════════════════════
-
-let _shinyPopupTimer = null;
-
-function showShinyPopup(species_en) {
-  try {
-    const el = document.getElementById('shinyPopup');
-    const sprite = document.getElementById('shinyPopupSprite');
-    const label  = document.getElementById('shinyPopupLabel');
-    if (!el) return;
-    sprite.src = pokeSprite(species_en, true);
-    label.textContent = (state.lang === 'fr' ? '✨ SHINY ' : '✨ SHINY ') + speciesName(species_en) + ' !';
-    el.classList.add('show');
-    clearTimeout(_shinyPopupTimer);
-    _shinyPopupTimer = setTimeout(() => el.classList.remove('show'), 3000);
-  } catch {}
-}
-
-let _rarePopupTimer = null;
-
-function showRarePopup(species_en, zoneId) {
-  try {
-    const el     = document.getElementById('rarePopup');
-    const sprite = document.getElementById('rarePopupSprite');
-    const label  = document.getElementById('rarePopupLabel');
-    const hint   = document.getElementById('rarePopupHint');
-    if (!el) return;
-    sprite.src = pokeSprite(species_en);
-    label.textContent = (state.lang === 'fr' ? '⚡ Rare aperçu : ' : '⚡ Rare spotted: ') + speciesName(species_en);
-
-    // Afficher le nom de la zone et le hint cliquable
-    if (zoneId && hint) {
-      const zone = ZONE_BY_ID[zoneId];
-      const zoneName = zone ? (state.lang === 'fr' ? zone.fr : zone.en) : zoneId;
-      hint.textContent = `→ ${zoneName}`;
-    } else if (hint) {
-      hint.textContent = '';
-    }
-
-    // Stocker le zoneId pour le clic
-    el.dataset.targetZone = zoneId || '';
-
-    el.classList.add('show');
-    clearTimeout(_rarePopupTimer);
-    _rarePopupTimer = setTimeout(() => el.classList.remove('show'), 3500);
-  } catch {}
-}
-
-// ── Clic sur le popup rare → switch vers la zone ──────────────
-(function _bindRarePopupClick() {
-  document.addEventListener('DOMContentLoaded', () => {
-    const el = document.getElementById('rarePopup');
-    if (!el) return;
-    el.addEventListener('click', () => {
-      const zoneId = el.dataset.targetZone;
-      if (!zoneId) return;
-      clearTimeout(_rarePopupTimer);
-      el.classList.remove('show');
-      // Ouvrir l'onglet Zones et y ouvrir la zone cible
-      switchTab('tabZones');
-      // S'assurer que la zone est ouverte dans les fenêtres
-      if (!openZones.has(zoneId)) {
-        openZones.add(zoneId);
-        if (!state.openZoneOrder) state.openZoneOrder = [];
-        if (!state.openZoneOrder.includes(zoneId)) state.openZoneOrder.push(zoneId);
-      }
-      renderZonesTab();
-      // Scroll vers la fenêtre de zone après le rendu
-      setTimeout(() => {
-        const zoneWin = document.getElementById(`zw-${zoneId}`);
-        zoneWin?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        // Bref highlight visuel
-        zoneWin?.classList.add('zone-highlight');
-        setTimeout(() => zoneWin?.classList.remove('zone-highlight'), 1500);
-      }, 100);
-    });
-  });
-})();
-
-// ════════════════════════════════════════════════════════════════
-//  3c.  MODAL HELPERS (confirm + info)
-// ════════════════════════════════════════════════════════════════
+// ── Popups & confirmations (extracted → modules/ui/modals.js) ───────────────
 
 function showConfirm(message, onConfirm, onCancel = null, opts = {}) {
   return showConfirmImpl(message, onConfirm, onCancel, opts);
@@ -1760,6 +1679,8 @@ configureModals({
   applyAutoMutation,
   cleanObsoleteData,
   getSlotPreview,
+  getOpenZones: () => openZones,
+  renderZonesTab,
 });
 
 configureTabRouter({
