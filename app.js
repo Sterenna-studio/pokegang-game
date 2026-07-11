@@ -6,6 +6,12 @@
 
 import { Scheduler } from './modules/core/tickManager.js';
 import { EventBus, EVENTS } from './modules/core/eventBus.js';
+import {
+  checkDailyReloadTick,
+  checkVersionOnBoot,
+  configureUpdateManager,
+  pollRemoteVersion,
+} from './modules/core/updateManager.js';
 import './modules/core/utils.js';
 import './modules/core/sprites.js';
 import { getDifficultyTier as _getDifficultyTier } from './modules/systems/difficultyTier.js';
@@ -940,12 +946,10 @@ function startGameLoop() {
   Scheduler.register('snapshot',        supaWriteSnapshot,  TICK_SNAPSHOT_MS,     { skipWhenHidden: false });
   Scheduler.register('leaderboard',     leaderboardSyncTick, TICK_LEADERBOARD_MS,  { skipWhenHidden: false });
   Scheduler.register('versionPoll',     pollRemoteVersion,  TICK_VERSION_POLL_MS, { skipWhenHidden: false });
+  Scheduler.register('dailyReload',     checkDailyReloadTick, TICK_DAILY_CHECK_MS, { skipWhenHidden: false });
 
   // Premier poll de version peu après le boot (setTimeout conservé)
   setTimeout(pollRemoteVersion, TICK_VERSION_FIRST_MS);
-
-  // Daily reload at 12h00 + 00h00
-  startDailyReloadSchedule();
 
   // Lance le master clock (un seul setInterval à 1 s pour tout)
   Scheduler.start();
@@ -954,145 +958,29 @@ function startGameLoop() {
 
 // ════════════════════════════════════════════════════════════════
 
-// ── Version check on boot ─────────────────────────────────────
-// If the stored version doesn't match APP_VERSION, a new deploy
-// has happened → store the new version then hard-reload.
-function checkVersionOnBoot() {
-  const PG_VER_KEY = 'pg.appVersion';
-  const stored = localStorage.getItem(PG_VER_KEY);
-  if (stored && stored !== APP_VERSION) {
-    localStorage.setItem(PG_VER_KEY, APP_VERSION);
-    location.reload(true);
-    return true; // signal: reload in progress
-  }
-  localStorage.setItem(PG_VER_KEY, APP_VERSION);
-  return false;
-}
-
-// ── Remote version polling (every 5 min) ─────────────────────
-// Fetches index.html with a cache-buster, reads the meta tag,
-// shows a sticky banner if a new version is available.
-let _remoteVersionBannerShown = false;
-function pollRemoteVersion() {
-  if (_remoteVersionBannerShown) return;
-  fetch(`./index.html?_v=${Date.now()}`, { cache: 'no-store' })
-    .then(r => r.text())
-    .then(html => {
-      const match = html.match(/<meta\s+name="app-version"\s+content="([^"]+)"/);
-      if (!match) return;
-      const remoteVer = match[1];
-      if (remoteVer !== APP_VERSION && !_remoteVersionBannerShown) {
-        _remoteVersionBannerShown = true;
-        showUpdateBanner(remoteVer);
-      }
-    })
-    .catch(() => {}); // silently ignore network errors
-}
-
-function showUpdateBanner(newVer) {
-  document.getElementById('updateBanner')?.remove();
-
-  let remaining = UPDATE_COUNTDOWN_S;
-
-  const banner = document.createElement('div');
-  banner.id = 'updateBanner';
-  banner.style.cssText = `
-    position:fixed; top:0; left:0; right:0; z-index:99999;
-    background:#cc3333; color:#fff; text-align:center;
-    padding:10px 16px; font-size:13px; font-family:inherit;
-    display:flex; align-items:center; justify-content:center; gap:12px;
-    box-shadow:0 2px 12px rgba(0,0,0,0.5);
-  `;
-  banner.innerHTML = `
-    <span id="updateBannerMsg">⚡ Nouvelle version <strong>${newVer}</strong> — rechargement dans <strong id="updateCountdown">${UPDATE_COUNTDOWN_S}</strong>s</span>
-    <button id="updateBannerBtn" style="
-      background:#fff; color:#cc3333; border:none; border-radius:4px;
-      padding:4px 12px; font-size:12px; cursor:pointer; font-weight:bold;
-    ">Recharger maintenant</button>
-  `;
-  document.body.prepend(banner);
-
-  const doReload = () => { saveState(); location.reload(true); };
-
-  document.getElementById('updateBannerBtn')?.addEventListener('click', doReload);
-
-  const ticker = setInterval(() => {
-    remaining--;
-    const el = document.getElementById('updateCountdown');
-    if (el) el.textContent = remaining;
-    if (remaining <= 0) { clearInterval(ticker); doReload(); }
-  }, 1000);
-}
-
-// ── Daily scheduled reload at 12h00 and 00h00 ────────────────
-// 30s before the deadline a toast countdown starts,
-// then saveState() + hard reload to pick up the new deploy.
-let _dailyReloadLastHour = -1;   // prevents double-trigger in same minute
-let _dailyCountdownActive = false;
-
-function startDailyReloadSchedule() {
-  // Enregistré dans le Scheduler central — `skipWhenHidden:false` car le
-  // check doit tourner même onglet en background (pour proposer le reload
-  // à heure fixe au retour).
-  Scheduler.register('dailyReload', _checkDailyReload, TICK_DAILY_CHECK_MS, { skipWhenHidden: false });
-}
-
-function _checkDailyReload() {
-  const now = new Date();
-  const h = now.getHours();
-  const m = now.getMinutes();
-
-  // Trigger 1 minute before 12:00 or 00:00 to show countdown
-  const isReloadHour = (h === 11 && m === 59) || (h === 23 && m === 59);
-  const reloadKey = h < 12 ? 0 : 12; // 0 or 12 identifies which window
-
-  if (isReloadHour && _dailyReloadLastHour !== reloadKey && !_dailyCountdownActive) {
-    _dailyCountdownActive = true;
-    _dailyReloadLastHour = reloadKey;
-    _runDailyCountdown(DAILY_COUNTDOWN_S);
-  }
-
-  // Safety: if we somehow missed the countdown, force reload at the exact hour
-  const isMissedReload = (h === 12 || h === 0) && m === 0 && _dailyReloadLastHour !== reloadKey;
-  if (isMissedReload) {
-    _dailyReloadLastHour = reloadKey;
-    saveState();
-    location.reload(true);
-  }
-}
-
-function _runDailyCountdown(seconds) {
-  // Persistent countdown displayed directly in the ticker (sticky until reload)
-  const ticker = document.getElementById('notifTicker');
-  if (!ticker) { _triggerDailyReload(); return; }
-
-  const _showCountdown = (remaining) => {
-    ticker.className  = 'notif-ticker notif-ticker-error';
-    ticker.innerHTML  = `<span class="notif-ticker-icon">⚠</span>`
-                      + `<span class="notif-ticker-text">🔄 Maintenance — rechargement dans ${remaining}s</span>`;
-    ticker.style.opacity   = '1';
-    ticker.style.transform = 'translateY(0)';
-  };
-  _showCountdown(seconds);
-
-  let remaining = seconds;
-  const interval = setInterval(() => {
-    remaining--;
-    _showCountdown(remaining);
-    if (remaining <= 0) { clearInterval(interval); _triggerDailyReload(); }
-  }, 1000);
-}
-
-function _triggerDailyReload() {
-  saveState();
-  // Navigate to hub tab before reload so player lands on it after
-  switchTab('tabGang');
-  setTimeout(() => location.reload(true), 500);
-}
-
 function showMigrationBanner(opts) {
   return showMigrationBannerImpl(opts);
 }
+
+configureUpdateManager({
+  appVersion: APP_VERSION,
+  scheduler: Scheduler,
+  saveState,
+  switchTab,
+  versionPollInterval: TICK_VERSION_POLL_MS,
+  versionFirstDelay: TICK_VERSION_FIRST_MS,
+  dailyCheckInterval: TICK_DAILY_CHECK_MS,
+  updateCountdownSeconds: UPDATE_COUNTDOWN_S,
+  dailyCountdownSeconds: DAILY_COUNTDOWN_S,
+  localStorageRef: localStorage,
+  documentRef: document,
+  locationRef: location,
+  fetchRef: fetch,
+  setTimeoutRef: setTimeout,
+  setIntervalRef: setInterval,
+  clearIntervalRef: clearInterval,
+  now: () => Date.now(),
+});
 
 configureModals({
   getState: () => state,
