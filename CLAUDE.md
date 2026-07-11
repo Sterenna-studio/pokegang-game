@@ -31,7 +31,7 @@ Single-page idle/management game. No framework, no reactive system. Everything i
 | File | Role |
 |---|---|
 | `index.html` | HTML shell — tab structure, static DOM anchors, script tags |
-| `app.js` | Large ES module — core engine (state, rendering, game logic) |
+| `app.js` | ES module composition root — imports modules, injects dependencies, registers Scheduler tasks and orchestrates boot |
 | `css/base.css` | CSS custom properties (design tokens) + reset |
 | `css/game-ui.css` | All component styles |
 | `css/intro.css` | Intro/onboarding screen only |
@@ -83,32 +83,53 @@ state.missions{}  // daily/weekly/hourly quest progress
 state.settings{}  // user preferences
 ```
 
-`saveState()` serializes to `localStorage['pokeforge.v6']` (3 slots: `v6`, `v6.s2`, `v6.s3`). Auto-saves every 10 seconds. Pokémon objects are "slimmed" via `slimPokemon()` before serialization (removes derivable/default fields). Schema version: `SAVE_SCHEMA_VERSION`. Migration runs on load via `migrate()`.
+`state/runtimeStore.js` owns the runtime binding between the mutable `state` object, the persistent store from `state/store.js`, the dirty flag, autosave, lookup-map invalidation and the player-activity signal used by leaderboard sync. `app.js` keeps compatibility facades (`setState`, `saveState`, `markDirty`, `migrate`) and injects the runtime store into the rest of the app.
+
+`saveState()` serializes to `localStorage['pokeforge.v6']` (3 slots: `v6`, `v6.s2`, `v6.s3`). Auto-saves every 10 seconds but skips clean state. Explicit saves always write. Pokémon objects are "slimmed" via `slimPokemon()` before serialization (removes derivable/default fields). Schema version: `SAVE_SCHEMA_VERSION`. Migration runs on load via `migrate()`.
 
 Cloud backup via Supabase (optional). Throttled to 1 save/30s. Uses a custom reentrant JS mutex (`_makeSupaLock`) to avoid GoTrue deadlocks.
 
 ### Game loop
 
-`startGameLoop()` enregistre toutes les tâches périodiques dans le **TickManager** (`modules/core/tickManager.js`) — un Scheduler central qui gère un seul tick global et applique `skipWhenHidden` pour économiser le CPU quand l'onglet est en background :
+`startGameLoop()` enregistre toutes les tâches périodiques dans le **TickManager** (`modules/core/tickManager.js`) — un Scheduler central qui gère un seul tick global et applique `skipWhenHidden` pour économiser le CPU quand l'onglet est en background. `app.js` garde les `Scheduler.register(...)`; les callbacks métier vivent dans leurs modules :
 
 | Interval | What |
 |---|---|
 | 2s | `agentTick()` — agents act on visible zone spawns (open zones only) |
 | 10s | `passiveAgentTick()` — gym-raids automatiques uniquement |
 | 10s | Auto-save |
-| 30s | Passive XP for pokémon in teams |
+| 30s | Passive XP for pokémon in teams via `modules/systems/pokemon.js` |
 | 30s | Pension/egg tick |
 | 60s | Training room tick |
-| 60s | Hourly quest reset check |
-| 5min | Cloud snapshot + leaderboard |
-| 1s | Zone timer UI refresh (only if zones are open) |
+| 60s | Hourly quest reset check via `modules/systems/missions.js` |
+| 5min | Cloud snapshot + leaderboard via `modules/systems/cloudAccount.js` |
+| 1s | Zone timer UI refresh via `modules/ui/zoneWindows.js` |
 | _per-zone_ | `backgroundZoneTimers[zoneId]` — simulation background au vrai `spawnRate` |
+
+Version polling and the daily reload cycle are implemented in `modules/core/updateManager.js`; `app.js` injects browser/timer dependencies and registers the Scheduler callbacks.
 
 ### Tab system
 
 Tabs: `tabZones`, `tabPC`, `tabAgents`, `tabMarket`, `tabGang`, `tabPokedex`, `tabBattleLog`, `tabMissions`, `tabCompte`.
 
 `switchTab(tabId)` → sets `activeTab` → calls `renderActiveTab()` → dispatches to the appropriate `render*Tab()` function. Tabs render lazily (only when activated). Some tabs are hidden until discovery milestones are reached (`state.discoveryProgress`).
+
+### Boot sequence
+
+`boot()` in `app.js` should stay readable as orchestration:
+
+1. version check;
+2. `initializeRuntimeState()`;
+3. global UI bindings;
+4. system initialization;
+5. intro/cosmetics/session restore;
+6. initial render and async asset loading;
+7. intro module configuration;
+8. Scheduler startup;
+9. EventBus bridges;
+10. scripted boot checks.
+
+EventBus bridges are guarded so repeated `boot()` calls during tests or hot reload do not double-subscribe.
 
 ### Zone system
 
@@ -204,7 +225,24 @@ The codebase is mid-refactor. The target architecture extracts systems from `app
 
 - `modules/systems/` — agent, market, missions, llm, trainingRoom, pension, sessionObjectives
 - `modules/ui/zoneSelector.js` — zone fogmap UI
-- `state/` — store.js, defaultState.js, migrateSave.js, serialization.js (✅ wiré dans app.js via `_createStoreInstance()` au boot)
+- `state/` — runtimeStore.js, store.js, defaultState.js, migrateSave.js, serialization.js
+- `modules/core/updateManager.js` — version polling, update banner and daily reload cycle
+- Scheduler callbacks — missions (`modules/systems/missions.js`), passive XP (`modules/systems/pokemon.js`), zone refresh (`modules/ui/zoneWindows.js`), leaderboard (`modules/systems/cloudAccount.js`), regional unlock polling (`modules/systems/regionUnlocks.js`)
 - `data/` — constants extracted from app.js (all done)
 
 When touching a system that has both an `app.js` implementation and a `modules/` counterpart, check both. Stub functions in `app.js` delegate to the module (`function renderZoneSelector() { _zsRenderSelector(); }`).
+
+### Available focused tests
+
+```bash
+node tools/test-runtime-store.mjs
+node tools/test-update-manager.mjs
+node tools/check-events.js
+```
+
+For ES module syntax checks in this no-`package.json` repo, use the established pattern:
+
+```bash
+Get-Content -Raw app.js | node --input-type=module --check
+Get-Content -Raw modules/core/updateManager.js | node --input-type=module --check
+```
