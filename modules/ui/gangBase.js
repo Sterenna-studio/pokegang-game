@@ -5,13 +5,14 @@
 //
 //  Globals read from app.js via globalThis:
 //    state, notify, saveState, renderZoneWindows
-//    speciesName, pokeSprite, trainerSprite, itemSprite, pokemonDisplayName
+//    speciesName, pokeSprite, trainerSprite, itemSprite, safeTrainerImg, pokemonDisplayName
 //    getPokemonPower, calculateStats, calculatePrice
 //    isBoostActive, boostRemaining, activateBoost
 //    openTeamPicker, switchTab
 //    getBossFullTitle, getTitleLabel
 //    getDexKantoCaught, getDexNationalCaught, getShinySpeciesCount
 //    sanitizeSpriteName
+//    openZones, pokemonById, renderZoneSelector, refreshZoneTile (Gang Park Window)
 //    BASE_PRICE, POTENTIAL_MULT, COSMETIC_BGS, ZONE_BGS
 //    KANTO_DEX_SIZE, NATIONAL_DEX_SIZE
 //
@@ -42,6 +43,7 @@ const pokeSprite    = (...a) => globalThis.pokeSprite?.(...a)    ?? '';
 const trainerSprite = (...a) => globalThis.trainerSprite?.(...a) ?? '';
 const speciesName   = (...a) => globalThis.speciesName?.(...a)   ?? a[0] ?? '';
 const itemSprite    = (...a) => globalThis.itemSprite?.(...a)     ?? '';
+const safeTrainerImg = (...a) => globalThis.safeTrainerImg?.(...a) ?? '';
 
 
 /* globals ZONES, ZONE_BY_ID, SPECIES_BY_EN */
@@ -2055,6 +2057,122 @@ function buildExportCard(opts = {}) {
 // Legacy stub
 function exportGangImage() { openExportModal(); }
 
+// ── Gang Park Window ─────────────────────────────────────────────
+// Panneau persistant du QG, affiché parmi les fenêtres de zone
+let _gangParkOpen = false;
+
+function toggleGangParkWindow() {
+  const state = globalThis.state;
+  _gangParkOpen = !_gangParkOpen;
+  globalThis.openZones?.[_gangParkOpen ? 'add' : 'delete']('gang_park');
+  const container = document.getElementById('zoneWindowsContainer');
+  if (!container) return;
+  const existing = document.getElementById('zw-gang_park');
+  if (_gangParkOpen) {
+    if (!existing) {
+      const el = document.createElement('div');
+      el.id = 'zw-gang_park';
+      el.className = 'zone-window gang-park-window';
+      el.style.cssText = 'min-width:340px;max-width:420px;flex-shrink:0;border:2px solid var(--gold-dim);border-radius:var(--radius);background:linear-gradient(160deg,#1a1a2e,#16213e);overflow:hidden;display:flex;flex-direction:column';
+      container.prepend(el);
+      renderGangParkWindow(el);
+    }
+  } else if (existing) {
+    existing.remove();
+  }
+  globalThis.renderZoneSelector?.();
+  globalThis.refreshZoneTile?.('gang_park');
+}
+
+function renderGangParkWindow(el) {
+  const state = globalThis.state;
+  const agentRows = state.agents.map(agent => {
+    const teamHtml = agent.team.map(id => {
+      const pk = globalThis.pokemonById?.(id);
+      return pk ? `<img src="${pokeSprite(pk.species_en, pk.shiny)}" title="${speciesName(pk.species_en)} Lv.${pk.level}" style="width:28px;height:28px;image-rendering:pixelated${pk.shiny ? ';filter:drop-shadow(0 0 3px gold)' : ''}">` : '';
+    }).join('');
+    const zoneName = agent.assignedZone ? (ZONE_BY_ID[agent.assignedZone]?.fr || agent.assignedZone) : '—';
+    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.07)">
+      ${safeTrainerImg(agent.sprite || 'acetrainer', { style: 'width:32px;height:32px;image-rendering:pixelated' })}
+      <div style="flex:1;min-width:0">
+        <div style="font-size:9px;color:var(--text)">${agent.name}</div>
+        <div style="font-size:7px;color:var(--text-dim)">${zoneName}</div>
+      </div>
+      <div style="display:flex;gap:2px;flex-wrap:wrap;max-width:100px;justify-content:flex-end">${teamHtml || '<span style="font-size:8px;color:var(--text-dim)">—</span>'}</div>
+    </div>`;
+  }).join('') || '<div style="font-size:9px;color:var(--text-dim);padding:10px;text-align:center">Aucun agent recruté</div>';
+
+  const trainingIds = state.trainingRoom?.pokemon || [];
+  const trainingHtml = trainingIds.map(id => {
+    const pk = globalThis.pokemonById?.(id);
+    return pk ? `<div style="display:flex;align-items:center;gap:6px;padding:4px 8px">
+      <img src="${pokeSprite(pk.species_en)}" style="width:28px;height:28px;image-rendering:pixelated">
+      <div style="font-size:9px">${speciesName(pk.species_en)} Lv.${pk.level} ${'★'.repeat(pk.potential)}</div>
+    </div>` : '';
+  }).join('') || '<div style="font-size:9px;color:var(--text-dim);padding:8px">Salle vide</div>';
+
+  const pensionIds = state.pension?.slots || [];
+  const pensionHtml = pensionIds.map(id => {
+    const pk = globalThis.pokemonById?.(id);
+    return pk ? `<div style="display:flex;align-items:center;gap:6px;padding:4px 8px">
+      <img src="${pokeSprite(pk.species_en, pk.shiny)}" style="width:28px;height:28px;image-rendering:pixelated">
+      <div style="font-size:9px">${speciesName(pk.species_en)} Lv.${pk.level}${pk.shiny ? ' ✨' : ''}</div>
+    </div>` : '';
+  }).join('') || '<div style="font-size:9px;color:var(--text-dim);padding:8px">Pension vide</div>';
+
+  // Random ambient event (purely cosmetic)
+  const AMBIENT_EVENTS = [
+    '🌿 Un Pikachu se promène dans la cour.',
+    '🥚 Un Pokémon dépose un œuf devant la porte.',
+    '☁️ Deux Pokémon jouent sous la pluie.',
+    '🌙 Les Pokémon en formation s\'entraînent à la lueur de la lune.',
+    '🎵 Un Meloetta chante pour booster le moral.',
+    '🌸 Des pétales de Cerisaies tombent sur la cour.',
+    '🍖 Ton agent prépare un festin pour les Pokémon.',
+    '⚡ Un Raichu génère de l\'électricité pour la base.',
+    '💤 Snorlax bloque l\'entrée principale... encore.',
+    '🏋️ Les Pokémon en formation se motivent entre eux.',
+  ];
+  const ambient = AMBIENT_EVENTS[Math.floor(Date.now() / 30000) % AMBIENT_EVENTS.length];
+
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:rgba(0,0,0,.3);border-bottom:1px solid rgba(255,255,255,.1)">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:16px">🏛️</span>
+        <div>
+          <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">${state.gang.name}</div>
+          <div style="font-size:8px;color:var(--text-dim)">Quartier Général</div>
+        </div>
+      </div>
+      <button class="gp-close" style="font-size:11px;background:none;border:none;color:var(--text-dim);cursor:pointer">✕</button>
+    </div>
+
+    <div style="padding:6px 8px;background:rgba(255,204,90,.06);border-bottom:1px solid rgba(255,255,255,.07);font-size:8px;color:var(--text-dim)">
+      ${ambient}
+    </div>
+
+    <div style="overflow-y:auto;flex:1">
+      <div style="padding:8px 12px">
+        <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold-dim);margin-bottom:6px;letter-spacing:1px">AGENTS (${state.agents.length})</div>
+        ${agentRows}
+      </div>
+
+      ${trainingIds.length > 0 ? `
+      <div style="padding:8px 12px;border-top:1px solid rgba(255,255,255,.07)">
+        <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold-dim);margin-bottom:4px;letter-spacing:1px">FORMATION (${trainingIds.length})</div>
+        ${trainingHtml}
+      </div>` : ''}
+
+      ${pensionIds.length > 0 ? `
+      <div style="padding:8px 12px;border-top:1px solid rgba(255,255,255,.07)">
+        <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold-dim);margin-bottom:4px;letter-spacing:1px">PENSION (${pensionIds.length})</div>
+        ${pensionHtml}
+      </div>` : ''}
+    </div>`;
+
+  el.querySelector('.gp-close')?.addEventListener('click', () => toggleGangParkWindow());
+}
+
 // ── Auto-refresh via EventBus ─────────────────────────────────
 // Le module s'abonne lui-même aux signaux pertinents → les callers n'ont plus
 // besoin d'appeler explicitement renderGangBasePanel(). Le rAF debounce
@@ -2085,6 +2203,8 @@ Object.assign(globalThis, {
   _gbase_exportAsPDF:              _exportAsPDF,
   _gbase_exportGangImage:          exportGangImage,
   _gbase_buildExportCard:          buildExportCard,
+  _gbase_toggleGangParkWindow:     toggleGangParkWindow,
+  _gbase_renderGangParkWindow:     renderGangParkWindow,
 });
 
 export {};
