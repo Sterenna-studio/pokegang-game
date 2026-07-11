@@ -253,65 +253,76 @@ function _rollCombat(attackerPower, defenderPower) {
   return { attackerWin: attackerRoll >= defenderRoll, attackerRoll, defenderRoll };
 }
 
-function _agentBattlePower(agent) {
-  return Math.round(agent?.power ?? _agentPower(agent, agent?.teamPower || 0));
-}
-
-function _agentSummary(agent) {
-  return {
-    id: agent?.id ?? null,
-    name: agent?.name ?? 'Agent',
-    sprite: agent?.sprite ?? '',
-    team: (agent?.team || []).map(p => ({
-      species_en: p.species_en,
-      level: p.level,
-      shiny: p.shiny ?? false,
-    })),
-  };
-}
-
-function _resolveAgentDuel(attacker, defender) {
-  const attackerPower = _agentBattlePower(attacker);
-  const defenderPower = _agentBattlePower(defender);
-  const rolled = _rollCombat(attackerPower, defenderPower);
-  return {
-    type: 'agent_duel',
-    attacker: _agentSummary(attacker),
-    defender: _agentSummary(defender),
-    attackerPower,
-    defenderPower,
-    attackerWin: rolled.attackerWin,
-  };
-}
-
-function _bossAttackPower(state, survivingAgents) {
-  const bossTeamPower = globalThis.getTeamPower?.(state.gang.bossTeam) ?? 0;
-  const agentPower = survivingAgents.reduce((sum, agent) => sum + _agentBattlePower(agent), 0);
-  return Math.round(bossTeamPower + agentPower);
-}
-
 // ── Résolution PvP ────────────────────────────────────────────────
+// Duels 1v1 en gauntlet : chaque agent attaquant affronte les défenseurs en
+// séquence ; s'il perd, l'agent suivant prend le relai. Une fois les agents
+// épuisés, le boss remplace le dernier tombé et reste le combattant actif
+// pour le reste du gauntlet (il ne redonne jamais la main à un agent) —
+// mais chaque combat qu'il mène AVANT le combat final (boss vs équipe boss
+// adverse) coûte 10% de sa puissance, cumulatif/multiplicatif, pour que
+// faire porter le raid par le boss dès le début ait un vrai coût plutôt
+// que d'être gratuit. Si le boss perd un duel avant le combat final, le
+// raid est perdu (le boss est la dernière ligne, pas de retour en arrière).
+const BOSS_FATIGUE_PER_FIGHT = 0.10;
+
 export function resolveRaidCombat(defData, agentIds = null) {
   const state = getState();
   const attackers = _attackAgentSnapshots(agentIds, state);
   const defenders = _defenseAgentsFromData(defData);
+  const bossBasePower = Math.round(globalThis.getTeamPower?.(state.gang.bossTeam) ?? 0);
+  const bossFighter = { id: null, name: state.gang.bossName || 'Boss', sprite: state.gang.bossSprite ?? '' };
+
   const duels = [];
   let attackerIndex = 0;
   let defenderIndex = 0;
+  let bossEngaged = attackers.length === 0;
+  let bossFightsCount = 0;
+  let bossDefeated = false;
 
-  while (attackerIndex < attackers.length && defenderIndex < defenders.length) {
-    const duel = _resolveAgentDuel(attackers[attackerIndex], defenders[defenderIndex]);
-    duels.push(duel);
-    if (duel.attackerWin) defenderIndex++;
-    else attackerIndex++;
+  while (defenderIndex < defenders.length) {
+    const defender = defenders[defenderIndex];
+    const defenderSummary = { id: defender.id ?? null, name: defender.name ?? 'Agent', sprite: defender.sprite ?? '' };
+    const defenderPower = Math.round(defender.power ?? 0);
+
+    if (bossEngaged) {
+      const degradedPower = Math.round(bossBasePower * Math.pow(1 - BOSS_FATIGUE_PER_FIGHT, bossFightsCount));
+      const rolled = _rollCombat(degradedPower, defenderPower);
+      bossFightsCount++;
+      duels.push({
+        type: 'boss_duel', boss: true,
+        attacker: bossFighter, defender: defenderSummary,
+        attackerPower: degradedPower, defenderPower,
+        attackerWin: rolled.attackerWin,
+      });
+      if (rolled.attackerWin) defenderIndex++;
+      else { bossDefeated = true; break; }
+    } else {
+      const attacker = attackers[attackerIndex];
+      const attackerPower = Math.round(attacker.power ?? 0);
+      const rolled = _rollCombat(attackerPower, defenderPower);
+      duels.push({
+        type: 'agent_duel',
+        attacker: { id: attacker.id ?? null, name: attacker.name ?? 'Agent', sprite: attacker.sprite ?? '' },
+        defender: defenderSummary,
+        attackerPower, defenderPower,
+        attackerWin: rolled.attackerWin,
+      });
+      if (rolled.attackerWin) {
+        defenderIndex++;
+      } else {
+        attackerIndex++;
+        if (attackerIndex >= attackers.length) bossEngaged = true;
+      }
+    }
   }
 
-  const survivingAttackers = attackers.slice(attackerIndex);
-  let finalBattle = null;
+  let finalBattle;
   let attackerWin = false;
 
-  if (defenderIndex >= defenders.length) {
-    const finalAttackerPower = _bossAttackPower(state, survivingAttackers);
+  if (bossDefeated) {
+    finalBattle = { type: 'boss_battle', skipped: true, reason: 'boss_defeated' };
+  } else {
+    const finalAttackerPower = Math.round(bossBasePower * Math.pow(1 - BOSS_FATIGUE_PER_FIGHT, bossFightsCount));
     const finalDefenderPower = Math.round(_defensePokemonPower(defData));
     const rolled = _rollCombat(finalAttackerPower, finalDefenderPower);
     attackerWin = rolled.attackerWin;
@@ -320,14 +331,7 @@ export function resolveRaidCombat(defData, agentIds = null) {
       attackerPower: finalAttackerPower,
       defenderPower: finalDefenderPower,
       attackerWin,
-      survivingAttackers: survivingAttackers.map(_agentSummary),
-    };
-  } else {
-    finalBattle = {
-      type: 'boss_battle',
-      skipped: true,
-      reason: 'attackers_defeated',
-      remainingDefenders: defenders.slice(defenderIndex).map(_agentSummary),
+      bossFightsBefore: bossFightsCount,
     };
   }
 
@@ -337,7 +341,7 @@ export function resolveRaidCombat(defData, agentIds = null) {
     defenderPower: Math.round(_defenderPower(defData)),
     duels,
     finalBattle,
-    remainingAttackers: survivingAttackers.map(_agentSummary),
+    remainingAttackers: [],
   };
 }
 

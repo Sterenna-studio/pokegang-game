@@ -257,7 +257,7 @@ function _refreshTrPicker(tab) {
   // Bouton "Ajouter X sélectionnés"
   pickerArea.querySelector('#btnTrAddSelected')?.addEventListener('click', () => {
     const state = globalThis.state;
-    const availSlots = 6 - state.trainingRoom.pokemon.length;
+    const availSlots = getMaxTrainingSlots(state.trainingRoom) - state.trainingRoom.pokemon.length;
     let added = 0;
     for (const id of _trSelected) {
       if (added >= availSlots) break;

@@ -217,6 +217,7 @@ function openHatchPopup() {
       }
     }
     _save();
+    if (sold > 0) _topBar();
     let msg = `${hatched} Pokémon ont éclos !`;
     if (sold > 0) msg += ` (${sold} vendu${sold > 1 ? 's' : ''} automatiquement)`;
     if (hatched > 0) _notify(msg, 'gold');
@@ -598,6 +599,7 @@ function renderPensionView(container) {
     EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -cost, newTotal: state.gang.money });
     state.pension.extraSlotsPurchased = (state.pension.extraSlotsPurchased || 0) + 1;
     saveState();
+    _topBar();
     notify(`Slot de pension débloqué ! (${globalThis.getMaxPensionSlots()} slots)`, 'gold');
     renderPensionView(container);
   });
