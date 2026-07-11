@@ -10,6 +10,7 @@ import {
 
 import { buildSavePayload } from './serialization.js';
 import { migrateSave, getMigrationSummary } from './migrateSave.js';
+import { openImportPreviewModal } from '../modules/ui/modals.js';
 
 export function createStore(options = {}) {
   const {
@@ -205,4 +206,124 @@ function getMigrationFields(saved) {
   if (!saved.missions) fields.push('Missions');
   if (!saved.cosmetics) fields.push('Cosmétiques');
   return fields;
+}
+
+// ── Lookup Maps (O(1) Pokémon / Agent access) ────────────────────────────────
+// Fonctions libres opérant sur le state live (globalThis.state) — pas sur une
+// instance de store, contrairement à createStore() ci-dessus. Rebuild lazy à
+// chaque invalidation (après tout push/splice/filter sur state.pokemons ou
+// state.agents). Hot-path : pokemonById/agentById remplacent array.find()
+// dans tout le codebase.
+let _pokemonMap = null;
+let _agentMap   = null;
+
+export function _rebuildLookupMaps() {
+  const state = globalThis.state;
+  _pokemonMap = new Map(state.pokemons.map(p => [p.id, p]));
+  _agentMap   = new Map(state.agents.map(a => [a.id, a]));
+}
+
+export function invalidateLookupMaps() {
+  _pokemonMap = null;
+  _agentMap   = null;
+}
+
+export function pokemonById(id) {
+  if (!_pokemonMap) _rebuildLookupMaps();
+  return _pokemonMap.get(id) ?? null;
+}
+
+export function agentById(id) {
+  if (!_agentMap) _rebuildLookupMaps();
+  return _agentMap.get(id) ?? null;
+}
+
+// ── loadState() — helper legacy/debug, PAS utilisé par le boot normal ────────
+// Le boot réel passe par createStore().load() (voir load() ci-dessus). Cette
+// fonction lit directement le slot actif localStorage et migre, sans instance
+// de store — gardée pour compatibilité avec d'anciens outils de debug/tests.
+let _migrationResult = null; // null | { from: string, fields: string[] }
+
+export function loadState() {
+  const saveKey = SAVE_KEYS[globalThis.activeSaveSlot ?? 0];
+  let raw = localStorage.getItem(saveKey);
+  let legacyKey = null;
+
+  // ── Détection save legacy (clés anciennes) ────────────────────────────────
+  if (!raw) {
+    for (const key of LEGACY_SAVE_KEYS) {
+      const legacy = localStorage.getItem(key);
+      if (legacy) { raw = legacy; legacyKey = key; break; }
+    }
+  }
+
+  if (!raw) return null;
+  try {
+    const saved = JSON.parse(raw);
+    const fromVersion = saved._schemaVersion ?? saved.version ?? 'inconnue';
+    const needsMigration = legacyKey || (saved._schemaVersion !== SAVE_SCHEMA_VERSION);
+
+    const migrated = migrateSave(saved, {
+      DEFAULT_STATE,
+      SAVE_SCHEMA_VERSION,
+      SPECIES_BY_EN,
+      uid: globalThis.uid,
+      now: () => Date.now(),
+    });
+
+    if (needsMigration) {
+      const addedFields = [];
+      if (!saved.behaviourLogs)       addedFields.push('Logs comportementaux');
+      if (saved.settings?.spriteMode === undefined && saved.settings?.classicSprites === undefined) addedFields.push('Option sprites');
+      if (!saved.eggs)                addedFields.push('Système d\'œufs');
+      if (!saved.pension)             addedFields.push('Pension');
+      if (!saved.trainingRoom)        addedFields.push('Salle d\'entraînement');
+      if (!saved.missions)            addedFields.push('Missions');
+      if (!saved.cosmetics)           addedFields.push('Cosmétiques');
+
+      _migrationResult = {
+        from: legacyKey ? `clé ${legacyKey}` : `schéma v${fromVersion}`,
+        toLegacyKey: legacyKey,
+        fields: addedFields,
+      };
+
+      if (legacyKey) {
+        try { localStorage.removeItem(legacyKey); } catch {}
+      }
+    }
+
+    migrated._schemaVersion = SAVE_SCHEMA_VERSION;
+    return migrated;
+  } catch (e) {
+    console.error('[PokéForge] Erreur loadState() — save corrompue ou illisible :', e);
+    return null;
+  }
+}
+
+// ── Export / Import de save (fichier JSON téléchargeable) ────────────────────
+export function exportSave() {
+  const state = globalThis.state;
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `pokeforge-v6-save-${Date.now()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export function importSave(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const raw = JSON.parse(e.target.result);
+      if (!raw || typeof raw !== 'object' || (!raw.gang && !raw.pokemons)) {
+        globalThis.notify?.('Import échoué — fichier invalide ou non-reconnu.', 'error'); return;
+      }
+      openImportPreviewModal(raw);
+    } catch {
+      globalThis.notify?.('Import échoué — fichier JSON invalide.', 'error');
+    }
+  };
+  reader.readAsText(file);
 }
