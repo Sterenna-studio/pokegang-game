@@ -3,7 +3,8 @@
  *
  * Depends on globals set by app.js:
  *   state, MISSIONS, HOURLY_QUEST_POOL, HOURLY_QUEST_REROLL_COST,
- *   notify, SFX, saveState, updateTopBar, checkForNewlyUnlockedZones, t
+ *   notify, SFX, saveState, updateTopBar, checkForNewlyUnlockedZones, t,
+ *   activeTab, renderMissionsTab
  * Depends on globals from regular scripts: POKEMON_GEN1
  * Exposes: getMissionStat, initMissions, initHourlyQuests, getHourlyQuest,
  *          getHourlyProgress, isHourlyComplete, isHourlyClaimed,
@@ -117,6 +118,19 @@ function initMissions() {
 
 // ── Hourly quests ─────────────────────────────────────────────
 const HOUR_MS = 3600000;
+
+function refreshMissionsUiTick() {
+  if (globalThis.activeTab === 'tabMissions') globalThis.renderMissionsTab?.();
+}
+
+function checkHourlyQuestResetTick() {
+  const state = globalThis.state;
+  if (!state.missions?.hourly) return;
+  if (Date.now() - state.missions.hourly.reset < HOUR_MS) return;
+  initHourlyQuests();
+  refreshMissionsUiTick();
+  _notify('⏰ Nouvelles quêtes horaires disponibles !', 'gold');
+}
 
 function initHourlyQuests() {
   const state = globalThis.state;
@@ -275,5 +289,10 @@ Object.assign(globalThis, {
   isMissionComplete,
   isMissionClaimed,
   claimMission,
+  refreshMissionsUiTick,
+  checkHourlyQuestResetTick,
 });
-export {};
+export {
+  refreshMissionsUiTick,
+  checkHourlyQuestResetTick,
+};

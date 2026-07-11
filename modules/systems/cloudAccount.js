@@ -151,6 +151,14 @@ function switchTab(...args) {
   return requireContext('switchTab')(...args);
 }
 
+function markPlayerActivity() {
+  return cloudContext.markPlayerActivity?.();
+}
+
+function consumePlayerActivityForLeaderboard() {
+  return cloudContext.consumePlayerActivityForLeaderboard?.() ?? false;
+}
+
 // ════════════════════════════════════════════════════════════════
 // 23.  SUPABASE — AUTH & CLOUD SAVE
 // ════════════════════════════════════════════════════════════════
@@ -742,6 +750,11 @@ async function supaUpdateLeaderboardAnon() {
   } catch { /* silencieux */ }
 }
 
+function leaderboardSyncTick() {
+  if (!consumePlayerActivityForLeaderboard()) return false;
+  return supaUpdateLeaderboardAnon();
+}
+
 // ── Top-bar indicator ─────────────────────────────────────────────
 function updateSupaIndicator() {
   const el = document.getElementById('supaIndicator');
@@ -1327,6 +1340,7 @@ function getSupaSession()  { return supaSession; }
 export {
   configureCloudAccount, initSupabase, supaConfigured, supaCloudSave, supaWriteSnapshot,
   supaUpdateLeaderboard, supaUpdateLeaderboardAnon, renderLeaderboardTab, renderCompteTab,
+  markPlayerActivity, consumePlayerActivityForLeaderboard, leaderboardSyncTick,
   updateSupaIndicator, updateSupaTabLabel,
   getSupabaseClient, getSupaSession,
 };

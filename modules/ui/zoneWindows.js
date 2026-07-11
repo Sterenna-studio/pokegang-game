@@ -21,6 +21,9 @@
 //    ZONE_BGS, ITEM_SPRITE_URLS, BALL_SPRITES, MAX_COMBAT_REWARD
 //    SPECIAL_TRAINER_KEYS
 //
+//  Injected via configureZoneWindowTicks(ctx):
+//    getOpenZones, getActiveTab, refreshAllFogTiles
+//
 //  Classic-script globals accessed by bare name:
 //    ZONES, ZONE_BY_ID, ZONES_JOHTO, ZONE_JOHTO_BY_ID,
 //    ZONES_HOENN, ZONE_HOENN_BY_ID, ZONES_SINNOH, ZONE_SINNOH_BY_ID,
@@ -49,6 +52,23 @@ const _notify = (msg, type = '', category = null) => EventBus.emit(EVENTS.UI_NOT
 const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
 const _topBar = ()               => EventBus.emit(EVENTS.UI_TOPBAR_UPDATE);
 const _save   = ()               => globalThis.saveState?.();
+let zoneWindowTickContext = {};
+
+function configureZoneWindowTicks(ctx = {}) {
+  zoneWindowTickContext = { ...zoneWindowTickContext, ...ctx };
+}
+
+function getTickOpenZones() {
+  return zoneWindowTickContext.getOpenZones?.() ?? globalThis.openZones ?? new Set();
+}
+
+function getTickActiveTab() {
+  return zoneWindowTickContext.getActiveTab?.() ?? globalThis.activeTab;
+}
+
+function refreshTickFogTiles() {
+  return zoneWindowTickContext.refreshAllFogTiles?.();
+}
 
 
 // ── Module-level state ────────────────────────────────────────
@@ -2821,6 +2841,14 @@ function _refreshRaidBtn(zoneId) {
   btn.textContent = `⚔ RAID ${zState.gymDefeated ? '(re)' : ''}${raidReady ? '' : ` ${cdSec}s`}`;
 }
 
+function refreshZoneWindowsTick() {
+  for (const zoneId of getTickOpenZones()) {
+    updateZoneTimers(zoneId);
+    _refreshRaidBtn(zoneId);
+  }
+  if (getTickActiveTab() === 'tabZones') refreshTickFogTiles();
+}
+
 Object.assign(globalThis, {
   // Zone windows UI
   _zwin_openCollectionModal:      openCollectionModal,
@@ -2860,4 +2888,7 @@ Object.assign(globalThis, {
   zoneSpawnHistory,
 });
 
-export {};
+export {
+  configureZoneWindowTicks,
+  refreshZoneWindowsTick,
+};

@@ -9,7 +9,11 @@
 //   NATURE_KEYS, BALLS, NATURES  ← pas des classic scripts !
 //   state, pick, uid, randInt, isBoostActive, calculatePrice, speciesName,
 //   notify, saveState, SFX, playSE, _npanel_push,
-//   resetPcRenderCache, renderPCTab, activeTab, showEvolutionChoicePopup
+//   resetPcRenderCache, renderPCTab, activeTab, showEvolutionChoicePopup,
+//   pokemonById
+//
+// Dépendances injectées via configurePassiveProgression(ctx):
+//   getState, pokemonById, saveState, xpPerTick
 
 import {
   POWER_W_ATK, POWER_W_DEF, POWER_W_SPD,
@@ -22,6 +26,40 @@ import { EventBus, EVENTS } from '../core/eventBus.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
 const _save   = ()               => globalThis.saveState?.();
+let passiveProgressionContext = {};
+
+function configurePassiveProgression(ctx = {}) {
+  passiveProgressionContext = { ...passiveProgressionContext, ...ctx };
+}
+
+function passiveGetState() {
+  return passiveProgressionContext.getState?.() ?? globalThis.state;
+}
+
+function passivePokemonById(id) {
+  return passiveProgressionContext.pokemonById?.(id) ?? globalThis.pokemonById?.(id);
+}
+
+function passiveSaveState() {
+  return passiveProgressionContext.saveState?.() ?? globalThis.saveState?.();
+}
+
+function grantPassiveTeamXpTick() {
+  const state = passiveGetState();
+  const xpGain = passiveProgressionContext.xpPerTick ?? 0;
+  const teamIds = new Set([...(state.gang?.bossTeam || [])]);
+  for (const agent of state.agents || []) {
+    for (const id of agent.team || []) teamIds.add(id);
+  }
+  if (teamIds.size === 0) return false;
+  let leveled = false;
+  for (const id of teamIds) {
+    const pokemon = passivePokemonById(id);
+    if (pokemon) leveled = levelUpPokemon(pokemon, xpGain) || leveled;
+  }
+  if (leveled) passiveSaveState();
+  return leveled;
+}
 
 function rollNature() {
   return globalThis.pick?.(globalThis.NATURE_KEYS);
@@ -258,4 +296,7 @@ Object.assign(globalThis, {
   showPokemonLevelPopup, levelUpPokemon,
 });
 
-export {};
+export {
+  configurePassiveProgression,
+  grantPassiveTeamXpTick,
+};
