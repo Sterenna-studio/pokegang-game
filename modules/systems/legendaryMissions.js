@@ -558,6 +558,10 @@ async function _showQuestIntro() {
     _notify('🌋🌊 Opérations Magma & Aqua lancées — consultez le tracker depuis les zones Hoenn.', 'gold');
   };
   bNo.onclick = () => {
+    // Sans ce reset, openLegendaryMissions() rappellerait _showQuestIntro() plus
+    // tard (le joueur veut finalement accepter) mais elle retournerait aussitôt
+    // sans effet — le message ci-dessous promet que la quête reste accessible.
+    _introShown = false;
     _closeOv();
     _notify('⚡ Les deux quêtes légendaires Hoenn restent disponibles.', '');
   };
@@ -924,12 +928,12 @@ async function _launchLegendaryFight(questId) {
   const s   = _state();
   if (!q || (q.step !== 5 && q.step !== 6)) return;
 
-  // Repeat mode: consume rerun item
+  // Repeat mode: require the rerun item, but only consume it once the player
+  // actually engages the fight (bFight.onclick) — pas au simple ouverture de
+  // l'écran, sinon l'objet est perdu si le joueur clique "Reculer".
   if (q.step === 6) {
     const itemKey = cfg.rerunItem;
     if ((s?.inventory?.[itemKey] ?? 0) < 1) return;
-    s.inventory[itemKey]--;
-    _save();
   }
 
   const bosspower = globalThis.getBossTeamPower?.() ?? 0;
@@ -960,6 +964,12 @@ async function _launchLegendaryFight(questId) {
   const bFlee  = _btn('← Reculer');
   bFight.onclick = async () => {
     bFight.disabled = true; bFlee.disabled = true;
+    if (q.step === 6) {
+      const itemKey = cfg.rerunItem;
+      if ((s?.inventory?.[itemKey] ?? 0) < 1) { _closeOv(); return; }
+      s.inventory[itemKey]--;
+      _save();
+    }
     await _wait(600);
     _flash();
     await _wait(700);

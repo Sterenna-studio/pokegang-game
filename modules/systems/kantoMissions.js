@@ -156,6 +156,9 @@ function _onItemReceived({ itemId } = {}) {
     const mm = _qMewtwo();
     if (mm?.active && mm.step === 2) {
       mm.rapportSylphe = Math.min((mm.rapportSylphe || 0) + 1, 3);
+      // Consommé pour la progression de la quête — sinon les 3 mêmes rapports
+      // restent en inventaire et peuvent aussi servir de relance gratuite après capture.
+      s.inventory.rapport_sylphe = Math.max(0, (s.inventory.rapport_sylphe || 0) - 1);
       if (mm.rapportSylphe >= 3) {
         mm.step = 3;
         _notify('🧬 3 Rapports Sylphe réunis ! Infiltrez le Manoir Pokémon (15 combats).', 'gold');
@@ -602,17 +605,15 @@ async function _launchLegendary(key) {
       const catchRate  = Math.min(cfg.catchBase + Math.max(0, powerRatio - 1) * 0.25, 0.92);
       const caught     = Math.random() < catchRate;
 
-      cfg.winFn();
-
       if (caught) {
-        const pk = globalThis.makePokemon?.({
-          species_en: cfg.species,
-          level:      cfg.level,
-          potential:  cfg.pot,
-          shiny:      false,
-          source:     'legendary_quest',
-        });
+        const pk = globalThis.makePokemon?.(cfg.species, null, 'pokeball');
         if (pk) {
+          pk.level     = cfg.level;
+          pk.shiny     = false;
+          pk.potential = cfg.pot;
+          if (globalThis.calculateStats) pk.stats = globalThis.calculateStats(pk);
+          // La quête ne se valide qu'une fois la capture réellement effective.
+          cfg.winFn();
           s.pokemons.push(pk);
           EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: pk, zoneId: BIRDS[key]?.zone ?? null });
           if (!s.pokedex[cfg.species]) s.pokedex[cfg.species] = {};
@@ -625,6 +626,11 @@ async function _launchLegendary(key) {
           resEl.innerHTML = `<div class="ktm-result-banner" style="color:#90ee90">✨ ${cfg.name} capturé !</div>
             <div style="font-family:var(--font-pixel,monospace);font-size:7.5px;color:#b0c0e0;line-height:2;margin-top:6px">
               ${cfg.name} Lv.${cfg.level} ajouté au PC — Pot.${cfg.pot} ★
+            </div>`;
+        } else {
+          resEl.innerHTML = `<div class="ktm-result-banner" style="color:#e8d040">⚡ ${cfg.name} s'échappe !</div>
+            <div style="font-family:var(--font-pixel,monospace);font-size:7.5px;color:#888;line-height:2;margin-top:6px">
+              Une erreur est survenue — réessayez.
             </div>`;
         }
       } else {
