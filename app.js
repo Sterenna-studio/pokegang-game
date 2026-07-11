@@ -6,6 +6,7 @@
 
 import { Scheduler } from './modules/core/tickManager.js';
 import { EventBus, EVENTS } from './modules/core/eventBus.js';
+import './modules/core/utils.js';
 import './modules/core/sprites.js';
 import { getDifficultyTier as _getDifficultyTier } from './modules/systems/difficultyTier.js';
 import { marketEventsTick } from './modules/systems/marketEvents.js';
@@ -463,17 +464,12 @@ function markDirty() {
   invalidateLookupMaps();
 }
 
-function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
-function weightedPick(arr) {
-  // arr: [{en, w}, ...] — returns en string
-  const total = arr.reduce((s, e) => s + e.w, 0);
-  let r = Math.random() * total;
-  for (const e of arr) { r -= e.w; if (r <= 0) return e.en; }
-  return arr[arr.length - 1].en;
-}
-function randInt(a, b) { return Math.floor(Math.random() * (b - a + 1)) + a; }
-function uid() { return `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`; }
-function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+// ── RNG & utilitaires (extracted → modules/core/utils.js) ───────────────────
+function pick(...a)         { return globalThis.pick?.(...a); }
+function weightedPick(...a) { return globalThis.weightedPick?.(...a); }
+function randInt(...a)      { return globalThis.randInt?.(...a); }
+function uid(...a)          { return globalThis.uid?.(...a); }
+function clamp(...a)        { return globalThis.clamp?.(...a); }
 
 // ── Pension helpers ──────────────────────────────────────────────
 /** Max pension slots (2 base + purchased extras). */
@@ -486,21 +482,7 @@ function addLog(msg) {
   if (state.log.length > MAX_LOG_ENTRIES) state.log.length = MAX_LOG_ENTRIES;
 }
 
-// ── HTML escape — pour sécuriser toutes les valeurs user-input injectées
-//    via innerHTML (bossName, gang.name, agent names, etc.). Préviens les
-//    injections type <img onerror=...> stockées dans le state puis exposées
-//    via le cloud Supabase aux autres joueurs (gangCompetition).
-function escapeHtml(str) {
-  if (str == null) return '';
-  const s = String(str);
-  return s.replace(/[&<>"']/g, ch => (
-    ch === '&' ? '&amp;' :
-    ch === '<' ? '&lt;'  :
-    ch === '>' ? '&gt;'  :
-    ch === '"' ? '&quot;':
-                 '&#39;'
-  ));
-}
+function escapeHtml(...a) { return globalThis.escapeHtml?.(...a); }
 
 // ── Sprites & assets (extracted → modules/core/sprites.js) ──────────────────
 function sanitizeSpriteName(...a) { return globalThis.sanitizeSpriteName?.(...a); }
@@ -2034,8 +2016,9 @@ Object.assign(globalThis, {
   // Lookup maps + dirty flag
   pokemonById, agentById, invalidateLookupMaps, markDirty,
   // Utility functions
-  t, pick, weightedPick, uid, randInt, addLog, playSE,
+  t, addLog, playSE,
   getMysteryEggCost,
+  // pick, weightedPick, randInt, uid, clamp, escapeHtml → set by modules/core/utils.js
   // speciesName, pokemonDisplayName, sanitizeSpriteName, pokeSprite, pokeSpriteVariant,
   // pokeSpriteBack, pokeIcon, eggSprite, eggImgTag, trainerSprite, safeTrainerImg, safePokeImg,
   // _buildTrainerIndex → set by modules/core/sprites.js (stubs in app.js must NOT overwrite)
@@ -2062,7 +2045,7 @@ Object.assign(globalThis, {
   checkForNewlyUnlockedZones, showZoneUnlockPopup, _processZoneUnlockQueue,
   startActiveZone, stopActiveZone, pauseZoneIfIdle, syncActiveZones,
   startBackgroundZone, stopBackgroundZone, syncBackgroundZones, // aliases
-  activateEvent, isBallAssistActive, clamp, getTeamPower,
+  activateEvent, isBallAssistActive, getTeamPower,
   SPECIAL_TRAINER_KEYS,
   // Zone UI — fenêtres (zoneWindows.js)
   openZoneWindow, closeZoneWindow,
@@ -2104,7 +2087,6 @@ Object.assign(globalThis, {
   updateZoneButtons: _updateZoneButtons,
   // gangBase module — helpers needed by modules/ui/gangBase.js
   // openTeamPicker, openAssignToPicker — set by modules/ui/pickers.js
-  escapeHtml,
   getDexKantoCaught, getDexJohtoCaught, getDexNationalCaught, getShinySpeciesCount,
   // getBossFullTitle, getTitleLabel → set by modules/systems/titles.js
   KANTO_DEX_SIZE, JOHTO_DEX_SIZE, NATIONAL_DEX_SIZE, COSMETIC_BGS,
