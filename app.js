@@ -171,13 +171,20 @@ import {
   GAME_VERSION,
   SAVE_SCHEMA_VERSION,
   SAVE_KEYS,
-  LEGACY_SAVE_KEYS,
   DEFAULT_STATE,
   createDefaultState,
 } from './state/defaultState.js';
 import { slimPokemon, buildSavePayload, MAX_HISTORY } from './state/serialization.js';
 import { migrateSave, getMigrationSummary } from './state/migrateSave.js';
-import { createStore } from './state/store.js';
+import {
+  createStore,
+  pokemonById,
+  agentById,
+  invalidateLookupMaps,
+  loadState,
+  exportSave,
+  importSave,
+} from './state/store.js';
 
 // ════════════════════════════════════════════════════════════════
 //  1.  CONFIG & CONSTANTS
@@ -266,9 +273,6 @@ function setActiveSaveSlotValue(idx, opts = {}) {
   _store?.setActiveSaveSlot(idx, { persist: false }); // persist géré ligne au-dessus
 }
 
-// Résultat de migration exposé au boot pour afficher le banner
-let _migrationResult = null; // null | { from: string, fields: string[] }
-
 let state = structuredClone(DEFAULT_STATE);
 globalThis.state = state;
 
@@ -333,55 +337,6 @@ function formatPlaytime(seconds) {
   return h > 0 ? `${h}h${m.toString().padStart(2, '0')}` : `${m}min`;
 }
 
-function loadState() {
-  let raw = localStorage.getItem(SAVE_KEY);
-  let legacyKey = null;
-
-  // ── Détection save legacy (clés anciennes) ────────────────────────────────
-  if (!raw) {
-    for (const key of LEGACY_SAVE_KEYS) {
-      const legacy = localStorage.getItem(key);
-      if (legacy) { raw = legacy; legacyKey = key; break; }
-    }
-  }
-
-  if (!raw) return null;
-  try {
-    const saved = JSON.parse(raw);
-    const fromVersion = saved._schemaVersion ?? saved.version ?? 'inconnue';
-    const needsMigration = legacyKey || (saved._schemaVersion !== SAVE_SCHEMA_VERSION);
-
-    const migrated = migrate(saved);
-
-    if (needsMigration) {
-      const addedFields = [];
-      if (!saved.behaviourLogs)       addedFields.push('Logs comportementaux');
-      if (saved.settings?.spriteMode === undefined && saved.settings?.classicSprites === undefined) addedFields.push('Option sprites');
-      if (!saved.eggs)                addedFields.push('Système d\'œufs');
-      if (!saved.pension)             addedFields.push('Pension');
-      if (!saved.trainingRoom)        addedFields.push('Salle d\'entraînement');
-      if (!saved.missions)            addedFields.push('Missions');
-      if (!saved.cosmetics)           addedFields.push('Cosmétiques');
-
-      _migrationResult = {
-        from: legacyKey ? `clé ${legacyKey}` : `schéma v${fromVersion}`,
-        toLegacyKey: legacyKey,
-        fields: addedFields,
-      };
-
-      if (legacyKey) {
-        try { localStorage.removeItem(legacyKey); } catch {}
-      }
-    }
-
-    migrated._schemaVersion = SAVE_SCHEMA_VERSION;
-    return migrated;
-  } catch (e) {
-    console.error('[PokéForge] Erreur loadState() — save corrompue ou illisible :', e);
-    return null;
-  }
-}
-
 // ── migrate() — délègue à state/migrateSave.js ───────────────────────────────
 function migrate(saved) {
   return migrateSave(saved, {
@@ -393,32 +348,8 @@ function migrate(saved) {
   });
 }
 
+// ── loadState/exportSave/importSave (extracted → state/store.js) ────────────
 
-function exportSave() {
-  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `pokeforge-v6-save-${Date.now()}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-function importSave(file) {
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    try {
-      const raw = JSON.parse(e.target.result);
-      if (!raw || typeof raw !== 'object' || (!raw.gang && !raw.pokemons)) {
-        notify('Import échoué — fichier invalide ou non-reconnu.', 'error'); return;
-      }
-      openImportPreviewModal(raw);
-    } catch {
-      notify('Import échoué — fichier JSON invalide.', 'error');
-    }
-  };
-  reader.readAsText(file);
-}
 // ── Modal de prévisualisation + conversion d'import ──────────────────────────
 function openImportPreviewModal(raw) {
   return openImportPreviewModalImpl(raw);
@@ -432,32 +363,8 @@ function openLegacyImportModal(legacyData) {
 //  3.  CORE UTILS
 // ════════════════════════════════════════════════════════════════
 
-// ── Lookup Maps (O(1) Pokémon / Agent access) ────────────────────────────────
-// Rebuilt lazily whenever invalidateLookupMaps() is called (i.e. after any
-// push/splice/filter mutation on state.pokemons or state.agents).
-// Hot-path callers use pokemonById(id) / agentById(id) instead of array.find().
-let _pokemonMap = null;
-let _agentMap   = null;
-
-function _rebuildLookupMaps() {
-  _pokemonMap = new Map(state.pokemons.map(p  => [p.id,  p]));
-  _agentMap   = new Map(state.agents.map(a    => [a.id,  a]));
-}
-
-function invalidateLookupMaps() {
-  _pokemonMap = null;
-  _agentMap   = null;
-}
-
-function pokemonById(id) {
-  if (!_pokemonMap) _rebuildLookupMaps();
-  return _pokemonMap.get(id) ?? null;
-}
-
-function agentById(id) {
-  if (!_agentMap) _rebuildLookupMaps();
-  return _agentMap.get(id) ?? null;
-}
+// ── Lookup Maps pokemonById/agentById/invalidateLookupMaps
+//    (extracted → state/store.js) ───────────────────────────────────────────
 
 // ── Dirty flag for autosave ───────────────────────────────────────────────────
 // Set to true by markDirty() after any meaningful state mutation.
