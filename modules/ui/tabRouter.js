@@ -1,12 +1,24 @@
 'use strict';
 
 // deps via configureTabRouter(ctx):
-// - getState, getActiveTab, getOpenZones, switchTab, setPcView
+// - getState, getActiveTab, getOpenZones, setPcView
 // - renderGangTab, renderZonesTab, renderMarketTab, renderPCTab, renderPokedexTab,
 //   renderAgentsTab, renderMissionsTab, renderBattleLogTab,
 //   renderLeaderboardTab, renderCompteTab, renderGangCompetitionTab
 // - getDexKantoCaught, getDexNationalCaught, getShinySpeciesCount, dex size getters
 // classic-script data globals used by hints: POKEMON_GEN1
+//
+// Dépendances globalThis (switchTab/updateTopBar/renderAll/initKeyboardShortcuts) :
+//   state, resetPcRenderCache, notify, checkBallAssist, checkTitleUnlocks, addMoney,
+//   _saveSessionActivity, getSessionDelta, getNextObjective, closeZoneWindow
+
+import { EventBus, EVENTS } from '../core/eventBus.js';
+import { SFX, MusicPlayer } from './audio.js';
+import { ITEM_SPRITE_URLS } from '../../data/assets-data.js';
+import { BALLS } from '../../data/economy-data.js';
+import { KANTO_DEX_MIN, KANTO_DEX_MAX } from '../../data/game-config-data.js';
+
+const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type });
 
 let tabRouterCtx = {};
 
@@ -21,7 +33,6 @@ function callCtx(name, ...args) {
 function getState() { return tabRouterCtx.getState?.() ?? globalThis.state ?? {}; }
 function getActiveTab() { return tabRouterCtx.getActiveTab?.() ?? globalThis.activeTab ?? ''; }
 function getOpenZones() { return tabRouterCtx.getOpenZones?.() ?? globalThis.openZones ?? new Set(); }
-function switchTab(...args) { return callCtx('switchTab', ...args); }
 function setPcView(value) { return callCtx('setPcView', value); }
 function getDexKantoCaught() { return callCtx('getDexKantoCaught') ?? 0; }
 function getDexNationalCaught() { return callCtx('getDexNationalCaught') ?? 0; }
@@ -173,7 +184,172 @@ function renderActiveTab() {
   }
 }
 
+// Track which tabs have been seen (first-visit hints)
+const _visitedTabs = new Set(JSON.parse(sessionStorage.getItem('pg_visited_tabs') || '[]'));
 
+function switchTab(tabId) {
+  const state = getState();
+  if (tabId !== 'tabPC') globalThis.resetPcRenderCache?.(); // force full rebuild on next PC visit
+  SFX.play('tabSwitch');
+  globalThis.activeTab = tabId;
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === tabId);
+  });
+  document.querySelectorAll('.tab-pane').forEach(pane => {
+    pane.classList.toggle('active', pane.id === tabId);
+  });
+  // Notifie les modules abonnés (ex: gangBase auto-refresh à l'arrivée sur Zones)
+  EventBus.emit(EVENTS.UI_TAB_CHANGED, { tabId });
+  renderHint(tabId);
+  renderActiveTab();
+  MusicPlayer.updateFromContext();
+  updateTopBar(); // refresh objective / session on tab change
+  // First-visit contextual hint
+  if (!_visitedTabs.has(tabId)) {
+    _visitedTabs.add(tabId);
+    sessionStorage.setItem('pg_visited_tabs', JSON.stringify([..._visitedTabs]));
+    showFirstVisitHint(tabId);
+  }
+  // Behavioural log — compteur de visites par onglet
+  if (!state.behaviourLogs) state.behaviourLogs = {};
+  if (!state.behaviourLogs.tabViewCounts) state.behaviourLogs.tabViewCounts = {};
+  state.behaviourLogs.tabViewCounts[tabId] = (state.behaviourLogs.tabViewCounts[tabId] || 0) + 1;
+}
+
+// ── Chantier 5 — updateTopBar debounce + dex badge cache ─────────────────────
+// updateTopBar() est appelée ~80× par tick d'agent (capture + save + topBar).
+// On la debounce via rAF (1 seul DOM write par frame) et on cache le badge dex
+// (scan O(n) sur POKEMON_GEN1) jusqu'à ce que le compte de pokémons capturés change.
+
+let _topBarRafId   = 0;           // rAF handle pour debounce
+let _dexBadgeCache = '';          // icon cached
+let _dexBadgeCaughtCount = -1;    // invalidation clé : nb de pokémons distincts capturés
+
+function _updateTopBarImpl() {
+  const state = getState();
+  const gangEl = document.getElementById('gangNameDisplay');
+  const moneyEl = document.getElementById('moneyDisplay');
+  if (gangEl) {
+    const caughtCount = Object.keys(state.pokedex).filter(k => state.pokedex[k]?.caught).length;
+    if (caughtCount !== _dexBadgeCaughtCount) {
+      _dexBadgeCaughtCount = caughtCount;
+      const kantoComplete = POKEMON_GEN1.filter(s => !s.hidden && s.dex >= KANTO_DEX_MIN && s.dex <= KANTO_DEX_MAX).every(s => state.pokedex[s.en]?.caught);
+      const fullComplete  = POKEMON_GEN1.filter(s => !s.hidden).every(s => state.pokedex[s.en]?.caught);
+      _dexBadgeCache      = fullComplete ? ' 🌟' : kantoComplete ? ' 📖' : '';
+    }
+    gangEl.textContent = state.gang.name + _dexBadgeCache;
+  }
+  if (moneyEl) moneyEl.innerHTML = `<span>₽</span> ${state.gang.money.toLocaleString()}`;
+  const repEl = document.getElementById('repDisplay');
+  if (repEl) repEl.innerHTML = `<span>⭐</span> ${state.gang.reputation.toLocaleString()}`;
+  const pkCountEl = document.getElementById('pokemonCountDisplay');
+  if (pkCountEl) pkCountEl.innerHTML = `<img src="${ITEM_SPRITE_URLS.pokeball}" style="width:20px;height:20px;image-rendering:pixelated" onerror="this.style.display='none'"> ${state.pokemons.length.toLocaleString()}`;
+
+  // ── Ball assist silencieux (early-game) ───────────────────
+  globalThis.checkBallAssist?.();
+  globalThis.checkTitleUnlocks?.();
+  // Auto-buy ball
+  if (state.settings.autoBuyBall) {
+    const ballId = state.settings.autoBuyBall;
+    if ((state.inventory[ballId] || 0) === 0) {
+      const ballDef = BALLS[ballId];
+      if (ballDef && state.gang.money >= ballDef.cost) {
+        state.inventory[ballId] = (state.inventory[ballId] || 0) + 1;
+        globalThis.addMoney?.(-ballDef.cost);
+        _notify(`🔄 Achat auto : 1× ${ballDef.fr}`, 'success');
+      }
+    }
+  }
+
+  // ── Session delta bar ──────────────────────────────────────
+  globalThis._saveSessionActivity?.();
+  const sessionBar = document.getElementById('sessionBar');
+  if (sessionBar) {
+    const delta = globalThis.getSessionDelta?.();
+    if (delta) {
+      sessionBar.innerHTML = `<span style="color:var(--text-dim);font-family:var(--font-pixel);font-size:7px;letter-spacing:.05em">SESSION</span> ${delta}`;
+      sessionBar.style.display = 'flex';
+    } else {
+      sessionBar.style.display = 'none';
+    }
+  }
+
+  // ── Objective bar ──────────────────────────────────────────
+  const objBar = document.getElementById('objectiveBar');
+  if (objBar) {
+    const obj = globalThis.getNextObjective?.();
+    if (obj) {
+      const tabBtn = obj.tab
+        ? `<button onclick="switchTab('${obj.tab}')" style="font-family:var(--font-pixel);font-size:7px;color:var(--red);background:none;border:none;border-bottom:1px solid var(--red);cursor:pointer;padding:0;margin-left:6px">${obj.detail || obj.tab}</button>`
+        : (obj.detail ? `<span style="color:var(--text-dim);font-size:9px;margin-left:6px">${obj.detail}</span>` : '');
+      objBar.innerHTML = `<span style="font-family:var(--font-pixel);font-size:7px;color:var(--gold-dim,#999);margin-right:6px">▶</span><span style="font-size:9px;color:var(--text)">${obj.text}</span>${tabBtn}`;
+      objBar.style.display = 'flex';
+    } else {
+      objBar.style.display = 'none';
+    }
+  }
+}
+
+// updateTopBar publique — debounce via rAF pour éviter N DOM writes par tick.
+// Les appels multiples dans la même frame sont fusionnés en un seul rendu.
+function updateTopBar() {
+  if (_topBarRafId) return; // déjà en attente
+  _topBarRafId = requestAnimationFrame(() => {
+    _topBarRafId = 0;
+    _updateTopBarImpl();
+  });
+}
+
+function renderAll() {
+  updateTopBar();
+  renderHint(getActiveTab());
+  renderActiveTab();
+}
+
+// ════════════════════════════════════════════════════════════════
+// RACCOURCIS CLAVIER GLOBAUX
+//  1-7 → onglets  |  Échap → ferme modale/fenêtre de zone
+// ════════════════════════════════════════════════════════════════
+function initKeyboardShortcuts() {
+  document.addEventListener('keydown', e => {
+    // Ignore si le focus est dans un champ texte
+    const tag = e.target.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    // Ignore si une modale bloquante est ouverte
+    if (document.getElementById('settingsModal')?.classList.contains('active')) return;
+    if (document.getElementById('confirmModal')) return;
+
+    switch (e.key) {
+      // ── Onglets principaux ───────────────────────────────────
+      case '1': switchTab('tabZones');    break;
+      case '2': switchTab('tabPC');       break;
+      case '3': switchTab('tabAgents');   break;
+      case '4': switchTab('tabMarket');   break;
+      case '5': switchTab('tabGang');     break;
+      case '6': switchTab('tabPokedex');  break;
+
+      // ── Sous-vues PC ─────────────────────────────────────────
+      case 'p': case 'P':
+        setPcView('grid'); switchTab('tabPC'); break;
+      case 'e': case 'E':
+        setPcView('pension'); switchTab('tabPC'); break;
+      case 't': case 'T':
+        setPcView('training'); switchTab('tabPC'); break;
+      case 'l': case 'L':
+        setPcView('lab'); switchTab('tabPC'); break;
+
+      // ── Fermeture rapide ─────────────────────────────────────
+      case 'Escape': {
+        // Ferme d'abord les fenêtres de zone ouvertes
+        const openZones = getOpenZones();
+        if (openZones && openZones.size > 0) {
+          for (const zid of [...openZones]) globalThis.closeZoneWindow?.(zid);
+        }
+        break;
+      }
+    }
+  });
+}
 
 export {
   configureTabRouter,
@@ -183,4 +359,8 @@ export {
   renderHint,
   showFirstVisitHint,
   renderGangCompetitionTab,
+  switchTab,
+  updateTopBar,
+  renderAll,
+  initKeyboardShortcuts,
 };
