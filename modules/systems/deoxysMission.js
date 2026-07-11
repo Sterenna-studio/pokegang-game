@@ -103,6 +103,15 @@ function _onCombatWon({ zoneId } = {}) {
     if (q.trainersDefeated >= TARGET_TRAINERS) {
       q.step = 2;
       _notify('☄️ Signal localisé ! Collectez 3 Météores dans les zones Hoenn.', 'gold');
+      // Des météores peuvent déjà avoir été récoltés avant la fin de l'étape 1
+      // (ex: via l'événement de zone meteore_crash, indépendant du step) — valider
+      // le seuil tout de suite plutôt que d'attendre un nouveau drop aléatoire.
+      const inv0 = _state().inventory;
+      if ((inv0.meteore || 0) >= TARGET_METEORES) {
+        inv0.meteore -= TARGET_METEORES;
+        q.step = 3;
+        _notify('☄️ Fragments récoltés ! Infiltrez le Laboratoire Spatial Devon.', 'gold');
+      }
     }
     _save();
   }
@@ -623,8 +632,10 @@ function _renderTracker() {
       actionAvail: q.step === 5 || (q.step === 6 && meteores >= 1),
       actionFn: () => {
         if (q.step === 6) {
-          // Repeat mode: spend 1 météore
-          _state().inventory.meteore--;
+          // Repeat mode: spend 1 météore — guard avant décrément (double-clic rapide)
+          const inv3 = _state().inventory;
+          if ((inv3.meteore || 0) < 1) return;
+          inv3.meteore--;
           _save();
         }
         _closeOverlay();

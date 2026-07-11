@@ -108,13 +108,12 @@ function _captureLegend(species, level, catchBase, pot, missionKey, ownedField) 
     _notify('❌ Échec de la capture — réessayez !', 'error');
     return;
   }
-  const pk = globalThis.makePokemon?.({
-    species_en: species,
-    level,
-    shiny: Math.random() < 0.02,
-    source: 'mission_sinnoh',
-  });
+  const pk = globalThis.makePokemon?.(species, null, 'pokeball');
   if (!pk) return;
+  pk.level     = level;
+  pk.shiny     = Math.random() < 0.02;
+  pk.potential = pot;
+  if (globalThis.calculateStats) pk.stats = globalThis.calculateStats(pk);
   if (!s.pokemons) s.pokemons = [];
   s.pokemons.push(pk);
   EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: pk, zoneId: null });
@@ -142,13 +141,12 @@ function _captureLakeLegend(key) {
     _notify('❌ Échec de la capture — réessayez !', 'error');
     return;
   }
-  const pk = globalThis.makePokemon?.({
-    species_en: cfg.species,
-    level: cfg.level,
-    shiny: Math.random() < 0.02,
-    source: 'mission_sinnoh',
-  });
+  const pk = globalThis.makePokemon?.(cfg.species, null, 'pokeball');
   if (!pk) return;
+  pk.level     = cfg.level;
+  pk.shiny     = Math.random() < 0.02;
+  pk.potential = cfg.pot;
+  if (globalThis.calculateStats) pk.stats = globalThis.calculateStats(pk);
   if (!s.pokemons) s.pokemons = [];
   s.pokemons.push(pk);
   EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: pk, zoneId: null });

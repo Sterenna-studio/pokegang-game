@@ -878,14 +878,12 @@ async function _launchLegendary(key) {
 
       if (caught) {
         // Add Pokémon to PC
-        const pk = globalThis.makePokemon?.({
-          species_en: cfg.species,
-          level:      cfg.level,
-          potential:  cfg.pot,
-          shiny:      false,
-          source:     'legendary_quest',
-        });
+        const pk = globalThis.makePokemon?.(cfg.species, null, 'pokeball');
         if (pk) {
+          pk.level     = cfg.level;
+          pk.shiny     = false;
+          pk.potential = cfg.pot;
+          if (globalThis.calculateStats) pk.stats = globalThis.calculateStats(pk);
           s.pokemons.push(pk);
           const _legendZoneMap = { lugia: _WHIRL_ZONE, hooh: _TIN_ZONE };
           EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: pk, zoneId: _legendZoneMap[key] ?? null });
