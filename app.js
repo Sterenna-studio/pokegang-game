@@ -6,6 +6,7 @@
 
 import { Scheduler } from './modules/core/tickManager.js';
 import { EventBus, EVENTS } from './modules/core/eventBus.js';
+import './modules/core/sprites.js';
 import { getDifficultyTier as _getDifficultyTier } from './modules/systems/difficultyTier.js';
 import { marketEventsTick } from './modules/systems/marketEvents.js';
 import { blackMarketTick } from './modules/systems/blackMarket.js';
@@ -156,7 +157,7 @@ import { I18N } from './data/i18n-data.js';
 import { ZONE_BG_URL, GYM_ORDER, JOHTO_GYM_ORDER, HOENN_GYM_ORDER, SINNOH_GYM_ORDER } from './data/zones-config-data.js';
 import { HOURLY_QUEST_REROLL_COST, BOOST_DURATIONS, BALL_ASSIST_MIN_BALLS, BALL_ASSIST_DURATION_MS, PASSIVE_XP_PER_TICK, MAX_LOG_ENTRIES, DEFAULT_MUSIC_VOL, DEFAULT_UI_SCALE, DEFAULT_ZONE_SCALE, TICK_AGENT_MS, TICK_PASSIVE_AGENT_MS, TICK_MISSIONS_UI_MS, TICK_HOURLY_CHECK_MS, TICK_MARKET_DECAY_MS, TICK_VERSION_POLL_MS, TICK_VERSION_FIRST_MS, TICK_AUTO_SAVE_MS, TICK_CLOUD_SAVE_MS, TICK_SNAPSHOT_MS, TICK_LEADERBOARD_MS, TICK_TRAINING_MS, TICK_PENSION_MS, TICK_PASSIVE_XP_MS, TICK_ZONE_REFRESH_MS, TICK_DAILY_CHECK_MS, UPDATE_COUNTDOWN_S, DAILY_COUNTDOWN_S, JOHTO_UNLOCK_DELAY_MS } from './data/gameplay-config-data.js';
 import { SPECIAL_TRAINER_KEYS, MAX_COMBAT_REWARD } from './data/combat-config-data.js';
-import { FALLBACK_TRAINER_SVG, FALLBACK_POKEMON_SVG, BALL_SPRITES, ITEM_SPRITE_URLS, CHEST_SPRITE_URL, SHOWDOWN_SPRITE_BASE, SHOWDOWN_TRAINER_SPRITE_BASE, POKEOS_EGG_BASE_URL, LOGO_URL, LOGO_SMALL_URL, EGG_SPRITE_NB, EGG_SPRITES, CUSTOM_TRAINER_SPRITES } from './data/assets-data.js';
+import { FALLBACK_TRAINER_SVG, BALL_SPRITES, ITEM_SPRITE_URLS, CHEST_SPRITE_URL, LOGO_URL, LOGO_SMALL_URL, EGG_SPRITES } from './data/assets-data.js';
 import { TRANSLATOR_PHRASES_FR } from './data/flavor-data.js';
 import {
   APP_VERSION,
@@ -485,12 +486,6 @@ function addLog(msg) {
   if (state.log.length > MAX_LOG_ENTRIES) state.log.length = MAX_LOG_ENTRIES;
 }
 
-function sanitizeSpriteName(en) {
-  // Showdown sprites use no hyphens for nidoran: nidoranf, nidoranm
-  // and some others like mr-mime -> mrmime, farfetchd, etc.
-  return en.replace(/[^a-z0-9]/g, '');
-}
-
 // ── HTML escape — pour sécuriser toutes les valeurs user-input injectées
 //    via innerHTML (bossName, gang.name, agent names, etc.). Préviens les
 //    injections type <img onerror=...> stockées dans le state puis exposées
@@ -507,208 +502,20 @@ function escapeHtml(str) {
   ));
 }
 
-// ── Pokémon sprite resolution ────────────────────────────────────────────────
-// Variants disponibles (depuis pokemon-sprites-kanto.json) :
-//   'main'         → FireRed/LeafGreen (défaut)
-//   'showdown'     → Animated GIF Showdown
-//   'icon'         → Icône miniature Gen 7
-//   'artwork'      → Artwork officiel haute résolution
-//   'artworkShiny' → Artwork officiel shiny
-//   'back'         → Dos face
-//   'shiny'        → Version brillante face
-//   'backShiny'    → Dos brillant
-//   'retroRedBlue' → Sprite Rogue/Bleu
-//   'retroYellow'  → Sprite Jaune
-// ── Showdown sprite folder resolver ──────────────────────────────
-// mode: 'gen1'|'gen2'|'gen3'|'gen4'|'gen5'|'ani'|'dex'|'home'
-// back: true = dos, shiny: true = brillant
-function _showdownSpriteUrl(en, mode, { shiny = false, back = false } = {}) {
-  const name = sanitizeSpriteName(en);
-  const sh   = shiny ? '-shiny' : '';
-  const bk   = back  ? '-back'  : '';
-  // ani & gen5ani → .gif ; tout le reste → .png
-  const isGif = mode === 'ani';
-  const ext   = isGif ? 'gif' : 'png';
-  let folder;
-  switch (mode) {
-    case 'gen1': folder = back ? `gen1${sh}` : `gen1${sh}`; break; // gen1 has no back-shiny; use gen1
-    case 'gen2': folder = `gen2${bk}${sh}`; break;
-    case 'gen3': folder = `gen3${bk}${sh}`; break;
-    case 'gen4': folder = `gen4${bk}${sh}`; break;
-    case 'ani':  folder = `ani${bk}${sh}`;  break;
-    case 'dex':  folder = back ? `gen5${bk}${sh}` : `dex${sh}`; break;   // dex has no back → fallback gen5
-    case 'home': folder = back ? `gen5${bk}${sh}` : `home-centered${sh}`; break; // home has no back
-    default:     folder = `gen5${bk}${sh}`; break; // 'gen5' or unknown
-  }
-  return `${SHOWDOWN_SPRITE_BASE}${folder}/${name}.${ext}`;
-}
-
-function pokeSpriteVariant(en, variant = 'main', shiny = false) {
-  const mode = state?.settings?.spriteMode ?? 'local';
-  // Mode local (JSON FireRed/LeafGreen) — sauf si variante explicitement Showdown
-  if (mode === 'local' && variant !== 'showdown') {
-    const sp = SPECIES_BY_EN[en];
-    const dexId = sp?.dex;
-    if (dexId && typeof getPokemonSprite === 'function') {
-      const key = shiny && variant === 'main' ? 'shiny'
-                : shiny && variant === 'back'  ? 'backShiny'
-                : variant;
-      const url = getPokemonSprite(dexId, key);
-      if (url) return url;
-    }
-  }
-  // Mode Showdown (gen1→home) ou fallback local
-  const sdMode = mode === 'local' ? 'gen5' : mode;
-  return _showdownSpriteUrl(en, sdMode, { shiny });
-}
-
-function pokeSprite(en, shiny = false) {
-  return pokeSpriteVariant(en, 'main', shiny);
-}
-
-// Icône miniature BW (~40×30px) — pour les slots d'équipe
-function pokeIcon(en) {
-  const name = sanitizeSpriteName(en);
-  return `${SHOWDOWN_SPRITE_BASE}bwicons/${name}.png`;
-}
-
-// ── Egg sprites ──────────────────────────────────────────────────────────────
-// EGG_SPRITES et EGG_SPRITE_NB importés depuis data/assets-data.js
-
-// Returns the generic fallback egg sprite URL (rarity-coded).
-function eggSprite(egg, ready = false) {
-  if (ready) return EGG_SPRITES.ready;
-  const rarity = egg?.rarity || 'common';
-  return EGG_SPRITES[rarity] || EGG_SPRITES.default;
-}
-
-// Returns a full <img> HTML string with PokéOS species egg (if pension/revealed)
-// and automatic onerror fallback chain to rarity sprite → BW generic.
-// style: optional inline CSS string to add to the img.
-function eggImgTag(egg, ready = false, style = '') {
-  const fallback   = eggSprite(egg, ready);
-  const bwFallback = EGG_SPRITE_NB; // fallback universel NB (pokepedia, toujours dispo)
-  const baseStyle = `object-fit:contain;image-rendering:pixelated;${style}`;
-
-  // Pension egg (parents known) or scanned (species revealed) → try PokéOS first
-  const isRevealed = (egg?.parentA && egg?.parentB) || (egg?.scanned && egg?.revealedSpecies);
-  if (!ready && isRevealed && egg?.species_en) {
-    const sp = SPECIES_BY_EN[egg.species_en];
-    const dex = sp?.dex;
-    if (dex) {
-      const pokeos     = `${POKEOS_EGG_BASE_URL}${dex}-animegg.png`;
-      const showdown   = window.getEggSpriteUrl?.(egg.species_en) ?? fallback;
-      // onerror chain: PokéOS → Showdown/manifest → rarity fallback → BW generic
-      return `<img src="${pokeos}" style="${baseStyle}" onerror="if(!this._f1){this._f1=1;this.src='${showdown}'}else if(!this._f2){this._f2=1;this.src='${fallback}'}else if(!this._f3){this._f3=1;this.src='${bwFallback}'}">`;
-    }
-  }
-  // Generic / mystery egg — single fallback to BW generic
-  return `<img src="${fallback}" style="${baseStyle}" onerror="if(!this._f1){this._f1=1;this.src='${bwFallback}'}">`;
-}
-
-function pokeSpriteBack(en, shiny = false) {
-  const mode = state?.settings?.spriteMode ?? 'local';
-  if (mode === 'local') {
-    const sp = SPECIES_BY_EN[en];
-    const dexId = sp?.dex;
-    if (dexId && typeof getPokemonSprite === 'function') {
-      const url = getPokemonSprite(dexId, shiny ? 'backShiny' : 'back');
-      if (url) return url;
-    }
-  }
-  const sdMode = mode === 'local' ? 'gen5' : mode;
-  return _showdownSpriteUrl(en, sdMode, { shiny, back: true });
-}
-
-const SPRITE_FIX = {
-  // ltsurge, rocketgrunt, rocketgruntf exist directly on Showdown — no fix needed
-  // Elite Four sprites need suffix
-  agatha:          'agatha-gen1',
-  lorelei:         'lorelei-gen1',
-  phoebe:          'phoebe-gen3',
-  drake:           'drake-gen3',
-  // Common trainers that 404 without suffix
-  channeler:       'channeler-gen1',
-  cueball:         'cueball-gen1',
-  rocker:          'rocker-gen1',
-  tamer:           'tamer-gen1',
-  // cooltrainer doesn't exist on Showdown → use acetrainer
-  cooltrainer:     'acetrainer',
-  cooltrainerf:    'acetrainerf',
-  // New trainers — pick the most iconic version
-  rocketexecutive: 'rocketexecutive-gen2',
-  pokemonrangerf:  'pokemonrangerf-gen3',
-  policeman:       'policeman-gen8',
-};
-
-// Custom sprite overrides — importés depuis data/assets-data.js
-
-// ── Trainer sprite resolution ────────────────────────────────────────────────
-// Index à plat construit après chargement de trainer-sprites-grouped.json
-const _trainerJsonIndex = {};
-
-function _buildTrainerIndex(data) {
-  // `data` = résultat de loadTrainerGroups() — TRAINER_GROUPS n'est plus global (IIFE loaders.js)
-  if (!data?.trainers) return;
-  const groups = data.trainers;
-  for (const [groupName, groupData] of Object.entries(groups)) {
-    if (groupName === 'factions') {
-      for (const [, arr] of Object.entries(groupData)) {
-        if (Array.isArray(arr)) arr.forEach(rel => {
-          const slug = rel.replace(/\.png$/, '').replace(/[^a-z0-9]/gi, '').toLowerCase();
-          _trainerJsonIndex[slug] = SHOWDOWN_TRAINER_SPRITE_BASE + rel;
-        });
-      }
-    } else if (typeof groupData === 'object' && !Array.isArray(groupData)) {
-      for (const [key, rel] of Object.entries(groupData)) {
-        const slug = rel.replace(/\.png$/, '').toLowerCase();
-        const keyNorm = key.replace(/[^a-z0-9]/gi, '').toLowerCase();
-        _trainerJsonIndex[slug] = SHOWDOWN_TRAINER_SPRITE_BASE + rel;
-        _trainerJsonIndex[keyNorm] = SHOWDOWN_TRAINER_SPRITE_BASE + rel;
-      }
-    }
-  }
-  // Rafraîchir les images boss de la page de connexion (rendues AVANT le chargement
-  // du JSON trainer-sprites-grouped). Sans ça les sprites tombent sur l'URL Showdown
-  // directe qui peut 404 selon la casse, et le fallback affiche la silhouette SVG.
-  document.querySelectorAll('img.isc-boss-img[data-boss-key]').forEach(img => {
-    const key = img.getAttribute('data-boss-key');
-    if (!key) return;
-    const url = trainerSprite(key);
-    if (url && url !== img.src) img.src = url;
-  });
-}
-
-function trainerSprite(name) {
-  if (CUSTOM_TRAINER_SPRITES[name]) return CUSTOM_TRAINER_SPRITES[name];
-  // Chercher dans l'index JSON si disponible
-  const norm = (name || '').replace(/[^a-z0-9]/gi, '').toLowerCase();
-  if (_trainerJsonIndex[norm]) return _trainerJsonIndex[norm];
-  // Fallback Showdown
-  const fixed = SPRITE_FIX[name] || name;
-  return `${SHOWDOWN_TRAINER_SPRITE_BASE}${fixed}.png`;
-}
-
-// Asset fallbacks moved to data/assets-data.js
-
-// Safe image helpers — with automatic fallback on load error
-function safeTrainerImg(name, { style = '', cls = '' } = {}) {
-  const src = trainerSprite(name);
-  return `<img src="${src}" ${cls ? `class="${cls}"` : ''} style="${style}" alt="${name}" onerror="this.src='${FALLBACK_TRAINER_SVG}';this.onerror=null">`;
-}
-function safePokeImg(species_en, { shiny = false, back = false, variant = 'main', style = '', cls = '' } = {}) {
-  const src = back ? pokeSpriteBack(species_en, shiny) : pokeSpriteVariant(species_en, variant, shiny);
-  return `<img src="${src}" ${cls ? `class="${cls}"` : ''} style="${style}" alt="${species_en}" onerror="this.src='${FALLBACK_POKEMON_SVG}';this.onerror=null">`;
-}
-
-function speciesName(en) {
-  if (!SPECIES_BY_EN[en]) return en;
-  return state.lang === 'fr' ? SPECIES_BY_EN[en].fr : en.charAt(0).toUpperCase() + en.slice(1);
-}
-
-function pokemonDisplayName(p) {
-  return p.nick || speciesName(p.species_en);
-}
+// ── Sprites & assets (extracted → modules/core/sprites.js) ──────────────────
+function sanitizeSpriteName(...a) { return globalThis.sanitizeSpriteName?.(...a); }
+function pokeSpriteVariant(...a)  { return globalThis.pokeSpriteVariant?.(...a); }
+function pokeSprite(...a)         { return globalThis.pokeSprite?.(...a); }
+function pokeIcon(...a)           { return globalThis.pokeIcon?.(...a); }
+function eggSprite(...a)          { return globalThis.eggSprite?.(...a); }
+function eggImgTag(...a)          { return globalThis.eggImgTag?.(...a); }
+function pokeSpriteBack(...a)     { return globalThis.pokeSpriteBack?.(...a); }
+function _buildTrainerIndex(...a) { return globalThis._buildTrainerIndex?.(...a); }
+function trainerSprite(...a)      { return globalThis.trainerSprite?.(...a); }
+function safeTrainerImg(...a)     { return globalThis.safeTrainerImg?.(...a); }
+function safePokeImg(...a)        { return globalThis.safePokeImg?.(...a); }
+function speciesName(...a)        { return globalThis.speciesName?.(...a); }
+function pokemonDisplayName(...a) { return globalThis.pokemonDisplayName?.(...a); }
 
 // ── SESSION TRACKING … itemSprite extracted → modules/systems/sessionObjectives.js ──
 
@@ -2227,8 +2034,11 @@ Object.assign(globalThis, {
   // Lookup maps + dirty flag
   pokemonById, agentById, invalidateLookupMaps, markDirty,
   // Utility functions
-  t, pick, weightedPick, uid, randInt, addLog, speciesName, playSE,
-  getMysteryEggCost, trainerSprite, safeTrainerImg, safePokeImg,
+  t, pick, weightedPick, uid, randInt, addLog, playSE,
+  getMysteryEggCost,
+  // speciesName, pokemonDisplayName, sanitizeSpriteName, pokeSprite, pokeSpriteVariant,
+  // pokeSpriteBack, pokeIcon, eggSprite, eggImgTag, trainerSprite, safeTrainerImg, safePokeImg,
+  // _buildTrainerIndex → set by modules/core/sprites.js (stubs in app.js must NOT overwrite)
   // UI / state helpers
   notify, saveState, setState, migrate, renderAll, slimPokemon,
   updateTopBar, tryAutoIncubate,
@@ -2266,7 +2076,6 @@ Object.assign(globalThis, {
   openCombatPopup, executeCombat, closeCombatPopup,
   // Finance / combat / UI helpers
   checkMoneyMilestone, showRarePopup, showShinyPopup, checkPlayerStatPoints,
-  pokeSpriteBack,
   // Data constants
   POKEMON_GEN1, SPECIES_BY_EN, EVO_BY_SPECIES, POT_UPGRADE_COSTS,
   ZONES, ZONE_BY_ID, getBaseSpecies,
@@ -2281,12 +2090,11 @@ Object.assign(globalThis, {
   BOOST_DURATIONS, ITEM_SPRITE_URLS,
   // trainingRoom module
   // tryAutoEvolution → set by modules/systems/pokemon.js
-  pokeSprite,
   // pension module
   showConfirm, showInfoModal, renderPCTab, switchTab, showContextMenu,
   openPlayerStatModal, resetPcRenderCache,
   getMaxPensionSlots, getPensionSlotIds,
-  eggSprite, eggImgTag, EGG_SPRITES,
+  EGG_SPRITES,
   renderLabTabInEl, getDexDesc,
   // zoneSelector module — zone helpers + data it reads from globalThis
   isZoneDegraded, getZoneMastery, getZoneDifficulty,
@@ -2296,7 +2104,7 @@ Object.assign(globalThis, {
   updateZoneButtons: _updateZoneButtons,
   // gangBase module — helpers needed by modules/ui/gangBase.js
   // openTeamPicker, openAssignToPicker — set by modules/ui/pickers.js
-  pokemonDisplayName, sanitizeSpriteName, escapeHtml,
+  escapeHtml,
   getDexKantoCaught, getDexJohtoCaught, getDexNationalCaught, getShinySpeciesCount,
   // getBossFullTitle, getTitleLabel → set by modules/systems/titles.js
   KANTO_DEX_SIZE, JOHTO_DEX_SIZE, NATIONAL_DEX_SIZE, COSMETIC_BGS,
@@ -2307,7 +2115,7 @@ Object.assign(globalThis, {
   // gangTab module
   // openTitleModal → set by modules/systems/titles.js
   MusicPlayer, MUSIC_TRACKS, GAME_VERSION,
-  pokeIcon, openBossEditModal, openShowcasePicker,
+  openBossEditModal, openShowcasePicker,
   openTeamPickerModal, showEvoPreviewModal,
   // hubModals module — needs these from app.js scope
   BOSS_SPRITES, SAVE_KEYS, MAX_HISTORY,
