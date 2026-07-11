@@ -155,7 +155,7 @@ import { MISSIONS, HOURLY_QUEST_POOL } from './data/missions-data.js';
 import { TRAINER_TYPES } from './data/trainers-data.js';
 import { getDexDesc, buildSpeciesNameMaps } from './data/dex-helpers.js';
 import { BALLS, SHOP_ITEMS, MYSTERY_EGG_BASE_COST, MYSTERY_EGG_POOL, MYSTERY_EGG_HATCH_MS, POTENTIAL_MULT, BASE_PRICE, getMysteryEggCost as computeMysteryEggCost } from './data/economy-data.js';
-import { NATURES, NATURE_KEYS, BOSS_SPRITES, AGENT_NAMES_M, AGENT_NAMES_F, AGENT_SPRITES, AGENT_PERSONALITIES, TITLE_REQUIREMENTS, TITLE_BONUSES, AGENT_RANK_LABELS, RANK_CHAIN, SHOWCASE_SLOTS, MAX_BOSS_NAME_LENGTH, MAX_GANG_NAME_LENGTH, KANTO_DEX_MIN, KANTO_DEX_MAX, JOHTO_DEX_MIN, JOHTO_DEX_MAX, CHROMA_CHARM_COST } from './data/game-config-data.js';
+import { NATURES, NATURE_KEYS, BOSS_SPRITES, AGENT_NAMES_M, AGENT_NAMES_F, AGENT_SPRITES, AGENT_PERSONALITIES, TITLE_REQUIREMENTS, TITLE_BONUSES, AGENT_RANK_LABELS, RANK_CHAIN, KANTO_DEX_MIN, KANTO_DEX_MAX, JOHTO_DEX_MIN, JOHTO_DEX_MAX, CHROMA_CHARM_COST } from './data/game-config-data.js';
 import { I18N } from './data/i18n-data.js';
 import { ZONE_BG_URL, GYM_ORDER, JOHTO_GYM_ORDER, HOENN_GYM_ORDER, SINNOH_GYM_ORDER } from './data/zones-config-data.js';
 import { HOURLY_QUEST_REROLL_COST, BOOST_DURATIONS, BALL_ASSIST_MIN_BALLS, BALL_ASSIST_DURATION_MS, PASSIVE_XP_PER_TICK, MAX_LOG_ENTRIES, DEFAULT_MUSIC_VOL, DEFAULT_UI_SCALE, DEFAULT_ZONE_SCALE, TICK_AGENT_MS, TICK_PASSIVE_AGENT_MS, TICK_MISSIONS_UI_MS, TICK_HOURLY_CHECK_MS, TICK_MARKET_DECAY_MS, TICK_VERSION_POLL_MS, TICK_VERSION_FIRST_MS, TICK_AUTO_SAVE_MS, TICK_CLOUD_SAVE_MS, TICK_SNAPSHOT_MS, TICK_LEADERBOARD_MS, TICK_TRAINING_MS, TICK_PENSION_MS, TICK_PASSIVE_XP_MS, TICK_ZONE_REFRESH_MS, TICK_DAILY_CHECK_MS, UPDATE_COUNTDOWN_S, DAILY_COUNTDOWN_S, JOHTO_UNLOCK_DELAY_MS } from './data/gameplay-config-data.js';
@@ -981,151 +981,11 @@ function renderGangTab() {
 
 function openExportModal()  { return globalThis._gbase_openExportModal(); }
 
-function openShowcasePicker(slotIdx) {
-  const usedIds = new Set((state.gang.showcase || []).filter(Boolean));
-  const teamIds = new Set(state.gang.bossTeam);
-  const candidates = state.pokemons.filter(p => !teamIds.has(p.id));
-
-  const modal = document.createElement('div');
-  modal.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center';
-
-  const _renderItems = (filtered) => filtered.map(p => `
-    <div class="showcase-pick-item" data-pk-id="${p.id}" style="display:flex;align-items:center;gap:8px;padding:6px;border-bottom:1px solid var(--border);cursor:pointer">
-      <img src="${pokeSprite(p.species_en, p.shiny)}" style="width:36px;height:36px;image-rendering:pixelated">
-      <div style="flex:1">
-        <div style="font-size:10px">${pokemonDisplayName(p)}${p.shiny ? ' ✨' : ''} ${'★'.repeat(p.potential)}</div>
-        <div style="font-size:9px;color:var(--text-dim)">Lv.${p.level}</div>
-      </div>
-    </div>`).join('') || `<div style="padding:16px;text-align:center;color:var(--text-dim);font-size:10px">Aucun Pokémon disponible</div>`;
-
-  modal.innerHTML = `
-    <div style="background:var(--bg-panel);border:2px solid var(--gold-dim);border-radius:var(--radius);padding:20px;max-width:360px;width:90%;display:flex;flex-direction:column;gap:12px;max-height:80vh">
-      <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">VITRINE — SLOT ${slotIdx + 1}</div>
-      <input type="text" id="showcasePickSearch" placeholder="Rechercher un Pokémon…" style="font-family:var(--font-body);font-size:11px;padding:7px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text)">
-      <div id="showcasePickList" style="overflow-y:auto;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);max-height:360px">${_renderItems(candidates)}</div>
-      <button id="showcasePickCancel" style="font-family:var(--font-pixel);font-size:8px;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">Annuler</button>
-    </div>`;
-  document.body.appendChild(modal);
-
-  const listEl = modal.querySelector('#showcasePickList');
-  function _wireItems() {
-    listEl.querySelectorAll('.showcase-pick-item').forEach(el => {
-      el.addEventListener('click', () => {
-        if (!state.gang.showcase) state.gang.showcase = [];
-        while (state.gang.showcase.length < SHOWCASE_SLOTS) state.gang.showcase.push(null);
-        state.gang.showcase[slotIdx] = el.dataset.pkId;
-        saveState();
-        modal.remove();
-        renderGangTab();
-      });
-    });
-  }
-  _wireItems();
-
-  modal.querySelector('#showcasePickSearch').addEventListener('input', e => {
-    const q = e.target.value.trim().toLowerCase();
-    const filtered = q
-      ? candidates.filter(p => pokemonDisplayName(p).toLowerCase().includes(q) || p.species_en.toLowerCase().includes(q))
-      : candidates;
-    listEl.innerHTML = _renderItems(filtered);
-    _wireItems();
-  });
-
-  modal.querySelector('#showcasePickCancel').addEventListener('click', () => modal.remove());
-  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
-}
-
-function showEvoPreviewModal(p) {
-  const evos = EVO_BY_SPECIES[p.species_en] || [];
-  if (!evos.length) return;
-
-  // Stat la plus haute → détermine quelle evo suggérer si plusieurs
-  const stats = p.stats || calculateStats(p);
-  const statKeys = Object.keys(stats);
-  let bestEvo = evos[0];
-  if (evos.length > 1) {
-    // Choisir selon la stat dominante (ATK → dernier, DEF → avant-dernier, SPD → premier)
-    const maxStatKey = statKeys.reduce((a, b) => (stats[a] || 0) >= (stats[b] || 0) ? a : b, statKeys[0]);
-    // Heuristique simple : si SPD dominant → première evo, si DEF → dernière, sinon première
-    bestEvo = evos[0];
-  }
-
-  const sp = SPECIES_BY_EN[bestEvo.to];
-  const reqText = bestEvo.req === 'item' ? 'Pierre d\'évolution' : `Niveau ${bestEvo.req}`;
-  const modal = document.createElement('div');
-  modal.style.cssText = 'position:fixed;inset:0;z-index:9100;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center';
-  modal.innerHTML = `
-    <div style="background:var(--bg-panel);border:2px solid var(--gold-dim);border-radius:var(--radius);padding:20px;max-width:300px;width:90%;display:flex;flex-direction:column;align-items:center;gap:12px">
-      <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">ÉVOLUTION</div>
-      <div style="display:flex;align-items:center;gap:16px">
-        <div style="text-align:center">
-          <img src="${pokeSprite(p.species_en, p.shiny)}" style="width:64px;height:64px;image-rendering:pixelated">
-          <div style="font-size:9px;margin-top:4px">${pokemonDisplayName(p)}</div>
-          <div style="font-size:8px;color:var(--text-dim)">Lv.${p.level}</div>
-        </div>
-        <div style="font-size:18px;color:var(--gold)">→</div>
-        <div style="text-align:center">
-          <img src="${pokeSprite(bestEvo.to)}" style="width:64px;height:64px;image-rendering:pixelated;filter:brightness(.6)">
-          <div style="font-size:9px;margin-top:4px;color:var(--gold)">${speciesName(bestEvo.to)}</div>
-          <div style="font-size:8px;color:var(--text-dim)">${reqText}</div>
-        </div>
-      </div>
-      ${evos.length > 1 ? `<div style="font-size:8px;color:var(--text-dim);text-align:center">Autres formes : ${evos.slice(1).map(e => speciesName(e.to)).join(', ')}</div>` : ''}
-      <button style="font-family:var(--font-pixel);font-size:8px;padding:8px 16px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer" id="evoModalClose">Fermer</button>
-    </div>`;
-  document.body.appendChild(modal);
-  modal.querySelector('#evoModalClose').addEventListener('click', () => modal.remove());
-  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
-}
-
-function openTeamPickerModal(slotIdx, onDone) {
-  openTeamPicker('boss', null, onDone);
-}
-
-function openBossEditModal(onDone) {
-  const modal = document.createElement('div');
-  modal.style.cssText = 'position:fixed;inset:0;z-index:9100;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center';
-  modal.innerHTML = `
-    <div style="background:var(--bg-panel);border:2px solid var(--gold-dim);border-radius:var(--radius);padding:20px;max-width:340px;width:90%;display:flex;flex-direction:column;gap:12px">
-      <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">MODIFIER LE BOSS</div>
-      <div style="display:flex;flex-direction:column;gap:8px">
-        <label style="font-size:9px;color:var(--text-dim)">Nom du Boss</label>
-        <input id="bossEditName" type="text" maxlength="${MAX_BOSS_NAME_LENGTH}" value="${state.gang.bossName}"
-          style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);padding:8px 10px;font-size:12px;outline:none;width:100%;box-sizing:border-box">
-        <label style="font-size:9px;color:var(--text-dim)">Nom du Gang</label>
-        <input id="bossEditGangName" type="text" maxlength="${MAX_GANG_NAME_LENGTH}" value="${state.gang.name}"
-          style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);padding:8px 10px;font-size:12px;outline:none;width:100%;box-sizing:border-box">
-      </div>
-      <button id="bossEditSprite" style="font-family:var(--font-pixel);font-size:8px;padding:8px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">🎨 Changer le sprite</button>
-      <div style="display:flex;gap:8px">
-        <button id="bossEditCancel" style="flex:1;font-family:var(--font-pixel);font-size:8px;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">Annuler</button>
-        <button id="bossEditConfirm" style="flex:1;font-family:var(--font-pixel);font-size:8px;padding:8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">Confirmer</button>
-      </div>
-    </div>`;
-  document.body.appendChild(modal);
-  modal.querySelector('#bossEditConfirm').addEventListener('click', () => {
-    const newBossName = modal.querySelector('#bossEditName').value.trim();
-    const newGangName = modal.querySelector('#bossEditGangName').value.trim();
-    if (newBossName) state.gang.bossName = newBossName.slice(0, MAX_BOSS_NAME_LENGTH);
-    if (newGangName) state.gang.name = newGangName.slice(0, MAX_GANG_NAME_LENGTH);
-    saveState();
-    updateTopBar();
-    notify('Gang mis à jour', 'success');
-    modal.remove();
-    if (onDone) onDone();
-  });
-  modal.querySelector('#bossEditSprite').addEventListener('click', () => {
-    openSpritePicker(state.gang.bossSprite, (newSprite) => {
-      state.gang.bossSprite = newSprite;
-      saveState();
-      updateTopBar();
-      modal.remove();
-      if (onDone) onDone();
-    });
-  });
-  modal.querySelector('#bossEditCancel').addEventListener('click', () => modal.remove());
-  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
-}
+// ── Pickers restants (extracted → modules/ui/pickers.js) ────────────────────
+function openShowcasePicker(...a)  { return globalThis.openShowcasePicker?.(...a); }
+function showEvoPreviewModal(...a) { return globalThis.showEvoPreviewModal?.(...a); }
+function openTeamPickerModal(...a) { return globalThis.openTeamPickerModal?.(...a); }
+function openBossEditModal(...a)   { return globalThis.openBossEditModal?.(...a); }
 
 // ════════════════════════════════════════════════════════════════
 // 13b.  ZONE INCOME COLLECTION
@@ -1685,9 +1545,9 @@ Object.assign(globalThis, {
   FABRIC_SPECIES, PATCH_PIDS, fabricBgUrl, fabricEmbUrl, patchUrl,
   // gangTab module
   // openTitleModal → set by modules/systems/titles.js
+  // openBossEditModal, openShowcasePicker, openTeamPickerModal, showEvoPreviewModal
+  //   → set by modules/ui/pickers.js (stubs must NOT overwrite)
   MusicPlayer, MUSIC_TRACKS, GAME_VERSION,
-  openBossEditModal, openShowcasePicker,
-  openTeamPickerModal, showEvoPreviewModal,
   // hubModals module — needs these from app.js scope
   BOSS_SPRITES, SAVE_KEYS, MAX_HISTORY,
   formatPlaytime, getTotalBalls, getSlotPreview,
