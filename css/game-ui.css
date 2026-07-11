@@ -85,6 +85,7 @@
        laisse plus de place au viewport pour les deux sprites + PV réels. */
     .zone-window.zone-window-battle {
       grid-column: span 2;
+      width: auto;
       min-height: 380px;
       transition: min-height .25s ease, border-color .2s;
     }
