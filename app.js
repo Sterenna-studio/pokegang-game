@@ -1427,33 +1427,20 @@ window.addEventListener('unhandledrejection', e => {
   });
 });
 
-function boot() {
-  // Version check — must run before anything else; may trigger reload
-  if (checkVersionOnBoot()) return;
-
-  // Initialiser le store (Chantier 2)
+function initializeRuntimeState() {
   _createStoreInstance();
 
-  // Try to load saved state via store
-  const loaded = runtimeStore.loadCurrentSlot();   // migre + persiste dans runtimeStore
-  if (loaded) {
-    _syncStateRef();              // récupère la référence (même objet)
-  }
+  const loaded = runtimeStore.loadCurrentSlot();
+  if (loaded) _syncStateRef();
 
   // Fallback legacy si le store n'a rien trouvé (compatibilité)
-  // loadState() reste disponible mais n'est plus appelé au boot normal
-  // (gardé pour les outils de debug et les tests)
-
+  // loadState() reste disponible mais n'est plus appelé au boot normal.
   state.sessionStart = Date.now();
   _sessionStatsBase = globalThis._gangSessionStatsBase = { ...state.stats };
 
-  // ── Banner de migration si save convertie ────────────────────────────────
   const migRes = runtimeStore.getMigrationResult();
-  if (migRes) {
-    setTimeout(() => showMigrationBanner(migRes), 1200);
-  }
+  if (migRes) setTimeout(() => showMigrationBanner(migRes), 1200);
 
-  // ── Notification limite dépassée → MissingNo reward ──────────
   if (state._limitViolationReward) {
     setTimeout(() => notify(
       '⚠️ Valeurs hors-limites détectées et corrigées — MissingNo Lv.1 ajouté au PC !'
@@ -1461,49 +1448,43 @@ function boot() {
     delete state._limitViolationReward;
     saveState();
   }
+}
 
-  // Init tab navigation
+function bindTabNavigation() {
   document.querySelectorAll('.tab-btn[data-tab]').forEach(btn => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
+}
 
-  // Tab drag-to-reorder
-  (() => {
-    const tabNav = document.querySelector('.tab-nav');
-    if (!tabNav) return;
-    tabNav.querySelectorAll('.tab-btn[data-tab]').forEach(btn => {
-      btn.setAttribute('draggable', 'true');
-      btn.addEventListener('dragstart', e => {
-        e.dataTransfer.setData('tabReorderId', btn.dataset.tab);
-        btn.style.opacity = '0.5';
-      });
-      btn.addEventListener('dragend', () => { btn.style.opacity = ''; });
-      btn.addEventListener('dragover', e => { e.preventDefault(); btn.style.outline = '1px solid var(--gold)'; });
-      btn.addEventListener('dragleave', () => { btn.style.outline = ''; });
-      btn.addEventListener('drop', e => {
-        e.preventDefault();
-        btn.style.outline = '';
-        const fromId = e.dataTransfer.getData('tabReorderId');
-        if (!fromId || fromId === btn.dataset.tab) return;
-        const fromBtn = tabNav.querySelector(`.tab-btn[data-tab="${fromId}"]`);
-        if (!fromBtn) return;
-        const allBtns = [...tabNav.querySelectorAll('.tab-btn[data-tab]')];
-        const fromIdx = allBtns.indexOf(fromBtn);
-        const toIdx   = allBtns.indexOf(btn);
-        if (fromIdx < toIdx) btn.after(fromBtn); else btn.before(fromBtn);
-        SFX.play('click');
-      });
+function bindTabReorder() {
+  const tabNav = document.querySelector('.tab-nav');
+  if (!tabNav) return;
+  tabNav.querySelectorAll('.tab-btn[data-tab]').forEach(btn => {
+    btn.setAttribute('draggable', 'true');
+    btn.addEventListener('dragstart', e => {
+      e.dataTransfer.setData('tabReorderId', btn.dataset.tab);
+      btn.style.opacity = '0.5';
     });
-  })();
+    btn.addEventListener('dragend', () => { btn.style.opacity = ''; });
+    btn.addEventListener('dragover', e => { e.preventDefault(); btn.style.outline = '1px solid var(--gold)'; });
+    btn.addEventListener('dragleave', () => { btn.style.outline = ''; });
+    btn.addEventListener('drop', e => {
+      e.preventDefault();
+      btn.style.outline = '';
+      const fromId = e.dataTransfer.getData('tabReorderId');
+      if (!fromId || fromId === btn.dataset.tab) return;
+      const fromBtn = tabNav.querySelector(`.tab-btn[data-tab="${fromId}"]`);
+      if (!fromBtn) return;
+      const allBtns = [...tabNav.querySelectorAll('.tab-btn[data-tab]')];
+      const fromIdx = allBtns.indexOf(fromBtn);
+      const toIdx   = allBtns.indexOf(btn);
+      if (fromIdx < toIdx) btn.after(fromBtn); else btn.before(fromBtn);
+      SFX.play('click');
+    });
+  });
+}
 
-  document.getElementById('btnSaveSlots')?.addEventListener('click', openSaveSlotModal);
-  document.getElementById('btnBackToIntro')?.addEventListener('click', () => showIntro());
-  document.getElementById('btnCodex')?.addEventListener('click', openCodexModal);
-
-  // (legacy battle log drag code removed — battle log is now the Events tab)
-  // Events tab renders on demand (switchTab triggers renderBattleLogTab via renderActiveTab)
-
-  // Init filter/sort listeners for PC (reset page on change, force full rebuild)
+function bindPcFilters() {
   document.getElementById('pcSearch')?.addEventListener('input', () => {
     const val = document.getElementById('pcSearch')?.value || '';
     if (checkSecretCode(val)) {
@@ -1518,8 +1499,9 @@ function boot() {
   document.getElementById('pcFilter')?.addEventListener('change', () => {
     if (activeTab === 'tabPC') { setPcPage(0); renderPokemonGrid(true); }
   });
+}
 
-  // Info buttons (ℹ on tab nav)
+function bindInfoModalUi() {
   document.querySelectorAll('.tab-info-btn').forEach(btn => {
     btn.addEventListener('click', e => {
       e.stopPropagation();
@@ -1532,28 +1514,9 @@ function boot() {
   document.getElementById('infoModal')?.addEventListener('click', e => {
     if (e.target.id === 'infoModal') e.target.classList.remove('active');
   });
+}
 
-  // Init settings
-  initSettings();
-
-  // Raccourcis clavier globaux
-  initKeyboardShortcuts();
-
-  // Init missions
-  initMissions();
-
-  // Detect LLM
-  detectLLM();
-
-  // Init Supabase (auth + cloud save)
-  initSupabase();
-
-  // Show intro if not initialized
-  if (!state.gang.initialized) {
-    showIntro();
-  }
-
-  // Zone unlock popup bindings
+function bindZoneUnlockPopupUi() {
   document.getElementById('zoneUnlockGo')?.addEventListener('click', () => {
     const popup = document.getElementById('zoneUnlockPopup');
     if (!popup) return;
@@ -1576,82 +1539,91 @@ function boot() {
   document.getElementById('zoneUnlockPopup')?.addEventListener('click', e => {
     if (e.target.id === 'zoneUnlockPopup') { e.target.classList.remove('show'); _processZoneUnlockQueue(); }
   });
+}
 
+function bindGlobalUi() {
+  bindTabNavigation();
+  bindTabReorder();
+  document.getElementById('btnSaveSlots')?.addEventListener('click', openSaveSlotModal);
+  document.getElementById('btnBackToIntro')?.addEventListener('click', () => showIntro());
+  document.getElementById('btnCodex')?.addEventListener('click', openCodexModal);
+  bindPcFilters();
+  bindInfoModalUi();
+  bindZoneUnlockPopupUi();
+}
 
-  // Apply cosmetics (bg theme)
-  applyCosmetics();
+function initializeSystems() {
+  initSettings();
+  initKeyboardShortcuts();
+  initMissions();
+  detectLLM();
+  initSupabase();
+}
 
-  // Init session tracking (must be after state is loaded)
-  initSession();
+function showIntroIfNeeded() {
+  if (!state.gang.initialized) showIntro();
+}
 
-  // ── Réactiver les régions débloquées AVANT de restaurer les zones ────────
-  // Sinon les zones Johto/Hoenn/Sinnoh ne sont pas encore enregistrées dans
-  // ZONE_BY_ID et seraient écartées à tort comme « zones fantômes » par la
-  // passe de nettoyage ci-dessous.
+function restoreUnlockedRegions() {
   if (state.purchases?.johtoUnlocked)  activateJohtoRegion();
   if (state.purchases?.hoennUnlocked)  activateHoennRegion();
   if (state.purchases?.sinnohUnlocked) activateSinnohRegion();
+}
 
-  // ── Restaurer les zones ouvertes de la session précédente ────────────────
-  // Le joueur reprend exactement là où il s'était arrêté (plus de priorité aux
-  // favoris). Une passe de nettoyage « cleaned » écarte les zones fantômes :
-  //   • ID inconnu (absent de ZONE_BY_ID — zone supprimée/renommée)
-  //   • zone de type gang_park (non jouable)
-  //   • zone verrouillée (région reset, item d'unlock manquant…)
-  //   • doublons
-  // L'ordre d'origine est préservé et la liste nettoyée est réécrite dans
-  // state.openZoneOrder pour éviter l'accumulation d'entrées fantômes.
-  const _restoredOrder = [];
+function restoreOpenZones() {
+  const restoredOrder = [];
   for (const zId of (state.openZoneOrder || [])) {
-    if (_restoredOrder.includes(zId))            continue; // doublon
-    if (!ZONE_BY_ID[zId])                        continue; // zone fantôme (ID inconnu)
-    if (ZONE_BY_ID[zId].type === 'gang_park')    continue; // non jouable
-    if (!isZoneUnlocked(zId))                    continue; // verrouillée
+    if (restoredOrder.includes(zId))            continue;
+    if (!ZONE_BY_ID[zId])                       continue;
+    if (ZONE_BY_ID[zId].type === 'gang_park')   continue;
+    if (!isZoneUnlocked(zId))                   continue;
     openZones.add(zId);
     initZone(zId);
     zoneSpawns[zId] = [];
-    startActiveZone(zId); // timer unifié (mode visuel car zone ouverte)
-    _restoredOrder.push(zId);
+    startActiveZone(zId);
+    restoredOrder.push(zId);
   }
-  state.openZoneOrder = _restoredOrder; // liste nettoyée persistée
+  state.openZoneOrder = restoredOrder;
+}
 
-  // Apply saved UI scale
+function applySavedUiSettings() {
   const savedScale = state.settings?.uiScale ?? DEFAULT_UI_SCALE;
   document.documentElement.style.setProperty('--ui-scale', (savedScale / 100).toFixed(2));
   document.documentElement.style.setProperty('--zone-scale', ((state.settings?.zoneScale ?? DEFAULT_ZONE_SCALE) / 100).toFixed(2));
   document.body.classList.toggle('theme-light', state.settings?.lightTheme === true);
-  document.body.classList.toggle('low-spec',    state.settings?.lowSpec === true);
-  // Apply saved music volume
+  document.body.classList.toggle('low-spec', state.settings?.lowSpec === true);
   MusicPlayer.setVolume((state.settings?.musicVol ?? DEFAULT_MUSIC_VOL) / 1000);
+}
 
-  // Initial render — force l'onglet actif correct au chargement
+function restoreSessionState() {
+  restoreUnlockedRegions();
+  restoreOpenZones();
+  applySavedUiSettings();
+}
+
+function renderInitialUi() {
   switchTab(activeTab);
   renderAll();
-
-  // Check boss sprite validity (broken save migration)
   checkBossSpriteValidity();
+}
 
-  // ── Charger les données de sprites (async, non-bloquant) ─────────────────
-  // loaders.js doit être chargé avant app.js dans le HTML
-  if (typeof loadPokemonSprites === 'function') {
-    Promise.allSettled([
-      loadPokemonSprites(),
-      loadItemSprites(),
-      loadTrainerGroups().then(data => _buildTrainerIndex(data)),
-      loadZoneTrainerPools(),
-      typeof loadEggSprites === 'function' ? loadEggSprites() : Promise.resolve(),
-    ]).then(results => {
-      const labels = ['pokemon-sprites', 'item-sprites', 'trainer-sprites', 'zone-trainer-pools', 'egg-sprites'];
-      results.forEach((r, i) => {
-        if (r.status === 'rejected') console.warn(`[Sprites] Échec chargement ${labels[i]} :`, r.reason);
-      });
+function loadRuntimeAssets() {
+  if (typeof loadPokemonSprites !== 'function') return;
+  Promise.allSettled([
+    loadPokemonSprites(),
+    loadItemSprites(),
+    loadTrainerGroups().then(data => _buildTrainerIndex(data)),
+    loadZoneTrainerPools(),
+    typeof loadEggSprites === 'function' ? loadEggSprites() : Promise.resolve(),
+  ]).then(results => {
+    const labels = ['pokemon-sprites', 'item-sprites', 'trainer-sprites', 'zone-trainer-pools', 'egg-sprites'];
+    results.forEach((r, i) => {
+      if (r.status === 'rejected') console.warn(`[Sprites] Échec chargement ${labels[i]} :`, r.reason);
     });
-  }
+  });
+}
 
-  // (Réactivation des régions déplacée plus haut — avant la restauration des
-  //  zones — pour que ZONE_BY_ID soit peuplé au moment du nettoyage cleaned.)
-
-  // Configure intro module
+function configureIntroFlow() {
   configureIntro({
     getState: () => state,
     makePokemon,
@@ -1673,18 +1645,18 @@ function boot() {
     openHubSlotRepairModal,
     openHubImportModal,
   });
+}
 
-  // Start game loop
-  startGameLoop();
-
-  // ── EventBus bridges ─────────────────────────────────────────
-  // Modules can emit these events instead of calling globalThis.fn()
-  // directly. Both pathways work during the progressive migration.
+let _eventBusBridgesBound = false;
+function bindEventBusBridges() {
+  if (_eventBusBridgesBound) return;
+  _eventBusBridgesBound = true;
   EventBus.on(EVENTS.UI_NOTIFY,        ({ msg, type = '', category = null } = {}) => notify(msg, type, category));
   EventBus.on(EVENTS.UI_TOPBAR_UPDATE, ()                        => updateTopBar());
   EventBus.on(EVENTS.STATE_DIRTY,      ()                        => markDirty());
+}
 
-  // Check if region unlock offers should be presented at this session
+function scheduleRegionalBootChecks() {
   if (!state.purchases?.johtoUnlocked) {
     setTimeout(() => checkJohtoUnlock(), JOHTO_UNLOCK_DELAY_MS);
   }
@@ -1694,21 +1666,19 @@ function boot() {
   if (!state.purchases?.sinnohUnlocked) {
     setTimeout(() => checkSinnohUnlock(), JOHTO_UNLOCK_DELAY_MS + 1000);
   }
+}
 
-  // Catch-up starter gift: existing players who never saw the Giovanni intro
+function scheduleStoryBootChecks() {
   if (state.gang?.initialized && !state.gang?.introSeen) {
     setTimeout(() => {
       openStarterGiftPopup({ onComplete: () => renderAll() });
     }, 800);
   }
 
-  // Darkrai Nightmare cutscene — existing players with a save (≥ 3 pokémon)
   if (state.gang?.initialized && !state.gang?.darkraiCutsceneSeen) {
-    // Delay slightly so any other boot popups (starter gift, johto) register first
     setTimeout(() => checkDarkraiCutscene(), 1600);
   }
 
-  // Legendary Missions (Groudon + Kyogre) — mid-Hoenn (rep 2500)
   if (state.purchases?.hoennUnlocked) {
     const gm = state.groudonMission;
     const km = state.kyogreMission;
@@ -1717,12 +1687,10 @@ function boot() {
     }
   }
 
-  // Deoxys Mission — late-game quest (Hoenn unlocked + Ever Grande + rep 4000)
   if (state.purchases?.hoennUnlocked && !state.deoxysMission?.active) {
     setTimeout(() => checkDeoxysMissionUnlock(), JOHTO_UNLOCK_DELAY_MS + 2500);
   }
 
-  // Johto Missions (Bêtes Sacrées + Lugia + Ho-Oh) — mid-Johto (rep 800+)
   if (state.purchases?.johtoUnlocked) {
     const bm = state.betesMission;
     const lm = state.lugiaMission;
@@ -1732,18 +1700,14 @@ function boot() {
     }
   }
 
-  // Kanto Missions (Oiseaux + Mewtwo) — available from rep 600/900
-  {
-    const birds = state.birdsMission;
-    const mm    = state.mewtwoMission;
-    const allBirdsActive = birds &&
-      birds.articuno?.active && birds.zapdos?.active && birds.moltres?.active;
-    if (!allBirdsActive || !mm?.active) {
-      setTimeout(() => checkKantoMissionsUnlock(), JOHTO_UNLOCK_DELAY_MS + 800);
-    }
+  const birds = state.birdsMission;
+  const mm = state.mewtwoMission;
+  const allBirdsActive = birds &&
+    birds.articuno?.active && birds.zapdos?.active && birds.moltres?.active;
+  if (!allBirdsActive || !mm?.active) {
+    setTimeout(() => checkKantoMissionsUnlock(), JOHTO_UNLOCK_DELAY_MS + 800);
   }
 
-  // Sinnoh Missions (Trio du Lac + Galaxie + Giratina) — gated by sinnohUnlocked + rep
   if (state.purchases?.sinnohUnlocked) {
     const gx = state.galaxieMission;
     const lk = state.lakeMission;
@@ -1752,6 +1716,29 @@ function boot() {
       setTimeout(() => checkSinnohMissionsUnlock(), JOHTO_UNLOCK_DELAY_MS + 1600);
     }
   }
+}
+
+function scheduleBootChecks() {
+  scheduleRegionalBootChecks();
+  scheduleStoryBootChecks();
+}
+
+function boot() {
+  if (checkVersionOnBoot()) return;
+
+  initializeRuntimeState();
+  bindGlobalUi();
+  initializeSystems();
+  showIntroIfNeeded();
+  applyCosmetics();
+  initSession();
+  restoreSessionState();
+  renderInitialUi();
+  loadRuntimeAssets();
+  configureIntroFlow();
+  startGameLoop();
+  bindEventBusBridges();
+  scheduleBootChecks();
 }
 
 window.addEventListener('DOMContentLoaded', boot);
