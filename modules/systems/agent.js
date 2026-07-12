@@ -243,7 +243,7 @@ function _autoSellCaptured(pokemon) {
 }
 
 // XP variable selon la rareté du Pokémon capturé
-const RARITY_XP = { common: 3, uncommon: 5, rare: 8, epic: 12, legendary: 20 };
+const RARITY_XP = { common: 3, uncommon: 5, rare: 8, very_rare: 15, legendary: 20 };
 function captureXP(species_en, potential, shiny) {
   const sp = SPECIES_BY_EN[species_en];
   const base = RARITY_XP[sp?.rarity] ?? 3;

@@ -665,7 +665,16 @@ export function updateZoneButtons() {
   const state     = globalThis.state;
   const btnClose  = document.getElementById('btnCloseAllZones');
   const btnCollect = document.getElementById('btnCollectAllZones');
-  const hasOpen   = (openZones?.size || 0) > 0;
+  const openCount = openZones?.size || 0;
+  const hasOpen   = openCount > 0;
+  const counter   = document.getElementById('zoneOpenCount');
+  if (counter) {
+    counter.textContent = `${openCount} zone${openCount > 1 ? 's' : ''} ouverte${openCount > 1 ? 's' : ''}`;
+    counter.classList.toggle('zone-open-count-warn', openCount > 10);
+    counter.title = openCount > 10
+      ? 'Beaucoup de zones ouvertes : timers, rendu et spawns restent actifs.'
+      : 'Nombre de zones actuellement ouvertes.';
+  }
   if (btnClose)   btnClose.style.display   = hasOpen ? '' : 'none';
   if (btnCollect) {
     // Show collect button if ANY zone (open OR closed) has pending income from agents

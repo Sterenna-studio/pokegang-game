@@ -4,6 +4,6 @@ Auto-updated on every commit by .githooks/pre-commit.
 Garantit qu'un marqueur horodaté est présent dans chaque commit
 et que le workflow GitHub Actions se déclenche.
 
-Last update : 2026-07-12 01:33:52 +0200
-Branch      : refactor/app-composition-root
-Previous sha: 5be66fa
+Last update : 2026-07-12 02:33:08 +0200
+Branch      : feat/issue-53-trainer-zones-xp
+Previous sha: b51e880
