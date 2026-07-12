@@ -294,11 +294,7 @@ export function getTrainerCombatPreview(trainerSpawn, agentIds = null) {
   };
 }
 
-// ── Combat simplifié ─────────────────────────────────────────────────────────
-// Modèle : boss + agents (puissance totale additionnée d'emblée) vs dresseur.
-// Un seul jet — pas de duels individuels.
-// Grade de l'agent → nombre de Pokémon équipables (grunt:1 … général:6).
-export function resolveTrainerCombat(trainerSpawn, agentIds = null) {
+export function getTrainerCombatSummary(trainerSpawn, agentIds = null) {
   const state = getState();
 
   // ── Côté attaquant : boss (si dans la zone) + agents ──────────
@@ -310,12 +306,7 @@ export function resolveTrainerCombat(trainerSpawn, agentIds = null) {
   const allPk             = allTrainerPokemon(trainerSpawn);
   const defTotal          = Math.round(trainerTeamPower(allPk, trainerMultiplier));
 
-  const rolled      = rollCombat(atkTotal, defTotal);
-  const attackerWin = rolled.attackerWin;
-
   return {
-    attackerWin,
-    win:                   attackerWin,
     attackerPower:         atkTotal,
     defenderPower:         defTotal,
     bossTeamPower:         bossPow,
@@ -324,9 +315,26 @@ export function resolveTrainerCombat(trainerSpawn, agentIds = null) {
     trainerTypeMultiplier: trainerMultiplier,
     attackers:             attackers.map(agentSummary),
     defenders:             [],
-    duels:                 [], // simplifié : plus de duels individuels
+    duels:                 [],
     finalBattle:           null,
     remainingAttackers:    [],
     remainingDefenders:    [],
+  };
+}
+
+// ── Combat simplifié ─────────────────────────────────────────────────────────
+// Modèle : boss + agents (puissance totale additionnée d'emblée) vs dresseur.
+// Un seul jet — pas de duels individuels.
+// Grade de l'agent → nombre de Pokémon équipables (grunt:1 … général:6).
+export function resolveTrainerCombat(trainerSpawn, agentIds = null) {
+  const summary = getTrainerCombatSummary(trainerSpawn, agentIds);
+
+  const rolled      = rollCombat(summary.attackerPower, summary.defenderPower);
+  const attackerWin = rolled.attackerWin;
+
+  return {
+    ...summary,
+    attackerWin,
+    win:                   attackerWin,
   };
 }

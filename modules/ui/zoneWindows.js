@@ -40,7 +40,7 @@ import {
 import { TRAINER_TYPES } from '../../data/trainers-data.js';
 import {
   getTrainerCombatPreview,
-  resolveTrainerCombat,
+  getTrainerCombatSummary,
 } from '../systems/zoneCombat.js';
 import { resolveEventBattle } from '../systems/eventCombat.js';
 
@@ -1067,16 +1067,23 @@ globalThis._refreshZoneStatsView = () => {
   }
 };
 
-// Rang minimum requis par nombre de zones simultanées ouvertes.
-// Zone 1 : libre. Zone 2 : sergent. Zone 3 : lieutenant. Zone 4 : commandant. Etc.
-const _ZONE_RANK_REQ  = ['', 'sergent', 'lieutenant', 'commandant', 'elite', 'general'];
-const _ZONE_RANK_FR   = { sergent:'Sergent', lieutenant:'Lieutenant', commandant:'Commandant', elite:'Élite', general:'Général' };
-const _ZONE_RANK_ORD  = { grunt:0, sergent:1, lieutenant:2, commandant:3, elite:4, general:5 };
+const ZONE_OPEN_WARNING_THRESHOLD = 10;
+let zoneOpenWarningShown = false;
 
-function _maxAgentRank(state) {
-  return state.agents.reduce((best, a) => {
-    return (_ZONE_RANK_ORD[a.title] ?? 0) > (_ZONE_RANK_ORD[best] ?? 0) ? a.title : best;
-  }, 'grunt');
+function maybeWarnManyOpenZones(openZones) {
+  if (zoneOpenWarningShown || (openZones?.size || 0) <= ZONE_OPEN_WARNING_THRESHOLD) return;
+  zoneOpenWarningShown = true;
+  const count = openZones.size;
+  const message = `<b>${count} zones ouvertes</b><br><span style="color:var(--text-dim);font-size:11px">Chaque zone ouverte garde des timers, du rendu et des spawns actifs. Tu peux continuer, mais ferme les zones inutiles si le jeu ralentit.</span>`;
+  if (typeof globalThis.showConfirm === 'function') {
+    setTimeout(() => globalThis.showConfirm(message, null, null, {
+      lang: globalThis.state?.lang || 'fr',
+      confirmLabel: 'Compris',
+      cancelLabel: 'Fermer',
+    }), 0);
+  } else {
+    _notify(`${count} zones ouvertes : pense à fermer les zones inutiles si le jeu ralentit.`, 'gold');
+  }
 }
 
 function openZoneWindow(zoneId) {
@@ -1087,23 +1094,8 @@ function openZoneWindow(zoneId) {
   // Guard : si déjà ouverte, ne rien faire
   if (openZones.has(zoneId)) { _zsRefreshTile(zoneId); return; }
 
-  // ── Prérequis sergent : chaque zone supplémentaire exige un rang supérieur ──
-  const currentOpen = openZones.size;   // nb de zones déjà ouvertes
-  if (currentOpen >= 1) {
-    const neededRank = _ZONE_RANK_REQ[currentOpen]; // ex. index 1 → 'sergent'
-    if (neededRank) {
-      const bestRank = _maxAgentRank(state);
-      if ((_ZONE_RANK_ORD[bestRank] ?? 0) < (_ZONE_RANK_ORD[neededRank] ?? 0)) {
-        _notify(
-          `🔒 Zone ${currentOpen + 1} : promouvez un agent au rang ${_ZONE_RANK_FR[neededRank]} pour l'ouvrir`,
-          'error'
-        );
-        return;
-      }
-    }
-  }
-
   openZones.add(zoneId);
+  maybeWarnManyOpenZones(openZones);
   // Le timer unifié existe peut-être déjà (zone avait des agents) → startActiveZone est idempotent.
   // Le callback branché sur openZones.has(zoneId) basculera automatiquement en mode visuel.
   globalThis.startActiveZone(zoneId);
@@ -2293,6 +2285,46 @@ function buildTrainerCombatTaglines(spawnObj, result, reward, repGain) {
   return taglines;
 }
 
+function scaleBattleStats(stats = {}, multiplier = 1) {
+  return {
+    atk: Math.max(1, Math.round((stats.atk ?? 50) * multiplier)),
+    def: Math.max(1, Math.round((stats.def ?? 50) * multiplier)),
+    spd: Math.max(1, Math.round((stats.spd ?? 50) * multiplier)),
+  };
+}
+
+function buildTrainerBattleEnemyTeam(enemyPool = [], multiplier = 1) {
+  return enemyPool.map(slot => ({
+    ...slot.pk,
+    stats: scaleBattleStats(slot.stats || slot.pk?.stats, multiplier),
+  }));
+}
+
+function makeCombatOverlay(anchorEl, side = 'player') {
+  if (!anchorEl) return null;
+  const ov = document.createElement('div');
+  ov.className = `combat-hp-overlay ${side === 'enemy' ? 'combat-hp-enemy' : 'combat-hp-gang'}`;
+  ov.innerHTML = `<div class="chp-name"></div><div class="chp-bar"><div class="chp-fill${side === 'enemy' ? ' chp-fill-red' : ''}" style="width:100%"></div></div><div class="chp-txt"></div>`;
+  anchorEl.appendChild(ov);
+  return { root: ov, name: ov.querySelector('.chp-name'), fill: ov.querySelector('.chp-fill'), txt: ov.querySelector('.chp-txt') };
+}
+
+function setCombatHpBar(ov, hp, maxHp) {
+  if (!ov) return;
+  const safeMax = Math.max(1, maxHp || 1);
+  const safeHp = Math.max(0, hp || 0);
+  ov.fill.style.width = Math.max(0, Math.min(100, Math.round(safeHp / safeMax * 100))) + '%';
+  ov.txt.textContent = `${safeHp}/${safeMax}`;
+}
+
+function playCombatHitEffect(el) {
+  if (!el) return;
+  el.classList.remove('combat-hit');
+  void el.offsetWidth;
+  el.classList.add('combat-hit');
+  setTimeout(() => el.classList.remove('combat-hit'), 340);
+}
+
 // ════════════════════════════════════════════════════════════════
 // Combat Popup
 // ════════════════════════════════════════════════════════════════
@@ -2324,6 +2356,13 @@ function openCombatPopup(zoneId, spawnObj) {
     : (spawnObj.trainer?.en ?? spawnObj.trainerKey ?? '???');
   const spawnWithZone = { ...spawnObj, zoneId };
   const teamIds = buildTrainerCombatTeamIds(agentIds, zoneId);
+  const battlePlayerTeam = teamIds
+    .map(id => state.pokemons.find(pokemon => pokemon.id === id))
+    .filter(Boolean);
+  if (battlePlayerTeam.length === 0) {
+    _notify('Équipez votre Boss pour pouvoir combattre !', 'error');
+    return;
+  }
   const preview = getTrainerCombatPreview(spawnWithZone, agentIds);
 
   // ── Build gang trainers ──────────────────────────────────────
@@ -2379,6 +2418,11 @@ function openCombatPopup(zoneId, spawnObj) {
 
   // ── Find spawn element (enemy's existing DOM element) ─────────
   const spawnEl = viewport.querySelector(`[data-spawn-id="${spawnObj.id}"]`);
+  const playerAnchorEl = gangTrainers.find(t => t.domEl)?.domEl
+    || win.querySelector('.zone-boss')
+    || win.querySelector('.zone-agent');
+  const summary = getTrainerCombatSummary(spawnWithZone, agentIds);
+  const enemyTeam = buildTrainerBattleEnemyTeam(enemyPool, summary.trainerTypeMultiplier);
 
   currentCombat = {
     zoneId,
@@ -2386,45 +2430,24 @@ function openCombatPopup(zoneId, spawnObj) {
     spawnWithZone,
     viewport,
     spawnEl,
-    playerTeam: available,
+    playerAnchorEl,
+    playerTeam: battlePlayerTeam,
+    enemyTeam,
     teamIds,
     agentIds,
     gangTrainers,
     enemyTrainers,
     enemyPool,
+    summary,
     combatStarted: false,
     timers: [],
   };
   globalThis.currentCombat = currentCombat;
 
-  // ── HP overlays + Pokémon sprites on existing zone sprites ─────
-  for (const t of gangTrainers) {
-    if (!t.domEl) continue;
-    const slot = t.pkList[0];
-    if (!slot) continue;
-    const ov = document.createElement('div');
-    ov.className = 'combat-hp-overlay combat-hp-gang';
-    ov.innerHTML = `<div class="chp-name" id="chpname-gang-${t.id}">${globalThis.speciesName(slot.pk.species_en)} Lv.${slot.pk.level}</div>
-      <div class="chp-bar"><div class="chp-fill" id="chp-gang-${t.id}" style="width:100%"></div></div>
-      <div class="chp-txt" id="chptxt-gang-${t.id}">${slot.maxHp}/${slot.maxHp}</div>`;
-    t.domEl.appendChild(ov);
-    const pkEl = document.createElement('div');
-    pkEl.className = 'combat-sent-pk';
-    pkEl.id = `cspk-${t.id}`;
-    pkEl.innerHTML = `<img src="${globalThis.pokeSpriteBack(slot.pk.species_en, slot.pk.shiny)}" style="width:40px;height:40px;${slot.pk.shiny ? 'filter:drop-shadow(0 0 4px var(--gold))' : ''}">`;
-    t.domEl.appendChild(pkEl);
-    t.pkEl = pkEl;
-  }
-  // Enemy spawn element
+  win.classList.add('zone-window-battle');
   if (spawnEl) {
-    const firstEnemy = enemyPool[0];
+    spawnEl.classList.add('zone-spawn-battle');
     spawnEl.style.animation = 'none';
-    const ov = document.createElement('div');
-    ov.className = 'combat-hp-overlay combat-hp-enemy';
-    ov.innerHTML = `<div class="chp-name" id="chpname-enemy-${zoneId}">${globalThis.speciesName(firstEnemy.pk.species_en)} Lv.${firstEnemy.pk.level}</div>
-      <div class="chp-bar"><div class="chp-fill chp-fill-red" id="chp-enemy-${zoneId}" style="width:100%"></div></div>
-      <div class="chp-txt" id="chptxt-enemy-${zoneId}">${firstEnemy.maxHp}/${firstEnemy.maxHp}</div>`;
-    spawnEl.appendChild(ov);
   }
 
   // ── Tier de difficulté (stocké dans currentCombat pour la résolution) ──
@@ -2462,11 +2485,18 @@ function executeCombat() {
   if (currentCombat.combatStarted) return;
   currentCombat.combatStarted = true;
 
-  const { zoneId, spawnObj, spawnWithZone, spawnEl, teamIds, agentIds, enemyPool } = currentCombat;
+  const { zoneId, spawnObj, spawnWithZone, spawnEl, playerAnchorEl, playerTeam, enemyTeam, teamIds, enemyPool, summary } = currentCombat;
   const logEl = document.getElementById(`zchud-log-${zoneId}`);
   const combatLogLines = [];
   const trainerReward = spawnWithZone.trainer?.reward || [10, 50];
-  const result = resolveTrainerCombat(spawnWithZone, agentIds);
+  const battle = resolveEventBattle({ playerTeam, enemyTeam });
+  currentCombat.battle = battle;
+
+  const result = {
+    ...summary,
+    attackerWin: battle.win,
+    win: battle.win,
+  };
   const reward = result.attackerWin
     ? Math.min(globalThis.MAX_COMBAT_REWARD, globalThis.randInt(trainerReward[0], trainerReward[1]))
     : 0;
@@ -2482,6 +2512,8 @@ function executeCombat() {
   _save();
 
   const taglines = buildTrainerCombatTaglines(spawnWithZone, result, reward, repGain);
+  const introLines = taglines.slice(0, 4);
+  const resultLines = taglines.slice(4);
   const zoneDef = ZONE_BY_ID[zoneId];
   const zName = zoneDef ? (state.lang === 'fr' ? zoneDef.fr : zoneDef.en) : zoneId;
   globalThis.pushFeedEvent?.({
@@ -2491,8 +2523,17 @@ function executeCombat() {
       : `Défaite — ${spawnWithZone.trainer?.fr || spawnWithZone.trainerKey}`,
     detail: `Zone: ${zName} · ⚡${fmtCombatNum(result.attackerPower)} / 🛡${fmtCombatNum(result.defenderPower)} · ${enemyPool.length} Pok. adverses`,
     win: result.attackerWin,
-    combatLog: taglines.slice(),
+    combatLog: [
+      ...introLines,
+      ...battle.turns.filter(t => t.type === 'attack').map(t => `${globalThis.speciesName(t.attackerSpecies)} → ${t.move} (${t.damage} dgts)`),
+      ...resultLines,
+    ],
   });
+
+  let playerOv = null;
+  let enemyOv = null;
+  let playerSpriteEl = null;
+  let enemySpriteEl = null;
 
   function queueTimer(fn, ms) {
     const timer = setTimeout(fn, ms);
@@ -2519,6 +2560,50 @@ function executeCombat() {
     logEl.scrollTop = logEl.scrollHeight;
   }
 
+  function ensurePlayerOverlay() {
+    if (!playerAnchorEl) return null;
+    if (!playerOv) {
+      playerOv = makeCombatOverlay(playerAnchorEl, 'player');
+      playerSpriteEl = document.createElement('div');
+      playerSpriteEl.className = 'combat-sent-pk';
+      playerAnchorEl.appendChild(playerSpriteEl);
+    }
+    return playerOv;
+  }
+
+  function ensureEnemyOverlay() {
+    if (!spawnEl) return null;
+    if (!enemyOv) enemyOv = makeCombatOverlay(spawnEl, 'enemy');
+    return enemyOv;
+  }
+
+  function playSwitch(t) {
+    if (t.side === 'player') {
+      const ov = ensurePlayerOverlay();
+      if (ov) {
+        ov.name.textContent = `${globalThis.speciesName(t.species_en)} Lv.${t.level}`;
+        setCombatHpBar(ov, t.hp, t.maxHp);
+        if (playerSpriteEl) {
+          playerSpriteEl.innerHTML = `<img src="${globalThis.pokeSpriteBack(t.species_en, t.shiny)}" style="width:40px;height:40px;${t.shiny ? 'filter:drop-shadow(0 0 4px var(--gold))' : ''}">`;
+        }
+      }
+    } else {
+      const ov = ensureEnemyOverlay();
+      if (ov) {
+        ov.name.textContent = `${globalThis.speciesName(t.species_en)} Lv.${t.level}`;
+        setCombatHpBar(ov, t.hp, t.maxHp);
+      }
+      if (spawnEl) {
+        enemySpriteEl = spawnEl.querySelector('.combat-enemy-pk') || document.createElement('img');
+        enemySpriteEl.className = 'combat-enemy-pk';
+        enemySpriteEl.src = globalThis.pokeSprite(t.species_en, t.shiny);
+        enemySpriteEl.style.cssText = `width:56px;height:56px;image-rendering:pixelated;${t.shiny ? 'filter:drop-shadow(0 0 6px var(--gold))' : ''}`;
+        if (!enemySpriteEl.parentNode) spawnEl.insertBefore(enemySpriteEl, spawnEl.firstChild);
+      }
+    }
+    logLine(`${globalThis.speciesName(t.species_en)} entre en jeu !`);
+  }
+
   function doClose() {
     closeCombatPopup();
     removeSpawn(zoneId, spawnObj.id);
@@ -2532,28 +2617,57 @@ function executeCombat() {
     spawnEl.style.opacity = result.attackerWin ? '0.45' : '0.75';
   }
 
+  const hudEl = document.getElementById(`zchud-${zoneId}`);
+  const fleeBtn = hudEl?.querySelector('.zchud-flee');
+  if (fleeBtn) {
+    fleeBtn.disabled = true;
+    fleeBtn.textContent = 'Combat...';
+  }
+
+  const script = [
+    ...introLines.map(text => ({ type: 'log', text })),
+    ...battle.turns.filter(t => t.type !== 'result'),
+    ...resultLines.map(text => ({ type: 'log', text, final: true })),
+  ];
+
   let index = 0;
-  const delay = 560;
-  function nextLine() {
+  const delay = 650;
+  function nextStep() {
     if (!currentCombat || currentCombat.zoneId !== zoneId) return;
-    if (index < taglines.length) {
-      const text = taglines[index++];
-      const kind = text.startsWith('— ') ? 'result' : (text.startsWith('+') || text.includes('Aucun loot')) ? 'loot' : '';
-      logLine(text, kind);
-      queueTimer(nextLine, delay);
+    if (index < script.length) {
+      const item = script[index++];
+      if (item.type === 'log') {
+        const text = item.text;
+        const kind = text.startsWith('— ') ? 'result' : (text.startsWith('+') || text.includes('Aucun loot')) ? 'loot' : '';
+        logLine(text, kind);
+      } else if (item.type === 'switch') {
+        playSwitch(item);
+      } else if (item.type === 'attack') {
+        const atkName = globalThis.speciesName(item.attackerSpecies);
+        const effTxt = item.effectiveness > 1 ? ' Coup super efficace !'
+          : (item.effectiveness > 0 && item.effectiveness < 1) ? " Ce n'est pas très efficace..."
+          : item.effectiveness === 0 ? " Ça n'affecte pas l'adversaire..." : '';
+        logLine(`${atkName} utilise ${item.move} !${effTxt}`);
+        const targetOv = item.side === 'player' ? ensureEnemyOverlay() : ensurePlayerOverlay();
+        setCombatHpBar(targetOv, item.defenderHp, item.defenderMaxHp);
+        playCombatHitEffect(item.side === 'player' ? (enemySpriteEl || spawnEl) : (playerSpriteEl || playerAnchorEl));
+      } else if (item.type === 'faint') {
+        logLine(`${globalThis.speciesName(item.species_en)} est mis K.O. !`);
+      }
+      queueTimer(nextStep, delay);
       return;
     }
 
-    const hudEl = document.getElementById(`zchud-${zoneId}`);
-    const fleeBtn = hudEl?.querySelector('.zchud-flee');
-    if (fleeBtn) {
-      fleeBtn.textContent = 'Fermer';
-      fleeBtn.onclick = doClose;
+    const closeBtn = hudEl?.querySelector('.zchud-flee');
+    if (closeBtn) {
+      closeBtn.disabled = false;
+      closeBtn.textContent = 'Fermer';
+      closeBtn.onclick = doClose;
     }
     queueTimer(doClose, 1800);
   }
 
-  queueTimer(nextLine, 120);
+  queueTimer(nextStep, 120);
 }
 
 function closeCombatPopup() {
@@ -2561,11 +2675,15 @@ function closeCombatPopup() {
     const { zoneId, viewport, spawnEl } = currentCombat;
     for (const timer of currentCombat.timers || []) clearTimeout(timer);
     const win = document.getElementById(`zw-${zoneId}`);
+    win?.classList.remove('zone-window-battle');
     document.getElementById(`zchud-${zoneId}`)?.remove();
     viewport?.querySelectorAll('.combat-hp-overlay').forEach(el => el.remove());
     win?.querySelectorAll('.combat-hp-overlay').forEach(el => el.remove());
     win?.querySelectorAll('.combat-sent-pk').forEach(el => el.remove());
-    if (spawnEl) spawnEl.style.animation = '';
+    if (spawnEl) {
+      spawnEl.classList.remove('zone-spawn-battle', 'combat-hit');
+      spawnEl.style.animation = '';
+    }
     for (const t of currentCombat.gangTrainers || []) {
       if (t.domEl) t.domEl.style.opacity = '';
     }
@@ -2578,10 +2696,10 @@ function closeCombatPopup() {
 // ════════════════════════════════════════════════════════════════
 // Event Battle — combat réel pokémon-par-pokémon contre un PNJ
 // d'événement (SPECIAL_EVENTS + trainerKey, cf. renderEventTrainerInWindow).
-// Parallèle à openCombatPopup/executeCombat mais résolu via
-// resolveEventBattle (tours réels, PV qui baissent vraiment, relève
-// classique) au lieu du jet de puissance instantané du combat de zone
-// normal. currentCombat.isEventBattle distingue les deux chemins.
+// Chemin dédié aux PNJ permanents : il partage le même moteur pur
+// resolveEventBattle que le combat de zone normal, avec ses récompenses et
+// son nettoyage spécifiques. currentCombat.isEventBattle distingue les deux
+// chemins UI.
 // ════════════════════════════════════════════════════════════════
 
 function openEventBattlePopup(zoneId) {
@@ -2791,6 +2909,7 @@ function executeEventBattle() {
       logLine(`${atkName} utilise ${t.move} !${effTxt}`);
       const targetOv = t.side === 'player' ? ensureEnemyOverlay() : ensurePlayerOverlay();
       setHpBar(targetOv, t.defenderHp, t.defenderMaxHp);
+      playCombatHitEffect(t.side === 'player' ? npcEl : (playerSpriteEl || anchorPlayerEl));
     } else if (t.type === 'faint') {
       logLine(`${globalThis.speciesName(t.species_en)} est mis K.O. !`);
     }
