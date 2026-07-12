@@ -11,7 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./css/base.css?v=94d4ecd5">
   <link rel="stylesheet" href="./css/intro.css?v=e3b2bd3b">
-  <link rel="stylesheet" href="./css/game-ui.css?v=0eaa87e9">
+  <link rel="stylesheet" href="./css/game-ui.css?v=559fb4f1">
 </head>
 <body>
 
@@ -129,7 +129,8 @@
             <button class="zone-ftab" data-filter="dex" title="Zones avec des Pokémon non encore capturés">📖 Pokédex</button>
             <button class="zone-ftab" data-filter="dex_shiny" title="Zones avec des espèces sans chromatique">✨ Chromas</button>
           </div>
-          <div style="display:flex;gap:6px;margin-left:auto">
+          <div style="display:flex;gap:6px;margin-left:auto;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+            <span id="zoneOpenCount" class="zone-open-count">0 zone ouverte</span>
             <button id="btnCollectAllZones" class="zones-close-all-btn" style="background:var(--gold-dark,#7a6000);border-color:var(--gold-dim);color:var(--gold);display:none">₽ Tout récolter</button>
             <button id="btnCloseAllZones" class="zones-close-all-btn" style="display:none">✕ Fermer tout</button>
             <button id="btnToggleZoneStats" class="zones-close-all-btn" title="Basculer vue statistiques / carte" style="display:block">📊</button>
@@ -343,7 +344,7 @@
   <script src="./data/zones-sinnoh-data.js?v=5fc631a9"></script>
   <script src="./data/regions-config.js?v=22ab8f2c"></script>
   <script src="./data/moves-data.js?v=352cbf11"></script>
-  <script type="module" src="./app.js?v=168c63a4"></script>
+  <script type="module" src="./app.js?v=06ad7e3e"></script>
   <!-- Offline / background idle catchup system -->
   <script type="module" src="./modules/systems/offlineCatchup.js?v=0f577733"></script>
   <!-- Offline mission report (modal de rapport au retour de tab) -->
