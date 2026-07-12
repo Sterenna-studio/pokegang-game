@@ -1,12 +1,11 @@
 'use strict';
 // ════════════════════════════════════════════════════════════════
-//  EVENT COMBAT MODULE — vrai combat pokémon-par-pokémon pour les
-//  PNJ d'événement de zone (SPECIAL_EVENTS + trainerKey).
+//  EVENT COMBAT MODULE — vrai combat pokémon-par-pokémon partagé par les
+//  PNJ d'événement de zone et les combats dresseur normaux.
 //
 //  Résolution pure : pas d'accès DOM, pas de mutation de state.
-//  Le combat de zone "normal" (dresseurs sauvages, raids, arènes) reste
-//  un jet de puissance instantané via resolveTrainerCombat
-//  (zoneCombat.js) — ce module ne s'applique qu'aux PNJ d'événement.
+//  Le combat de zone "normal" garde ses previews/récompenses dans
+//  zoneCombat.js, mais rejoue désormais ses tours via ce moteur pur.
 //
 //  API :
 //    resolveEventBattle({ playerTeam, enemyTeam, random? })
