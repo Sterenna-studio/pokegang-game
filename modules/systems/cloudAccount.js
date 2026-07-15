@@ -318,6 +318,14 @@ async function supaSignOut() {
 // Dirty-check fingerprint for cloud save — avoids upsert when nothing changed
 let _cloudSaveFingerprint = '';
 
+// Heuristique de progression partagée entre l'upload (supaCloudSave) et le
+// download (supaCheckCloudLoad) — un état avec plus de réputation / Pokémon
+// est considéré "plus avancé". Sert à ne jamais écraser silencieusement une
+// progression supérieure, dans un sens comme dans l'autre.
+function _progressScore(s) {
+  return (s?.gang?.reputation || 0) + (s?.pokemons?.length || 0) * 10;
+}
+
 async function supaCloudSave() {
   if (!_supabase || !supaSession) return;
   if (supaSyncing) return;
@@ -330,21 +338,38 @@ async function supaCloudSave() {
   supaSyncing = true;
   updateSupaIndicator();
   try {
-    // Slim the payload the same way saveState() does for localStorage — avoids
-    // writing derivable/default fields and keeps the JSONB blob as small as possible.
-    const payload = { ...state, pokemons: state.pokemons.map(slimPokemon) };
-    const { error } = await _supabase
+    // Anti-écrasement multi-appareil : si un autre appareil/onglet a écrit une
+    // version cloud plus récente que notre état local ET au moins aussi avancée,
+    // on ne l'écrase pas en silence — on retente au prochain tick (l'utilisateur
+    // peut aussi rapatrier explicitement via "Charger depuis le cloud").
+    const { data: existing } = await _supabase
       .from('pokegang_saves')
-      .upsert({
-        user_id:  supaSession.user.id,
-        slot:     getActiveSaveSlot(),
-        state:    payload,
-        saved_at: new Date().toISOString(),
-      });
-    if (!error) {
-      supaLastSync = Date.now();
-      _cloudSaveFingerprint = fp;
-      await supaUpdateLeaderboard();
+      .select('saved_at, state')
+      .eq('user_id', supaSession.user.id)
+      .eq('slot', getActiveSaveSlot())
+      .maybeSingle();
+
+    const cloudIsAheadOfLocal = existing
+      && new Date(existing.saved_at).getTime() > (state._savedAt || 0)
+      && _progressScore(existing.state) >= _progressScore(state);
+
+    if (!cloudIsAheadOfLocal) {
+      // Slim the payload the same way saveState() does for localStorage — avoids
+      // writing derivable/default fields and keeps the JSONB blob as small as possible.
+      const payload = { ...state, pokemons: state.pokemons.map(slimPokemon) };
+      const { error } = await _supabase
+        .from('pokegang_saves')
+        .upsert({
+          user_id:  supaSession.user.id,
+          slot:     getActiveSaveSlot(),
+          state:    payload,
+          saved_at: new Date().toISOString(),
+        });
+      if (!error) {
+        supaLastSync = Date.now();
+        _cloudSaveFingerprint = fp;
+        await supaUpdateLeaderboard();
+      }
     }
   } catch { /* silencieux — la save locale est toujours là */ }
   supaSyncing = false;
@@ -377,8 +402,8 @@ async function supaCheckCloudLoad() {
 
   // Si le cloud a significativement moins de progression → ignorer silencieusement
   // (évite d'écraser une save avancée avec un état vide ou early)
-  const cloudScore = cloudRep + cloudPkm * 10;
-  const localScore = localRep + localPkm * 10;
+  const cloudScore = _progressScore(data.state);
+  const localScore = _progressScore(state);
   if (cloudScore < localScore * 0.5) return;
 
   const repDiff   = cloudRep - localRep;
@@ -1046,7 +1071,7 @@ async function renderCompteTab() {
         <div style="font-family:var(--font-pixel);font-size:12px;color:var(--gold);margin-bottom:20px">☁ COMPTE CLOUD</div>
         <div style="font-size:11px;margin-bottom:12px">Supabase non configuré.</div>
         <div style="font-size:10px;line-height:1.8">
-          1. Copie <code style="color:var(--gold)">game/config.example.js</code> → <code style="color:var(--gold)">game/config.js</code><br>
+          1. Crée <code style="color:var(--gold)">config.js</code> à la racine du repo<br>
           2. Remplis <code>SUPABASE_URL</code> et <code>SUPABASE_ANON_KEY</code><br>
           3. Suis le guide SQL dans <code>docs/supabase-setup.md</code>
         </div>
@@ -1133,7 +1158,7 @@ async function renderCompteTab() {
 
         <!-- Historique des snapshots -->
         <div style="background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:16px">
-          <div style="font-family:var(--font-pixel);font-size:10px;color:var(--blue);margin-bottom:12px">📸 HISTORIQUE CLOUD <span style="font-size:7px;opacity:.6">(toutes les 5 min · 6 max)</span></div>
+          <div style="font-family:var(--font-pixel);font-size:10px;color:var(--blue);margin-bottom:12px">📸 HISTORIQUE CLOUD <span style="font-size:7px;opacity:.6">(toutes les 6h · 2 max)</span></div>
           <div id="supaSnapshots" style="min-height:40px">
             <div style="color:var(--text-dim);font-size:10px;padding:4px">Chargement…</div>
           </div>
