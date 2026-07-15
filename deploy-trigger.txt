@@ -4,6 +4,6 @@ Auto-updated on every commit by .githooks/pre-commit.
 Garantit qu'un marqueur horodaté est présent dans chaque commit
 et que le workflow GitHub Actions se déclenche.
 
-Last update : 2026-07-12 02:33:08 +0200
-Branch      : feat/issue-53-trainer-zones-xp
-Previous sha: b51e880
+Last update : 2026-07-15 21:38:02 +0200
+Branch      : main
+Previous sha: d026ec4

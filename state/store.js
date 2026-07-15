@@ -17,8 +17,6 @@ export function createStore(options = {}) {
     localStorageRef = window.localStorage,
     initialState = createDefaultState(),
     notify = () => {},
-    cloudSave = null,
-    supabaseThrottleMs = 30_000,
     speciesByEn = {},
     uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     now = () => Date.now(),
@@ -29,7 +27,6 @@ export function createStore(options = {}) {
   let state = structuredClone(initialState);
   let listeners = new Set();
   let migrationResult = null;
-  let lastCloudSaveAt = 0;
   let activeSaveSlot = getInitialSaveSlot(localStorageRef);
   let saveKey = SAVE_KEYS[activeSaveSlot];
 
@@ -66,21 +63,6 @@ export function createStore(options = {}) {
     if (persist) localStorageRef.setItem('pokeforge.activeSlot', String(activeSaveSlot));
     return activeSaveSlot;
   }
-  function saveToSlot(slotIdx) {
-    const previousSlot = activeSaveSlot;
-    state._savedAt = now();
-    localStorageRef.setItem(SAVE_KEYS[previousSlot], JSON.stringify(buildSavePayload(state)));
-    setActiveSaveSlot(slotIdx);
-    return save();
-  }
-  function loadSlot(slotIdx) {
-    setActiveSaveSlot(slotIdx);
-    return load();
-  }
-  function deleteSlot(slotIdx) {
-    localStorageRef.removeItem(SAVE_KEYS[slotIdx]);
-    if (slotIdx === activeSaveSlot) setActiveSaveSlot(0);
-  }
   function accumulatePlaytime() {
     if (state.sessionStart) {
       state.playtime = (state.playtime || 0) + Math.floor((now() - state.sessionStart) / 1000);
@@ -108,13 +90,6 @@ export function createStore(options = {}) {
         }
       } else {
         throw e;
-      }
-    }
-    if (typeof cloudSave === 'function') {
-      const t = now();
-      if (t - lastCloudSaveAt >= supabaseThrottleMs) {
-        lastCloudSaveAt = t;
-        Promise.resolve(cloudSave(payload)).catch(err => console.error('[Store] cloudSave failed:', err));
       }
     }
     if (typeof onAfterSave === 'function') onAfterSave(state);
@@ -185,9 +160,6 @@ export function createStore(options = {}) {
     getSaveKey,
     getSaveKeys: () => [...SAVE_KEYS],
     setActiveSaveSlot,
-    saveToSlot,
-    loadSlot,
-    deleteSlot,
   };
 }
 

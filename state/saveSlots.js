@@ -1,5 +1,7 @@
 'use strict';
 
+import { buildSavePayload } from './serialization.js';
+
 let saveSlotContext = {};
 
 export function configureSaveSlots(ctx = {}) {
@@ -165,7 +167,7 @@ export function saveToSlot(slotIdx) {
 
   const prev = getActiveSaveSlot();
   state._savedAt = Date.now();
-  storage.setItem(keys[prev], JSON.stringify(state));
+  storage.setItem(keys[prev], JSON.stringify(buildSavePayload(state)));
   setActiveSaveSlot(slotIdx);
   saveState();
   notify(`Sauvegarde Slot ${slotIdx + 1}`, 'success');

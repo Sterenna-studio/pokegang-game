@@ -87,7 +87,7 @@ state.settings{}  // user preferences
 
 `saveState()` serializes to `localStorage['pokeforge.v6']` (3 slots: `v6`, `v6.s2`, `v6.s3`). Auto-saves every 10 seconds but skips clean state. Explicit saves always write. Pokémon objects are "slimmed" via `slimPokemon()` before serialization (removes derivable/default fields). Schema version: `SAVE_SCHEMA_VERSION`. Migration runs on load via `migrate()`.
 
-Cloud backup via Supabase (optional). Throttled to 1 save/30s. Uses a custom reentrant JS mutex (`_makeSupaLock`) to avoid GoTrue deadlocks.
+Cloud backup via Supabase (optional). Runs hourly via `Scheduler.register('cloudSave', supaCloudSave, TICK_CLOUD_SAVE_MS, ...)` in `app.js` (`TICK_CLOUD_SAVE_MS` = 1h, `data/gameplay-config-data.js`) — not a per-write throttle. Before upserting, `supaCloudSave()` checks whether the cloud row was written more recently and is at least as advanced as the local state, to avoid silently overwriting another device/tab's progress. Uses a custom reentrant JS mutex (`_makeSupaLock`) to avoid GoTrue deadlocks.
 
 ### Game loop
 
