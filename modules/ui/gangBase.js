@@ -781,7 +781,7 @@ function renderGangBaseWindowV2() {
     focusZone ? {
       tag:    focusMeta.stateLabel,
       title:  `${focusName} · ${poss}%`,
-      detail: pendingIncome > 0 ? `${pendingIncome.toLocaleString()}₽ à récupérer` : zoneDesc,
+      detail: pendingIncome > 0 ? `₽ à récupérer` : zoneDesc,
       cls:    focusMeta.dangerLabel === 'Critique' || focusMeta.dangerLabel === 'Extreme' ? 'alert'
               : isFocusOpen ? 'ok' : '',
     } : null,

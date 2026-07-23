@@ -990,7 +990,7 @@ function _renderZoneStatsView() {
     const statusCell = `<div style="display:flex;flex-direction:column;align-items:center;gap:1px">${actifBadge}${fenetreBadge}</div>`;
 
     const agentNames = agents.map(a => a.name).join(', ') || '—';
-    const incomeFmt  = income > 0 ? `<b style="color:var(--gold)">${income.toLocaleString()}₽</b>` : '<span style="color:var(--text-dim)">0₽</span>';
+    const incomeFmt  = income > 0 ? `<b style="color:var(--gold)">₽</b>` : '<span style="color:var(--text-dim)">—</span>';
 
     const collectBtn = income > 0
       ? `<button class="zstat-collect" data-zone="${zone.id}" style="font-family:var(--font-pixel);font-size:7px;padding:2px 7px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer;white-space:nowrap">₽ Récolter</button>`
@@ -1026,7 +1026,7 @@ function _renderZoneStatsView() {
   overlay.innerHTML = `
     <div style="padding:8px 4px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
       <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">📊 STATISTIQUES DES ZONES</div>
-      ${totalIncome > 0 ? `<button id="zstatCollectAll" style="font-family:var(--font-pixel);font-size:8px;padding:4px 10px;background:rgba(255,204,90,.12);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">₽ Tout récolter (${totalIncome.toLocaleString()}₽)</button>` : ''}
+      ${totalIncome > 0 ? `<button id="zstatCollectAll" style="font-family:var(--font-pixel);font-size:8px;padding:4px 10px;background:rgba(255,204,90,.12);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">₽ Tout récolter</button>` : ''}
     </div>
     <table style="width:100%;border-collapse:collapse;font-size:9px">
       <thead>
@@ -1446,12 +1446,6 @@ function buildZoneWindowEl(zoneId) {
   const ZONE_BGS = globalThis.ZONE_BGS;
   const trainerSprite = globalThis.trainerSprite;
 
-  const boosts = [];
-  if (globalThis.isBoostActive('incense'))    boosts.push('INC');
-  if (globalThis.isBoostActive('rarescope'))  boosts.push('SCO');
-  if (globalThis.isBoostActive('aura'))       boosts.push('AUR');
-  if (globalThis.isBoostActive('chestBoost')) boosts.push('CHT');
-
   const activeEvt = globalThis.zoneActivity[zoneId];
   const eventActive = globalThis.getZoneActivityMode(zoneId) === 'event';
   const eventDef = eventActive ? SPECIAL_EVENTS.find(e => e.id === activeEvt?.eventId) : null;
@@ -1481,13 +1475,12 @@ function buildZoneWindowEl(zoneId) {
   win.innerHTML = `
     <div class="zone-headbar${degraded ? ' zone-headbar-degraded' : ''}" data-zone-hb="${zoneId}">
       <span class="headbar-name">${name}${gymDefeated ? ' [V]' : ''}${degraded ? ' ⚠' : ''}</span>
-      <span class="headbar-stats">${_zoneLevelHtml(zoneId)} ${boosts.map(b => `<span class="boost-tag">${b}</span>`).join('')}</span>
-      <button class="headbar-collect-btn" data-headbar-collect="${zoneId}" style="display:${(zState.pendingIncome||0) > 0 ? 'flex' : 'none'};font-family:var(--font-pixel);font-size:7px;padding:1px 6px;background:rgba(200,160,40,.25);border:1px solid var(--gold-dim);border-radius:2px;color:var(--gold);cursor:pointer;align-items:center;gap:2px">₽ ${(zState.pendingIncome||0) > 0 ? (zState.pendingIncome).toLocaleString() : ''}</button>
+      <span class="headbar-stats">${_zoneLevelHtml(zoneId)}</span>
+      <button class="headbar-collect-btn" data-headbar-collect="${zoneId}" style="display:${(zState.pendingIncome||0) > 0 ? 'flex' : 'none'};font-family:var(--font-pixel);font-size:7px;padding:1px 6px;background:rgba(200,160,40,.25);border:1px solid var(--gold-dim);border-radius:2px;color:var(--gold);cursor:pointer;align-items:center;gap:2px">₽</button>
       <button class="headbar-close" data-close-zone="${zoneId}" title="Fermer">✕</button>
     </div>
     <div class="zone-viewport">
       ${degraded ? `<div class="zone-degraded-banner">⚠ ${state.lang === 'fr' ? 'MODE COMBAT — Réputation insuffisante' : 'COMBAT MODE — Reputation too low'}</div>` : ''}
-      ${boosts.length ? `<div class="zone-boosts">${boosts.map(b => `<span class="boost-badge">${b}</span>`).join('')}</div>` : ''}
       ${eventActive && eventDef ? (() => {
         const secsLeft = activeEvt?.expiresAt ? Math.max(0, Math.ceil((activeEvt.expiresAt - Date.now()) / 1000)) : '?';
         const label = state.lang === 'fr' ? eventDef.fr : eventDef.en;
@@ -1585,12 +1578,6 @@ function patchZoneWindow(zoneId, win) {
     ? `Combats: ${combats}${gymDefeated ? ' ✓GYM' : combats >= 10 && zone.gymLeader ? ' — RAID!' : ''}`
     : `Combats: ${combats}${nextMastery ? `/${nextMastery}` : ''} | Cap: ${captures}`;
 
-  const boosts = [];
-  if (globalThis.isBoostActive('incense'))    boosts.push('INC');
-  if (globalThis.isBoostActive('rarescope'))  boosts.push('SCO');
-  if (globalThis.isBoostActive('aura'))       boosts.push('AUR');
-  if (globalThis.isBoostActive('chestBoost')) boosts.push('CHT');
-
   // Headbar
   const headbar = win.querySelector(`[data-zone-hb="${zoneId}"]`);
   if (headbar) {
@@ -1599,14 +1586,14 @@ function patchZoneWindow(zoneId, win) {
     if (nameEl) nameEl.innerHTML = `${name}${gymDefeated ? ' [V]' : ''}${degraded ? ' ⚠' : ''}`;
     const statsEl = headbar.querySelector('.headbar-stats');
     if (statsEl) {
-      statsEl.innerHTML = `${_zoneLevelHtml(zoneId)} ${boosts.map(b => `<span class="boost-tag">${b}</span>`).join('')}`;
+      statsEl.innerHTML = _zoneLevelHtml(zoneId);
     }
-    // ₽ collect button
+    // ₽ collect button — montant volontairement masqué (effet surprise à la collecte)
     const collectBtn = headbar.querySelector(`[data-headbar-collect="${zoneId}"]`);
     const income = zState.pendingIncome || 0;
     if (collectBtn) {
       collectBtn.style.display = income > 0 ? 'flex' : 'none';
-      if (income > 0) collectBtn.textContent = `₽ ${income.toLocaleString()}`;
+      if (income > 0) collectBtn.textContent = '₽';
     }
   }
   win.classList.remove('zone-mastery-1','zone-mastery-2','zone-mastery-3');
