@@ -498,7 +498,7 @@ function investInZone(zoneId) { return globalThis._zsys_investInZone(zoneId); }
 //  6.  CAPTURE MODULE
 // ════════════════════════════════════════════════════════════════
 
-function tryCapture(zoneId, speciesEN, bonusPotential = 0) { return globalThis._zsys_tryCapture(zoneId, speciesEN, bonusPotential); }
+function tryCapture(zoneId, speciesEN, bonusPotential = 0, spawnCtx = {}) { return globalThis._zsys_tryCapture(zoneId, speciesEN, bonusPotential, spawnCtx); }
 
 // ════════════════════════════════════════════════════════════════
 //  7.  COMBAT MODULE

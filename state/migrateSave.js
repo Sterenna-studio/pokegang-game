@@ -546,6 +546,16 @@ export function migrateSave(saved, deps) {
     }
   }
 
+  // ── Pokédex : compteurs lifetime dédiés (captureCount / shinyCount) ────────────────
+  // Distincts de `count` (qui reflète la possession actuelle, recalculable à la baisse
+  // via rebuildPokedex) — backfill best-effort depuis les champs existants.
+  if (merged.pokedex && typeof merged.pokedex === 'object') {
+    for (const entry of Object.values(merged.pokedex)) {
+      if (entry.captureCount === undefined) entry.captureCount = entry.count || 0;
+      if (entry.shinyCount === undefined) entry.shinyCount = entry.shiny ? 1 : 0;
+    }
+  }
+
   // ── Limites : valeurs hors-limites → MissingNo reward ──────────────────────────────
   const LIMITS = { incubator: 10 };
   let limitViolation = false;
