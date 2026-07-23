@@ -4,6 +4,7 @@
 // ════════════════════════════════════════════════════════════════
 
 import { resolveTrainerCombat } from './zoneCombat.js';
+import { AUTO_COMBAT_VISUAL_MS } from '../../data/gameplay-config-data.js';
 import { EventBus, EVENTS } from '../core/eventBus.js';
 
 // ── Convenience shims (progressive migration from globalThis.*) ─
@@ -1037,11 +1038,27 @@ function agentAutoCombat(zoneId, spawnObj, agent) {
   const _win = document.getElementById(`zw-${zoneId}`);
   const _vp  = _win?.querySelector('.zone-viewport');
   const _el  = _vp?.querySelector(`[data-spawn-id="${spawnObj.id}"]`);
-  if (_el) globalThis._addVSBadge(_el);
+  // Empêche un clic joueur sur ce spawn pendant que l'agent le résout (même
+  // garde que les handlers de clic manuels — évite une double résolution).
+  if (_el) _el.dataset.challenged = '1';
+
+  // Zone "visible" = fenêtre ouverte ET onglet Zones actif. Dans ce cas
+  // uniquement, on illustre le combat avec de vrais sprites (dresseurs +
+  // pokémon, y compris pour les raids) au lieu du simple badge VS — sans
+  // texte de log, juste du visuel (cf. audit combat).
+  const isVisible = globalThis.openZones?.has(zoneId) && globalThis.activeTab === 'tabZones';
+  if (_el && !isVisible) globalThis._addVSBadge(_el);
+
+  // Résolu une seule fois, immédiatement : le visuel et l'application du
+  // résultat doivent refléter exactement le même tirage, jamais deux rolls
+  // séparés qui pourraient diverger.
+  const result = resolveTrainerCombat({ ...spawnObj, zoneId }, combatAgents.map(a => a.id));
+
+  if (isVisible) {
+    globalThis.playAutoCombatVisual?.(zoneId, spawnObj, combatAgents, result.attackerWin);
+  }
 
   setTimeout(() => {
-    if (globalThis.currentCombat) { spawnObj._agentClaimed = false; return; }
-    const result = resolveTrainerCombat({ ...spawnObj, zoneId }, combatAgents.map(a => a.id));
     _applyResolvedAgentCombat(zoneId, spawnObj, combatAgents, result);
 
     // ── Énergie agent sur défaite — même règle que resolveBackgroundSpawnForZone,
@@ -1069,7 +1086,7 @@ function agentAutoCombat(zoneId, spawnObj, agent) {
     globalThis.refreshZoneIncomeTile?.(zoneId);
     globalThis.updateZoneButtons?.();
     if (globalThis.activeTab === 'tabGang') globalThis.renderGangTab();
-  }, 360);
+  }, isVisible ? AUTO_COMBAT_VISUAL_MS : 360);
 }
 
 // Agent opens a chest

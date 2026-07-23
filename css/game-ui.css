@@ -945,6 +945,19 @@
       pointer-events: none;
       animation: combatPkAppear .25s ease-out;
     }
+    /* Raid : rangée d'icônes dresseur au-dessus du pokémon meneur — rend
+       visible qu'il y a plusieurs adversaires, pas un seul dresseur. */
+    .combat-raid-trainers {
+      position: absolute;
+      bottom: calc(100% + 2px);
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 2px;
+      pointer-events: none;
+      animation: combatPkAppear .25s ease-out;
+    }
+    .combat-raid-trainers img { width: 26px !important; height: 26px !important; image-rendering: pixelated; }
     .combat-hit {
       animation: combatHit .32s ease-out;
       filter: brightness(1.8) drop-shadow(0 0 7px rgba(255,255,255,.9));

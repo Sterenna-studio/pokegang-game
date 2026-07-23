@@ -11,6 +11,12 @@ const BOOST_DURATIONS = {
   superlure: 60000,
 };
 
+// ── Auto-combat visuel (agents, zone visible) ──────────────────
+// Durée totale de la séquence décorative dans zoneWindows.js (playAutoCombatVisual)
+// — agent.js aligne son délai de résolution/suppression du spawn dessus pour
+// que le nettoyage n'arrive jamais avant la fin de l'animation.
+const AUTO_COMBAT_VISUAL_MS = 1350;
+
 // ── Ball assist (early-game helper) ──────────────────────────
 const BALL_ASSIST_MIN_BALLS    = 10;            // seuil : déclenche l'assist sous ce nombre
 const BALL_ASSIST_DURATION_MS  = 2 * 60 * 1000; // 2 minutes
@@ -81,6 +87,7 @@ export {
   TICK_ZONE_REFRESH_MS, TICK_DAILY_CHECK_MS,
   UPDATE_COUNTDOWN_S, DAILY_COUNTDOWN_S,
   JOHTO_UNLOCK_DELAY_MS,
+  AUTO_COMBAT_VISUAL_MS,
   BASE_SHINY_RATE, AURA_SHINY_RATE, CHROMA_CHARM_MULT,
   MYSTERY_EGG_SHINY_RATE, MISSION_REWARD_SHINY_RATE, EVENT_EGG_GIFT_SHINY_RATE,
   PENSION_SHINY_RATE_NONE, PENSION_SHINY_RATE_ONE, PENSION_SHINY_RATE_BOTH,
