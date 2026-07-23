@@ -1492,6 +1492,41 @@
     #rarePopup .rare-hint  { font-family: var(--font-pixel); font-size: 7px; color: var(--text-dim); margin-top: 2px; }
     #rarePopup .rare-sprite { image-rendering: pixelated; width: 40px; height: 40px; }
 
+    /* Mini combat popup — combats auto-résolus hors champ (zone fermée, ou zone
+       ouverte mais onglet Zones pas actif). Coin discret opposé aux popups
+       capture/rare pour ne jamais se superposer. Cliquable → va à la zone. */
+    #miniCombatPopup {
+      position: fixed;
+      bottom: 60px;
+      left: 24px;
+      z-index: 9997;
+      background: rgba(8,8,12,.92);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 8px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      pointer-events: none;
+      opacity: 0;
+      transform: translateX(-120%);
+      transition: transform .35s ease, opacity .35s ease;
+      box-shadow: 0 0 16px rgba(0,0,0,.5);
+    }
+    #miniCombatPopup.show {
+      opacity: 1;
+      transform: translateX(0);
+      pointer-events: auto;
+    }
+    #miniCombatPopup.win  { border-color: var(--gold); box-shadow: 0 0 16px rgba(255,204,90,.4); }
+    #miniCombatPopup.lose { border-color: var(--red);  box-shadow: 0 0 16px rgba(204,68,68,.4); }
+    #miniCombatPopup .mcp-sprites { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+    #miniCombatPopup .mcp-sprite { image-rendering: pixelated; width: 32px; height: 32px; }
+    #miniCombatPopup .mcp-vs { font-family: var(--font-pixel); font-size: 7px; color: var(--text-dim); }
+    #miniCombatPopup .mcp-label { font-family: var(--font-pixel); font-size: 9px; }
+    #miniCombatPopup .mcp-detail { font-size: 9px; color: var(--text-dim); margin-top: 2px; }
+
     /* ── Zone Unlock Popup ───────────────────────────────────────── */
     /* ── Region switcher locked / available states ────────────────── */
     .region-btn-locked { opacity: .45; cursor: default !important; }

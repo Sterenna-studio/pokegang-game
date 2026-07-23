@@ -207,6 +207,75 @@ function showRarePopup(species_en, zoneId) {
   } catch {}
 }
 
+let _miniCombatPopupTimer = null;
+
+/**
+ * Popup compacte pour un combat auto-résolu (dresseur/raid) hors du champ de
+ * vision du joueur — zone fermée (agent seul) ou zone ouverte mais onglet
+ * Zones pas actif. "Dernier seulement" : un nouvel appel remplace l'affichage
+ * en cours plutôt que de faire la queue (cf. showShinyPopup/showRarePopup).
+ */
+function showMiniCombatPopup({ win, zoneId, trainerKey, trainerName, agentSprite, reward = 0, repGain = 0 } = {}) {
+  try {
+    const el     = document.getElementById('miniCombatPopup');
+    const agentImg = document.getElementById('miniCombatPopupAgent');
+    const enemyImg = document.getElementById('miniCombatPopupEnemy');
+    const label  = document.getElementById('miniCombatPopupLabel');
+    const detail = document.getElementById('miniCombatPopupDetail');
+    if (!el) return;
+    const state = getState();
+
+    agentImg.src = agentSprite || '';
+    enemyImg.src = globalThis.trainerSprite?.(trainerKey) || '';
+    label.textContent = win
+      ? (state.lang === 'fr' ? `⚔ Victoire — ${trainerName}` : `⚔ Won — ${trainerName}`)
+      : (state.lang === 'fr' ? `💀 Défaite — ${trainerName}` : `💀 Lost — ${trainerName}`);
+
+    const zone = ZONE_BY_ID[zoneId];
+    const zoneName = zone ? (state.lang === 'fr' ? zone.fr : zone.en) : (zoneId || '');
+    detail.textContent = win
+      ? `${zoneName} · +${reward.toLocaleString()}₽ +${repGain}rep`
+      : `${zoneName} · ${state.lang === 'fr' ? 'combat perdu' : 'lost the fight'}`;
+
+    el.dataset.targetZone = zoneId || '';
+    el.classList.toggle('win',  !!win);
+    el.classList.toggle('lose', !win);
+
+    el.classList.add('show');
+    clearTimeout(_miniCombatPopupTimer);
+    _miniCombatPopupTimer = setTimeout(() => el.classList.remove('show'), 4000);
+  } catch {}
+}
+
+// ── Clic sur la popup mini-combat → switch vers la zone ────────
+(function _bindMiniCombatPopupClick() {
+  document.addEventListener('DOMContentLoaded', () => {
+    const el = document.getElementById('miniCombatPopup');
+    if (!el) return;
+    el.addEventListener('click', () => {
+      const zoneId = el.dataset.targetZone;
+      clearTimeout(_miniCombatPopupTimer);
+      el.classList.remove('show');
+      if (!zoneId) return;
+      switchTab('tabZones');
+      const openZones = getOpenZones();
+      if (!openZones.has(zoneId)) {
+        openZones.add(zoneId);
+        const state = getState();
+        if (!state.openZoneOrder) state.openZoneOrder = [];
+        if (!state.openZoneOrder.includes(zoneId)) state.openZoneOrder.push(zoneId);
+      }
+      renderZonesTab();
+      setTimeout(() => {
+        const zoneWin = document.getElementById(`zw-${zoneId}`);
+        zoneWin?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        zoneWin?.classList.add('zone-highlight');
+        setTimeout(() => zoneWin?.classList.remove('zone-highlight'), 1500);
+      }, 100);
+    });
+  });
+})();
+
 // ── Clic sur le popup rare → switch vers la zone ──────────────
 (function _bindRarePopupClick() {
   document.addEventListener('DOMContentLoaded', () => {
@@ -760,4 +829,5 @@ export {
   showMigrationBanner,
   showShinyPopup,
   showRarePopup,
+  showMiniCombatPopup,
 };
