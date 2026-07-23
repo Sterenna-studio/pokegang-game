@@ -11,7 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./css/base.css?v=94d4ecd5">
   <link rel="stylesheet" href="./css/intro.css?v=e3b2bd3b">
-  <link rel="stylesheet" href="./css/game-ui.css?v=559fb4f1">
+  <link rel="stylesheet" href="./css/game-ui.css?v=244e07d2">
 </head>
 <body>
 
@@ -26,6 +26,17 @@
     <div>
       <div class="rare-label" id="rarePopupLabel">Pokémon rare aperçu !</div>
       <div class="rare-hint" id="rarePopupHint"></div>
+    </div>
+  </div>
+  <div id="miniCombatPopup">
+    <div class="mcp-sprites">
+      <img class="mcp-sprite mcp-agent" id="miniCombatPopupAgent" src="" alt="">
+      <span class="mcp-vs">VS</span>
+      <img class="mcp-sprite mcp-enemy" id="miniCombatPopupEnemy" src="" alt="">
+    </div>
+    <div>
+      <div class="mcp-label" id="miniCombatPopupLabel">Combat résolu</div>
+      <div class="mcp-detail" id="miniCombatPopupDetail"></div>
     </div>
   </div>
 
@@ -344,7 +355,7 @@
   <script src="./data/zones-sinnoh-data.js?v=5fc631a9"></script>
   <script src="./data/regions-config.js?v=22ab8f2c"></script>
   <script src="./data/moves-data.js?v=352cbf11"></script>
-  <script type="module" src="./app.js?v=8890edd7"></script>
+  <script type="module" src="./app.js?v=955e6abf"></script>
   <!-- Offline / background idle catchup system -->
   <script type="module" src="./modules/systems/offlineCatchup.js?v=0f577733"></script>
   <!-- Offline mission report (modal de rapport au retour de tab) -->

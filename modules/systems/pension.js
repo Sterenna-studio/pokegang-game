@@ -1,4 +1,5 @@
 ﻿import { EventBus, EVENTS } from '../core/eventBus.js';
+import { PENSION_SHINY_RATE_NONE, PENSION_SHINY_RATE_ONE, PENSION_SHINY_RATE_BOTH } from '../../data/gameplay-config-data.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
 const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
@@ -65,7 +66,7 @@ function pensionTick() {
     if (sp && EGG_HATCH_MS[sp.rarity] !== null) {
       const avgPot = Math.floor((pkA.potential + pkB.potential) / 2);
       const potential = Math.min(5, avgPot + (Math.random() < 0.2 ? 1 : 0));
-      const shinyChance = (pkA.shiny && pkB.shiny) ? 0.15 : (pkA.shiny || pkB.shiny) ? 0.05 : 0.01;
+      const shinyChance = (pkA.shiny && pkB.shiny) ? PENSION_SHINY_RATE_BOTH : (pkA.shiny || pkB.shiny) ? PENSION_SHINY_RATE_ONE : PENSION_SHINY_RATE_NONE;
       const egg = {
         id: `egg_${now}_${Math.random().toString(36).slice(2, 7)}`,
         species_en: baseSpeciesEn,

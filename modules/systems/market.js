@@ -11,6 +11,7 @@
  */
 
 import { tryAutoIncubate } from '../ui/pcPokedex.js';
+import { MYSTERY_EGG_SHINY_RATE } from '../../data/gameplay-config-data.js';
 import { EventBus, EVENTS } from '../core/eventBus.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
@@ -320,7 +321,7 @@ function buyItem(itemDef) {
   if (itemDef.id === 'mysteryegg') {
     const species_en = globalThis.weightedPick(globalThis.MYSTERY_EGG_POOL);
     const potential = Math.random() < 0.1 ? 3 : Math.random() < 0.4 ? 2 : 1;
-    const shiny = Math.random() < 0.02;
+    const shiny = Math.random() < MYSTERY_EGG_SHINY_RATE;
     state.eggs.push({ id: globalThis.uid(), species_en, hatchAt: null, incubating: false, potential, shiny, mystery: true });
     state.purchases.mysteryEggCount = (state.purchases.mysteryEggCount || 0) + 1;
     tryAutoIncubate();

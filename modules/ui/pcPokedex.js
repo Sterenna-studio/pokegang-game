@@ -8,6 +8,7 @@
 // ════════════════════════════════════════════════════════════════
 
 import { getDexDesc } from '../../data/dex-helpers.js';
+import { BASE_SHINY_RATE, AURA_SHINY_RATE, CHROMA_CHARM_MULT } from '../../data/gameplay-config-data.js';
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
 import { esc as _esc } from '../core/escape.js';
@@ -2850,6 +2851,16 @@ function _renderDexStatsTabHtml(entry) {
 
   const fmtRate = (r) => r === null ? '—' : `${r.toFixed(r < 1 ? 2 : 1)}%`;
 
+  // ── Probabilité théorique — miroir exact de rollShiny() (modules/systems/pokemon.js) ──
+  // Fixe   : dépend uniquement d'un achat permanent (Charme Chroma).
+  // Dynamique : dépend d'un boost temporaire actif (Aura Shiny) — expire avec le temps.
+  const hasCharm    = !!state.purchases?.chromaCharm;
+  const auraActive  = !!globalThis.isBoostActive?.('aura');
+  const charmMult   = hasCharm ? CHROMA_CHARM_MULT : 1;
+  const fixedRate   = BASE_SHINY_RATE * charmMult * 100;
+  const currentRate = (auraActive ? AURA_SHINY_RATE : BASE_SHINY_RATE) * charmMult * 100;
+  const auraLeftMin = auraActive ? Math.ceil((globalThis.boostRemaining?.('aura') || 0) / 60) : 0;
+
   return `
     <div style="display:flex;gap:8px;margin-bottom:12px">
       <div style="flex:1;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px;text-align:center">
@@ -2863,7 +2874,22 @@ function _renderDexStatsTabHtml(entry) {
     </div>
 
     <div style="font-size:9px;margin-bottom:10px">
-      <div style="color:var(--text-dim);margin-bottom:6px;font-family:var(--font-pixel)">TAUX DE CHROMA</div>
+      <div style="color:var(--text-dim);margin-bottom:6px;font-family:var(--font-pixel)">PROBABILITÉ THÉORIQUE</div>
+      <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)">
+        <span>Taux initial (fixe)${hasCharm ? ' · ×2 Charme Chroma' : ''}</span>
+        <span style="color:var(--text)">${fmtRate(fixedRate)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:4px 0">
+        <span>Taux actuel du joueur (dynamique)</span>
+        <span style="color:${auraActive ? 'var(--gold)' : 'var(--text)'};font-weight:bold">${fmtRate(currentRate)}</span>
+      </div>
+      ${auraActive
+        ? `<div style="margin-top:4px;font-size:8px;color:var(--gold)">⏱ Aura Shiny active — encore ${auraLeftMin} min (composante dynamique du taux)</div>`
+        : `<div style="margin-top:4px;font-size:8px;color:var(--text-dim)">Aucun boost temporaire actif — le taux actuel équivaut au taux fixe</div>`}
+    </div>
+
+    <div style="font-size:9px;margin-bottom:10px">
+      <div style="color:var(--text-dim);margin-bottom:6px;font-family:var(--font-pixel)">TAUX RÉEL OBSERVÉ</div>
       <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)">
         <span>Cette espèce (${captureCount} capture${captureCount > 1 ? 's' : ''})</span>
         <span style="color:var(--gold);font-weight:bold">${fmtRate(speciesRate)}</span>
@@ -2874,7 +2900,7 @@ function _renderDexStatsTabHtml(entry) {
       </div>
       ${captureCount < 20 ? `
       <div style="margin-top:6px;font-size:8px;color:var(--text-dim);font-style:italic">
-        Échantillon faible (&lt;20 captures) — le taux affiché peut fortement s'écarter du taux réel du jeu.
+        Échantillon faible (&lt;20 captures) — le taux affiché peut fortement s'écarter du taux théorique.
       </div>` : ''}
     </div>
   `;
