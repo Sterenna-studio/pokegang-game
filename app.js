@@ -809,6 +809,7 @@ function updateZoneTimers(zoneId)                                  { return glob
 function tickZoneSpawn(zoneId)                                     { return globalThis._zwin_tickZoneSpawn(zoneId); }
 function _tryWingDrop(zoneId)                                      { return globalThis._zwin_tryWingDrop(zoneId); }
 function _addVSBadge(el)                                           { return globalThis._zwin_addVSBadge(el); }
+function playAutoCombatVisual(...args)                              { return globalThis._zwin_playAutoCombatVisual(...args); }
 function renderSpawnInWindow(zoneId, spawnObj)                     { return globalThis._zwin_renderSpawnInWindow(zoneId, spawnObj); }
 function removeSpawn(zoneId, spawnId)                              { return globalThis._zwin_removeSpawn(zoneId, spawnId); }
 function animateCapture(zoneId, spawnObj, spawnEl)                 { return globalThis._zwin_animateCapture(zoneId, spawnObj, spawnEl); }
@@ -1081,7 +1082,7 @@ Object.assign(globalThis, {
   _appImpl_renderZoneWindows: renderZoneWindows,
   removeSpawn, updateZoneTimers, tickZoneSpawn,
   renderSpawnInWindow, animateCapture, buildPlayerTeamForZone,
-  _tryWingDrop, _addVSBadge, _refreshRaidBtn,
+  _tryWingDrop, _addVSBadge, _refreshRaidBtn, playAutoCombatVisual,
   openCollectionModal, showCollectionEncounter, startZoneCollection,
   showCollectionResult, spawnCoinRain, autoCollectZone, collectAllZones,
   openCombatPopup, executeCombat, closeCombatPopup,

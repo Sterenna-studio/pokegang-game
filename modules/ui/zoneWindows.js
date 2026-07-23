@@ -43,6 +43,7 @@ import {
   getTrainerCombatSummary,
 } from '../systems/zoneCombat.js';
 import { resolveEventBattle } from '../systems/eventCombat.js';
+import { AUTO_COMBAT_VISUAL_MS } from '../../data/gameplay-config-data.js';
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
 import { esc as _esc } from '../core/escape.js';
@@ -1635,7 +1636,7 @@ function patchZoneWindow(zoneId, win) {
   // que le combat tourne. La recréer ici la détacherait du document — le
   // combat continuerait de tourner correctement en interne, mais le sprite et
   // la barre de vie du joueur disparaîtraient silencieusement de l'écran.
-  const combatActiveHere = currentCombat?.zoneId === zoneId;
+  const combatActiveHere = currentCombat?.zoneId === zoneId || _autoCombatVisualZones.has(zoneId);
   const slotsBar = win.querySelector('.zone-slots-bar');
   const footerRight = slotsBar?.querySelector('.zone-footer-right');
   if (!combatActiveHere) {
@@ -2332,12 +2333,95 @@ function playCombatHitEffect(el) {
 }
 
 // ════════════════════════════════════════════════════════════════
+// Auto-combat visuel (agents) — zone visible uniquement
+// ════════════════════════════════════════════════════════════════
+// Contrairement à openCombatPopup/executeCombat (combat manuel, moteur tour
+// par tour resolveEventBattle + log texte), cette séquence est purement
+// décorative : agentAutoCombat (agent.js) a déjà résolu le combat via
+// resolveTrainerCombat (formule de puissance, pas de tours) — on se contente
+// d'illustrer visuellement un résultat déjà déterminé, sans texte.
+// _autoCombatVisualZones fait office de garde léger équivalent à
+// currentCombat : patchZoneWindow() ne doit pas recréer .zone-agent/.zone-boss
+// tant que cette séquence utilise leur DOM comme ancrage.
+const _autoCombatVisualZones = new Set();
+
+function playAutoCombatVisual(zoneId, spawnObj, combatAgents, win) {
+  const state = globalThis.state;
+  const zoneWin = document.getElementById(`zw-${zoneId}`);
+  const viewport = zoneWin?.querySelector('.zone-viewport');
+  const spawnEl = viewport?.querySelector(`[data-spawn-id="${spawnObj.id}"]`);
+  if (!zoneWin || !viewport || !spawnEl) return;
+
+  const playerAnchorEl = zoneWin.querySelector('.zone-boss') || zoneWin.querySelector('.zone-agent');
+
+  _autoCombatVisualZones.add(zoneId);
+
+  const isRaid = spawnObj.type === 'raid' || spawnObj.isRaid;
+  const enemyTeam = isRaid
+    ? (spawnObj.raidTrainers || []).flatMap(rt => rt.team || [])
+    : (spawnObj.team || []);
+  const enemyLead = enemyTeam.find(Boolean);
+  const agentPk = (combatAgents?.[0]?.team || [])
+    .map(id => state.pokemons.find(p => p.id === id))
+    .find(Boolean);
+
+  // Raid : une rangée d'icônes dresseur (en plus du pokémon meneur) pour
+  // rendre visible qu'il y a plusieurs adversaires, pas un seul dresseur.
+  let raidRow = null;
+  if (isRaid && spawnObj.raidTrainers?.length) {
+    raidRow = document.createElement('div');
+    raidRow.className = 'combat-raid-trainers';
+    raidRow.innerHTML = spawnObj.raidTrainers.map(rt =>
+      globalThis.safeTrainerImg(rt.key, { style: 'width:26px;height:26px;image-rendering:pixelated' })
+    ).join('');
+    spawnEl.appendChild(raidRow);
+  }
+
+  let enemySpriteEl = null;
+  if (enemyLead?.species_en) {
+    enemySpriteEl = document.createElement('img');
+    enemySpriteEl.className = 'combat-enemy-pk';
+    enemySpriteEl.src = globalThis.pokeSprite(enemyLead.species_en, false);
+    enemySpriteEl.style.cssText = 'width:56px;height:56px;image-rendering:pixelated';
+    spawnEl.insertBefore(enemySpriteEl, spawnEl.firstChild);
+  }
+
+  let playerSpriteEl = null;
+  if (playerAnchorEl && agentPk) {
+    playerSpriteEl = document.createElement('div');
+    playerSpriteEl.className = 'combat-sent-pk';
+    playerSpriteEl.innerHTML = `<img src="${globalThis.pokeSpriteBack(agentPk.species_en, agentPk.shiny)}" style="width:40px;height:40px;${agentPk.shiny ? 'filter:drop-shadow(0 0 4px var(--gold))' : ''}">`;
+    playerAnchorEl.appendChild(playerSpriteEl);
+  }
+
+  spawnEl.classList.add('zone-spawn-battle');
+  spawnEl.style.animation = 'none';
+
+  setTimeout(() => playCombatHitEffect(enemySpriteEl || spawnEl), 320);
+  setTimeout(() => playCombatHitEffect(playerSpriteEl || playerAnchorEl), 620);
+  setTimeout(() => {
+    spawnEl.classList.remove('zone-spawn-battle');
+    spawnEl.classList.add(win ? 'caught' : 'failed');
+    spawnEl.style.opacity = win ? '0.45' : '0.75';
+  }, 1000);
+  setTimeout(() => {
+    playerSpriteEl?.remove();
+    raidRow?.remove();
+    _autoCombatVisualZones.delete(zoneId);
+  }, AUTO_COMBAT_VISUAL_MS);
+}
+
+// ════════════════════════════════════════════════════════════════
 // Combat Popup
 // ════════════════════════════════════════════════════════════════
 
 function openCombatPopup(zoneId, spawnObj) {
   const state = globalThis.state;
   if (currentCombat) return;
+  // Un agent est déjà en train d'illustrer un combat auto-résolu dans cette
+  // zone (playAutoCombatVisual) — éviter que les deux séquences visuelles
+  // se marchent dessus sur le même DOM (ancrage joueur, spawn ciblé).
+  if (_autoCombatVisualZones.has(zoneId)) return;
 
   // Le joueur initie un combat → le boss se déplace dans cette zone
   if (state.gang.bossZone !== zoneId) {
@@ -2472,7 +2556,6 @@ function openCombatPopup(zoneId, spawnObj) {
       <span class="ct-reward">×${combatTier.rewardMult}</span>
     </div>
     <span class="zchud-vs">⚔ ${_esc(trainerName)} <span style="color:var(--text-dim);font-size:7px">${enemyPool.length} Pok. · ⚡${fmtCombatNum(preview.attackerPower)} / 🛡${fmtCombatNum(preview.defenderPower)}</span></span>
-    <div class="zchud-log" id="zchud-log-${zoneId}" style="font-size:8px;color:var(--text-dim);max-height:74px;overflow:hidden;display:flex;flex-direction:column;gap:2px;margin:4px 0"></div>
     <button class="zchud-flee" id="zchud-flee-${zoneId}">Fuir</button>`;
   viewport.appendChild(hud);
 
@@ -2766,7 +2849,6 @@ function openEventBattlePopup(zoneId) {
   hud.id = `zchud-${zoneId}`;
   hud.innerHTML = `
     <span class="zchud-vs">⚔ ${_esc(trainerName)} <span style="color:var(--text-dim);font-size:7px">${enemyTeam.length} Pok.</span></span>
-    <div class="zchud-log" id="zchud-log-${zoneId}" style="font-size:8px;color:var(--text-dim);max-height:74px;overflow:hidden;display:flex;flex-direction:column;gap:2px;margin:4px 0"></div>
     <button class="zchud-flee" id="zchud-flee-${zoneId}">Fuir</button>`;
   viewport.appendChild(hud);
 
@@ -3006,6 +3088,7 @@ Object.assign(globalThis, {
   _zwin_renderEventTrainerInWindow: renderEventTrainerInWindow,
   _zwin_refreshRaidBtn:           _refreshRaidBtn,
   _zwin_addVSBadge:               _addVSBadge,
+  _zwin_playAutoCombatVisual:     playAutoCombatVisual,
   // Expose constants
   TYPE_CHART,
   SPECIAL_WING_EVENTS,
