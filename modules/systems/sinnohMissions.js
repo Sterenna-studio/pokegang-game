@@ -36,6 +36,7 @@
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
 import { resolveSpecialCombat } from './specialCombat.js';
+import { MISSION_REWARD_SHINY_RATE } from '../../data/gameplay-config-data.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type });
 const _save   = ()               => globalThis.saveState?.();
@@ -111,7 +112,7 @@ function _captureLegend(species, level, catchBase, pot, missionKey, ownedField) 
   const pk = globalThis.makePokemon?.(species, null, 'pokeball');
   if (!pk) return;
   pk.level     = level;
-  pk.shiny     = Math.random() < 0.02;
+  pk.shiny     = Math.random() < MISSION_REWARD_SHINY_RATE;
   pk.potential = pot;
   if (globalThis.calculateStats) pk.stats = globalThis.calculateStats(pk);
   if (!s.pokemons) s.pokemons = [];
@@ -144,7 +145,7 @@ function _captureLakeLegend(key) {
   const pk = globalThis.makePokemon?.(cfg.species, null, 'pokeball');
   if (!pk) return;
   pk.level     = cfg.level;
-  pk.shiny     = Math.random() < 0.02;
+  pk.shiny     = Math.random() < MISSION_REWARD_SHINY_RATE;
   pk.potential = cfg.pot;
   if (globalThis.calculateStats) pk.stats = globalThis.calculateStats(pk);
   if (!s.pokemons) s.pokemons = [];

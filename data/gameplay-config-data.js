@@ -51,6 +51,23 @@ const DAILY_COUNTDOWN_S  = 60; // secondes avant reload quotidien
 // ── Johto unlock ─────────────────────────────────────────────
 const JOHTO_UNLOCK_DELAY_MS = 4_000; // délai avant vérification unlock Johto au démarrage
 
+// ── Shiny (chroma) — taux centralisés ──────────────────────────
+// Source unique : toute source de shiny du jeu dérive de BASE_SHINY_RATE
+// plutôt que de coder son propre pourcentage, pour qu'un futur rééquilibrage
+// n'ait qu'un seul nombre à changer. Les multiplicateurs ci-dessous
+// reproduisent exactement les taux historiques de chaque système —
+// aucun changement de comportement à l'introduction de ces constantes.
+const BASE_SHINY_RATE   = 0.005; // 0.5%  — capture standard (rollShiny, pokemon.js)
+const AURA_SHINY_RATE   = 0.025; // 2.5%  — remplace la base quand le boost Aura est actif
+const CHROMA_CHARM_MULT = 2;     // ×2 permanent (achat Charme Chroma), s'applique par-dessus base OU aura
+
+const MYSTERY_EGG_SHINY_RATE    = BASE_SHINY_RATE * 4;  // 2%  — market.js (œuf mystère)
+const MISSION_REWARD_SHINY_RATE = BASE_SHINY_RATE * 4;  // 2%  — sinnohMissions.js (récompenses légendaires)
+const EVENT_EGG_GIFT_SHINY_RATE = BASE_SHINY_RATE * 2;  // 1%  — zoneSystem.js (don d'œuf d'événement)
+const PENSION_SHINY_RATE_NONE   = BASE_SHINY_RATE * 2;  // 1%  — pension.js, aucun parent chroma
+const PENSION_SHINY_RATE_ONE    = BASE_SHINY_RATE * 10; // 5%  — pension.js, un parent chroma
+const PENSION_SHINY_RATE_BOTH   = BASE_SHINY_RATE * 30; // 15% — pension.js, deux parents chroma
+
 export {
   HOURLY_QUEST_REROLL_COST, BOOST_DURATIONS,
   BALL_ASSIST_MIN_BALLS, BALL_ASSIST_DURATION_MS,
@@ -64,4 +81,7 @@ export {
   TICK_ZONE_REFRESH_MS, TICK_DAILY_CHECK_MS,
   UPDATE_COUNTDOWN_S, DAILY_COUNTDOWN_S,
   JOHTO_UNLOCK_DELAY_MS,
+  BASE_SHINY_RATE, AURA_SHINY_RATE, CHROMA_CHARM_MULT,
+  MYSTERY_EGG_SHINY_RATE, MISSION_REWARD_SHINY_RATE, EVENT_EGG_GIFT_SHINY_RATE,
+  PENSION_SHINY_RATE_NONE, PENSION_SHINY_RATE_ONE, PENSION_SHINY_RATE_BOTH,
 };

@@ -28,6 +28,7 @@ import {
   POWER_W_ATK, POWER_W_DEF, POWER_W_SPD,
   POWER_SOFT_CAP, POWER_SOFT_RATE,
 } from '../../data/power-config-data.js';
+import { EVENT_EGG_GIFT_SHINY_RATE } from '../../data/gameplay-config-data.js';
 import { EventBus, EVENTS } from '../core/eventBus.js';
 
 const _notify = (msg, type = '', category = null) => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type, category });
@@ -677,7 +678,7 @@ function activateEvent(zoneId, event) {
     const sp = SPECIES_BY_EN[species_en];
     if (sp) {
       const potential = Math.random() < 0.2 ? 3 : 2;
-      const shiny = Math.random() < 0.01;
+      const shiny = Math.random() < EVENT_EGG_GIFT_SHINY_RATE;
       state.eggs.push({ id: globalThis.uid(), species_en, hatchAt: null, incubating: false, potential, shiny, gifted: true });
       globalThis.tryAutoIncubate();
       parts.push('🥚 Un œuf mystérieux est apparu…');
