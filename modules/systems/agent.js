@@ -531,7 +531,7 @@ function resolveBackgroundSpawnForZone(zoneId) {
     const ball = 'pokeball';
 
     const visualBall = capturer.ball || 'pokeball'; // skin cosmétique de l'agent
-    const pokemon = globalThis.makePokemon(entry.species_en, zoneId, visualBall);
+    const pokemon = globalThis.makePokemon(entry.species_en, zoneId, visualBall, entry.spawnCtx || {});
     if (!pokemon) return false;
 
     // Crit de capture basé sur le niveau de l'agent
@@ -550,12 +550,17 @@ function resolveBackgroundSpawnForZone(zoneId) {
     globalThis.addZoneXP?.(capturer.assignedZone, `capture_${_rarity}`);
     _autoSellCaptured(pokemon);
     if (!state.pokedex[pokemon.species_en]) {
-      state.pokedex[pokemon.species_en] = { seen: true, caught: true, shiny: pokemon.shiny, count: 1 };
+      state.pokedex[pokemon.species_en] = { seen: true, caught: true, shiny: pokemon.shiny, count: 1, captureCount: 1, shinyCount: pokemon.shiny ? 1 : 0 };
       state.stats.dexCaught = (state.stats.dexCaught || 0) + 1;
     } else {
-      state.pokedex[pokemon.species_en].caught = true;
-      state.pokedex[pokemon.species_en].count++;
-      if (pokemon.shiny) state.pokedex[pokemon.species_en].shiny = true;
+      const dexEntry = state.pokedex[pokemon.species_en];
+      dexEntry.caught = true;
+      dexEntry.count++;
+      dexEntry.captureCount = (dexEntry.captureCount || 0) + 1;
+      if (pokemon.shiny) {
+        dexEntry.shiny = true;
+        dexEntry.shinyCount = (dexEntry.shinyCount || 0) + 1;
+      }
     }
     if (pokemon.shiny) state.stats.shinyCaught++;
     globalThis._unlockFabricBg?.(pokemon.dex, pokemon.shiny);
@@ -875,7 +880,7 @@ function agentCaptureVisibleSpawn(agent, zoneId, spawnObj) {
     const prevBall  = state.activeBall;
     state.activeBall = usedBall; // temporairement pour que tryCapture log le bon skin
     globalThis._agentCaptureCtx = { agentName: agent.name, ball: usedBall, zoneId };
-    const caught = globalThis.tryCapture(zoneId, spawnObj.species_en);
+    const caught = globalThis.tryCapture(zoneId, spawnObj.species_en, 0, spawnObj.spawnCtx || {});
     globalThis._agentCaptureCtx = null;
     state.activeBall = prevBall;
     if (caught) {

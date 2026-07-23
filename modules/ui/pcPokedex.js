@@ -2570,6 +2570,7 @@ function renderPokemonHistory(pokemon) {
 
 let dexSelectedEn  = null;
 let dexViewFilter  = 'kanto'; // 'kanto' | 'johto' | 'hoenn' | 'sinnoh' | 'national' | 'shiny' | 'missing' | 'trainers'
+let dexDetailTab   = 'info'; // 'info' | 'stats' — onglet actif dans le panneau fiche (#dexDetail)
 
 function getSpawnZones(species_en) {
   return ZONES
@@ -2733,23 +2734,9 @@ function renderDexDetail(species_en) {
   const ownedCount = state.pokemons.filter(p => p.species_en === sp.en).length;
   const spawnZones = getSpawnZones(sp.en);
 
-  panel.classList.remove('hidden');
-  panel.innerHTML = `
-    <div style="text-align:center;margin-bottom:10px">
-      <div style="display:inline-flex;gap:8px;align-items:flex-end;justify-content:center">
-        <div style="position:relative;display:inline-block">
-          <img src="${pokeSprite(sp.en, false)}" style="width:80px;height:80px;${!caught ? 'filter:grayscale(1) brightness(.5)' : ''}">
-        </div>
-        ${caught && entry.shiny ? `<div style="position:relative;display:inline-block">
-          <img src="${pokeSprite(sp.en, true)}" style="width:64px;height:64px;filter:drop-shadow(0 0 6px gold)">
-          <span style="position:absolute;top:-4px;right:-4px;font-size:11px">✨</span>
-        </div>` : ''}
-      </div>
-      <div style="font-family:var(--font-pixel);font-size:11px;margin-top:4px">${caught ? (state.lang === 'fr' ? sp.fr : sp.en) : '???'}</div>
-      <div style="font-size:9px;color:var(--text-dim)">#${String(sp.dex).padStart(3,'0')} — ${caught ? sp.types.map(typeFr).join('/') : '?'}</div>
-    </div>
+  if (!caught) dexDetailTab = 'info'; // pas de stats pertinentes tant que l'espèce n'est pas capturée
 
-    ${caught ? `
+  const infoTabHtml = `
     <div style="font-size:9px;color:var(--text);margin-bottom:10px;line-height:1.5;border-top:1px solid var(--border);padding-top:8px">
       ${getDexDesc(sp.en, SPECIES_BY_EN)}
     </div>
@@ -2798,6 +2785,38 @@ function renderDexDetail(species_en) {
     <div style="margin-top:8px">
       ${_getDexAssistantCostHtml(sp)}
     </div>
+  `;
+
+  const statsTabHtml = _renderDexStatsTabHtml(entry);
+
+  panel.classList.remove('hidden');
+  panel.innerHTML = `
+    <div style="text-align:center;margin-bottom:10px">
+      <div style="display:inline-flex;gap:8px;align-items:flex-end;justify-content:center">
+        <div style="position:relative;display:inline-block">
+          <img src="${pokeSprite(sp.en, false)}" style="width:80px;height:80px;${!caught ? 'filter:grayscale(1) brightness(.5)' : ''}">
+        </div>
+        ${caught && entry.shiny ? `<div style="position:relative;display:inline-block">
+          <img src="${pokeSprite(sp.en, true)}" style="width:64px;height:64px;filter:drop-shadow(0 0 6px gold)">
+          <span style="position:absolute;top:-4px;right:-4px;font-size:11px">✨</span>
+        </div>` : ''}
+      </div>
+      <div style="font-family:var(--font-pixel);font-size:11px;margin-top:4px">${caught ? (state.lang === 'fr' ? sp.fr : sp.en) : '???'}</div>
+      <div style="font-size:9px;color:var(--text-dim)">#${String(sp.dex).padStart(3,'0')} — ${caught ? sp.types.map(typeFr).join('/') : '?'}</div>
+    </div>
+
+    ${caught ? `
+    <div id="dexDetailTabBar" style="display:flex;gap:4px;margin-bottom:4px;border-top:1px solid var(--border);padding-top:8px">
+      ${[['info', 'Info'], ['stats', '✨ Stats']].map(([id, label]) => `
+        <button data-dex-detail-tab="${id}" style="
+          flex:1;font-family:var(--font-pixel);font-size:7px;padding:5px 4px;border-radius:var(--radius-sm);cursor:pointer;
+          background:${dexDetailTab === id ? 'var(--gold)' : 'var(--bg-card)'};
+          color:${dexDetailTab === id ? '#000' : 'var(--text-dim)'};
+          border:1px solid ${dexDetailTab === id ? 'var(--gold)' : 'var(--border)'};
+          font-weight:${dexDetailTab === id ? 'bold' : 'normal'}">${label}</button>
+      `).join('')}
+    </div>
+    ${dexDetailTab === 'stats' ? statsTabHtml : infoTabHtml}
     ` : `
     <div style="color:var(--text-dim);font-size:10px;padding:20px;text-align:center">Pas encore rencontré</div>
     <div style="margin-top:4px">
@@ -2807,7 +2826,58 @@ function renderDexDetail(species_en) {
 
   document.getElementById('dexFilterPCBtn')?.addEventListener('click', () => filterPCBySpecies(sp.en));
   document.getElementById('dexAssistantBtn')?.addEventListener('click', () => openDexAssistant(species_en));
+  document.querySelectorAll('[data-dex-detail-tab]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      dexDetailTab = btn.dataset.dexDetailTab;
+      renderDexDetail(species_en);
+    });
+  });
   // dexShinyUnprotect déplacé dans renderPokemonDetailGroup (PC — mode Grouper)
+}
+
+// ── Onglet Statistiques de la fiche Pokédex ───────────────────────────────
+// Taux de chroma réel observé pour l'espèce, comparé à la moyenne du joueur.
+// NB: contrairement à la capture (toujours garantie, cf. tryCapture), le shiny
+// est un vrai tirage RNG — c'est le seul "taux" pertinent à afficher ici.
+function _renderDexStatsTabHtml(entry) {
+  const captureCount = entry.captureCount || 0;
+  const shinyCount    = entry.shinyCount   || 0;
+  const speciesRate   = captureCount > 0 ? (shinyCount / captureCount) * 100 : null;
+
+  const globalCaught = state.stats?.totalCaught || 0;
+  const globalShiny  = state.stats?.shinyCaught  || 0;
+  const globalRate   = globalCaught > 0 ? (globalShiny / globalCaught) * 100 : null;
+
+  const fmtRate = (r) => r === null ? '—' : `${r.toFixed(r < 1 ? 2 : 1)}%`;
+
+  return `
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <div style="flex:1;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px;text-align:center">
+        <div style="font-size:8px;color:var(--text-dim);font-family:var(--font-pixel);margin-bottom:4px">CAPTURES</div>
+        <div style="font-size:16px;font-weight:700;color:var(--text)">${captureCount.toLocaleString()}</div>
+      </div>
+      <div style="flex:1;background:var(--bg-card);border:1px solid var(--gold-dim,#665522);border-radius:var(--radius-sm);padding:8px;text-align:center">
+        <div style="font-size:8px;color:var(--gold);font-family:var(--font-pixel);margin-bottom:4px">✨ CHROMA</div>
+        <div style="font-size:16px;font-weight:700;color:var(--gold)">${shinyCount.toLocaleString()}</div>
+      </div>
+    </div>
+
+    <div style="font-size:9px;margin-bottom:10px">
+      <div style="color:var(--text-dim);margin-bottom:6px;font-family:var(--font-pixel)">TAUX DE CHROMA</div>
+      <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)">
+        <span>Cette espèce (${captureCount} capture${captureCount > 1 ? 's' : ''})</span>
+        <span style="color:var(--gold);font-weight:bold">${fmtRate(speciesRate)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:4px 0">
+        <span>Moyenne du joueur (toutes espèces)</span>
+        <span style="color:var(--text-dim)">${fmtRate(globalRate)}</span>
+      </div>
+      ${captureCount < 20 ? `
+      <div style="margin-top:6px;font-size:8px;color:var(--text-dim);font-style:italic">
+        Échantillon faible (&lt;20 captures) — le taux affiché peut fortement s'écarter du taux réel du jeu.
+      </div>` : ''}
+    </div>
+  `;
 }
 
 // ── Player stat modal ────────────────────────────────────────────
@@ -2911,13 +2981,15 @@ function rebuildPokedex() {
       caught: !!entry.caught, // preserved — may have been sold but was once caught
       shiny:  !!entry.shiny,  // preserved — may have been sold but was once obtained
       count:  0,              // rebuilt from current ownership below
+      captureCount: entry.captureCount || 0, // lifetime — never reconstructible from ownership, always preserved
+      shinyCount:   entry.shinyCount   || 0, // lifetime — idem
     };
   }
 
   // Step 2 — add missing entries + rebuild count from owned pokemons
   for (const pk of state.pokemons) {
     const en = pk.species_en;
-    if (!next[en]) next[en] = { seen: true, caught: false, shiny: false, count: 0 };
+    if (!next[en]) next[en] = { seen: true, caught: false, shiny: false, count: 0, captureCount: 0, shinyCount: 0 };
     next[en].caught = true;   // add only
     next[en].seen   = true;   // add only
     next[en].count  = (next[en].count || 0) + 1;
@@ -2927,7 +2999,7 @@ function rebuildPokedex() {
   // Step 3 — eggs: mark species as seen
   for (const egg of state.eggs || []) {
     if (!egg.species_en) continue;
-    if (!next[egg.species_en]) next[egg.species_en] = { seen: false, caught: false, shiny: false, count: 0 };
+    if (!next[egg.species_en]) next[egg.species_en] = { seen: false, caught: false, shiny: false, count: 0, captureCount: 0, shinyCount: 0 };
     next[egg.species_en].seen = true;
   }
 

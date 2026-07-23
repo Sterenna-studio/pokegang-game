@@ -561,11 +561,18 @@ function rollChestLoot(zoneId, passive = false) {
           EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon, zoneId });
           state.stats.totalCaught++;
           if (!state.pokedex[pokemon.species_en]) {
-            state.pokedex[pokemon.species_en] = { seen: true, caught: true, shiny: pokemon.shiny, count: 1 };
+            state.pokedex[pokemon.species_en] = { seen: true, caught: true, shiny: pokemon.shiny, count: 1, captureCount: 1, shinyCount: pokemon.shiny ? 1 : 0 };
           } else {
-            state.pokedex[pokemon.species_en].caught = true;
-            state.pokedex[pokemon.species_en].count++;
+            const dexEntry = state.pokedex[pokemon.species_en];
+            dexEntry.caught = true;
+            dexEntry.count++;
+            dexEntry.captureCount = (dexEntry.captureCount || 0) + 1;
+            if (pokemon.shiny) {
+              dexEntry.shiny = true;
+              dexEntry.shinyCount = (dexEntry.shinyCount || 0) + 1;
+            }
           }
+          if (pokemon.shiny) state.stats.shinyCaught++;
           globalThis._unlockFabricBg?.(pokemon.dex, pokemon.shiny);
           const pName = globalThis.speciesName(pokemon.species_en);
           const stars = '★'.repeat(pokemon.potential);
@@ -785,11 +792,16 @@ function tryCapture(zoneId, speciesEN, bonusPotential = 0, spawnCtx = {}) {
   if (zoneId && state.zones[zoneId]) state.zones[zoneId].captures = (state.zones[zoneId].captures || 0) + 1;
   // Pokedex
   if (!state.pokedex[pokemon.species_en]) {
-    state.pokedex[pokemon.species_en] = { seen: true, caught: true, shiny: pokemon.shiny, count: 1 };
+    state.pokedex[pokemon.species_en] = { seen: true, caught: true, shiny: pokemon.shiny, count: 1, captureCount: 1, shinyCount: pokemon.shiny ? 1 : 0 };
   } else {
-    state.pokedex[pokemon.species_en].caught = true;
-    state.pokedex[pokemon.species_en].count++;
-    if (pokemon.shiny) state.pokedex[pokemon.species_en].shiny = true;
+    const dexEntry = state.pokedex[pokemon.species_en];
+    dexEntry.caught = true;
+    dexEntry.count++;
+    dexEntry.captureCount = (dexEntry.captureCount || 0) + 1;
+    if (pokemon.shiny) {
+      dexEntry.shiny = true;
+      dexEntry.shinyCount = (dexEntry.shinyCount || 0) + 1;
+    }
   }
   if (pokemon.shiny) state.stats.shinyCaught++;
   // Fabric BG unlock
