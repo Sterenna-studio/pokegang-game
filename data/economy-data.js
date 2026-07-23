@@ -98,6 +98,10 @@ const MYSTERY_EGG_POOL = [
   {en:'smoochum',w:1},{en:'elekid',w:1},{en:'magby',w:1},
 ];
 const MYSTERY_EGG_HATCH_MS = 45 * 60 * 1000; // 45 min
+// Échelle du coût logarithmique — voir getMysteryEggCost() ci-dessous.
+// ~1 000 000₽ atteint vers le 78e achat, puis croissance très lente au-delà
+// (dissuade l'achat en masse pour "acheter" des chroma sans passer par la chasse en zone).
+const MYSTERY_EGG_COST_LOG_SCALE = 500000;
 
 // ── Potential multipliers (for market price) ─────────────────
 const POTENTIAL_MULT = [0.5, 1, 2, 5, 15]; // index 0=★1 .. 4=★5
@@ -107,7 +111,7 @@ const BASE_PRICE = { common:100, uncommon:250, rare:600, very_rare:1500, legenda
 
 function getMysteryEggCost(state) {
   const n = state?.purchases?.mysteryEggCount || 0;
-  return MYSTERY_EGG_BASE_COST + n * 1000; // +1 000₽ par achat
+  return Math.round(MYSTERY_EGG_BASE_COST + MYSTERY_EGG_COST_LOG_SCALE * Math.log10(n + 1));
 }
 
-export { BALLS, SHOP_ITEMS, MYSTERY_EGG_BASE_COST, MYSTERY_EGG_POOL, MYSTERY_EGG_HATCH_MS, POTENTIAL_MULT, BASE_PRICE, getMysteryEggCost };
+export { BALLS, SHOP_ITEMS, MYSTERY_EGG_BASE_COST, MYSTERY_EGG_POOL, MYSTERY_EGG_HATCH_MS, MYSTERY_EGG_COST_LOG_SCALE, POTENTIAL_MULT, BASE_PRICE, getMysteryEggCost };
