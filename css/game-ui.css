@@ -98,17 +98,11 @@
     }
     .zone-window:hover { border-color: var(--border-light); }
 
-    /* Agrandissement pendant un combat d'événement (PNJ permanent, vrai
-       combat pokémon-par-pokémon) — occupe les 2 colonnes de la grille et
-       laisse plus de place au viewport pour les deux sprites + PV réels. */
+    /* Marqueur d'état "combat en cours" — volontairement sans effet de taille :
+       les fenêtres de zone gardent une taille fixe en toutes circonstances,
+       le HUD de combat est un overlay absolu qui tient dans le viewport normal. */
     .zone-window.zone-window-battle {
-      grid-column: span 2;
-      width: auto;
-      min-height: 380px;
-      transition: min-height .25s ease, border-color .2s;
-    }
-    .zone-window.zone-window-battle .zone-viewport {
-      min-height: 340px;
+      transition: border-color .2s;
     }
 
     .zone-spawn {
@@ -2737,7 +2731,6 @@
       #moneyDisplay { font-size: 11px; }
       .tab-btn { font-size: 8px; padding: 8px 10px; }
       .zone-window { width: 100%; max-width: 380px; }
-      .zone-window.zone-window-battle { grid-column: span 1; min-height: 260px; }
       #tabContent { padding: 10px; }
     }
     /* ── Zone Income Button ───────────────────────────────────────── */
