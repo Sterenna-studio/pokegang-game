@@ -313,6 +313,14 @@ function renderSettingsPanel() {
         ${tog('autoCombat', S.autoCombat !== false)}
       </div>
       <div class="settings-row">
+        <label>Popup combat — zones fermées (arrière-plan)</label>
+        ${tog('miniCombatNotifyBackground', S.miniCombatNotifyBackground !== false)}
+      </div>
+      <div class="settings-row">
+        <label>Popup combat — zones ouvertes hors onglet Zones</label>
+        ${tog('miniCombatNotifyUnfocused', S.miniCombatNotifyUnfocused !== false)}
+      </div>
+      <div class="settings-row">
         <label>Rapport de mission au retour</label>
         <select id="settingOfflineReport">
           ${(() => {
@@ -525,6 +533,8 @@ export function initSettings() {
 
     // Toggles (lecture complète — _applySettingsLive a déjà écrit la plupart, mais on consolide)
     state.settings.autoCombat     = readToggle('autoCombat',    true);
+    state.settings.miniCombatNotifyBackground = readToggle('miniCombatNotifyBackground', true);
+    state.settings.miniCombatNotifyUnfocused  = readToggle('miniCombatNotifyUnfocused',  true);
     // Rapport de mission au retour de tab (Chantier 4)
     const offlineReportSel = document.getElementById('settingOfflineReport');
     if (offlineReportSel) {

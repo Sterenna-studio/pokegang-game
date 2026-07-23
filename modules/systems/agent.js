@@ -438,6 +438,8 @@ function _applyResolvedAgentCombat(zoneId, spawnObj, combatAgents, result) {
   const _bgTier = globalThis._getDifficultyTier?.(result.attackerPower, result.defenderPower);
   globalThis.applyCombatResult({ win: result.attackerWin, reward, repGain, tier: _bgTier }, teamIds, trainerData);
 
+  const _collecting = globalThis.OfflineReport?.isCollecting?.();
+
   if (result.attackerWin) {
     const zoneState = state.zones[zoneId];
     if (zoneState) zoneState.combatsWon = (zoneState.combatsWon || 0) + 1;
@@ -447,7 +449,6 @@ function _applyResolvedAgentCombat(zoneId, spawnObj, combatAgents, result) {
       agent.combatsWon = (agent.combatsWon || 0) + 1;
       grantAgentXP(agent, xpEach);
     }
-    const _collecting = globalThis.OfflineReport?.isCollecting?.();
     if (_collecting) {
       globalThis.OfflineReport.pushCombat(true, reward);
     } else if (mainAgent?.notifyCaptures !== false) {
@@ -455,13 +456,34 @@ function _applyResolvedAgentCombat(zoneId, spawnObj, combatAgents, result) {
     }
     globalThis.addLog(globalThis.t('agent_win', { agent: mainAgent?.name || 'Agent' }));
   } else {
-    const _collecting = globalThis.OfflineReport?.isCollecting?.();
     if (_collecting) {
       globalThis.OfflineReport.pushCombat(false, 0);
     } else if (mainAgent?.notifyCaptures !== false) {
       _notify(`💀 ${mainAgent?.name || 'Agent'} — défaite`, 'error', 'combat');
     }
     globalThis.addLog(globalThis.t('agent_lose', { agent: mainAgent?.name || 'Agent' }));
+  }
+
+  // ── Popup mini-combat — si le joueur ne regarde pas cette zone ────────────
+  // Zone fermée (agent seul) = "background" ; zone ouverte mais onglet Zones
+  // pas actif = "unfocused". Chaque cas est activable indépendamment via les
+  // réglages (state.settings.miniCombatNotify{Background,Unfocused}).
+  if (!_collecting) {
+    const isOpenZone    = globalThis.openZones?.has(zoneId);
+    const onZonesTab    = globalThis.activeTab === 'tabZones';
+    const wasBackground = !isOpenZone && state.settings?.miniCombatNotifyBackground !== false;
+    const wasUnfocused  = isOpenZone && !onZonesTab && state.settings?.miniCombatNotifyUnfocused !== false;
+    if (wasBackground || wasUnfocused) {
+      globalThis.showMiniCombatPopup?.({
+        win: result.attackerWin,
+        zoneId,
+        trainerKey: trainerData.trainerKey,
+        trainerName,
+        agentSprite: mainAgent?.sprite,
+        reward,
+        repGain,
+      });
+    }
   }
 
   globalThis.addBattleLogEntry?.({

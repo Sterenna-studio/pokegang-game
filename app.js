@@ -84,6 +84,7 @@ import {
   showMigrationBanner as showMigrationBannerImpl,
   showShinyPopup,
   showRarePopup,
+  showMiniCombatPopup,
 } from './modules/ui/modals.js';
 import {
   configureTabRouter,
@@ -1085,7 +1086,7 @@ Object.assign(globalThis, {
   showCollectionResult, spawnCoinRain, autoCollectZone, collectAllZones,
   openCombatPopup, executeCombat, closeCombatPopup,
   // Finance / combat / UI helpers
-  checkMoneyMilestone, showRarePopup, showShinyPopup, checkPlayerStatPoints,
+  checkMoneyMilestone, showRarePopup, showShinyPopup, showMiniCombatPopup, checkPlayerStatPoints,
   // Data constants
   POKEMON_GEN1, SPECIES_BY_EN, EVO_BY_SPECIES, POT_UPGRADE_COSTS,
   ZONES, ZONE_BY_ID, getBaseSpecies,
