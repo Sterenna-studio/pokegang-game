@@ -1121,6 +1121,16 @@ function closeZoneWindow(zoneId) {
   const openZones = globalThis.openZones;
   const zoneSpawns = globalThis.zoneSpawns;
 
+  // Un combat en cours dans cette zone ne doit pas continuer à tourner dans le
+  // vide une fois la fenêtre fermée — sinon ses timers restent actifs sur un
+  // DOM détaché jusqu'à la fin naturelle de l'animation, et le mutex global
+  // currentCombat reste bloqué pendant tout ce temps (l'auto-combat des
+  // agents dans les AUTRES zones ouvertes se met en pause silencieusement).
+  if (currentCombat?.zoneId === zoneId) {
+    if (currentCombat.isEventBattle) closeEventBattle();
+    else closeCombatPopup();
+  }
+
   openZones.delete(zoneId);
   state.openZoneOrder = (state.openZoneOrder || []).filter(id => id !== zoneId);
   _save();
@@ -1618,38 +1628,47 @@ function patchZoneWindow(zoneId, win) {
   const progressBar = win.querySelector(`#zpb-${zoneId}`);
   if (progressBar) progressBar.textContent = `${progressText}${zone.type === 'city' ? ` — XP×${zone.xpBonus}` : ''}`;
 
-  // Agent elements — remove + re-add in footer bar (left of zone-footer-right)
+  // Agent/boss elements — remove + re-add in footer bar (left of zone-footer-right).
+  // Sauté si un combat est en cours dans CETTE zone : executeCombat() a mis en
+  // cache une référence DOM directe vers .zone-agent/.zone-boss comme ancrage
+  // (sprite envoyé + barre de vie du joueur) et ne la rafraîchit jamais tant
+  // que le combat tourne. La recréer ici la détacherait du document — le
+  // combat continuerait de tourner correctement en interne, mais le sprite et
+  // la barre de vie du joueur disparaîtraient silencieusement de l'écran.
+  const combatActiveHere = currentCombat?.zoneId === zoneId;
   const slotsBar = win.querySelector('.zone-slots-bar');
   const footerRight = slotsBar?.querySelector('.zone-footer-right');
-  win.querySelectorAll('.zone-agent').forEach(el => el.remove());
-  state.agents.filter(a => a.assignedZone === zoneId).forEach(a => {
-    const agEl = document.createElement('div');
-    agEl.className = 'zone-agent';
-    agEl.dataset.agentId = a.id;
-    agEl.innerHTML = `<span class="agent-label">${a.name}</span>`
-      + `<img src="${a.sprite}" alt="${a.name}" onerror="this.src='${trainerSprite('acetrainer')}'">`
-      + `<span class="agent-cd-label" style="display:none;font-family:var(--font-pixel);font-size:7px;color:var(--red);background:rgba(0,0,0,.8);border-radius:2px;padding:1px 3px;white-space:nowrap;position:absolute;top:-14px;left:50%;transform:translateX(-50%)"></span>`;
-    if (slotsBar && footerRight) slotsBar.insertBefore(agEl, footerRight);
-    else slotsBar?.appendChild(agEl);
-  });
+  if (!combatActiveHere) {
+    win.querySelectorAll('.zone-agent').forEach(el => el.remove());
+    state.agents.filter(a => a.assignedZone === zoneId).forEach(a => {
+      const agEl = document.createElement('div');
+      agEl.className = 'zone-agent';
+      agEl.dataset.agentId = a.id;
+      agEl.innerHTML = `<span class="agent-label">${a.name}</span>`
+        + `<img src="${a.sprite}" alt="${a.name}" onerror="this.src='${trainerSprite('acetrainer')}'">`
+        + `<span class="agent-cd-label" style="display:none;font-family:var(--font-pixel);font-size:7px;color:var(--red);background:rgba(0,0,0,.8);border-radius:2px;padding:1px 3px;white-space:nowrap;position:absolute;top:-14px;left:50%;transform:translateX(-50%)"></span>`;
+      if (slotsBar && footerRight) slotsBar.insertBefore(agEl, footerRight);
+      else slotsBar?.appendChild(agEl);
+    });
 
-  // Boss element — in viewport when no agents, in footer-right when agents present
-  win.querySelectorAll('.zone-boss').forEach(el => el.remove());
-  if (state.gang.bossSprite && state.gang.bossZone === zoneId) {
-    const freshAssignedForBoss = state.agents.filter(a => a.assignedZone === zoneId);
-    const bossEl = document.createElement('div');
-    bossEl.className = 'zone-boss';
-    bossEl.dataset.bossCd = '';
-    bossEl.innerHTML = `<img src="${trainerSprite(state.gang.bossSprite)}" alt="Boss" onerror="this.src='${trainerSprite('acetrainer')}'">`
-      + `<span class="boss-cd-label" style="display:none;font-family:var(--font-pixel);font-size:7px;color:var(--red);background:rgba(0,0,0,.8);border-radius:2px;padding:1px 3px;white-space:nowrap;position:absolute;top:-14px;left:50%;transform:translateX(-50%)"></span>`;
-    if (freshAssignedForBoss.length === 0) {
-      // No agents — boss stands in the viewport
-      viewport.appendChild(bossEl);
-    } else {
-      // Agents present — boss stays in the footer bar
-      const _bossSlotInfo = footerRight?.querySelector('.zone-slot-info');
-      if (footerRight && _bossSlotInfo) footerRight.insertBefore(bossEl, _bossSlotInfo);
-      else footerRight?.appendChild(bossEl);
+    // Boss element — in viewport when no agents, in footer-right when agents present
+    win.querySelectorAll('.zone-boss').forEach(el => el.remove());
+    if (state.gang.bossSprite && state.gang.bossZone === zoneId) {
+      const freshAssignedForBoss = state.agents.filter(a => a.assignedZone === zoneId);
+      const bossEl = document.createElement('div');
+      bossEl.className = 'zone-boss';
+      bossEl.dataset.bossCd = '';
+      bossEl.innerHTML = `<img src="${trainerSprite(state.gang.bossSprite)}" alt="Boss" onerror="this.src='${trainerSprite('acetrainer')}'">`
+        + `<span class="boss-cd-label" style="display:none;font-family:var(--font-pixel);font-size:7px;color:var(--red);background:rgba(0,0,0,.8);border-radius:2px;padding:1px 3px;white-space:nowrap;position:absolute;top:-14px;left:50%;transform:translateX(-50%)"></span>`;
+      if (freshAssignedForBoss.length === 0) {
+        // No agents — boss stands in the viewport
+        viewport.appendChild(bossEl);
+      } else {
+        // Agents present — boss stays in the footer bar
+        const _bossSlotInfo = footerRight?.querySelector('.zone-slot-info');
+        if (footerRight && _bossSlotInfo) footerRight.insertBefore(bossEl, _bossSlotInfo);
+        else footerRight?.appendChild(bossEl);
+      }
     }
   }
 
