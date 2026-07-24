@@ -1122,15 +1122,13 @@ function closeZoneWindow(zoneId) {
   const openZones = globalThis.openZones;
   const zoneSpawns = globalThis.zoneSpawns;
 
-  // Un combat en cours dans cette zone ne doit pas continuer à tourner dans le
-  // vide une fois la fenêtre fermée — sinon ses timers restent actifs sur un
-  // DOM détaché jusqu'à la fin naturelle de l'animation, et le mutex global
-  // currentCombat reste bloqué pendant tout ce temps (l'auto-combat des
-  // agents dans les AUTRES zones ouvertes se met en pause silencieusement).
-  if (currentCombat?.zoneId === zoneId) {
-    if (currentCombat.isEventBattle) closeEventBattle();
-    else closeCombatPopup();
-  }
+  // Un combat en cours dans cette zone (interactif OU auto-combat visuel) ne
+  // doit pas continuer à tourner dans le vide une fois la fenêtre fermée —
+  // sinon ses timers restent actifs sur un DOM détaché jusqu'à la fin
+  // naturelle de l'animation, bloquant cette zone (et, pour currentCombat,
+  // verrou global, l'auto-combat des agents dans TOUTES les autres zones
+  // ouvertes) pendant tout ce temps.
+  teardownZoneCombat(zoneId);
 
   openZones.delete(zoneId);
   state.openZoneOrder = (state.openZoneOrder || []).filter(id => id !== zoneId);
@@ -1636,7 +1634,7 @@ function patchZoneWindow(zoneId, win) {
   // que le combat tourne. La recréer ici la détacherait du document — le
   // combat continuerait de tourner correctement en interne, mais le sprite et
   // la barre de vie du joueur disparaîtraient silencieusement de l'écran.
-  const combatActiveHere = currentCombat?.zoneId === zoneId || _autoCombatVisualZones.has(zoneId);
+  const combatActiveHere = isZoneCombatBusy(zoneId);
   const slotsBar = win.querySelector('.zone-slots-bar');
   const footerRight = slotsBar?.querySelector('.zone-footer-right');
   if (!combatActiveHere) {
@@ -2340,10 +2338,53 @@ function playCombatHitEffect(el) {
 // décorative : agentAutoCombat (agent.js) a déjà résolu le combat via
 // resolveTrainerCombat (formule de puissance, pas de tours) — on se contente
 // d'illustrer visuellement un résultat déjà déterminé, sans texte.
-// _autoCombatVisualZones fait office de garde léger équivalent à
-// currentCombat : patchZoneWindow() ne doit pas recréer .zone-agent/.zone-boss
-// tant que cette séquence utilise leur DOM comme ancrage.
-const _autoCombatVisualZones = new Set();
+//
+// _autoCombatVisualLocks fait office de garde par zone équivalente à
+// currentCombat (verrou global, un seul combat interactif à la fois) : ici
+// plusieurs zones ouvertes peuvent illustrer un auto-combat en parallèle,
+// donc une Map par zoneId plutôt qu'un slot unique. Chaque entrée suit le
+// même patron que currentCombat.timers : timers[] + références DOM créées,
+// pour permettre une annulation propre (cancelAutoCombatVisual) au lieu de
+// dépendre uniquement du setTimeout final pour se nettoyer lui-même — sinon
+// fermer la fenêtre de zone en plein milieu, ou une exception pendant la
+// construction du visuel, laisse la zone verrouillée indéfiniment.
+const _autoCombatVisualLocks = new Map(); // zoneId -> { timers, spawnEl, playerSpriteEl, raidRow, enemySpriteEl }
+
+// Verrou combiné : le DOM combat de cette zone (agents/boss + spawn ciblé)
+// est-il actuellement revendiqué par L'UN OU L'AUTRE mécanisme — un combat
+// interactif/événement ancré ici (currentCombat.zoneId) OU une séquence
+// décorative playAutoCombatVisual encore en vol ? Seul point d'entrée à
+// utiliser pour répondre à "puis-je toucher/reconstruire le DOM combat de
+// cette zone maintenant ?".
+function isZoneCombatBusy(zoneId) {
+  return currentCombat?.zoneId === zoneId || _autoCombatVisualLocks.has(zoneId);
+}
+
+// Annule proprement une séquence playAutoCombatVisual en cours pour zoneId :
+// timers en attente + DOM qu'elle a ajouté. No-op si aucune séquence n'est
+// active pour cette zone. Symétrique de closeCombatPopup/closeEventBattle
+// pour ce second mécanisme de verrouillage.
+function cancelAutoCombatVisual(zoneId) {
+  const lock = _autoCombatVisualLocks.get(zoneId);
+  if (!lock) return;
+  for (const t of lock.timers) clearTimeout(t);
+  lock.spawnEl?.classList.remove('zone-spawn-battle', 'combat-hit');
+  if (lock.spawnEl) lock.spawnEl.style.animation = '';
+  lock.playerSpriteEl?.remove();
+  lock.raidRow?.remove();
+  lock.enemySpriteEl?.remove();
+  _autoCombatVisualLocks.delete(zoneId);
+}
+
+// Point d'entrée unique pour closeZoneWindow : nettoie tout ce qui peut
+// retenir le DOM combat de cette zone, quel que soit le mécanisme en cause.
+function teardownZoneCombat(zoneId) {
+  if (currentCombat?.zoneId === zoneId) {
+    if (currentCombat.isEventBattle) closeEventBattle();
+    else closeCombatPopup();
+  }
+  cancelAutoCombatVisual(zoneId);
+}
 
 function playAutoCombatVisual(zoneId, spawnObj, combatAgents, win) {
   const state = globalThis.state;
@@ -2352,63 +2393,96 @@ function playAutoCombatVisual(zoneId, spawnObj, combatAgents, win) {
   const spawnEl = viewport?.querySelector(`[data-spawn-id="${spawnObj.id}"]`);
   if (!zoneWin || !viewport || !spawnEl) return;
 
-  const playerAnchorEl = zoneWin.querySelector('.zone-boss') || zoneWin.querySelector('.zone-agent');
+  // Deux agents résolvant un combat pour LA MÊME zone à quelques instants
+  // d'intervalle (spawns différents) partageraient le même ancrage DOM
+  // (.zone-agent/.zone-boss). Comme c'est purement décoratif (le résultat et
+  // la récompense sont déjà appliqués indépendamment par
+  // _applyResolvedAgentCombat), on saute la 2e animation plutôt que
+  // d'empiler deux séquences sur le même DOM.
+  if (_autoCombatVisualLocks.has(zoneId)) return;
 
-  _autoCombatVisualZones.add(zoneId);
+  const lock = { timers: [], spawnEl, playerSpriteEl: null, raidRow: null, enemySpriteEl: null };
+  _autoCombatVisualLocks.set(zoneId, lock);
 
-  const isRaid = spawnObj.type === 'raid' || spawnObj.isRaid;
-  const enemyTeam = isRaid
-    ? (spawnObj.raidTrainers || []).flatMap(rt => rt.team || [])
-    : (spawnObj.team || []);
-  const enemyLead = enemyTeam.find(Boolean);
-  const agentPk = (combatAgents?.[0]?.team || [])
-    .map(id => state.pokemons.find(p => p.id === id))
-    .find(Boolean);
+  const queueTimer = (fn, ms) => {
+    const t = setTimeout(fn, ms);
+    lock.timers.push(t);
+    return t;
+  };
 
-  // Raid : une rangée d'icônes dresseur (en plus du pokémon meneur) pour
-  // rendre visible qu'il y a plusieurs adversaires, pas un seul dresseur.
-  let raidRow = null;
-  if (isRaid && spawnObj.raidTrainers?.length) {
-    raidRow = document.createElement('div');
-    raidRow.className = 'combat-raid-trainers';
-    raidRow.innerHTML = spawnObj.raidTrainers.map(rt =>
-      globalThis.safeTrainerImg(rt.key, { style: 'width:26px;height:26px;image-rendering:pixelated' })
-    ).join('');
-    spawnEl.appendChild(raidRow);
+  try {
+    // Ancrage sur l'élément DOM de combatAgents[0] spécifiquement (l'agent
+    // choisi par _zoneCombatAgents — preferredAgent puis puissance la plus
+    // haute), pas "le premier .zone-agent rencontré dans le DOM" (ordre de
+    // state.agents / patchZoneWindow, sans rapport avec qui se bat).
+    const fightingAgentId = combatAgents?.[0]?.id;
+    const playerAnchorEl = zoneWin.querySelector('.zone-boss')
+      || (fightingAgentId != null ? zoneWin.querySelector(`[data-agent-id="${fightingAgentId}"]`) : null)
+      || zoneWin.querySelector('.zone-agent');
+
+    const isRaid = spawnObj.type === 'raid' || spawnObj.isRaid;
+    // Seul le sprite du meneur est affiché (le reste du roster apparaît via
+    // raidRow ci-dessous) — pas besoin d'aplatir l'équipe de tous les
+    // dresseurs du raid pour ça.
+    const enemyLead = isRaid
+      ? spawnObj.raidTrainers?.[0]?.team?.find(Boolean)
+      : (spawnObj.team || []).find(Boolean);
+    const agentId = combatAgents?.[0]?.team?.find(Boolean);
+    const agentPk = agentId != null ? (globalThis.pokemonById?.(agentId) ?? state.pokemons.find(p => p.id === agentId)) : null;
+
+    // Raid : une rangée d'icônes dresseur (en plus du pokémon meneur) pour
+    // rendre visible qu'il y a plusieurs adversaires, pas un seul dresseur.
+    if (isRaid && spawnObj.raidTrainers?.length) {
+      lock.raidRow = document.createElement('div');
+      lock.raidRow.className = 'combat-raid-trainers';
+      lock.raidRow.innerHTML = spawnObj.raidTrainers.map(rt =>
+        globalThis.safeTrainerImg(rt.key, { style: 'width:26px;height:26px;image-rendering:pixelated' })
+      ).join('');
+      spawnEl.appendChild(lock.raidRow);
+    }
+
+    if (enemyLead?.species_en) {
+      lock.enemySpriteEl = document.createElement('img');
+      lock.enemySpriteEl.className = 'combat-enemy-pk';
+      lock.enemySpriteEl.src = globalThis.pokeSprite(enemyLead.species_en, false);
+      lock.enemySpriteEl.style.cssText = 'width:56px;height:56px;image-rendering:pixelated';
+      spawnEl.insertBefore(lock.enemySpriteEl, spawnEl.firstChild);
+    }
+
+    if (playerAnchorEl && agentPk) {
+      lock.playerSpriteEl = document.createElement('div');
+      lock.playerSpriteEl.className = 'combat-sent-pk';
+      lock.playerSpriteEl.innerHTML = `<img src="${globalThis.pokeSpriteBack(agentPk.species_en, agentPk.shiny)}" style="width:40px;height:40px;${agentPk.shiny ? 'filter:drop-shadow(0 0 4px var(--gold))' : ''}">`;
+      playerAnchorEl.appendChild(lock.playerSpriteEl);
+    }
+
+    spawnEl.classList.add('zone-spawn-battle');
+    spawnEl.style.animation = 'none';
+
+    queueTimer(() => playCombatHitEffect(lock.enemySpriteEl || spawnEl), 320);
+    queueTimer(() => playCombatHitEffect(lock.playerSpriteEl || playerAnchorEl), 620);
+    queueTimer(() => {
+      spawnEl.classList.remove('zone-spawn-battle');
+      spawnEl.classList.add(win ? 'caught' : 'failed');
+      spawnEl.style.opacity = win ? '0.45' : '0.75';
+    }, 1000);
+    queueTimer(() => {
+      lock.playerSpriteEl?.remove();
+      lock.raidRow?.remove();
+      _autoCombatVisualLocks.delete(zoneId);
+    }, AUTO_COMBAT_VISUAL_MS);
+  } catch (err) {
+    // Ne jamais laisser la zone verrouillée si une étape ci-dessus lève —
+    // cancelAutoCombatVisual relit le lock partiellement rempli (timers déjà
+    // programmés + DOM déjà créé) et nettoie tout. Erreur avalée (pas de
+    // rethrow) : cette fonction est appelée de façon synchrone par
+    // agentAutoCombat AVANT que celui-ci ne programme le setTimeout qui
+    // applique réellement la récompense/capture — une exception non
+    // rattrapée ferait perdre ce résultat de combat en plus de planter le
+    // reste de la boucle agentTick() pour ce tick.
+    console.error('[zoneWindows] playAutoCombatVisual setup failed, releasing zone lock:', err);
+    cancelAutoCombatVisual(zoneId);
   }
-
-  let enemySpriteEl = null;
-  if (enemyLead?.species_en) {
-    enemySpriteEl = document.createElement('img');
-    enemySpriteEl.className = 'combat-enemy-pk';
-    enemySpriteEl.src = globalThis.pokeSprite(enemyLead.species_en, false);
-    enemySpriteEl.style.cssText = 'width:56px;height:56px;image-rendering:pixelated';
-    spawnEl.insertBefore(enemySpriteEl, spawnEl.firstChild);
-  }
-
-  let playerSpriteEl = null;
-  if (playerAnchorEl && agentPk) {
-    playerSpriteEl = document.createElement('div');
-    playerSpriteEl.className = 'combat-sent-pk';
-    playerSpriteEl.innerHTML = `<img src="${globalThis.pokeSpriteBack(agentPk.species_en, agentPk.shiny)}" style="width:40px;height:40px;${agentPk.shiny ? 'filter:drop-shadow(0 0 4px var(--gold))' : ''}">`;
-    playerAnchorEl.appendChild(playerSpriteEl);
-  }
-
-  spawnEl.classList.add('zone-spawn-battle');
-  spawnEl.style.animation = 'none';
-
-  setTimeout(() => playCombatHitEffect(enemySpriteEl || spawnEl), 320);
-  setTimeout(() => playCombatHitEffect(playerSpriteEl || playerAnchorEl), 620);
-  setTimeout(() => {
-    spawnEl.classList.remove('zone-spawn-battle');
-    spawnEl.classList.add(win ? 'caught' : 'failed');
-    spawnEl.style.opacity = win ? '0.45' : '0.75';
-  }, 1000);
-  setTimeout(() => {
-    playerSpriteEl?.remove();
-    raidRow?.remove();
-    _autoCombatVisualZones.delete(zoneId);
-  }, AUTO_COMBAT_VISUAL_MS);
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -2417,11 +2491,11 @@ function playAutoCombatVisual(zoneId, spawnObj, combatAgents, win) {
 
 function openCombatPopup(zoneId, spawnObj) {
   const state = globalThis.state;
-  if (currentCombat) return;
-  // Un agent est déjà en train d'illustrer un combat auto-résolu dans cette
-  // zone (playAutoCombatVisual) — éviter que les deux séquences visuelles
-  // se marchent dessus sur le même DOM (ancrage joueur, spawn ciblé).
-  if (_autoCombatVisualZones.has(zoneId)) return;
+  // currentCombat est un verrou global (un seul combat joueur interactif à
+  // la fois, où qu'il soit) ; isZoneCombatBusy couvre en plus l'auto-combat
+  // visuel de CETTE zone (playAutoCombatVisual) — éviter que les deux
+  // séquences visuelles se marchent dessus sur le même DOM.
+  if (currentCombat || isZoneCombatBusy(zoneId)) return;
 
   // Le joueur initie un combat → le boss se déplace dans cette zone
   if (state.gang.bossZone !== zoneId) {
@@ -2793,7 +2867,8 @@ function closeCombatPopup() {
 
 function openEventBattlePopup(zoneId) {
   const state = globalThis.state;
-  if (currentCombat) return;
+  // Même garde combinée que openCombatPopup — voir son commentaire.
+  if (currentCombat || isZoneCombatBusy(zoneId)) return;
 
   const activeEvt = globalThis.zoneActivity[zoneId];
   const mode = globalThis.getZoneActivityMode(zoneId);

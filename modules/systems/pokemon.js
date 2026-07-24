@@ -193,6 +193,29 @@ function getPokemonPower(pokemon) {
   return Math.round(raw * shinyMult * variance * homesickMult);
 }
 
+// ── Pokédex — enregistrement d'une capture (source unique) ──────────────
+// Créé ou met à jour state.pokedex[species] : seen/caught/shiny/count (déjà
+// existants) + captureCount/shinyCount (compteurs lifetime, distincts de
+// count qui peut baisser si le Pokémon est revendu — voir migrateSave.js).
+// À appeler partout où un Pokémon rejoint state.pokemons (capture, éclosion,
+// don, évolution) pour que le Pokédex — et l'onglet Statistiques qui en
+// dépend — reflète réellement toutes les sources d'obtention.
+function registerPokedexCapture(state, pokemon) {
+  const en = pokemon.species_en;
+  if (!state.pokedex[en]) {
+    state.pokedex[en] = { seen: true, caught: true, shiny: !!pokemon.shiny, count: 1, captureCount: 1, shinyCount: pokemon.shiny ? 1 : 0 };
+  } else {
+    const dexEntry = state.pokedex[en];
+    dexEntry.caught = true;
+    dexEntry.count = (dexEntry.count || 0) + 1;
+    dexEntry.captureCount = (dexEntry.captureCount || 0) + 1;
+    if (pokemon.shiny) {
+      dexEntry.shiny = true;
+      dexEntry.shinyCount = (dexEntry.shinyCount || 0) + 1;
+    }
+  }
+}
+
 function checkEvolution(pokemon) {
   const evos = EVO_BY_SPECIES[pokemon.species_en];
   if (!evos) return null;
@@ -214,13 +237,7 @@ function evolvePokemon(pokemon, targetEN) {
   if (pokemon.history) {
     pokemon.history.push({ type: 'evolved', ts: Date.now(), from: oldName, to: globalThis.speciesName?.(sp.en) ?? sp.en });
   }
-  if (!state.pokedex[sp.en]) {
-    state.pokedex[sp.en] = { seen: true, caught: true, shiny: pokemon.shiny, count: 1 };
-  } else {
-    state.pokedex[sp.en].caught = true;
-    state.pokedex[sp.en].count++;
-    if (pokemon.shiny) state.pokedex[sp.en].shiny = true;
-  }
+  registerPokedexCapture(state, pokemon);
   showPokemonLevelPopup(pokemon, pokemon.level);
   const newName = globalThis.speciesName?.(sp.en) ?? sp.en;
   _notify(`${oldName} ${state.lang === 'fr' ? 'évolue en' : 'evolved into'} ${newName} !`, 'gold');
@@ -295,6 +312,7 @@ Object.assign(globalThis, {
   calculateStats, makePokemon, getPokemonPower, computePokemonPC,
   checkEvolution, evolvePokemon, tryAutoEvolution,
   showPokemonLevelPopup, levelUpPokemon,
+  registerPokedexCapture,
 });
 
 export {

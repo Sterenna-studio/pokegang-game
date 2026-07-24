@@ -547,6 +547,7 @@ export function openGiovanniIntro({ slotIdx = 0, onComplete } = {}) {
         if (!Array.isArray(state.pokemons)) state.pokemons = [];
         state.pokemons.push(starter); _dirty();
         EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: starter, zoneId: null });
+        globalThis.registerPokedexCapture?.(state, starter);
       }
 
       _ctx.setActiveSaveSlot?.(slotIdx);
@@ -780,6 +781,7 @@ export function openStarterGiftPopup({ onComplete } = {}) {
         if (!Array.isArray(state.pokemons)) state.pokemons = [];
         state.pokemons.push(starter); _dirty();
         EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: starter, zoneId: null });
+        globalThis.registerPokedexCapture?.(state, starter);
       }
 
       state.gang.introSeen = true;

@@ -572,19 +572,9 @@ function resolveBackgroundSpawnForZone(zoneId) {
     const _rarity = SPECIES_BY_EN?.[pokemon.species_en]?.rarity || 'common';
     globalThis.addZoneXP?.(capturer.assignedZone, `capture_${_rarity}`);
     _autoSellCaptured(pokemon);
-    if (!state.pokedex[pokemon.species_en]) {
-      state.pokedex[pokemon.species_en] = { seen: true, caught: true, shiny: pokemon.shiny, count: 1, captureCount: 1, shinyCount: pokemon.shiny ? 1 : 0 };
-      state.stats.dexCaught = (state.stats.dexCaught || 0) + 1;
-    } else {
-      const dexEntry = state.pokedex[pokemon.species_en];
-      dexEntry.caught = true;
-      dexEntry.count++;
-      dexEntry.captureCount = (dexEntry.captureCount || 0) + 1;
-      if (pokemon.shiny) {
-        dexEntry.shiny = true;
-        dexEntry.shinyCount = (dexEntry.shinyCount || 0) + 1;
-      }
-    }
+    const _isNewDexEntry = !state.pokedex[pokemon.species_en];
+    globalThis.registerPokedexCapture(state, pokemon);
+    if (_isNewDexEntry) state.stats.dexCaught = (state.stats.dexCaught || 0) + 1;
     if (pokemon.shiny) state.stats.shinyCaught++;
     globalThis._unlockFabricBg?.(pokemon.dex, pokemon.shiny);
     grantAgentXP(capturer, captureXP(entry.species_en, pokemon.potential, pokemon.shiny));
@@ -1059,6 +1049,13 @@ function agentAutoCombat(zoneId, spawnObj, agent) {
   }
 
   setTimeout(() => {
+    // Un combat manuel a démarré dans CETTE zone entre-temps (fenêtre de
+    // isVisible ? AUTO_COMBAT_VISUAL_MS : 360 ms) — reporter plutôt que
+    // d'appliquer par-dessus. Zone-scopé (contrairement à l'ancien garde
+    // global retiré ici) : un combat manuel dans une AUTRE zone ne doit pas
+    // mettre en pause l'auto-combat de celle-ci.
+    if (globalThis.currentCombat?.zoneId === zoneId) { spawnObj._agentClaimed = false; return; }
+
     _applyResolvedAgentCombat(zoneId, spawnObj, combatAgents, result);
 
     // ── Énergie agent sur défaite — même règle que resolveBackgroundSpawnForZone,

@@ -104,8 +104,7 @@ export const SECRET_CODES = {
       p.potential = 5; p.level = 1; p.shiny = Math.random() < 0.5; p.noSell = true;
       state.pokemons.push(p); _dirty();
       EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: p, zoneId: null });
-      if (!state.pokedex['missingno']) state.pokedex['missingno'] = {};
-      state.pokedex['missingno'].caught = true; state.pokedex['missingno'].count = 1;
+      globalThis.registerPokedexCapture?.(state, p);
       claim();
       saveState();
       notify('👾 MissingNo a rejoint ton PC ! Le tissu du jeu tremble…', 'gold');
@@ -130,6 +129,7 @@ export const SECRET_CODES = {
             p.level = 1; p.shiny = shiny; p.potential = Math.random() < 0.2 ? 2 : 1;
             state.pokemons.push(p); _dirty();
             EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: p, zoneId: null });
+            globalThis.registerPokedexCapture?.(state, p);
             claim(); saveState();
             notify(`🎁 ${spDef?.fr || sp}${shiny ? ' ✨' : ''} a rejoint ton PC !`, 'gold');
             refreshPcGridAfterSecretReward();
@@ -184,6 +184,7 @@ export const SECRET_CODES = {
           if (opt.pot) p.potential = opt.pot;
           state.pokemons.push(p); _dirty();
           EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: p, zoneId: null });
+          globalThis.registerPokedexCapture?.(state, p);
           claim(); saveState();
           notify(`⚡ Pikachu${shiny ? ' ✨' : ''} — ${opt.bonus} — a rejoint ton PC !`, 'gold');
           refreshPcGridAfterSecretReward();

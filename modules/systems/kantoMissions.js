@@ -616,8 +616,7 @@ async function _launchLegendary(key) {
           cfg.winFn();
           s.pokemons.push(pk);
           EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: pk, zoneId: BIRDS[key]?.zone ?? null });
-          if (!s.pokedex[cfg.species]) s.pokedex[cfg.species] = {};
-          s.pokedex[cfg.species].caught = true;
+          globalThis.registerPokedexCapture?.(s, pk);
           // totalCaptures
           const mKey = cfg.captureKey === 'mewtwo' ? 'mewtwoMission' : null;
           const bKey = cfg.captureKey !== 'mewtwo' ? cfg.captureKey : null;

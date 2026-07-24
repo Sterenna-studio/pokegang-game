@@ -802,7 +802,7 @@ function renderGangBaseWindowV2() {
   const agentsHtml = allAgents.length ? allAgents.map(agent => {
     const inFocus   = agent.assignedZone === focusZoneId;
     const zoneName  = agent.assignedZone ? _baseZoneName(_baseZoneById(agent.assignedZone), state) : 'Réserve';
-    const rank      = globalThis.getAgentRankLabel?.(agent.title) || BASE_RANK_FR[agent.title] || agent.title || 'Agent';
+    const rank      = globalThis.getAgentRankLabel?.(agent) || BASE_RANK_FR[agent.title] || agent.title || 'Agent';
     const agPks     = (agent.team || []).map(id => state.pokemons.find(p => p.id === id)).filter(Boolean);
     const teamSlots = [0, 1, 2].map(i => {
       const pk = agPks[i];
@@ -1155,7 +1155,7 @@ function _openBaseAgentPicker(zoneId) {
   const rows = (state.agents || []).map(agent => {
     const sameZone = agent.assignedZone === zoneId;
     const currentZone = agent.assignedZone ? _baseZoneName(_baseZoneById(agent.assignedZone), state) : 'Reserve';
-    const rank = globalThis.getAgentRankLabel?.(agent.title) || BASE_RANK_FR[agent.title] || agent.title || 'Agent';
+    const rank = globalThis.getAgentRankLabel?.(agent) || BASE_RANK_FR[agent.title] || agent.title || 'Agent';
     return `<button class="base-picker-agent${sameZone ? ' active' : ''}" data-pick-agent="${agent.id}">
       <img src="${agent.sprite || globalThis.trainerSprite?.('acetrainer') || ''}" alt="" onerror="this.src='${globalThis.trainerSprite?.('acetrainer') || ''}'">
       <span><strong>${agent.name}</strong><em>${rank} · ${currentZone}</em></span>

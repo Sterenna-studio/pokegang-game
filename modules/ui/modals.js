@@ -247,6 +247,28 @@ function showMiniCombatPopup({ win, zoneId, trainerKey, trainerName, agentSprite
   } catch {}
 }
 
+// Ouvre/affiche la fenêtre de la zone ciblée et y scrolle avec un bref
+// surlignage — logique partagée par tous les popups cliquables qui renvoient
+// vers une zone (mini-combat, rare aperçu).
+function _focusZoneWindow(zoneId) {
+  if (!zoneId) return;
+  switchTab('tabZones');
+  const openZones = getOpenZones();
+  if (!openZones.has(zoneId)) {
+    openZones.add(zoneId);
+    const state = getState();
+    if (!state.openZoneOrder) state.openZoneOrder = [];
+    if (!state.openZoneOrder.includes(zoneId)) state.openZoneOrder.push(zoneId);
+  }
+  renderZonesTab();
+  setTimeout(() => {
+    const zoneWin = document.getElementById(`zw-${zoneId}`);
+    zoneWin?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    zoneWin?.classList.add('zone-highlight');
+    setTimeout(() => zoneWin?.classList.remove('zone-highlight'), 1500);
+  }, 100);
+}
+
 // ── Clic sur la popup mini-combat → switch vers la zone ────────
 (function _bindMiniCombatPopupClick() {
   document.addEventListener('DOMContentLoaded', () => {
@@ -256,22 +278,7 @@ function showMiniCombatPopup({ win, zoneId, trainerKey, trainerName, agentSprite
       const zoneId = el.dataset.targetZone;
       clearTimeout(_miniCombatPopupTimer);
       el.classList.remove('show');
-      if (!zoneId) return;
-      switchTab('tabZones');
-      const openZones = getOpenZones();
-      if (!openZones.has(zoneId)) {
-        openZones.add(zoneId);
-        const state = getState();
-        if (!state.openZoneOrder) state.openZoneOrder = [];
-        if (!state.openZoneOrder.includes(zoneId)) state.openZoneOrder.push(zoneId);
-      }
-      renderZonesTab();
-      setTimeout(() => {
-        const zoneWin = document.getElementById(`zw-${zoneId}`);
-        zoneWin?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        zoneWin?.classList.add('zone-highlight');
-        setTimeout(() => zoneWin?.classList.remove('zone-highlight'), 1500);
-      }, 100);
+      _focusZoneWindow(zoneId);
     });
   });
 })();
@@ -286,25 +293,7 @@ function showMiniCombatPopup({ win, zoneId, trainerKey, trainerName, agentSprite
       if (!zoneId) return;
       clearTimeout(_rarePopupTimer);
       el.classList.remove('show');
-      // Ouvrir l'onglet Zones et y ouvrir la zone cible
-      switchTab('tabZones');
-      // S'assurer que la zone est ouverte dans les fenêtres
-      const openZones = getOpenZones();
-      if (!openZones.has(zoneId)) {
-        openZones.add(zoneId);
-        const state = getState();
-        if (!state.openZoneOrder) state.openZoneOrder = [];
-        if (!state.openZoneOrder.includes(zoneId)) state.openZoneOrder.push(zoneId);
-      }
-      renderZonesTab();
-      // Scroll vers la fenêtre de zone après le rendu
-      setTimeout(() => {
-        const zoneWin = document.getElementById(`zw-${zoneId}`);
-        zoneWin?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        // Bref highlight visuel
-        zoneWin?.classList.add('zone-highlight');
-        setTimeout(() => zoneWin?.classList.remove('zone-highlight'), 1500);
-      }, 100);
+      _focusZoneWindow(zoneId);
     });
   });
 })();

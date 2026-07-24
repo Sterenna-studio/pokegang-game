@@ -228,22 +228,6 @@
       50%      { color: var(--gold); text-shadow: 0 0 6px var(--gold), 0 0 12px var(--gold-dim); }
     }
 
-    /* ── Active boosts indicator ── */
-    .zone-boosts {
-      position: absolute;
-      top: 0; left: 0;
-      z-index: 10;
-      display: flex;
-      gap: 4px;
-      padding: 3px 5px;
-      pointer-events: none;
-    }
-    .zone-boosts .boost-badge {
-      font-size: 14px;
-      filter: drop-shadow(0 0 3px rgba(255,204,90,.6));
-      animation: float 2s ease-in-out infinite;
-    }
-
     /* ── Degraded zone mode ── */
     .zone-degraded-banner {
       position: absolute;
@@ -896,22 +880,6 @@
     }
     .zone-combat-hud-minimal .zchud-vs  { pointer-events: none; }
     .zone-combat-hud-minimal .zchud-flee { pointer-events: auto; }
-    .zchud-log {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      gap: 1px;
-      overflow: hidden;
-    }
-    .zchud-line {
-      font-family: var(--font-pixel);
-      font-size: 8px;
-      color: var(--text-dim);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      line-height: 1.4;
-    }
     .zchud-vs  { font-family: var(--font-pixel); font-size: 7px; color: var(--gold); white-space: nowrap; }
     .zchud-flee {
       font-family: var(--font-pixel);
@@ -2619,17 +2587,6 @@
       transition: background .2s;
     }
     .bag-item .bag-use-btn:hover { background: var(--gold-dim); color: var(--bg); }
-
-    /* ── Boost tags (text, no emoji) ────────────────────────────── */
-    .boost-tag {
-      font-family: var(--font-pixel);
-      font-size: 7px;
-      padding: 1px 4px;
-      border: 1px solid var(--gold-dim);
-      border-radius: 2px;
-      color: var(--gold);
-      margin-left: 2px;
-    }
 
     /* ── PC Pagination ───────────────────────────────────────────── */
     .pc-pagination {

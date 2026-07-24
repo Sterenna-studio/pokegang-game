@@ -950,13 +950,8 @@ function hatchEgg(eggId) {
   EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: hatched, zoneId: 'pension' });
   state.stats.totalCaught++;
   state.stats.eggsHatched = (state.stats.eggsHatched || 0) + 1;
-  if (!state.pokedex[baseEn]) {
-    state.pokedex[baseEn] = { seen: true, caught: true, shiny: egg.shiny, count: 1 };
-  } else {
-    state.pokedex[baseEn].caught = true;
-    state.pokedex[baseEn].count++;
-    if (egg.shiny) state.pokedex[baseEn].shiny = true;
-  }
+  if (hatched.shiny) state.stats.shinyCaught++;
+  globalThis.registerPokedexCapture?.(state, hatched);
   // Fabric BG unlock
   globalThis._unlockFabricBg?.(hatched.dex, hatched.shiny);
   saveState();
@@ -2788,7 +2783,7 @@ function renderDexDetail(species_en) {
     </div>
   `;
 
-  const statsTabHtml = _renderDexStatsTabHtml(entry);
+  const statsTabHtml = _renderDexStatsTabHtml(entry, spawnZones);
 
   panel.classList.remove('hidden');
   panel.innerHTML = `
@@ -2840,7 +2835,7 @@ function renderDexDetail(species_en) {
 // Taux de chroma réel observé pour l'espèce, comparé à la moyenne du joueur.
 // NB: contrairement à la capture (toujours garantie, cf. tryCapture), le shiny
 // est un vrai tirage RNG — c'est le seul "taux" pertinent à afficher ici.
-function _renderDexStatsTabHtml(entry) {
+function _renderDexStatsTabHtml(entry, spawnZones = []) {
   const captureCount = entry.captureCount || 0;
   const shinyCount    = entry.shinyCount   || 0;
   const speciesRate   = captureCount > 0 ? (shinyCount / captureCount) * 100 : null;
@@ -2851,14 +2846,28 @@ function _renderDexStatsTabHtml(entry) {
 
   const fmtRate = (r) => r === null ? '—' : `${r.toFixed(r < 1 ? 2 : 1)}%`;
 
-  // ── Probabilité théorique — miroir exact de rollShiny() (modules/systems/pokemon.js) ──
-  // Fixe   : dépend uniquement d'un achat permanent (Charme Chroma).
-  // Dynamique : dépend d'un boost temporaire actif (Aura Shiny) — expire avec le temps.
+  // ── Probabilité théorique — reflète rollShiny() (modules/systems/pokemon.js) :
+  // base/Charme/Aura (globaux, valables partout) + le meilleur bonus de zone
+  // actuellement disponible pour cette espèce (shinyBonus par niveau de zone,
+  // spécifique à l'endroit de capture — cf. spawnCtx dans spawnInZone/
+  // tryCapture). Fixe : dépend uniquement d'un achat permanent (Charme
+  // Chroma). Dynamique : boost temporaire (Aura) + bonus de zone, tous deux
+  // variables dans le temps/l'espace.
   const hasCharm    = !!state.purchases?.chromaCharm;
   const auraActive  = !!globalThis.isBoostActive?.('aura');
   const charmMult   = hasCharm ? CHROMA_CHARM_MULT : 1;
   const fixedRate   = BASE_SHINY_RATE * charmMult * 100;
-  const currentRate = (auraActive ? AURA_SHINY_RATE : BASE_SHINY_RATE) * charmMult * 100;
+
+  let bestZoneBonus = 0;
+  let bestZoneName  = null;
+  let bestZoneLevel = 0;
+  for (const z of spawnZones) {
+    const level = globalThis.getZoneLevel?.(z.id) || 0;
+    const bonus = globalThis.getZoneLevelBonuses?.(z.id)?.shinyBonus || 0;
+    if (bonus > bestZoneBonus) { bestZoneBonus = bonus; bestZoneName = z.name; bestZoneLevel = level; }
+  }
+
+  const currentRate = (auraActive ? AURA_SHINY_RATE : BASE_SHINY_RATE) * charmMult * 100 + bestZoneBonus * 100;
   const auraLeftMin = auraActive ? Math.ceil((globalThis.boostRemaining?.('aura') || 0) / 60) : 0;
 
   return `
@@ -2883,9 +2892,13 @@ function _renderDexStatsTabHtml(entry) {
         <span>Taux actuel du joueur (dynamique)</span>
         <span style="color:${auraActive ? 'var(--gold)' : 'var(--text)'};font-weight:bold">${fmtRate(currentRate)}</span>
       </div>
-      ${auraActive
-        ? `<div style="margin-top:4px;font-size:8px;color:var(--gold)">⏱ Aura Shiny active — encore ${auraLeftMin} min (composante dynamique du taux)</div>`
-        : `<div style="margin-top:4px;font-size:8px;color:var(--text-dim)">Aucun boost temporaire actif — le taux actuel équivaut au taux fixe</div>`}
+      ${auraActive ? `<div style="margin-top:4px;font-size:8px;color:var(--gold)">⏱ Aura Shiny active — encore ${auraLeftMin} min (composante dynamique du taux)</div>` : ''}
+      ${bestZoneBonus > 0
+        ? `<div style="margin-top:4px;font-size:8px;color:var(--gold)">📍 +${(bestZoneBonus * 100).toFixed(1)}% en ${_esc(bestZoneName)} (niv.${bestZoneLevel}) — variable selon la zone de capture</div>`
+        : ''}
+      ${!auraActive && bestZoneBonus === 0
+        ? `<div style="margin-top:4px;font-size:8px;color:var(--text-dim)">Aucun boost actif — le taux actuel équivaut au taux fixe</div>`
+        : ''}
     </div>
 
     <div style="font-size:9px;margin-bottom:10px">

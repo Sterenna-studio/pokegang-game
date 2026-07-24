@@ -129,13 +129,8 @@ function _hatchEggSilent(egg) {
   EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: hatched, zoneId: 'pension' });
   state.stats.totalCaught++;
   state.stats.eggsHatched = (state.stats.eggsHatched || 0) + 1;
-  if (!state.pokedex[baseEn]) {
-    state.pokedex[baseEn] = { seen: true, caught: true, shiny: egg.shiny, count: 1 };
-  } else {
-    state.pokedex[baseEn].caught = true;
-    state.pokedex[baseEn].count++;
-    if (egg.shiny) state.pokedex[baseEn].shiny = true;
-  }
+  if (hatched.shiny) state.stats.shinyCaught++;
+  globalThis.registerPokedexCapture?.(state, hatched);
   // Fabric BG unlock
   globalThis._unlockFabricBg?.(hatched.dex, hatched.shiny);
   state.eggs = state.eggs.filter(e => e.id !== egg.id);
