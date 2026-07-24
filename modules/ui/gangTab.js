@@ -1,7 +1,6 @@
 ﻿'use strict';
 
-import { SHOWCASE_SLOTS, BOSS_TEAM_SLOTS } from '../../data/game-config-data.js';
-import { BALL_SPRITES } from '../../data/assets-data.js';
+import { BOSS_TEAM_SLOTS } from '../../data/game-config-data.js';
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
 import { esc as _esc } from '../core/escape.js';
@@ -16,14 +15,15 @@ const _save   = ()               => globalThis.saveState?.();
 //   pokeSprite, pokeIcon, trainerSprite, pokemonDisplayName,
 //   getBossFullTitle, getTitleLabel, getShinySpeciesCount,
 //   getDexKantoCaught, getDexNationalCaught, KANTO_DEX_SIZE, NATIONAL_DEX_SIZE,
-//   EVO_BY_SPECIES, isZoneUnlocked, applyCosmetics, MusicPlayer, MUSIC_TRACKS, GAME_VERSION,
-//   openBossEditModal, openTitleModal, openShowcasePicker, openTeamPickerModal,
-//   showEvoPreviewModal, openNameModal, openSpritePicker,
-//   COSMETIC_BGS, FABRIC_SPECIES, PATCH_PIDS, fabricBgUrl, patchUrl,
-//   _gbase_openExportModal
-// classic-script globals (bare name): ZONES
+//   GAME_VERSION, openBossEditModal, openTitleModal, openTeamPickerModal,
+//   openNameModal, openSpritePicker, _gbase_openExportModal
+//
+// La musique, l'apparence (fonds/pins/skins) et la vitrine ont été extraites
+// vers la page séparée gang/ (pokegang.sterenna.fr/gang/) — voir
+// gang/panels.js et gang/environment.js. Ce fichier ne garde que la partie
+// non-cosmétique de l'onglet Gang (stats, services, équipe boss, titre).
 
-const _gangCollapsed = { services: false, music: false, appearance: false, stats: false };
+const _gangCollapsed = { services: false, stats: false };
 let _statsViewMode = 'session';
 
 // ── Render guard — évite les rechargements intempestifs du tab Gang ──
@@ -55,454 +55,6 @@ function _ensureGangFocusOutHandler(tab) {
     if (_gangTabPendingRender) { _gangTabPendingRender = false; renderGangTab(); }
   });
 }
-const FABRIC_SHOP_COST = 100_000;
-
-// ── Music panel ───────────────────────────────────────────────────────────────
-function renderMusicPanel(container) {
-  const JUKEBOX_TRACKS = [
-    { key: 'base',     icon: '🏠', label: 'Base' },
-    { key: 'forest',   icon: '🌿', label: 'Route' },
-    { key: 'cave',     icon: '⛏',  label: 'Caverne' },
-    { key: 'city',     icon: '🏙', label: 'Ville' },
-    { key: 'sea',      icon: '🌊', label: 'Mer' },
-    { key: 'safari',   icon: '🦒', label: 'Safari' },
-    { key: 'lavender', icon: '💜', label: 'Lavanville' },
-    { key: 'tower',    icon: '👻', label: 'Tour' },
-    { key: 'mansion',  icon: '🕯',  label: 'Manoir' },
-    { key: 'gym',      icon: '⚔',  label: 'Arène' },
-    { key: 'rocket',   icon: '🚀', label: 'Rocket' },
-    { key: 'silph',    icon: '🔬', label: 'Sylphe' },
-    { key: 'elite4',   icon: '👑', label: 'Élite 4' },
-    { key: 'casino',   icon: '🎰', label: 'Casino' },
-  ];
-  const MUSIC_TRACKS = globalThis.MUSIC_TRACKS || {};
-  const currentJuke  = globalThis.state.settings?.jukeboxTrack || null;
-  const isTrackUnlocked = (key) => {
-    if (key === 'base') return true;
-    return ZONES.some(z => z.music === key && globalThis.isZoneUnlocked(z.id));
-  };
-
-  const jukeHtml = JUKEBOX_TRACKS.map(t => {
-    const ok  = isTrackUnlocked(t.key);
-    const act = currentJuke === t.key;
-    return `<div class="jukebox-track${act ? ' active' : ''}${ok ? '' : ' locked'}" data-jukebox-track="${t.key}" title="${t.label}${ok ? '' : ' — Verrou'}">
-      <span class="juke-icon">${ok ? t.icon : '🔒'}</span>
-      <span class="juke-label">${t.label}</span>
-    </div>`;
-  }).join('');
-
-  container.innerHTML = `
-    <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);margin-bottom:6px">
-      En cours : <span style="color:var(--gold)">${currentJuke ? (MUSIC_TRACKS[currentJuke]?.fr || currentJuke) : 'AUTO'}</span>
-    </div>
-    <div class="base-jukebox">
-      ${jukeHtml}
-      <div class="jukebox-track${!currentJuke ? ' active' : ''}" data-jukebox-track="__auto__" title="Musique automatique selon la zone">
-        <span class="juke-icon">🔄</span><span class="juke-label">AUTO</span>
-      </div>
-    </div>`;
-
-  container.querySelectorAll('[data-jukebox-track]').forEach(el => {
-    el.addEventListener('click', () => {
-      const key = el.dataset.jukeboxTrack;
-      if (el.classList.contains('locked')) { _notify('🔒 Débloquez cette zone pour accéder à cette musique', 'error'); return; }
-      if (key === '__auto__') {
-        globalThis.state.settings.jukeboxTrack = null;
-        _notify('🎵 Jukebox → Auto', 'success');
-      } else {
-        globalThis.state.settings.jukeboxTrack = key;
-        _notify(`🎵 ${MUSIC_TRACKS[key]?.fr || key}`, 'success');
-      }
-      _save();
-      globalThis.MusicPlayer?.updateFromContext();
-      renderMusicPanel(container);
-    });
-  });
-}
-
-// ── Ball skins section ────────────────────────────────────────────────────────
-const BALL_SKIN_KEYS = ['greatball', 'duskball', 'ultraball', 'masterball'];
-
-function _buildBallSkinsHtml(state) {
-  const lang = state.lang === 'fr' ? 'fr' : 'en';
-  const BALLS = globalThis.BALLS || {};
-  const activeBall = state.activeBall || 'pokeball';
-
-  const rows = BALL_SKIN_KEYS.map(key => {
-    const ballDef   = BALLS[key] || { fr: key, en: key, color: '#888', icon: '?' };
-    const skinItem  = (globalThis.SHOP_ITEMS || []).find(s => s.ballSkin === key);
-    const owned     = !!(state.purchases?.[`skin_${key}`]);
-    const active    = activeBall === key;
-    const cost      = skinItem?.cost || 0;
-    const canAfford = (state.gang.money || 0) >= cost;
-    const shopIdx   = (globalThis.SHOP_ITEMS || []).indexOf(skinItem);
-
-    return `<div style="display:flex;align-items:center;gap:10px;padding:6px 4px;border-bottom:1px solid var(--border-dim)">
-      <img src="${BALL_SPRITES[key] || ''}" style="width:24px;height:24px;image-rendering:pixelated;flex-shrink:0">
-      <div style="flex:1;min-width:0">
-        <div style="font-size:10px;color:var(--text)">${lang === 'fr' ? ballDef.fr : ballDef.en}</div>
-        ${owned ? `<div style="font-size:8px;color:var(--text-dim)">Débloqué</div>` : `<div style="font-size:8px;color:var(--gold)">${cost.toLocaleString()}₽</div>`}
-      </div>
-      ${owned
-        ? `<button data-gang-set-ball="${key}" style="font-family:var(--font-pixel);font-size:8px;padding:4px 9px;cursor:pointer;
-            background:${active ? 'var(--red-dark)' : 'var(--bg)'};
-            border:1px solid ${active ? 'var(--red)' : 'var(--border-light)'};
-            border-radius:var(--radius-sm);color:${active ? 'var(--text)' : 'var(--text-dim)'};white-space:nowrap">
-            ${active ? '✓ ACTIF' : 'UTILISER'}
-           </button>`
-        : `<button data-gang-buy-skin="${shopIdx}" ${canAfford && shopIdx >= 0 ? '' : 'disabled'}
-            style="font-family:var(--font-pixel);font-size:8px;padding:4px 9px;
-            cursor:${canAfford && shopIdx >= 0 ? 'pointer' : 'default'};
-            background:var(--bg);border:1px solid ${canAfford && shopIdx >= 0 ? 'var(--gold-dim)' : 'var(--border)'};
-            border-radius:var(--radius-sm);color:${canAfford && shopIdx >= 0 ? 'var(--gold)' : 'var(--text-dim)'}">
-            ACHETER
-           </button>`
-      }
-    </div>`;
-  }).join('');
-
-  // Skin actif du boss (poké ball = défaut, toujours dispo)
-  const activeDef = BALLS[activeBall] || { fr: 'Poké Ball', en: 'Poké Ball' };
-  const activeLabel = lang === 'fr' ? activeDef.fr : activeDef.en;
-
-  return `
-    <div style="margin-top:20px">
-      <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold-dim);margin-bottom:6px;letter-spacing:.5px">
-        🎳 SKINS DE BALL
-      </div>
-      <div style="font-size:9px;color:var(--text-dim);margin-bottom:8px">
-        Skin actif : <b style="color:var(--gold)">${activeLabel}</b>
-        <span style="font-size:8px;opacity:.6"> — cosmétique uniquement (boss + agents)</span>
-      </div>
-      ${rows}
-    </div>`;
-}
-
-// ── Appearance panel (backgrounds + pins) ────────────────────────────────────
-function renderAppearancePanel(container) {
-  // ── Détache le slider si le joueur est dessus (évite le reset de scrollbar) ──
-  const state         = globalThis.state;
-  const unlocked      = new Set(state.cosmetics?.unlockedBgs || []);
-  const active        = state.cosmetics?.gameBg || null;
-  const favoriteBgs   = state.cosmetics?.favoriteBgs  || [];
-  const activePatches = state.cosmetics?.activePatches || [];
-  const fabricMode    = state.cosmetics?.fabricMode    || 'repeat';
-  const fabricSize    = state.cosmetics?.fabricSize    ?? 320;
-  const fabricOpacity = state.cosmetics?.fabricOpacity ?? 72;
-  const isFabricActive = active?.startsWith('fabric_') ?? false;
-
-  // ── wallpaper card builder (80px thumb) ──
-  const _bgCard = (key, c) => {
-    const own   = unlocked.has(key);
-    const isAct = active === key;
-    const thumb = c.type === 'image'
-      ? `<div style="height:80px;background-image:url('${c.url}');background-size:cover;background-position:center;border-radius:2px;margin-bottom:6px"></div>`
-      : `<div style="height:80px;background:${c.gradient};border-radius:2px;margin-bottom:6px"></div>`;
-    return `<div class="cosm-card${isAct ? ' cosm-active' : ''}" data-cosm="${key}"
-      style="border:2px solid ${isAct ? 'var(--gold)' : own ? 'var(--green)' : 'var(--border)'};border-radius:var(--radius-sm);padding:8px;cursor:pointer;background:var(--bg-card)">
-      ${thumb}
-      <div style="font-size:9px">${c.fr}</div>
-      <div style="font-size:8px;color:${isAct ? 'var(--gold)' : own ? 'var(--green)' : 'var(--text-dim)'}">
-        ${isAct ? '[ ACTIF ]' : own ? 'Équiper' : c.cost.toLocaleString() + '₽'}
-      </div>
-    </div>`;
-  };
-
-  const defaultCard = `<div class="cosm-card${!active ? ' cosm-active' : ''}" data-cosm="none"
-    style="border:2px solid ${!active ? 'var(--gold)' : 'var(--border)'};border-radius:var(--radius-sm);padding:8px;cursor:pointer;background:var(--bg-card)">
-    <div style="height:80px;background:linear-gradient(180deg,#0a0a0a,#1a1a1a);border-radius:2px;margin-bottom:6px"></div>
-    <div style="font-size:9px">Défaut</div>
-    <div style="font-size:8px;color:${!active ? 'var(--gold)' : 'var(--text-dim)'}">Gratuit${!active ? ' [ ACTIF ]' : ''}</div>
-  </div>`;
-
-  const bgHtml = Object.entries(COSMETIC_BGS).map(([k, c]) => _bgCard(k, c)).join('');
-
-  // ── fabric card builder (no _emb, 110px preview via <img>) ──
-  const fabricUnlocked = [...unlocked].filter(k => k.startsWith('fabric_') && !k.endsWith('_emb'));
-  const allFabricKeys  = [];
-  for (const spec of FABRIC_SPECIES) {
-    const pid = spec[0];
-    allFabricKeys.push(`fabric_${pid}`);
-    if (spec[2] >= 2) allFabricKeys.push(`fabric_${pid}_v2`);
-  }
-
-  const _buildFabricCard = (key) => {
-    const m = key.match(/^fabric_(\d+)(?:_v(\d+))?$/);
-    if (!m) return '';
-    const pid     = parseInt(m[1], 10);
-    const variant = m[2] ? parseInt(m[2], 10) : 1;
-    const spec    = FABRIC_SPECIES.find(s => s[0] === pid);
-    const fr      = spec ? spec[1] : `#${pid}`;
-    const own     = unlocked.has(key);
-    const isAct   = active === key;
-    const isFav   = favoriteBgs.includes(key);
-    const previewUrl = fabricBgUrl(pid, variant);
-    const badge   = variant > 1 ? `v${variant}` : '';
-    const suffix  = variant > 1 ? ' (alt)' : '';
-    return `<div class="cosm-card cosm-fabric-card${isAct ? ' cosm-active' : ''}" data-cosm="${key}" data-fabric-key="${key}"
-      style="position:relative;border:2px solid ${isAct ? 'var(--gold)' : own ? 'var(--green)' : 'var(--border)'};border-radius:var(--radius-sm);padding:6px;cursor:pointer;background:var(--bg-card);min-width:0">
-      <img src="${previewUrl}" style="width:100%;height:110px;object-fit:cover;border-radius:2px;margin-bottom:4px;display:block"
-        onerror="this.closest('[data-fabric-key]').style.display='none'">
-      ${badge ? `<div style="position:absolute;top:4px;right:4px;font-size:9px;background:rgba(0,0,0,.7);border-radius:3px;padding:1px 4px">${badge}</div>` : ''}
-      <button class="cosm-fav-btn" data-fav-key="${key}" style="position:absolute;top:4px;left:4px;background:rgba(0,0,0,.6);border:none;border-radius:3px;cursor:pointer;font-size:10px;padding:1px 3px;line-height:1">${isFav ? '⭐' : '☆'}</button>
-      <div style="font-size:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${fr}${suffix}</div>
-      <div style="font-size:7px;color:${isAct ? 'var(--gold)' : own ? 'var(--green)' : 'var(--text-dim)'}">
-        ${isAct ? '[ ACTIF ]' : own ? 'Équiper' : FABRIC_SHOP_COST.toLocaleString() + '₽'}
-      </div>
-    </div>`;
-  };
-
-  // ── fabric settings panel (shown only when a fabric BG is active) ──
-  const _modeBtn = (mode, label) => {
-    const act = fabricMode === mode;
-    return `<button class="fabric-mode-btn" data-mode="${mode}"
-      style="font-family:var(--font-pixel);font-size:8px;padding:4px 10px;border-radius:var(--radius-sm);cursor:pointer;
-             border:1px solid ${act ? 'var(--gold)' : 'var(--border)'};
-             background:${act ? 'rgba(255,200,0,0.10)' : 'var(--bg)'};
-             color:${act ? 'var(--gold)' : 'var(--text-dim)'}">${label}</button>`;
-  };
-  const fabricSettingsHtml = isFabricActive ? `
-    <div id="fabricSettings" style="margin-top:12px;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm)">
-      <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);margin-bottom:8px;letter-spacing:.4px">⚙ PARAMÈTRES TISSU</div>
-      <div style="display:flex;gap:8px;margin-bottom:12px">
-        ${_modeBtn('full',   'Plein écran')}
-        ${_modeBtn('repeat', 'Répétition')}
-      </div>
-      <div style="display:flex;flex-direction:column;gap:10px">
-        <div style="${fabricMode === 'repeat' ? '' : 'opacity:0.35;pointer-events:none'}">
-          <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-            <span style="font-size:8px;color:var(--text-dim)">Taille motif</span>
-            <span id="fabricSizeVal" style="font-size:8px;color:var(--gold)">${fabricSize}px</span>
-          </div>
-          <input type="range" id="fabricSizeRange" min="80" max="600" step="10" value="${fabricSize}"
-            style="width:100%;accent-color:var(--gold);cursor:pointer">
-        </div>
-        <div>
-          <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-            <span style="font-size:8px;color:var(--text-dim)">Transparence UI</span>
-            <span id="fabricOpacityVal" style="font-size:8px;color:var(--gold)">${fabricOpacity}%</span>
-          </div>
-          <input type="range" id="fabricOpacityRange" min="30" max="95" step="1" value="${fabricOpacity}"
-            style="width:100%;accent-color:var(--gold);cursor:pointer">
-        </div>
-      </div>
-    </div>` : '';
-
-  // ── patches ──
-  const _patchLabel = {
-    1:'Bulbizarre', 4:'Salamèche', 7:'Carapuce', 25:'Pikachu', 39:'Rondoudou',
-    50:'Taupiqueur', 54:'Psykokwak', 94:'Ectoplasma', 129:'Magicarpe', 131:'Lokhlass',
-    132:'Métamorph', 133:'Évoli', 143:'Ronflex', 149:'Dracolosse', 151:'Mew',
-  };
-  const patchesHtml = PATCH_PIDS.map(pid => {
-    const isAct = activePatches.includes(pid);
-    return `<div class="cosm-patch-card" data-patch-pid="${pid}"
-      style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px;border:2px solid ${isAct ? 'var(--gold)' : 'var(--border)'};border-radius:var(--radius-sm);cursor:pointer;background:${isAct ? 'rgba(255,200,0,0.08)' : 'var(--bg-card)'};width:72px;flex-shrink:0">
-      <img src="${patchUrl(pid)}" style="width:48px;height:48px;object-fit:contain;image-rendering:pixelated" onerror="this.style.display='none'">
-      <div style="font-size:7px;text-align:center;color:${isAct ? 'var(--gold)' : 'var(--text-dim)'}">${_patchLabel[pid] || `#${pid}`}</div>
-      ${isAct ? '<div style="font-size:7px;color:var(--gold)">[ ON ]</div>' : ''}
-    </div>`;
-  }).join('');
-
-  container.innerHTML = `
-    <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold-dim);margin-bottom:8px;letter-spacing:.5px">🖼 FONDS D'ÉCRAN</div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-bottom:20px">
-      ${defaultCard}${bgHtml}
-    </div>
-
-    <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold-dim);margin-bottom:8px;letter-spacing:.5px">
-      🧵 ORIGINAL STITCH
-      <span style="font-size:7px;color:var(--text-dim);font-weight:normal;margin-left:6px">${fabricUnlocked.length} débloqué(s)</span>
-    </div>
-    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
-      <button class="fabric-filter-btn" data-fabric-filter="owned"
-        style="font-family:var(--font-pixel);font-size:8px;padding:4px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text-dim);cursor:pointer">Possédé</button>
-      <button class="fabric-filter-btn" data-fabric-filter="all"
-        style="font-family:var(--font-pixel);font-size:8px;padding:4px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text-dim);cursor:pointer">Tous</button>
-      <button class="fabric-filter-btn" data-fabric-filter="favorites"
-        style="font-family:var(--font-pixel);font-size:8px;padding:4px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text-dim);cursor:pointer">⭐ Favoris</button>
-    </div>
-    <div id="fabricSlider"
-      style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;padding:4px 2px 10px">
-      ${fabricUnlocked.length > 0
-        ? fabricUnlocked.map(_buildFabricCard).join('')
-        : '<div style="font-size:9px;color:var(--text-dim);padding:12px;grid-column:1/-1">Capture des Pokémon pour débloquer des fonds tissu !</div>'}
-    </div>
-    ${fabricSettingsHtml}
-
-    <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold-dim);margin-top:20px;margin-bottom:8px;letter-spacing:.5px">
-      📌 PINS <span style="font-size:7px;color:var(--text-dim);font-weight:normal">${activePatches.length}/3 actifs</span>
-    </div>
-    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">${patchesHtml}</div>
-
-    ${_buildBallSkinsHtml(state)}`;
-
-  // ── wallpaper handlers ──
-  container.querySelectorAll('.cosm-card:not(.cosm-fabric-card)').forEach(el => {
-    el.addEventListener('click', () => {
-      const key = el.dataset.cosm;
-      if (key === 'none') {
-        state.cosmetics.gameBg = null;
-        _save(); globalThis.applyCosmetics();
-        _patchActiveBg(container, null); return;
-      }
-      const c = COSMETIC_BGS[key];
-      if (!c) return;
-      if (unlocked.has(key)) {
-        state.cosmetics.gameBg = key;
-        _save(); globalThis.applyCosmetics();
-        _patchActiveBg(container, key);
-      } else {
-        if (state.gang.money < c.cost) { _notify('Fonds insuffisants.', 'error'); return; }
-        globalThis.showConfirm(`Acheter "${c.fr}" pour ${c.cost.toLocaleString()}₽ ?`, () => {
-          state.gang.money -= c.cost;
-          EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -c.cost, newTotal: state.gang.money });
-          state.cosmetics.unlockedBgs = [...(state.cosmetics.unlockedBgs || []), key];
-          state.cosmetics.gameBg = key;
-          _save(); globalThis.applyCosmetics(); _topBar();
-          _notify(`🎨 "${c.fr}" débloqué !`, 'gold');
-          globalThis.SFX.play('unlock');
-          renderAppearancePanel(container);
-        }, null, { confirmLabel: 'Acheter', cancelLabel: 'Annuler' });
-      }
-    });
-  });
-
-  // ── fabric card + fav handlers ──
-  const _bindFabricHandlers = (root) => {
-    root.querySelectorAll('.cosm-fav-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const key  = btn.dataset.favKey;
-        const favs = state.cosmetics.favoriteBgs || [];
-        const idx  = favs.indexOf(key);
-        if (idx >= 0) favs.splice(idx, 1); else favs.push(key);
-        state.cosmetics.favoriteBgs = favs;
-        _save();
-        btn.textContent = favs.includes(key) ? '⭐' : '☆';
-      });
-    });
-    root.querySelectorAll('.cosm-fabric-card').forEach(el => {
-      el.addEventListener('click', (e) => {
-        if (e.target.classList.contains('cosm-fav-btn')) return;
-        const key = el.dataset.cosm;
-        if (!key) return;
-        if (unlocked.has(key)) {
-          state.cosmetics.gameBg = key;
-          _save(); globalThis.applyCosmetics();
-          _patchActiveFabric(container, key);
-        } else {
-          const m   = key.match(/^fabric_(\d+)/);
-          const pid = m ? parseInt(m[1], 10) : 0;
-          const spec = pid ? FABRIC_SPECIES.find(s => s[0] === pid) : null;
-          const fr   = spec ? spec[1] : `#${pid}`;
-          if (state.gang.money < FABRIC_SHOP_COST) { _notify('Fonds insuffisants (100 000₽).', 'error'); return; }
-          globalThis.showConfirm(`Acheter le fond tissu "${fr}" pour ${FABRIC_SHOP_COST.toLocaleString()}₽ ?`, () => {
-            state.gang.money -= FABRIC_SHOP_COST;
-            EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -FABRIC_SHOP_COST, newTotal: state.gang.money });
-            state.cosmetics.unlockedBgs = [...(state.cosmetics.unlockedBgs || []), key];
-            state.cosmetics.gameBg = key;
-            _save(); globalThis.applyCosmetics(); _topBar();
-            _notify(`🧵 Fond tissu "${fr}" débloqué !`, 'gold');
-            globalThis.SFX.play('unlock');
-            renderAppearancePanel(container);
-          }, null, { confirmLabel: 'Acheter', cancelLabel: 'Annuler' });
-        }
-      });
-    });
-  };
-  const fabricSlider = container.querySelector('#fabricSlider');
-  if (fabricSlider) _bindFabricHandlers(fabricSlider);
-
-  // ── filter buttons ──
-  container.querySelectorAll('.fabric-filter-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const filter = btn.dataset.fabricFilter;
-      const slider = container.querySelector('#fabricSlider');
-      if (!slider) return;
-      let keys = filter === 'owned'     ? fabricUnlocked
-               : filter === 'all'       ? allFabricKeys
-               : favoriteBgs.filter(k => k.startsWith('fabric_') && !k.endsWith('_emb'));
-      const favSet = new Set(favoriteBgs);
-      keys = [...keys].sort((a, b) => (favSet.has(b) ? 1 : 0) - (favSet.has(a) ? 1 : 0));
-      slider.innerHTML = keys.length > 0
-        ? keys.map(_buildFabricCard).join('')
-        : '<div style="font-size:9px;color:var(--text-dim);padding:12px">Aucun fond dans cette catégorie.</div>';
-      _bindFabricHandlers(slider);
-    });
-  });
-
-  // ── fabric settings handlers ──
-  const fabricSettings = container.querySelector('#fabricSettings');
-  if (fabricSettings) {
-    fabricSettings.querySelectorAll('.fabric-mode-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        state.cosmetics.fabricMode = btn.dataset.mode;
-        _save(); globalThis.applyCosmetics();
-        _patchFabricSettings(container, state.cosmetics);
-      });
-    });
-    const sizeRange    = fabricSettings.querySelector('#fabricSizeRange');
-    const sizeVal      = fabricSettings.querySelector('#fabricSizeVal');
-    const opacityRange = fabricSettings.querySelector('#fabricOpacityRange');
-    const opacityVal   = fabricSettings.querySelector('#fabricOpacityVal');
-    if (sizeRange && sizeVal) {
-      sizeRange.addEventListener('input', () => {
-        sizeVal.textContent = sizeRange.value + 'px';
-        state.cosmetics.fabricSize = parseInt(sizeRange.value, 10);
-        globalThis.applyCosmetics();
-      });
-      sizeRange.addEventListener('change', () => _save());
-    }
-    if (opacityRange && opacityVal) {
-      opacityRange.addEventListener('input', () => {
-        opacityVal.textContent = opacityRange.value + '%';
-        state.cosmetics.fabricOpacity = parseInt(opacityRange.value, 10);
-        globalThis.applyCosmetics();
-      });
-      opacityRange.addEventListener('change', () => _save());
-    }
-  }
-
-  // ── patch handlers ──
-  container.querySelectorAll('.cosm-patch-card').forEach(el => {
-    el.addEventListener('click', () => {
-      const pid     = parseInt(el.dataset.patchPid, 10);
-      const patches = [...(state.cosmetics.activePatches || [])];
-      const idx     = patches.indexOf(pid);
-      if (idx >= 0) {
-        patches.splice(idx, 1);
-        _notify('📌 Pin retiré', 'success');
-      } else {
-        if (patches.length >= 3) { _notify('Maximum 3 pins actifs.', 'error'); return; }
-        patches.push(pid);
-        _notify(`📌 Pin "${_patchLabel[pid] || pid}" activé !`, 'gold');
-      }
-      state.cosmetics.activePatches = patches;
-      _save();
-      _patchPinCards(container, patches);
-    });
-  });
-
-  // ── ball skin handlers ──
-  container.querySelectorAll('[data-gang-set-ball]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      state.activeBall = btn.dataset.gangSetBall;
-      _save();
-      renderAppearancePanel(container);
-    });
-  });
-  container.querySelectorAll('[data-gang-buy-skin]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const item = (globalThis.SHOP_ITEMS || [])[parseInt(btn.dataset.gangBuySkin)];
-      if (!item || btn.disabled) return;
-      globalThis.buyItem?.(item);
-      _topBar();
-      renderAppearancePanel(container);
-    });
-  });
-}
-
 // ── Services HTML builder ─────────────────────────────────────────────────────
 function _buildServicesHtml(state) {
   const parts = [];
@@ -722,46 +274,11 @@ function _doRenderGangTab() {
 
   // Sauvegarder les positions de scroll avant reconstruction
   const _savedTabScroll  = tab.scrollTop;
-  const _savedCosmScroll = tab.querySelector('#gangAppearanceContainer')?.scrollTop ?? 0;
 
   const state      = globalThis.state;
   const g          = state.gang;
   const activeSlot = g.activeBossTeamSlot || 0;
   const teamPks    = (g.bossTeam || []).map(id => state.pokemons.find(p => p.id === id)).filter(Boolean);
-
-  // ── Badge "!" — nouveau fond débloqué depuis la dernière visite du panneau ──
-  const _bgUnlockedCount = (state.cosmetics?.unlockedBgs || []).length;
-  const _hasNewBg        = _bgUnlockedCount > (state.cosmetics?.bgsSeenCount ?? 0);
-  if (_hasNewBg && !_gangCollapsed.appearance) {
-    // Panneau déjà déplié : le joueur le voit tout de suite, marquer vu pour la prochaine fois
-    state.cosmetics.bgsSeenCount = _bgUnlockedCount;
-    _save();
-  }
-
-  // Vitrine
-  const showcaseArr = [...(g.showcase || [])];
-  while (showcaseArr.length < SHOWCASE_SLOTS) showcaseArr.push(null);
-  const showcaseHtml = showcaseArr.slice(0, SHOWCASE_SLOTS).map((pkId, i) => {
-    const pk = pkId ? state.pokemons.find(p => p.id === pkId) : null;
-    if (pk) {
-      const evos    = globalThis.EVO_BY_SPECIES?.[pk.species_en];
-      const evoHint = evos?.length > 0 ? `<button class="gang-evo-hint" data-pk-id="${pk.id}" title="Voir évolution">❓</button>` : '';
-      return `<div class="gang-showcase-slot filled" data-showcase-idx="${i}">
-        <img src="${globalThis.pokeSprite(pk.species_en, pk.shiny)}" style="width:48px;height:48px;image-rendering:pixelated;${pk.shiny ? 'filter:drop-shadow(0 0 4px var(--gold))' : ''}">
-        <div style="font-size:7px;margin-top:2px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%">${globalThis.pokemonDisplayName(pk)}${pk.shiny ? ' ✨' : ''}</div>
-        <div class="gang-slot-lv" style="font-size:7px;color:var(--text-dim)">Lv.${pk.level} ${'★'.repeat(pk.potential)}</div>
-        <div style="display:flex;gap:3px;margin-top:3px;align-items:center;justify-content:center">
-          ${evoHint}
-          <button class="gang-showcase-remove" data-idx="${i}" style="font-size:7px;padding:1px 4px;background:var(--bg);border:1px solid var(--red);border-radius:2px;color:var(--red);cursor:pointer">✕</button>
-        </div>
-      </div>`;
-    }
-    return `<div class="gang-showcase-slot empty" data-showcase-idx="${i}">
-      <div style="font-size:16px;opacity:.3">🏆</div>
-      <div style="font-size:7px;color:var(--text-dim);margin-top:3px">Slot ${i+1}</div>
-      <button class="gang-showcase-add" data-idx="${i}" style="margin-top:5px;font-size:7px;padding:2px 5px;background:var(--bg);border:1px solid var(--border-light);border-radius:2px;color:var(--text-dim);cursor:pointer">+</button>
-    </div>`;
-  }).join('');
 
   // Boss team tabs
   const SLOT_COSTS = [0, 500_000, 1_000_000];
@@ -837,10 +354,6 @@ function _doRenderGangTab() {
           <button id="btnEditBoss"   style="font-family:var(--font-pixel);font-size:7px;padding:5px 8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">✏ Modifier</button>
         </div>
       </div>
-      <div style="border-top:1px solid var(--border);padding:10px 14px">
-        <div style="font-family:var(--font-pixel);font-size:7px;color:var(--gold-dim);letter-spacing:1px;margin-bottom:7px">— VITRINE —</div>
-        <div class="gang-showcase-row">${showcaseHtml}</div>
-      </div>
       <div style="border-top:1px solid var(--border);padding:10px 14px 14px">
         <div style="font-family:var(--font-pixel);font-size:7px;color:var(--gold-dim);letter-spacing:1px;margin-bottom:6px">— ÉQUIPE BOSS —</div>
         <div style="display:flex;gap:0;margin-bottom:-1px">${teamTabsHtml}</div>
@@ -857,19 +370,13 @@ function _doRenderGangTab() {
       <div style="padding:0 2px 8px;display:flex;flex-direction:column;gap:8px">${_buildServicesHtml(state)}</div>
     </div>
 
-    <div class="gang-section-label gang-collapsible-header" data-section="music" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none">
-      <span>— MUSIQUE —</span><span class="gang-collapse-arrow" style="font-size:9px;color:var(--text-dim)">${_gangCollapsed.music ? '▶' : '▼'}</span>
-    </div>
-    <div class="gang-collapsible-body" data-section-body="music" style="${_gangCollapsed.music ? 'display:none' : ''}">
-      <div id="gangMusicContainer" style="padding:0 2px 8px"></div>
-    </div>
-
-    <div class="gang-section-label gang-collapsible-header" data-section="appearance" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none">
-      <span>— APPARENCE —${_hasNewBg ? ' <span class="gang-new-bg-badge" style="color:var(--red);font-family:var(--font-pixel)" title="Nouveau fond débloqué">!</span>' : ''}</span><span class="gang-collapse-arrow" style="font-size:9px;color:var(--text-dim)">${_gangCollapsed.appearance ? '▶' : '▼'}</span>
-    </div>
-    <div class="gang-collapsible-body" data-section-body="appearance" style="${_gangCollapsed.appearance ? 'display:none' : ''}">
-      <div id="gangAppearanceContainer" style="padding:0 2px 8px"></div>
-    </div>
+    <a href="/gang/" id="btnOpenGangCustomization" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:4px;padding:14px;background:var(--bg-card);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);text-decoration:none;cursor:pointer">
+      <div>
+        <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold)">🎨 Personnalisation</div>
+        <div style="font-size:9px;color:var(--text-dim);margin-top:3px">Musique, apparence, titre, vitrine — pokegang.sterenna.fr/gang</div>
+      </div>
+      <span style="font-family:var(--font-pixel);font-size:12px;color:var(--gold-dim)">→</span>
+    </a>
 
     <div style="margin-top:16px;text-align:center;font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);letter-spacing:1px;opacity:.5">${globalThis.GAME_VERSION || ''}</div>
   </div>`;
@@ -886,12 +393,6 @@ function _doRenderGangTab() {
       const arrow = header.querySelector('.gang-collapse-arrow');
       if (body)  body.style.display  = _gangCollapsed[section] ? 'none' : '';
       if (arrow) arrow.textContent   = _gangCollapsed[section] ? '▶' : '▼';
-      // Ouverture du panneau Apparence : marquer les fonds vus, retirer le badge "!"
-      if (section === 'appearance' && !_gangCollapsed.appearance) {
-        state.cosmetics.bgsSeenCount = (state.cosmetics.unlockedBgs || []).length;
-        _save();
-        header.querySelector('.gang-new-bg-badge')?.remove();
-      }
     });
   });
 
@@ -1047,36 +548,6 @@ function _doRenderGangTab() {
     });
   });
 
-  // Showcase
-  tab.querySelectorAll('.gang-showcase-add').forEach(btn => {
-    btn.addEventListener('click', () => globalThis.openShowcasePicker?.(parseInt(btn.dataset.idx)));
-  });
-  tab.querySelectorAll('.gang-showcase-slot.filled').forEach(el => {
-    el.addEventListener('click', e => {
-      if (e.target.classList.contains('gang-showcase-remove') || e.target.classList.contains('gang-evo-hint')) return;
-      globalThis.openShowcasePicker?.(parseInt(el.dataset.showcaseIdx));
-    });
-  });
-  tab.querySelectorAll('.gang-showcase-remove').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      const idx = parseInt(btn.dataset.idx);
-      const st  = globalThis.state;
-      while (st.gang.showcase.length < SHOWCASE_SLOTS) st.gang.showcase.push(null);
-      st.gang.showcase[idx] = null;
-      _save(); renderGangTab();
-    });
-  });
-
-  // Evo hint
-  tab.querySelectorAll('.gang-evo-hint').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      const pk = globalThis.state.pokemons.find(p => p.id === btn.dataset.pkId);
-      if (pk) globalThis.showEvoPreviewModal?.(pk);
-    });
-  });
-
   // Boss team slots
   tab.querySelectorAll('.gang-team-slot').forEach(el => {
     el.addEventListener('click', () => {
@@ -1092,37 +563,21 @@ function _doRenderGangTab() {
     });
   });
 
-  // Populate sub-panels
-  const musicEl = tab.querySelector('#gangMusicContainer');
-  if (musicEl) renderMusicPanel(musicEl);
-  const appearanceEl = tab.querySelector('#gangAppearanceContainer');
-  if (appearanceEl) {
-    renderAppearancePanel(appearanceEl);
-    // Restaurer le scroll du carousel apparence après reconstruction
-    if (_savedCosmScroll) appearanceEl.scrollTop = _savedCosmScroll;
-  }
 }
 
 // ── Patch ciblé des valeurs dynamiques ────────────────────────────
 // Pendant l'activité background (agents qui combattent/capturent), seuls les
-// chiffres bougent : stats, argent/rep du header, niveaux vitrine/équipe.
+// chiffres bougent : stats, argent/rep du header, niveaux équipe.
 // On met à jour ces nœuds en place au lieu de reconstruire les ~1100 lignes de
 // HTML du tab à chaque rafale d'events. Le rebuild complet reste réservé aux
-// changements structurels : composition vitrine/équipe modifiée (vente d'un
-// Pokémon exposé), nouveau fond débloqué (badge "!" à faire apparaître) —
-// détectés ici et déroutés vers renderGangTab().
+// changements structurels : composition d'équipe modifiée (vente d'un Pokémon
+// exposé) — détecté ici et dérouté vers renderGangTab().
 function _patchGangTabDynamic() {
   if (globalThis.activeTab !== 'tabGang') return;
   const tab = document.getElementById('tabGang');
   if (!tab) return;
   const state = globalThis.state;
   const g     = state.gang;
-
-  // Nouveau fond débloqué pendant qu'on est sur le tab : la pleine passe de
-  // render gère les deux cas (badge si replié, marquer vu si déplié). Rare
-  // (une fois par espèce), le coût du rebuild est acceptable.
-  const _hasNewBg = (state.cosmetics?.unlockedBgs || []).length > (state.cosmetics?.bgsSeenCount ?? 0);
-  if (_hasNewBg && !tab.querySelector('.gang-new-bg-badge')) { renderGangTab(); return; }
 
   const statsRow = tab.querySelector('.gang-stats-row');
   if (!statsRow) { renderGangTab(); return; } // structure inattendue → rebuild
@@ -1137,19 +592,9 @@ function _patchGangTabDynamic() {
   const repFill = tab.querySelector('#gangRepBarFill');
   if (repFill) repFill.style.width = `${Math.min(100, g.reputation)}%`;
 
-  // Vitrine + équipe boss : niveaux (XP passif/combats). Si la composition a
-  // changé sous nos pieds (slot rempli↔vide), c'est structurel → rebuild.
+  // Équipe boss : niveaux (XP passif/combats). Si la composition a changé
+  // sous nos pieds (slot rempli↔vide), c'est structurel → rebuild.
   let structural = false;
-  const showcaseArr = [...(g.showcase || [])];
-  tab.querySelectorAll('.gang-showcase-slot[data-showcase-idx]').forEach(el => {
-    const i  = parseInt(el.dataset.showcaseIdx, 10);
-    const pk = showcaseArr[i] ? state.pokemons.find(p => p.id === showcaseArr[i]) : null;
-    if (!!pk !== el.classList.contains('filled')) { structural = true; return; }
-    if (pk) {
-      const lv = el.querySelector('.gang-slot-lv');
-      if (lv) lv.textContent = `Lv.${pk.level} ${'★'.repeat(pk.potential)}`;
-    }
-  });
   const teamPks = (g.bossTeam || []).map(id => state.pokemons.find(p => p.id === id)).filter(Boolean);
   tab.querySelectorAll('.gang-team-slot[data-boss-slot]').forEach(el => {
     const i  = parseInt(el.dataset.bossSlot, 10);
