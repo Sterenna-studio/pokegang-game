@@ -165,67 +165,6 @@ function _buildServicesHtml(state) {
   return parts.join('');
 }
 
-// ── Targeted DOM patch helpers (avoid full re-render on every click) ──────────
-
-function _patchActiveBg(container, newKey) {
-  container.querySelectorAll('.cosm-card:not(.cosm-fabric-card)').forEach(el => {
-    const k = el.dataset.cosm;
-    const isAct = (newKey === null && k === 'none') || k === newKey;
-    el.classList.toggle('cosm-active', isAct);
-    el.style.borderColor = isAct ? 'var(--gold)' : (el.dataset.owned === '1' ? 'var(--green)' : 'var(--border)');
-    const sub = el.querySelector('[data-cosm-sub]');
-    if (sub) sub.style.color = isAct ? 'var(--gold)' : (el.dataset.owned === '1' ? 'var(--green)' : 'var(--text-dim)');
-  });
-}
-
-function _patchActiveFabric(container, newKey) {
-  container.querySelectorAll('.cosm-fabric-card').forEach(el => {
-    const k = el.dataset.cosm;
-    const isAct = k === newKey;
-    el.classList.toggle('cosm-active', isAct);
-    el.style.borderColor = isAct ? 'var(--gold)' : (el.dataset.owned === '1' ? 'var(--green)' : 'var(--border)');
-  });
-}
-
-function _patchFabricSettings(container, cosmetics) {
-  const settings = container.querySelector('#fabricSettings');
-  if (!settings) return;
-  const mode = cosmetics.fabricMode || 'repeat';
-  settings.querySelectorAll('.fabric-mode-btn').forEach(btn => {
-    const act = btn.dataset.mode === mode;
-    btn.style.borderColor = act ? 'var(--gold)' : 'var(--border)';
-    btn.style.background  = act ? 'rgba(255,200,0,0.10)' : 'var(--bg)';
-    btn.style.color       = act ? 'var(--gold)' : 'var(--text-dim)';
-  });
-  const sizeRange = settings.querySelector('#fabricSizeRange');
-  if (sizeRange) {
-    const sizeWrap = sizeRange.closest('div');
-    if (sizeWrap) sizeWrap.style.opacity = mode === 'repeat' ? '1' : '0.35';
-    sizeRange.style.pointerEvents = mode === 'repeat' ? '' : 'none';
-  }
-}
-
-function _patchPinCards(container, activePatches) {
-  container.querySelectorAll('.cosm-patch-card').forEach(el => {
-    const pid = parseInt(el.dataset.patchPid, 10);
-    const isAct = activePatches.includes(pid);
-    el.style.borderColor = isAct ? 'var(--gold)' : 'var(--border)';
-    el.style.background  = isAct ? 'rgba(255,200,0,0.08)' : 'var(--bg-card)';
-    const labels = el.querySelectorAll('div');
-    if (labels.length) labels[labels.length - 1].style.color = isAct ? 'var(--gold)' : 'var(--text-dim)';
-    let onTag = el.querySelector('.cosm-on-tag');
-    if (isAct && !onTag) {
-      onTag = document.createElement('div');
-      onTag.className = 'cosm-on-tag';
-      onTag.style.cssText = 'font-size:7px;color:var(--gold)';
-      onTag.textContent = '[ ON ]';
-      el.appendChild(onTag);
-    } else if (!isAct && onTag) {
-      onTag.remove();
-    }
-  });
-}
-
 // ── Main Gang tab ─────────────────────────────────────────────────────────────
 function renderGangTab() {
   if (_gangTabLocked) { _gangTabPendingRender = true; return; }
