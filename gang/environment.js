@@ -8,26 +8,47 @@
 //  v1 volontairement simple (explicitement "test") : pas de canvas,
 //  pas de pathfinding — juste des sprites positionnés en absolu dont
 //  la position cible change périodiquement via une transition CSS.
+//  Les résidents (vitrine + équipe boss) évitent de se superposer et
+//  peuvent occasionnellement se rencontrer (mini-interaction ami/
+//  ennemi) quand ils passent près l'un de l'autre.
 //
-//  Dépendances globalThis : state, saveState, pokeSprite, trainerSprite,
-//    COSMETIC_BGS, fabricBgUrl, SHOWCASE_SLOTS
+//  Dépendances globalThis : state, saveState, notify, pokeSprite,
+//    pokemonDisplayName, trainerSprite, COSMETIC_BGS, fabricBgUrl
 // ════════════════════════════════════════════════════════════════
 
-const CAMEO_MIN_DELAY_MS = 45_000;
-const CAMEO_MAX_DELAY_MS = 90_000;
-const CAMEO_SPAWN_CHANCE = 0.5;
-const WANDER_MIN_PAUSE_MS = 1500;
-const WANDER_MAX_PAUSE_MS = 4500;
-const WANDER_PX_PER_SEC   = 40;
+const CAMEO_MIN_DELAY_MS   = 45_000;
+const CAMEO_MAX_DELAY_MS   = 90_000;
+const CAMEO_SPAWN_CHANCE   = 0.5;
+const CAMEO_SPEED_PX_PER_S = 45;
 
-let _timers = [];        // tous les setTimeout actifs — nettoyés par stopEnvironmentZone()
-let _zoneEl  = null;
+// Déplacement des résidents — plage large de vitesse/pause pour que ça ne
+// soit pas un métronome (certains hops sont des petits dashes rapides,
+// d'autres des ambles lentes avec une longue pause).
+const WANDER_MIN_PAUSE_MS = 600;
+const WANDER_MAX_PAUSE_MS = 5500;
+const WANDER_SPEED_MIN    = 26; // px/s
+const WANDER_SPEED_MAX    = 70; // px/s
+
+// Anti-superposition + rencontres
+const MIN_SPRITE_DIST      = 46; // px — distance mini visée entre deux résidents
+const TARGET_RETRY_COUNT   = 5;
+const SEEK_OTHER_CHANCE    = 0.35; // chance de viser près d'un autre résident plutôt qu'une case libre — accélère les rencontres
+const INTERACTION_DIST_PX  = 44;
+const INTERACTION_DURATION_MS = 2000;
+const INTERACTION_COOLDOWN_MS = 20_000; // avant de pouvoir réinteragir avec le même partenaire
+const PROXIMITY_SCAN_MS    = 1200;
+const FRIEND_CHANCE        = 0.6;
+
+let _timers    = [];   // tous les setTimeout actifs — nettoyés par stopEnvironmentZone()
+let _residents = [];   // { el, x, y, w, h, interacting, lastPartner, lastInteractionAt, timer }
+let _zoneEl    = null;
 
 function _track(id) { _timers.push(id); return id; }
 
 export function stopEnvironmentZone() {
   _timers.forEach(clearTimeout);
   _timers = [];
+  _residents = [];
   _zoneEl = null;
 }
 
@@ -118,46 +139,149 @@ function _openZoneBgPicker(viewportEl) {
   modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
 }
 
-// ── Déplacement — wander périodique simple ───────────────────────────────
+// ── Déplacement des résidents ─────────────────────────────────────────────
 function _flip(el, movingLeft) {
   el.style.transform = movingLeft ? 'scaleX(-1)' : 'scaleX(1)';
 }
 
-function _wanderStep(el, bounds) {
-  if (!el.isConnected) return; // sprite retiré (changement de panneau) — arrêter la chaîne
-  const curX = parseFloat(el.style.left) || 0;
-  const maxX = Math.max(0, bounds.width - el.offsetWidth);
-  const maxY = Math.max(0, bounds.groundHeight - el.offsetHeight);
-  const targetX = Math.random() * maxX;
-  const targetY = bounds.groundTop + Math.random() * maxY;
-  const dist = Math.abs(targetX - curX);
-  const duration = Math.max(1.2, dist / WANDER_PX_PER_SEC);
+function _dist(ax, ay, bx, by) {
+  return Math.hypot(ax - bx, ay - by);
+}
 
-  _flip(el, targetX < curX);
-  el.style.transition = `left ${duration}s ease-in-out, top ${duration}s ease-in-out`;
-  el.style.left = `${targetX}px`;
-  el.style.top = `${targetY}px`;
+// Choisit une position cible : le plus souvent une case libre (en évitant
+// les autres résidents), mais parfois volontairement proche d'un autre
+// résident, pour que les rencontres arrivent par elles-mêmes plutôt que de
+// compter uniquement sur le hasard du wander libre.
+function _pickTarget(entry, bounds) {
+  const maxX = Math.max(0, bounds.width - entry.w);
+  const maxY = Math.max(0, bounds.groundHeight - entry.h);
+  const others = _residents.filter(r => r !== entry);
 
-  _track(setTimeout(() => {
-    if (!el.isConnected) return;
+  if (others.length > 0 && Math.random() < SEEK_OTHER_CHANCE) {
+    const target = others[Math.floor(Math.random() * others.length)];
+    const angle = Math.random() * Math.PI * 2;
+    const approachDist = MIN_SPRITE_DIST + Math.random() * 20;
+    const x = Math.min(maxX, Math.max(0, target.x + Math.cos(angle) * approachDist));
+    const y = Math.min(bounds.groundTop + maxY, Math.max(bounds.groundTop, target.y + Math.sin(angle) * approachDist));
+    return { x, y };
+  }
+
+  let best = null;
+  for (let i = 0; i < TARGET_RETRY_COUNT; i++) {
+    const x = Math.random() * maxX;
+    const y = bounds.groundTop + Math.random() * maxY;
+    const tooClose = others.some(o => _dist(x, y, o.x, o.y) < MIN_SPRITE_DIST);
+    if (!tooClose) return { x, y };
+    best = { x, y };
+  }
+  // Aucun essai n'est totalement libre — mieux vaut un léger chevauchement
+  // occasionnel qu'un sprite bloqué indéfiniment sans jamais rebouger.
+  return best || { x: Math.random() * maxX, y: bounds.groundTop + Math.random() * maxY };
+}
+
+function _wanderStep(entry, bounds) {
+  if (!entry.el.isConnected) return;
+  if (entry.interacting) return; // reprise explicite par _endInteraction
+
+  const { x: targetX, y: targetY } = _pickTarget(entry, bounds);
+  const dist  = _dist(entry.x, entry.y, targetX, targetY);
+  const speed = WANDER_SPEED_MIN + Math.random() * (WANDER_SPEED_MAX - WANDER_SPEED_MIN);
+  const duration = Math.max(0.5, dist / speed);
+
+  entry.el.classList.remove('idle');
+  _flip(entry.el, targetX < entry.x);
+  entry.el.style.transition = `left ${duration}s ease-in-out, top ${duration}s ease-in-out`;
+  entry.el.style.left = `${targetX}px`;
+  entry.el.style.top  = `${targetY}px`;
+  entry.x = targetX;
+  entry.y = targetY;
+
+  entry.timer = _track(setTimeout(() => {
+    if (!entry.el.isConnected) return;
+    entry.el.classList.add('idle');
     const pause = WANDER_MIN_PAUSE_MS + Math.random() * (WANDER_MAX_PAUSE_MS - WANDER_MIN_PAUSE_MS);
-    _track(setTimeout(() => _wanderStep(el, bounds), pause));
+    entry.timer = _track(setTimeout(() => _wanderStep(entry, bounds), pause));
   }, duration * 1000));
 }
 
 function _spawnResident(viewportEl, imgUrl, label, bounds) {
   const el = document.createElement('div');
-  el.className = 'gang-env-sprite';
+  el.className = 'gang-env-sprite idle';
   el.title = label || '';
   el.innerHTML = `<img src="${imgUrl}" alt="">`;
-  el.style.left = `${Math.random() * Math.max(0, bounds.width - 48)}px`;
-  el.style.top  = `${bounds.groundTop + Math.random() * bounds.groundHeight}px`;
+  const x = Math.random() * Math.max(0, bounds.width - 48);
+  const y = bounds.groundTop + Math.random() * bounds.groundHeight;
+  el.style.left = `${x}px`;
+  el.style.top  = `${y}px`;
   viewportEl.appendChild(el);
-  _track(setTimeout(() => _wanderStep(el, bounds), 200 + Math.random() * 2000));
-  return el;
+
+  const entry = { el, x, y, w: 48, h: 48, interacting: false, lastPartner: null, lastInteractionAt: 0, timer: null };
+  _residents.push(entry);
+  entry.timer = _track(setTimeout(() => _wanderStep(entry, bounds), 200 + Math.random() * 2000));
+  return entry;
+}
+
+// ── Mini-interactions — deux résidents qui se croisent deviennent
+//    brièvement amis (💕) ou ennemis (💢), se tournent l'un vers l'autre,
+//    puis reprennent chacun leur route ────────────────────────────────────
+function _showInteractionBadge(viewportEl, entryA, entryB, isFriend) {
+  const midX = (entryA.x + entryB.x) / 2 + 24;
+  const midY = Math.min(entryA.y, entryB.y) - 8;
+  const badge = document.createElement('div');
+  badge.className = `gang-env-interact ${isFriend ? 'friend' : 'enemy'}`;
+  badge.textContent = isFriend ? '💕' : '💢';
+  badge.style.left = `${midX}px`;
+  badge.style.top  = `${midY}px`;
+  viewportEl.appendChild(badge);
+  _track(setTimeout(() => badge.remove(), INTERACTION_DURATION_MS + 300));
+}
+
+function _endInteraction(entry, bounds) {
+  entry.interacting = false;
+  entry.lastInteractionAt = Date.now();
+  const pause = 300 + Math.random() * 800;
+  entry.timer = _track(setTimeout(() => _wanderStep(entry, bounds), pause));
+}
+
+function _triggerInteraction(viewportEl, entryA, entryB, bounds) {
+  if (entryA.interacting || entryB.interacting) return;
+  const now = Date.now();
+  if (entryA.lastPartner === entryB && now - entryA.lastInteractionAt < INTERACTION_COOLDOWN_MS) return;
+
+  [entryA, entryB].forEach(e => { clearTimeout(e.timer); e.interacting = true; e.el.classList.add('idle'); });
+  entryA.lastPartner = entryB;
+  entryB.lastPartner = entryA;
+
+  // Se tourner l'un vers l'autre pour "se faire face"
+  _flip(entryA.el, entryA.x > entryB.x);
+  _flip(entryB.el, entryB.x > entryA.x);
+
+  _showInteractionBadge(viewportEl, entryA, entryB, Math.random() < FRIEND_CHANCE);
+
+  _track(setTimeout(() => {
+    _endInteraction(entryA, bounds);
+    _endInteraction(entryB, bounds);
+  }, INTERACTION_DURATION_MS));
+}
+
+function _scheduleProximityScan(viewportEl, bounds) {
+  _track(setTimeout(() => {
+    if (!viewportEl.isConnected) return;
+    for (let i = 0; i < _residents.length; i++) {
+      for (let j = i + 1; j < _residents.length; j++) {
+        const a = _residents[i], b = _residents[j];
+        if (a.interacting || b.interacting) continue;
+        if (_dist(a.x, a.y, b.x, b.y) < INTERACTION_DIST_PX) {
+          _triggerInteraction(viewportEl, a, b, bounds);
+        }
+      }
+    }
+    _scheduleProximityScan(viewportEl, bounds);
+  }, PROXIMITY_SCAN_MS));
 }
 
 // ── Cameo — agent ou pokémon favori qui traverse une fois puis disparaît ──
+// (hors du système résident/collision — passage rapide et ponctuel)
 function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl) {
   const el = document.createElement('div');
   el.className = 'gang-env-sprite gang-env-cameo';
@@ -173,7 +297,7 @@ function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl) {
   viewportEl.appendChild(el);
 
   requestAnimationFrame(() => {
-    const duration = Math.max(4, bounds.width / WANDER_PX_PER_SEC);
+    const duration = Math.max(4, bounds.width / CAMEO_SPEED_PX_PER_S);
     el.style.transition = `left ${duration}s linear`;
     el.style.left = `${endX}px`;
     _track(setTimeout(() => el.remove(), duration * 1000 + 200));
@@ -250,6 +374,8 @@ export function renderEnvironmentZone(rootContainer) {
     empty.className = 'gang-env-empty-hint';
     empty.textContent = 'Ajoutez des Pokémon à la vitrine pour les voir se balader ici.';
     viewportEl.appendChild(empty);
+  } else {
+    _scheduleProximityScan(viewportEl, bounds);
   }
 
   _scheduleCameos(viewportEl, bounds);

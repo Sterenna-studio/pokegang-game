@@ -216,6 +216,33 @@
   image-rendering: pixelated;
   filter: drop-shadow(0 4px 3px rgba(0,0,0,.4));
 }
+/* Léger bob vertical pendant la pause entre deux déplacements — appliqué à
+   l'<img> interne (pas au conteneur, qui porte le flip scaleX en inline
+   style depuis le JS : les deux transforms restent indépendants). */
+.gang-env-sprite.idle img {
+  animation: gang-env-bob 2.4s ease-in-out infinite;
+}
+@keyframes gang-env-bob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-3px); }
+}
+
+/* Badge de mini-interaction (ami 💕 / ennemi 💢) entre deux résidents */
+.gang-env-interact {
+  position: absolute;
+  font-size: 20px;
+  pointer-events: none;
+  z-index: 4;
+  animation: gang-env-pop 2.3s ease forwards;
+}
+@keyframes gang-env-pop {
+  0%   { opacity: 0; transform: translateY(6px) scale(.4); }
+  15%  { opacity: 1; transform: translateY(0) scale(1.15); }
+  25%  { transform: translateY(0) scale(1); }
+  80%  { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-8px) scale(.8); }
+}
+
 .gang-env-cameo { width: 44px; height: 44px; opacity: .96; }
 .gang-env-cameo-follow {
   position: absolute;
