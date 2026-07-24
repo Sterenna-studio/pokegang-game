@@ -17,6 +17,12 @@ const BOOST_DURATIONS = {
 // que le nettoyage n'arrive jamais avant la fin de l'animation.
 const AUTO_COMBAT_VISUAL_MS = 1350;
 
+// ── Prison agent (ex-"repos") ────────────────────────────────
+// Durée de la prison forcée après une défaite à 0 énergie ; rachetable en
+// pokédollars via getAgentBailCost() (modules/systems/agent.js), coût
+// proportionnel au niveau de l'agent.
+const AGENT_PRISON_MS = 60 * 60 * 1000; // 1h
+
 // ── Ball assist (early-game helper) ──────────────────────────
 const BALL_ASSIST_MIN_BALLS    = 10;            // seuil : déclenche l'assist sous ce nombre
 const BALL_ASSIST_DURATION_MS  = 2 * 60 * 1000; // 2 minutes

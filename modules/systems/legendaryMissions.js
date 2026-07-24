@@ -177,7 +177,7 @@ function _onCombatWon({ zoneId } = {}) {
     // Drop Sigle Magma (1,5 % dans toutes zones Magma pendant la quête active)
     if (_MAGMA_ZONES.has(zoneId) && Math.random() < 0.015) {
       s.inventory.sigle_magma = (s.inventory.sigle_magma || 0) + 1;
-      _notify('🔴 Sigle Magma récupéré ! (relance combat Groudon)', '');
+      _notify('🔴 Sigle Magma récupéré ! (relance combat Groudon)', 'gold');
       dirty = true;
     }
   }
@@ -204,7 +204,7 @@ function _onCombatWon({ zoneId } = {}) {
     // Drop Sceau Aqua (1,5 %)
     if (_AQUA_ZONES.has(zoneId) && Math.random() < 0.015) {
       s.inventory.sceau_aqua = (s.inventory.sceau_aqua || 0) + 1;
-      _notify('🔵 Sceau Aqua récupéré ! (relance combat Kyogre)', '');
+      _notify('🔵 Sceau Aqua récupéré ! (relance combat Kyogre)', 'gold');
       dirty = true;
     }
   }
@@ -222,13 +222,21 @@ function _injectStyles() {
   style.id = 'lgm-styles';
   style.textContent = `
     #lgm-overlay {
-      position:fixed; inset:0; z-index:9050;
+      position:fixed; inset:0; z-index:9100;
       display:flex; flex-direction:column;
       align-items:center; justify-content:center;
       padding:18px 14px; overflow-y:auto;
       animation:lgm-fadein .45s ease both;
       user-select:none;
     }
+    .lgm-close-btn {
+      position:fixed; top:14px; right:18px;
+      font-family:var(--font-pixel,monospace); font-size:8px;
+      color:rgba(180,180,180,.5); cursor:pointer; z-index:9200;
+      padding:4px 8px; letter-spacing:1px;
+      transition:color .15s;
+    }
+    .lgm-close-btn:hover { color:#eee; }
     @keyframes lgm-fadein  { from{opacity:0} to{opacity:1} }
     @keyframes lgm-fadeout { from{opacity:1} to{opacity:0} }
     @keyframes lgm-pulse   { 0%,100%{opacity:.3;transform:scale(1)} 50%{opacity:1;transform:scale(1.1)} }
@@ -425,6 +433,8 @@ function _setTheme(questId) {
   _overlay.style.setProperty('--lgm-step-active',     t.stepActiveBorder);
 }
 
+let _closeBtnEl = null;
+
 function _buildOverlay(questId) {
   _injectStyles();
   const el = document.createElement('div');
@@ -432,15 +442,35 @@ function _buildOverlay(questId) {
   document.body.appendChild(el);
   _overlay = el;
   _setTheme(questId ?? null);
+
+  // Bouton fermer fixe (survit aux rebuilds internes via _clearOv, contrairement
+  // à un bouton placé dans le contenu du tracker — même patron que Johto/Kanto).
+  const closeBtn = document.createElement('span');
+  closeBtn.className = 'lgm-close-btn';
+  closeBtn.textContent = '✕ FERMER';
+  closeBtn.onclick = () => _closeOv();
+  document.body.appendChild(closeBtn);
+  _closeBtnEl = closeBtn;
+
   return el;
 }
 
 function _clearOv()   { if (_overlay) _overlay.innerHTML = ''; }
 function _closeOv(ms = 380) {
   if (!_overlay) return;
-  _overlay.style.transition = `opacity ${ms}ms ease`;
-  _overlay.style.opacity = '0';
-  setTimeout(() => { _overlay?.remove(); _overlay = null; }, ms);
+  const el = _overlay;
+  el.style.transition = `opacity ${ms}ms ease`;
+  el.style.opacity = '0';
+  _closeBtnEl?.remove();
+  _closeBtnEl = null;
+  // _overlay est nullifié tout de suite (pas seulement à la fin du fondu) —
+  // les écrans suivants enchaînés via setTimeout(() => _launchX(...), 300)
+  // depuis les boutons "Suite/Réessayer" dépendent de _overlay === null pour
+  // passer leur propre garde d'entrée ; le nullifier après coup créait une
+  // course perdue (300ms < ce délai de fondu) qui fermait tout sans rien
+  // rouvrir.
+  _overlay = null;
+  setTimeout(() => { el.remove(); }, ms);
 }
 
 function _box(questId) {
@@ -620,15 +650,14 @@ function _renderDualTracker() {
 
   _renderQuestCard(dual, 'groudon', gm, power, sigle);
   _renderQuestCard(dual, 'kyogre',  km, power, sceau);
+}
 
-  // Bouton fermer
-  const footer = document.createElement('div');
-  footer.style.cssText = 'max-width:700px;width:100%;margin-top:10px;';
-  const bClose = _btn('✕  Fermer le tracker');
-  bClose.style.cssText = 'width:100%;border-color:rgba(255,255,255,.1);color:#556;';
-  bClose.onclick = () => _closeOv();
-  footer.appendChild(bClose);
-  _overlay.appendChild(footer);
+// Minuterie de sécurité : ramène automatiquement au tracker si le joueur ne
+// clique aucun bouton (parité Johto/Kanto — jamais d'écran de résultat bloqué
+// sans issue). Tout clic explicite sur un bouton du même écran doit d'abord
+// appeler clearTimeout(timer) pour laisser son propre choix prévaloir.
+function _armAutoReturn(ms = 3500) {
+  return setTimeout(() => { _clearOv(); _renderDualTracker(); }, ms);
 }
 
 function _renderQuestCard(container, questId, q, power, rerunItem) {
@@ -879,14 +908,16 @@ async function _bossVictory(rank, questId, npcName) {
   _notify(`${cfg.theme.label} — Étape ${isAdmin ? 3 : 4} complète !`, 'gold');
 
   const ch = _choices(box);
+  const autoT = _armAutoReturn();
   const bNext = _btn(`▸  Suite →`, 'accent');
   bNext.onclick = () => {
-    _clearOv();
+    clearTimeout(autoT);
+    _closeOv();
     if (isAdmin) setTimeout(() => _launchBossFight('chief', questId), 300);
-    else { _closeOv(); setTimeout(() => _launchLegendaryFight(questId), 300); }
+    else setTimeout(() => _launchLegendaryFight(questId), 300);
   };
   const bTrack = _btn('← Tracker');
-  bTrack.onclick = () => { _clearOv(); _renderDualTracker(); };
+  bTrack.onclick = () => { clearTimeout(autoT); _clearOv(); _renderDualTracker(); };
   ch.appendChild(bNext);
   ch.appendChild(bTrack);
 }
@@ -909,10 +940,11 @@ async function _bossDefeat(rank, questId, npcName) {
   _notify(`${cfg.theme.label} — défaite contre ${npcName}.`, 'error');
 
   const ch = _choices(box);
+  const autoT = _armAutoReturn();
   const bRetry = _btn(`⚔  Retenter →`, 'accent');
-  bRetry.onclick = () => { _clearOv(); setTimeout(() => _launchBossFight(rank, questId), 300); };
+  bRetry.onclick = () => { clearTimeout(autoT); _closeOv(); setTimeout(() => _launchBossFight(rank, questId), 300); };
   const bTrack = _btn('← Tracker');
-  bTrack.onclick = () => { _clearOv(); _renderDualTracker(); };
+  bTrack.onclick = () => { clearTimeout(autoT); _clearOv(); _renderDualTracker(); };
   ch.appendChild(bRetry);
   ch.appendChild(bTrack);
 }
@@ -1032,10 +1064,11 @@ async function _legendaryResolution(questId, bosspower) {
       box.appendChild(badge);
 
       const ch = _choices(box);
+      const autoT1 = _armAutoReturn();
       const bPC = _btn(`▸  Voir ${leg.name} dans le PC →`, 'gold');
-      bPC.onclick = () => { _closeOv(); globalThis.switchTab?.('tabPC'); };
+      bPC.onclick = () => { clearTimeout(autoT1); _closeOv(); globalThis.switchTab?.('tabPC'); };
       const bTr = _btn('← Tracker');
-      bTr.onclick = () => { _clearOv(); _renderDualTracker(); };
+      bTr.onclick = () => { clearTimeout(autoT1); _clearOv(); _renderDualTracker(); };
       ch.appendChild(bPC);
       ch.appendChild(bTr);
 
@@ -1048,10 +1081,11 @@ async function _legendaryResolution(questId, bosspower) {
       _save();
 
       const ch = _choices(box);
+      const autoT2 = _armAutoReturn();
       const bRetry = _btn('▸  Réessayer', 'accent');
-      bRetry.onclick = () => { _clearOv(); setTimeout(() => _launchLegendaryFight(questId), 300); };
+      bRetry.onclick = () => { clearTimeout(autoT2); _closeOv(); setTimeout(() => _launchLegendaryFight(questId), 300); };
       const bTr = _btn('← Tracker');
-      bTr.onclick = () => { _clearOv(); _renderDualTracker(); };
+      bTr.onclick = () => { clearTimeout(autoT2); _clearOv(); _renderDualTracker(); };
       ch.appendChild(bRetry);
       ch.appendChild(bTr);
     }
@@ -1073,10 +1107,11 @@ async function _legendaryResolution(questId, bosspower) {
     box.appendChild(w);
 
     const ch = _choices(box);
+    const autoT3 = _armAutoReturn();
     const bRetry = _btn('▸  Réessayer', 'accent');
-    bRetry.onclick = () => { _clearOv(); setTimeout(() => _launchLegendaryFight(questId), 300); };
+    bRetry.onclick = () => { clearTimeout(autoT3); _closeOv(); setTimeout(() => _launchLegendaryFight(questId), 300); };
     const bTr = _btn('← Tracker');
-    bTr.onclick = () => { _clearOv(); _renderDualTracker(); };
+    bTr.onclick = () => { clearTimeout(autoT3); _clearOv(); _renderDualTracker(); };
     ch.appendChild(bRetry);
     ch.appendChild(bTr);
   }

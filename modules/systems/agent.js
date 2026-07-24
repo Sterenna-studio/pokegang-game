@@ -509,8 +509,35 @@ function _tickAgentEnergy(agent) {
     agent.resting = false;
     agent.restUntil = null;
     agent.energy = 5; // retour à 5, pas full
-    _notify(`${agent.name} est reposé et reprend du service.`, 'success');
+    _notify(`${agent.name} est sorti de prison et reprend du service.`, 'success');
   }
+}
+
+// ── Coût de rachat (bail) ────────────────────────────────────────
+// Linéaire au niveau de l'agent (1-100) : Lv.1→200₽, Lv.25→5 000₽,
+// Lv.50→10 000₽, Lv.100→20 000₽ — reste petit devant le coût de recrutement
+// d'un nouvel agent, même pour un agent haut niveau.
+function getAgentBailCost(agent) {
+  return Math.round(200 * (agent?.level || 1));
+}
+
+// Rachète immédiatement un agent en prison contre des pokédollars.
+function bailOutAgent(agentId) {
+  const state = globalThis.state;
+  const agent = state.agents.find(a => a.id === agentId);
+  if (!agent || !agent.resting) return false;
+  const cost = getAgentBailCost(agent);
+  if ((state.gang.money || 0) < cost) {
+    _notify(`Pas assez d'argent pour payer la caution (${cost.toLocaleString()}₽).`, 'error');
+    return false;
+  }
+  state.gang.money -= cost;
+  agent.resting = false;
+  agent.restUntil = null;
+  agent.energy = 5; // même valeur que la sortie naturelle — payer accélère, ne soigne pas plus
+  _notify(`${agent.name} est sorti de prison contre ${cost.toLocaleString()}₽.`, 'gold');
+  _save();
+  return true;
 }
 
 // ── Résolution background d'un spawn pour une zone fermée ────────
@@ -636,9 +663,9 @@ function resolveBackgroundSpawnForZone(zoneId) {
         mainAgent.energy = Math.max(0, (mainAgent.energy ?? 10) - energyCost);
         if (mainAgent.energy === 0) {
           mainAgent.resting = true;
-          mainAgent.restUntil = Date.now() + 60 * 60 * 1000; // 1h
-          _notify(`${mainAgent.name} est épuisé — repos 1h.`, 'error');
-          globalThis.pushFeedEvent?.({ category:'zone', title:`${mainAgent.name} KO — repos forcé`, detail:`Zone ${zoneId} · reprend à 50% d'énergie dans 1h`, win:false });
+          mainAgent.restUntil = Date.now() + AGENT_PRISON_MS;
+          _notify(`${mainAgent.name} est épuisé — en prison 1h (rachat possible).`, 'error');
+          globalThis.pushFeedEvent?.({ category:'zone', title:`${mainAgent.name} KO — en prison`, detail:`Zone ${zoneId} · rachetable, ou sort seul dans 1h à 50% d'énergie`, win:false });
         }
       }
     }
@@ -1070,9 +1097,9 @@ function agentAutoCombat(zoneId, spawnObj, agent) {
         mainAgent.energy = Math.max(0, (mainAgent.energy ?? 10) - energyCost);
         if (mainAgent.energy === 0) {
           mainAgent.resting = true;
-          mainAgent.restUntil = Date.now() + 60 * 60 * 1000; // 1h
-          _notify(`${mainAgent.name} est épuisé — repos 1h.`, 'error');
-          globalThis.pushFeedEvent?.({ category: 'zone', title: `${mainAgent.name} KO — repos forcé`, detail: `Zone ${zoneId} · reprend à 50% d'énergie dans 1h`, win: false });
+          mainAgent.restUntil = Date.now() + AGENT_PRISON_MS;
+          _notify(`${mainAgent.name} est épuisé — en prison 1h (rachat possible).`, 'error');
+          globalThis.pushFeedEvent?.({ category: 'zone', title: `${mainAgent.name} KO — en prison`, detail: `Zone ${zoneId} · rachetable, ou sort seul dans 1h à 50% d'énergie`, win: false });
         }
       }
     }
@@ -1170,6 +1197,8 @@ Object.assign(globalThis, {
   getAgentTeamSlots,
   getAgentRecruitCost,
   getAgentUnlockCost,
+  getAgentBailCost,
+  bailOutAgent,
   unlockAgent,
   rollNewAgent,
   recruitAgent,

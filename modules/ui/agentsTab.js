@@ -66,9 +66,12 @@ function renderAgentsTab() {
 // ── Fragment énergie/repos d'une carte agent ──────────────────────
 // Partagé entre le rebuild complet et le patch ciblé (_patchAgentsTabDynamic).
 function _agentEnergyRowHtml(a, agentTeamSlots) {
-  return a.resting
-    ? `<span style="font-family:var(--font-pixel);font-size:7px;color:var(--red)">💤 REPOS ${Math.max(0, Math.round(((a.restUntil || 0) - Date.now()) / 60000))}min</span>`
-    : `<div style="flex:1;height:3px;background:var(--border);border-radius:2px;overflow:hidden">
+  if (a.resting) {
+    const cost = globalThis.getAgentBailCost?.(a) ?? 0;
+    return `<span style="font-family:var(--font-pixel);font-size:7px;color:var(--red)">🔒 PRISON ${Math.max(0, Math.round(((a.restUntil || 0) - Date.now()) / 60000))}min</span>
+      <button data-bail-agent="${a.id}" style="font-size:7px;padding:2px 6px;background:var(--bg-card);border:1px solid var(--gold-dim,#665522);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer;margin-left:4px">🔓 Payer ${cost.toLocaleString()}₽</button>`;
+  }
+  return `<div style="flex:1;height:3px;background:var(--border);border-radius:2px;overflow:hidden">
          <div style="width:${Math.round((a.energy ?? 10) / (a.maxEnergy || 10) * 100)}%;height:100%;background:${(a.energy ?? 10) <= 3 ? 'var(--red)' : 'var(--green)'};border-radius:2px"></div>
        </div>
        <span style="font-size:8px;color:var(--text-dim)">${a.energy ?? 10}⚡</span>
@@ -454,15 +457,16 @@ const RANK_CAPACITY = { grunt: 0, sergent: 2, lieutenant: 3, commandant: 4, elit
 const RANK_LEVEL = { grunt: 0, sergent: 1, lieutenant: 2, commandant: 3, elite: 4, general: 5 };
 
 function renderAgentTree(container) {
+  // Alignées sur .agent-rank-* (css/game-ui.css) pour que l'arbre et les
+  // cartes agent normales n'aient jamais de couleurs divergentes.
   const RANK_COLOR = {
     grunt:      'var(--text-dim)',
-    sergent:    '#7ecfff',
-    lieutenant: '#b07cff',
-    commandant: 'var(--gold)',
-    elite:      '#ff8c5a',
-    general:    'var(--red)',
+    sergent:    '#7eb8f7',
+    lieutenant: '#6ecf8a',
+    commandant: '#f0a842',
+    elite:      'var(--gold)',
+    general:    '#e05c5c',
   };
-  const RANK_FR = { grunt:'Grunt', sergent:'Sergent', lieutenant:'Lieutenant', commandant:'Commandant', elite:'Élite', general:'Général' };
 
   // Sort agents by rank level desc
   const sorted = [...state.agents].sort((a, b) => (RANK_LEVEL[b.title] ?? 0) - (RANK_LEVEL[a.title] ?? 0));
@@ -473,9 +477,13 @@ function renderAgentTree(container) {
     (byRank[a.title] = byRank[a.title] || []).push(a);
   }
 
-  // Build level columns (boss + each rank level)
+  // Build rank tiers, du plus haut au plus bas
   const rankOrder = ['general','elite','commandant','lieutenant','sergent','grunt'];
   const usedRanks = rankOrder.filter(r => byRank[r]?.length);
+
+  const prisonBadge = (a) => a.resting
+    ? `<div style="font-size:7px;color:var(--red);margin-top:2px;font-family:var(--font-pixel)">🔒 ${Math.max(0, Math.round(((a.restUntil || 0) - Date.now()) / 60000))}min</div>`
+    : '';
 
   const agentNode = (a) => {
     const cap  = RANK_CAPACITY[a.title] || 0;
@@ -484,10 +492,11 @@ function renderAgentTree(container) {
     return `<div class="agent-tree-node" style="border-color:${col};background:var(--bg-panel)">
       <img src="${a.sprite}" style="width:32px;height:32px;image-rendering:pixelated" onerror="this.style.display='none'">
       <div>
-        <div style="font-family:var(--font-pixel);font-size:7px;color:${col}">${RANK_FR[a.title] || a.title}</div>
-        <div style="font-size:9px;margin-top:1px">${a.name}</div>
-        <div style="font-size:8px;color:var(--text-dim);margin-top:1px">Lv.${a.level} · ${zone}</div>
+        <div style="font-family:var(--font-pixel);font-size:7px;color:${col}">${_esc(getAgentRankLabel(a))}</div>
+        <div style="font-size:9px;margin-top:1px">${_esc(a.name)}</div>
+        <div style="font-size:8px;color:var(--text-dim);margin-top:1px">Lv.${a.level} · ${_esc(zone)}</div>
         ${cap > 0 ? `<div style="font-size:7px;color:var(--text-dim);margin-top:2px;font-family:var(--font-pixel)">⬇ ${cap} max</div>` : ''}
+        ${prisonBadge(a)}
       </div>
     </div>`;
   };
@@ -501,10 +510,10 @@ function renderAgentTree(container) {
     </div>
   </div>`;
 
-  const columns = [
-    { label: 'Boss', nodes: [bossNode] },
+  const tiers = [
+    { label: 'Boss', color: 'var(--gold)', nodes: [bossNode] },
     ...usedRanks.map(r => ({
-      label: RANK_FR[r] + (byRank[r].length > 1 ? ` ×${byRank[r].length}` : ''),
+      label: getAgentRankLabel({ title: r }) + (byRank[r].length > 1 ? ` ×${byRank[r].length}` : ''),
       color: RANK_COLOR[r],
       nodes: byRank[r].map(agentNode),
     })),
@@ -515,21 +524,23 @@ function renderAgentTree(container) {
     return;
   }
 
+  // Empilement vertical par palier (du plus haut grade au plus bas), façon
+  // organigramme — se lit de haut en bas sans défilement latéral, contrairement
+  // à l'ancienne disposition en colonnes.
   container.innerHTML = `
-    <div style="display:flex;gap:0;align-items:flex-start;min-width:max-content">
-      ${columns.map((col, ci) => `
-        <div style="display:flex;flex-direction:column;align-items:center;position:relative">
-          <!-- connector line to next column -->
-          ${ci < columns.length - 1 ? '<div class="agent-tree-connector"></div>' : ''}
-          <div style="font-family:var(--font-pixel);font-size:7px;color:${col.color || 'var(--gold)'};margin-bottom:8px;white-space:nowrap">${col.label}</div>
-          <div style="display:flex;flex-direction:column;gap:8px">
-            ${col.nodes.join('')}
+    <div style="display:flex;flex-direction:column;align-items:center;gap:4px;width:100%">
+      ${tiers.map((tier, ti) => `
+        ${ti > 0 ? '<div class="agent-tree-divider">▾</div>' : ''}
+        <div style="display:flex;flex-direction:column;align-items:center;gap:6px;width:100%">
+          <div style="font-family:var(--font-pixel);font-size:7px;color:${tier.color};padding:2px 10px;border:1px solid ${tier.color};border-radius:99px;white-space:nowrap">${tier.label}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;width:100%">
+            ${tier.nodes.join('')}
           </div>
         </div>
       `).join('')}
     </div>
-    <div style="margin-top:12px;font-size:8px;color:var(--text-dim);font-family:var(--font-pixel);opacity:.6">
-      ⚠ PROTO — L'assignation hiérarchique n'est pas encore implémentée.
+    <div style="margin-top:12px;font-size:8px;color:var(--text-dim);font-family:var(--font-pixel);opacity:.6;text-align:center">
+      Vue organisationnelle — l'assignation hiérarchique n'est pas encore mécanique.
     </div>`;
 }
 
@@ -578,6 +589,18 @@ let _agentsTabEventsRegistered = false;
 function _registerAgentsTabEvents() {
   if (_agentsTabEventsRegistered) return;
   _agentsTabEventsRegistered = true;
+
+  // Délégué sur le conteneur persistant : le bouton de rachat vit dans
+  // .agent-energy-row, régénérée aussi bien par le rebuild complet que par
+  // _patchAgentsTabDynamic (innerHTML ciblé) — un listener posé sur chaque
+  // bouton individuel serait perdu après un patch ciblé.
+  document.getElementById('agentsGrid')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-bail-agent]');
+    if (!btn) return;
+    globalThis.bailOutAgent?.(btn.dataset.bailAgent);
+    renderAgentsTab();
+  });
+
   const _patchIfActive = () => {
     if (globalThis.activeTab !== 'tabAgents') return;
     clearTimeout(_agentsPatchTimer);

@@ -873,9 +873,6 @@ async function _launchLegendary(key) {
       const catchRate  = Math.min(cfg.catchBase + Math.max(0, powerRatio - 1) * 0.25, 0.92);
       const caught     = Math.random() < catchRate;
 
-      // Mark as won (regardless of catch — "controlling" means neutralizing)
-      cfg.winFn();
-
       if (caught) {
         // Add Pokémon to PC
         const pk = globalThis.makePokemon?.(cfg.species, null, 'pokeball');
@@ -888,6 +885,10 @@ async function _launchLegendary(key) {
           const _legendZoneMap = { lugia: _WHIRL_ZONE, hooh: _TIN_ZONE };
           EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: pk, zoneId: _legendZoneMap[key] ?? null });
           globalThis.registerPokedexCapture?.(s, pk);
+          // Marquer la quête comme complète seulement si la capture a réellement
+          // abouti (le pokémon a bien été créé) — pas juste sur un jet de capture
+          // réussi mais un makePokemon() en échec.
+          cfg.winFn();
           // Increment totalCaptures on the right mission state
           const mMap = { beast:'betesMission', lugia:'lugiaMission', hooh:'hoohMission' };
           const mKey = mMap[key];
