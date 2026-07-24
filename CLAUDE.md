@@ -36,6 +36,12 @@ Single-page idle/management game. No framework, no reactive system. Everything i
 | `css/game-ui.css` | All component styles |
 | `css/intro.css` | Intro/onboarding screen only |
 
+### Second entry point: `gang/` (cosmetic page)
+
+`gang/index.html` is a standalone page served at `pokegang.sterenna.fr/gang/`, hosting the cosmetic panels (music, wallpapers/pins/ball skins, boss title, showcase) that used to live inside the main Gang tab. It reuses `state/store.js` to read/write the same `localStorage['pokeforge.v6']` (same origin as the main game) but **never starts the game loop** (`modules/core/tickManager.js` / `startGameLoop()` are not imported there) — this was the whole point of splitting it out, since the cosmetic UI was fighting the live tick loop for re-renders. `gang/gang-app.js` is its boot script; `gang/panels.js` holds the ported panel-render functions; `gang/environment.js` is a self-contained "vivarium" (showcase + boss team Pokémon wandering, driven by periodic CSS-transition repositioning, no animation engine). When touching cosmetic features (`state.cosmetics`, `state.gang.showcase`, `state.gang.titleA/B/C/D`), check whether `gang/panels.js` needs the same change — `modules/ui/gangTab.js` no longer renders any of this itself, only a link card pointing to `/gang/`.
+
+Because two pages can be open at once and both write the same save, `gang/gang-app.js`'s `saveState()` re-reads `localStorage` fresh right before writing and only patches the narrow set of cosmetic fields it owns, rather than writing back its full in-memory `state` — this bounds (not eliminates) the risk of clobbering unrelated progress made in the other tab.
+
 ### Script loading: two distinct contexts
 
 `index.html` loads data files as **classic `<script>` tags** before `app.js`:

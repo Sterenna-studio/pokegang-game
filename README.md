@@ -114,7 +114,7 @@ Chaque agent a 3 flags indépendants activables : **Combat · Raid · Capture**.
 ### Gang & compétition
 
 - **Boss** personnalisable : nom, sprite dresseur (200+ dresseurs disponibles), titre composé de 4 parties configurables.
-- **Vitrine** : 6 slots pour exposer tes meilleurs Pokémon.
+- **Vitrine** : 6 slots pour exposer tes meilleurs Pokémon, gérée depuis la page cosmétique séparée (voir [Page cosmétique séparée](#page-cosmétique-séparée-gang)) — les Pokémon exposés s'y baladent dans une zone d'environnement dédiée aux côtés de l'équipe active du boss.
 - **Équipe boss** : 3 loadouts sauvegardables (3 × 6 Pokémon), utilisés en combat de zone et en défense compétitive.
 - **Compétition inter-gangs** :
   - Publie une équipe de défense (6 Pokémon + 3 agents + zone)
@@ -165,7 +165,7 @@ Les onglets se débloquent progressivement selon les actions du joueur (premier 
 | **PC** | Grille Pokémon (filtres, tri, détails), pension, salle de formation, laboratoire, Pokédex |
 | **Agents** | Recrutement, gestion, assignation aux zones, grades |
 | **Marché** | Boutique items & balls, vente auto, boosts, incubateur |
-| **Gang** | Boss, vitrine, équipe, titres, compétition, cosmétiques, stats |
+| **Gang** | Boss, équipe, compétition, stats, services — le cosmétique (musique/apparence/titre/vitrine) est sur la page séparée `/gang/` |
 | **Missions** | Objectifs horaires / journaliers / hebdomadaires |
 | **📋 BattleLog** | Journal de combats, captures et événements agents |
 | **🏆 Leaderboard** | Classement inter-joueurs (Supabase requis) |
@@ -178,6 +178,13 @@ Les onglets se débloquent progressivement selon les actions du joueur (premier 
 ```
 index.html                  Shell HTML, onglets, ancres DOM, chargement des scripts
 app.js                      Moteur principal : état, boucle de jeu, rendu, migrations
+
+gang/                       Page cosmétique séparée (pokegang.sterenna.fr/gang/)
+  index.html                 Shell HTML dédié, même design tokens que le jeu principal
+  gang-app.js                Boot minimal : charge/sauve le même save, sans boucle de jeu
+  panels.js                  Panneaux Musique / Apparence / Titre / Vitrine
+  environment.js             Zone d'environnement animée (vitrine + équipe boss qui se baladent)
+  gang.css                   Styles propres à cette page
 
 css/
   base.css                  Design tokens (custom properties) + reset
@@ -214,7 +221,7 @@ modules/ui/
   agentsTab.js              Onglet Agents (cartes, assignation, grades)
   zoneSelector.js           Fogmap Kanto (carte des zones)
   zoneWindows.js            Fenêtres de zone actives
-  gangTab.js                Onglet Gang
+  gangTab.js                Onglet Gang (boss, équipe, services, stats — cosmétique déplacé vers gang/)
   gangBase.js               Boss, vitrine, équipe
   gangCompetitionTab.js     Onglet compétition
   marketTab.js              Onglet Marché
@@ -251,7 +258,8 @@ pokeforge.v6.s3     slot 3
 pokeforge.activeSlot index du slot actif
 ```
 
-- `SAVE_SCHEMA_VERSION = 9` — une migration se déclenche automatiquement au boot si le schéma est inférieur.
+- `SAVE_SCHEMA_VERSION = 12` — une migration se déclenche automatiquement au boot si le schéma est inférieur.
+- Même `localStorage['pokeforge.v6']` (et slots 2/3) partagé nativement avec la page cosmétique séparée `gang/` (même origine) — pas de synchro réseau nécessaire, juste un rechargement à froid avant chaque écriture côté `gang/` pour limiter le risque d'écraser une progression faite entre-temps dans l'autre onglet.
 - Les Pokémon sont "slimifiés" avant sérialisation (champs dérivés supprimés) pour réduire la taille.
 - Cloud save optionnel via Supabase (throttle 1 save/30s, mutex anti-deadlock GoTrue intégré).
 
@@ -320,6 +328,38 @@ Voir [`docs/nitro-integration.md`](docs/nitro-integration.md) pour :
 ## LLM (optionnel)
 
 Dialogues de dresseurs générés à la volée. Providers supportés : **Ollama** (local), **OpenAI**, **Anthropic**. Configuration dans l'onglet Paramètres.
+
+---
+
+## Modifications récentes (juillet 2026)
+
+### Page cosmétique séparée (`gang/`)
+
+La partie purement cosmétique du Gang — musique, fonds d'écran/tissus/pins, skins de ball, titre, vitrine — a été extraite vers une page statique indépendante, servie à `pokegang.sterenna.fr/gang/` (dossier [`gang/`](gang/)). Objectif : ne plus faire tourner ces panneaux pendant que la boucle de jeu principale (TickManager/Scheduler) tourne en fond, source de rafraîchissements concurrents. Cette page partage le même `localStorage['pokeforge.v6']` que le jeu principal (même origine, `state/store.js` réutilisé tel quel) mais ne démarre jamais la boucle de jeu.
+
+La vitrine devient une zone d'environnement animée : les Pokémon exposés et l'équipe active du boss s'y baladent (déplacement simple par transitions CSS, pas de moteur d'animation), avec apparition occasionnelle d'un agent ou d'un Pokémon favori du Pokédex. Le fond de cette zone est indépendant du fond de page principal (`state.cosmetics.bossBg`, distinct de `gameBg`, même catalogue d'achat).
+
+L'onglet Gang du jeu principal ne garde que la partie non-cosmétique (stats, services, équipe boss, titre) et pointe vers `/gang/` pour le reste.
+
+### Quêtes légendaires (Johto / Kanto / Hoenn)
+
+- Parité visuelle Hoenn ↔ Johto/Kanto : bouton fermer toujours accessible (position fixe), retour automatique au tracker après un combat (plus besoin de cliquer), z-index unifié.
+- Correction d'un bug bloquant découvert pendant les tests : la navigation entre écrans (bouton "Suite"/"Réessayer") pouvait fermer tout le tracker Hoenn sans jamais rouvrir l'écran suivant.
+- Une capture de légendaire ratée à Johto ne marque plus la quête comme "terminée".
+- Notifications de drop cohérentes (dorées comme les autres objets de quête), doublon de drop de Météore retiré.
+
+### Agents
+
+- Le repos forcé (1h à 0 énergie) devient une "prison", rachetable en pokédollars (`200₽ × niveau de l'agent`) directement depuis la carte agent.
+- Arbre hiérarchique (onglet Agents, bouton "🌳 Afficher l'arbre") réorganisé en paliers verticaux par grade au lieu de colonnes qui débordaient horizontalement.
+
+### Combat & zones
+
+- Verrou de combat unifié par zone : l'auto-combat visuel et les combats d'événement ne se marchent plus dessus.
+- Suivi `captureCount`/`shinyCount` par espèce complété sur tous les points de capture du jeu (légendaires régionaux, starters, codes secrets — plusieurs n'avaient auparavant aucun suivi Pokédex).
+- Sprites réels affichés pour les raids et combats automatiques en zone visible (le log de combat en texte a été retiré des fenêtres de zone).
+- Coût de l'œuf mystère : courbe logarithmique au lieu de linéaire (plafond ~1 000 000₽).
+- Taux de chroma unifiés sous des constantes partagées (`data/gameplay-config-data.js`) au lieu d'être dispersés en plusieurs nombres magiques.
 
 ---
 
