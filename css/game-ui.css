@@ -2538,14 +2538,11 @@
       min-width: 150px;
       max-width: 200px;
     }
-    .agent-tree-connector {
-      position: absolute;
-      right: -20px;
-      top: 50%;
-      width: 20px;
-      height: 1px;
-      background: var(--border-light);
-      z-index: 1;
+    .agent-tree-divider {
+      color: var(--text-dim);
+      opacity: .5;
+      font-size: 12px;
+      line-height: 1;
     }
 
     /* ── Bag/Inventory Tab ───────────────────────────────────────── */

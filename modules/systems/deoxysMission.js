@@ -6,7 +6,7 @@
 //
 //  5 objectifs en séquence :
 //    1. Signal Anomal      — Vaincre 20 dresseurs dans les zones Hoenn
-//    2. Fragments          — Collecter 3 Météores (0,5 % par combat Hoenn)
+//    2. Fragments          — Collecter 3 Météores (event de zone meteore_crash, Hoenn)
 //    3. Infiltration       — Vaincre 10 combats dans le Laboratoire Spatial
 //    4. Prise de Contrôle  — Vaincre le Directeur du Laboratoire
 //    5. Confrontation      — Combat final contre Deoxys
@@ -38,7 +38,6 @@ const DEOXYS_FIGHT_HALF = 'assets/pokemon_sprite/legendary_fight_by_muzyun/deoxy
 const TARGET_TRAINERS    = 20;
 const TARGET_METEORES    = 3;
 const TARGET_LAB_FIGHTS  = 10;
-const METEORE_DROP_CHANCE = 0.005;   // 0.5 % par combat Hoenn
 const LAB_ZONE_ID        = 'laboratoire_spatial';
 
 // Seuils de puissance boss
@@ -126,22 +125,9 @@ function _onCombatWon({ zoneId } = {}) {
     _save();
   }
 
-  // Drop météore (0,5 % sur toute zone Hoenn à partir de l'étape 1)
-  if (hoenn && q.step >= 1 && q.step <= 4) {
-    if (Math.random() < METEORE_DROP_CHANCE) {
-      const inv = _state().inventory;
-      inv.meteore = (inv.meteore || 0) + 1;
-      _notify('☄️ Météore récupéré ! Consultez la quête Deoxys.', 'gold');
-
-      // Objectif 2 — check seuil météores
-      if (q.step === 2 && inv.meteore >= TARGET_METEORES) {
-        inv.meteore -= TARGET_METEORES;      // consomme les 3 météores
-        q.step = 3;
-        _notify('☄️ Fragments récoltés ! Infiltrez le Laboratoire Spatial Devon.', 'gold');
-      }
-      _save();
-    }
-  }
+  // Le drop météore passe uniquement par l'event SPECIAL_EVENTS "meteore_crash"
+  // (data/zones-hoenn-data.js) — voir _onItemGiftReceived ci-dessous. Un second
+  // tirage indépendant existait ici (doublon non documenté) et a été retiré.
 }
 
 // Hook depuis zoneSystem.js (reward.itemGift)
@@ -176,6 +162,14 @@ function _injectStyles() {
       animation:dxq-fadein .5s ease both;
       user-select:none;
     }
+    .dxq-close-btn {
+      position:fixed; top:14px; right:18px;
+      font-family:var(--font-pixel,monospace); font-size:8px;
+      color:rgba(0,200,255,.5); cursor:pointer; z-index:9200;
+      padding:4px 8px; letter-spacing:1px;
+      transition:color .15s;
+    }
+    .dxq-close-btn:hover { color:#00e5ff; }
     @keyframes dxq-fadein  { from{opacity:0} to{opacity:1} }
     @keyframes dxq-fadeout { from{opacity:1} to{opacity:0} }
     @keyframes dxq-pulse   { 0%,100%{opacity:.3;transform:scale(1)} 50%{opacity:1;transform:scale(1.08)} }
@@ -390,12 +384,24 @@ function _injectStyles() {
 // ── Overlay helpers ───────────────────────────────────────────
 let _overlay = null;
 
+let _closeBtnEl = null;
+
 function _buildOverlay() {
   _injectStyles();
   const el = document.createElement('div');
   el.id = 'dxq-overlay';
   document.body.appendChild(el);
   _overlay = el;
+
+  // Bouton fermer fixe (survit aux rebuilds internes via _clearOverlay, contrairement
+  // à un bouton placé dans le contenu du tracker — même patron que Johto/Kanto).
+  const closeBtn = document.createElement('span');
+  closeBtn.className = 'dxq-close-btn';
+  closeBtn.textContent = '✕ FERMER';
+  closeBtn.onclick = () => _closeOverlay();
+  document.body.appendChild(closeBtn);
+  _closeBtnEl = closeBtn;
+
   return el;
 }
 
@@ -403,9 +409,27 @@ function _clearOverlay() { if (_overlay) _overlay.innerHTML = ''; }
 
 function _closeOverlay(ms = 400) {
   if (!_overlay) return;
-  _overlay.style.transition = `opacity ${ms}ms ease`;
-  _overlay.style.opacity = '0';
-  setTimeout(() => { _overlay?.remove(); _overlay = null; }, ms);
+  const el = _overlay;
+  el.style.transition = `opacity ${ms}ms ease`;
+  el.style.opacity = '0';
+  _closeBtnEl?.remove();
+  _closeBtnEl = null;
+  // _overlay est nullifié tout de suite (pas seulement à la fin du fondu) —
+  // les écrans suivants enchaînés via setTimeout(() => _launchX(...), 300)
+  // depuis les boutons "Suite/Réessayer" dépendent de _overlay === null pour
+  // passer leur propre garde d'entrée ; le nullifier après coup créait une
+  // course perdue (300ms < ce délai de fondu) qui fermait tout sans rien
+  // rouvrir.
+  _overlay = null;
+  setTimeout(() => { el.remove(); }, ms);
+}
+
+// Minuterie de sécurité : ramène automatiquement au tracker si le joueur ne
+// clique aucun bouton (parité Johto/Kanto — jamais d'écran de résultat bloqué
+// sans issue). Tout clic explicite sur un bouton du même écran doit d'abord
+// appeler clearTimeout(timer) pour laisser son propre choix prévaloir.
+function _armAutoReturn(ms = 3500) {
+  return setTimeout(() => { _clearOverlay(); _renderTracker(); }, ms);
 }
 
 function _box() {
@@ -702,13 +726,6 @@ function _renderTracker() {
     div.appendChild(body);
     tracker.appendChild(div);
   }
-
-  // Bouton fermer
-  const ch = _choices(box);
-  ch.style.marginTop = '14px';
-  const bClose = _btn('✕  Fermer');
-  bClose.onclick = () => _closeOverlay();
-  ch.appendChild(bClose);
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -807,10 +824,11 @@ async function _directorVictory() {
   _notify('☄️ Étape 4 complète ! Affrontez Deoxys depuis le tracker.', 'gold');
 
   const ch = _choices(box);
+  const autoT = _armAutoReturn();
   const bNext = _btn('▸  Accéder au sous-sol →', 'cyan');
-  bNext.onclick = () => { _clearOverlay(); setTimeout(_launchDeoxysFight, 300); };
+  bNext.onclick = () => { clearTimeout(autoT); _closeOverlay(); setTimeout(_launchDeoxysFight, 300); };
   const bTrack = _btn('← Retour au tracker');
-  bTrack.onclick = () => { _clearOverlay(); _renderTracker(); };
+  bTrack.onclick = () => { clearTimeout(autoT); _clearOverlay(); _renderTracker(); };
   ch.appendChild(bNext);
   ch.appendChild(bTrack);
 }
@@ -834,10 +852,11 @@ async function _directorDefeat() {
   _notify('☄️ Défaite contre le Directeur Devon Stone.', 'error');
 
   const ch = _choices(box);
+  const autoT = _armAutoReturn();
   const bRetry = _btn('⚔  Retenter →', 'cyan');
-  bRetry.onclick = () => { _clearOverlay(); setTimeout(_launchDirectorFight, 300); };
+  bRetry.onclick = () => { clearTimeout(autoT); _closeOverlay(); setTimeout(_launchDirectorFight, 300); };
   const bTrack = _btn('← Retour au tracker');
-  bTrack.onclick = () => { _clearOverlay(); _renderTracker(); };
+  bTrack.onclick = () => { clearTimeout(autoT); _clearOverlay(); _renderTracker(); };
   ch.appendChild(bRetry);
   ch.appendChild(bTrack);
 }
@@ -1004,11 +1023,12 @@ async function _deoxysResolution(bosspower) {
       box.appendChild(badge);
 
       const ch = _choices(box);
+      const autoT1 = _armAutoReturn();
       const bDone = _btn('▸  Voir Deoxys dans le PC →', 'gold');
-      bDone.onclick = () => { _closeOverlay(); globalThis.switchTab?.('tabPC'); };
+      bDone.onclick = () => { clearTimeout(autoT1); _closeOverlay(); globalThis.switchTab?.('tabPC'); };
       ch.appendChild(bDone);
       const bTrack = _btn('← Tracker de quête');
-      bTrack.onclick = () => { _clearOverlay(); _renderTracker(); };
+      bTrack.onclick = () => { clearTimeout(autoT1); _clearOverlay(); _renderTracker(); };
       ch.appendChild(bTrack);
 
     } else {
@@ -1018,7 +1038,7 @@ async function _deoxysResolution(bosspower) {
         'Mais au moment où la Poké Ball touche son cristal,\n' +
         'une explosion d\'énergie la repousse.\n\n' +
         'Deoxys disparaît dans une lueur aveuglante.\n\n' +
-        'Il reviendra. Avec un Météore — vous pourrez retenter.',
+        'Il reviendra. Vous pourrez retenter.',
       );
 
       // Réinitialiser step 5 pour retry
@@ -1027,11 +1047,12 @@ async function _deoxysResolution(bosspower) {
       _notify('☄️ Deoxys s\'est échappé — retry gratuit disponible.', '');
 
       const ch = _choices(box);
+      const autoT2 = _armAutoReturn();
       const bRetry = _btn('▸  Réessayer', 'cyan');
-      bRetry.onclick = () => { _clearOverlay(); setTimeout(_launchDeoxysFight, 300); };
+      bRetry.onclick = () => { clearTimeout(autoT2); _closeOverlay(); setTimeout(_launchDeoxysFight, 300); };
       ch.appendChild(bRetry);
       const bTrack = _btn('← Tracker de quête');
-      bTrack.onclick = () => { _clearOverlay(); _renderTracker(); };
+      bTrack.onclick = () => { clearTimeout(autoT2); _clearOverlay(); _renderTracker(); };
       ch.appendChild(bTrack);
     }
 
@@ -1054,11 +1075,12 @@ async function _deoxysResolution(bosspower) {
     box.appendChild(warn);
 
     const ch = _choices(box);
+    const autoT3 = _armAutoReturn();
     const bRetry = _btn('▸  Réessayer', 'cyan');
-    bRetry.onclick = () => { _clearOverlay(); setTimeout(_launchDeoxysFight, 300); };
+    bRetry.onclick = () => { clearTimeout(autoT3); _closeOverlay(); setTimeout(_launchDeoxysFight, 300); };
     ch.appendChild(bRetry);
     const bTrack = _btn('← Tracker de quête');
-    bTrack.onclick = () => { _clearOverlay(); _renderTracker(); };
+    bTrack.onclick = () => { clearTimeout(autoT3); _clearOverlay(); _renderTracker(); };
     ch.appendChild(bTrack);
   }
 }
