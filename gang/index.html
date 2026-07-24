@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>PokéGang — Personnalisation</title>
+  <link rel="icon" type="image/png" href="../assets/pokegang_logo/pokegang_logo_little.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="../css/game-ui.css">
+  <link rel="stylesheet" href="./gang.css">
+</head>
+<body>
+
+  <div id="gangApp">
+    <div id="gangTopbar">
+      <a href="../index.html" id="gangBackLink">← Retour au jeu</a>
+      <div id="gangTopbarTitle">🎨 Personnalisation du Gang</div>
+      <div id="gangTopbarMoney">—</div>
+    </div>
+
+    <div id="gangPanelNav"></div>
+
+    <div id="gangPanelBody"></div>
+  </div>
+
+  <div id="gangToastHost"></div>
+
+  <!-- Scripts classiques (globals bare-name, même patron que index.html) -->
+  <script src="../data/loaders.js"></script>
+  <script src="../data/species-data.js"></script>
+  <script src="../data/zones-data.js"></script>
+  <script src="../data/titles-data.js"></script>
+
+  <script type="module" src="./gang-app.js"></script>
+</body>
+</html>
