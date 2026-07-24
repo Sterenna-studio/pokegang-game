@@ -1097,6 +1097,7 @@ function _addLegendaryToPC(questId) {
       s.pokemons.push(p);
       EventBus.emit(EVENTS.STATE_DIRTY);
       EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: p, zoneId: 'cave_of_origin' });
+      globalThis.registerPokedexCapture?.(s, p);
     }
   } catch (e) {
     console.warn('[legendaryMissions] makePokemon failed:', e);
