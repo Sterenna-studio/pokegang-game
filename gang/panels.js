@@ -77,6 +77,71 @@ export function renderMusicPanel(container) {
   });
 }
 
+// ── Targeted DOM patch helpers (évite un re-render complet à chaque clic —
+//    sinon la sélection d'un fond réinitialise le scroll et le filtre tissu
+//    en cours, ce qui donne l'impression que "la page se rafraîchit") ──────
+function _patchActiveBg(container, newKey) {
+  container.querySelectorAll('.cosm-card:not(.cosm-fabric-card)').forEach(el => {
+    const k = el.dataset.cosm;
+    const isAct = (newKey === null && k === 'none') || k === newKey;
+    const own = el.dataset.owned === '1';
+    el.classList.toggle('cosm-active', isAct);
+    el.style.borderColor = isAct ? 'var(--gold)' : (own ? 'var(--green)' : 'var(--border)');
+    const sub = el.querySelector('[data-cosm-sub]');
+    if (sub) sub.style.color = isAct ? 'var(--gold)' : (own ? 'var(--green)' : 'var(--text-dim)');
+  });
+}
+
+function _patchActiveFabric(container, newKey) {
+  container.querySelectorAll('.cosm-fabric-card').forEach(el => {
+    const isAct = el.dataset.cosm === newKey;
+    const own = el.dataset.owned === '1';
+    el.classList.toggle('cosm-active', isAct);
+    el.style.borderColor = isAct ? 'var(--gold)' : (own ? 'var(--green)' : 'var(--border)');
+    const sub = el.querySelector('[data-cosm-sub]');
+    if (sub) sub.style.color = isAct ? 'var(--gold)' : (own ? 'var(--green)' : 'var(--text-dim)');
+  });
+}
+
+function _patchFabricSettings(container, cosmetics) {
+  const settings = container.querySelector('#fabricSettings');
+  if (!settings) return;
+  const mode = cosmetics.fabricMode || 'repeat';
+  settings.querySelectorAll('.fabric-mode-btn').forEach(btn => {
+    const act = btn.dataset.mode === mode;
+    btn.style.borderColor = act ? 'var(--gold)' : 'var(--border)';
+    btn.style.background  = act ? 'rgba(255,200,0,0.10)' : 'var(--bg)';
+    btn.style.color       = act ? 'var(--gold)' : 'var(--text-dim)';
+  });
+  const sizeRange = settings.querySelector('#fabricSizeRange');
+  if (sizeRange) {
+    const sizeWrap = sizeRange.closest('div');
+    if (sizeWrap) sizeWrap.style.opacity = mode === 'repeat' ? '1' : '0.35';
+    sizeRange.style.pointerEvents = mode === 'repeat' ? '' : 'none';
+  }
+}
+
+function _patchPinCards(container, activePatches) {
+  container.querySelectorAll('.cosm-patch-card').forEach(el => {
+    const pid = parseInt(el.dataset.patchPid, 10);
+    const isAct = activePatches.includes(pid);
+    el.style.borderColor = isAct ? 'var(--gold)' : 'var(--border)';
+    el.style.background  = isAct ? 'rgba(255,200,0,0.08)' : 'var(--bg-card)';
+    const labels = el.querySelectorAll('div');
+    if (labels.length) labels[labels.length - 1].style.color = isAct ? 'var(--gold)' : 'var(--text-dim)';
+    let onTag = el.querySelector('.cosm-on-tag');
+    if (isAct && !onTag) {
+      onTag = document.createElement('div');
+      onTag.className = 'cosm-on-tag';
+      onTag.style.cssText = 'font-size:7px;color:var(--gold)';
+      onTag.textContent = '[ ON ]';
+      el.appendChild(onTag);
+    } else if (!isAct && onTag) {
+      onTag.remove();
+    }
+  });
+}
+
 // ── Apparence (fonds, tissus, pins, skins de ball) ──────────────────────────
 // Portage de modules/ui/gangTab.js:182-504.
 export function renderAppearancePanel(container) {
@@ -102,21 +167,21 @@ export function renderAppearancePanel(container) {
     const thumb = c.type === 'image'
       ? `<div style="height:80px;background-image:url('${c.url}');background-size:cover;background-position:center;border-radius:2px;margin-bottom:6px"></div>`
       : `<div style="height:80px;background:${c.gradient};border-radius:2px;margin-bottom:6px"></div>`;
-    return `<div class="cosm-card${isAct ? ' cosm-active' : ''}" data-cosm="${key}"
+    return `<div class="cosm-card${isAct ? ' cosm-active' : ''}" data-cosm="${key}" data-owned="${own ? '1' : '0'}"
       style="border:2px solid ${isAct ? 'var(--gold)' : own ? 'var(--green)' : 'var(--border)'};border-radius:var(--radius-sm);padding:8px;cursor:pointer;background:var(--bg-card)">
       ${thumb}
       <div style="font-size:9px">${c.fr}</div>
-      <div style="font-size:8px;color:${isAct ? 'var(--gold)' : own ? 'var(--green)' : 'var(--text-dim)'}">
+      <div data-cosm-sub style="font-size:8px;color:${isAct ? 'var(--gold)' : own ? 'var(--green)' : 'var(--text-dim)'}">
         ${isAct ? '[ ACTIF ]' : own ? 'Équiper' : c.cost.toLocaleString() + '₽'}
       </div>
     </div>`;
   };
 
-  const defaultCard = `<div class="cosm-card${!active ? ' cosm-active' : ''}" data-cosm="none"
+  const defaultCard = `<div class="cosm-card${!active ? ' cosm-active' : ''}" data-cosm="none" data-owned="1"
     style="border:2px solid ${!active ? 'var(--gold)' : 'var(--border)'};border-radius:var(--radius-sm);padding:8px;cursor:pointer;background:var(--bg-card)">
     <div style="height:80px;background:linear-gradient(180deg,#0a0a0a,#1a1a1a);border-radius:2px;margin-bottom:6px"></div>
     <div style="font-size:9px">Défaut</div>
-    <div style="font-size:8px;color:${!active ? 'var(--gold)' : 'var(--text-dim)'}">Gratuit${!active ? ' [ ACTIF ]' : ''}</div>
+    <div data-cosm-sub style="font-size:8px;color:${!active ? 'var(--gold)' : 'var(--text-dim)'}">Gratuit${!active ? ' [ ACTIF ]' : ''}</div>
   </div>`;
 
   const bgHtml = Object.entries(COSMETIC_BGS).map(([k, c]) => _bgCard(k, c)).join('');
@@ -142,14 +207,14 @@ export function renderAppearancePanel(container) {
     const previewUrl = fabricBgUrl(pid, variant);
     const badge   = variant > 1 ? `v${variant}` : '';
     const suffix  = variant > 1 ? ' (alt)' : '';
-    return `<div class="cosm-card cosm-fabric-card${isAct ? ' cosm-active' : ''}" data-cosm="${key}" data-fabric-key="${key}"
+    return `<div class="cosm-card cosm-fabric-card${isAct ? ' cosm-active' : ''}" data-cosm="${key}" data-fabric-key="${key}" data-owned="${own ? '1' : '0'}"
       style="position:relative;border:2px solid ${isAct ? 'var(--gold)' : own ? 'var(--green)' : 'var(--border)'};border-radius:var(--radius-sm);padding:6px;cursor:pointer;background:var(--bg-card);min-width:0">
       <img src="${previewUrl}" style="width:100%;height:110px;object-fit:cover;border-radius:2px;margin-bottom:4px;display:block"
         onerror="this.closest('[data-fabric-key]').style.display='none'">
       ${badge ? `<div style="position:absolute;top:4px;right:4px;font-size:9px;background:rgba(0,0,0,.7);border-radius:3px;padding:1px 4px">${badge}</div>` : ''}
       <button class="cosm-fav-btn" data-fav-key="${key}" style="position:absolute;top:4px;left:4px;background:rgba(0,0,0,.6);border:none;border-radius:3px;cursor:pointer;font-size:10px;padding:1px 3px;line-height:1">${isFav ? '⭐' : '☆'}</button>
       <div style="font-size:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${fr}${suffix}</div>
-      <div style="font-size:7px;color:${isAct ? 'var(--gold)' : own ? 'var(--green)' : 'var(--text-dim)'}">
+      <div data-cosm-sub style="font-size:7px;color:${isAct ? 'var(--gold)' : own ? 'var(--green)' : 'var(--text-dim)'}">
         ${isAct ? '[ ACTIF ]' : own ? 'Équiper' : FABRIC_SHOP_COST.toLocaleString() + '₽'}
       </div>
     </div>`;
@@ -245,14 +310,14 @@ export function renderAppearancePanel(container) {
       if (key === 'none') {
         state.cosmetics.gameBg = null;
         globalThis.saveState(); globalThis.applyCosmetics();
-        renderAppearancePanel(container); return;
+        _patchActiveBg(container, null); return;
       }
       const c = COSMETIC_BGS[key];
       if (!c) return;
       if (unlocked.has(key)) {
         state.cosmetics.gameBg = key;
         globalThis.saveState(); globalThis.applyCosmetics();
-        renderAppearancePanel(container);
+        _patchActiveBg(container, key);
       } else {
         if (state.gang.money < c.cost) { globalThis.notify('Fonds insuffisants.', 'error'); return; }
         globalThis.showConfirm(`Acheter "${c.fr}" pour ${c.cost.toLocaleString()}₽ ?`, () => {
@@ -261,7 +326,8 @@ export function renderAppearancePanel(container) {
           state.cosmetics.gameBg = key;
           globalThis.saveState(); globalThis.applyCosmetics();
           globalThis.notify(`🎨 "${c.fr}" débloqué !`, 'gold');
-          renderAppearancePanel(container);
+          el.dataset.owned = '1';
+          _patchActiveBg(container, key);
         }, null, { confirmLabel: 'Acheter', cancelLabel: 'Annuler' });
       }
     });
@@ -288,7 +354,8 @@ export function renderAppearancePanel(container) {
         if (unlocked.has(key)) {
           state.cosmetics.gameBg = key;
           globalThis.saveState(); globalThis.applyCosmetics();
-          renderAppearancePanel(container);
+          _patchActiveBg(container, key);
+          _patchActiveFabric(container, key);
         } else {
           const m   = key.match(/^fabric_(\d+)/);
           const pid = m ? parseInt(m[1], 10) : 0;
@@ -301,7 +368,9 @@ export function renderAppearancePanel(container) {
             state.cosmetics.gameBg = key;
             globalThis.saveState(); globalThis.applyCosmetics();
             globalThis.notify(`🧵 Fond tissu "${fr}" débloqué !`, 'gold');
-            renderAppearancePanel(container);
+            el.dataset.owned = '1';
+            _patchActiveBg(container, key);
+            _patchActiveFabric(container, key);
           }, null, { confirmLabel: 'Acheter', cancelLabel: 'Annuler' });
         }
       });
@@ -333,7 +402,7 @@ export function renderAppearancePanel(container) {
       btn.addEventListener('click', () => {
         state.cosmetics.fabricMode = btn.dataset.mode;
         globalThis.saveState(); globalThis.applyCosmetics();
-        renderAppearancePanel(container);
+        _patchFabricSettings(container, state.cosmetics);
       });
     });
     const sizeRange    = fabricSettings.querySelector('#fabricSizeRange');
@@ -373,7 +442,7 @@ export function renderAppearancePanel(container) {
       }
       state.cosmetics.activePatches = patches;
       globalThis.saveState();
-      renderAppearancePanel(container);
+      _patchPinCards(container, patches);
     });
   });
 
