@@ -21,7 +21,7 @@ import {
 import {
   SHOWCASE_SLOTS, BOSS_TEAM_SLOTS, AGENT_RANK_LABELS, NATURES,
 } from '../data/game-config-data.js';
-import { BALL_SPRITES } from '../data/assets-data.js';
+import { BALL_SPRITES, EGG_SPRITES } from '../data/assets-data.js';
 import { BALLS, SHOP_ITEMS } from '../data/economy-data.js';
 import { GYM_ORDER, JOHTO_GYM_ORDER, HOENN_GYM_ORDER, SINNOH_GYM_ORDER } from '../data/zones-config-data.js';
 
@@ -173,6 +173,7 @@ Object.assign(globalThis, {
   pokeSprite, pokeIcon, trainerSprite, speciesName, pokemonDisplayName,
   COSMETIC_BGS, FABRIC_SPECIES, PATCH_PIDS, fabricBgUrl, patchUrl,
   SHOWCASE_SLOTS, BOSS_TEAM_SLOTS, AGENT_RANK_LABELS, BALL_SPRITES, BALLS, SHOP_ITEMS, NATURES,
+  EGG_SPRITES,
 });
 
 EventBus.on(EVENTS.UI_NOTIFY, ({ msg, type }) => notify(msg, type));
