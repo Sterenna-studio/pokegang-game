@@ -14,7 +14,8 @@
 //
 //  Dépendances globalThis : state, saveState, notify, pokeSprite,
 //    pokemonDisplayName, trainerSprite, COSMETIC_BGS, fabricBgUrl,
-//    EGG_SPRITES, NATURES
+//    EGG_SPRITES, NATURES, TRAINER_TYPES
+//  Dépendances classiques (bare-name) : ZONE_BY_ID
 // ════════════════════════════════════════════════════════════════
 
 const CAMEO_MIN_DELAY_MS   = 45_000;
@@ -502,6 +503,45 @@ function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl, dialogueLi
   });
 }
 
+// Bassin de répliques éligibles pour un agent donné — la ligne générique
+// (patrouille/sorti de prison) est toujours présente, complétée par des
+// répliques contextuelles quand les données réelles le permettent : un
+// Pokémon confié (nickname pris en compte via pokemonDisplayName) et un
+// bilan de combats sur sa zone assignée (type de dresseur réellement
+// présent dans le pool de cette zone, cf. data/zones-data.js:trainers).
+function _buildAgentLines(agent, state) {
+  const now = Date.now();
+  // "Tout juste sorti de prison" approximé : cette page n'a pas de tick
+  // temps réel (pas de boucle de jeu), donc resting a pu repasser à false
+  // il y a un moment sans qu'on l'ait vu se produire — on se contente de
+  // vérifier que restUntil est récent plutôt que d'exiger l'instant exact.
+  const recentlyFreed = !agent.resting && agent.restUntil
+    && (now - agent.restUntil) >= 0 && (now - agent.restUntil) < AGENT_RELEASED_WINDOW_MS;
+
+  const lines = [...(recentlyFreed ? AGENT_RELEASED_LINES : AGENT_LINES)];
+
+  if (agent.team?.length > 0) {
+    const pkId = agent.team[Math.floor(Math.random() * agent.team.length)];
+    const pk = state.pokemons.find(p => p.id === pkId);
+    if (pk) {
+      const name = globalThis.pokemonDisplayName?.(pk) || pk.species_en;
+      lines.push(`Merci de m'avoir confié ${name}, boss.`);
+    }
+  }
+
+  if (agent.assignedZone) {
+    const zone = ZONE_BY_ID[agent.assignedZone];
+    const combats = state.zones?.[agent.assignedZone]?.combatsWon || 0;
+    if (zone?.trainers?.length > 0 && combats > 0) {
+      const trainerKey = zone.trainers[Math.floor(Math.random() * zone.trainers.length)];
+      const label = globalThis.TRAINER_TYPES?.[trainerKey]?.fr;
+      if (label) lines.push(`J'ai battu ${combats} ${label}${combats > 1 ? 's' : ''} sur ${zone.fr}.`);
+    }
+  }
+
+  return lines;
+}
+
 function _fireCameoEvent(viewportEl, bounds) {
   const state = globalThis.state;
   const pool = [];
@@ -526,13 +566,7 @@ function _fireCameoEvent(viewportEl, bounds) {
     // appliqué à la création, cf. agent.js:72-73) — la re-passer à
     // trainerSprite() ici la traiterait à tort comme une clé brute.
     const cameoSprite = agent.spriteKey ? globalThis.trainerSprite(agent.spriteKey) : agent.sprite;
-    // "Tout juste sorti de prison" approximé : cette page n'a pas de tick
-    // temps réel (pas de boucle de jeu), donc resting a pu repasser à false
-    // il y a un moment sans qu'on l'ait vu se produire — on se contente de
-    // vérifier que restUntil est récent plutôt que d'exiger l'instant exact.
-    const recentlyFreed = !agent.resting && agent.restUntil
-      && (Date.now() - agent.restUntil) >= 0 && (Date.now() - agent.restUntil) < AGENT_RELEASED_WINDOW_MS;
-    const lines = recentlyFreed ? AGENT_RELEASED_LINES : AGENT_LINES;
+    const lines = _buildAgentLines(agent, state);
     _spawnCameo(viewportEl, cameoSprite, agent.name, bounds, followIcon, lines[Math.floor(Math.random() * lines.length)]);
   } else if (type === 'favorite') {
     const pk = favs[Math.floor(Math.random() * favs.length)];
