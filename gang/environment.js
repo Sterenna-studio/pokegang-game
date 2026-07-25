@@ -39,6 +39,12 @@ const INTERACTION_COOLDOWN_MS = 20_000; // avant de pouvoir réinteragir avec le
 const PROXIMITY_SCAN_MS    = 1200;
 const FRIEND_CHANCE        = 0.6;
 
+// Interaction au clic — "câliner" un résident : pause brève du wander, petit
+// rebond, et une bulle avec une réaction + les infos du Pokémon.
+const CLICK_REACTION_ICONS    = ['💫', '✨', '⭐', '❤️', '😊', '🎵'];
+const CLICK_REACTION_COOLDOWN_MS = 700; // anti-spam-clic
+const CLICK_PAUSE_MS          = 900;    // durée de la pause + du rebond
+
 let _timers    = [];   // tous les setTimeout actifs — nettoyés par stopEnvironmentZone()
 let _residents = [];   // { el, x, y, w, h, interacting, lastPartner, lastInteractionAt, timer }
 let _zoneEl    = null;
@@ -227,9 +233,9 @@ function _wanderStep(entry, bounds) {
   }, duration * 1000));
 }
 
-function _spawnResident(viewportEl, imgUrl, label, bounds) {
+function _spawnResident(viewportEl, imgUrl, label, bounds, pk) {
   const el = document.createElement('div');
-  el.className = 'gang-env-sprite idle';
+  el.className = 'gang-env-sprite idle gang-env-clickable';
   el.title = label || '';
   el.innerHTML = `<div class="gang-env-sprite-inner"><img src="${imgUrl}" alt=""></div>`;
   const x = Math.random() * Math.max(0, bounds.width - 48);
@@ -237,10 +243,56 @@ function _spawnResident(viewportEl, imgUrl, label, bounds) {
   _setPosition(el, x, y);
   viewportEl.appendChild(el);
 
-  const entry = { el, x, y, w: 48, h: 48, interacting: false, lastPartner: null, lastInteractionAt: 0, timer: null };
+  const entry = {
+    el, x, y, w: 48, h: 48, label, pk,
+    interacting: false, lastPartner: null, lastInteractionAt: 0, lastClickAt: 0, timer: null,
+  };
+  el.addEventListener('click', () => _onResidentClick(viewportEl, entry, bounds));
   _residents.push(entry);
   entry.timer = _track(setTimeout(() => _wanderStep(entry, bounds), 200 + Math.random() * 2000));
   return entry;
+}
+
+// ── Interaction au clic sur un résident ───────────────────────────────────
+function _showClickBadge(viewportEl, entry) {
+  const pos  = _currentPos(entry.el);
+  const icon = CLICK_REACTION_ICONS[Math.floor(Math.random() * CLICK_REACTION_ICONS.length)];
+  const pk   = entry.pk;
+  const NATURES = globalThis.NATURES;
+  const info = pk
+    ? `Lv.${pk.level}${pk.nature && NATURES?.[pk.nature] ? ` · ${NATURES[pk.nature].fr}` : ''}`
+    : '';
+
+  const badge = document.createElement('div');
+  badge.className = 'gang-env-click-badge';
+  // textContent (jamais innerHTML) : entry.label vient de pokemonDisplayName(),
+  // texte libre (surnom joueur) — pas d'échappement HTML à faire ici puisqu'on
+  // n'injecte jamais de balises.
+  badge.textContent = [icon, entry.label, info].filter(Boolean).join(' ');
+  badge.style.left = `${pos.x + 24}px`;
+  badge.style.top  = `${pos.y - 10}px`;
+  viewportEl.appendChild(badge);
+  _track(setTimeout(() => badge.remove(), 2400));
+}
+
+function _onResidentClick(viewportEl, entry, bounds) {
+  if (entry.interacting) return; // déjà en mini-interaction ami/ennemi ou en cooldown de clic
+  const now = Date.now();
+  if (now - (entry.lastClickAt || 0) < CLICK_REACTION_COOLDOWN_MS) return;
+  entry.lastClickAt = now;
+
+  clearTimeout(entry.timer);
+  entry.interacting = true;
+  entry.el.classList.add('idle', 'gang-env-clicked');
+
+  _showClickBadge(viewportEl, entry);
+
+  entry.timer = _track(setTimeout(() => {
+    entry.el.classList.remove('gang-env-clicked');
+    entry.interacting = false;
+    if (!entry.el.isConnected) return;
+    entry.timer = _track(setTimeout(() => _wanderStep(entry, bounds), 200 + Math.random() * 500));
+  }, CLICK_PAUSE_MS));
 }
 
 // ── Mini-interactions — deux résidents qui se croisent deviennent
@@ -388,13 +440,13 @@ export function renderEnvironmentZone(rootContainer) {
   const showcaseIds = (state.gang.showcase || []).filter(Boolean);
   for (const id of showcaseIds) {
     const pk = state.pokemons.find(p => p.id === id);
-    if (pk) _spawnResident(viewportEl, globalThis.pokeSprite(pk.species_en, pk.shiny), globalThis.pokemonDisplayName?.(pk) || pk.species_en, bounds);
+    if (pk) _spawnResident(viewportEl, globalThis.pokeSprite(pk.species_en, pk.shiny), globalThis.pokemonDisplayName?.(pk) || pk.species_en, bounds, pk);
   }
   const activeSlot = state.gang.bossTeamSlots?.[state.gang.activeBossTeamSlot || 0] || [];
   for (const id of activeSlot) {
     if (showcaseIds.includes(id)) continue; // évite un doublon si le même pokémon est aussi en vitrine
     const pk = state.pokemons.find(p => p.id === id);
-    if (pk) _spawnResident(viewportEl, globalThis.pokeSprite(pk.species_en, pk.shiny), globalThis.pokemonDisplayName?.(pk) || pk.species_en, bounds);
+    if (pk) _spawnResident(viewportEl, globalThis.pokeSprite(pk.species_en, pk.shiny), globalThis.pokemonDisplayName?.(pk) || pk.species_en, bounds, pk);
   }
 
   if (showcaseIds.length === 0 && activeSlot.length === 0) {

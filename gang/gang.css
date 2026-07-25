@@ -237,6 +237,28 @@
   50%      { transform: translateY(-3px); }
 }
 
+/* Résidents (vitrine + équipe boss) cliquables — les cameos (agents/favoris
+   de passage) restent pointer-events:none, aucune interaction prévue dessus. */
+.gang-env-sprite.gang-env-clickable {
+  pointer-events: auto;
+  cursor: pointer;
+}
+.gang-env-sprite.gang-env-clickable:hover img {
+  filter: drop-shadow(0 4px 3px rgba(0,0,0,.4)) brightness(1.18);
+}
+/* Rebond au clic — anime `scale` (propriété indépendante de `transform`,
+   déjà utilisé par la position/le flip) pour ne jamais entrer en conflit
+   avec les deux autres niveaux de transform de ce sprite. */
+.gang-env-sprite.gang-env-clicked img {
+  animation: gang-env-bob 2.4s ease-in-out infinite, gang-env-click-bounce .5s ease;
+}
+@keyframes gang-env-click-bounce {
+  0%   { scale: 1; }
+  35%  { scale: 1.24; }
+  65%  { scale: .92; }
+  100% { scale: 1; }
+}
+
 /* Badge de mini-interaction (ami 💕 / ennemi 💢) entre deux résidents */
 .gang-env-interact {
   position: absolute;
@@ -251,6 +273,25 @@
   25%  { transform: translateY(0) scale(1); }
   80%  { opacity: 1; transform: translateY(0) scale(1); }
   100% { opacity: 0; transform: translateY(-8px) scale(.8); }
+}
+
+/* Bulle de réaction au clic (emoji + nom + niveau/nature) */
+.gang-env-click-badge {
+  position: absolute;
+  pointer-events: none;
+  z-index: 5;
+  font-family: var(--font-pixel);
+  font-size: 7px;
+  color: var(--gold);
+  background: rgba(10,10,20,.85);
+  border: 1px solid var(--gold-dim, #665522);
+  border-radius: 99px;
+  padding: 4px 9px;
+  white-space: nowrap;
+  translate: -50% 0; /* propriété indépendante de `transform`, ne rentre pas
+                         en conflit avec l'animation gang-env-pop réutilisée
+                         ci-dessous (qui n'anime que `transform`). */
+  animation: gang-env-pop 2.3s ease forwards;
 }
 
 .gang-env-cameo { width: 44px; height: 44px; opacity: .96; }

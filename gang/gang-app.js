@@ -19,7 +19,7 @@ import {
   COSMETIC_BGS, FABRIC_SPECIES, PATCH_PIDS, fabricBgUrl, patchUrl,
 } from '../data/zones-visuals-data.js';
 import {
-  SHOWCASE_SLOTS, BOSS_TEAM_SLOTS, AGENT_RANK_LABELS,
+  SHOWCASE_SLOTS, BOSS_TEAM_SLOTS, AGENT_RANK_LABELS, NATURES,
 } from '../data/game-config-data.js';
 import { BALL_SPRITES } from '../data/assets-data.js';
 import { BALLS, SHOP_ITEMS } from '../data/economy-data.js';
@@ -172,7 +172,7 @@ Object.assign(globalThis, {
   state, EventBus, EVENTS, notify, showConfirm, SFX, saveState, isZoneUnlocked,
   pokeSprite, pokeIcon, trainerSprite, speciesName, pokemonDisplayName,
   COSMETIC_BGS, FABRIC_SPECIES, PATCH_PIDS, fabricBgUrl, patchUrl,
-  SHOWCASE_SLOTS, BOSS_TEAM_SLOTS, AGENT_RANK_LABELS, BALL_SPRITES, BALLS, SHOP_ITEMS,
+  SHOWCASE_SLOTS, BOSS_TEAM_SLOTS, AGENT_RANK_LABELS, BALL_SPRITES, BALLS, SHOP_ITEMS, NATURES,
 });
 
 EventBus.on(EVENTS.UI_NOTIFY, ({ msg, type }) => notify(msg, type));
