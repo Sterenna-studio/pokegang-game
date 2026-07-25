@@ -412,64 +412,6 @@
   color: var(--text-dim);
   font-size: 12px;
 }
-
-/* Rangée d'œufs en bas du vivarium — hauteur alignée sur
-   EGG_TRAY_HEIGHT_PX (gang/environment.js). Au-dessus des résidents/météo/
-   bulles (z-index 3-6), sous la teinte d'ambiance qui doit tout recouvrir. */
-.gang-env-egg-tray {
-  position: absolute;
-  left: 0; right: 0; bottom: 0;
-  height: 54px;
-  z-index: 7;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 10px;
-  overflow-x: auto;
-  background: linear-gradient(0deg, rgba(6,10,8,.75) 0%, rgba(6,10,8,.35) 75%, transparent 100%);
-}
-.gang-env-egg-slot {
-  position: relative;
-  width: 36px;
-  height: 36px;
-  min-width: 36px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  background: rgba(20,20,28,.55);
-  border: 1px solid var(--border-light, rgba(255,255,255,.15));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.gang-env-egg-slot img { pointer-events: none; }
-.gang-env-egg-slot.ready {
-  border-color: var(--green);
-  box-shadow: 0 0 8px rgba(68,187,85,.5);
-  cursor: pointer;
-}
-.gang-env-egg-slot.wobble {
-  animation: gang-env-egg-wobble .55s ease-in-out;
-}
-@keyframes gang-env-egg-wobble {
-  0%, 100% { rotate: 0deg; }
-  20%      { rotate: -12deg; }
-  40%      { rotate: 12deg; }
-  60%      { rotate: -7deg; }
-  80%      { rotate: 7deg; }
-}
-.gang-env-egg-slot.hatching {
-  animation: gang-env-egg-hatch-shake .42s ease-in-out;
-}
-@keyframes gang-env-egg-hatch-shake {
-  0%, 100% { rotate: 0deg;    scale: 1; }
-  15%      { rotate: -14deg;  scale: 1; }
-  30%      { rotate: 14deg;   scale: 1; }
-  45%      { rotate: -14deg;  scale: 1; }
-  60%      { rotate: 14deg;   scale: 1; }
-  75%      { rotate: -8deg;   scale: 1.08; }
-  90%      { rotate: 8deg;    scale: 1.08; }
-}
-
 .gang-zonebg-btn {
   position: absolute;
   top: 10px; right: 10px;
