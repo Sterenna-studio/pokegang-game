@@ -426,6 +426,50 @@
 }
 .gang-zonebg-btn:hover { border-color: var(--gold); }
 
+.gang-zonesrc-btn {
+  position: absolute;
+  top: 10px; right: 50px;
+  z-index: 5;
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: rgba(0,0,0,.55);
+  border: 1px solid var(--border-light);
+  color: var(--text);
+  font-size: 14px;
+  cursor: pointer;
+}
+.gang-zonesrc-btn:hover { border-color: var(--gold); }
+
+/* ── Zone sources picker (quels résidents alimentent le vivarium) ─ */
+.gang-source-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.gang-source-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.gang-source-row.active {
+  border-color: var(--gold-dim);
+  color: var(--text);
+}
+.gang-source-row input[type="checkbox"] { accent-color: var(--gold); }
+.gang-source-label { flex: 1; }
+.gang-source-count {
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  color: var(--text-dim);
+}
+
 /* ── Zone background picker ──────────────────────────────────── */
 .gang-zonebg-grid {
   display: grid;

@@ -555,6 +555,57 @@ function _scheduleCameos(viewportEl, bounds) {
   }, delay));
 }
 
+// ── Sources de résidents — chacune est juste "un endroit où lire une liste
+// d'ids de Pokémon" ; state.cosmetics.vivariumSources (persisté, whitelist
+// cosmétique déjà couverte par saveState()) choisit lesquelles alimentent le
+// vivarium. Lecture seule : aucune de ces sources n'est jamais mutée d'ici.
+const VIVARIUM_SOURCES = [
+  { key: 'showcase', icon: '🏠', label: 'Vitrine',        ids: state => (state.gang.showcase || []).filter(Boolean) },
+  { key: 'team',     icon: '⚔️', label: 'Équipe active',  ids: state => state.gang.bossTeamSlots?.[state.gang.activeBossTeamSlot || 0] || [] },
+  { key: 'pension',  icon: '🏥', label: 'Pension',         ids: state => state.pension?.slots || [] },
+  { key: 'training', icon: '💪', label: 'Formation',       ids: state => state.trainingRoom?.pokemon || [] },
+];
+
+function _openZoneSourcesPicker(rootContainer) {
+  const state = globalThis.state;
+  const active = new Set(state.cosmetics.vivariumSources || ['showcase', 'team']);
+
+  const modal = document.createElement('div');
+  modal.className = 'gang-picker-overlay';
+  const rows = VIVARIUM_SOURCES.map(src => {
+    const on = active.has(src.key);
+    const count = src.ids(state).length;
+    return `<label class="gang-source-row${on ? ' active' : ''}">
+      <input type="checkbox" data-source-key="${src.key}" ${on ? 'checked' : ''}>
+      <span class="gang-source-icon">${src.icon}</span>
+      <span class="gang-source-label">${src.label}</span>
+      <span class="gang-source-count">${count}</span>
+    </label>`;
+  }).join('');
+
+  modal.innerHTML = `
+    <div class="gang-picker-box">
+      <div class="gang-panel-title">ZONES AFFICHÉES</div>
+      <div class="gang-source-list">${rows}</div>
+      <button id="gangSourcesClose">Fermer</button>
+    </div>`;
+  document.body.appendChild(modal);
+
+  modal.querySelectorAll('[data-source-key]').forEach(input => {
+    input.addEventListener('change', () => {
+      const key = input.dataset.sourceKey;
+      const set = new Set(state.cosmetics.vivariumSources || []);
+      if (input.checked) set.add(key); else set.delete(key);
+      state.cosmetics.vivariumSources = [...set];
+      globalThis.saveState();
+      input.closest('.gang-source-row')?.classList.toggle('active', input.checked);
+      renderEnvironmentZone(rootContainer); // reconstruit les résidents avec le nouveau set de sources
+    });
+  });
+  modal.querySelector('#gangSourcesClose').addEventListener('click', () => modal.remove());
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+}
+
 // ════════════════════════════════════════════════════════════════
 export function renderEnvironmentZone(rootContainer) {
   const zoneEl = rootContainer.querySelector('#gangEnvironmentZone');
@@ -564,11 +615,13 @@ export function renderEnvironmentZone(rootContainer) {
 
   zoneEl.innerHTML = `
     <button class="gang-zonebg-btn" id="gangZoneBgBtn" title="Changer le fond">🎨</button>
+    <button class="gang-zonesrc-btn" id="gangZoneSrcBtn" title="Choisir les zones affichées">👁</button>
     <div class="gang-env-viewport" id="gangEnvViewport"></div>`;
 
   const viewportEl = zoneEl.querySelector('#gangEnvViewport');
   _applyZoneBackground(viewportEl);
   zoneEl.querySelector('#gangZoneBgBtn').addEventListener('click', () => _openZoneBgPicker(viewportEl));
+  zoneEl.querySelector('#gangZoneSrcBtn').addEventListener('click', () => _openZoneSourcesPicker(rootContainer));
 
   _applyAmbiance(viewportEl);
   _scheduleAmbianceRefresh(viewportEl);
@@ -583,23 +636,27 @@ export function renderEnvironmentZone(rootContainer) {
     groundHeight: (rect.height || 320) * 0.55,
   };
 
-  // Résidents permanents : vitrine + équipe active du boss
-  const showcaseIds = (state.gang.showcase || []).filter(Boolean);
-  for (const id of showcaseIds) {
-    const pk = state.pokemons.find(p => p.id === id);
-    if (pk) _spawnResident(viewportEl, globalThis.pokeSprite(pk.species_en, pk.shiny), globalThis.pokemonDisplayName?.(pk) || pk.species_en, bounds, pk);
-  }
-  const activeSlot = state.gang.bossTeamSlots?.[state.gang.activeBossTeamSlot || 0] || [];
-  for (const id of activeSlot) {
-    if (showcaseIds.includes(id)) continue; // évite un doublon si le même pokémon est aussi en vitrine
-    const pk = state.pokemons.find(p => p.id === id);
-    if (pk) _spawnResident(viewportEl, globalThis.pokeSprite(pk.species_en, pk.shiny), globalThis.pokemonDisplayName?.(pk) || pk.species_en, bounds, pk);
+  // Résidents permanents : une ou plusieurs sources au choix du joueur
+  // (state.cosmetics.vivariumSources — voir _openZoneSourcesPicker ci-dessus).
+  const enabledSources = new Set(state.cosmetics.vivariumSources || ['showcase', 'team']);
+  const seenIds = new Set(); // dédoublonne un pokémon présent dans plusieurs sources actives à la fois
+  let residentCount = 0;
+  for (const src of VIVARIUM_SOURCES) {
+    if (!enabledSources.has(src.key)) continue;
+    for (const id of src.ids(state)) {
+      if (seenIds.has(id)) continue;
+      seenIds.add(id);
+      const pk = state.pokemons.find(p => p.id === id);
+      if (!pk) continue;
+      _spawnResident(viewportEl, globalThis.pokeSprite(pk.species_en, pk.shiny), globalThis.pokemonDisplayName?.(pk) || pk.species_en, bounds, pk);
+      residentCount++;
+    }
   }
 
-  if (showcaseIds.length === 0 && activeSlot.length === 0) {
+  if (residentCount === 0) {
     const empty = document.createElement('div');
     empty.className = 'gang-env-empty-hint';
-    empty.textContent = 'Ajoutez des Pokémon à la vitrine pour les voir se balader ici.';
+    empty.textContent = 'Ajoutez des Pokémon à une zone activée (👁) pour les voir se balader ici.';
     viewportEl.appendChild(empty);
   } else {
     _scheduleProximityScan(viewportEl, bounds);
