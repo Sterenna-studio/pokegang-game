@@ -203,11 +203,24 @@
   inset: 0;
   overflow: hidden;
 }
+/* Trois niveaux de transform indépendants (jamais le même sur le même
+   élément, sinon l'un écrase l'autre) :
+   - .gang-env-sprite (position) : translate() en JS, transitionné — évite
+     left/top qui déclenchent du layout à chaque frame.
+   - .gang-env-sprite-inner (sens de marche) : scaleX() en JS, instantané.
+   - img (respiration au repos) : keyframes CSS translateY(). */
 .gang-env-sprite {
   position: absolute;
+  left: 0;
+  top: 0;
   width: 48px;
   height: 48px;
   pointer-events: none;
+  will-change: transform;
+}
+.gang-env-sprite-inner {
+  width: 100%;
+  height: 100%;
 }
 .gang-env-sprite img {
   width: 100%;
@@ -216,9 +229,6 @@
   image-rendering: pixelated;
   filter: drop-shadow(0 4px 3px rgba(0,0,0,.4));
 }
-/* Léger bob vertical pendant la pause entre deux déplacements — appliqué à
-   l'<img> interne (pas au conteneur, qui porte le flip scaleX en inline
-   style depuis le JS : les deux transforms restent indépendants). */
 .gang-env-sprite.idle img {
   animation: gang-env-bob 2.4s ease-in-out infinite;
 }
