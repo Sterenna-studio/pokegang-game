@@ -55,10 +55,12 @@ export function renderMusicPanel(container) {
     </div>`;
   }).join('');
 
+  const currentLabel = currentJuke ? (JUKEBOX_TRACKS.find(t => t.key === currentJuke)?.label || currentJuke) : 'AUTO';
+
   container.innerHTML = `
     <div class="gang-panel-title">🎵 MUSIQUE</div>
     <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);margin-bottom:10px">
-      En cours : <span style="color:var(--gold)">${currentJuke ? currentJuke : 'AUTO'}</span>
+      En cours : <span style="color:var(--gold)">${currentLabel}</span>
       <span style="opacity:.6"> — appliqué au prochain chargement du jeu</span>
     </div>
     <div class="base-jukebox">
@@ -73,7 +75,8 @@ export function renderMusicPanel(container) {
       const key = el.dataset.jukeboxTrack;
       if (el.classList.contains('locked')) { globalThis.notify('🔒 Débloquez cette zone pour accéder à cette musique', 'error'); return; }
       state.settings.jukeboxTrack = key === '__auto__' ? null : key;
-      globalThis.notify(key === '__auto__' ? '🎵 Jukebox → Auto' : `🎵 ${key}`, 'success');
+      const label = key === '__auto__' ? 'Auto' : (JUKEBOX_TRACKS.find(t => t.key === key)?.label || key);
+      globalThis.notify(`🎵 Jukebox → ${label}`, 'success');
       globalThis.saveState();
       renderMusicPanel(container);
     });
