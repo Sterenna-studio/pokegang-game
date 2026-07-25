@@ -5,7 +5,7 @@
 //  Dépendances injectées via configureGangCompetition(ctx) :
 //    getState, saveState, notify, slimPokemon, getSupabaseClient, getSupaSession
 //  Dépendances globalThis :
-//    state, TITLE_BONUSES, getPokemonPower, getTeamPower, playerStats
+//    state, TITLE_BONUSES, getPokemonPower, getTeamPower
 // ════════════════════════════════════════════════════════════════
 //
 // Tables Supabase requises : voir docs/supabase-setup.md et

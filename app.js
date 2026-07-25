@@ -100,12 +100,10 @@ import {
 } from './modules/ui/tabRouter.js';
 import {
   addBattleLogEntry,
-  checkPlayerStatPoints,
   configurePcPokedex,
   filterPCBySpecies,
   openBulkSellModal,
   openDexAssistant,
-  openPlayerStatModal,
   pushFeedEvent,
   rebuildPokedex,
   renderDexDetail,
@@ -1086,7 +1084,7 @@ Object.assign(globalThis, {
   showCollectionResult, spawnCoinRain, autoCollectZone, collectAllZones,
   openCombatPopup, executeCombat, closeCombatPopup,
   // Finance / combat / UI helpers
-  checkMoneyMilestone, showRarePopup, showShinyPopup, showMiniCombatPopup, checkPlayerStatPoints,
+  checkMoneyMilestone, showRarePopup, showShinyPopup, showMiniCombatPopup,
   // Data constants
   POKEMON_GEN1, SPECIES_BY_EN, EVO_BY_SPECIES, POT_UPGRADE_COSTS,
   ZONES, ZONE_BY_ID, getBaseSpecies,
@@ -1103,7 +1101,7 @@ Object.assign(globalThis, {
   // tryAutoEvolution → set by modules/systems/pokemon.js
   // pension module
   showConfirm, showInfoModal, renderPCTab, showContextMenu,
-  openPlayerStatModal, resetPcRenderCache,
+  resetPcRenderCache,
   getMaxPensionSlots, getPensionSlotIds,
   EGG_SPRITES,
   renderLabTabInEl, getDexDesc,

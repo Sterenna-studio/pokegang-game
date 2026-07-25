@@ -15,7 +15,6 @@
 //    speciesName, addLog, addBattleLogEntry, pushFeedEvent, updateTopBar
 //    renderGangTab, renderPCTab, renderZonesTab
 //    showConfirm, showRarePopup, showShinyPopup, getTrainerDialogue
-//    checkPlayerStatPoints
 //    SFX, activeTab
 //    openZones, zoneSpawns, zoneTimers
 //    ZONE_BGS, ITEM_SPRITE_URLS, BALL_SPRITES, MAX_COMBAT_REWARD
