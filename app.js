@@ -450,7 +450,6 @@ function levelUpPokemon(...a)     { return globalThis.levelUpPokemon?.(...a); }
 function getTitleLabel(...a)      { return globalThis.getTitleLabel?.(...a); }
 function getBossFullTitle(...a)   { return globalThis.getBossFullTitle?.(...a); }
 function checkTitleUnlocks(...a)  { return globalThis.checkTitleUnlocks?.(...a); }
-function openTitleModal(...a)     { return globalThis.openTitleModal?.(...a); }
 
 
 function initZone(zoneId) { return globalThis._zsys_initZone(zoneId); }
@@ -1125,7 +1124,6 @@ Object.assign(globalThis, {
   //   → set by modules/ui/cosmetics.js (stubs must NOT overwrite)
   FABRIC_SPECIES, PATCH_PIDS, fabricBgUrl, fabricEmbUrl, patchUrl,
   // gangTab module
-  // openTitleModal → set by modules/systems/titles.js
   // openBossEditModal, openShowcasePicker, openTeamPickerModal, showEvoPreviewModal
   //   → set by modules/ui/pickers.js (stubs must NOT overwrite)
   MusicPlayer, MUSIC_TRACKS, GAME_VERSION,

@@ -15,7 +15,7 @@ const _save   = ()               => globalThis.saveState?.();
 //   pokeSprite, pokeIcon, trainerSprite, pokemonDisplayName,
 //   getBossFullTitle, getTitleLabel, getShinySpeciesCount,
 //   getDexKantoCaught, getDexNationalCaught, KANTO_DEX_SIZE, NATIONAL_DEX_SIZE,
-//   GAME_VERSION, openBossEditModal, openTitleModal, openTeamPickerModal,
+//   GAME_VERSION, openBossEditModal, openTeamPickerModal,
 //   openNameModal, openSpritePicker, _gbase_openExportModal
 //
 // La musique, l'apparence (fonds/pins/skins) et la vitrine ont été extraites
@@ -278,7 +278,6 @@ function _doRenderGangTab() {
             const colors = ['#4fc3f7','#ce93d8'];
             return `<div style="display:flex;gap:5px;margin-top:3px;flex-wrap:wrap">${badges.map((b,bi) => `<span style="font-family:var(--font-pixel);font-size:6px;padding:2px 6px;border-radius:10px;border:1px solid ${colors[bi]};color:${colors[bi]}">${b}</span>`).join('')}</div>`;
           })()}
-          <button id="btnOpenTitles" style="margin-top:4px;font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">🏆 Titres</button>
           <div style="display:flex;gap:14px;margin-top:6px;flex-wrap:wrap">
             <span id="gangHeaderRep" style="font-size:10px;color:var(--gold)">⭐ ${g.reputation.toLocaleString()}</span>
             <span id="gangHeaderMoney" style="font-size:10px;color:var(--text)">₽ ${g.money.toLocaleString()}</span>
@@ -460,7 +459,6 @@ function _doRenderGangTab() {
   });
 
   // Header buttons
-  tab.querySelector('#btnOpenTitles')?.addEventListener('click', () => globalThis.openTitleModal?.());
   tab.querySelector('#btnExportGang')?.addEventListener('click', () => globalThis._gbase_openExportModal?.());
   tab.querySelector('#btnEditBoss')?.addEventListener('click', () => globalThis.openBossEditModal?.(() => renderGangTab()));
 
