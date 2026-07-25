@@ -344,7 +344,11 @@ function _scheduleCameos(viewportEl, bounds) {
               return pk ? globalThis.pokeSprite(pk.species_en, pk.shiny) : null;
             })()
           : null;
-        _spawnCameo(viewportEl, globalThis.trainerSprite(agent.sprite || agent.spriteKey), agent.name, bounds, followIcon);
+        // agent.sprite est déjà une URL résolue (trainerSprite(agent.spriteKey)
+        // appliqué à la création, cf. agent.js:72-73) — la re-passer à
+        // trainerSprite() ici la traiterait à tort comme une clé brute.
+        const cameoSprite = agent.spriteKey ? globalThis.trainerSprite(agent.spriteKey) : agent.sprite;
+        _spawnCameo(viewportEl, cameoSprite, agent.name, bounds, followIcon);
       } else {
         const favs = state.pokemons.filter(p => p.favorite);
         if (favs.length > 0) {
