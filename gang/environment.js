@@ -62,6 +62,17 @@ const SCIENTIST_LINES = [
   'Je termine juste quelques relevés, ne faites pas attention à moi.',
 ];
 
+// Rangée d'œufs en bas du vivarium — wobble périodique par slot, œufs prêts
+// cliquables pour éclore directement (mêmes deps que le PC/Pokédex du jeu
+// principal, importées en side-effect par gang-app.js : makePokemon,
+// calculateStats, registerPokedexCapture, getBaseSpecies, eggImgTag).
+const EGG_TRAY_HEIGHT_PX    = 54; // réservé au bas du viewport quand des œufs sont affichés
+const EGG_WOBBLE_MIN_MS     = 3000;
+const EGG_WOBBLE_MAX_MS     = 9000;
+const EGG_WOBBLE_DURATION_MS = 550;
+const EGG_TRAY_REFRESH_MS   = 30_000; // recalcule prêt/incubation/compte à rebours
+const EGG_HATCH_DELAY_MS    = 420;    // laisse jouer le shake avant la mutation d'état
+
 // Déplacement des résidents — plage large de vitesse/pause pour que ça ne
 // soit pas un métronome (certains hops sont des petits dashes rapides,
 // d'autres des ambles lentes avec une longue pause).
@@ -555,6 +566,131 @@ function _scheduleCameos(viewportEl, bounds) {
   }, delay));
 }
 
+// ── Rangée d'œufs — même définition de "prêt" que renderEggsView()
+//    (modules/ui/pcPokedex.js) pour rester cohérent avec le PC ─────────────
+function _eggIsReady(egg, now = Date.now()) {
+  return egg.status === 'ready' || (egg.incubating && egg.hatchAt && egg.hatchAt <= now);
+}
+
+function _scheduleEggWobble(slotEl) {
+  const delay = EGG_WOBBLE_MIN_MS + Math.random() * (EGG_WOBBLE_MAX_MS - EGG_WOBBLE_MIN_MS);
+  _track(setTimeout(() => {
+    if (!slotEl.isConnected) return;
+    slotEl.classList.add('wobble');
+    _track(setTimeout(() => {
+      slotEl.classList.remove('wobble');
+      _scheduleEggWobble(slotEl);
+    }, EGG_WOBBLE_DURATION_MS));
+  }, delay));
+}
+
+function _renderEggTray(zoneEl, viewportEl) {
+  if (!zoneEl.isConnected) return;
+  const state = globalThis.state;
+  const eggs = state.eggs || [];
+  let tray = zoneEl.querySelector('.gang-env-egg-tray');
+
+  if (eggs.length === 0) {
+    tray?.remove();
+    return;
+  }
+  if (!tray) {
+    tray = document.createElement('div');
+    tray.className = 'gang-env-egg-tray';
+    zoneEl.appendChild(tray);
+  }
+
+  const now = Date.now();
+  tray.innerHTML = eggs.map(egg => {
+    const ready = _eggIsReady(egg, now);
+    const timeLeft = !ready && egg.incubating && egg.hatchAt ? Math.max(0, Math.ceil((egg.hatchAt - now) / 60000)) : null;
+    const title = ready ? 'Prêt à éclore !' : egg.incubating ? `${timeLeft}min restantes` : "En attente d'incubateur";
+    // eggImgTag() (modules/core/sprites.js) construit elle-même son <img>
+    // avec chaîne de fallback onerror — jamais de texte libre joueur injecté
+    // ici (title vient uniquement de valeurs calculées ci-dessus).
+    return `<div class="gang-env-egg-slot${ready ? ' ready' : ''}" data-egg-id="${egg.id}" title="${title}">
+      ${globalThis.eggImgTag(egg, ready, 'width:28px;height:28px')}
+    </div>`;
+  }).join('');
+
+  tray.querySelectorAll('.gang-env-egg-slot').forEach(slotEl => {
+    const eggId = slotEl.dataset.eggId;
+    const egg = eggs.find(e => e.id === eggId);
+    if (!egg) return;
+    if (_eggIsReady(egg, now)) {
+      slotEl.addEventListener('click', () => _hatchEggFromVivarium(eggId, zoneEl, viewportEl));
+    } else {
+      slotEl.addEventListener('click', () => {
+        const mins = egg.incubating && egg.hatchAt ? Math.max(0, Math.ceil((egg.hatchAt - Date.now()) / 60000)) : null;
+        globalThis.notify(egg.incubating ? `🥚 Encore ${mins}min avant l'éclosion.` : "🥚 Cet œuf attend un incubateur.", '');
+      });
+    }
+    _scheduleEggWobble(slotEl);
+  });
+}
+
+function _scheduleEggTrayRefresh(zoneEl, viewportEl) {
+  _track(setTimeout(() => {
+    if (!zoneEl.isConnected) return;
+    _renderEggTray(zoneEl, viewportEl);
+    _scheduleEggTrayRefresh(zoneEl, viewportEl);
+  }, EGG_TRAY_REFRESH_MS));
+}
+
+// Clic sur un slot prêt : petit shake immédiat pour le retour visuel, puis
+// la mutation d'état réelle (irréversible — création du Pokémon, suppression
+// de l'œuf) est différée de EGG_HATCH_DELAY_MS le temps que l'animation joue.
+function _hatchEggFromVivarium(eggId, zoneEl, viewportEl) {
+  const state = globalThis.state;
+  const egg = state.eggs.find(e => e.id === eggId);
+  if (!egg || !_eggIsReady(egg)) return;
+
+  const slotEl = zoneEl.querySelector(`.gang-env-egg-slot[data-egg-id="${eggId}"]`);
+  slotEl?.classList.add('hatching');
+
+  _track(setTimeout(() => _processEggHatch(eggId, zoneEl, viewportEl), EGG_HATCH_DELAY_MS));
+}
+
+// Reproduit fidèlement modules/ui/pcPokedex.js:hatchEgg() (même formule de
+// stats/potentiel/shiny, mêmes compteurs) — sans la modale cinématique du
+// jeu principal, remplacée par le langage visuel léger déjà établi sur
+// cette page (toast + micro-animation du slot).
+//
+// Persistance : passe par saveEggHatch() (gang-app.js), PAS saveState().
+// saveState() ne relaie que les champs cosmétiques par conception ; eggs/
+// pokemons/stats sont partagés avec le jeu principal (l'autre onglet a pu
+// progresser entre-temps), donc l'écriture doit rester additive sur une
+// lecture fraîche plutôt que de recopier notre propre state en bloc.
+function _processEggHatch(eggId, zoneEl, viewportEl) {
+  const state = globalThis.state;
+  const egg = state.eggs.find(e => e.id === eggId);
+  if (!egg) return; // déjà traité entre-temps (protège contre un double clic)
+
+  const baseEn = getBaseSpecies(egg.species_en);
+  const hatched = globalThis.makePokemon(baseEn, 'pension', 'pokeball');
+
+  if (!hatched) { globalThis.saveEggHatch(eggId, null); _renderEggTray(zoneEl, viewportEl); return; }
+
+  hatched.level     = 1;
+  hatched.xp        = 0;
+  hatched.potential = egg.potential;
+  hatched.shiny     = egg.shiny;
+  hatched.stats     = globalThis.calculateStats(hatched);
+  hatched.history   = [{ type: 'hatched', ts: Date.now() }];
+
+  globalThis.saveEggHatch(eggId, hatched); // écrit + resynchronise globalThis.state
+  globalThis._unlockFabricBg?.(hatched.dex, hatched.shiny);
+  globalThis.EventBus?.emit(globalThis.EVENTS?.POKEMON_CAPTURED, { pokemon: hatched, zoneId: 'pension' });
+
+  const name = globalThis.speciesName?.(baseEn) || baseEn;
+  globalThis.notify(
+    `🐣 ${name}${hatched.shiny ? ' ✨ SHINY' : ''} a éclos ! (Lv.1${hatched.potential ? `, ${'★'.repeat(hatched.potential)}` : ''})`,
+    hatched.shiny ? 'gold' : 'success',
+  );
+
+  _renderEggTray(zoneEl, viewportEl);
+}
+
 // ════════════════════════════════════════════════════════════════
 export function renderEnvironmentZone(rootContainer) {
   const zoneEl = rootContainer.querySelector('#gangEnvironmentZone');
@@ -577,11 +713,17 @@ export function renderEnvironmentZone(rootContainer) {
 
   const state = globalThis.state;
   const rect = viewportEl.getBoundingClientRect();
+  // Réserve EGG_TRAY_HEIGHT_PX en bas quand des œufs sont affichés, pour que
+  // les résidents ne se baladent pas visuellement derrière la rangée d'œufs.
+  const reservedBottom = (state.eggs?.length || 0) > 0 ? EGG_TRAY_HEIGHT_PX : 0;
   const bounds = {
     width: rect.width || 600,
     groundTop: (rect.height || 320) * 0.35,
-    groundHeight: (rect.height || 320) * 0.55,
+    groundHeight: Math.max(40, (rect.height || 320) * 0.55 - reservedBottom),
   };
+
+  _renderEggTray(zoneEl, viewportEl);
+  _scheduleEggTrayRefresh(zoneEl, viewportEl);
 
   // Résidents permanents : vitrine + équipe active du boss
   const showcaseIds = (state.gang.showcase || []).filter(Boolean);
