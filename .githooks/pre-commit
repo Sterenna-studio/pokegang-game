@@ -2,9 +2,9 @@
 # ════════════════════════════════════════════════════════════════
 #  pre-commit hook — cache-bust + bump deploy-trigger.txt
 #
-#  1. Recalcule les `?v=` de index.html à partir d'un hash du contenu
-#     de chaque fichier référencé (tools/cache-bust.js), pour ne
-#     jamais servir un asset périmé après déploiement.
+#  1. Recalcule les `?v=` de index.html ET gang/index.html à partir d'un
+#     hash du contenu de chaque fichier référencé (tools/cache-bust.js),
+#     pour ne jamais servir un asset périmé après déploiement.
 #  2. Met à jour deploy-trigger.txt avant chaque commit pour qu'un
 #     marqueur horodaté soit toujours présent dans le commit, et
 #     garantit que le push déclenche le workflow GitHub Actions.
@@ -15,7 +15,7 @@
 
 if command -v node >/dev/null 2>&1; then
   node tools/cache-bust.js
-  git add index.html
+  git add index.html gang/index.html
 else
   echo "[cache-bust] node introuvable — étape ignorée (voir tools/cache-bust.js)" >&2
 fi
