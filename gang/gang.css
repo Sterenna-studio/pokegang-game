@@ -294,6 +294,105 @@
   animation: gang-env-pop 2.3s ease forwards;
 }
 
+/* Bulle de dialogue des événements narratifs (agent/infirmière/chercheur).
+   Enfant direct de .gang-env-sprite (pas de .gang-env-sprite-inner, qui
+   porte le flip scaleX() — sinon le texte serait inversé en marche arrière),
+   hérite donc de la position (transform translate()) sans hériter du sens
+   de marche. */
+.gang-env-speech-bubble {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  translate: -50% -6px; /* indépendant de `transform`, ne rentre pas en
+                            conflit avec la position du parent ni avec
+                            l'animation ci-dessous (qui n'anime que scale/
+                            opacity, jamais transform ni translate). */
+  background: rgba(255,255,255,.95);
+  color: #16161c;
+  font-family: var(--font-pixel);
+  font-size: 6px;
+  line-height: 1.6;
+  padding: 5px 8px;
+  border-radius: 8px;
+  width: max-content;
+  max-width: 130px;
+  text-align: center;
+  pointer-events: none;
+  z-index: 6;
+  box-shadow: 0 2px 6px rgba(0,0,0,.35);
+  animation: gang-env-bubble-pop 3.2s ease forwards;
+}
+.gang-env-speech-bubble::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  translate: -50% 0;
+  border: 5px solid transparent;
+  border-top-color: rgba(255,255,255,.95);
+}
+@keyframes gang-env-bubble-pop {
+  0%   { opacity: 0; scale: .6; }
+  10%  { opacity: 1; scale: 1; }
+  85%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* Ambiance jour/nuit — teinte plein cadre au-dessus de tout (résidents,
+   météo, bulles compris), jamais interactive. */
+.gang-env-ambiance {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+  transition: background 3s ease;
+}
+
+/* Météo — particules CSS pures, au-dessus des résidents (pluie/neige au
+   premier plan) mais sous les bulles/badges. */
+.gang-env-weather {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 3;
+}
+/* transform: translateY(), pas top — cohérent avec le reste du fichier
+   (position des sprites déjà migrée de left/top vers transform pour éviter
+   le layout à chaque frame). --fall-distance posé en JS à partir de la
+   hauteur réelle du viewport. */
+.gang-env-raindrop {
+  position: absolute;
+  top: -20px;
+  width: 1px;
+  height: 14px;
+  background: linear-gradient(to bottom, transparent, rgba(180,210,255,.6));
+  animation-name: gang-env-rain-fall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+@keyframes gang-env-rain-fall {
+  0%   { transform: translateY(0); opacity: 0; }
+  10%  { opacity: 1; }
+  100% { transform: translateY(var(--fall-distance, 400px)); opacity: .2; }
+}
+.gang-env-snowflake {
+  position: absolute;
+  top: -10px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.85);
+  animation-name: gang-env-snow-fall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+@keyframes gang-env-snow-fall {
+  0%   { transform: translate(0, 0); opacity: 0; }
+  10%  { opacity: .9; }
+  100% { transform: translate(10px, var(--fall-distance, 400px)); opacity: .3; }
+}
+
 .gang-env-cameo { width: 44px; height: 44px; opacity: .96; }
 .gang-env-cameo-follow {
   position: absolute;

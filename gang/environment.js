@@ -13,13 +13,54 @@
 //  ennemi) quand ils passent près l'un de l'autre.
 //
 //  Dépendances globalThis : state, saveState, notify, pokeSprite,
-//    pokemonDisplayName, trainerSprite, COSMETIC_BGS, fabricBgUrl
+//    pokemonDisplayName, trainerSprite, COSMETIC_BGS, fabricBgUrl,
+//    EGG_SPRITES, NATURES
 // ════════════════════════════════════════════════════════════════
 
 const CAMEO_MIN_DELAY_MS   = 45_000;
 const CAMEO_MAX_DELAY_MS   = 90_000;
 const CAMEO_SPAWN_CHANCE   = 0.5;
 const CAMEO_SPEED_PX_PER_S = 45;
+
+// Ambiance jour/nuit — teinte de l'overlay recalculée périodiquement à
+// partir de l'heure locale réelle (pas de cycle accéléré, v1 simple).
+const AMBIANCE_REFRESH_MS = 5 * 60_000;
+
+// Météo — reroll périodique parmi un petit set, particules CSS pures
+// (mêmes conventions que le reste du fichier : pas de canvas).
+const WEATHER_TYPES         = ['clear', 'clear', 'rain', 'snow']; // 'clear' pondéré x2 : le beau temps doit rester la norme
+const WEATHER_REROLL_MIN_MS = 5 * 60_000;
+const WEATHER_REROLL_MAX_MS = 10 * 60_000;
+const RAIN_DROP_COUNT   = 26;
+const SNOW_FLAKE_COUNT  = 18;
+
+// Petits événements narratifs — un agent en patrouille (ou tout juste sorti
+// de prison), l'infirmière qui passe pour la pension, un chercheur qui
+// observe — remplace le tirage "cameo" existant (agent/pokémon favori
+// muets) par des passages qui portent une bulle de dialogue contextuelle.
+const AGENT_RELEASED_WINDOW_MS = 2 * 60 * 60_000; // "tout juste sorti" si restUntil < 2h
+const AGENT_LINES = [
+  'En patrouille, boss !',
+  "Tout est calme dans le secteur.",
+  'On tient la position !',
+  'Prêt pour la prochaine mission.',
+  "Content de faire partie du gang, boss.",
+];
+const AGENT_RELEASED_LINES = [
+  "Merci boss de m'avoir sorti de là !",
+  'Je vous revaudrai ça, boss.',
+  "La prison, plus jamais... merci boss.",
+];
+const NURSE_LINES = [
+  'Un œuf tout frais pour la pension !',
+  'Je passais vérifier vos œufs, tout va bien.',
+  'Prenez soin d’eux, ils grandissent vite !',
+];
+const SCIENTIST_LINES = [
+  'Fascinant... ces données vont enrichir le Pokédex.',
+  'Vos Pokémon montrent des statistiques intéressantes.',
+  'Je termine juste quelques relevés, ne faites pas attention à moi.',
+];
 
 // Déplacement des résidents — plage large de vitesse/pause pour que ça ne
 // soit pas un métronome (certains hops sont des petits dashes rapides,
@@ -87,6 +128,72 @@ function _applyZoneBackground(viewportEl) {
     viewportEl.style.backgroundImage = 'linear-gradient(180deg,#0a1a12,#0d2418)';
     viewportEl.style.backgroundSize = 'cover';
   }
+}
+
+// ── Ambiance jour/nuit — teinte calquée sur l'heure locale réelle (v1
+//    simple, pas de cycle accéléré) ─────────────────────────────────────
+function _timeOfDayTint() {
+  const h = new Date().getHours();
+  if (h >= 22 || h < 5)  return 'rgba(8,12,36,.5)';     // nuit
+  if (h >= 5  && h < 8)  return 'rgba(255,175,120,.16)'; // aube
+  if (h >= 18 && h < 22) return 'rgba(255,100,60,.20)';  // crépuscule
+  return 'transparent';                                  // jour
+}
+
+function _applyAmbiance(viewportEl) {
+  let overlay = viewportEl.querySelector('.gang-env-ambiance');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.className = 'gang-env-ambiance';
+    viewportEl.appendChild(overlay);
+  }
+  overlay.style.background = _timeOfDayTint();
+}
+
+function _scheduleAmbianceRefresh(viewportEl) {
+  _track(setTimeout(() => {
+    if (!viewportEl.isConnected) return;
+    _applyAmbiance(viewportEl);
+    _scheduleAmbianceRefresh(viewportEl);
+  }, AMBIANCE_REFRESH_MS));
+}
+
+// ── Météo — reroll périodique, particules CSS pures (pas de canvas) ─────
+function _applyWeather(viewportEl) {
+  viewportEl.querySelector('.gang-env-weather')?.remove();
+
+  const weather = WEATHER_TYPES[Math.floor(Math.random() * WEATHER_TYPES.length)];
+  if (weather === 'clear') return;
+
+  // Distance de chute en px (transform: translateY(), pas top) — calculée
+  // une fois depuis la hauteur réelle du viewport plutôt qu'en pourcentage,
+  // pour rester sur une propriété compositée (voir commentaire CSS).
+  const fallDistance = (viewportEl.getBoundingClientRect().height || 400) + 40;
+
+  const layer = document.createElement('div');
+  layer.className = `gang-env-weather gang-env-weather-${weather}`;
+  const count = weather === 'rain' ? RAIN_DROP_COUNT : SNOW_FLAKE_COUNT;
+  for (let i = 0; i < count; i++) {
+    const p = document.createElement('span');
+    p.className = weather === 'rain' ? 'gang-env-raindrop' : 'gang-env-snowflake';
+    p.style.left = `${Math.random() * 100}%`;
+    p.style.setProperty('--fall-distance', `${fallDistance}px`);
+    p.style.animationDelay = `${Math.random() * 3}s`;
+    p.style.animationDuration = weather === 'rain'
+      ? `${0.6 + Math.random() * 0.4}s`
+      : `${3 + Math.random() * 2.5}s`;
+    layer.appendChild(p);
+  }
+  viewportEl.appendChild(layer);
+}
+
+function _scheduleWeatherReroll(viewportEl) {
+  const delay = WEATHER_REROLL_MIN_MS + Math.random() * (WEATHER_REROLL_MAX_MS - WEATHER_REROLL_MIN_MS);
+  _track(setTimeout(() => {
+    if (!viewportEl.isConnected) return;
+    _applyWeather(viewportEl);
+    _scheduleWeatherReroll(viewportEl);
+  }, delay));
 }
 
 function _openZoneBgPicker(viewportEl) {
@@ -357,9 +464,10 @@ function _scheduleProximityScan(viewportEl, bounds) {
   }, PROXIMITY_SCAN_MS));
 }
 
-// ── Cameo — agent ou pokémon favori qui traverse une fois puis disparaît ──
-// (hors du système résident/collision — passage rapide et ponctuel)
-function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl) {
+// ── Cameo — agent, infirmière, chercheur ou pokémon favori qui traverse une
+// fois puis disparaît (hors du système résident/collision) — porte
+// optionnellement une bulle de dialogue (dialogueLine). ──────────────────
+function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl, dialogueLine) {
   const el = document.createElement('div');
   el.className = 'gang-env-sprite gang-env-cameo';
   el.title = label || '';
@@ -372,6 +480,20 @@ function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl) {
   _flip(el, !fromLeft);
   viewportEl.appendChild(el);
 
+  if (dialogueLine) {
+    // Bulle en enfant DIRECT de `el` (pas de .gang-env-sprite-inner, qui
+    // porte le flip via scaleX() — sinon le texte se retrouverait inversé
+    // quand le personnage marche vers la gauche) : elle suit la position
+    // (transform translate()) du cameo sans hériter de son sens de marche.
+    _track(setTimeout(() => {
+      if (!el.isConnected) return;
+      const bubble = document.createElement('div');
+      bubble.className = 'gang-env-speech-bubble';
+      bubble.textContent = dialogueLine; // jamais innerHTML — texte fixe interne, mais même discipline que le reste du fichier
+      el.appendChild(bubble);
+    }, 500));
+  }
+
   requestAnimationFrame(() => {
     const duration = Math.max(4, bounds.width / CAMEO_SPEED_PX_PER_S);
     el.style.transition = `transform ${duration}s linear`;
@@ -380,35 +502,55 @@ function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl) {
   });
 }
 
+function _fireCameoEvent(viewportEl, bounds) {
+  const state = globalThis.state;
+  const pool = [];
+  if (state.agents.length > 0) pool.push('agent');
+  const favs = state.pokemons.filter(p => p.favorite);
+  if (favs.length > 0) pool.push('favorite');
+  if ((state.eggs?.length || 0) > 0 || state.pension?.eggAt) pool.push('nurse');
+  pool.push('scientist'); // flavor générique, toujours dispo
+
+  const type = pool[Math.floor(Math.random() * pool.length)];
+
+  if (type === 'agent') {
+    const agent = state.agents[Math.floor(Math.random() * state.agents.length)];
+    const hasTeam = agent.team && agent.team.length > 0;
+    const followIcon = hasTeam && Math.random() < 0.6
+      ? (() => {
+          const pk = state.pokemons.find(p => p.id === agent.team[0]);
+          return pk ? globalThis.pokeSprite(pk.species_en, pk.shiny) : null;
+        })()
+      : null;
+    // agent.sprite est déjà une URL résolue (trainerSprite(agent.spriteKey)
+    // appliqué à la création, cf. agent.js:72-73) — la re-passer à
+    // trainerSprite() ici la traiterait à tort comme une clé brute.
+    const cameoSprite = agent.spriteKey ? globalThis.trainerSprite(agent.spriteKey) : agent.sprite;
+    // "Tout juste sorti de prison" approximé : cette page n'a pas de tick
+    // temps réel (pas de boucle de jeu), donc resting a pu repasser à false
+    // il y a un moment sans qu'on l'ait vu se produire — on se contente de
+    // vérifier que restUntil est récent plutôt que d'exiger l'instant exact.
+    const recentlyFreed = !agent.resting && agent.restUntil
+      && (Date.now() - agent.restUntil) >= 0 && (Date.now() - agent.restUntil) < AGENT_RELEASED_WINDOW_MS;
+    const lines = recentlyFreed ? AGENT_RELEASED_LINES : AGENT_LINES;
+    _spawnCameo(viewportEl, cameoSprite, agent.name, bounds, followIcon, lines[Math.floor(Math.random() * lines.length)]);
+  } else if (type === 'favorite') {
+    const pk = favs[Math.floor(Math.random() * favs.length)];
+    _spawnCameo(viewportEl, globalThis.pokeSprite(pk.species_en, pk.shiny), globalThis.pokemonDisplayName?.(pk) || pk.species_en, bounds);
+  } else if (type === 'nurse') {
+    const lines = NURSE_LINES;
+    _spawnCameo(viewportEl, globalThis.trainerSprite('nurse'), 'Infirmière Joy', bounds, globalThis.EGG_SPRITES?.default, lines[Math.floor(Math.random() * lines.length)]);
+  } else {
+    const lines = SCIENTIST_LINES;
+    _spawnCameo(viewportEl, globalThis.trainerSprite('scientist'), 'Chercheur', bounds, null, lines[Math.floor(Math.random() * lines.length)]);
+  }
+}
+
 function _scheduleCameos(viewportEl, bounds) {
   const delay = CAMEO_MIN_DELAY_MS + Math.random() * (CAMEO_MAX_DELAY_MS - CAMEO_MIN_DELAY_MS);
   _track(setTimeout(() => {
     if (!viewportEl.isConnected) return;
-    if (Math.random() < CAMEO_SPAWN_CHANCE) {
-      const state = globalThis.state;
-      const roll = Math.random();
-      if (roll < 0.5 && state.agents.length > 0) {
-        const agent = state.agents[Math.floor(Math.random() * state.agents.length)];
-        const hasTeam = agent.team && agent.team.length > 0;
-        const followIcon = hasTeam && Math.random() < 0.6
-          ? (() => {
-              const pk = state.pokemons.find(p => p.id === agent.team[0]);
-              return pk ? globalThis.pokeSprite(pk.species_en, pk.shiny) : null;
-            })()
-          : null;
-        // agent.sprite est déjà une URL résolue (trainerSprite(agent.spriteKey)
-        // appliqué à la création, cf. agent.js:72-73) — la re-passer à
-        // trainerSprite() ici la traiterait à tort comme une clé brute.
-        const cameoSprite = agent.spriteKey ? globalThis.trainerSprite(agent.spriteKey) : agent.sprite;
-        _spawnCameo(viewportEl, cameoSprite, agent.name, bounds, followIcon);
-      } else {
-        const favs = state.pokemons.filter(p => p.favorite);
-        if (favs.length > 0) {
-          const pk = favs[Math.floor(Math.random() * favs.length)];
-          _spawnCameo(viewportEl, globalThis.pokeSprite(pk.species_en, pk.shiny), globalThis.pokemonDisplayName?.(pk) || pk.species_en, bounds);
-        }
-      }
-    }
+    if (Math.random() < CAMEO_SPAWN_CHANCE) _fireCameoEvent(viewportEl, bounds);
     _scheduleCameos(viewportEl, bounds);
   }, delay));
 }
@@ -427,6 +569,11 @@ export function renderEnvironmentZone(rootContainer) {
   const viewportEl = zoneEl.querySelector('#gangEnvViewport');
   _applyZoneBackground(viewportEl);
   zoneEl.querySelector('#gangZoneBgBtn').addEventListener('click', () => _openZoneBgPicker(viewportEl));
+
+  _applyAmbiance(viewportEl);
+  _scheduleAmbianceRefresh(viewportEl);
+  _applyWeather(viewportEl);
+  _scheduleWeatherReroll(viewportEl);
 
   const state = globalThis.state;
   const rect = viewportEl.getBoundingClientRect();
