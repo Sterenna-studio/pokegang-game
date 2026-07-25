@@ -396,7 +396,7 @@ function _combatTeamIdsForAgents(agentIds = [], zoneId = null) {
     }
   }
   for (const agentId of agentIds) {
-    const agent = state.agents.find(a => a.id === agentId);
+    const agent = globalThis.agentById?.(agentId) ?? state.agents.find(a => a.id === agentId);
     if (!agent) continue;
     const slots = getAgentTeamSlots(agent);
     for (const id of (agent.team || []).slice(0, slots)) {
