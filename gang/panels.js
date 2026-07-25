@@ -12,6 +12,9 @@
 //  Dépendances classiques (bare-name) : ZONES, TITLES, POKEMON_GEN1
 // ════════════════════════════════════════════════════════════════
 
+import { renderEnvironmentZone } from './environment.js';
+import { escapeHtml } from '../modules/core/escape.js';
+
 const FABRIC_SHOP_COST = 100_000;
 
 // ── Musique ────────────────────────────────────────────────────────────────
@@ -665,7 +668,7 @@ export function renderVitrinePanel(container) {
     if (pk) {
       return `<div class="gang-vslot filled" data-vslot="${i}">
         <img src="${globalThis.pokeSprite(pk.species_en, pk.shiny)}" alt="">
-        <div class="gang-vslot-name">${globalThis.pokemonDisplayName(pk)}${pk.shiny ? ' ✨' : ''}</div>
+        <div class="gang-vslot-name">${escapeHtml(globalThis.pokemonDisplayName(pk))}${pk.shiny ? ' ✨' : ''}</div>
         <button class="gang-vslot-remove" data-vslot-remove="${i}" title="Retirer">✕</button>
       </div>`;
     }
@@ -687,7 +690,10 @@ export function renderVitrinePanel(container) {
   container.querySelectorAll('[data-vslot]').forEach(el => {
     el.addEventListener('click', (e) => {
       if (e.target.classList.contains('gang-vslot-remove')) return;
-      openShowcasePicker(parseInt(el.dataset.vslot, 10), () => renderVitrinePanel(container));
+      openShowcasePicker(parseInt(el.dataset.vslot, 10), () => {
+        renderVitrinePanel(container);
+        renderEnvironmentZone(container);
+      });
     });
   });
   container.querySelectorAll('[data-vslot-remove]').forEach(btn => {
@@ -697,6 +703,7 @@ export function renderVitrinePanel(container) {
       state.gang.showcase[idx] = null;
       globalThis.saveState();
       renderVitrinePanel(container);
+      renderEnvironmentZone(container);
     });
   });
 }
@@ -715,7 +722,7 @@ function openShowcasePicker(slotIdx, onDone) {
     <div class="showcase-pick-item" data-pk-id="${p.id}">
       <img src="${globalThis.pokeSprite(p.species_en, p.shiny)}" alt="">
       <div class="showcase-pick-info">
-        <div>${globalThis.pokemonDisplayName(p)}${p.shiny ? ' ✨' : ''} ${'★'.repeat(p.potential)}</div>
+        <div>${escapeHtml(globalThis.pokemonDisplayName(p))}${p.shiny ? ' ✨' : ''} ${'★'.repeat(p.potential)}</div>
         <div class="dim">Lv.${p.level}</div>
       </div>
     </div>`).join('') || `<div class="gang-picker-empty">Aucun Pokémon disponible</div>`;
