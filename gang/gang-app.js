@@ -13,15 +13,13 @@
 
 import { EventBus, EVENTS } from '../modules/core/eventBus.js';
 import { createStore } from '../state/store.js';
-import '../modules/ui/cosmetics.js'; // side-effect: expose applyCosmetics()/_unlockFabricBg sur globalThis
-import '../modules/core/sprites.js';  // side-effect: expose pokeSprite/pokeIcon/trainerSprite/eggSprite/eggImgTag/... sur globalThis
-import '../modules/core/utils.js';    // side-effect: expose pick/randInt/uid/clamp sur globalThis (aucune dépendance externe)
-import '../modules/systems/pokemon.js'; // side-effect: expose makePokemon/calculateStats/registerPokedexCapture sur globalThis (hatch d'œuf depuis le vivarium)
+import '../modules/ui/cosmetics.js'; // side-effect: expose applyCosmetics() sur globalThis
+import '../modules/core/sprites.js';  // side-effect: expose pokeSprite/pokeIcon/trainerSprite/... sur globalThis
 import {
   COSMETIC_BGS, FABRIC_SPECIES, PATCH_PIDS, fabricBgUrl, patchUrl,
 } from '../data/zones-visuals-data.js';
 import {
-  SHOWCASE_SLOTS, BOSS_TEAM_SLOTS, AGENT_RANK_LABELS, NATURES, NATURE_KEYS,
+  SHOWCASE_SLOTS, BOSS_TEAM_SLOTS, AGENT_RANK_LABELS, NATURES,
 } from '../data/game-config-data.js';
 import { BALL_SPRITES, EGG_SPRITES } from '../data/assets-data.js';
 import { BALLS, SHOP_ITEMS } from '../data/economy-data.js';
@@ -163,37 +161,6 @@ function saveState() {
   updateTopbar();
 }
 
-// Écriture prudente dédiée à l'éclosion d'un œuf depuis le vivarium.
-// saveState() ci-dessus ne relaie QUE les champs cosmétiques par conception
-// (voir son commentaire) — eggs/pokemons/stats/pokedex sont des collections
-// partagées avec le jeu principal, et un joueur peut très bien avoir les
-// deux onglets ouverts en même temps. Plutôt que de recopier ces champs en
-// bloc depuis notre propre state (potentiellement périmé, vu que /gang/ n'a
-// pas de tick temps réel) — ce qui écraserait toute capture faite entre-
-// temps dans l'autre onglet — on applique l'éclosion de façon PUREMENT
-// ADDITIVE sur une lecture fraîche : retire CET œuf précis par id, ajoute
-// CE pokémon précis, incrémente les compteurs de 1 plutôt que de les
-// recopier tels quels.
-function saveEggHatch(eggId, hatchedPokemon) {
-  const fresh = store.load();
-  if (!fresh) return false;
-  fresh.eggs = (fresh.eggs || []).filter(e => e.id !== eggId);
-  if (hatchedPokemon) {
-    fresh.pokemons = fresh.pokemons || [];
-    fresh.pokemons.push(hatchedPokemon);
-    fresh.stats = fresh.stats || {};
-    fresh.stats.totalCaught = (fresh.stats.totalCaught || 0) + 1;
-    fresh.stats.eggsHatched = (fresh.stats.eggsHatched || 0) + 1;
-    if (hatchedPokemon.shiny) fresh.stats.shinyCaught = (fresh.stats.shinyCaught || 0) + 1;
-    globalThis.registerPokedexCapture?.(fresh, hatchedPokemon);
-  }
-  state = fresh;
-  globalThis.state = fresh; // même resynchronisation que saveState() — voir son commentaire
-  store.save();
-  updateTopbar();
-  return true;
-}
-
 function updateTopbar() {
   document.getElementById('gangTopbarMoney').textContent = `${(state.gang.money || 0).toLocaleString()}₽`;
 }
@@ -202,10 +169,10 @@ function updateTopbar() {
 //  Exposition globale — même convention que app.js (Object.assign)
 // ════════════════════════════════════════════════════════════════
 Object.assign(globalThis, {
-  state, EventBus, EVENTS, notify, showConfirm, SFX, saveState, saveEggHatch, isZoneUnlocked,
+  state, EventBus, EVENTS, notify, showConfirm, SFX, saveState, isZoneUnlocked,
   pokeSprite, pokeIcon, trainerSprite, speciesName, pokemonDisplayName,
   COSMETIC_BGS, FABRIC_SPECIES, PATCH_PIDS, fabricBgUrl, patchUrl,
-  SHOWCASE_SLOTS, BOSS_TEAM_SLOTS, AGENT_RANK_LABELS, BALL_SPRITES, BALLS, SHOP_ITEMS, NATURES, NATURE_KEYS,
+  SHOWCASE_SLOTS, BOSS_TEAM_SLOTS, AGENT_RANK_LABELS, BALL_SPRITES, BALLS, SHOP_ITEMS, NATURES,
   EGG_SPRITES,
 });
 
