@@ -93,14 +93,21 @@ const store = createStore({
 
 let state = store.load();
 if (!state) {
-  // Aucune save trouvée — rien à personnaliser tant que le jeu principal
-  // n'a pas été lancé au moins une fois.
+  // store.load() renvoie null aussi bien quand la clé est absente que quand
+  // son contenu est illisible (JSON.parse/migrateSave en échec, loggé en
+  // console par le store) — on relit la clé brute nous-mêmes pour distinguer
+  // les deux cas et ne pas orienter le joueur vers "relancez le jeu" quand
+  // le vrai problème est une sauvegarde corrompue qui a besoin d'un import.
+  const rawExists = !!window.localStorage.getItem(store.getSaveKey());
+  const message = rawExists
+    ? `Sauvegarde illisible ou corrompue. Relancez le jeu principal pour voir le détail de l'erreur — une restauration depuis un export ou le cloud sera peut-être nécessaire.`
+    : `Aucune sauvegarde trouvée. Lancez d'abord le jeu principal, puis revenez ici.`;
   document.getElementById('gangPanelBody').innerHTML = `
     <div class="gang-empty-state">
-      Aucune sauvegarde trouvée. Lancez d'abord le jeu principal, puis revenez ici.
+      ${message}
       <br><a href="../index.html">← Lancer PokéGang</a>
     </div>`;
-  throw new Error('[gang] no save found');
+  throw new Error(`[gang] ${rawExists ? 'corrupted save' : 'no save found'}`);
 }
 
 // Écriture prudente : relit le localStorage à froid juste avant d'écrire,
