@@ -14,8 +14,8 @@
 //
 //  Dépendances globalThis : state, saveState, notify, pokeSprite,
 //    pokemonDisplayName, trainerSprite, COSMETIC_BGS, fabricBgUrl,
-//    EGG_SPRITES, NATURES, TRAINER_TYPES
-//  Dépendances classiques (bare-name) : ZONE_BY_ID
+//    EGG_SPRITES, NATURES, TRAINER_TYPES, getBossTeamPower
+//  Dépendances classiques (bare-name) : ZONE_BY_ID, TITLES
 // ════════════════════════════════════════════════════════════════
 
 const CAMEO_MIN_DELAY_MS   = 45_000;
@@ -61,6 +61,30 @@ const SCIENTIST_LINES = [
   'Fascinant... ces données vont enrichir le Pokédex.',
   'Vos Pokémon montrent des statistiques intéressantes.',
   'Je termine juste quelques relevés, ne faites pas attention à moi.',
+];
+
+// Rival de gang — la Team Rocket est déjà la faction antagoniste établie
+// dans ce jeu (pool de dresseurs de plusieurs zones) ; n'apparaît que si le
+// gang a assez de réputation pour attirer ce genre d'attention.
+const RIVAL_REP_THRESHOLD = 300;
+const RIVAL_SPRITES = ['rocketgrunt', 'rocketgruntf'];
+const RIVAL_LINES = [
+  'Votre territoire ne durera pas.',
+  'La Team Rocket a l’œil sur vous.',
+  'On se reverra, boss.',
+  'Ne baissez pas votre garde.',
+];
+
+const FAN_LINES = [
+  'Votre équipe est incroyable, j’aimerais tant vous ressembler !',
+  'Je peux avoir un autographe, boss ?',
+  'On parle de vous dans tout le quartier !',
+];
+
+const BOSS_LINES = [
+  'Je viens juste vérifier que tout va bien.',
+  'Belle équipe que j’ai là, si je puis dire.',
+  'Le quartier est calme aujourd’hui.',
 ];
 
 // Déplacement des résidents — plage large de vitesse/pause pour que ça ne
@@ -159,11 +183,31 @@ function _scheduleAmbianceRefresh(viewportEl) {
   }, AMBIANCE_REFRESH_MS));
 }
 
+// ── Réaction des résidents à la météo/l'heure — pluie et nuit ralentissent
+// le wander (pauses plus longues, déplacements plus lents) sans jamais
+// l'arrêter, plutôt que d'introduire un nouvel état/sprite "à l'abri"/
+// "endormi" (garde le système à un seul mécanisme : _wanderStep). ────────
+let _currentWeather = 'clear'; // mis à jour par _applyWeather()
+
+function _isNightNow() {
+  const h = new Date().getHours();
+  return h >= 22 || h < 5;
+}
+
+function _environmentPaceFactor() {
+  let pauseMult = 1;
+  let speedMult = 1;
+  if (_currentWeather === 'rain' || _currentWeather === 'snow') { pauseMult *= 1.6; speedMult *= 0.75; }
+  if (_isNightNow()) { pauseMult *= 1.8; speedMult *= 0.7; }
+  return { pauseMult, speedMult };
+}
+
 // ── Météo — reroll périodique, particules CSS pures (pas de canvas) ─────
 function _applyWeather(viewportEl) {
   viewportEl.querySelector('.gang-env-weather')?.remove();
 
   const weather = WEATHER_TYPES[Math.floor(Math.random() * WEATHER_TYPES.length)];
+  _currentWeather = weather;
   if (weather === 'clear') return;
 
   // Distance de chute en px (transform: translateY(), pas top) — calculée
@@ -323,7 +367,8 @@ function _wanderStep(entry, bounds) {
 
   const { x: targetX, y: targetY } = _pickTarget(entry, bounds);
   const dist  = _dist(entry.x, entry.y, targetX, targetY);
-  const speed = WANDER_SPEED_MIN + Math.random() * (WANDER_SPEED_MAX - WANDER_SPEED_MIN);
+  const { pauseMult, speedMult } = _environmentPaceFactor();
+  const speed = (WANDER_SPEED_MIN + Math.random() * (WANDER_SPEED_MAX - WANDER_SPEED_MIN)) * speedMult;
   const duration = Math.max(0.5, dist / speed);
 
   entry.el.classList.remove('idle');
@@ -336,7 +381,7 @@ function _wanderStep(entry, bounds) {
   entry.timer = _track(setTimeout(() => {
     if (!entry.el.isConnected) return;
     entry.el.classList.add('idle');
-    const pause = WANDER_MIN_PAUSE_MS + Math.random() * (WANDER_MAX_PAUSE_MS - WANDER_MIN_PAUSE_MS);
+    const pause = (WANDER_MIN_PAUSE_MS + Math.random() * (WANDER_MAX_PAUSE_MS - WANDER_MIN_PAUSE_MS)) * pauseMult;
     entry.timer = _track(setTimeout(() => _wanderStep(entry, bounds), pause));
   }, duration * 1000));
 }
@@ -468,7 +513,7 @@ function _scheduleProximityScan(viewportEl, bounds) {
 // ── Cameo — agent, infirmière, chercheur ou pokémon favori qui traverse une
 // fois puis disparaît (hors du système résident/collision) — porte
 // optionnellement une bulle de dialogue (dialogueLine). ──────────────────
-function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl, dialogueLine) {
+function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl, dialogueLine, hostile = false) {
   const el = document.createElement('div');
   el.className = 'gang-env-sprite gang-env-cameo';
   el.title = label || '';
@@ -489,7 +534,7 @@ function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl, dialogueLi
     _track(setTimeout(() => {
       if (!el.isConnected) return;
       const bubble = document.createElement('div');
-      bubble.className = 'gang-env-speech-bubble';
+      bubble.className = `gang-env-speech-bubble${hostile ? ' hostile' : ''}`;
       bubble.textContent = dialogueLine; // jamais innerHTML — texte fixe interne, mais même discipline que le reste du fichier
       el.appendChild(bubble);
     }, 500));
@@ -503,12 +548,27 @@ function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl, dialogueLi
   });
 }
 
+// Même logique que gang/panels.js:_getBossFullTitle() (copie volontaire —
+// même duplication déjà présente dans modules/systems/titles.js et ici,
+// TITLES est un bare-name classic script chargé par cette page).
+function _getBossFullTitle(state) {
+  const label = id => TITLES.find(t => t.id === id)?.label || '';
+  const t1 = label(state.gang.titleA);
+  const t2 = label(state.gang.titleB);
+  const lia = state.gang.titleLiaison || '';
+  if (!t1 && !t2) return 'Recrue';
+  if (t1 && !t2) return t1;
+  if (!t1 && t2) return t2;
+  return `${t1}${lia ? ' ' + lia : ''} ${t2}`;
+}
+
 // Bassin de répliques éligibles pour un agent donné — la ligne générique
 // (patrouille/sorti de prison) est toujours présente, complétée par des
 // répliques contextuelles quand les données réelles le permettent : un
-// Pokémon confié (nickname pris en compte via pokemonDisplayName) et un
+// Pokémon confié (nickname pris en compte via pokemonDisplayName), un
 // bilan de combats sur sa zone assignée (type de dresseur réellement
-// présent dans le pool de cette zone, cf. data/zones-data.js:trainers).
+// présent dans le pool de cette zone, cf. data/zones-data.js:trainers), et
+// le titre complet du boss.
 function _buildAgentLines(agent, state) {
   const now = Date.now();
   // "Tout juste sorti de prison" approximé : cette page n'a pas de tick
@@ -539,6 +599,27 @@ function _buildAgentLines(agent, state) {
     }
   }
 
+  lines.push(`Fier de servir sous ${_getBossFullTitle(state)}, boss !`);
+
+  return lines;
+}
+
+function _buildNurseLines(state) {
+  const lines = [...NURSE_LINES];
+  const pensionCount = state.pension?.slots?.filter(Boolean).length || 0;
+  if (pensionCount > 0) {
+    const max = 2 + (state.pension?.extraSlotsPurchased || 0);
+    lines.push(`La pension compte ${pensionCount}/${max} pokémon en ce moment.`);
+  }
+  return lines;
+}
+
+function _buildScientistLines(state) {
+  const lines = [...SCIENTIST_LINES];
+  const shinyCount = state.stats?.shinyCaught || 0;
+  if (shinyCount > 0) {
+    lines.push(`Vous avez déjà repéré ${shinyCount} chromatique${shinyCount > 1 ? 's' : ''}, un vrai record !`);
+  }
   return lines;
 }
 
@@ -550,6 +631,9 @@ function _fireCameoEvent(viewportEl, bounds) {
   if (favs.length > 0) pool.push('favorite');
   if ((state.eggs?.length || 0) > 0 || state.pension?.eggAt) pool.push('nurse');
   pool.push('scientist'); // flavor générique, toujours dispo
+  pool.push('fan');       // flavor générique, toujours dispo
+  if ((state.gang.reputation || 0) >= RIVAL_REP_THRESHOLD) pool.push('rival');
+  if (state.gang.bossSprite) pool.push('boss');
 
   const type = pool[Math.floor(Math.random() * pool.length)];
 
@@ -572,11 +656,21 @@ function _fireCameoEvent(viewportEl, bounds) {
     const pk = favs[Math.floor(Math.random() * favs.length)];
     _spawnCameo(viewportEl, globalThis.pokeSprite(pk.species_en, pk.shiny), globalThis.pokemonDisplayName?.(pk) || pk.species_en, bounds);
   } else if (type === 'nurse') {
-    const lines = NURSE_LINES;
+    const lines = _buildNurseLines(state);
     _spawnCameo(viewportEl, globalThis.trainerSprite('nurse'), 'Infirmière Joy', bounds, globalThis.EGG_SPRITES?.default, lines[Math.floor(Math.random() * lines.length)]);
-  } else {
-    const lines = SCIENTIST_LINES;
+  } else if (type === 'scientist') {
+    const lines = _buildScientistLines(state);
     _spawnCameo(viewportEl, globalThis.trainerSprite('scientist'), 'Chercheur', bounds, null, lines[Math.floor(Math.random() * lines.length)]);
+  } else if (type === 'fan') {
+    _spawnCameo(viewportEl, globalThis.trainerSprite('pokefan'), 'Fan Pokémon', bounds, null, FAN_LINES[Math.floor(Math.random() * FAN_LINES.length)]);
+  } else if (type === 'rival') {
+    const sprite = RIVAL_SPRITES[Math.floor(Math.random() * RIVAL_SPRITES.length)];
+    _spawnCameo(viewportEl, globalThis.trainerSprite(sprite), 'Rival', bounds, null, RIVAL_LINES[Math.floor(Math.random() * RIVAL_LINES.length)], true);
+  } else if (type === 'boss') {
+    const power = globalThis.getBossTeamPower?.() ?? null;
+    const lines = [...BOSS_LINES];
+    if (power !== null) lines.push(`Puissance de l'équipe : ${power.toLocaleString()}. On progresse.`);
+    _spawnCameo(viewportEl, globalThis.trainerSprite(state.gang.bossSprite), state.gang.bossName || 'Boss', bounds, null, lines[Math.floor(Math.random() * lines.length)]);
   }
 }
 
