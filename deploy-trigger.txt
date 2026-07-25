@@ -4,6 +4,6 @@ Auto-updated on every commit by .githooks/pre-commit.
 Garantit qu'un marqueur horodaté est présent dans chaque commit
 et que le workflow GitHub Actions se déclenche.
 
-Last update : 2026-07-25 12:09:24 +0200
+Last update : 2026-07-25 12:11:16 +0200
 Branch      : main
-Previous sha: f6fcfd6
+Previous sha: 8617a04

@@ -23,6 +23,7 @@ import {
 } from '../data/game-config-data.js';
 import { BALL_SPRITES } from '../data/assets-data.js';
 import { BALLS, SHOP_ITEMS } from '../data/economy-data.js';
+import { GYM_ORDER, JOHTO_GYM_ORDER, HOENN_GYM_ORDER, SINNOH_GYM_ORDER } from '../data/zones-config-data.js';
 
 import { renderMusicPanel, renderAppearancePanel, renderTitrePanel, renderVitrinePanel } from './panels.js';
 import { renderEnvironmentZone, stopEnvironmentZone } from './environment.js';
@@ -79,6 +80,22 @@ function isZoneUnlocked(zoneId) {
   }
   if (state.gang.reputation < zone.rep) return false;
   if (zone.unlockItem && !state.purchases?.[zone.unlockItem]) return false;
+  // Villes (arènes) : déblocage séquentiel — l'arène précédente de la même
+  // région doit être battue (branche absente du portage initial, cf.
+  // modules/systems/zoneSystem.js:165-184).
+  if (zone.type === 'city') {
+    const allOrders = [SINNOH_GYM_ORDER, HOENN_GYM_ORDER, JOHTO_GYM_ORDER, GYM_ORDER];
+    for (const order of allOrders) {
+      if (!order) continue;
+      const idx = order.indexOf(zoneId);
+      if (idx < 0) continue;
+      if (idx > 0) {
+        const prevId = order[idx - 1];
+        if (!state.zones[prevId]?.gymDefeated) return false;
+      }
+      break;
+    }
+  }
   return true;
 }
 
