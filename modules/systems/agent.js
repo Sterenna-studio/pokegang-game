@@ -526,6 +526,18 @@ function bailOutAgent(agentId) {
   const state = globalThis.state;
   const agent = state.agents.find(a => a.id === agentId);
   if (!agent || !agent.resting) return false;
+  // Le tick périodique qui remet resting à false (_tickAgentEnergy) ne
+  // s'exécute que pour les agents sur une zone active — un agent sur une
+  // zone en arrière-plan à faible spawnRate peut donc rester "resting" en
+  // mémoire bien après l'écoulement réel de sa peine. Sans ce contrôle, le
+  // joueur paierait pour une caution déjà purgée.
+  if (Date.now() >= (agent.restUntil || 0)) {
+    agent.resting = false;
+    agent.restUntil = null;
+    agent.energy = 5;
+    _save();
+    return true;
+  }
   const cost = getAgentBailCost(agent);
   if ((state.gang.money || 0) < cost) {
     _notify(`Pas assez d'argent pour payer la caution (${cost.toLocaleString()}₽).`, 'error');

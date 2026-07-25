@@ -66,7 +66,14 @@ function renderAgentsTab() {
 // ── Fragment énergie/repos d'une carte agent ──────────────────────
 // Partagé entre le rebuild complet et le patch ciblé (_patchAgentsTabDynamic).
 function _agentEnergyRowHtml(a, agentTeamSlots) {
-  if (a.resting) {
+  // Le tick qui remet a.resting à false ne tourne que pour les agents sur
+  // une zone active (voir agent.js:_tickAgentEnergy) — un agent sur une zone
+  // en arrière-plan à faible spawnRate peut donc rester "resting" en mémoire
+  // bien après restUntil. On traite ce cas comme "plus en prison" côté
+  // affichage uniquement (pas de mutation ici) pour éviter un bouton
+  // "Payer" fantôme jusqu'au prochain tick/patch déclenché par un event.
+  const stillResting = a.resting && Date.now() < (a.restUntil || 0);
+  if (stillResting) {
     const cost = globalThis.getAgentBailCost?.(a) ?? 0;
     return `<span style="font-family:var(--font-pixel);font-size:7px;color:var(--red)">🔒 PRISON ${Math.max(0, Math.round(((a.restUntil || 0) - Date.now()) / 60000))}min</span>
       <button data-bail-agent="${a.id}" style="font-size:7px;padding:2px 6px;background:var(--bg-card);border:1px solid var(--gold-dim,#665522);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer;margin-left:4px">🔓 Payer ${cost.toLocaleString()}₽</button>`;
@@ -532,7 +539,7 @@ function renderAgentTree(container) {
       ${tiers.map((tier, ti) => `
         ${ti > 0 ? '<div class="agent-tree-divider">▾</div>' : ''}
         <div style="display:flex;flex-direction:column;align-items:center;gap:6px;width:100%">
-          <div style="font-family:var(--font-pixel);font-size:7px;color:${tier.color};padding:2px 10px;border:1px solid ${tier.color};border-radius:99px;white-space:nowrap">${tier.label}</div>
+          <div style="font-family:var(--font-pixel);font-size:7px;color:${tier.color};padding:2px 10px;border:1px solid ${tier.color};border-radius:99px;white-space:nowrap">${_esc(tier.label)}</div>
           <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;width:100%">
             ${tier.nodes.join('')}
           </div>
