@@ -331,6 +331,16 @@
   border: 5px solid transparent;
   border-top-color: rgba(255,255,255,.95);
 }
+/* Rival de gang — bulle teintée pour signaler le ton hostile au premier
+   coup d'œil, même logique que le badge ami 💕/ennemi 💢 des résidents. */
+.gang-env-speech-bubble.hostile {
+  background: rgba(60,14,14,.95);
+  color: #ffb3b3;
+  box-shadow: 0 2px 6px rgba(200,40,40,.35);
+}
+.gang-env-speech-bubble.hostile::after {
+  border-top-color: rgba(60,14,14,.95);
+}
 @keyframes gang-env-bubble-pop {
   0%   { opacity: 0; scale: .6; }
   10%  { opacity: 1; scale: 1; }

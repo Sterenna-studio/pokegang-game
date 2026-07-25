@@ -25,6 +25,7 @@ import { BALL_SPRITES, EGG_SPRITES } from '../data/assets-data.js';
 import { BALLS, SHOP_ITEMS } from '../data/economy-data.js';
 import { GYM_ORDER, JOHTO_GYM_ORDER, HOENN_GYM_ORDER, SINNOH_GYM_ORDER } from '../data/zones-config-data.js';
 import { TRAINER_TYPES } from '../data/trainers-data.js';
+import '../modules/systems/bossPower.js'; // side-effect: expose getBossTeamPower() sur globalThis (dialogue du cameo boss)
 
 import { renderMusicPanel, renderAppearancePanel, renderTitrePanel, renderVitrinePanel } from './panels.js';
 import { renderEnvironmentZone, stopEnvironmentZone } from './environment.js';
