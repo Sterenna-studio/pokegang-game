@@ -4,7 +4,7 @@
 // ════════════════════════════════════════════════════════════════
 
 import { resolveTrainerCombat } from './zoneCombat.js';
-import { AUTO_COMBAT_VISUAL_MS } from '../../data/gameplay-config-data.js';
+import { AUTO_COMBAT_VISUAL_MS, AGENT_PRISON_MS } from '../../data/gameplay-config-data.js';
 import { EventBus, EVENTS } from '../core/eventBus.js';
 
 // ── Convenience shims (progressive migration from globalThis.*) ─
