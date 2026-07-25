@@ -190,14 +190,14 @@ function showCollectionEncounter(zoneId, agentIds, income, items) {
   const state = globalThis.state;
   const zone = ZONE_BY_ID[zoneId];
   const zoneName = zone ? (state.lang === 'fr' ? zone.fr : zone.en) : zoneId;
-  const zoneAgents = agentIds.map(id => state.agents.find(a => a.id === id)).filter(Boolean);
+  const zoneAgents = agentIds.map(id => globalThis.agentById?.(id) ?? state.agents.find(a => a.id === id)).filter(Boolean);
 
   // Ennemis : policier aléatoire
   const policePool = ['officer', 'policeman', 'acetrainer', 'sabrina', 'officer'];
   const enemyKey = policePool[Math.floor(Math.random() * policePool.length)];
 
   // Pokémon du boss
-  const bossPks = state.gang.bossTeam.map(id => state.pokemons.find(p => p.id === id)).filter(Boolean);
+  const bossPks = state.gang.bossTeam.map(id => globalThis.pokemonById?.(id) ?? state.pokemons.find(p => p.id === id)).filter(Boolean);
 
   const modal = document.createElement('div');
   modal.id = 'collectionEncounter';
@@ -265,7 +265,7 @@ function startZoneCollection(zoneId, agentIds) {
   // Player power: boss team (cached) + selected agents
   let playerPower = globalThis.getBossTeamPower(state);
   for (const agId of agentIds) {
-    const ag = state.agents.find(a => a.id === agId);
+    const ag = globalThis.agentById?.(agId) ?? state.agents.find(a => a.id === agId);
     if (ag) playerPower += globalThis.getAgentCombatPower(ag);
   }
 
@@ -1716,7 +1716,7 @@ function updateZoneTimers(zoneId) {
   for (const agent of state.agents.filter(a => a.assignedZone === zoneId)) {
     const agentEl = win.querySelector(`[data-agent-id="${agent.id}"] .agent-cd-label`);
     if (!agentEl) continue;
-    const agentPks = agent.team.map(id => state.pokemons.find(p => p.id === id)).filter(Boolean);
+    const agentPks = agent.team.map(id => globalThis.pokemonById?.(id) ?? state.pokemons.find(p => p.id === id)).filter(Boolean);
     const allCd = agentPks.length > 0 && agentPks.every(p => (p.cooldown || 0) > 0);
     if (allCd) {
       const maxCd = Math.max(...agentPks.map(p => p.cooldown || 0));
@@ -1739,7 +1739,7 @@ function updateZoneTimers(zoneId) {
   // Boss cooldown
   const bossCdLabel = win.querySelector('.boss-cd-label');
   if (bossCdLabel) {
-    const bossPks = state.gang.bossTeam.map(id => state.pokemons.find(p => p.id === id)).filter(Boolean);
+    const bossPks = state.gang.bossTeam.map(id => globalThis.pokemonById?.(id) ?? state.pokemons.find(p => p.id === id)).filter(Boolean);
     const allBossCd = bossPks.length > 0 && bossPks.every(p => (p.cooldown || 0) > 0);
     if (allBossCd) {
       const maxCd = Math.max(...bossPks.map(p => p.cooldown || 0));
@@ -2209,7 +2209,7 @@ function buildPlayerTeamForZone(zoneId) {
     const slots = globalThis.getAgentTeamSlots?.(agent) ?? 3;
     allAllyIds.push(...(agent.team || []).slice(0, slots));
   }
-  return allAllyIds.map(id => state.pokemons.find(p => p.id === id)).filter(Boolean);
+  return allAllyIds.map(id => globalThis.pokemonById?.(id) ?? state.pokemons.find(p => p.id === id)).filter(Boolean);
 }
 
 // Retourne les agents assignés à la zone (le boss ne participe que s'il est assigné à la zone).
@@ -2232,7 +2232,7 @@ function buildTrainerCombatTeamIds(agentIds = [], zoneId = null) {
     }
   }
   for (const agentId of agentIds) {
-    const agent = state.agents?.find(a => a.id === agentId);
+    const agent = globalThis.agentById?.(agentId) ?? state.agents?.find(a => a.id === agentId);
     const slots = globalThis.getAgentTeamSlots?.(agent) ?? 3;
     for (const id of (agent?.team || []).slice(0, slots)) {
       if (id) teamIds.push(id);
@@ -2535,7 +2535,7 @@ function openCombatPopup(zoneId, spawnObj) {
 
   const bossInZone = state.gang.bossZone === zoneId;
   if (bossInZone) {
-    const bossPokemons = state.gang.bossTeam.map(id => state.pokemons.find(p => p.id === id)).filter(Boolean);
+    const bossPokemons = state.gang.bossTeam.map(id => globalThis.pokemonById?.(id) ?? state.pokemons.find(p => p.id === id)).filter(Boolean);
     if (bossPokemons.length) {
       const domEl = win.querySelector('.zone-boss');
       gangTrainers.push({ id: 'boss', name: state.gang.bossName || 'Boss',
@@ -2544,7 +2544,7 @@ function openCombatPopup(zoneId, spawnObj) {
   }
   for (const agent of state.agents.filter(a => a.assignedZone === zoneId)) {
     const slots = globalThis.getAgentTeamSlots?.(agent) ?? 3;
-    const agentPks = (agent.team || []).slice(0, slots).map(id => state.pokemons.find(p => p.id === id)).filter(Boolean);
+    const agentPks = (agent.team || []).slice(0, slots).map(id => globalThis.pokemonById?.(id) ?? state.pokemons.find(p => p.id === id)).filter(Boolean);
     if (agentPks.length) {
       const domEl = win.querySelector(`[data-agent-id="${agent.id}"]`);
       gangTrainers.push({ id: agent.id, name: agent.name,
