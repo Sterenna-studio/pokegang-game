@@ -13,16 +13,6 @@ import { EventBus, EVENTS } from '../core/eventBus.js';
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
 const _save   = ()               => globalThis.saveState?.();
 
-// LIAISONS list (défini ici — absent de titles-data.js)
-const LIAISONS = ['', 'de', "de l'", 'du', 'des', 'à', 'et', '&', 'alias', 'dit'];
-
-const SLOT_DEFS = [
-  { key:'titleA', label:'Titre 1', color:'var(--gold)',  bg:'rgba(255,204,90,.15)' },
-  { key:'titleB', label:'Titre 2', color:'var(--red)',   bg:'rgba(204,51,51,.15)' },
-  { key:'titleC', label:'Badge 1', color:'#4fc3f7',      bg:'rgba(79,195,247,.12)' },
-  { key:'titleD', label:'Badge 2', color:'#ce93d8',      bg:'rgba(206,147,216,.12)' },
-];
-
 function getTitleLabel(titleId) {
   return TITLES.find(t => t.id === titleId)?.label || '';
 }
