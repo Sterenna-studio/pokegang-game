@@ -140,8 +140,18 @@ function _openZoneBgPicker(viewportEl) {
 }
 
 // ── Déplacement des résidents ─────────────────────────────────────────────
+// Position et sens de marche vivent sur deux éléments distincts (voir
+// gang.css) : .gang-env-sprite porte translate() (transitionné, compositor-
+// only — pas de left/top qui déclencheraient du layout à chaque frame),
+// .gang-env-sprite-inner porte scaleX() (instantané). Les combiner sur le
+// même élément ferait que la transition de position anime aussi le flip.
+function _setPosition(el, x, y) {
+  el.style.transform = `translate(${x}px, ${y}px)`;
+}
+
 function _flip(el, movingLeft) {
-  el.style.transform = movingLeft ? 'scaleX(-1)' : 'scaleX(1)';
+  const inner = el.querySelector('.gang-env-sprite-inner') || el;
+  inner.style.transform = movingLeft ? 'scaleX(-1)' : 'scaleX(1)';
 }
 
 function _dist(ax, ay, bx, by) {
@@ -190,11 +200,10 @@ function _wanderStep(entry, bounds) {
 
   entry.el.classList.remove('idle');
   _flip(entry.el, targetX < entry.x);
-  entry.el.style.transition = `left ${duration}s ease-in-out, top ${duration}s ease-in-out`;
-  entry.el.style.left = `${targetX}px`;
-  entry.el.style.top  = `${targetY}px`;
+  entry.el.style.transition = `transform ${duration}s ease-in-out`;
   entry.x = targetX;
   entry.y = targetY;
+  _setPosition(entry.el, targetX, targetY);
 
   entry.timer = _track(setTimeout(() => {
     if (!entry.el.isConnected) return;
@@ -208,11 +217,10 @@ function _spawnResident(viewportEl, imgUrl, label, bounds) {
   const el = document.createElement('div');
   el.className = 'gang-env-sprite idle';
   el.title = label || '';
-  el.innerHTML = `<img src="${imgUrl}" alt="">`;
+  el.innerHTML = `<div class="gang-env-sprite-inner"><img src="${imgUrl}" alt=""></div>`;
   const x = Math.random() * Math.max(0, bounds.width - 48);
   const y = bounds.groundTop + Math.random() * bounds.groundHeight;
-  el.style.left = `${x}px`;
-  el.style.top  = `${y}px`;
+  _setPosition(el, x, y);
   viewportEl.appendChild(el);
 
   const entry = { el, x, y, w: 48, h: 48, interacting: false, lastPartner: null, lastInteractionAt: 0, timer: null };
@@ -286,20 +294,19 @@ function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl) {
   const el = document.createElement('div');
   el.className = 'gang-env-sprite gang-env-cameo';
   el.title = label || '';
-  el.innerHTML = `<img src="${imgUrl}" alt="">${extraIconUrl ? `<img class="gang-env-cameo-follow" src="${extraIconUrl}" alt="">` : ''}`;
+  el.innerHTML = `<div class="gang-env-sprite-inner"><img src="${imgUrl}" alt="">${extraIconUrl ? `<img class="gang-env-cameo-follow" src="${extraIconUrl}" alt="">` : ''}</div>`;
   const fromLeft = Math.random() < 0.5;
   const startX = fromLeft ? -60 : bounds.width + 60;
   const endX   = fromLeft ? bounds.width + 60 : -60;
   const y = bounds.groundTop + Math.random() * bounds.groundHeight;
-  el.style.left = `${startX}px`;
-  el.style.top  = `${y}px`;
+  _setPosition(el, startX, y);
   _flip(el, !fromLeft);
   viewportEl.appendChild(el);
 
   requestAnimationFrame(() => {
     const duration = Math.max(4, bounds.width / CAMEO_SPEED_PX_PER_S);
-    el.style.transition = `left ${duration}s linear`;
-    el.style.left = `${endX}px`;
+    el.style.transition = `transform ${duration}s linear`;
+    _setPosition(el, endX, y);
     _track(setTimeout(() => el.remove(), duration * 1000 + 200));
   });
 }
