@@ -158,6 +158,20 @@ function _dist(ax, ay, bx, by) {
   return Math.hypot(ax - bx, ay - by);
 }
 
+// entry.x/entry.y sont la position CIBLE du wander en cours, pas la position
+// réelle à l'écran pendant la transition CSS qui y mène (plusieurs secondes
+// pour les déplacements lents) — pour tout ce qui doit refléter où le sprite
+// est VRAIMENT au moment de l'appel (scan de proximité, badge d'interaction),
+// on relit la position interpolée en cours via le transform calculé.
+function _currentPos(el) {
+  const t = getComputedStyle(el).transform;
+  if (!t || t === 'none') return { x: 0, y: 0 };
+  const m = t.match(/matrix\(([^)]+)\)/);
+  if (!m) return { x: 0, y: 0 };
+  const parts = m[1].split(',').map(parseFloat);
+  return { x: parts[4] || 0, y: parts[5] || 0 };
+}
+
 // Choisit une position cible : le plus souvent une case libre (en évitant
 // les autres résidents), mais parfois volontairement proche d'un autre
 // résident, pour que les rencontres arrivent par elles-mêmes plutôt que de
@@ -233,8 +247,10 @@ function _spawnResident(viewportEl, imgUrl, label, bounds) {
 //    brièvement amis (💕) ou ennemis (💢), se tournent l'un vers l'autre,
 //    puis reprennent chacun leur route ────────────────────────────────────
 function _showInteractionBadge(viewportEl, entryA, entryB, isFriend) {
-  const midX = (entryA.x + entryB.x) / 2 + 24;
-  const midY = Math.min(entryA.y, entryB.y) - 8;
+  const posA = _currentPos(entryA.el);
+  const posB = _currentPos(entryB.el);
+  const midX = (posA.x + posB.x) / 2 + 24;
+  const midY = Math.min(posA.y, posB.y) - 8;
   const badge = document.createElement('div');
   badge.className = `gang-env-interact ${isFriend ? 'friend' : 'enemy'}`;
   badge.textContent = isFriend ? '💕' : '💢';
@@ -279,7 +295,8 @@ function _scheduleProximityScan(viewportEl, bounds) {
       for (let j = i + 1; j < _residents.length; j++) {
         const a = _residents[i], b = _residents[j];
         if (a.interacting || b.interacting) continue;
-        if (_dist(a.x, a.y, b.x, b.y) < INTERACTION_DIST_PX) {
+        const posA = _currentPos(a.el), posB = _currentPos(b.el);
+        if (_dist(posA.x, posA.y, posB.x, posB.y) < INTERACTION_DIST_PX) {
           _triggerInteraction(viewportEl, a, b, bounds);
         }
       }
