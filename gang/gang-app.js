@@ -124,6 +124,14 @@ function saveState() {
     fresh.activeBall = state.activeBall;
     fresh.settings.jukeboxTrack = state.settings.jukeboxTrack;
     state = fresh;
+    // Sans ceci, globalThis.state (seule référence lue/mutée par les
+    // panneaux) et cette variable locale `state` divergent après la
+    // première sauvegarde de la session : les champs primitifs (argent,
+    // titres, piste jukebox) cesseraient silencieusement d'être relus par
+    // saveState() à chaque appel suivant (les champs objet/tableau comme
+    // cosmetics restent aliasés et donc corrects par accident, mais pas
+    // les primitives réassignées).
+    globalThis.state = fresh;
   }
   store.save();
   updateTopbar();

@@ -1,7 +1,8 @@
 #!/usr/bin/env node
-// Rewrites every local `?v=` query string in index.html with a short hash of
-// the referenced file's actual content, so a stale-cache bug can never
-// happen silently: the version string only changes when the file does.
+// Rewrites every local `?v=` query string in each tracked HTML entry point
+// with a short hash of the referenced file's actual content, so a stale-cache
+// bug can never happen silently: the version string only changes when the
+// file does. Also adds a `?v=` to local tags that don't have one yet.
 // Run manually with `node tools/cache-bust.js`, or automatically via the
 // pre-commit hook (.githooks/pre-commit).
 
@@ -12,27 +13,30 @@ const path = require('path');
 const crypto = require('crypto');
 
 const ROOT = path.resolve(__dirname, '..');
-const INDEX_HTML = path.join(ROOT, 'index.html');
+const HTML_FILES = ['index.html', 'gang/index.html'].map(f => path.join(ROOT, f));
 
-// Matches src="./foo.js?v=1" or href="./foo.css?v=3" — only local,
-// relative, already-versioned assets are touched.
-const TAG_RE = /((?:src|href)=")(\.\/[^"?]+)\?v=[^"]*(")/g;
+// Matches src="./foo.js" / href="../foo.css", with an optional existing
+// `?v=...` — scoped to local .js/.css assets only (never bare paths,
+// http(s):// URLs, icons, or plain navigation links), and a version is
+// added even if not already present.
+const TAG_RE = /((?:src|href)=")(\.\.?\/[^"?]+\.(?:js|css))(?:\?v=[^"]*)?(")/g;
 
-function hashFile(relPath) {
-  const abs = path.join(ROOT, relPath);
+function hashFile(baseDir, relPath) {
+  const abs = path.join(baseDir, relPath);
   const buf = fs.readFileSync(abs);
   return crypto.createHash('sha1').update(buf).digest('hex').slice(0, 8);
 }
 
-function main() {
-  const html = fs.readFileSync(INDEX_HTML, 'utf8');
+function processFile(htmlPath) {
+  const baseDir = path.dirname(htmlPath);
+  const html = fs.readFileSync(htmlPath, 'utf8');
   let changed = false;
   const skipped = [];
 
   const updated = html.replace(TAG_RE, (full, prefix, relPath, suffix) => {
     let hash;
     try {
-      hash = hashFile(relPath);
+      hash = hashFile(baseDir, relPath);
     } catch (err) {
       skipped.push(relPath);
       return full;
@@ -43,15 +47,19 @@ function main() {
   });
 
   if (skipped.length) {
-    console.warn(`[cache-bust] fichier(s) introuvable(s), ignoré(s): ${skipped.join(', ')}`);
+    console.warn(`[cache-bust] ${path.relative(ROOT, htmlPath)} — fichier(s) introuvable(s), ignoré(s): ${skipped.join(', ')}`);
   }
 
   if (changed) {
-    fs.writeFileSync(INDEX_HTML, updated);
-    console.log('[cache-bust] index.html mis à jour avec les hashs de contenu actuels.');
+    fs.writeFileSync(htmlPath, updated);
+    console.log(`[cache-bust] ${path.relative(ROOT, htmlPath)} mis à jour avec les hashs de contenu actuels.`);
   } else {
-    console.log('[cache-bust] rien à faire — tous les hashs sont déjà à jour.');
+    console.log(`[cache-bust] ${path.relative(ROOT, htmlPath)} — rien à faire, tous les hashs sont déjà à jour.`);
   }
+}
+
+function main() {
+  HTML_FILES.forEach(processFile);
 }
 
 main();
