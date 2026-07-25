@@ -435,6 +435,16 @@ function _setTheme(questId) {
 
 let _closeBtnEl = null;
 
+// Verrouillé pendant les fenêtres await _wait(...)/_flash() entre le clic sur
+// "Engager le combat" et l'appel à _box() qui rend l'écran de résolution —
+// le bouton "✕ FERMER" est un élément fixe indépendant du contenu du box, donc
+// cliquable pendant cette fenêtre ; sans ce verrou, _overlay passe à null en
+// plein milieu et _box() plante sur _overlay.appendChild (et pour Groudon/
+// Kyogre en rejeu, l'objet de relance déjà consommé est perdu sans résolution).
+let _resolving = false;
+
+let _autoReturnTimer = null;
+
 function _buildOverlay(questId) {
   _injectStyles();
   const el = document.createElement('div');
@@ -448,7 +458,10 @@ function _buildOverlay(questId) {
   const closeBtn = document.createElement('span');
   closeBtn.className = 'lgm-close-btn';
   closeBtn.textContent = '✕ FERMER';
-  closeBtn.onclick = () => _closeOv();
+  closeBtn.onclick = () => {
+    if (_resolving) { _notify('⏳ Résolution en cours…', ''); return; }
+    _closeOv();
+  };
   document.body.appendChild(closeBtn);
   _closeBtnEl = closeBtn;
 
@@ -463,6 +476,7 @@ function _closeOv(ms = 380) {
   el.style.opacity = '0';
   _closeBtnEl?.remove();
   _closeBtnEl = null;
+  if (_autoReturnTimer) { clearTimeout(_autoReturnTimer); _autoReturnTimer = null; }
   // _overlay est nullifié tout de suite (pas seulement à la fin du fondu) —
   // les écrans suivants enchaînés via setTimeout(() => _launchX(...), 300)
   // depuis les boutons "Suite/Réessayer" dépendent de _overlay === null pour
@@ -551,6 +565,7 @@ async function _showQuestIntro() {
   _buildOverlay(null);
 
   await _wait(700);
+  if (!_overlay) { _introShown = false; return; }
   _clearOv();
 
   // Boîte neutre (deux équipes, tension)
@@ -657,7 +672,9 @@ function _renderDualTracker() {
 // sans issue). Tout clic explicite sur un bouton du même écran doit d'abord
 // appeler clearTimeout(timer) pour laisser son propre choix prévaloir.
 function _armAutoReturn(ms = 3500) {
-  return setTimeout(() => { _clearOv(); _renderDualTracker(); }, ms);
+  if (_autoReturnTimer) clearTimeout(_autoReturnTimer);
+  _autoReturnTimer = setTimeout(() => { _autoReturnTimer = null; _clearOv(); _renderDualTracker(); }, ms);
+  return _autoReturnTimer;
 }
 
 function _renderQuestCard(container, questId, q, power, rerunItem) {
@@ -859,9 +876,11 @@ async function _launchBossFight(rank, questId) {
     const bFight = _btn(`⚔  Engager le combat →`, 'accent');
     bFight.onclick = async () => {
       bFight.disabled = true;
+      _resolving = true;
       await _wait(500);
       _flash();
       await _wait(650);
+      if (!_overlay) { _resolving = false; return; }
       _clearOv();
       const { win } = resolveSpecialCombat({ power: bosspower, requiredPower: npcCfg.power });
       if (win) await _bossVictory(rank, questId, npcCfg.name);
@@ -875,6 +894,8 @@ async function _launchBossFight(rank, questId) {
 }
 
 async function _bossVictory(rank, questId, npcName) {
+  _resolving = false;
+  if (!_overlay) return;
   const cfg = QUESTS[questId];
   const q   = _qs(questId);
   const box = _box(questId);
@@ -923,6 +944,8 @@ async function _bossVictory(rank, questId, npcName) {
 }
 
 async function _bossDefeat(rank, questId, npcName) {
+  _resolving = false;
+  if (!_overlay) return;
   const cfg = QUESTS[questId];
   const box = _box(questId);
 
@@ -1002,9 +1025,11 @@ async function _launchLegendaryFight(questId) {
       s.inventory[itemKey]--;
       _save();
     }
+    _resolving = true;
     await _wait(600);
     _flash();
     await _wait(700);
+    if (!_overlay) { _resolving = false; return; }
     _clearOv();
     await _legendaryResolution(questId, bosspower);
   };
@@ -1014,6 +1039,8 @@ async function _launchLegendaryFight(questId) {
 }
 
 async function _legendaryResolution(questId, bosspower) {
+  _resolving = false;
+  if (!_overlay) return;
   const cfg    = QUESTS[questId];
   const leg    = cfg.legendary;
   const q      = _qs(questId);

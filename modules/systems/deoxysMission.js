@@ -386,6 +386,15 @@ let _overlay = null;
 
 let _closeBtnEl = null;
 
+// Verrouillé pendant les fenêtres await _wait(...)/_flash() entre le clic sur
+// "Engager le combat" et l'appel à _box() qui rend l'écran de résolution —
+// le bouton "✕ FERMER" est un élément fixe indépendant du contenu du box, donc
+// cliquable pendant cette fenêtre ; sans ce verrou, _overlay passe à null en
+// plein milieu et _box() plante sur _overlay.appendChild.
+let _resolving = false;
+
+let _autoReturnTimer = null;
+
 function _buildOverlay() {
   _injectStyles();
   const el = document.createElement('div');
@@ -398,7 +407,10 @@ function _buildOverlay() {
   const closeBtn = document.createElement('span');
   closeBtn.className = 'dxq-close-btn';
   closeBtn.textContent = '✕ FERMER';
-  closeBtn.onclick = () => _closeOverlay();
+  closeBtn.onclick = () => {
+    if (_resolving) { _notify('⏳ Résolution en cours…', ''); return; }
+    _closeOverlay();
+  };
   document.body.appendChild(closeBtn);
   _closeBtnEl = closeBtn;
 
@@ -414,6 +426,7 @@ function _closeOverlay(ms = 400) {
   el.style.opacity = '0';
   _closeBtnEl?.remove();
   _closeBtnEl = null;
+  if (_autoReturnTimer) { clearTimeout(_autoReturnTimer); _autoReturnTimer = null; }
   // _overlay est nullifié tout de suite (pas seulement à la fin du fondu) —
   // les écrans suivants enchaînés via setTimeout(() => _launchX(...), 300)
   // depuis les boutons "Suite/Réessayer" dépendent de _overlay === null pour
@@ -429,7 +442,9 @@ function _closeOverlay(ms = 400) {
 // sans issue). Tout clic explicite sur un bouton du même écran doit d'abord
 // appeler clearTimeout(timer) pour laisser son propre choix prévaloir.
 function _armAutoReturn(ms = 3500) {
-  return setTimeout(() => { _clearOverlay(); _renderTracker(); }, ms);
+  if (_autoReturnTimer) clearTimeout(_autoReturnTimer);
+  _autoReturnTimer = setTimeout(() => { _autoReturnTimer = null; _clearOverlay(); _renderTracker(); }, ms);
+  return _autoReturnTimer;
 }
 
 function _box() {
@@ -494,6 +509,7 @@ async function _showQuestIntro() {
 
   // Étape 0 : noir pendant 800ms
   await _wait(800);
+  if (!_overlay) return;
 
   // Étape 1 : message Devon Research
   _clearOverlay();
@@ -780,9 +796,11 @@ async function _launchDirectorFight() {
     bFight.onclick = async () => {
       bFight.disabled = true;
       bFight.textContent = '…';
+      _resolving = true;
       await _wait(600);
       _flash();
       await _wait(700);
+      if (!_overlay) { _resolving = false; return; }
       _clearOverlay();
       const { win } = resolveSpecialCombat({ power: bosspower, requiredPower: DIRECTOR_POWER_THRESHOLD });
       if (win) await _directorVictory();
@@ -797,6 +815,8 @@ async function _launchDirectorFight() {
 }
 
 async function _directorVictory() {
+  _resolving = false;
+  if (!_overlay) return;
   const q = _qs();
   const box = _box();
   _label(box, 'Étape 4 — Résultat');
@@ -834,6 +854,8 @@ async function _directorVictory() {
 }
 
 async function _directorDefeat() {
+  _resolving = false;
+  if (!_overlay) return;
   const box = _box();
   _label(box, 'Étape 4 — Résultat');
 
@@ -908,6 +930,7 @@ async function _launchDeoxysFight() {
 }
 
 async function _deoxysPhases(bosspower) {
+  _resolving = true;
   const phases = [
     {
       name: 'Forme Attaque',
@@ -927,6 +950,7 @@ async function _deoxysPhases(bosspower) {
   ];
 
   for (let i = 0; i < phases.length; i++) {
+    if (!_overlay) { _resolving = false; return; }
     _clearOverlay();
     const box = _box();
     const phase = phases[i];
@@ -968,10 +992,13 @@ async function _deoxysPhases(bosspower) {
   await _wait(300);
   _flash();
   await _wait(800);
+  if (!_overlay) { _resolving = false; return; }
   _deoxysResolution(bosspower);
 }
 
 async function _deoxysResolution(bosspower) {
+  _resolving = false;
+  if (!_overlay) return;
   _clearOverlay();
   const q = _qs();
   const box = _box();
