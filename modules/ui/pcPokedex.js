@@ -2919,92 +2919,6 @@ function _renderDexStatsTabHtml(entry, spawnZones = []) {
   `;
 }
 
-// ── Player stat modal ────────────────────────────────────────────
-const PLAYER_STAT_POINT_EVERY = 25; // 1 pt par tranche de 25 captures
-
-function checkPlayerStatPoints() {
-  const ps  = state.playerStats || {};
-  const total = Math.floor((state.stats?.totalCaught || 0) / PLAYER_STAT_POINT_EVERY);
-  const granted = ps.pointsGrantedCount || 0;
-  if (total > granted) {
-    const newPts = total - granted;
-    ps.statPoints = (ps.statPoints || 0) + newPts;
-    ps.pointsGrantedCount = total;
-    state.playerStats = ps;
-    if (newPts > 0) notify(`📊 +${newPts} pt${newPts > 1 ? 's' : ''} de stat joueur disponible${newPts > 1 ? 's' : ''} !`, 'gold');
-  }
-}
-
-function openPlayerStatModal() {
-  checkPlayerStatPoints();
-  const ps = state.playerStats;
-  if (!ps) return;
-
-  const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:10000;display:flex;align-items:center;justify-content:center';
-
-  function render() {
-    const alloc = ps.allocatedStats || { combat: 0, capture: 0, luck: 0 };
-    const base  = ps.baseStats      || { combat: 10, capture: 10, luck: 5 };
-    const pts   = ps.statPoints || 0;
-    const stats = [
-      { key:'combat',  label:'⚔️ ATK (combat)',  color:'#e05c5c' },
-      { key:'capture', label:'🎯 CAP (capture)',  color:'#7eb8f7' },
-      { key:'luck',    label:'🍀 LCK (chance)',   color:'#6ecf8a' },
-    ];
-    overlay.innerHTML = `
-      <div style="background:var(--bg-panel);border:2px solid var(--gold);border-radius:var(--radius);padding:24px;width:320px;max-width:96vw">
-        <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold);margin-bottom:4px">📊 FICHE JOUEUR</div>
-        <div style="font-size:9px;color:var(--text-dim);margin-bottom:12px">${_esc(state.gang.bossName || 'Boss')} · 1 pt tous les ${PLAYER_STAT_POINT_EVERY} captures</div>
-        <div style="font-family:var(--font-pixel);font-size:9px;margin-bottom:14px;color:${pts > 0 ? 'var(--gold)' : 'var(--text-dim)'}">
-          Points disponibles : <b style="font-size:12px">${pts}</b>
-        </div>
-        ${stats.map(s => {
-          const tot  = (base[s.key] || 0) + (alloc[s.key] || 0);
-          const add  = alloc[s.key] || 0;
-          return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
-            <div style="flex:1;font-size:9px;color:${s.color}">${s.label}</div>
-            <button data-ps="${s.key}" data-dir="-10" title="-10" style="padding:0 5px;height:22px;border:1px solid var(--border);background:var(--bg);color:var(--text-dim);border-radius:4px;cursor:pointer;font-size:8px" ${add < 10 ? 'disabled' : ''}>−10</button>
-            <button data-ps="${s.key}" data-dir="-1"  title="-1"  style="width:22px;height:22px;border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:4px;cursor:pointer;font-size:13px;line-height:1" ${add <= 0 ? 'disabled' : ''}>−</button>
-            <div style="min-width:48px;text-align:center;font-family:var(--font-pixel);font-size:10px">
-              <span style="color:${s.color};font-size:12px">${tot}</span>
-              ${add > 0 ? `<span style="font-size:7px;color:var(--gold)"> (+${add})</span>` : ''}
-            </div>
-            <button data-ps="${s.key}" data-dir="1"  title="+1"  style="width:22px;height:22px;border:1px solid var(--gold);background:rgba(255,204,90,.08);color:var(--gold);border-radius:4px;cursor:pointer;font-size:13px;line-height:1" ${pts <= 0 ? 'disabled' : ''}>+</button>
-            <button data-ps="${s.key}" data-dir="10" title="+10" style="padding:0 5px;height:22px;border:1px solid var(--gold);background:rgba(255,204,90,.08);color:var(--gold);border-radius:4px;cursor:pointer;font-size:8px" ${pts < 10 ? 'disabled' : ''}>+10</button>
-          </div>`;
-        }).join('')}
-        <div style="display:flex;gap:8px;margin-top:18px">
-          <button id="psConfirm" style="flex:1;padding:9px;background:var(--gold);color:#000;border:none;border-radius:var(--radius-sm);font-family:var(--font-pixel);font-size:8px;cursor:pointer">CONFIRMER</button>
-          <button id="psCancel" style="flex:1;padding:9px;background:var(--bg);border:1px solid var(--border);color:var(--text-dim);border-radius:var(--radius-sm);font-family:var(--font-pixel);font-size:8px;cursor:pointer">FERMER</button>
-        </div>
-      </div>`;
-
-    overlay.querySelectorAll('[data-ps][data-dir]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const s    = btn.dataset.ps;
-        const dir  = parseInt(btn.dataset.dir);
-        const step = Math.abs(dir);
-        const alloc = ps.allocatedStats || { combat: 0, capture: 0, luck: 0 };
-        if (dir > 0) { const n = Math.min(step, ps.statPoints); alloc[s] += n; ps.statPoints -= n; }
-        else         { const n = Math.min(step, alloc[s]);      alloc[s] -= n; ps.statPoints += n; }
-        ps.allocatedStats = alloc;
-        render();
-      });
-    });
-    overlay.querySelector('#psConfirm')?.addEventListener('click', () => {
-      saveState();
-      overlay.remove();
-      if (getActiveTab() === 'tabAgents') renderAgentsTab();
-    });
-    overlay.querySelector('#psCancel')?.addEventListener('click', () => overlay.remove());
-  }
-
-  render();
-  document.body.appendChild(overlay);
-  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
-}
-
 // ── Pokédex integrity check ───────────────────────────────────────
 // Rebuilds state.pokedex caught/shiny/count from the actual pokemon list.
 // "seen" flags are preserved (they can't be reconstructed from ownership).
@@ -3395,6 +3309,6 @@ export {
   openBulkSellModal, openProtectedSpeciesModal, tryAutoIncubate, hatchEgg, renderEggsView,
   renderPCTab, renderPokemonGrid, renderPokemonDetail,
   renderPokemonDetailGroup, renderPokemonHistory,
-  openDexAssistant, renderDexDetail, checkPlayerStatPoints, openPlayerStatModal,
+  openDexAssistant, renderDexDetail,
   rebuildPokedex, renderPokedexTab,
 };

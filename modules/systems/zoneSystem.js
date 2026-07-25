@@ -774,7 +774,6 @@ function tryCapture(zoneId, speciesEN, bonusPotential = 0, spawnCtx = {}) {
   state.pokemons.push(pokemon); _dirty();
   EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon, zoneId });
   state.stats.totalCaught++;
-  globalThis.checkPlayerStatPoints?.();
   // Behavioural log — première capture
   if (!state.behaviourLogs) state.behaviourLogs = {};
   if (!state.behaviourLogs.firstCaptureAt) state.behaviourLogs.firstCaptureAt = Date.now();
