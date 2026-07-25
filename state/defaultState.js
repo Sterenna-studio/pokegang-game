@@ -181,6 +181,10 @@ export const DEFAULT_STATE = {
     fabricMode: 'repeat', // 'repeat' | 'full'
     fabricSize: 320,      // px, used in repeat mode
     fabricOpacity: 72,    // 30–95, alpha % of --bg dark overlay
+    // Sources de résidents affichées dans le vivarium (gang/environment.js) —
+    // 'showcase' (state.gang.showcase), 'team' (équipe active du boss),
+    // 'pension' (state.pension.slots), 'training' (state.trainingRoom.pokemon).
+    vivariumSources: ['showcase', 'team'],
   },
   lab: {
     trackedSpecies: [],
