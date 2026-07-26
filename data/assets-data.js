@@ -9,8 +9,13 @@ const SHOWDOWN_TRAINER_SPRITE_BASE = 'https://play.pokemonshowdown.com/sprites/t
 const POKEOS_EGG_BASE_URL          = 'https://s3.pokeos.com/pokeos-uploads/forgotten-dex/eggs/';
 
 // ── Custom trainer sprite overrides (non-Showdown sources) ───
+// Chemin absolu depuis la racine du domaine (slash de tête) — nécessaire
+// car trainerSprite() est appelé depuis des pages à des profondeurs
+// différentes (index.html à la racine, gang/index.html, gang/live.html) ;
+// un chemin relatif sans slash de tête se serait résolu différemment selon
+// la page appelante (cassé sur /gang/*, confirmé via le cameo boss distant).
 const CUSTOM_TRAINER_SPRITES = {
-  giovanni: 'assets/trainer_sprite/trainer_giovanni/Sprite_Giovanni_HGSS.png',
+  giovanni: '/assets/trainer_sprite/trainer_giovanni/Sprite_Giovanni_HGSS.png',
 };
 
 // ── Logo URLs ─────────────────────────────────────────────────

@@ -1258,8 +1258,10 @@ async function renderCompteTab() {
       _lbLastPushAt        = 0;   // forcer le throttle leaderboard
       _lbLastFingerprint   = '';   // forcer le dirty check leaderboard
       _cloudSaveFingerprint = '';  // forcer le dirty check cloud save
+      _vivariumFingerprint  = '';  // forcer le dirty check vivarium (ex: après un fix côté code qui ne change aucun champ de state)
       await supaCloudSave();
       await supaUpdateLeaderboardAnon();
+      await supaUpdateVivarium();
     });
     tab.querySelector('#btnSupaLoadCloud')?.addEventListener('click', async () => {
       await supaForceCloudLoad();
