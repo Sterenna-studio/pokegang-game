@@ -50,6 +50,7 @@ const TICK_AUTO_SAVE_MS      = 10_000;  // auto-save
 const TICK_CLOUD_SAVE_MS     = 60 * 60_000; // cloud save (1 h)
 const TICK_SNAPSHOT_MS       =  6 * 60 * 60_000; // snapshot Supabase (6 h)
 const TICK_LEADERBOARD_MS    =  2 * 60 * 60_000; // leaderboard push (2 h)
+const TICK_VIVARIUM_SYNC_MS  = 60_000; // snapshot vivarium pour OBS (1 min — dirty-check évite les écritures inutiles)
 const TICK_TRAINING_MS       = 60_000;  // training room tick
 const TICK_PENSION_MS        = 30_000;  // pension / egg tick
 const TICK_PASSIVE_XP_MS     = 30_000;  // XP passif Pokémon d'équipe
@@ -88,7 +89,7 @@ export {
   TICK_AGENT_MS, TICK_PASSIVE_AGENT_MS, TICK_MISSIONS_UI_MS,
   TICK_HOURLY_CHECK_MS, TICK_MARKET_DECAY_MS,
   TICK_VERSION_POLL_MS, TICK_VERSION_FIRST_MS,
-  TICK_AUTO_SAVE_MS, TICK_CLOUD_SAVE_MS, TICK_SNAPSHOT_MS, TICK_LEADERBOARD_MS,
+  TICK_AUTO_SAVE_MS, TICK_CLOUD_SAVE_MS, TICK_SNAPSHOT_MS, TICK_LEADERBOARD_MS, TICK_VIVARIUM_SYNC_MS,
   TICK_TRAINING_MS, TICK_PENSION_MS, TICK_PASSIVE_XP_MS,
   TICK_ZONE_REFRESH_MS, TICK_DAILY_CHECK_MS,
   UPDATE_COUNTDOWN_S, DAILY_COUNTDOWN_S,

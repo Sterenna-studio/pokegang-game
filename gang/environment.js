@@ -12,11 +12,26 @@
 //  peuvent occasionnellement se rencontrer (mini-interaction ami/
 //  ennemi) quand ils passent près l'un de l'autre.
 //
-//  Dépendances globalThis : state, saveState, notify, pokeSprite,
-//    pokemonDisplayName, trainerSprite, COSMETIC_BGS, fabricBgUrl,
-//    EGG_SPRITES, NATURES, TRAINER_TYPES, getBossTeamPower
-//  Dépendances classiques (bare-name) : ZONE_BY_ID, TITLES
+//  La construction des données affichées (résidents résolus, pool de
+//  cameos éligibles, fond de zone) vit dans modules/systems/
+//  vivariumSnapshot.js, partagé avec le snapshot poussé vers Supabase
+//  pour l'affichage distant (OBS) — ce fichier ne fait plus que du
+//  rendu DOM/animation, local (state live) ou distant (blob figé) :
+//  renderEnvironmentZone() lit `globalThis.state`, tandis que
+//  renderEnvironmentZoneFromSnapshot()/updateEnvironmentSnapshot()
+//  consomment un blob déjà résolu (gang/live-app.js).
+//
+//  Dépendances globalThis : state, saveState, notify, COSMETIC_BGS (ce
+//    dernier uniquement pour le picker de fond _openZoneBgPicker — la
+//    résolution du fond actif passe par vivariumSnapshot.js)
 // ════════════════════════════════════════════════════════════════
+
+import {
+  VIVARIUM_SOURCES,
+  buildVivariumResidents,
+  buildVivariumCameoPool,
+  buildVivariumBackgroundData,
+} from '../modules/systems/vivariumSnapshot.js';
 
 const CAMEO_MIN_DELAY_MS   = 45_000;
 const CAMEO_MAX_DELAY_MS   = 90_000;
@@ -34,58 +49,6 @@ const WEATHER_REROLL_MIN_MS = 5 * 60_000;
 const WEATHER_REROLL_MAX_MS = 10 * 60_000;
 const RAIN_DROP_COUNT   = 26;
 const SNOW_FLAKE_COUNT  = 18;
-
-// Petits événements narratifs — un agent en patrouille (ou tout juste sorti
-// de prison), l'infirmière qui passe pour la pension, un chercheur qui
-// observe — remplace le tirage "cameo" existant (agent/pokémon favori
-// muets) par des passages qui portent une bulle de dialogue contextuelle.
-const AGENT_RELEASED_WINDOW_MS = 2 * 60 * 60_000; // "tout juste sorti" si restUntil < 2h
-const AGENT_LINES = [
-  'En patrouille, boss !',
-  "Tout est calme dans le secteur.",
-  'On tient la position !',
-  'Prêt pour la prochaine mission.',
-  "Content de faire partie du gang, boss.",
-];
-const AGENT_RELEASED_LINES = [
-  "Merci boss de m'avoir sorti de là !",
-  'Je vous revaudrai ça, boss.',
-  "La prison, plus jamais... merci boss.",
-];
-const NURSE_LINES = [
-  'Un œuf tout frais pour la pension !',
-  'Je passais vérifier vos œufs, tout va bien.',
-  'Prenez soin d’eux, ils grandissent vite !',
-];
-const SCIENTIST_LINES = [
-  'Fascinant... ces données vont enrichir le Pokédex.',
-  'Vos Pokémon montrent des statistiques intéressantes.',
-  'Je termine juste quelques relevés, ne faites pas attention à moi.',
-];
-
-// Rival de gang — la Team Rocket est déjà la faction antagoniste établie
-// dans ce jeu (pool de dresseurs de plusieurs zones) ; n'apparaît que si le
-// gang a assez de réputation pour attirer ce genre d'attention.
-const RIVAL_REP_THRESHOLD = 300;
-const RIVAL_SPRITES = ['rocketgrunt', 'rocketgruntf'];
-const RIVAL_LINES = [
-  'Votre territoire ne durera pas.',
-  'La Team Rocket a l’œil sur vous.',
-  'On se reverra, boss.',
-  'Ne baissez pas votre garde.',
-];
-
-const FAN_LINES = [
-  'Votre équipe est incroyable, j’aimerais tant vous ressembler !',
-  'Je peux avoir un autographe, boss ?',
-  'On parle de vous dans tout le quartier !',
-];
-
-const BOSS_LINES = [
-  'Je viens juste vérifier que tout va bien.',
-  'Belle équipe que j’ai là, si je puis dire.',
-  'Le quartier est calme aujourd’hui.',
-];
 
 // Déplacement des résidents — plage large de vitesse/pause pour que ça ne
 // soit pas un métronome (certains hops sont des petits dashes rapides,
@@ -114,6 +77,7 @@ const CLICK_PAUSE_MS          = 900;    // durée de la pause + du rebond
 let _timers    = [];   // tous les setTimeout actifs — nettoyés par stopEnvironmentZone()
 let _residents = [];   // { el, x, y, w, h, interacting, lastPartner, lastInteractionAt, timer }
 let _zoneEl    = null;
+let _liveCameoPool = []; // dernier pool reçu — seulement utilisé par le rendu distant (blob)
 
 function _track(id) { _timers.push(id); return id; }
 
@@ -122,37 +86,49 @@ export function stopEnvironmentZone() {
   _timers = [];
   _residents = [];
   _zoneEl = null;
+  _liveCameoPool = [];
+}
+
+// Retire les résidents actuellement affichés (DOM + timers) sans toucher aux
+// boucles météo/ambiance/cameo — utilisé par updateEnvironmentSnapshot() pour
+// rafraîchir juste la liste de résidents sur un poll, sans réinitialiser tout
+// le reste (ce qui ferait clignoter la météo ou couper un cameo en vol).
+function _clearResidents(viewportEl) {
+  for (const r of _residents) {
+    clearTimeout(r.timer);
+    r.el.remove();
+  }
+  _residents = [];
+  viewportEl.querySelector('.gang-env-empty-hint')?.remove();
 }
 
 // ── Fond de la zone (state.cosmetics.bossBg — réutilise le même catalogue
 //    COSMETIC_BGS/unlockedBgs que le fond de page, juste un pointeur
 //    d'équipement séparé) ───────────────────────────────────────────────
-function _applyZoneBackground(viewportEl) {
-  const state = globalThis.state;
-  const key = state.cosmetics?.bossBg || null;
-  const COSMETIC_BGS = globalThis.COSMETIC_BGS;
-  const bg = key ? COSMETIC_BGS?.[key] : null;
-  const isFabric = key && key.startsWith('fabric_');
-
-  if (bg?.type === 'image') {
-    viewportEl.style.backgroundImage = `url('${bg.url}')`;
-    viewportEl.style.backgroundSize = 'cover';
-    viewportEl.style.backgroundPosition = 'center';
-  } else if (bg?.type === 'gradient') {
-    viewportEl.style.backgroundImage = bg.gradient;
-    viewportEl.style.backgroundSize = 'cover';
-  } else if (isFabric) {
-    const m = key.match(/^fabric_(\d+)(?:_v(\d+))?$/);
-    const url = m ? globalThis.fabricBgUrl(parseInt(m[1], 10), m[2] ? parseInt(m[2], 10) : 1) : null;
-    if (url) {
-      viewportEl.style.backgroundImage = `url('${url}')`;
+// Applique un descripteur de fond {type, url|value} (cf.
+// vivariumSnapshot.js:buildVivariumBackgroundData) — factorisé pour être
+// utilisable aussi bien avec `state` live qu'avec un blob distant figé.
+function _applyBackgroundData(viewportEl, bgData) {
+  if (bgData?.type === 'image' || bgData?.type === 'fabric') {
+    viewportEl.style.backgroundImage = `url('${bgData.url}')`;
+    if (bgData.type === 'fabric') {
       viewportEl.style.backgroundSize = '160px';
       viewportEl.style.backgroundRepeat = 'repeat';
+    } else {
+      viewportEl.style.backgroundSize = 'cover';
+      viewportEl.style.backgroundPosition = 'center';
     }
+  } else if (bgData?.type === 'gradient') {
+    viewportEl.style.backgroundImage = bgData.value;
+    viewportEl.style.backgroundSize = 'cover';
   } else {
     viewportEl.style.backgroundImage = 'linear-gradient(180deg,#0a1a12,#0d2418)';
     viewportEl.style.backgroundSize = 'cover';
   }
+}
+
+function _applyZoneBackground(viewportEl) {
+  _applyBackgroundData(viewportEl, buildVivariumBackgroundData(globalThis.state));
 }
 
 // ── Ambiance jour/nuit — teinte calquée sur l'heure locale réelle (v1
@@ -386,7 +362,11 @@ function _wanderStep(entry, bounds) {
   }, duration * 1000));
 }
 
-function _spawnResident(viewportEl, imgUrl, label, bounds, pk) {
+// `meta` transporte les infos déjà résolues affichées au clic ({level,
+// natureLabel}) — jamais une référence live vers un Pokémon, pour que
+// résidents locaux (state) et résidents distants (blob Supabase) suivent
+// exactement le même chemin de code.
+function _spawnResident(viewportEl, imgUrl, label, bounds, meta = {}) {
   const el = document.createElement('div');
   el.className = 'gang-env-sprite idle gang-env-clickable';
   el.title = label || '';
@@ -397,7 +377,7 @@ function _spawnResident(viewportEl, imgUrl, label, bounds, pk) {
   viewportEl.appendChild(el);
 
   const entry = {
-    el, x, y, w: 48, h: 48, label, pk,
+    el, x, y, w: 48, h: 48, label, level: meta.level, natureLabel: meta.natureLabel,
     interacting: false, lastPartner: null, lastInteractionAt: 0, lastClickAt: 0, timer: null,
   };
   el.addEventListener('click', () => _onResidentClick(viewportEl, entry, bounds));
@@ -410,10 +390,8 @@ function _spawnResident(viewportEl, imgUrl, label, bounds, pk) {
 function _showClickBadge(viewportEl, entry) {
   const pos  = _currentPos(entry.el);
   const icon = CLICK_REACTION_ICONS[Math.floor(Math.random() * CLICK_REACTION_ICONS.length)];
-  const pk   = entry.pk;
-  const NATURES = globalThis.NATURES;
-  const info = pk
-    ? `Lv.${pk.level}${pk.nature && NATURES?.[pk.nature] ? ` · ${NATURES[pk.nature].fr}` : ''}`
+  const info = entry.level != null
+    ? `Lv.${entry.level}${entry.natureLabel ? ` · ${entry.natureLabel}` : ''}`
     : '';
 
   const badge = document.createElement('div');
@@ -548,151 +526,33 @@ function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl, dialogueLi
   });
 }
 
-// Même logique que gang/panels.js:_getBossFullTitle() (copie volontaire —
-// même duplication déjà présente dans modules/systems/titles.js et ici,
-// TITLES est un bare-name classic script chargé par cette page).
-function _getBossFullTitle(state) {
-  const label = id => TITLES.find(t => t.id === id)?.label || '';
-  const t1 = label(state.gang.titleA);
-  const t2 = label(state.gang.titleB);
-  const lia = state.gang.titleLiaison || '';
-  if (!t1 && !t2) return 'Recrue';
-  if (t1 && !t2) return t1;
-  if (!t1 && t2) return t2;
-  return `${t1}${lia ? ' ' + lia : ''} ${t2}`;
-}
-
-// Bassin de répliques éligibles pour un agent donné — la ligne générique
-// (patrouille/sorti de prison) est toujours présente, complétée par des
-// répliques contextuelles quand les données réelles le permettent : un
-// Pokémon confié (nickname pris en compte via pokemonDisplayName), un
-// bilan de combats sur sa zone assignée (type de dresseur réellement
-// présent dans le pool de cette zone, cf. data/zones-data.js:trainers), et
-// le titre complet du boss.
-function _buildAgentLines(agent, state) {
-  const now = Date.now();
-  // "Tout juste sorti de prison" approximé : cette page n'a pas de tick
-  // temps réel (pas de boucle de jeu), donc resting a pu repasser à false
-  // il y a un moment sans qu'on l'ait vu se produire — on se contente de
-  // vérifier que restUntil est récent plutôt que d'exiger l'instant exact.
-  const recentlyFreed = !agent.resting && agent.restUntil
-    && (now - agent.restUntil) >= 0 && (now - agent.restUntil) < AGENT_RELEASED_WINDOW_MS;
-
-  const lines = [...(recentlyFreed ? AGENT_RELEASED_LINES : AGENT_LINES)];
-
-  if (agent.team?.length > 0) {
-    const pkId = agent.team[Math.floor(Math.random() * agent.team.length)];
-    const pk = state.pokemons.find(p => p.id === pkId);
-    if (pk) {
-      const name = globalThis.pokemonDisplayName?.(pk) || pk.species_en;
-      lines.push(`Merci de m'avoir confié ${name}, boss.`);
-    }
-  }
-
-  if (agent.assignedZone) {
-    const zone = ZONE_BY_ID[agent.assignedZone];
-    const combats = state.zones?.[agent.assignedZone]?.combatsWon || 0;
-    if (zone?.trainers?.length > 0 && combats > 0) {
-      const trainerKey = zone.trainers[Math.floor(Math.random() * zone.trainers.length)];
-      const label = globalThis.TRAINER_TYPES?.[trainerKey]?.fr;
-      if (label) lines.push(`J'ai battu ${combats} ${label}${combats > 1 ? 's' : ''} sur ${zone.fr}.`);
-    }
-  }
-
-  lines.push(`Fier de servir sous ${_getBossFullTitle(state)}, boss !`);
-
-  return lines;
-}
-
-function _buildNurseLines(state) {
-  const lines = [...NURSE_LINES];
-  const pensionCount = state.pension?.slots?.filter(Boolean).length || 0;
-  if (pensionCount > 0) {
-    const max = 2 + (state.pension?.extraSlotsPurchased || 0);
-    lines.push(`La pension compte ${pensionCount}/${max} pokémon en ce moment.`);
-  }
-  return lines;
-}
-
-function _buildScientistLines(state) {
-  const lines = [...SCIENTIST_LINES];
-  const shinyCount = state.stats?.shinyCaught || 0;
-  if (shinyCount > 0) {
-    lines.push(`Vous avez déjà repéré ${shinyCount} chromatique${shinyCount > 1 ? 's' : ''}, un vrai record !`);
-  }
-  return lines;
+// Tire un cameo au hasard dans un pool déjà construit (cf. vivariumSnapshot.js
+// :buildVivariumCameoPool) et l'anime — partagé par le rendu local (pool
+// reconstruit à chaque tirage depuis `state`) et le rendu distant (pool
+// figé jusqu'au prochain fetch, cf. renderEnvironmentZoneFromSnapshot).
+function _fireCameoFromPool(viewportEl, bounds, pool) {
+  if (!pool || pool.length === 0) return;
+  const entry = pool[Math.floor(Math.random() * pool.length)];
+  const line = entry.lines?.length ? entry.lines[Math.floor(Math.random() * entry.lines.length)] : null;
+  _spawnCameo(viewportEl, entry.spriteUrl, entry.label, bounds, entry.followIconUrl || null, line, !!entry.hostile);
 }
 
 function _fireCameoEvent(viewportEl, bounds) {
-  const state = globalThis.state;
-  const pool = [];
-  if (state.agents.length > 0) pool.push('agent');
-  const favs = state.pokemons.filter(p => p.favorite);
-  if (favs.length > 0) pool.push('favorite');
-  if ((state.eggs?.length || 0) > 0 || state.pension?.eggAt) pool.push('nurse');
-  pool.push('scientist'); // flavor générique, toujours dispo
-  pool.push('fan');       // flavor générique, toujours dispo
-  if ((state.gang.reputation || 0) >= RIVAL_REP_THRESHOLD) pool.push('rival');
-  if (state.gang.bossSprite) pool.push('boss');
-
-  const type = pool[Math.floor(Math.random() * pool.length)];
-
-  if (type === 'agent') {
-    const agent = state.agents[Math.floor(Math.random() * state.agents.length)];
-    const hasTeam = agent.team && agent.team.length > 0;
-    const followIcon = hasTeam && Math.random() < 0.6
-      ? (() => {
-          const pk = state.pokemons.find(p => p.id === agent.team[0]);
-          return pk ? globalThis.pokeSprite(pk.species_en, pk.shiny) : null;
-        })()
-      : null;
-    // agent.sprite est déjà une URL résolue (trainerSprite(agent.spriteKey)
-    // appliqué à la création, cf. agent.js:72-73) — la re-passer à
-    // trainerSprite() ici la traiterait à tort comme une clé brute.
-    const cameoSprite = agent.spriteKey ? globalThis.trainerSprite(agent.spriteKey) : agent.sprite;
-    const lines = _buildAgentLines(agent, state);
-    _spawnCameo(viewportEl, cameoSprite, agent.name, bounds, followIcon, lines[Math.floor(Math.random() * lines.length)]);
-  } else if (type === 'favorite') {
-    const pk = favs[Math.floor(Math.random() * favs.length)];
-    _spawnCameo(viewportEl, globalThis.pokeSprite(pk.species_en, pk.shiny), globalThis.pokemonDisplayName?.(pk) || pk.species_en, bounds);
-  } else if (type === 'nurse') {
-    const lines = _buildNurseLines(state);
-    _spawnCameo(viewportEl, globalThis.trainerSprite('nurse'), 'Infirmière Joy', bounds, globalThis.EGG_SPRITES?.default, lines[Math.floor(Math.random() * lines.length)]);
-  } else if (type === 'scientist') {
-    const lines = _buildScientistLines(state);
-    _spawnCameo(viewportEl, globalThis.trainerSprite('scientist'), 'Chercheur', bounds, null, lines[Math.floor(Math.random() * lines.length)]);
-  } else if (type === 'fan') {
-    _spawnCameo(viewportEl, globalThis.trainerSprite('pokefan'), 'Fan Pokémon', bounds, null, FAN_LINES[Math.floor(Math.random() * FAN_LINES.length)]);
-  } else if (type === 'rival') {
-    const sprite = RIVAL_SPRITES[Math.floor(Math.random() * RIVAL_SPRITES.length)];
-    _spawnCameo(viewportEl, globalThis.trainerSprite(sprite), 'Rival', bounds, null, RIVAL_LINES[Math.floor(Math.random() * RIVAL_LINES.length)], true);
-  } else if (type === 'boss') {
-    const power = globalThis.getBossTeamPower?.() ?? null;
-    const lines = [...BOSS_LINES];
-    if (power !== null) lines.push(`Puissance de l'équipe : ${power.toLocaleString()}. On progresse.`);
-    _spawnCameo(viewportEl, globalThis.trainerSprite(state.gang.bossSprite), state.gang.bossName || 'Boss', bounds, null, lines[Math.floor(Math.random() * lines.length)]);
-  }
+  _fireCameoFromPool(viewportEl, bounds, buildVivariumCameoPool(globalThis.state));
 }
 
-function _scheduleCameos(viewportEl, bounds) {
+// `poolProvider` est appelé à CHAQUE tirage (pas une fois pour toutes) : côté
+// rendu local ça garantit un pool toujours à jour avec `state` (comportement
+// inchangé par l'extraction), côté rendu distant ça relit simplement la
+// dernière valeur reçue (cf. _liveCameoPool) sans redéclencher de fetch.
+function _scheduleCameos(viewportEl, bounds, poolProvider) {
   const delay = CAMEO_MIN_DELAY_MS + Math.random() * (CAMEO_MAX_DELAY_MS - CAMEO_MIN_DELAY_MS);
   _track(setTimeout(() => {
     if (!viewportEl.isConnected) return;
-    if (Math.random() < CAMEO_SPAWN_CHANCE) _fireCameoEvent(viewportEl, bounds);
-    _scheduleCameos(viewportEl, bounds);
+    if (Math.random() < CAMEO_SPAWN_CHANCE) _fireCameoFromPool(viewportEl, bounds, poolProvider());
+    _scheduleCameos(viewportEl, bounds, poolProvider);
   }, delay));
 }
-
-// ── Sources de résidents — chacune est juste "un endroit où lire une liste
-// d'ids de Pokémon" ; state.cosmetics.vivariumSources (persisté, whitelist
-// cosmétique déjà couverte par saveState()) choisit lesquelles alimentent le
-// vivarium. Lecture seule : aucune de ces sources n'est jamais mutée d'ici.
-const VIVARIUM_SOURCES = [
-  { key: 'showcase', icon: '🏠', label: 'Vitrine',        ids: state => (state.gang.showcase || []).filter(Boolean) },
-  { key: 'team',     icon: '⚔️', label: 'Équipe active',  ids: state => state.gang.bossTeamSlots?.[state.gang.activeBossTeamSlot || 0] || [] },
-  { key: 'pension',  icon: '🏥', label: 'Pension',         ids: state => state.pension?.slots || [] },
-  { key: 'training', icon: '💪', label: 'Formation',       ids: state => state.trainingRoom?.pokemon || [] },
-];
 
 function _openZoneSourcesPicker(rootContainer) {
   const state = globalThis.state;
@@ -766,22 +626,12 @@ export function renderEnvironmentZone(rootContainer) {
 
   // Résidents permanents : une ou plusieurs sources au choix du joueur
   // (state.cosmetics.vivariumSources — voir _openZoneSourcesPicker ci-dessus).
-  const enabledSources = new Set(state.cosmetics.vivariumSources || ['showcase', 'team']);
-  const seenIds = new Set(); // dédoublonne un pokémon présent dans plusieurs sources actives à la fois
-  let residentCount = 0;
-  for (const src of VIVARIUM_SOURCES) {
-    if (!enabledSources.has(src.key)) continue;
-    for (const id of src.ids(state)) {
-      if (seenIds.has(id)) continue;
-      seenIds.add(id);
-      const pk = state.pokemons.find(p => p.id === id);
-      if (!pk) continue;
-      _spawnResident(viewportEl, globalThis.pokeSprite(pk.species_en, pk.shiny), globalThis.pokemonDisplayName?.(pk) || pk.species_en, bounds, pk);
-      residentCount++;
-    }
+  const residents = buildVivariumResidents(state);
+  for (const r of residents) {
+    _spawnResident(viewportEl, r.spriteUrl, r.label, bounds, { level: r.level, natureLabel: r.natureLabel });
   }
 
-  if (residentCount === 0) {
+  if (residents.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'gang-env-empty-hint';
     empty.textContent = 'Ajoutez des Pokémon à une zone activée (👁) pour les voir se balader ici.';
@@ -790,5 +640,88 @@ export function renderEnvironmentZone(rootContainer) {
     _scheduleProximityScan(viewportEl, bounds);
   }
 
-  _scheduleCameos(viewportEl, bounds);
+  _scheduleCameos(viewportEl, bounds, () => buildVivariumCameoPool(globalThis.state));
+}
+
+// ════════════════════════════════════════════════════════════════
+//  Variante distante — consomme un blob déjà résolu (Supabase) au lieu de
+//  `globalThis.state`. Aucun picker (fond/sources) : lecture seule, rien à
+//  écrire nulle part. Appelée par gang/live-app.js.
+//
+//  blob attendu : { residents: [{spriteUrl,label,level,natureLabel}],
+//                    cameoPool: [{type,spriteUrl,label,followIconUrl?,
+//                                 lines,hostile?}], backgroundData }
+// ════════════════════════════════════════════════════════════════
+export function renderEnvironmentZoneFromSnapshot(rootContainer, blob) {
+  const zoneEl = rootContainer.querySelector('#gangEnvironmentZone');
+  if (!zoneEl) return;
+  stopEnvironmentZone();
+  _zoneEl = zoneEl;
+  _liveCameoPool = blob?.cameoPool || [];
+
+  zoneEl.innerHTML = `<div class="gang-env-viewport" id="gangEnvViewport"></div>`;
+  const viewportEl = zoneEl.querySelector('#gangEnvViewport');
+  // Contrairement au rendu local (_applyZoneBackground, toujours peint — au
+  // moins le dégradé par défaut), l'absence de fond équipé reste transparente
+  // ici : c'est un overlay OBS par-dessus le flux réel, pas une page à soi.
+  if (blob?.backgroundData) _applyBackgroundData(viewportEl, blob.backgroundData);
+
+  _applyAmbiance(viewportEl);
+  _scheduleAmbianceRefresh(viewportEl);
+  _applyWeather(viewportEl);
+  _scheduleWeatherReroll(viewportEl);
+
+  const rect = viewportEl.getBoundingClientRect();
+  const bounds = {
+    width: rect.width || 600,
+    groundTop: (rect.height || 320) * 0.35,
+    groundHeight: (rect.height || 320) * 0.55,
+  };
+
+  const residents = blob?.residents || [];
+  for (const r of residents) {
+    _spawnResident(viewportEl, r.spriteUrl, r.label, bounds, { level: r.level, natureLabel: r.natureLabel });
+  }
+
+  if (residents.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'gang-env-empty-hint';
+    empty.textContent = 'Aucun résident à afficher pour le moment.';
+    viewportEl.appendChild(empty);
+  } else {
+    _scheduleProximityScan(viewportEl, bounds);
+  }
+
+  _scheduleCameos(viewportEl, bounds, () => _liveCameoPool);
+}
+
+// Rafraîchit juste résidents + pool de cameos + fond depuis un nouveau blob,
+// sans redémarrer météo/ambiance/planification des cameos (cf. _clearResidents)
+// — appelée à chaque poll après le premier rendu (renderEnvironmentZoneFromSnapshot).
+export function updateEnvironmentSnapshot(blob) {
+  if (!_zoneEl || !_zoneEl.isConnected) return;
+  const viewportEl = _zoneEl.querySelector('#gangEnvViewport');
+  if (!viewportEl) return;
+
+  _liveCameoPool = blob?.cameoPool || [];
+  if (blob?.backgroundData) _applyBackgroundData(viewportEl, blob.backgroundData);
+
+  const rect = viewportEl.getBoundingClientRect();
+  const bounds = {
+    width: rect.width || 600,
+    groundTop: (rect.height || 320) * 0.35,
+    groundHeight: (rect.height || 320) * 0.55,
+  };
+
+  _clearResidents(viewportEl);
+  const residents = blob?.residents || [];
+  for (const r of residents) {
+    _spawnResident(viewportEl, r.spriteUrl, r.label, bounds, { level: r.level, natureLabel: r.natureLabel });
+  }
+  if (residents.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'gang-env-empty-hint';
+    empty.textContent = 'Aucun résident à afficher pour le moment.';
+    viewportEl.appendChild(empty);
+  }
 }

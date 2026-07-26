@@ -42,6 +42,8 @@ Single-page idle/management game. No framework, no reactive system. Everything i
 
 Because two pages can be open at once and both write the same save, `gang/gang-app.js`'s `saveState()` re-reads `localStorage` fresh right before writing and only patches the narrow set of cosmetic fields it owns, rather than writing back its full in-memory `state` — this bounds (not eliminates) the risk of clobbering unrelated progress made in the other tab.
 
+The vivarium's *content* (which Pokémon/agents/dialogue lines are eligible to display, resolved from `state`) lives in `modules/systems/vivariumSnapshot.js`, separate from `gang/environment.js`'s DOM/animation engine — this split exists because the same content-building logic is reused by a third entry point, `gang/live.html` + `gang/live-app.js`, a read-only OBS browser-source overlay with **no `localStorage` access at all** (a CEF browser source never shares the streamer's browser profile). It polls a public Supabase Edge Function route (`/pokegang-api/vivarium?token=`, gated by the same `public_profile` opt-in as the public gang API) for an already-resolved snapshot pushed periodically from the main game (`supaUpdateVivarium()` in `modules/systems/cloudAccount.js`, `vivariumSync` Scheduler task) — never from `/gang/`, which doesn't run the game loop. `gang/environment.js` exposes `renderEnvironmentZoneFromSnapshot()`/`updateEnvironmentSnapshot()` for this blob-driven path alongside the normal `state`-driven `renderEnvironmentZone()`; all three share the same wander/cameo DOM engine. See `docs/supabase-setup.md` for the deploy steps.
+
 ### Script loading: two distinct contexts
 
 `index.html` loads data files as **classic `<script>` tags** before `app.js`:

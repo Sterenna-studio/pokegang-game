@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>PokéGang — Vivarium (OBS)</title>
+  <link rel="icon" type="image/png" href="../assets/pokegang_logo/pokegang_logo_little.png">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/base.css?v=94d4ecd5">
+  <link rel="stylesheet" href="./gang.css?v=4ac7eb9b">
+  <style>
+    /* Source navigateur OBS : overlay plein cadre par-dessus le flux réel —
+       fond transparent par défaut (pas de chrome de page, pas de scroll).
+       environment.js peint quand même le fond équipé par le joueur si
+       blob.backgroundData est présent (cf. renderEnvironmentZoneFromSnapshot). */
+    html, body { background: transparent; margin: 0; height: 100%; overflow: hidden; }
+    #gangLiveRoot { height: 100vh; }
+    #gangLiveRoot .gang-environment-zone {
+      border: none;
+      min-height: 0;
+      height: 100%;
+      background: transparent;
+    }
+  </style>
+</head>
+<body>
+  <div id="gangLiveRoot"></div>
+
+  <script type="module" src="./live-app.js?v=8dea3541"></script>
+</body>
+</html>

@@ -10,6 +10,7 @@
 
 import { initNitroBridge, redirectToNitroLogin } from '../nitro/nitro-bridge.js';
 import { esc as _esc } from '../core/escape.js';
+import { buildVivariumResidents, buildVivariumCameoPool, buildVivariumBackgroundData } from './vivariumSnapshot.js';
 
 let cloudContext = {};
 
@@ -375,6 +376,56 @@ async function supaCloudSave() {
   supaSyncing = false;
   updateSupaIndicator();
   if (getActiveTab() === 'tabCompte') renderCompteTab();
+}
+
+// ── Vivarium sync ─────────────────────────────────────────────────
+// Pousse un instantané léger (résidents + pool de cameos + fond, déjà
+// résolus pour l'affichage — cf. modules/systems/vivariumSnapshot.js) pour
+// la lecture distante en OBS (gang/live.html). Gated par le même opt-in
+// public_profile que showcase_data/boss_team_data ; upsert étroit (seule la
+// colonne vivarium_data bouge) ; dirty-check fingerprint comme
+// supaCloudSave — pas de throttle temporel séparé (LB_PUSH_THROTTLE_MS n'a
+// de sens que parce que supaUpdateLeaderboardAnon a plusieurs points d'appel ;
+// ce tick n'en a qu'un seul, le Scheduler).
+let _vivariumFingerprint = '';
+
+function _vivariumFingerprintOf(s) {
+  return [
+    (s.gang.showcase || []).join(','),
+    (s.gang.bossTeamSlots?.[s.gang.activeBossTeamSlot || 0] || []).join(','),
+    (s.pension?.slots || []).join(','),
+    (s.trainingRoom?.pokemon || []).join(','),
+    (s.cosmetics?.vivariumSources || []).join(','),
+    (s.agents || []).map(a => `${a.id}:${(a.team || []).join('-')}:${a.assignedZone || ''}:${a.resting}`).join(','),
+    s.gang.reputation, s.gang.bossSprite, s.gang.titleA, s.gang.titleB, s.gang.titleLiaison,
+    s.stats?.shinyCaught, s.cosmetics?.bossBg,
+  ].join('|');
+}
+
+async function supaUpdateVivarium() {
+  if (!_supabase || !supaSession) return;
+  if (!state.settings?.publicProfile) return;
+
+  const fp = _vivariumFingerprintOf(state);
+  if (fp === _vivariumFingerprint) return;
+
+  try {
+    const payload = {
+      residents:      buildVivariumResidents(state),
+      cameoPool:      buildVivariumCameoPool(state),
+      backgroundData: buildVivariumBackgroundData(state),
+      updated_at:     new Date().toISOString(),
+    };
+    const { error } = await _supabase
+      .from('pokegang_players')
+      .update({ vivarium_data: payload, updated_at: new Date().toISOString() })
+      .eq('user_id', supaSession.user.id);
+    if (!error) _vivariumFingerprint = fp;
+  } catch { /* silencieux — retente au prochain tick */ }
+}
+
+function vivariumSyncTick() {
+  return supaUpdateVivarium();
 }
 
 async function supaCheckCloudLoad() {
@@ -1366,6 +1417,7 @@ export {
   configureCloudAccount, initSupabase, supaConfigured, supaCloudSave, supaWriteSnapshot,
   supaUpdateLeaderboard, supaUpdateLeaderboardAnon, renderLeaderboardTab, renderCompteTab,
   markPlayerActivity, consumePlayerActivityForLeaderboard, leaderboardSyncTick,
+  supaUpdateVivarium, vivariumSyncTick,
   updateSupaIndicator, updateSupaTabLabel,
   getSupabaseClient, getSupaSession,
 };

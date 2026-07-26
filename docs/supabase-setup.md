@@ -7,6 +7,7 @@ This project can run without Supabase. Supabase enables:
 - rolling restore snapshots
 - public pokegang_leaderboard
 - online gang competition / raids
+- public gang profile API, including a read-only vivarium snapshot for OBS browser sources
 
 ## 1. Create the local config
 
@@ -29,7 +30,7 @@ The schema creates every table currently used by the frontend:
 
 - `pokegang_saves`: current cloud save per authenticated user and save slot
 - `pokegang_save_snapshots`: recent restore points
-- `pokegang_players`: authenticated account stats row
+- `pokegang_players`: authenticated account stats row, including the opt-in public profile columns (`public_profile`, `profile_token`, `showcase_data`, `boss_team_data`, `badges_data`) and `vivarium_data` (a small, already-resolved snapshot of the vivarium — residents, eligible cameos, background — pushed roughly once a minute while playing, consumed by `gang/live.html`)
 - `pokegang_leaderboard`: public all-time/monthly pokegang_leaderboard
 - `pokegang_gang_defenses`: published PvP defenses, including the active 3-Pokémon Boss team and up to three defender agents in `defense_agent`
 - `pokegang_gang_raids`: PvP raid records and defender acknowledgements
@@ -84,6 +85,24 @@ After running the SQL and creating `config.js`:
 7. Confirm a raid record stores `rep_delta = 0` and only money is transferred on raid results.
 
 The PvP list only shows real opponents if at least two different authenticated users have published bases.
+
+## 6. Vivarium live overlay (OBS)
+
+`gang/live.html` is a third static entry point, separate from the main game and from `/gang/`. It never reads `localStorage` — an OBS browser source runs on an isolated Chromium (CEF) profile that never shares `localStorage['pokeforge.v6']` with the streamer's regular browser, even on the same machine, so the usual `/gang/` pattern (read the save directly) cannot work there. It fetches a read-only vivarium snapshot over the network instead, polling `GET /pokegang-api/vivarium?token=` every ~35s.
+
+Setup:
+
+1. Deploy the updated Edge Function (adds the `/vivarium` route):
+
+   ```
+   supabase functions deploy pokegang-api
+   ```
+
+2. Re-run [supabase-schema.sql](./supabase-schema.sql) — adds the `vivarium_data` column on `pokegang_players`. Order doesn't matter here (unlike the leaderboard hardening above): this column has no RLS policy of its own, it's covered by the existing `players_select_public` policy.
+3. In-game, go to `Compte` and enable "Profil public activé" (same opt-in as the public gang API / leaderboard) — this is what unlocks the vivarium push, not a separate toggle. Copy the generated token.
+4. Open `gang/live.html?token=<ton_token>` as an OBS Browser Source (or in a normal tab to preview). The background is transparent by default unless a zone background is equipped in `/gang/`'s vitrine panel.
+
+The push itself (`supaUpdateVivarium()` in `modules/systems/cloudAccount.js`, registered as the `vivariumSync` Scheduler task, `TICK_VIVARIUM_SYNC_MS` in `data/gameplay-config-data.js`) only runs while the main game tab is open and the player is signed in with a public profile — it stops as soon as either condition is false, and the overlay simply keeps showing its last successfully fetched snapshot.
 
 ## Reference
 

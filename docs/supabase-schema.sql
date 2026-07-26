@@ -401,6 +401,13 @@ alter table public.pokegang_players add column if not exists showcase_data      
 alter table public.pokegang_players add column if not exists boss_team_data     jsonb       default '[]'::jsonb;
 alter table public.pokegang_players add column if not exists badges_data        jsonb       default '[]'::jsonb;
 
+-- Snapshot du vivarium (résidents + pool de cameos + fond, déjà résolus pour
+-- l'affichage — cf. modules/systems/vivariumSnapshot.js) poussé périodiquement
+-- pour l'affichage distant en lecture seule (source navigateur OBS,
+-- gang/live.html). Gated par le même opt-in public_profile que showcase_data/
+-- boss_team_data/badges_data ci-dessus — aucune nouvelle policy nécessaire.
+alter table public.pokegang_players add column if not exists vivarium_data      jsonb       default '{}'::jsonb;
+
 -- Génère automatiquement un token unique si public_profile passe à true
 create or replace function public.pg_generate_profile_token()
 returns trigger language plpgsql as $$

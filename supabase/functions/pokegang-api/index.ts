@@ -5,6 +5,7 @@
 //   GET /pokegang-api/gang?name={gang_name}    → fiche par nom de gang
 //   GET /pokegang-api/gang?token={token}        → fiche par token public
 //   GET /pokegang-api/leaderboard?limit=50&sort=reputation
+//   GET /pokegang-api/vivarium?token={token}    → snapshot vivarium (OBS, lecture seule)
 //   GET /pokegang-api/status                    → health check
 
 import { serve }         from 'https://deno.land/std@0.168.0/http/server.ts';
@@ -90,6 +91,38 @@ function buildProfile(row: Record<string, any>) {
     }),
     _api_version: VERSION,
   };
+}
+
+// ── Snapshot vivarium (résidents + pool de cameos + fond, déjà résolus pour
+// l'affichage — cf. modules/systems/vivariumSnapshot.js) pour une source
+// navigateur OBS en lecture seule. Même gating que /gang (public_profile +
+// token), payload assaini pareil (les lignes de dialogue/noms embarquent du
+// texte joueur libre). ──────────────────────────────────────────────────────
+async function handleVivarium(url: URL, supabase: ReturnType<typeof createClient>) {
+  const token = url.searchParams.get('token')?.trim();
+  if (!token) return err('Paramètre requis : ?token={token}');
+
+  const { data, error } = await supabase
+    .from('pokegang_players')
+    .select('vivarium_data, updated_at')
+    .eq('public_profile', true)
+    .eq('profile_token', token)
+    .maybeSingle();
+
+  if (error) return err('Erreur base de données : ' + error.message, 500);
+  if (!data)  return err('Gang introuvable ou profil non public.', 404);
+
+  const blob = (data.vivarium_data && typeof data.vivarium_data === 'object') ? data.vivarium_data : {};
+  return json({
+    ok: true,
+    data: sanitizeDeep({
+      residents:      Array.isArray(blob.residents)  ? blob.residents  : [],
+      cameoPool:       Array.isArray(blob.cameoPool)  ? blob.cameoPool  : [],
+      backgroundData:  blob.backgroundData ?? null,
+      updated_at:      data.updated_at ?? null,
+    }),
+    _api_version: VERSION,
+  });
 }
 
 // ── Route handlers ────────────────────────────────────────────────────────────
@@ -199,6 +232,10 @@ serve(async (req: Request) => {
 
   if (path.endsWith('/leaderboard')) {
     return await handleLeaderboard(url, supabase);
+  }
+
+  if (path.endsWith('/vivarium')) {
+    return await handleVivarium(url, supabase);
   }
 
   return err('Route inconnue. Consultez la documentation : https://pokegang.sterenna.fr/docs/api.html', 404);
