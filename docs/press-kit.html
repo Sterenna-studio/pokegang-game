@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PokéGang — Press Kit</title>
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --bg-card: #141414;
+    --bg-panel: #1a1a1a;
+    --border: #333;
+    --border-light: #444;
+    --text: #e0e0e0;
+    --text-dim: #aaa;
+    --red: #cc3333;
+    --gold: #ffcc5a;
+    --gold-dim: #b8943f;
+    --green: #44bb55;
+    --blue: #4488cc;
+  }
+  * { box-sizing: border-box; }
+  html, body { background: var(--bg); color: var(--text); font-family: 'Courier New', Consolas, monospace; margin: 0; line-height: 1.6; }
+  a { color: var(--blue); }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 40px 24px 80px; }
+
+  .hero { display: flex; align-items: center; gap: 28px; flex-wrap: wrap; margin-bottom: 8px; }
+  .hero img { max-width: 360px; width: 100%; height: auto; }
+  .hero .tagline { color: var(--red); font-size: 14px; letter-spacing: .06em; margin-top: 4px; }
+  .hero .sub { color: var(--text-dim); font-size: 13px; margin-top: 10px; max-width: 420px; }
+
+  .links { display: flex; gap: 10px; flex-wrap: wrap; margin: 20px 0 40px; }
+  .links a { display: inline-block; padding: 9px 16px; border: 1px solid var(--gold-dim); border-radius: 4px; color: var(--gold); text-decoration: none; font-size: 13px; }
+  .links a:hover { background: var(--bg-card); }
+
+  h2 { color: var(--gold); font-size: 15px; letter-spacing: .08em; text-transform: uppercase; border-bottom: 1px solid var(--border); padding-bottom: 8px; margin: 48px 0 18px; }
+
+  .facts { display: grid; grid-template-columns: 160px 1fr; gap: 10px 18px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; padding: 18px 20px; }
+  .facts dt { color: var(--text-dim); }
+  .facts dd { margin: 0; }
+
+  .shots { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+  .shot-slot { aspect-ratio: 16/10; border: 1px dashed var(--border-light); border-radius: 6px; display: flex; align-items: center; justify-content: center; text-align: center; padding: 16px; color: var(--text-dim); font-size: 12px; background: var(--bg-card); }
+
+  .assets { display: flex; gap: 16px; flex-wrap: wrap; }
+  .asset-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; padding: 14px; text-align: center; width: 160px; }
+  .asset-card img { max-width: 100%; max-height: 70px; margin-bottom: 10px; }
+  .asset-card a { display: block; margin-top: 8px; font-size: 11px; }
+
+  .disclaimer { color: var(--text-dim); font-size: 11px; font-style: italic; border-top: 1px solid var(--border); padding-top: 16px; margin-top: 48px; }
+  .note { background: var(--bg-panel); border-left: 3px solid var(--gold-dim); padding: 10px 14px; font-size: 12px; color: var(--text-dim); margin-bottom: 14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="hero">
+    <img src="../assets/pokegang_logo/pokegang_logo_full_B.png" alt="PokéGang">
+    <div>
+      <div class="tagline">— Gotta rule em all —</div>
+      <div class="sub">Jeu idle/management Pokémon en une seule page. Tu incarnes le boss d'un gang qui prend le contrôle de Kanto, puis Johto, Hoenn et Sinnoh.</div>
+    </div>
+  </div>
+
+  <div class="links">
+    <a href="https://pokegang.sterenna.fr" target="_blank" rel="noopener">▶ Jouer (version cloud)</a>
+    <a href="https://github.com/Sterenna-studio/pokegang-game" target="_blank" rel="noopener">Code source</a>
+    <a href="mailto:">Contact — à compléter</a>
+  </div>
+
+  <h2>Fiche</h2>
+  <dl class="facts">
+    <dt>Développeur</dt><dd>Sterenna Studio</dd>
+    <dt>Statut</dt><dd>Pre-alpha (v0.2), en développement actif</dd>
+    <dt>Genre</dt><dd>Idle / management</dd>
+    <dt>Plateforme</dt><dd>Navigateur (HTML5) — Windows, macOS, Linux</dd>
+    <dt>Prix</dt><dd>Gratuit</dd>
+    <dt>Régions jouables</dt><dd>Kanto, Johto, Hoenn, Sinnoh</dd>
+    <dt>Technologie</dt><dd>JavaScript vanilla, sans framework ni bundler</dd>
+  </dl>
+
+  <h2>Description longue</h2>
+  <p>
+    PokéGang est un jeu idle/management dans lequel le joueur n'incarne pas un dresseur, mais le <strong>boss d'un gang</strong> qui prend le contrôle des régions Pokémon une à une. Il capture des Pokémon, recrute des agents pour faire tourner ses zones en simulation passive, investit dans son territoire et fait grimper sa réputation à travers quatre régions (Kanto, Johto, Hoenn, Sinnoh), chacune avec ses propres quêtes de légendaires (le trio des oiseaux, Lugia/Ho-Oh, Groudon/Kyogre, le trio du Lac, Dialga/Palkia/Giratina, Mewtwo…).
+  </p>
+  <p>
+    Le jeu est jouable directement en navigateur, sans compte requis pour la progression locale. Une version avec compte (sauvegarde cloud, classement mondial, compétition entre gangs) est disponible sur le site officiel.
+  </p>
+
+  <h2>Captures d'écran</h2>
+  <div class="note">
+    Captures pas encore intégrées à cette page — emplacements réservés ci-dessous en attendant un jeu de captures à jour avec l'état actuel du jeu.
+  </div>
+  <div class="shots">
+    <div class="shot-slot">Zones — vue de la carte régionale et fenêtre de zone ouverte</div>
+    <div class="shot-slot">PC — collection de Pokémon (tri, filtres, potentiel/shiny)</div>
+    <div class="shot-slot">Combat contre un dresseur</div>
+    <div class="shot-slot">Gang — vitrine et vivarium animé</div>
+  </div>
+
+  <h2>Assets de marque</h2>
+  <div class="assets">
+    <div class="asset-card">
+      <img src="../assets/pokegang_logo/pokegang_logo_full_B.png" alt="Logo complet">
+      <div>Logo complet</div>
+      <a href="../assets/pokegang_logo/pokegang_logo_full_B.png" download>Télécharger</a>
+    </div>
+    <div class="asset-card">
+      <img src="../assets/pokegang_logo/pokegang_logo_medium.png" alt="Logo compact">
+      <div>Logo compact</div>
+      <a href="../assets/pokegang_logo/pokegang_logo_medium.png" download>Télécharger</a>
+    </div>
+    <div class="asset-card">
+      <img src="../assets/pokegang_logo/pokegang_logo_little.png" alt="Icône">
+      <div>Icône</div>
+      <a href="../assets/pokegang_logo/pokegang_logo_little.png" download>Télécharger</a>
+    </div>
+  </div>
+
+  <p class="disclaimer">
+    Fan-game non-officiel, à but non-commercial, sans lien avec Nintendo / Game Freak / The Pokémon Company. Sprites via Pokémon Showdown. Document à usage presse — contenu vérifié contre l'état du code au moment de la rédaction, à retenir à jour au fil des mises à jour du jeu.
+  </p>
+
+</div>
+</body>
+</html>
