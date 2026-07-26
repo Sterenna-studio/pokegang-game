@@ -106,6 +106,14 @@ The push itself (`supaUpdateVivarium()` in `modules/systems/cloudAccount.js`, re
 
 For the OBS scene setup itself (recommended Browser Source dimensions, which settings to uncheck, troubleshooting), see [obs-setup.md](./obs-setup.md).
 
+## 7. Creator overview dashboard
+
+[docs/stats.html](./stats.html) is an internal, unlisted page answering "is anyone playing, and how far are they getting" — aggregated entirely from data already collected by the leaderboard/account flows, no new client-side tracking added. It reads four views defined in the schema (daily active players, new players per day, reputation distribution, region-unlock funnel).
+
+Setup: just re-run [supabase-schema.sql](./supabase-schema.sql) — this adds a `created_at` column on `pokegang_leaderboard` (needed to tell new vs. returning players apart) plus the four `pokegang_stats_*` views, all read-only aggregates. No Edge Function deploy needed; the page queries the views directly through the same public REST endpoint the game already uses, with the anon key.
+
+Known gap: the region funnel view only covers **authenticated accounts** (`pokegang_players`) — anonymous leaderboard entries don't carry `regions_data` today, so it undercounts the true player base. Good enough to spot obvious drop-off points between regions, not a precise total.
+
 ## Reference
 
 - Supabase RLS documentation: https://supabase.com/docs/guides/database/postgres/row-level-security

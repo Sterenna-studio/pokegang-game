@@ -380,6 +380,82 @@ create index if not exists gang_raids_defender_idx
   on public.pokegang_gang_raids(defender_id, executed_at desc);
 
 -- ============================================================================
+-- Vue d'ensemble créateur — agrège des données déjà collectées, aucune
+-- nouvelle collecte côté client. Toutes les vues ci-dessous n'exposent que
+-- des AGRÉGATS/comptages (jamais une ligne individuelle), donc aucune
+-- exposition nouvelle même pour pokegang_players, qui n'est pas entièrement
+-- public par ailleurs — voir modules/systems/cloudAccount.js pour comment
+-- ces chiffres sont déjà collectés (leaderboard anonyme + comptes connectés).
+-- ============================================================================
+
+-- created_at : horodatage de première apparition d'un token, pour distinguer
+-- nouveaux joueurs / joueurs qui reviennent. Le upsert existant
+-- (supabase/functions/pokegang-leaderboard-submit/index.ts) n'inclut PAS
+-- cette colonne dans son payload — le DEFAULT ne s'applique donc qu'à
+-- l'INSERT initial et n'est jamais réécrit par les mises à jour suivantes
+-- du même token (comportement standard de `upsert(row, {onConflict})`, qui
+-- ne touche que les colonnes présentes dans `row`).
+alter table public.pokegang_leaderboard add column if not exists created_at timestamptz not null default now();
+create index if not exists leaderboard_created_at_idx on public.pokegang_leaderboard(created_at);
+
+-- Joueurs actifs par jour (30 derniers jours). updated_at n'avance que
+-- lorsqu'une activité réelle est détectée côté client
+-- (consumePlayerActivityForLeaderboard()), donc c'est un vrai signal
+-- d'usage, pas juste "un onglet resté ouvert en arrière-plan".
+create or replace view public.pokegang_stats_daily_active as
+select
+  date_trunc('day', updated_at)::date as day,
+  count(*) as active_players
+from public.pokegang_leaderboard
+where updated_at >= now() - interval '30 days'
+group by 1
+order by 1 desc;
+
+-- Nouveaux joueurs par jour (30 derniers jours), à partir de created_at.
+create or replace view public.pokegang_stats_new_players as
+select
+  date_trunc('day', created_at)::date as day,
+  count(*) as new_players
+from public.pokegang_leaderboard
+where created_at >= now() - interval '30 days'
+group by 1
+order by 1 desc;
+
+-- Distribution de réputation — où en sont les joueurs dans leur progression.
+create or replace view public.pokegang_stats_rep_distribution as
+select
+  case
+    when reputation < 100    then '0-99'
+    when reputation < 1000   then '100-999'
+    when reputation < 5000   then '1000-4999'
+    when reputation < 20000  then '5000-19999'
+    when reputation < 100000 then '20000-99999'
+    else '100000+'
+  end as rep_bucket,
+  count(*) as player_count
+from public.pokegang_leaderboard
+group by 1;
+
+-- Funnel régions. LIMITE CONNUE : ne couvre que les comptes authentifiés
+-- (pokegang_players) — regions_data n'est aujourd'hui poussé que par le
+-- flux compte connecté (supaUpdateLeaderboard()), jamais par le flux
+-- anonyme (supaUpdateLeaderboardAnon() / pokegang-leaderboard-submit), qui
+-- ne porte pas ce champ. Sous-estime donc la vraie population de joueurs.
+create or replace view public.pokegang_stats_region_funnel as
+select
+  count(*) filter (where regions_data ? 'kanto')  as kanto,
+  count(*) filter (where regions_data ? 'johto')  as johto,
+  count(*) filter (where regions_data ? 'hoenn')  as hoenn,
+  count(*) filter (where regions_data ? 'sinnoh') as sinnoh,
+  count(*) as total_accounts
+from public.pokegang_players;
+
+grant select on public.pokegang_stats_daily_active     to anon, authenticated;
+grant select on public.pokegang_stats_new_players       to anon, authenticated;
+grant select on public.pokegang_stats_rep_distribution  to anon, authenticated;
+grant select on public.pokegang_stats_region_funnel     to anon, authenticated;
+
+-- ============================================================================
 -- Public API — colonnes supplémentaires sur pokegang_players
 -- Migration à appliquer pour activer l'API publique PokéGang.
 -- ============================================================================
