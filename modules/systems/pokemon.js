@@ -66,14 +66,17 @@ function rollNature() {
   return globalThis.pick?.(globalThis.NATURE_KEYS);
 }
 
-function rollPotential(ballType) {
-  const BALLS = globalThis.BALLS || {};
-  const dist = BALLS[ballType]?.potential || BALLS.pokeball?.potential || [];
+// Distribution de potentiel unique — indépendante du type de ball depuis que
+// les balls sont devenues purement cosmétiques (commit 6fcd638). ★1:35%
+// ★2:30% ★3:20% ★4:10% ★5:5%. L'Encens Chance ajoute +1 (plafonné à ★5).
+const POTENTIAL_DIST = [35, 30, 20, 10, 5];
+
+function rollPotential() {
   const r = Math.random() * 100;
   let acc = 0;
   let result = 1;
-  for (let i = 0; i < dist.length; i++) {
-    acc += dist[i];
+  for (let i = 0; i < POTENTIAL_DIST.length; i++) {
+    acc += POTENTIAL_DIST[i];
     if (r < acc) { result = i + 1; break; }
   }
   if (globalThis.isBoostActive?.('incense') && result < 5) result++;
@@ -129,7 +132,7 @@ function makePokemon(speciesEN, zoneId, ballType = 'pokeball', spawnCtx = {}) {
   const sp = SPECIES_BY_EN[speciesEN];
   if (!sp) return null;
   const nature    = rollNature();
-  const potential = rollPotential(ballType);
+  const potential = rollPotential();
   const shiny     = rollShiny(spawnCtx.shinyBonus || 0);
   const level     = globalThis.randInt(3, 12);
   const pokemon = {
