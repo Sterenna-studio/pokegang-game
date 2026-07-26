@@ -308,7 +308,7 @@ function _doRenderGangTab() {
       <div style="padding:0 2px 8px;display:flex;flex-direction:column;gap:8px">${_buildServicesHtml(state)}</div>
     </div>
 
-    <a href="/gang/" id="btnOpenGangCustomization" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:4px;padding:14px;background:var(--bg-card);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);text-decoration:none;cursor:pointer">
+    <a href="https://pokegang.sterenna.fr/gang/" target="_blank" rel="noopener" id="btnOpenGangCustomization" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:4px;padding:14px;background:var(--bg-card);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);text-decoration:none;cursor:pointer">
       <div>
         <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold)">🎨 Personnalisation</div>
         <div style="font-size:9px;color:var(--text-dim);margin-top:3px">Musique, apparence, titre, vitrine — pokegang.sterenna.fr/gang</div>
