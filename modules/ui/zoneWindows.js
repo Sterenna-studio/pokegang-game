@@ -100,27 +100,71 @@ function _zwActiveZones() {
 }
 
 // ── Wing drop config ──────────────────────────────────────────
+// Chaque zone associe un TABLEAU de configs (pas un objet unique) : certaines
+// zones proposent plusieurs ombres possibles (ex. seafoam_islands = zone
+// d'Articuno ET zone de l'ombre de Lugia). `requiresOwned` (optionnel) gate
+// une config sur la capture préalable de l'oiseau correspondant — inutile de
+// distribuer un ticket de rejeu avant que le combat original soit gagné.
 const SPECIAL_WING_EVENTS = {
-  seafoam_islands: {
-    item:            'silver_wing',
-    itemName:        "Argent'Aile",
-    minDrop:         1,
-    maxDrop:         5,
-    legendaryShadow: 'lugia',       // espèce dont le sprite est utilisé en ombre
-    shadowLabel:     'Ombre de Lugia',
-    spawnChance:     0.06,          // 6% par tick de spawn (mastery >= 2)
-    despawnMs:       20_000,        // l'ombre disparaît après 20 s si non cliquée
-  },
-  victory_road: {
-    item:            'rainbow_wing',
-    itemName:        "Arcenci'Aile",
-    minDrop:         1,
-    maxDrop:         5,
-    legendaryShadow: 'ho-oh',
-    shadowLabel:     'Ombre de Ho-Oh',
-    spawnChance:     0.06,
-    despawnMs:       20_000,
-  },
+  seafoam_islands: [
+    {
+      item:            'silver_wing',
+      itemName:        "Argent'Aile",
+      minDrop:         1,
+      maxDrop:         5,
+      legendaryShadow: 'lugia',       // espèce dont le sprite est utilisé en ombre
+      shadowLabel:     'Ombre de Lugia',
+      spawnChance:     0.06,          // 6% par tick de spawn (mastery >= 2)
+      despawnMs:       20_000,        // l'ombre disparaît après 20 s si non cliquée
+    },
+    {
+      item:            'plume_sacree',
+      itemName:        'Plume Sacrée',
+      minDrop:         1,
+      maxDrop:         1,             // ticket de rejeu rare — pas de variance comme les ailes
+      legendaryShadow: 'articuno',
+      shadowLabel:     "Ombre d'Artikodin",
+      spawnChance:     0.05,
+      despawnMs:       20_000,
+      requiresOwned:   'articuno',
+    },
+  ],
+  power_plant: [
+    {
+      item:            'plume_sacree',
+      itemName:        'Plume Sacrée',
+      minDrop:         1,
+      maxDrop:         1,
+      legendaryShadow: 'zapdos',
+      shadowLabel:     'Ombre de Zapdos',
+      spawnChance:     0.05,
+      despawnMs:       20_000,
+      requiresOwned:   'zapdos',
+    },
+  ],
+  victory_road: [
+    {
+      item:            'rainbow_wing',
+      itemName:        "Arcenci'Aile",
+      minDrop:         1,
+      maxDrop:         5,
+      legendaryShadow: 'ho-oh',
+      shadowLabel:     'Ombre de Ho-Oh',
+      spawnChance:     0.06,
+      despawnMs:       20_000,
+    },
+    {
+      item:            'plume_sacree',
+      itemName:        'Plume Sacrée',
+      minDrop:         1,
+      maxDrop:         1,
+      legendaryShadow: 'moltres',
+      shadowLabel:     'Ombre de Sulfura',
+      spawnChance:     0.05,
+      despawnMs:       20_000,
+      requiresOwned:   'moltres',
+    },
+  ],
 };
 
 // ── Type effectiveness chart ──────────────────────────────────
@@ -1845,8 +1889,8 @@ function tickZoneSpawn(zoneId) {
 // Tente de faire apparaître une ombre légendaire cliquable dans la zone.
 function _tryWingDrop(zoneId) {
   const zoneSpawns = globalThis.zoneSpawns;
-  const cfg = SPECIAL_WING_EVENTS[zoneId];
-  if (!cfg) return;
+  const configs = SPECIAL_WING_EVENTS[zoneId];
+  if (!configs || configs.length === 0) return;
 
   // Mastery minimum 2 (au moins 10 combats gagnés dans la zone)
   if (globalThis.getZoneMastery(zoneId) < 2) return;
@@ -1855,7 +1899,13 @@ function _tryWingDrop(zoneId) {
   const existing = (zoneSpawns[zoneId] || []).some(s => s.type === 'wing_shadow');
   if (existing) return;
 
-  if (Math.random() > cfg.spawnChance) return;
+  // Une zone peut proposer plusieurs ombres possibles (ex. Lugia ET Artikodin
+  // sur seafoam_islands) — chacune a sa propre condition (requiresOwned) et
+  // son propre jet de spawnChance ; une seule est retenue par tick.
+  const eligible = configs.filter(c => !c.requiresOwned || globalThis.state?.birdsMission?.[c.requiresOwned]?.owned);
+  const hits = eligible.filter(c => Math.random() <= c.spawnChance);
+  if (hits.length === 0) return;
+  const cfg = hits[Math.floor(Math.random() * hits.length)];
 
   // Créer l'objet spawn
   const spawnObj = {
