@@ -145,6 +145,10 @@ function renderBarterPanel() {
   const WING_EXCHANGES = [
     { giveId:'silver_wing',  giveQty:2, getId:'rainbow_wing', getQty:1, label:"2 Argent'Ailes → 1 Arcenci'Aile" },
     { giveId:'rainbow_wing', giveQty:2, getId:'silver_wing',  getQty:1, label:"2 Arcenci'Ailes → 1 Argent'Aile" },
+    // Ratio 5:1 (contre 2:1 entre ailes) : une Plume Sacrée permet de rejouer
+    // tout un combat légendaire, plus "chère" qu'un simple échange d'ailes.
+    { giveId:'rainbow_wing', giveQty:5, getId:'plume_sacree', getQty:1, label:"5 Arcenci'Ailes → 1 Plume Sacrée" },
+    { giveId:'silver_wing',  giveQty:5, getId:'plume_sacree', getQty:1, label:"5 Argent'Ailes → 1 Plume Sacrée" },
   ];
   const wingExchangeHtml = `
     <div style="padding:8px 4px 4px;border-top:2px solid var(--border);margin-top:2px">
