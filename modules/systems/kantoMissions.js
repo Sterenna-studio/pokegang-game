@@ -57,6 +57,14 @@ const _BIRD_ZONES = {
   moltres:  'victory_road',
 };
 
+// Sous-ensemble strict de TRAINER_TYPES pour le drop combat de Rapport
+// Sylphe ci-dessous — contrairement à _ROCKET_KANTO (qui ne teste que la
+// zone), on veut ici une victoire contre un membre Rocket identifié.
+// Exclut volontairement 'scientist' : présent dans le pool de zones Rocket
+// (silph_co) mais aussi dans des zones sans rapport (power_plant,
+// cinnabar_gym, pokemon_mansion) — pas exclusif à la Team Rocket.
+const _ROCKET_TRAINER_KEYS = new Set(['rocketgrunt', 'rocketgruntf', 'archer', 'ariana', 'proton', 'giovanni']);
+
 // ── Config oiseaux ────────────────────────────────────────────────
 const BIRDS = {
   articuno: {
@@ -101,10 +109,26 @@ function _register() {
   EventBus.on(EVENTS.ITEM_RECEIVED, _onItemReceived);
 }
 
-function _onCombatWon({ zoneId } = {}) {
+function _onCombatWon({ zoneId, trainerKey, elite } = {}) {
   const s = _state();
   if (!s) return;
   let dirty = false;
+
+  // ── Rapport Sylphe — drop combat contre un membre Rocket identifié ────
+  // En plus du drop de zone existant (silph_secret_report, data/zones-data.js
+  // — chance 3%, minRep 700, silph_co/saffron_gym uniquement). Celui-ci cible
+  // spécifiquement une victoire contre un dresseur Rocket (peu importe la
+  // zone), avec une chance nettement supérieure contre un élite. Même seuil
+  // de réputation que le drop de zone pour rester cohérent entre les deux.
+  if (_ROCKET_TRAINER_KEYS.has(trainerKey) && (s.gang?.reputation || 0) >= 700) {
+    const chance = elite ? 0.05 : 0.01;
+    if (Math.random() < chance) {
+      s.inventory.rapport_sylphe = (s.inventory.rapport_sylphe || 0) + 1;
+      EventBus.emit(EVENTS.ITEM_RECEIVED, { itemId: 'rapport_sylphe', qty: 1 });
+      _notify(`📂 Rapport Sylphe récupéré${elite ? ' sur un cadre Rocket' : ''} !`, 'gold');
+      dirty = true;
+    }
+  }
 
   // ── Oiseaux — step 1 (fights in zone) ────────────────────────
   const birds = _qBirds();

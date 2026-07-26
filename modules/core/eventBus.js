@@ -43,7 +43,7 @@ export const EVENTS = {
   POKEMON_SOLD:      'pokemon:sold',      // { pokemonIds, totalPrice }
 
   // Combat
-  COMBAT_WON:        'combat:won',        // { zoneId, trainerKey }
+  COMBAT_WON:        'combat:won',        // { zoneId, trainerKey, elite }
   COMBAT_LOST:       'combat:lost',       // { zoneId, trainerKey } — consommé par le patch ciblé agentsTab (énergie)
 
   // Economy
