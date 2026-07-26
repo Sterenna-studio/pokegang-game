@@ -1225,7 +1225,7 @@ async function renderCompteTab() {
           <div style="font-family:var(--font-pixel);font-size:9px;color:var(--blue);margin-bottom:8px">🔗 PROFIL PUBLIC / API</div>
           <div style="font-size:9px;color:var(--text-dim);margin-bottom:10px;line-height:1.6">
             Rends ta fiche gang publique pour l'intégrer sur d'autres sites via l'API.<br>
-            <a href="/docs/api.html" target="_blank" style="color:var(--blue)">→ Documentation API</a>
+            <a href="https://pokegang.sterenna.fr/docs/api.html" target="_blank" rel="noopener" style="color:var(--blue)">→ Documentation API</a>
           </div>
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
             <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:9px;color:var(--text)">
