@@ -104,6 +104,8 @@ Setup:
 
 The push itself (`supaUpdateVivarium()` in `modules/systems/cloudAccount.js`, registered as the `vivariumSync` Scheduler task, `TICK_VIVARIUM_SYNC_MS` in `data/gameplay-config-data.js`) only runs while the main game tab is open and the player is signed in with a public profile — it stops as soon as either condition is false, and the overlay simply keeps showing its last successfully fetched snapshot.
 
+For the OBS scene setup itself (recommended Browser Source dimensions, which settings to uncheck, troubleshooting), see [obs-setup.md](./obs-setup.md).
+
 ## Reference
 
 - Supabase RLS documentation: https://supabase.com/docs/guides/database/postgres/row-level-security
