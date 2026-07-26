@@ -20,6 +20,21 @@ Every local `<script src="...">`/`<link href="...">` in `index.html` carries a `
 
 To regenerate manually: `node tools/cache-bust.js`. Safe to run anytime; it's a no-op if nothing changed.
 
+### Testing with a prefilled save (dev-only)
+
+`tools/dev-seed-save.json` is a deliberately partial test fixture — `migrateSave()` (`state/migrateSave.js`) backfills anything omitted from `DEFAULT_STATE` at load time, so this file only lists what makes the vivarium/PC/agents interesting to test: a few Pokémon spread across every vivarium source (showcase, active team, pension, training room), an agent with contextual dialogue, reputation ≥700 (unlocks the rival cameo + boss dialogue lines), 2 shinies, a favorite, a nicknamed Pokémon.
+
+To load it in a browser pointed at `http://localhost:8080` (paste in the DevTools console, or run via a browser-automation tool — this is how Claude Code seeds a testable state without walking through onboarding each session):
+
+```js
+fetch('/tools/dev-seed-save.json').then(r => r.text()).then(json => {
+  localStorage.setItem('pokeforge.v6', json);
+  location.reload();
+});
+```
+
+This overwrites whatever is in the `pokeforge.v6` save slot — never run it against a browser profile holding a real save.
+
 ---
 
 ## Architecture overview

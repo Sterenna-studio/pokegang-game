@@ -1,0 +1,67 @@
+{
+  "_comment": "Fixture de test — voir 'Tester avec un save prérempli' dans CLAUDE.md pour la procédure de chargement. Sciemment PARTIEL : migrateSave() (state/migrateSave.js) comble tout champ omis depuis DEFAULT_STATE au chargement, donc ce fichier ne liste que ce qui rend le vivarium/PC/agents intéressants à tester, pas un state complet.",
+  "_schemaVersion": 12,
+  "version": "6.0.0",
+  "gang": {
+    "name": "Test Gang",
+    "bossName": "TestBoss",
+    "bossSprite": "red",
+    "reputation": 800,
+    "money": 250000,
+    "showcase": ["pk-1", "pk-3", "pk-6", null, null, null],
+    "bossTeamSlots": [["pk-2", "pk-5", "pk-6"], [], []],
+    "activeBossTeamSlot": 0
+  },
+  "cosmetics": {
+    "vivariumSources": ["showcase", "team", "pension", "training"]
+  },
+  "pokemons": [
+    { "id": "pk-1", "species_en": "pikachu",   "level": 20, "nature": "jolly",   "potential": 5, "shiny": true,  "favorite": true },
+    { "id": "pk-2", "species_en": "charizard", "level": 34, "nature": "adamant", "potential": 4, "shiny": false },
+    { "id": "pk-3", "species_en": "eevee",     "level": 12, "nature": "timid",   "potential": 3, "shiny": true },
+    { "id": "pk-4", "species_en": "snorlax",   "level": 28, "nature": "bold",    "potential": 4, "shiny": false, "nick": "Gros Dodo" },
+    { "id": "pk-5", "species_en": "gengar",    "level": 30, "nature": "timid",   "potential": 5, "shiny": false },
+    { "id": "pk-6", "species_en": "dragonite", "level": 40, "nature": "adamant", "potential": 5, "shiny": false, "favorite": true },
+    { "id": "pk-7", "species_en": "bulbasaur", "level": 8,  "nature": "calm",    "potential": 2, "shiny": false },
+    { "id": "pk-8", "species_en": "squirtle",  "level": 10, "nature": "naive",  "potential": 3, "shiny": false }
+  ],
+  "agents": [
+    {
+      "id": "ag-1",
+      "name": "Sacha",
+      "spriteKey": "acetrainer",
+      "title": "sergent",
+      "level": 5,
+      "xp": 120,
+      "combatsWon": 42,
+      "ball": "pokeball",
+      "behavior": "all",
+      "personality": ["brave", "loyal"],
+      "team": ["pk-4"],
+      "assignedZone": "route1",
+      "notifyCaptures": true,
+      "legacyLocked": false,
+      "energy": 10,
+      "maxEnergy": 10,
+      "resting": false,
+      "restUntil": null,
+      "lastEnergyReset": 0
+    }
+  ],
+  "pension": {
+    "slots": ["pk-7"],
+    "extraSlotsPurchased": 0,
+    "eggAt": 4102444800000
+  },
+  "trainingRoom": {
+    "pokemon": ["pk-8"]
+  },
+  "zones": {
+    "route1": { "combatsWon": 5, "captures": 3 }
+  },
+  "stats": {
+    "shinyCaught": 2,
+    "totalCaught": 8,
+    "totalFightsWon": 42
+  }
+}
