@@ -535,6 +535,7 @@ code {
       <a href="#endpoints" class="sb-link">02 · Endpoints</a>
       <a href="#ep-gang" class="sb-link sub"><span class="sb-method sb-get">GET</span> /gang</a>
       <a href="#ep-leaderboard" class="sb-link sub"><span class="sb-method sb-get">GET</span> /leaderboard</a>
+      <a href="#ep-vivarium" class="sb-link sub"><span class="sb-method sb-get">GET</span> /vivarium</a>
       <a href="#ep-status" class="sb-link sub"><span class="sb-method sb-get">GET</span> /status</a>
       <a href="#responses" class="sb-link">03 · Réponses</a>
       <a href="#errors" class="sb-link">04 · Codes d'erreur</a>
@@ -772,6 +773,83 @@ code {
         </div>
       </div>
 
+      <!-- GET /vivarium -->
+      <span class="section-anchor" id="ep-vivarium"></span>
+      <div class="endpoint">
+        <div class="endpoint-header" onclick="toggleEndpoint(this)">
+          <span class="method method-get">GET</span>
+          <span class="endpoint-path">/pokegang-api<strong>/vivarium</strong><em>?token=…</em></span>
+          <span class="endpoint-desc">Snapshot du vivarium (résidents + cameos)</span>
+          <span style="color:var(--text3);font-size:16px;margin-left:8px">▾</span>
+        </div>
+        <div class="endpoint-body">
+          <div class="prose">
+            <p>
+              Retourne un instantané déjà résolu du <strong>vivarium</strong> du gang — les Pokémon qui
+              se baladent (vitrine, équipe, pension, formation selon les zones activées par le joueur)
+              et le pool de personnages « cameo » actuellement éligibles (agent, infirmière, chercheur,
+              fan, rival, boss), avec leurs répliques. Conçu pour alimenter une source Navigateur OBS en
+              overlay de stream — voir <a href="/docs/obs-setup.md">le guide de configuration OBS</a> —
+              mais consommable par n'importe quel client GET.
+            </p>
+          </div>
+
+          <div class="note">
+            <span class="note-icon">ℹ</span>
+            <span>Poussé par le jeu toutes les ~60s pendant qu'une partie tourne avec le profil public activé — pas un flux temps réel. Un token valide dont le joueur est hors ligne renvoie simplement le dernier snapshot connu.</span>
+          </div>
+
+          <h3 class="section-sub">Paramètres</h3>
+          <table class="param-table">
+            <thead><tr>
+              <th>Paramètre</th><th>Type</th><th>Requis</th><th>Description</th>
+            </tr></thead>
+            <tbody>
+              <tr>
+                <td class="param-name">token</td>
+                <td class="param-type">string</td>
+                <td class="param-opt">requis</td>
+                <td class="param-desc">Token public unique du gang (même token que <code>/gang</code>). Ex: <code>team-bzh-a1b2c3</code></td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h3 class="section-sub">Réponse exemple</h3>
+          <div class="code-block">
+            <div class="code-block-header">
+              <span class="code-lang">JSON — 200 OK</span>
+              <button class="copy-btn" onclick="copyCode(this)">COPIER</button>
+            </div>
+            <div class="code-content"><span class="t-brace">{</span>
+  <span class="t-key">"ok"</span><span class="t-brace">:</span> <span class="t-bool">true</span><span class="t-brace">,</span>
+  <span class="t-key">"data"</span><span class="t-brace">: {</span>
+    <span class="t-key">"residents"</span><span class="t-brace">: [</span>
+      <span class="t-brace">{</span>
+        <span class="t-key">"label"</span><span class="t-brace">:</span>       <span class="t-str">"Pikachu"</span><span class="t-brace">,</span>
+        <span class="t-key">"level"</span><span class="t-brace">:</span>       <span class="t-num">34</span><span class="t-brace">,</span>
+        <span class="t-key">"natureLabel"</span><span class="t-brace">:</span> <span class="t-str">"Timide"</span><span class="t-brace">,</span>  <span class="t-cmt">// nullable</span>
+        <span class="t-key">"spriteUrl"</span><span class="t-brace">:</span>  <span class="t-str">"https://play.pokemonshowdown.com/sprites/gen5/pikachu.png"</span>
+      <span class="t-brace">}</span>
+    <span class="t-brace">],</span>
+    <span class="t-key">"cameoPool"</span><span class="t-brace">: [</span>
+      <span class="t-brace">{</span>
+        <span class="t-key">"type"</span><span class="t-brace">:</span>       <span class="t-str">"fan"</span><span class="t-brace">,</span>  <span class="t-cmt">// agent | favorite | nurse | scientist | fan | rival | boss</span>
+        <span class="t-key">"label"</span><span class="t-brace">:</span>      <span class="t-str">"Fan Pokémon"</span><span class="t-brace">,</span>
+        <span class="t-key">"spriteUrl"</span><span class="t-brace">:</span>  <span class="t-str">"https://play.pokemonshowdown.com/sprites/trainers/pokefan-gen2.png"</span><span class="t-brace">,</span>
+        <span class="t-key">"followIconUrl"</span><span class="t-brace">:</span> <span class="t-bool">null</span><span class="t-brace">,</span>  <span class="t-cmt">// ex: le pokémon suiveur d'un agent</span>
+        <span class="t-key">"hostile"</span><span class="t-brace">:</span>    <span class="t-bool">false</span><span class="t-brace">,</span>  <span class="t-cmt">// true pour le rival — pour teinter l'UI si besoin</span>
+        <span class="t-key">"lines"</span><span class="t-brace">: [</span> <span class="t-str">"On parle de vous dans tout le quartier !"</span> <span class="t-brace">]</span>
+      <span class="t-brace">}</span>
+    <span class="t-brace">],</span>
+    <span class="t-key">"backgroundData"</span><span class="t-brace">:</span> <span class="t-brace">{</span> <span class="t-key">"type"</span><span class="t-brace">:</span> <span class="t-str">"image"</span><span class="t-brace">,</span> <span class="t-key">"url"</span><span class="t-brace">:</span> <span class="t-str">"https://play.pokemonshowdown.com/fx/bg-mountain.png"</span> <span class="t-brace">},</span>  <span class="t-cmt">// null si aucun fond équipé</span>
+    <span class="t-key">"updated_at"</span><span class="t-brace">:</span> <span class="t-str">"2026-07-26T03:44:31.623Z"</span>
+  <span class="t-brace">},</span>
+  <span class="t-key">"_api_version"</span><span class="t-brace">:</span> <span class="t-str">"1.0.0"</span>
+<span class="t-brace">}</span></div>
+          </div>
+        </div>
+      </div>
+
       <!-- GET /status -->
       <span class="section-anchor" id="ep-status"></span>
       <div class="endpoint">
@@ -922,7 +1000,11 @@ code {
 
 <span class="t-cmt">// Classement top 10 par captures</span>
 <span class="t-kw">const</span> <span class="t-var">lb</span> = <span class="t-kw">await</span> (<span class="t-kw">await</span> <span class="t-fn">fetch</span>(<span class="t-str">`<span class="t-var">${BASE}</span>/leaderboard?limit=10&sort=caught`</span>)).<span class="t-fn">json</span>();
-<span class="t-var">lb</span>.<span class="t-var">data</span>.<span class="t-var">entries</span>.<span class="t-fn">forEach</span>(<span class="t-var">e</span> => <span class="t-fn">console</span>.<span class="t-fn">log</span>(<span class="t-str">`#<span class="t-var">${e.rank}</span> <span class="t-var">${e.gang_name}</span>`</span>));</div>
+<span class="t-var">lb</span>.<span class="t-var">data</span>.<span class="t-var">entries</span>.<span class="t-fn">forEach</span>(<span class="t-var">e</span> => <span class="t-fn">console</span>.<span class="t-fn">log</span>(<span class="t-str">`#<span class="t-var">${e.rank}</span> <span class="t-var">${e.gang_name}</span>`</span>));
+
+<span class="t-cmt">// Snapshot du vivarium (résidents + cameos — utilisé par gang/live.html pour OBS)</span>
+<span class="t-kw">const</span> <span class="t-var">viv</span> = <span class="t-kw">await</span> (<span class="t-kw">await</span> <span class="t-fn">fetch</span>(<span class="t-str">`<span class="t-var">${BASE}</span>/vivarium?token=team-bzh-a1b2c3`</span>)).<span class="t-fn">json</span>();
+<span class="t-var">viv</span>.<span class="t-var">data</span>.<span class="t-var">residents</span>.<span class="t-fn">forEach</span>(<span class="t-var">r</span> => <span class="t-fn">console</span>.<span class="t-fn">log</span>(<span class="t-str">`<span class="t-var">${r.label}</span> Lv.<span class="t-var">${r.level}</span>`</span>));</div>
           </div>
         </div>
 
@@ -960,7 +1042,12 @@ lb = requests.<span class="t-fn">get</span>(
     params={<span class="t-str">"limit"</span>: <span class="t-num">10</span>, <span class="t-str">"sort"</span>: <span class="t-str">"caught"</span>}
 ).<span class="t-fn">json</span>()[<span class="t-str">"data"</span>]
 <span class="t-py-kw">for</span> e <span class="t-py-kw">in</span> lb[<span class="t-str">"entries"</span>]:
-    <span class="t-py-fn">print</span>(f<span class="t-str">"#{e['rank']} {e['gang_name']} — {e['reputation']} rep"</span>)</div>
+    <span class="t-py-fn">print</span>(f<span class="t-str">"#{e['rank']} {e['gang_name']} — {e['reputation']} rep"</span>)
+
+<span class="t-cmt"># Snapshot du vivarium (résidents + cameos — utilisé par gang/live.html pour OBS)</span>
+viv = requests.<span class="t-fn">get</span>(f<span class="t-str">"{BASE}/vivarium"</span>, params={<span class="t-str">"token"</span>: <span class="t-str">"team-bzh-a1b2c3"</span>}).<span class="t-fn">json</span>()[<span class="t-str">"data"</span>]
+<span class="t-py-kw">for</span> r <span class="t-py-kw">in</span> viv[<span class="t-str">"residents"</span>]:
+    <span class="t-py-fn">print</span>(f<span class="t-str">"{r['label']} Lv.{r['level']}"</span>)</div>
           </div>
         </div>
 
@@ -979,6 +1066,9 @@ lb = requests.<span class="t-fn">get</span>(
 
 <span class="t-cmt"># Top 5 par chromas</span>
 <span class="t-sh-cmd">curl</span> <span class="t-sh-str">-s</span> <span class="t-sh-url">"https://{project}.supabase.co/functions/v1/pokegang-api/leaderboard?limit=5&sort=shiny"</span>
+
+<span class="t-cmt"># Snapshot du vivarium (résidents + cameos — utilisé par gang/live.html pour OBS)</span>
+<span class="t-sh-cmd">curl</span> <span class="t-sh-str">-s</span> <span class="t-sh-url">"https://{project}.supabase.co/functions/v1/pokegang-api/vivarium?token=team-bzh-a1b2c3"</span> | python3 -m json.tool
 
 <span class="t-cmt"># Health check</span>
 <span class="t-sh-cmd">curl</span> <span class="t-sh-str">-s</span> <span class="t-sh-url">"https://{project}.supabase.co/functions/v1/pokegang-api/status"</span></div>
