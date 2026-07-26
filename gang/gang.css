@@ -259,9 +259,16 @@
   100% { scale: 1; }
 }
 
-/* Badge de mini-interaction (ami 💕 / ennemi 💢) entre deux résidents */
+/* Badge de mini-interaction (ami 💕 / joueur 🎾 / curieux 👀 / somnolent 😴 /
+   rival 💢) — enfant direct de .gang-env-sprite (jamais .gang-env-sprite-inner,
+   qui porte le flip) : suit le transform translate() du résident A sans
+   dépendre d'une position page calculée à la main. */
 .gang-env-interact {
   position: absolute;
+  bottom: 100%;
+  left: 50%;
+  translate: -50% -4px; /* indépendant de `transform`, cf. commentaire de
+                            .gang-env-speech-bubble ci-dessous pour le principe. */
   font-size: 20px;
   pointer-events: none;
   z-index: 4;
@@ -275,9 +282,15 @@
   100% { opacity: 0; transform: translateY(-8px) scale(.8); }
 }
 
-/* Bulle de réaction au clic (emoji + nom + niveau/nature) */
+/* Bulle de réaction au clic (emoji + nom + niveau/nature) — enfant direct de
+   .gang-env-sprite, ancrée au-dessus/à droite du sprite plutôt qu'à une
+   position page calculée à la main (voir _showClickBadge : suit le résident
+   s'il se remet à marcher avant que le badge n'ait fini de s'effacer). */
 .gang-env-click-badge {
   position: absolute;
+  left: 100%;
+  top: -6px;
+  margin-left: 6px;
   pointer-events: none;
   z-index: 5;
   font-family: var(--font-pixel);
@@ -288,9 +301,6 @@
   border-radius: 99px;
   padding: 4px 9px;
   white-space: nowrap;
-  translate: -50% 0; /* propriété indépendante de `transform`, ne rentre pas
-                         en conflit avec l'animation gang-env-pop réutilisée
-                         ci-dessous (qui n'anime que `transform`). */
   animation: gang-env-pop 2.3s ease forwards;
 }
 

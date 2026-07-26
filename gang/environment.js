@@ -38,6 +38,17 @@ const CAMEO_MAX_DELAY_MS   = 90_000;
 const CAMEO_SPAWN_CHANCE   = 0.5;
 const CAMEO_SPEED_PX_PER_S = 45;
 
+// Traversée en plusieurs étapes plutôt qu'une seule ligne droite (cf.
+// _spawnCameo) — wobble vertical entre étapes + vitesse variable par étape,
+// avec une pause possible (dont une garantie sur l'étape où le dialogue
+// apparaît, pour laisser le temps de le lire).
+const CAMEO_LEGS_MIN     = 2;
+const CAMEO_LEGS_MAX     = 4;
+const CAMEO_PAUSE_CHANCE = 0.65;
+const CAMEO_PAUSE_MIN_MS = 1000;
+const CAMEO_PAUSE_MAX_MS = 2600;
+const CAMEO_Y_WOBBLE_PX  = 26;
+
 // Ambiance jour/nuit — teinte de l'overlay recalculée périodiquement à
 // partir de l'heure locale réelle (pas de cycle accéléré, v1 simple).
 const AMBIANCE_REFRESH_MS = 5 * 60_000;
@@ -63,10 +74,22 @@ const MIN_SPRITE_DIST      = 46; // px — distance mini visée entre deux rési
 const TARGET_RETRY_COUNT   = 5;
 const SEEK_OTHER_CHANCE    = 0.35; // chance de viser près d'un autre résident plutôt qu'une case libre — accélère les rencontres
 const INTERACTION_DIST_PX  = 44;
-const INTERACTION_DURATION_MS = 2000;
 const INTERACTION_COOLDOWN_MS = 20_000; // avant de pouvoir réinteragir avec le même partenaire
 const PROXIMITY_SCAN_MS    = 1200;
-const FRIEND_CHANCE        = 0.6;
+const INTERACTION_BADGE_MS = 2300;
+
+// Variété de mini-interactions entre deux résidents qui se croisent — un tirage
+// pondéré plutôt qu'un simple binaire ami/ennemi. `pauseMs` est la durée pendant
+// laquelle les deux résidents restent face à face avant de reprendre leur route
+// (cf. _endInteraction) ; `bounce` réutilise l'anim de rebond du clic pour un
+// rendu plus vivant que le simple badge flottant.
+const INTERACTION_KINDS = [
+  { key: 'friend',  icon: '💕', weight: 35, pauseMs: 2000 },
+  { key: 'playful', icon: '🎾', weight: 25, pauseMs: 2000, bounce: true },
+  { key: 'curious', icon: '👀', weight: 15, pauseMs: 1300 },
+  { key: 'sleepy',  icon: '😴', weight: 10, pauseMs: 3400 },
+  { key: 'enemy',   icon: '💢', weight: 15, pauseMs: 2000, hostile: true },
+];
 
 // Interaction au clic — "câliner" un résident : pause brève du wander, petit
 // rebond, et une bulle avec une réaction + les infos du Pokémon.
@@ -387,8 +410,7 @@ function _spawnResident(viewportEl, imgUrl, label, bounds, meta = {}) {
 }
 
 // ── Interaction au clic sur un résident ───────────────────────────────────
-function _showClickBadge(viewportEl, entry) {
-  const pos  = _currentPos(entry.el);
+function _showClickBadge(entry) {
   const icon = CLICK_REACTION_ICONS[Math.floor(Math.random() * CLICK_REACTION_ICONS.length)];
   const info = entry.level != null
     ? `Lv.${entry.level}${entry.natureLabel ? ` · ${entry.natureLabel}` : ''}`
@@ -400,9 +422,11 @@ function _showClickBadge(viewportEl, entry) {
   // texte libre (surnom joueur) — pas d'échappement HTML à faire ici puisqu'on
   // n'injecte jamais de balises.
   badge.textContent = [icon, entry.label, info].filter(Boolean).join(' ');
-  badge.style.left = `${pos.x + 24}px`;
-  badge.style.top  = `${pos.y - 10}px`;
-  viewportEl.appendChild(badge);
+  // Enfant direct du sprite (jamais une position page recalculée à la main) :
+  // suit son transform translate() si le résident se remet à marcher avant
+  // que le badge n'ait fini de s'effacer (le wander reprend ~0.9-1.4s après
+  // le clic, avant les 2.4s de vie du badge).
+  entry.el.appendChild(badge);
   _track(setTimeout(() => badge.remove(), 2400));
 }
 
@@ -416,7 +440,7 @@ function _onResidentClick(viewportEl, entry, bounds) {
   entry.interacting = true;
   entry.el.classList.add('idle', 'gang-env-clicked');
 
-  _showClickBadge(viewportEl, entry);
+  _showClickBadge(entry);
 
   entry.timer = _track(setTimeout(() => {
     entry.el.classList.remove('gang-env-clicked');
@@ -426,26 +450,35 @@ function _onResidentClick(viewportEl, entry, bounds) {
   }, CLICK_PAUSE_MS));
 }
 
-// ── Mini-interactions — deux résidents qui se croisent deviennent
-//    brièvement amis (💕) ou ennemis (💢), se tournent l'un vers l'autre,
-//    puis reprennent chacun leur route ────────────────────────────────────
-function _showInteractionBadge(viewportEl, entryA, entryB, isFriend) {
-  const posA = _currentPos(entryA.el);
-  const posB = _currentPos(entryB.el);
-  const midX = (posA.x + posB.x) / 2 + 24;
-  const midY = Math.min(posA.y, posB.y) - 8;
+// ── Mini-interactions — deux résidents qui se croisent tirent un type
+//    d'interaction (ami/joueur/curieux/somnolent/rival, cf. INTERACTION_KINDS),
+//    se tournent l'un vers l'autre, puis reprennent chacun leur route ──────
+function _pickInteractionKind() {
+  const total = INTERACTION_KINDS.reduce((sum, k) => sum + k.weight, 0);
+  let r = Math.random() * total;
+  for (const kind of INTERACTION_KINDS) {
+    if (r < kind.weight) return kind;
+    r -= kind.weight;
+  }
+  return INTERACTION_KINDS[0];
+}
+
+function _showInteractionBadge(entryA, kind) {
   const badge = document.createElement('div');
-  badge.className = `gang-env-interact ${isFriend ? 'friend' : 'enemy'}`;
-  badge.textContent = isFriend ? '💕' : '💢';
-  badge.style.left = `${midX}px`;
-  badge.style.top  = `${midY}px`;
-  viewportEl.appendChild(badge);
-  _track(setTimeout(() => badge.remove(), INTERACTION_DURATION_MS + 300));
+  badge.className = `gang-env-interact ${kind.hostile ? 'enemy' : 'friend'}`;
+  badge.textContent = kind.icon;
+  // Enfant du sprite A — les deux partenaires restent immobiles pendant toute
+  // l'interaction, mais rester cohérent avec le reste du fichier (jamais une
+  // position page figée à la main) évite toute désynchronisation si ce
+  // comportement change plus tard.
+  entryA.el.appendChild(badge);
+  _track(setTimeout(() => badge.remove(), INTERACTION_BADGE_MS));
 }
 
 function _endInteraction(entry, bounds) {
   entry.interacting = false;
   entry.lastInteractionAt = Date.now();
+  entry.el.classList.remove('gang-env-clicked');
   const pause = 300 + Math.random() * 800;
   entry.timer = _track(setTimeout(() => _wanderStep(entry, bounds), pause));
 }
@@ -455,7 +488,13 @@ function _triggerInteraction(viewportEl, entryA, entryB, bounds) {
   const now = Date.now();
   if (entryA.lastPartner === entryB && now - entryA.lastInteractionAt < INTERACTION_COOLDOWN_MS) return;
 
-  [entryA, entryB].forEach(e => { clearTimeout(e.timer); e.interacting = true; e.el.classList.add('idle'); });
+  const kind = _pickInteractionKind();
+  [entryA, entryB].forEach(e => {
+    clearTimeout(e.timer);
+    e.interacting = true;
+    e.el.classList.add('idle');
+    if (kind.bounce) e.el.classList.add('gang-env-clicked');
+  });
   entryA.lastPartner = entryB;
   entryB.lastPartner = entryA;
 
@@ -463,12 +502,12 @@ function _triggerInteraction(viewportEl, entryA, entryB, bounds) {
   _flip(entryA.el, entryA.x > entryB.x);
   _flip(entryB.el, entryB.x > entryA.x);
 
-  _showInteractionBadge(viewportEl, entryA, entryB, Math.random() < FRIEND_CHANCE);
+  _showInteractionBadge(entryA, kind);
 
   _track(setTimeout(() => {
     _endInteraction(entryA, bounds);
     _endInteraction(entryB, bounds);
-  }, INTERACTION_DURATION_MS));
+  }, kind.pauseMs));
 }
 
 function _scheduleProximityScan(viewportEl, bounds) {
@@ -499,31 +538,73 @@ function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl, dialogueLi
   const fromLeft = Math.random() < 0.5;
   const startX = fromLeft ? -60 : bounds.width + 60;
   const endX   = fromLeft ? bounds.width + 60 : -60;
-  const y = bounds.groundTop + Math.random() * bounds.groundHeight;
-  _setPosition(el, startX, y);
-  _flip(el, !fromLeft);
+  const baseY  = bounds.groundTop + Math.random() * bounds.groundHeight;
+  _setPosition(el, startX, baseY);
+  _flip(el, !fromLeft); // direction constante sur toute la traversée — la progression horizontale ne fait jamais demi-tour d'une étape à l'autre
   viewportEl.appendChild(el);
 
-  if (dialogueLine) {
-    // Bulle en enfant DIRECT de `el` (pas de .gang-env-sprite-inner, qui
-    // porte le flip via scaleX() — sinon le texte se retrouverait inversé
-    // quand le personnage marche vers la gauche) : elle suit la position
-    // (transform translate()) du cameo sans hériter de son sens de marche.
-    _track(setTimeout(() => {
-      if (!el.isConnected) return;
-      const bubble = document.createElement('div');
-      bubble.className = `gang-env-speech-bubble${hostile ? ' hostile' : ''}`;
-      bubble.textContent = dialogueLine; // jamais innerHTML — texte fixe interne, mais même discipline que le reste du fichier
-      el.appendChild(bubble);
-    }, 500));
+  // Bulle en enfant DIRECT de `el` (pas de .gang-env-sprite-inner, qui porte
+  // le flip via scaleX() — sinon le texte se retrouverait inversé quand le
+  // personnage marche vers la gauche) : posée une fois ci-dessous à l'étape
+  // choisie, elle suit ensuite le trajet sans jamais être repositionnée à la main.
+  const bubble = dialogueLine ? document.createElement('div') : null;
+  if (bubble) {
+    bubble.className = `gang-env-speech-bubble${hostile ? ' hostile' : ''}`;
+    bubble.textContent = dialogueLine; // jamais innerHTML — texte fixe interne, mais même discipline que le reste du fichier
   }
 
-  requestAnimationFrame(() => {
-    const duration = Math.max(4, bounds.width / CAMEO_SPEED_PX_PER_S);
-    el.style.transition = `transform ${duration}s linear`;
-    _setPosition(el, endX, y);
-    _track(setTimeout(() => el.remove(), duration * 1000 + 200));
-  });
+  // Traversée en plusieurs étapes plutôt qu'une seule ligne droite : chaque
+  // étape vise une hauteur légèrement différente (wobble vertical, sauf la
+  // dernière qui revient à baseY pour sortir proprement du cadre) avec une
+  // vitesse propre. La bulle de dialogue (si présente) n'apparaît jamais
+  // avant la 1re étape ni sur la dernière — toujours au moins une étape de
+  // marge après, pour laisser le temps de la lire pendant la pause qui
+  // l'accompagne obligatoirement.
+  const legs = CAMEO_LEGS_MIN + Math.floor(Math.random() * (CAMEO_LEGS_MAX - CAMEO_LEGS_MIN + 1));
+  const bubbleLeg = bubble ? 1 + Math.floor(Math.random() * (legs - 1)) : -1;
+  let leg = 0;
+
+  function nextLeg() {
+    if (!el.isConnected) return;
+    leg++;
+    const progress = leg / legs;
+    const x = startX + (endX - startX) * progress;
+    const y = leg >= legs
+      ? baseY
+      : Math.min(bounds.groundTop + bounds.groundHeight, Math.max(bounds.groundTop, baseY + (Math.random() * 2 - 1) * CAMEO_Y_WOBBLE_PX));
+
+    const cur = _currentPos(el);
+    const dist = Math.max(1, _dist(cur.x, cur.y, x, y));
+    const speed = CAMEO_SPEED_PX_PER_S * (0.7 + Math.random() * 0.6); // variation de vitesse — casse l'effet métronome/ligne droite
+    const duration = Math.max(0.8, dist / speed);
+
+    el.classList.remove('idle');
+    el.style.transition = `transform ${duration}s ease-in-out`;
+    _setPosition(el, x, y);
+
+    _track(setTimeout(() => {
+      if (!el.isConnected) return;
+
+      if (leg === bubbleLeg) {
+        el.classList.add('idle');
+        el.appendChild(bubble);
+      }
+
+      if (leg >= legs) {
+        _track(setTimeout(() => el.remove(), 300));
+        return;
+      }
+
+      const shouldPause = leg === bubbleLeg || Math.random() < CAMEO_PAUSE_CHANCE;
+      if (shouldPause) el.classList.add('idle');
+      const pause = shouldPause
+        ? CAMEO_PAUSE_MIN_MS + Math.random() * (CAMEO_PAUSE_MAX_MS - CAMEO_PAUSE_MIN_MS)
+        : 80 + Math.random() * 200; // enchaînement quasi direct — la pause n'est pas systématique à chaque étape
+      _track(setTimeout(nextLeg, pause));
+    }, duration * 1000));
+  }
+
+  requestAnimationFrame(nextLeg);
 }
 
 // Tire un cameo au hasard dans un pool déjà construit (cf. vivariumSnapshot.js
