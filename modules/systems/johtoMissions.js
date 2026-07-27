@@ -46,6 +46,7 @@ import { resolveSpecialCombat } from './specialCombat.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type });
 const _save   = ()               => globalThis.saveState?.();
+const _t = (fr, en) => (globalThis.state?.lang === 'en' ? en : fr);
 
 // ── Sprites ──────────────────────────────────────────────────────
 const LUGIA_SPRITE    = 'https://play.pokemonshowdown.com/sprites/gen5ani/lugia.gif';
@@ -122,7 +123,7 @@ function _onCombatWon({ zoneId } = {}) {
       bm.rocketFightsWon = Math.min((bm.rocketFightsWon || 0) + 1, 30);
       if (bm.rocketFightsWon >= 30) {
         bm.step = 2;
-        _notify('🐅 30 membres Rocket vaincus ! Infiltrez maintenant le QG Rocket.', 'gold');
+        _notify(_t('🐅 30 membres Rocket vaincus ! Infiltrez maintenant le QG Rocket.', '🐅 30 Rocket members defeated! Now infiltrate the Rocket HQ.'), 'gold');
       }
       dirty = true;
     }
@@ -130,7 +131,7 @@ function _onCombatWon({ zoneId } = {}) {
       bm.hqFightsWon = Math.min((bm.hqFightsWon || 0) + 1, 15);
       if (bm.hqFightsWon >= 15) {
         bm.step = 3;
-        _notify('🐅 QG Rocket infiltré ! Affrontez Petrel depuis la quête.', 'gold');
+        _notify(_t('🐅 QG Rocket infiltré ! Affrontez Petrel depuis la quête.', '🐅 Rocket HQ infiltrated! Face Petrel from the quest tracker.'), 'gold');
       }
       dirty = true;
     }
@@ -143,7 +144,7 @@ function _onCombatWon({ zoneId } = {}) {
       lm.marineFightsWon = Math.min((lm.marineFightsWon || 0) + 1, 20);
       if (lm.marineFightsWon >= 20) {
         lm.step = 2;
-        _notify("🌊 Zones marines quadrillées ! Collectez 5 Argent'Ailes.", 'gold');
+        _notify(_t("🌊 Zones marines quadrillées ! Collectez 5 Argent'Ailes.", '🌊 Marine zones secured! Collect 5 Silver Wings.'), 'gold');
       }
       dirty = true;
     }
@@ -151,7 +152,7 @@ function _onCombatWon({ zoneId } = {}) {
       lm.whirlFightsWon = Math.min((lm.whirlFightsWon || 0) + 1, 15);
       if (lm.whirlFightsWon >= 15) {
         lm.step = 5;
-        _notify('🌊 Îles Tourbillon domptées ! Lugia vous attend dans les profondeurs.', 'gold');
+        _notify(_t('🌊 Îles Tourbillon domptées ! Lugia vous attend dans les profondeurs.', '🌊 Whirl Islands tamed! Lugia awaits in the depths.'), 'gold');
       }
       dirty = true;
     }
@@ -164,7 +165,7 @@ function _onCombatWon({ zoneId } = {}) {
       hm.ruralFightsWon = Math.min((hm.ruralFightsWon || 0) + 1, 20);
       if (hm.ruralFightsWon >= 20) {
         hm.step = 2;
-        _notify("🌈 Zones rurales sécurisées ! Collectez 5 Arcenci'Ailes.", 'gold');
+        _notify(_t("🌈 Zones rurales sécurisées ! Collectez 5 Arcenci'Ailes.", '🌈 Rural zones secured! Collect 5 Rainbow Wings.'), 'gold');
       }
       dirty = true;
     }
@@ -172,7 +173,7 @@ function _onCombatWon({ zoneId } = {}) {
       hm.tinFightsWon = Math.min((hm.tinFightsWon || 0) + 1, 15);
       if (hm.tinFightsWon >= 15) {
         hm.step = 5;
-        _notify('🌈 Tour Carillon conquise ! Ho-Oh vous attend au sommet.', 'gold');
+        _notify(_t('🌈 Tour Carillon conquise ! Ho-Oh vous attend au sommet.', '🌈 Tin Tower conquered! Ho-Oh awaits at the summit.'), 'gold');
       }
       dirty = true;
     }
@@ -193,7 +194,7 @@ function _onItemReceived({ itemId } = {}) {
       lm.silverWings = Math.min((lm.silverWings || 0) + 1, 5);
       if (lm.silverWings >= 5) {
         lm.step = 3;
-        _notify("🌊 5 Argent'Ailes réunies ! Affrontez Eusine depuis la quête Lugia.", 'gold');
+        _notify(_t("🌊 5 Argent'Ailes réunies ! Affrontez Eusine depuis la quête Lugia.", '🌊 5 Silver Wings gathered! Face Eusine from the Lugia quest.'), 'gold');
       }
       dirty = true;
     }
@@ -206,7 +207,7 @@ function _onItemReceived({ itemId } = {}) {
       hm.rainbowWings = Math.min((hm.rainbowWings || 0) + 1, 5);
       if (hm.rainbowWings >= 5) {
         hm.step = 3;
-        _notify("🌈 5 Arcenci'Ailes réunies ! Affrontez les Filles Kimono depuis la quête Ho-Oh.", 'gold');
+        _notify(_t("🌈 5 Arcenci'Ailes réunies ! Affrontez les Filles Kimono depuis la quête Ho-Oh.", '🌈 5 Rainbow Wings gathered! Face the Kimono Girls from the Ho-Oh quest.'), 'gold');
       }
       dirty = true;
     }
@@ -452,11 +453,11 @@ function _buildTracker() {
   };
 
   const betesSteps = [
-    { label:'Vaincre 30 membres Rocket (Johto)', done: bm?.rocketFightsWon >= 30, prog: bm?.rocketFightsWon ?? 0, max: 30 },
-    { label:'Infiltrer le QG Rocket (15 combats)', done: bm?.hqFightsWon >= 15, prog: bm?.hqFightsWon ?? 0, max: 15 },
-    { label:'Vaincre Petrel — Admin Rocket', done: bm?.petrelDefeated ?? false, prog: null, max: null },
-    { label:'Vaincre Ariana — Admin Rocket', done: bm?.arianaDefeated ?? false, prog: null, max: null },
-    { label:'Affronter la Bête Sacrée choisie', done: bm?.beastOwned ?? false, prog: null, max: null },
+    { label:_t('Vaincre 30 membres Rocket (Johto)', 'Defeat 30 Rocket members (Johto)'), done: bm?.rocketFightsWon >= 30, prog: bm?.rocketFightsWon ?? 0, max: 30 },
+    { label:_t('Infiltrer le QG Rocket (15 combats)', 'Infiltrate the Rocket HQ (15 battles)'), done: bm?.hqFightsWon >= 15, prog: bm?.hqFightsWon ?? 0, max: 15 },
+    { label:_t('Vaincre Petrel — Admin Rocket', 'Defeat Petrel — Rocket Admin'), done: bm?.petrelDefeated ?? false, prog: null, max: null },
+    { label:_t('Vaincre Ariana — Admin Rocket', 'Defeat Ariana — Rocket Admin'), done: bm?.arianaDefeated ?? false, prog: null, max: null },
+    { label:_t('Affronter la Bête Sacrée choisie', 'Face your chosen Sacred Beast'), done: bm?.beastOwned ?? false, prog: null, max: null },
   ];
   const betesActive = bm?.step ?? 0;
   const betesStepsHtml = betesSteps.map((st, i) => {
@@ -479,29 +480,29 @@ function _buildTracker() {
   const betesActions = () => {
     if (!bm?.active) return '';
     if (bm.step === 3 && !bm.petrelDefeated) {
-      return `<button class="jhm-btn primary" data-jhm="petrel">⚔️ Affronter Petrel</button>`;
+      return `<button class="jhm-btn primary" data-jhm="petrel">⚔️ ${_t('Affronter', 'Face')} Petrel</button>`;
     }
     if (bm.step === 4 && !bm.arianaDefeated) {
-      return `<button class="jhm-btn primary" data-jhm="ariana">⚔️ Affronter Ariana</button>`;
+      return `<button class="jhm-btn primary" data-jhm="ariana">⚔️ ${_t('Affronter', 'Face')} Ariana</button>`;
     }
     if (bm.step === 5) {
-      if (!bm.chosenBeast) return `<button class="jhm-btn primary" data-jhm="choose-beast">🐅 Choisir une Bête</button>`;
-      return `<button class="jhm-btn primary" data-jhm="beast-fight">⚔️ Affronter ${_beastName(bm.chosenBeast)}</button>`;
+      if (!bm.chosenBeast) return `<button class="jhm-btn primary" data-jhm="choose-beast">🐅 ${_t('Choisir une Bête', 'Choose a Beast')}</button>`;
+      return `<button class="jhm-btn primary" data-jhm="beast-fight">⚔️ ${_t('Affronter', 'Face')} ${_beastName(bm.chosenBeast)}</button>`;
     }
     if (bm.step === 6) {
-      if (canRerunBetes) return `<button class="jhm-btn gold" data-jhm="rerun-betes">💎 Relancer (${inv.cristal_bete}× Cristal)</button>`;
-      return `<span class="jhm-rerun-note">Cristal Bête requis pour rejouer</span>`;
+      if (canRerunBetes) return `<button class="jhm-btn gold" data-jhm="rerun-betes">💎 ${_t('Relancer', 'Retry')} (${inv.cristal_bete}× ${_t('Cristal', 'Crystal')})</button>`;
+      return `<span class="jhm-rerun-note">${_t('Cristal Bête requis pour rejouer', 'Beast Crystal required to retry')}</span>`;
     }
     return '';
   };
 
   // ── Card Lugia ────────────────────────────────────────────────
   const lugiaStepsData = [
-    { label:'Vaincre 20 combats (zones marines Johto)', done: lm?.marineFightsWon >= 20, prog: lm?.marineFightsWon ?? 0, max: 20 },
-    { label:"Collecter 5 Argent'Ailes", done: lm?.silverWings >= 5, prog: lm?.silverWings ?? 0, max: 5 },
-    { label:'Vaincre Eusine', done: lm?.eusineDefeated ?? false, prog: null, max: null },
-    { label:'Vaincre 15 combats (Îles Tourbillon)', done: lm?.whirlFightsWon >= 15, prog: lm?.whirlFightsWon ?? 0, max: 15 },
-    { label:'Affronter Lugia', done: lm?.lugiaOwned ?? false, prog: null, max: null },
+    { label:_t('Vaincre 20 combats (zones marines Johto)', 'Win 20 battles (Johto marine zones)'), done: lm?.marineFightsWon >= 20, prog: lm?.marineFightsWon ?? 0, max: 20 },
+    { label:_t("Collecter 5 Argent'Ailes", 'Collect 5 Silver Wings'), done: lm?.silverWings >= 5, prog: lm?.silverWings ?? 0, max: 5 },
+    { label:_t('Vaincre Eusine', 'Defeat Eusine'), done: lm?.eusineDefeated ?? false, prog: null, max: null },
+    { label:_t('Vaincre 15 combats (Îles Tourbillon)', 'Win 15 battles (Whirl Islands)'), done: lm?.whirlFightsWon >= 15, prog: lm?.whirlFightsWon ?? 0, max: 15 },
+    { label:_t('Affronter Lugia', 'Face Lugia'), done: lm?.lugiaOwned ?? false, prog: null, max: null },
   ];
   const lugiaActive = lm?.step ?? 0;
   const lugiaStepsHtml = lugiaStepsData.map((st, i) => {
@@ -524,25 +525,25 @@ function _buildTracker() {
   const lugiaActions = () => {
     if (!lm?.active) return '';
     if (lm.step === 3 && !lm.eusineDefeated) {
-      return `<button class="jhm-btn primary" data-jhm="eusine" style="--jhm-accent:#5599cc">⚔️ Affronter Eusine</button>`;
+      return `<button class="jhm-btn primary" data-jhm="eusine" style="--jhm-accent:#5599cc">⚔️ ${_t('Affronter', 'Face')} Eusine</button>`;
     }
     if (lm.step === 5) {
-      return `<button class="jhm-btn primary" data-jhm="lugia" style="--jhm-accent:#5599cc">⚔️ Affronter Lugia</button>`;
+      return `<button class="jhm-btn primary" data-jhm="lugia" style="--jhm-accent:#5599cc">⚔️ ${_t('Affronter', 'Face')} Lugia</button>`;
     }
     if (lm.step === 6) {
-      if (canRerunLugia) return `<button class="jhm-btn gold" data-jhm="rerun-lugia">🪶 Relancer (${inv.silver_wing}× Argent'Aile)</button>`;
-      return `<span class="jhm-rerun-note">Argent'Aile requise pour rejouer</span>`;
+      if (canRerunLugia) return `<button class="jhm-btn gold" data-jhm="rerun-lugia">🪶 ${_t('Relancer', 'Retry')} (${inv.silver_wing}× ${_t("Argent'Aile", 'Silver Wing')})</button>`;
+      return `<span class="jhm-rerun-note">${_t("Argent'Aile requise pour rejouer", 'Silver Wing required to retry')}</span>`;
     }
     return '';
   };
 
   // ── Card Ho-Oh ────────────────────────────────────────────────
   const hoohStepsData = [
-    { label:'Vaincre 20 combats (zones rurales Johto)', done: hm?.ruralFightsWon >= 20, prog: hm?.ruralFightsWon ?? 0, max: 20 },
-    { label:"Collecter 5 Arcenci'Ailes", done: hm?.rainbowWings >= 5, prog: hm?.rainbowWings ?? 0, max: 5 },
-    { label:'Vaincre les Filles Kimono', done: hm?.kimonoDefeated ?? false, prog: null, max: null },
-    { label:'Vaincre 15 combats (Tour Carillon)', done: hm?.tinFightsWon >= 15, prog: hm?.tinFightsWon ?? 0, max: 15 },
-    { label:'Affronter Ho-Oh', done: hm?.hoohOwned ?? false, prog: null, max: null },
+    { label:_t('Vaincre 20 combats (zones rurales Johto)', 'Win 20 battles (Johto rural zones)'), done: hm?.ruralFightsWon >= 20, prog: hm?.ruralFightsWon ?? 0, max: 20 },
+    { label:_t("Collecter 5 Arcenci'Ailes", 'Collect 5 Rainbow Wings'), done: hm?.rainbowWings >= 5, prog: hm?.rainbowWings ?? 0, max: 5 },
+    { label:_t('Vaincre les Filles Kimono', 'Defeat the Kimono Girls'), done: hm?.kimonoDefeated ?? false, prog: null, max: null },
+    { label:_t('Vaincre 15 combats (Tour Carillon)', 'Win 15 battles (Tin Tower)'), done: hm?.tinFightsWon >= 15, prog: hm?.tinFightsWon ?? 0, max: 15 },
+    { label:_t('Affronter Ho-Oh', 'Face Ho-Oh'), done: hm?.hoohOwned ?? false, prog: null, max: null },
   ];
   const hoohActive = hm?.step ?? 0;
   const hoohStepsHtml = hoohStepsData.map((st, i) => {
@@ -565,32 +566,32 @@ function _buildTracker() {
   const hoohActions = () => {
     if (!hm?.active) return '';
     if (hm.step === 3 && !hm.kimonoDefeated) {
-      return `<button class="jhm-btn primary" data-jhm="kimono" style="--jhm-accent:#cc9944">⚔️ Affronter les Kimono</button>`;
+      return `<button class="jhm-btn primary" data-jhm="kimono" style="--jhm-accent:#cc9944">⚔️ ${_t('Affronter les Kimono', 'Face the Kimono Girls')}</button>`;
     }
     if (hm.step === 5) {
-      return `<button class="jhm-btn primary" data-jhm="hooh" style="--jhm-accent:#cc9944">⚔️ Affronter Ho-Oh</button>`;
+      return `<button class="jhm-btn primary" data-jhm="hooh" style="--jhm-accent:#cc9944">⚔️ ${_t('Affronter', 'Face')} Ho-Oh</button>`;
     }
     if (hm.step === 6) {
-      if (canRerunHooh) return `<button class="jhm-btn gold" data-jhm="rerun-hooh">🌈 Relancer (${inv.rainbow_wing}× Arcenci'Aile)</button>`;
-      return `<span class="jhm-rerun-note">Arcenci'Aile requise pour rejouer</span>`;
+      if (canRerunHooh) return `<button class="jhm-btn gold" data-jhm="rerun-hooh">🌈 ${_t('Relancer', 'Retry')} (${inv.rainbow_wing}× ${_t("Arcenci'Aile", 'Rainbow Wing')})</button>`;
+      return `<span class="jhm-rerun-note">${_t("Arcenci'Aile requise pour rejouer", 'Rainbow Wing required to retry')}</span>`;
     }
     return '';
   };
 
   const html = `
     <div id="jhm-overlay">
-      <span class="jhm-close-btn" id="jhm-close">✕ FERMER</span>
+      <span class="jhm-close-btn" id="jhm-close">✕ ${_t('FERMER', 'CLOSE')}</span>
       <div class="jhm-wrap">
         <div class="jhm-header">
-          <div class="jhm-header-label">Quêtes Légendaires</div>
+          <div class="jhm-header-label">${_t('Quêtes Légendaires', 'Legendary Quests')}</div>
           <div class="jhm-header-title">✦ JOHTO ✦</div>
         </div>
         <div class="jhm-triple">
 
           <!-- Bêtes Sacrées -->
           <div class="jhm-card" style="--jhm-accent:#e8a030">
-            <div class="jhm-card-label">🐅 Bêtes Sacrées</div>
-            <div class="jhm-card-title">Opération Rocket</div>
+            <div class="jhm-card-label">🐅 ${_t('Bêtes Sacrées', 'Legendary Beasts')}</div>
+            <div class="jhm-card-title">${_t('Opération Rocket', 'Operation Rocket')}</div>
             ${betesSpriteHtml()}
             <div class="jhm-steps">${betesStepsHtml}</div>
             <div class="jhm-actions">${betesActions()}</div>
@@ -599,7 +600,7 @@ function _buildTracker() {
           <!-- Lugia -->
           <div class="jhm-card" style="--jhm-accent:#5599cc">
             <div class="jhm-card-label">🌊 Lugia</div>
-            <div class="jhm-card-title">Profondeurs</div>
+            <div class="jhm-card-title">${_t('Profondeurs', 'The Deep')}</div>
             <div class="jhm-sprite-row">
               <img class="jhm-sprite${lm?.step === 6 ? '' : ' grey'}" src="${LUGIA_STATIC}" alt="Lugia">
             </div>
@@ -610,7 +611,7 @@ function _buildTracker() {
           <!-- Ho-Oh -->
           <div class="jhm-card" style="--jhm-accent:#cc9944">
             <div class="jhm-card-label">🌈 Ho-Oh</div>
-            <div class="jhm-card-title">Tour Carillon</div>
+            <div class="jhm-card-title">${_t('Tour Carillon', 'Tin Tower')}</div>
             <div class="jhm-sprite-row">
               <img class="jhm-sprite${hm?.step === 6 ? '' : ' grey'}" src="${HOOH_STATIC}" alt="Ho-Oh">
             </div>
@@ -627,7 +628,7 @@ function _buildTracker() {
 function _beastName(k) { return { raikou:'Raikou', entei:'Entei', suicune:'Suicune' }[k] ?? k; }
 function _beastSprite(k) { return { raikou:RAIKOU_SPRITE, entei:ENTEI_SPRITE, suicune:SUICUNE_SPRITE }[k] ?? RAIKOU_SPRITE; }
 function _beastStatic(k) { return { raikou:RAIKOU_STATIC, entei:ENTEI_STATIC, suicune:SUICUNE_STATIC }[k] ?? RAIKOU_STATIC; }
-function _beastType(k)  { return { raikou:'Électrik · Légendaire', entei:'Feu · Légendaire', suicune:'Eau · Légendaire' }[k] ?? ''; }
+function _beastType(k)  { return { raikou:_t('Électrik · Légendaire', 'Electric · Legendary'), entei:_t('Feu · Légendaire', 'Fire · Legendary'), suicune:_t('Eau · Légendaire', 'Water · Legendary') }[k] ?? ''; }
 
 // ── Sélecteur de Bête ─────────────────────────────────────────────
 async function _openBeastChooser() {
@@ -647,23 +648,26 @@ async function _openBeastChooser() {
       padding:24px; animation:jhm-appear .3s ease both;
     ">
       <div class="jhm-fight-box" style="max-width:480px; --jhm-accent:#e8a030">
-        <div class="jhm-fight-title">🐅 Choisissez Votre Bête Sacrée</div>
-        <div class="jhm-fight-text">Ariana est vaincue. Les Bêtes Sacrées libérées par la Tour Cendrée parcourent Johto.\n\nVous ne pouvez en lier qu'une seule à votre destin.</div>
+        <div class="jhm-fight-title">🐅 ${_t('Choisissez Votre Bête Sacrée', 'Choose Your Sacred Beast')}</div>
+        <div class="jhm-fight-text">${_t(
+          "Ariana est vaincue. Les Bêtes Sacrées libérées par la Tour Cendrée parcourent Johto.\n\nVous ne pouvez en lier qu'une seule à votre destin.",
+          'Ariana is defeated. The Legendary Beasts freed from the Burned Tower now roam Johto.\n\nYou may bond your destiny to only one of them.',
+        )}</div>
         <div class="jhm-beast-grid">
           <div class="jhm-beast-card" data-beast="raikou" style="--jhm-accent:#e8d040">
             <img src="${RAIKOU_STATIC}" style="height:52px;image-rendering:pixelated" alt="Raikou">
             <div class="jhm-beast-name" style="color:#e8d040">Raikou</div>
-            <div class="jhm-beast-type">⚡ Électrik</div>
+            <div class="jhm-beast-type">⚡ ${_t('Électrik', 'Electric')}</div>
           </div>
           <div class="jhm-beast-card" data-beast="entei" style="--jhm-accent:#e86020">
             <img src="${ENTEI_STATIC}" style="height:52px;image-rendering:pixelated" alt="Entei">
             <div class="jhm-beast-name" style="color:#e86020">Entei</div>
-            <div class="jhm-beast-type">🔥 Feu</div>
+            <div class="jhm-beast-type">🔥 ${_t('Feu', 'Fire')}</div>
           </div>
           <div class="jhm-beast-card" data-beast="suicune" style="--jhm-accent:#40a0e8">
             <img src="${SUICUNE_STATIC}" style="height:52px;image-rendering:pixelated" alt="Suicune">
             <div class="jhm-beast-name" style="color:#40a0e8">Suicune</div>
-            <div class="jhm-beast-type">💧 Eau</div>
+            <div class="jhm-beast-type">💧 ${_t('Eau', 'Water')}</div>
           </div>
         </div>
       </div>
@@ -690,31 +694,43 @@ async function _openBeastChooser() {
 async function _launchBoss(key) {
   const cfg = {
     petrel: {
-      name: 'Petrel', role: 'Admin Rocket',
-      team: 'Ratatatat, Arbok, Arbok', power: 2000,
+      name: 'Petrel', role: _t('Admin Rocket', 'Rocket Admin'),
+      team: 'Raticate, Arbok, Arbok', power: 2000,
       accent: '#e8a030', icon: '🚀',
-      winMsg: 'Petrel est vaincu. Il révèle l\'emplacement du QG. Ariana est votre prochain obstacle.',
+      winMsg: _t(
+        'Petrel est vaincu. Il révèle l\'emplacement du QG. Ariana est votre prochain obstacle.',
+        'Petrel is defeated. He reveals the HQ location. Ariana is your next obstacle.',
+      ),
       winFn: () => { const bm = _qBetes(); if(bm){ bm.petrelDefeated = true; bm.step = 4; } },
     },
     ariana: {
-      name: 'Ariana', role: 'Admin Rocket',
-      team: 'Arbok, Fouinard, Victreebel', power: 2800,
+      name: 'Ariana', role: _t('Admin Rocket', 'Rocket Admin'),
+      team: 'Arbok, Murkrow, Victreebel', power: 2800,
       accent: '#e8a030', icon: '🚀',
-      winMsg: 'Ariana est vaincue. L\'opération Rocket s\'effondre. Choisissez maintenant votre Bête Sacrée.',
+      winMsg: _t(
+        'Ariana est vaincue. L\'opération Rocket s\'effondre. Choisissez maintenant votre Bête Sacrée.',
+        'Ariana is defeated. The Rocket operation collapses. Now choose your Sacred Beast.',
+      ),
       winFn: () => { const bm = _qBetes(); if(bm){ bm.arianaDefeated = true; bm.step = 5; } },
     },
     eusine: {
-      name: 'Eusine', role: 'Chasseur de Suicune',
-      team: 'Hypnomade, Haunter, Electrode', power: 2500,
+      name: 'Eusine', role: _t('Chasseur de Suicune', 'Suicune Hunter'),
+      team: 'Drowzee, Haunter, Electrode', power: 2500,
       accent: '#5599cc', icon: '🔭',
-      winMsg: 'Eusine est vaincu. Il vous confie le chemin secret vers les Îles Tourbillon. Lugia vous attend.',
+      winMsg: _t(
+        'Eusine est vaincu. Il vous confie le chemin secret vers les Îles Tourbillon. Lugia vous attend.',
+        'Eusine is defeated. He entrusts you with the secret path to the Whirl Islands. Lugia awaits.',
+      ),
       winFn: () => { const lm = _qLugia(); if(lm){ lm.eusineDefeated = true; lm.step = 4; } },
     },
     kimono: {
-      name: 'Filles Kimono', role: 'Gardiennes de Ho-Oh',
-      team: 'Mentali, Noctali, Aquali, Pyroli, Voltali', power: 2500,
+      name: _t('Filles Kimono', 'Kimono Girls'), role: _t('Gardiennes de Ho-Oh', 'Guardians of Ho-Oh'),
+      team: 'Espeon, Umbreon, Vaporeon, Flareon, Jolteon', power: 2500,
       accent: '#cc9944', icon: '🎎',
-      winMsg: 'Les Filles Kimono vous reconnaissent comme l\'Élu. Elles vous ouvrent les portes de la Tour Carillon.',
+      winMsg: _t(
+        'Les Filles Kimono vous reconnaissent comme l\'Élu. Elles vous ouvrent les portes de la Tour Carillon.',
+        'The Kimono Girls recognize you as the Chosen One. They open the gates of the Tin Tower for you.',
+      ),
       winFn: () => { const hm = _qHooh(); if(hm){ hm.kimonoDefeated = true; hm.step = 4; } },
     },
   };
@@ -737,16 +753,16 @@ async function _launchBoss(key) {
       <div class="jhm-fight-title">${boss.icon} ${boss.name} — ${boss.role}</div>
       <div class="jhm-fight-text">${boss.team}</div>
       <div class="jhm-power-row">
-        <div class="jhm-power-chip">👊 Votre puissance : ${power.toLocaleString()}</div>
-        <div class="jhm-power-chip" style="${enough?'color:#90ee90':'color:#ff8080'}">🎯 Requis : ${needed.toLocaleString()}</div>
+        <div class="jhm-power-chip">👊 ${_t('Votre puissance', 'Your power')} : ${power.toLocaleString()}</div>
+        <div class="jhm-power-chip" style="${enough?'color:#90ee90':'color:#ff8080'}">🎯 ${_t('Requis', 'Required')} : ${needed.toLocaleString()}</div>
       </div>
       <div id="jhm-fight-result"></div>
       <div class="jhm-actions">
         ${enough
-          ? `<button class="jhm-btn primary" id="jhm-fight-go">⚔️ Combattre</button>`
-          : `<span style="font-family:var(--font-pixel,monospace);font-size:7.5px;color:#ff8080">Puissance insuffisante (${needed - power} manquants)</span>`
+          ? `<button class="jhm-btn primary" id="jhm-fight-go">⚔️ ${_t('Combattre', 'Fight')}</button>`
+          : `<span style="font-family:var(--font-pixel,monospace);font-size:7.5px;color:#ff8080">${_t(`Puissance insuffisante (${needed - power} manquants)`, `Not enough power (${needed - power} short)`)}</span>`
         }
-        <button class="jhm-btn" id="jhm-fight-cancel">Annuler</button>
+        <button class="jhm-btn" id="jhm-fight-cancel">${_t('Annuler', 'Cancel')}</button>
       </div>
     </div>`;
 
@@ -760,19 +776,19 @@ async function _launchBoss(key) {
     goBtn.addEventListener('click', async () => {
       goBtn.disabled = true;
       const resEl = div.querySelector('#jhm-fight-result');
-      resEl.innerHTML = `<div class="jhm-result-banner" style="color:${boss.accent}">⚔️ Combat en cours…</div>`;
+      resEl.innerHTML = `<div class="jhm-result-banner" style="color:${boss.accent}">⚔️ ${_t('Combat en cours…', 'Battle in progress…')}</div>`;
       await _wait(900);
       const { win } = resolveSpecialCombat({ power, requiredPower: needed });
       if (!win) {
-        resEl.innerHTML = `<div class="jhm-result-banner" style="color:#ff8080">✗ Défaite…</div>
-          <div style="font-family:var(--font-pixel,monospace);font-size:7.5px;color:#c0d8c0;line-height:2;margin-top:6px">${boss.name} vous a repoussé. Renforcez votre équipe et retentez votre chance.</div>`;
+        resEl.innerHTML = `<div class="jhm-result-banner" style="color:#ff8080">✗ ${_t('Défaite…', 'Defeat…')}</div>
+          <div style="font-family:var(--font-pixel,monospace);font-size:7.5px;color:#c0d8c0;line-height:2;margin-top:6px">${_t(`${boss.name} vous a repoussé. Renforcez votre équipe et retentez votre chance.`, `${boss.name} pushed you back. Strengthen your team and try again.`)}</div>`;
         await _wait(2200);
         div.remove();
         return;
       }
       boss.winFn();
       _save();
-      resEl.innerHTML = `<div class="jhm-result-banner" style="color:#90ee90">✓ Victoire !</div>
+      resEl.innerHTML = `<div class="jhm-result-banner" style="color:#90ee90">✓ ${_t('Victoire !', 'Victory!')}</div>
         <div style="font-family:var(--font-pixel,monospace);font-size:7.5px;color:#c0d8c0;line-height:2;margin-top:6px">${boss.winMsg}</div>`;
       await _wait(2200);
       div.remove();
@@ -843,16 +859,16 @@ async function _launchLegendary(key) {
         <img src="${cfg.static}" style="height:72px;image-rendering:pixelated" alt="${cfg.name}">
       </div>
       <div class="jhm-power-row">
-        <div class="jhm-power-chip">👊 Votre puissance : ${power.toLocaleString()}</div>
-        <div class="jhm-power-chip" style="${enough?'color:#90ee90':'color:#ff8080'}">🎯 Requis : ${cfg.power.toLocaleString()}</div>
+        <div class="jhm-power-chip">👊 ${_t('Votre puissance', 'Your power')} : ${power.toLocaleString()}</div>
+        <div class="jhm-power-chip" style="${enough?'color:#90ee90':'color:#ff8080'}">🎯 ${_t('Requis', 'Required')} : ${cfg.power.toLocaleString()}</div>
       </div>
       <div id="jhm-leg-result"></div>
       <div class="jhm-actions">
         ${enough
-          ? `<button class="jhm-btn primary" id="jhm-leg-go" style="--jhm-accent:${cfg.accent}">⚔️ Affronter ${cfg.name}</button>`
-          : `<span style="font-family:var(--font-pixel,monospace);font-size:7.5px;color:#ff8080">Puissance insuffisante (${cfg.power - power} manquants)</span>`
+          ? `<button class="jhm-btn primary" id="jhm-leg-go" style="--jhm-accent:${cfg.accent}">⚔️ ${_t('Affronter', 'Face')} ${cfg.name}</button>`
+          : `<span style="font-family:var(--font-pixel,monospace);font-size:7.5px;color:#ff8080">${_t(`Puissance insuffisante (${cfg.power - power} manquants)`, `Not enough power (${cfg.power - power} short)`)}</span>`
         }
-        <button class="jhm-btn" id="jhm-leg-cancel">Annuler</button>
+        <button class="jhm-btn" id="jhm-leg-cancel">${_t('Annuler', 'Cancel')}</button>
       </div>
     </div>`;
 
@@ -865,7 +881,7 @@ async function _launchLegendary(key) {
     goBtn.addEventListener('click', async () => {
       goBtn.disabled = true;
       const resEl = div.querySelector('#jhm-leg-result');
-      resEl.innerHTML = `<div class="jhm-result-banner" style="color:${cfg.accent}">⚔️ Combat légendaire…</div>`;
+      resEl.innerHTML = `<div class="jhm-result-banner" style="color:${cfg.accent}">⚔️ ${_t('Combat légendaire…', 'Legendary battle…')}</div>`;
       await _wait(1200);
 
       // Capture roll
@@ -893,17 +909,17 @@ async function _launchLegendary(key) {
           const mMap = { beast:'betesMission', lugia:'lugiaMission', hooh:'hoohMission' };
           const mKey = mMap[key];
           if (mKey && s[mKey]) s[mKey].totalCaptures = (s[mKey].totalCaptures || 0) + 1;
-          resEl.innerHTML = `<div class="jhm-result-banner" style="color:#90ee90">✨ ${cfg.name} capturé !</div>
+          resEl.innerHTML = `<div class="jhm-result-banner" style="color:#90ee90">✨ ${_t(`${cfg.name} capturé !`, `${cfg.name} caught!`)}</div>
             <div style="font-family:var(--font-pixel,monospace);font-size:7.5px;color:#c0d8c0;line-height:2;margin-top:6px">
-              ${cfg.name} Lv.${cfg.level} ajouté à votre PC — Pot.${cfg.pot} ★
+              ${_t(`${cfg.name} Lv.${cfg.level} ajouté à votre PC — Pot.${cfg.pot} ★`, `${cfg.name} Lv.${cfg.level} added to your PC — Pot.${cfg.pot} ★`)}
             </div>`;
         } else {
-          resEl.innerHTML = `<div class="jhm-result-banner" style="color:#90ee90">✓ ${cfg.name} neutralisé !</div>`;
+          resEl.innerHTML = `<div class="jhm-result-banner" style="color:#90ee90">✓ ${_t(`${cfg.name} neutralisé !`, `${cfg.name} neutralized!`)}</div>`;
         }
       } else {
-        resEl.innerHTML = `<div class="jhm-result-banner" style="color:#e8d040">⚡ ${cfg.name} s'échappe !</div>
+        resEl.innerHTML = `<div class="jhm-result-banner" style="color:#e8d040">⚡ ${_t(`${cfg.name} s'échappe !`, `${cfg.name} escapes!`)}</div>
           <div style="font-family:var(--font-pixel,monospace);font-size:7.5px;color:#aaa;line-height:2;margin-top:6px">
-            Taux de capture : ${Math.round(catchRate * 100)}%. Utilisez un item de relance pour réessayer.
+            ${_t(`Taux de capture : ${Math.round(catchRate * 100)}%. Utilisez un item de relance pour réessayer.`, `Catch rate: ${Math.round(catchRate * 100)}%. Use a retry item to try again.`)}
           </div>`;
       }
 
@@ -991,17 +1007,17 @@ export function checkJohtoMissionsUnlock() {
 
   if (!s.betesMission.active) {
     s.betesMission.active = true; s.betesMission.step = 1;
-    _notify('🐅 Quête débloquée : Les Bêtes Sacrées de Johto — ouvrez le tracker Johto !', 'gold');
+    _notify(_t('🐅 Quête débloquée : Les Bêtes Sacrées de Johto — ouvrez le tracker Johto !', '🐅 Quest unlocked: The Legendary Beasts of Johto — open the Johto tracker!'), 'gold');
     changed = true;
   }
   if (!s.lugiaMission.active && rep >= 1000) {
     s.lugiaMission.active = true; s.lugiaMission.step = 1;
-    _notify("🌊 Quête débloquée : Lugia — les Ailes Sacrées vous guideront vers les profondeurs !", 'gold');
+    _notify(_t("🌊 Quête débloquée : Lugia — les Ailes Sacrées vous guideront vers les profondeurs !", '🌊 Quest unlocked: Lugia — the Sacred Wings will guide you to the depths!'), 'gold');
     changed = true;
   }
   if (!s.hoohMission.active && rep >= 1000) {
     s.hoohMission.active = true; s.hoohMission.step = 1;
-    _notify('🌈 Quête débloquée : Ho-Oh — l\'Oiseau Arc-en-Ciel attend votre épreuve !', 'gold');
+    _notify(_t('🌈 Quête débloquée : Ho-Oh — l\'Oiseau Arc-en-Ciel attend votre épreuve !', '🌈 Quest unlocked: Ho-Oh — the Rainbow Bird awaits your trial!'), 'gold');
     changed = true;
   }
 

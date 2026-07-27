@@ -35,6 +35,10 @@ import { resolveSpecialCombat } from './specialCombat.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type });
 const _save   = ()               => globalThis.saveState?.();
+// Traduction inline légère — même convention que le reste du codebase
+// (state.lang === 'fr' ? ... : ...), enveloppée ici pour éviter de répéter
+// la condition sur les dizaines de chaînes de ce module.
+const _t = (fr, en) => (globalThis.state?.lang === 'en' ? en : fr);
 
 // ── Sprites ──────────────────────────────────────────────────────
 const ARTICUNO_SPRITE = 'https://play.pokemonshowdown.com/sprites/gen5ani/articuno.gif';
@@ -68,30 +72,37 @@ const _ROCKET_TRAINER_KEYS = new Set(['rocketgrunt', 'rocketgruntf', 'archer', '
 // ── Config oiseaux ────────────────────────────────────────────────
 const BIRDS = {
   articuno: {
-    name: 'Artikodin', species: 'articuno',
+    name: 'Artikodin', name_en: 'Articuno', species: 'articuno',
     sprite: ARTICUNO_SPRITE, static: ARTICUNO_STATIC,
     accent: '#70b8ff', icon: '❄️',
-    zone: 'seafoam_islands', zoneLabel: 'Grottes Ecume',
-    boss: { name: 'Lorelei (Olga)', role: 'Conseil des 4 — Glace', team: 'Loktok, Cloyster, Slowbro, Jinx, Lippoutou', power: 3000, key: 'lorelei' },
+    zone: 'seafoam_islands', zoneLabel: 'Grottes Ecume', zoneLabel_en: 'Seafoam Islands',
+    boss: { name: 'Lorelei', role: 'Conseil des 4 — Glace', role_en: 'Elite Four — Ice', team: 'Dewgong, Cloyster, Slowbro, Jynx, Lapras', power: 3000, key: 'lorelei' },
     power: 3500, catchBase: 0.50, level: 54, pot: 3,
   },
   zapdos: {
-    name: 'Électhor', species: 'zapdos',
+    name: 'Électhor', name_en: 'Zapdos', species: 'zapdos',
     sprite: ZAPDOS_SPRITE, static: ZAPDOS_STATIC,
     accent: '#f0d040', icon: '⚡',
-    zone: 'power_plant', zoneLabel: 'Centrale Électrique',
-    boss: { name: 'Maj. Bob', role: 'Champion Vermilion', team: 'Raichu, Electrode, Electrode, Magneton', power: 2800, key: 'ltsurge' },
+    zone: 'power_plant', zoneLabel: 'Centrale Électrique', zoneLabel_en: 'Power Plant',
+    boss: { name: 'Lt. Surge', role: 'Champion Vermilion', role_en: 'Vermilion Gym Leader', team: 'Raichu, Electrode, Electrode, Magneton', power: 2800, key: 'ltsurge' },
     power: 3500, catchBase: 0.50, level: 50, pot: 3,
   },
   moltres: {
-    name: 'Sulfura', species: 'moltres',
+    name: 'Sulfura', name_en: 'Moltres', species: 'moltres',
     sprite: MOLTRES_SPRITE, static: MOLTRES_STATIC,
     accent: '#ff7030', icon: '🔥',
-    zone: 'victory_road', zoneLabel: 'Route Victoire',
-    boss: { name: 'Capitaine (Pyros)', role: 'Champion Cramois\'île', team: 'Growlithe, Ponyta, Rapidash, Arcanine', power: 2800, key: 'blaine' },
+    zone: 'victory_road', zoneLabel: 'Route Victoire', zoneLabel_en: 'Victory Road',
+    boss: { name: 'Blaine', role: 'Champion Cramois\'île', role_en: 'Cinnabar Gym Leader', team: 'Growlithe, Ponyta, Rapidash, Arcanine', power: 2800, key: 'blaine' },
     power: 3500, catchBase: 0.50, level: 50, pot: 3,
   },
 };
+
+// Accesseurs bilingues — le nom du dresseur/boss (proper noun officiel) ne
+// change pas, seuls le nom FR de l'oiseau, le libellé de zone et le rôle
+// diffèrent entre les deux langues.
+const _birdName  = bird => _t(bird.name, bird.name_en);
+const _zoneLabel = bird => _t(bird.zoneLabel, bird.zoneLabel_en);
+const _bossRole  = boss => _t(boss.role, boss.role_en || boss.role);
 
 // ── Helpers ───────────────────────────────────────────────────────
 const _state = () => globalThis.state ?? null;
@@ -125,7 +136,10 @@ function _onCombatWon({ zoneId, trainerKey, elite } = {}) {
     if (Math.random() < chance) {
       s.inventory.rapport_sylphe = (s.inventory.rapport_sylphe || 0) + 1;
       EventBus.emit(EVENTS.ITEM_RECEIVED, { itemId: 'rapport_sylphe', qty: 1 });
-      _notify(`📂 Rapport Sylphe récupéré${elite ? ' sur un cadre Rocket' : ''} !`, 'gold');
+      _notify(_t(
+        `📂 Rapport Sylphe récupéré${elite ? ' sur un cadre Rocket' : ''} !`,
+        `📂 Silph Report recovered${elite ? ' from a Rocket admin' : ''}!`,
+      ), 'gold');
       dirty = true;
     }
   }
@@ -140,7 +154,7 @@ function _onCombatWon({ zoneId, trainerKey, elite } = {}) {
         b.fightsWon = Math.min((b.fightsWon || 0) + 1, 10);
         if (b.fightsWon >= 10) {
           b.step = 2;
-          _notify(`${bird.icon} Zone maîtrisée ! Affrontez ${bird.boss.name} depuis la quête Oiseaux.`, 'gold');
+          _notify(`${bird.icon} ${_t(`Zone maîtrisée ! Affrontez ${bird.boss.name} depuis la quête Oiseaux.`, `Zone mastered! Face ${bird.boss.name} from the Birds quest tracker.`)}`, 'gold');
         }
         dirty = true;
       }
@@ -154,7 +168,10 @@ function _onCombatWon({ zoneId, trainerKey, elite } = {}) {
       mm.rocketFightsWon = Math.min((mm.rocketFightsWon || 0) + 1, 20);
       if (mm.rocketFightsWon >= 20) {
         mm.step = 2;
-        _notify('🧬 20 membres Rocket vaincus ! Collectez 3 Rapports Sylphe (drop depuis Sylphe Co.).', 'gold');
+        _notify(_t(
+          '🧬 20 membres Rocket vaincus ! Collectez 3 Rapports Sylphe (drop depuis Sylphe Co.).',
+          '🧬 20 Rocket members defeated! Collect 3 Silph Reports (drops from Silph Co.).',
+        ), 'gold');
       }
       dirty = true;
     }
@@ -162,7 +179,10 @@ function _onCombatWon({ zoneId, trainerKey, elite } = {}) {
       mm.mansionFightsWon = Math.min((mm.mansionFightsWon || 0) + 1, 15);
       if (mm.mansionFightsWon >= 15) {
         mm.step = 4;
-        _notify('🧬 Manoir infiltré ! Localisez Giovanni pour le combat final.', 'gold');
+        _notify(_t(
+          '🧬 Manoir infiltré ! Localisez Giovanni pour le combat final.',
+          '🧬 Mansion infiltrated! Locate Giovanni for the final battle.',
+        ), 'gold');
       }
       dirty = true;
     }
@@ -185,7 +205,10 @@ function _onItemReceived({ itemId } = {}) {
       s.inventory.rapport_sylphe = Math.max(0, (s.inventory.rapport_sylphe || 0) - 1);
       if (mm.rapportSylphe >= 3) {
         mm.step = 3;
-        _notify('🧬 3 Rapports Sylphe réunis ! Infiltrez le Manoir Pokémon (15 combats).', 'gold');
+        _notify(_t(
+          '🧬 3 Rapports Sylphe réunis ! Infiltrez le Manoir Pokémon (15 combats).',
+          '🧬 3 Silph Reports gathered! Infiltrate the Pokémon Mansion (15 battles).',
+        ), 'gold');
       }
       dirty = true;
     }
@@ -383,33 +406,33 @@ function _buildTracker() {
     const canRerun = owned && (inv.plume_sacree > 0);
 
     const stepsData = [
-      { label:`10 combats — ${bird.zoneLabel}`, done: b?.fightsWon >= 10, prog: b?.fightsWon ?? 0, max: 10 },
-      { label:`Vaincre ${bird.boss.name}`,       done: b?.bossDefeated ?? false, prog: null, max: null },
-      { label:`Affronter ${bird.name}`,           done: owned, prog: null, max: null },
+      { label:`${_t('10 combats', '10 battles')} — ${_zoneLabel(bird)}`, done: b?.fightsWon >= 10, prog: b?.fightsWon ?? 0, max: 10 },
+      { label:`${_t('Vaincre', 'Defeat')} ${bird.boss.name}`,       done: b?.bossDefeated ?? false, prog: null, max: null },
+      { label:`${_t('Affronter', 'Face')} ${_birdName(bird)}`,           done: owned, prog: null, max: null },
     ];
     const stepsHtml = stepsData.map((st, i) => _renderStep(st, i + 1, step)).join('');
 
     let actions = '';
     if (active) {
       if (step === 2 && !b.bossDefeated) {
-        actions = `<button class="ktm-btn primary" data-ktm="boss-${key}" style="--ktm-accent:${bird.accent}">${bird.icon} Affronter ${bird.boss.name.split(' ')[0]}</button>`;
+        actions = `<button class="ktm-btn primary" data-ktm="boss-${key}" style="--ktm-accent:${bird.accent}">${bird.icon} ${_t('Affronter', 'Face')} ${bird.boss.name.split(' ')[0]}</button>`;
       } else if (step === 3) {
-        actions = `<button class="ktm-btn primary" data-ktm="bird-${key}" style="--ktm-accent:${bird.accent}">${bird.icon} Affronter ${bird.name}</button>`;
+        actions = `<button class="ktm-btn primary" data-ktm="bird-${key}" style="--ktm-accent:${bird.accent}">${bird.icon} ${_t('Affronter', 'Face')} ${_birdName(bird)}</button>`;
       } else if (step === 6 || owned) {
         if (canRerun) {
-          actions = `<button class="ktm-btn gold" data-ktm="rerun-${key}">🪶 Relancer (${inv.plume_sacree}× Plume)</button>`;
+          actions = `<button class="ktm-btn gold" data-ktm="rerun-${key}">🪶 ${_t('Relancer', 'Retry')} (${inv.plume_sacree}× ${_t('Plume', 'Feather')})</button>`;
         } else {
-          actions = `<span class="ktm-rerun-note">Plume Sacrée requise pour rejouer</span>`;
+          actions = `<span class="ktm-rerun-note">${_t('Plume Sacrée requise pour rejouer', 'Sacred Feather required to retry')}</span>`;
         }
       }
     }
 
     return `
       <div class="ktm-card" style="--ktm-accent:${bird.accent}">
-        <div class="ktm-card-label">${bird.icon} Oiseau Légendaire</div>
-        <div class="ktm-card-title">${bird.name}</div>
+        <div class="ktm-card-label">${bird.icon} ${_t('Oiseau Légendaire', 'Legendary Bird')}</div>
+        <div class="ktm-card-title">${_birdName(bird)}</div>
         <div class="ktm-sprite-row">
-          <img class="ktm-sprite${owned ? '' : ' grey'}" src="${bird.static}" alt="${bird.name}">
+          <img class="ktm-sprite${owned ? '' : ' grey'}" src="${bird.static}" alt="${_birdName(bird)}">
         </div>
         <div class="ktm-steps">${stepsHtml}</div>
         <div class="ktm-actions">${actions}</div>
@@ -422,42 +445,42 @@ function _buildTracker() {
   const canRerunM = mOwned && (inv.rapport_sylphe > 0);
 
   const mewtwoSteps = [
-    { label:'20 membres Rocket vaincus (Kanto)', done: mm?.rocketFightsWon >= 20, prog: mm?.rocketFightsWon ?? 0, max: 20 },
-    { label:'3 Rapports Sylphe collectés',       done: mm?.rapportSylphe >= 3,   prog: mm?.rapportSylphe ?? 0, max: 3 },
-    { label:'15 combats — Manoir Pokémon',        done: mm?.mansionFightsWon >= 15, prog: mm?.mansionFightsWon ?? 0, max: 15 },
-    { label:'Vaincre Giovanni',                   done: mm?.giovanniDefeated ?? false, prog: null, max: null },
-    { label:'Affronter Mewtwo — Grotte Cerulean', done: mOwned, prog: null, max: null },
+    { label:_t('20 membres Rocket vaincus (Kanto)', '20 Rocket members defeated (Kanto)'), done: mm?.rocketFightsWon >= 20, prog: mm?.rocketFightsWon ?? 0, max: 20 },
+    { label:_t('3 Rapports Sylphe collectés', '3 Silph Reports collected'),       done: mm?.rapportSylphe >= 3,   prog: mm?.rapportSylphe ?? 0, max: 3 },
+    { label:`${_t('15 combats', '15 battles')} — ${_t('Manoir Pokémon', 'Pokémon Mansion')}`,        done: mm?.mansionFightsWon >= 15, prog: mm?.mansionFightsWon ?? 0, max: 15 },
+    { label:_t('Vaincre Giovanni', 'Defeat Giovanni'),                   done: mm?.giovanniDefeated ?? false, prog: null, max: null },
+    { label:_t('Affronter Mewtwo — Grotte Cerulean', 'Face Mewtwo — Cerulean Cave'), done: mOwned, prog: null, max: null },
   ];
   const mewtwoStepsHtml = mewtwoSteps.map((st, i) => _renderStep(st, i + 1, mstep)).join('');
 
   let mewtwoActions = '';
   if (mm?.active) {
     if (mstep === 4 && !mm.giovanniDefeated) {
-      mewtwoActions = `<button class="ktm-btn primary" data-ktm="giovanni" style="--ktm-accent:#cc2222">⚔️ Affronter Giovanni</button>`;
+      mewtwoActions = `<button class="ktm-btn primary" data-ktm="giovanni" style="--ktm-accent:#cc2222">⚔️ ${_t('Affronter Giovanni', 'Face Giovanni')}</button>`;
     } else if (mstep === 5) {
-      mewtwoActions = `<button class="ktm-btn primary" data-ktm="mewtwo" style="--ktm-accent:#cc2222">🧬 Affronter Mewtwo</button>`;
+      mewtwoActions = `<button class="ktm-btn primary" data-ktm="mewtwo" style="--ktm-accent:#cc2222">🧬 ${_t('Affronter Mewtwo', 'Face Mewtwo')}</button>`;
     } else if (mstep === 6 || mOwned) {
       if (canRerunM) {
-        mewtwoActions = `<button class="ktm-btn gold" data-ktm="rerun-mewtwo">📂 Relancer (${inv.rapport_sylphe}× Rapport)</button>`;
+        mewtwoActions = `<button class="ktm-btn gold" data-ktm="rerun-mewtwo">📂 ${_t('Relancer', 'Retry')} (${inv.rapport_sylphe}× ${_t('Rapport', 'Report')})</button>`;
       } else {
-        mewtwoActions = `<span class="ktm-rerun-note">Rapport Sylphe requis pour rejouer</span>`;
+        mewtwoActions = `<span class="ktm-rerun-note">${_t('Rapport Sylphe requis pour rejouer', 'Silph Report required to retry')}</span>`;
       }
     }
   }
 
   return `
     <div id="ktm-overlay">
-      <span class="ktm-close-btn" id="ktm-close">✕ FERMER</span>
+      <span class="ktm-close-btn" id="ktm-close">✕ ${_t('FERMER', 'CLOSE')}</span>
       <div class="ktm-wrap">
         <div class="ktm-header">
-          <div class="ktm-header-label">Quêtes Légendaires</div>
+          <div class="ktm-header-label">${_t('Quêtes Légendaires', 'Legendary Quests')}</div>
           <div class="ktm-header-title">✦ KANTO ✦</div>
         </div>
         <div class="ktm-birds-row">${birdCards}</div>
         <div class="ktm-mewtwo-row">
           <div class="ktm-card" style="--ktm-accent:#cc2222">
-            <div class="ktm-card-label">🧬 Mewtwo — Génome Ultime</div>
-            <div class="ktm-card-title">Projet Clone</div>
+            <div class="ktm-card-label">🧬 ${_t('Mewtwo — Génome Ultime', 'Mewtwo — Ultimate Genome')}</div>
+            <div class="ktm-card-title">${_t('Projet Clone', 'Clone Project')}</div>
             <div class="ktm-sprite-row">
               <img class="ktm-sprite big${mOwned ? '' : ' grey'}" src="${MEWTWO_STATIC}" alt="Mewtwo">
             </div>
@@ -479,20 +502,26 @@ async function _launchBoss(key, birdKey) {
   if (birdKey) {
     const bird = BIRDS[birdKey];
     if (!bird) return;
-    cfg = { ...bird.boss, accent: bird.accent, icon: bird.icon, birdKey };
+    cfg = { ...bird.boss, role: _bossRole(bird.boss), accent: bird.accent, icon: bird.icon, birdKey };
   } else if (key === 'giovanni') {
     cfg = {
-      name: 'Giovanni', role: 'Chef de la Team Rocket',
+      name: 'Giovanni', role: _t('Chef de la Team Rocket', 'Team Rocket Boss'),
       team: 'Bagon, Nidoqueen, Nidoking, Rhyhorn, Dugtrio',
       power: 4500, accent: '#cc2222', icon: '💼', key: 'giovanni',
-      winMsg: 'Giovanni est vaincu et s\'enfuit. Les coordonnées de la Grotte Cerulean sont maintenant connues.',
+      winMsg: _t(
+        'Giovanni est vaincu et s\'enfuit. Les coordonnées de la Grotte Cerulean sont maintenant connues.',
+        'Giovanni is defeated and flees. The Cerulean Cave coordinates are now known.',
+      ),
       winFn: () => { const mm = _qMewtwo(); if(mm){ mm.giovanniDefeated = true; mm.step = 5; } },
     };
   } else return;
 
   if (birdKey && !cfg.winMsg) {
     const bird = BIRDS[birdKey];
-    cfg.winMsg = `${bird.boss.name} est vaincu. La route vers ${bird.name} est ouverte.`;
+    cfg.winMsg = _t(
+      `${bird.boss.name} est vaincu. La route vers ${_birdName(bird)} est ouverte.`,
+      `${bird.boss.name} is defeated. The way to ${_birdName(bird)} is now open.`,
+    );
     cfg.winFn  = () => {
       const b = _qBirds()?.[birdKey];
       if (b) { b.bossDefeated = true; b.step = 3; }
@@ -511,16 +540,16 @@ async function _launchBoss(key, birdKey) {
       <div class="ktm-fight-title">${cfg.icon} ${cfg.name} — ${cfg.role}</div>
       <div class="ktm-fight-text">${cfg.team}</div>
       <div class="ktm-power-row">
-        <div class="ktm-power-chip">👊 Votre puissance : ${power.toLocaleString()}</div>
-        <div class="ktm-power-chip" style="${enough?'color:#90ee90':'color:#ff8080'}">🎯 Requis : ${cfg.power.toLocaleString()}</div>
+        <div class="ktm-power-chip">👊 ${_t('Votre puissance', 'Your power')} : ${power.toLocaleString()}</div>
+        <div class="ktm-power-chip" style="${enough?'color:#90ee90':'color:#ff8080'}">🎯 ${_t('Requis', 'Required')} : ${cfg.power.toLocaleString()}</div>
       </div>
       <div id="ktm-boss-result"></div>
       <div class="ktm-actions">
         ${enough
-          ? `<button class="ktm-btn primary" id="ktm-boss-go">⚔️ Combattre</button>`
-          : `<span style="font-family:var(--font-pixel,monospace);font-size:7.5px;color:#ff8080">Puissance insuffisante (${cfg.power - power} manquants)</span>`
+          ? `<button class="ktm-btn primary" id="ktm-boss-go">⚔️ ${_t('Combattre', 'Fight')}</button>`
+          : `<span style="font-family:var(--font-pixel,monospace);font-size:7.5px;color:#ff8080">${_t(`Puissance insuffisante (${cfg.power - power} manquants)`, `Not enough power (${cfg.power - power} short)`)}</span>`
         }
-        <button class="ktm-btn" id="ktm-boss-cancel">Annuler</button>
+        <button class="ktm-btn" id="ktm-boss-cancel">${_t('Annuler', 'Cancel')}</button>
       </div>
     </div>`;
 
@@ -533,19 +562,19 @@ async function _launchBoss(key, birdKey) {
     goBtn.addEventListener('click', async () => {
       goBtn.disabled = true;
       const resEl = div.querySelector('#ktm-boss-result');
-      resEl.innerHTML = `<div class="ktm-result-banner" style="color:${cfg.accent}">⚔️ Combat en cours…</div>`;
+      resEl.innerHTML = `<div class="ktm-result-banner" style="color:${cfg.accent}">⚔️ ${_t('Combat en cours…', 'Battle in progress…')}</div>`;
       await _wait(900);
       const { win } = resolveSpecialCombat({ power, requiredPower: cfg.power });
       if (!win) {
-        resEl.innerHTML = `<div class="ktm-result-banner" style="color:#ff8080">✗ Défaite…</div>
-          <div style="font-family:var(--font-pixel,monospace);font-size:7.5px;color:#b0c0e0;line-height:2;margin-top:6px">${cfg.name} vous a repoussé. Renforcez votre équipe et retentez votre chance.</div>`;
+        resEl.innerHTML = `<div class="ktm-result-banner" style="color:#ff8080">✗ ${_t('Défaite…', 'Defeat…')}</div>
+          <div style="font-family:var(--font-pixel,monospace);font-size:7.5px;color:#b0c0e0;line-height:2;margin-top:6px">${_t(`${cfg.name} vous a repoussé. Renforcez votre équipe et retentez votre chance.`, `${cfg.name} pushed you back. Strengthen your team and try again.`)}</div>`;
         await _wait(2000);
         div.remove();
         return;
       }
       cfg.winFn();
       _save();
-      resEl.innerHTML = `<div class="ktm-result-banner" style="color:#90ee90">✓ Victoire !</div>
+      resEl.innerHTML = `<div class="ktm-result-banner" style="color:#90ee90">✓ ${_t('Victoire !', 'Victory!')}</div>
         <div style="font-family:var(--font-pixel,monospace);font-size:7.5px;color:#b0c0e0;line-height:2;margin-top:6px">${cfg.winMsg}</div>`;
       await _wait(2000);
       div.remove();
@@ -564,7 +593,7 @@ async function _launchLegendary(key) {
   if (key in BIRDS) {
     const bird = BIRDS[key];
     cfg = {
-      name: bird.name, species: bird.species,
+      name: _birdName(bird), species: bird.species,
       sprite: bird.static, accent: bird.accent, icon: bird.icon,
       power: bird.power, catchBase: bird.catchBase,
       level: bird.level, pot: bird.pot,
@@ -600,16 +629,16 @@ async function _launchLegendary(key) {
         <img src="${cfg.sprite}" style="height:64px;image-rendering:pixelated" alt="${cfg.name}">
       </div>
       <div class="ktm-power-row">
-        <div class="ktm-power-chip">👊 Votre puissance : ${power.toLocaleString()}</div>
-        <div class="ktm-power-chip" style="${enough?'color:#90ee90':'color:#ff8080'}">🎯 Requis : ${cfg.power.toLocaleString()}</div>
+        <div class="ktm-power-chip">👊 ${_t('Votre puissance', 'Your power')} : ${power.toLocaleString()}</div>
+        <div class="ktm-power-chip" style="${enough?'color:#90ee90':'color:#ff8080'}">🎯 ${_t('Requis', 'Required')} : ${cfg.power.toLocaleString()}</div>
       </div>
       <div id="ktm-leg-result"></div>
       <div class="ktm-actions">
         ${enough
-          ? `<button class="ktm-btn primary" id="ktm-leg-go">⚔️ Affronter ${cfg.name}</button>`
-          : `<span style="font-family:var(--font-pixel,monospace);font-size:7.5px;color:#ff8080">Puissance insuffisante (${cfg.power - power} manquants)</span>`
+          ? `<button class="ktm-btn primary" id="ktm-leg-go">⚔️ ${_t('Affronter', 'Face')} ${cfg.name}</button>`
+          : `<span style="font-family:var(--font-pixel,monospace);font-size:7.5px;color:#ff8080">${_t(`Puissance insuffisante (${cfg.power - power} manquants)`, `Not enough power (${cfg.power - power} short)`)}</span>`
         }
-        <button class="ktm-btn" id="ktm-leg-cancel">Annuler</button>
+        <button class="ktm-btn" id="ktm-leg-cancel">${_t('Annuler', 'Cancel')}</button>
       </div>
     </div>`;
 
@@ -622,7 +651,7 @@ async function _launchLegendary(key) {
     goBtn.addEventListener('click', async () => {
       goBtn.disabled = true;
       const resEl = div.querySelector('#ktm-leg-result');
-      resEl.innerHTML = `<div class="ktm-result-banner" style="color:${cfg.accent}">⚔️ Combat légendaire…</div>`;
+      resEl.innerHTML = `<div class="ktm-result-banner" style="color:${cfg.accent}">⚔️ ${_t('Combat légendaire…', 'Legendary battle…')}</div>`;
       await _wait(1200);
 
       const powerRatio = power / cfg.power;
@@ -646,20 +675,20 @@ async function _launchLegendary(key) {
           const bKey = cfg.captureKey !== 'mewtwo' ? cfg.captureKey : null;
           if (mKey && s[mKey]) s[mKey].totalCaptures = (s[mKey].totalCaptures || 0) + 1;
           if (bKey && s.birdsMission?.[bKey]) s.birdsMission[bKey].captures = (s.birdsMission[bKey].captures || 0) + 1;
-          resEl.innerHTML = `<div class="ktm-result-banner" style="color:#90ee90">✨ ${cfg.name} capturé !</div>
+          resEl.innerHTML = `<div class="ktm-result-banner" style="color:#90ee90">✨ ${_t(`${cfg.name} capturé !`, `${cfg.name} caught!`)}</div>
             <div style="font-family:var(--font-pixel,monospace);font-size:7.5px;color:#b0c0e0;line-height:2;margin-top:6px">
-              ${cfg.name} Lv.${cfg.level} ajouté au PC — Pot.${cfg.pot} ★
+              ${_t(`${cfg.name} Lv.${cfg.level} ajouté au PC — Pot.${cfg.pot} ★`, `${cfg.name} Lv.${cfg.level} added to PC — Pot.${cfg.pot} ★`)}
             </div>`;
         } else {
-          resEl.innerHTML = `<div class="ktm-result-banner" style="color:#e8d040">⚡ ${cfg.name} s'échappe !</div>
+          resEl.innerHTML = `<div class="ktm-result-banner" style="color:#e8d040">⚡ ${_t(`${cfg.name} s'échappe !`, `${cfg.name} escapes!`)}</div>
             <div style="font-family:var(--font-pixel,monospace);font-size:7.5px;color:#888;line-height:2;margin-top:6px">
-              Une erreur est survenue — réessayez.
+              ${_t('Une erreur est survenue — réessayez.', 'An error occurred — try again.')}
             </div>`;
         }
       } else {
-        resEl.innerHTML = `<div class="ktm-result-banner" style="color:#e8d040">⚡ ${cfg.name} s'échappe !</div>
+        resEl.innerHTML = `<div class="ktm-result-banner" style="color:#e8d040">⚡ ${_t(`${cfg.name} s'échappe !`, `${cfg.name} escapes!`)}</div>
           <div style="font-family:var(--font-pixel,monospace);font-size:7.5px;color:#888;line-height:2;margin-top:6px">
-            Taux de capture : ${Math.round(catchRate * 100)}%. Utilisez une Plume Sacrée pour réessayer.
+            ${_t(`Taux de capture : ${Math.round(catchRate * 100)}%. Utilisez une Plume Sacrée pour réessayer.`, `Catch rate: ${Math.round(catchRate * 100)}%. Use a Sacred Feather to try again.`)}
           </div>`;
       }
 
@@ -765,7 +794,7 @@ export function checkKantoMissionsUnlock() {
       if (b && !b.active) {
         b.active = true; b.step = 1;
         const bird = BIRDS[key];
-        _notify(`${bird.icon} Quête débloquée : ${bird.name} — explorez ${bird.zoneLabel} !`, 'gold');
+        _notify(`${bird.icon} ${_t(`Quête débloquée : ${_birdName(bird)} — explorez ${_zoneLabel(bird)} !`, `Quest unlocked: ${_birdName(bird)} — explore ${_zoneLabel(bird)}!`)}`, 'gold');
         changed = true;
       }
     }
@@ -774,7 +803,10 @@ export function checkKantoMissionsUnlock() {
   // Unlock Mewtwo at rep >= 900
   if (rep >= 900 && !s.mewtwoMission.active) {
     s.mewtwoMission.active = true; s.mewtwoMission.step = 1;
-    _notify("🧬 Quête débloquée : Mewtwo — Des rapports confidentiels circulent chez Sylphe Co. !", 'gold');
+    _notify(_t(
+      '🧬 Quête débloquée : Mewtwo — Des rapports confidentiels circulent chez Sylphe Co. !',
+      '🧬 Quest unlocked: Mewtwo — Confidential reports are circulating at Silph Co.!',
+    ), 'gold');
     changed = true;
   }
 
