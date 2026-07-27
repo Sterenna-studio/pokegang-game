@@ -12,6 +12,19 @@
 import { SFX } from './audio.js';
 import { esc as _esc } from '../core/escape.js';
 
+// ── i18n helper ───────────────────────────────────────────────────────────────
+// Returns the translation for key if available in the active locale, otherwise
+// falls back to the provided French default string so the UI is never blank.
+function _t(key, fr) {
+  try {
+    const lang = modalCtx.getState?.()?.lang ?? globalThis.state?.lang ?? 'fr';
+    if (lang === 'fr') return fr;
+    return globalThis.i18n?.[lang]?.[key] ?? fr;
+  } catch {
+    return fr;
+  }
+}
+
 let modalCtx = {};
 
 function configureModals(ctx = {}) {
@@ -55,8 +68,8 @@ function showConfirm(message, onConfirm, onCancel = null, opts = {}) {
   modal.style.cssText = 'position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,.82);display:flex;align-items:center;justify-content:center;';
 
   const danger = opts.danger ? 'var(--red)' : 'var(--gold-dim)';
-  const confirmLabel = opts.confirmLabel || (opts.lang === 'fr' ? 'Confirmer' : 'Confirm');
-  const cancelLabel  = opts.cancelLabel  || (opts.lang === 'fr' ? 'Annuler'   : 'Cancel');
+  const confirmLabel = opts.confirmLabel || _t('confirm_label', 'Confirmer');
+  const cancelLabel  = opts.cancelLabel  || _t('cancel_label',  'Annuler');
 
   modal.innerHTML = `
     <div style="background:var(--bg-panel);border:2px solid ${danger};border-radius:var(--radius);padding:24px 28px;max-width:440px;width:90%;display:flex;flex-direction:column;gap:16px">
@@ -77,73 +90,73 @@ function showConfirm(message, onConfirm, onCancel = null, opts = {}) {
 function showInfoModal(tabId) {
   const INFO = {
     tabGang: {
-      title: '💀 LE GANG',
+      title: _t('info_gang_title', '💀 LE GANG'),
       body: `
-        <strong>Réputation</strong> — Ressource clé. Débloque zones, agents supplémentaires, achats spéciaux. Barre en haut à droite.<br><br>
-        <strong>Argent (₽)</strong> — Les récompenses de combat s'accumulent dans les zones. Collecte via l'icône ₽ dorée ou automatiquement via tes agents.<br><br>
-        <strong>Boss</strong> — Ton avatar. Assigne jusqu'à <strong>6 Pokémon</strong> à son équipe depuis le PC pour renforcer les combats.<br><br>
-        <strong>Sac</strong> — Balls actives, boosts temporaires, incubateurs. Clique une Ball pour l'activer comme Ball par défaut.<br><br>
-        <strong>Cosmétiques</strong> — Personnalise l'apparence du boss et du gang (déblocable via achats spéciaux).<br><br>
-        <span class="dim">Conseil : plus ta réputation est haute, plus les zones et agents disponibles sont puissants.</span>
+        <strong>${_t('info_gang_rep_label', 'Réputation')}</strong> — ${_t('info_gang_rep_desc', 'Ressource clé. Débloque zones, agents supplémentaires, achats spéciaux. Barre en haut à droite.')}<br><br>
+        <strong>${_t('info_gang_money_label', 'Argent (₽)')}</strong> — ${_t('info_gang_money_desc', 'Les récompenses de combat s\'accumulent dans les zones. Collecte via l\'icône ₽ dorée ou automatiquement via tes agents.')}<br><br>
+        <strong>${_t('info_gang_boss_label', 'Boss')}</strong> — ${_t('info_gang_boss_desc', 'Ton avatar. Assigne jusqu\'à <strong>6 Pokémon</strong> à son équipe depuis le PC pour renforcer les combats.')}<br><br>
+        <strong>${_t('info_gang_bag_label', 'Sac')}</strong> — ${_t('info_gang_bag_desc', 'Balls actives, boosts temporaires, incubateurs. Clique une Ball pour l\'activer comme Ball par défaut.')}<br><br>
+        <strong>${_t('info_gang_cosmetics_label', 'Cosmétiques')}</strong> — ${_t('info_gang_cosmetics_desc', 'Personnalise l\'apparence du boss et du gang (déblocable via achats spéciaux).')}<br><br>
+        <span class="dim">${_t('info_gang_tip', 'Conseil : plus ta réputation est haute, plus les zones et agents disponibles sont puissants.')}</span>
       `
     },
     tabAgents: {
-      title: '👥 AGENTS',
+      title: _t('info_agents_title', '👥 AGENTS'),
       body: `
-        <strong>Niveau</strong> — Toute la puissance d'un agent. Monte en gagnant des combats et en capturant des Pokémon. Plafond : 100.<br><br>
-        <strong>Grade</strong> — Grunt → Sergent (Lv.25) → Lieutenant (Lv.50) → Commandant (Lv.75) → Élite / Général (Lv.100). Chaque grade booste la puissance en combat.<br><br>
-        <strong>Zone assignée</strong> — L'agent farme passivement en background au vrai rythme de la zone : captures, combats, coffres.<br><br>
-        <strong>Cap à 10</strong> — Les agents au-delà du 10e slot nécessitent un déblocage payant (coût croissant).<br><br>
-        <span class="dim">Un agent sans zone assignée ne fait rien. Un agent de haut grade avec une bonne équipe fait une différence significative en combat.</span>
+        <strong>${_t('info_agents_level_label', 'Niveau')}</strong> — ${_t('info_agents_level_desc', 'Toute la puissance d\'un agent. Monte en gagnant des combats et en capturant des Pokémon. Plafond : 100.')}<br><br>
+        <strong>${_t('info_agents_grade_label', 'Grade')}</strong> — ${_t('info_agents_grade_desc', 'Grunt → Sergent (Lv.25) → Lieutenant (Lv.50) → Commandant (Lv.75) → Élite / Général (Lv.100). Chaque grade booste la puissance en combat.')}<br><br>
+        <strong>${_t('info_agents_zone_label', 'Zone assignée')}</strong> — ${_t('info_agents_zone_desc', 'L\'agent farme passivement en background au vrai rythme de la zone : captures, combats, coffres.')}<br><br>
+        <strong>${_t('info_agents_cap_label', 'Cap à 10')}</strong> — ${_t('info_agents_cap_desc', 'Les agents au-delà du 10e slot nécessitent un déblocage payant (coût croissant).')}<br><br>
+        <span class="dim">${_t('info_agents_tip', 'Un agent sans zone assignée ne fait rien. Un agent de haut grade avec une bonne équipe fait une différence significative en combat.')}</span>
       `
     },
     tabZones: {
-      title: '🗺️ ZONES',
+      title: _t('info_zones_title', '🗺️ ZONES'),
       body: `
-        <strong>Zone ouverte</strong> — Fenêtre visible, spawns interactifs. Tu peux capturer et combattre manuellement. Le timer tourne au rythme de la zone.<br><br>
-        <strong>Zone fermée + agent</strong> — Simulation silencieuse en background au vrai rythme de spawn. L'agent capture, combat et ouvre les coffres automatiquement.<br><br>
-        <strong>Zone inactive</strong> — Aucun agent assigné, rien ne se passe.<br><br>
-        <strong>Maîtrise ★</strong> — S'accumule avec les victoires dans la zone. Améliore les spawns et débloque des dresseurs d'élite.<br><br>
-        <strong>Raids hostiles</strong> — Un gang adverse peut attaquer tes zones tenues. Tes agents défendent automatiquement.<br><br>
-        <strong>Slots d'agents</strong> — Chaque zone a un maximum d'agents assignables, déterminé par son niveau d'investissement.<br><br>
-        <span class="dim">Une zone fermée avec un bon agent est souvent plus efficace qu'une zone ouverte sans attention.</span>
+        <strong>${_t('info_zones_open_label', 'Zone ouverte')}</strong> — ${_t('info_zones_open_desc', 'Fenêtre visible, spawns interactifs. Tu peux capturer et combattre manuellement. Le timer tourne au rythme de la zone.')}<br><br>
+        <strong>${_t('info_zones_closed_label', 'Zone fermée + agent')}</strong> — ${_t('info_zones_closed_desc', 'Simulation silencieuse en background au vrai rythme de spawn. L\'agent capture, combat et ouvre les coffres automatiquement.')}<br><br>
+        <strong>${_t('info_zones_inactive_label', 'Zone inactive')}</strong> — ${_t('info_zones_inactive_desc', 'Aucun agent assigné, rien ne se passe.')}<br><br>
+        <strong>${_t('info_zones_mastery_label', 'Maîtrise ★')}</strong> — ${_t('info_zones_mastery_desc', 'S\'accumule avec les victoires dans la zone. Améliore les spawns et débloque des dresseurs d\'élite.')}<br><br>
+        <strong>${_t('info_zones_raids_label', 'Raids hostiles')}</strong> — ${_t('info_zones_raids_desc', 'Un gang adverse peut attaquer tes zones tenues. Tes agents défendent automatiquement.')}<br><br>
+        <strong>${_t('info_zones_slots_label', 'Slots d\'agents')}</strong> — ${_t('info_zones_slots_desc', 'Chaque zone a un maximum d\'agents assignables, déterminé par son niveau d\'investissement.')}<br><br>
+        <span class="dim">${_t('info_zones_tip', 'Une zone fermée avec un bon agent est souvent plus efficace qu\'une zone ouverte sans attention.')}</span>
       `
     },
     tabMarket: {
-      title: '💰 MARCHÉ',
+      title: _t('info_market_title', '💰 MARCHÉ'),
       body: `
-        <strong>Quêtes horaires</strong> — 3 Moyennes + 2 Difficiles, réinitialisées chaque heure. Reroll possible contre 10 REP.<br><br>
-        <strong>Objectifs de session</strong> — Quêtes courtes actives pendant ta session. Récompenses immédiates.<br><br>
-        <strong>Balls</strong> — Chaque type améliore le potentiel max des captures. Poké Ball → Super → Hyper → Master Ball (probabiliste pour les légendaires).<br><br>
-        <strong>Boosts temporaires</strong> — Activés depuis le Sac dans la fenêtre de zone. Durée 60–120s. Double XP, double loot, radar shiny…<br><br>
-        <strong>Achats spéciaux</strong> — Déblocables à la réputation : auto-vente, cosmétiques, slots supplémentaires.<br><br>
-        <span class="dim">Vends des Pokémon depuis le PC pour financer tes achats. Les rares et ★5 valent beaucoup plus.</span>
+        <strong>${_t('info_market_quests_label', 'Quêtes horaires')}</strong> — ${_t('info_market_quests_desc', '3 Moyennes + 2 Difficiles, réinitialisées chaque heure. Reroll possible contre 10 REP.')}<br><br>
+        <strong>${_t('info_market_session_label', 'Objectifs de session')}</strong> — ${_t('info_market_session_desc', 'Quêtes courtes actives pendant ta session. Récompenses immédiates.')}<br><br>
+        <strong>${_t('info_market_balls_label', 'Balls')}</strong> — ${_t('info_market_balls_desc', 'Chaque type améliore le potentiel max des captures. Poké Ball → Super → Hyper → Master Ball (probabiliste pour les légendaires).')}<br><br>
+        <strong>${_t('info_market_boosts_label', 'Boosts temporaires')}</strong> — ${_t('info_market_boosts_desc', 'Activés depuis le Sac dans la fenêtre de zone. Durée 60–120s. Double XP, double loot, radar shiny…')}<br><br>
+        <strong>${_t('info_market_special_label', 'Achats spéciaux')}</strong> — ${_t('info_market_special_desc', 'Déblocables à la réputation : auto-vente, cosmétiques, slots supplémentaires.')}<br><br>
+        <span class="dim">${_t('info_market_tip', 'Vends des Pokémon depuis le PC pour financer tes achats. Les rares et ★5 valent beaucoup plus.')}</span>
       `
     },
     tabPC: {
-      title: '💻 PC',
+      title: _t('info_pc_title', '💻 PC'),
       body: `
-        <strong>Puissance (PC)</strong> — Calculée via ATK×1.25 + DEF×0.65 + SPD×1.10 avec un soft cap à 620 (au-delà, les gains sont réduits à ×0.52). Les Pokémon très tanky (haute DEF) sont désavantagés face aux attaquants rapides.<br><br>
-        <strong>Shiny</strong> — Les chromatiques ont un bonus de puissance permanent de <strong>+10%</strong> sur leur PC de base.<br><br>
-        <strong>Variance individuelle</strong> — Chaque Pokémon reçoit un multiplicateur unique [×0.90–×1.10] assigné à la capture et stocké définitivement. Deux Pokémon identiques peuvent donc différer légèrement de PC.<br><br>
-        <strong>Nature</strong> — Multiplie 2 stats et en pénalise 1, impactant directement le PC via la formule pondérée.<br><br>
-        <strong>Potentiel ★</strong> — Permanent. Détermine le plafond de puissance du Pokémon. ★5 = tier S. Dépend de la Ball utilisée à la capture.<br><br>
-        <strong>Évolution</strong> — Via le Labo. Certaines évolutions nécessitent un niveau minimum, d'autres une pierre. Les stats augmentent significativement.<br><br>
-        <strong>Pension</strong> — 2 Pokémon compatibles produisent un œuf (incubateur requis). L'œuf hérite du potentiel des parents.<br><br>
-        <strong>Salle d'entraînement</strong> — Monte en niveau des Pokémon passifs. Coût en ₽ croissant avec le niveau.<br><br>
-        <strong>Vente</strong> — Prix = rareté × potentiel × nature. Pas de malus à la revente.<br><br>
-        <span class="dim">Filtre par rareté, type ou ★ pour retrouver tes meilleurs Pokémon rapidement.</span>
+        <strong>${_t('info_pc_power_label', 'Puissance (PC)')}</strong> — ${_t('info_pc_power_desc', 'Calculée via ATK×1.25 + DEF×0.65 + SPD×1.10 avec un soft cap à 620 (au-delà, les gains sont réduits à ×0.52). Les Pokémon très tanky (haute DEF) sont désavantagés face aux attaquants rapides.')}<br><br>
+        <strong>${_t('info_pc_shiny_label', 'Shiny')}</strong> — ${_t('info_pc_shiny_desc', 'Les chromatiques ont un bonus de puissance permanent de <strong>+10%</strong> sur leur PC de base.')}<br><br>
+        <strong>${_t('info_pc_variance_label', 'Variance individuelle')}</strong> — ${_t('info_pc_variance_desc', 'Chaque Pokémon reçoit un multiplicateur unique [×0.90–×1.10] assigné à la capture et stocké définitivement. Deux Pokémon identiques peuvent donc différer légèrement de PC.')}<br><br>
+        <strong>${_t('info_pc_nature_label', 'Nature')}</strong> — ${_t('info_pc_nature_desc', 'Multiplie 2 stats et en pénalise 1, impactant directement le PC via la formule pondérée.')}<br><br>
+        <strong>${_t('info_pc_potential_label', 'Potentiel ★')}</strong> — ${_t('info_pc_potential_desc', 'Permanent. Détermine le plafond de puissance du Pokémon. ★5 = tier S. Dépend de la Ball utilisée à la capture.')}<br><br>
+        <strong>${_t('info_pc_evo_label', 'Évolution')}</strong> — ${_t('info_pc_evo_desc', 'Via le Labo. Certaines évolutions nécessitent un niveau minimum, d\'autres une pierre. Les stats augmentent significativement.')}<br><br>
+        <strong>${_t('info_pc_daycare_label', 'Pension')}</strong> — ${_t('info_pc_daycare_desc', '2 Pokémon compatibles produisent un œuf (incubateur requis). L\'œuf hérite du potentiel des parents.')}<br><br>
+        <strong>${_t('info_pc_training_label', 'Salle d\'entraînement')}</strong> — ${_t('info_pc_training_desc', 'Monte en niveau des Pokémon passifs. Coût en ₽ croissant avec le niveau.')}<br><br>
+        <strong>${_t('info_pc_sell_label', 'Vente')}</strong> — ${_t('info_pc_sell_desc', 'Prix = rareté × potentiel × nature. Pas de malus à la revente.')}<br><br>
+        <span class="dim">${_t('info_pc_tip', 'Filtre par rareté, type ou ★ pour retrouver tes meilleurs Pokémon rapidement.')}</span>
       `
     },
     tabPokedex: {
-      title: '📖 POKÉDEX',
+      title: _t('info_pokedex_title', '📖 POKÉDEX'),
       body: `
-        <strong>Vu 👁</strong> — Ce Pokémon est apparu dans une zone (spawn visible ou background).<br><br>
-        <strong>Capturé ✓</strong> — Tu en possèdes au moins un dans ton PC.<br><br>
-        <strong>Shiny ✨</strong> — Version chromatique capturée. Chance de base très faible — boostée par les atouts Radar Shiny et les boosts temporaires.<br><br>
-        <strong>Progression</strong> — Compléter le Pokédex Kanto donne des REP et débloques. Gen 2 (Johto) disponible dès le départ. Un événement spécial débloque un aperçu de la Gen 3 (Sinnoh).<br><br>
-        <strong>Stats du joueur</strong> — Capture assez de Pokémon d'une espèce pour débloquer des bonus permanents (via le Pokédex étendu).<br><br>
-        <span class="dim">Légendaires et très rares n'apparaissent que dans des zones spécifiques à haute maîtrise.</span>
+        <strong>${_t('info_pokedex_seen_label', 'Vu 👁')}</strong> — ${_t('info_pokedex_seen_desc', 'Ce Pokémon est apparu dans une zone (spawn visible ou background).')}<br><br>
+        <strong>${_t('info_pokedex_caught_label', 'Capturé ✓')}</strong> — ${_t('info_pokedex_caught_desc', 'Tu en possèdes au moins un dans ton PC.')}<br><br>
+        <strong>${_t('info_pokedex_shiny_label', 'Shiny ✨')}</strong> — ${_t('info_pokedex_shiny_desc', 'Version chromatique capturée. Chance de base très faible — boostée par les atouts Radar Shiny et les boosts temporaires.')}<br><br>
+        <strong>${_t('info_pokedex_progress_label', 'Progression')}</strong> — ${_t('info_pokedex_progress_desc', 'Compléter le Pokédex Kanto donne des REP et déblocages. Gen 2 (Johto) disponible dès le départ. Un événement spécial débloque un aperçu de la Gen 3 (Sinnoh).')}<br><br>
+        <strong>${_t('info_pokedex_stats_label', 'Stats du joueur')}</strong> — ${_t('info_pokedex_stats_desc', 'Capture assez de Pokémon d\'une espèce pour débloquer des bonus permanents (via le Pokédex étendu).')}<br><br>
+        <span class="dim">${_t('info_pokedex_tip', 'Légendaires et très rares n\'apparaissent que dans des zones spécifiques à haute maîtrise.')}</span>
       `
     },
   };
@@ -169,7 +182,7 @@ function showShinyPopup(species_en) {
     const label  = document.getElementById('shinyPopupLabel');
     if (!el) return;
     sprite.src = pokeSprite(species_en, true);
-    label.textContent = (getState().lang === 'fr' ? '✨ SHINY ' : '✨ SHINY ') + speciesName(species_en) + ' !';
+    label.textContent = _t('shiny_popup_prefix', '✨ SHINY ') + speciesName(species_en) + ' !';
     el.classList.add('show');
     clearTimeout(_shinyPopupTimer);
     _shinyPopupTimer = setTimeout(() => el.classList.remove('show'), 3000);
@@ -187,7 +200,7 @@ function showRarePopup(species_en, zoneId) {
     if (!el) return;
     const state = getState();
     sprite.src = pokeSprite(species_en);
-    label.textContent = (state.lang === 'fr' ? '⚡ Rare aperçu : ' : '⚡ Rare spotted: ') + speciesName(species_en);
+    label.textContent = _t('rare_popup_prefix', '⚡ Rare aperçu : ') + speciesName(species_en);
 
     // Afficher le nom de la zone et le hint cliquable
     if (zoneId && hint) {
@@ -228,14 +241,14 @@ function showMiniCombatPopup({ win, zoneId, trainerKey, trainerName, agentSprite
     agentImg.src = agentSprite || '';
     enemyImg.src = globalThis.trainerSprite?.(trainerKey) || '';
     label.textContent = win
-      ? (state.lang === 'fr' ? `⚔ Victoire — ${trainerName}` : `⚔ Won — ${trainerName}`)
-      : (state.lang === 'fr' ? `💀 Défaite — ${trainerName}` : `💀 Lost — ${trainerName}`);
+      ? `${_t('mini_combat_win_prefix', '⚔ Victoire — ')}${trainerName}`
+      : `${_t('mini_combat_lose_prefix', '💀 Défaite — ')}${trainerName}`;
 
     const zone = ZONE_BY_ID[zoneId];
     const zoneName = zone ? (state.lang === 'fr' ? zone.fr : zone.en) : (zoneId || '');
     detail.textContent = win
       ? `${zoneName} · +${reward.toLocaleString()}₽ +${repGain}rep`
-      : `${zoneName} · ${state.lang === 'fr' ? 'combat perdu' : 'lost the fight'}`;
+      : `${zoneName} · ${_t('mini_combat_lost_fight', 'combat perdu')}`;
 
     el.dataset.targetZone = zoneId || '';
     el.classList.toggle('win',  !!win);
@@ -321,32 +334,32 @@ function openImportPreviewModal(raw) {
 
   // ── Liste des champs qui seront ajoutés/migrés ───────────────────────────
   const migrations = [];
-  if (!raw.eggs)             migrations.push('Système d\'œufs');
-  if (!raw.pension)          migrations.push('Pension');
-  if (!raw.trainingRoom)     migrations.push('Salle d\'entraînement');
-  if (!raw.missions)         migrations.push('Missions');
-  if (!raw.cosmetics)        migrations.push('Cosmétiques');
-  if (!raw.unlockedTitles)   migrations.push('Titres débloqués');
-  if (raw.gang?.titleC === undefined) migrations.push('Slots de titres (×4)');
-  if (!raw.behaviourLogs)    migrations.push('Logs comportementaux');
-  if (!raw.lab)              migrations.push('Laboratoire');
-  if (!raw.purchases)        migrations.push('Achats spéciaux');
-  if (!raw.eggs && !raw.inventory?.incubator) migrations.push('Inventaire incubateurs');
-  if (raw.settings?.uiScale === undefined) migrations.push('Paramètres UI avancés');
+  if (!raw.eggs)             migrations.push(_t('mig_eggs',           'Système d\'œufs'));
+  if (!raw.pension)          migrations.push(_t('mig_pension',        'Pension'));
+  if (!raw.trainingRoom)     migrations.push(_t('mig_training',       'Salle d\'entraînement'));
+  if (!raw.missions)         migrations.push(_t('mig_missions',       'Missions'));
+  if (!raw.cosmetics)        migrations.push(_t('mig_cosmetics',      'Cosmétiques'));
+  if (!raw.unlockedTitles)   migrations.push(_t('mig_titles',         'Titres débloqués'));
+  if (raw.gang?.titleC === undefined) migrations.push(_t('mig_title_slots', 'Slots de titres (×4)'));
+  if (!raw.behaviourLogs)    migrations.push(_t('mig_logs',           'Logs comportementaux'));
+  if (!raw.lab)              migrations.push(_t('mig_lab',            'Laboratoire'));
+  if (!raw.purchases)        migrations.push(_t('mig_purchases',      'Achats spéciaux'));
+  if (!raw.eggs && !raw.inventory?.incubator) migrations.push(_t('mig_incubator', 'Inventaire incubateurs'));
+  if (raw.settings?.uiScale === undefined) migrations.push(_t('mig_ui_settings', 'Paramètres UI avancés'));
 
   const migHtml = migrations.length
     ? migrations.map(m => `<div style="display:flex;gap:6px;align-items:center;font-size:8px;color:var(--text-dim)"><span style="color:var(--green)">✓</span>${m}</div>`).join('')
-    : '<div style="font-size:8px;color:var(--green)">Aucune migration nécessaire — save à jour</div>';
+    : `<div style="font-size:8px;color:var(--green)">${_t('mig_none', 'Aucune migration nécessaire — save à jour')}</div>`;
 
   const versionBadge = isLegacy
-    ? `<span style="font-size:7px;padding:2px 6px;border-radius:8px;background:rgba(255,160,0,.15);border:1px solid #ffa000;color:#ffa000">Version ancienne</span>`
-    : `<span style="font-size:7px;padding:2px 6px;border-radius:8px;background:rgba(0,200,100,.1);border:1px solid var(--green);color:var(--green)">Format compatible</span>`;
+    ? `<span style="font-size:7px;padding:2px 6px;border-radius:8px;background:rgba(255,160,0,.15);border:1px solid #ffa000;color:#ffa000">${_t('badge_legacy', 'Version ancienne')}</span>`
+    : `<span style="font-size:7px;padding:2px 6px;border-radius:8px;background:rgba(0,200,100,.1);border:1px solid var(--green);color:var(--green)">${_t('badge_compatible', 'Format compatible')}</span>`;
 
   overlay.innerHTML = `
     <div style="background:var(--bg-panel);border:2px solid var(--gold-dim);border-radius:var(--radius);padding:24px;max-width:620px;width:100%;max-height:90vh;overflow-y:auto;display:flex;flex-direction:column;gap:16px">
 
       <div style="display:flex;justify-content:space-between;align-items:center">
-        <div style="font-family:var(--font-pixel);font-size:11px;color:var(--gold)">📥 Importer une Save</div>
+        <div style="font-family:var(--font-pixel);font-size:11px;color:var(--gold)">${_t('import_modal_title', '📥 Importer une Save')}</div>
         <button id="btnImportClose" style="background:none;border:none;color:var(--text-dim);font-size:18px;cursor:pointer">✕</button>
       </div>
 
@@ -355,52 +368,52 @@ function openImportPreviewModal(raw) {
         <!-- Infos save importée -->
         <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;display:flex;flex-direction:column;gap:8px">
           <div style="display:flex;justify-content:space-between;align-items:center">
-            <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim)">SAVE IMPORTÉE</div>
+            <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim)">${_t('import_save_label', 'SAVE IMPORTÉE')}</div>
             ${versionBadge}
           </div>
           <div style="font-family:var(--font-pixel);font-size:12px;color:var(--red)">${_esc(gangName)}</div>
-          <div style="font-size:9px;color:var(--text-dim)">Boss : <span style="color:var(--text)">${_esc(bossName)}</span></div>
+          <div style="font-size:9px;color:var(--text-dim)">${_t('import_boss_label', 'Boss')} : <span style="color:var(--text)">${_esc(bossName)}</span></div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:4px">
-            <div style="font-size:8px;color:var(--text-dim)">🎯 Pokémon <span style="color:var(--text)">${pokeCount}</span></div>
-            <div style="font-size:8px;color:var(--text-dim)">👤 Agents <span style="color:var(--text)">${agentCount}</span></div>
-            <div style="font-size:8px;color:var(--text-dim)">⭐ Rép. <span style="color:var(--gold)">${reputation}</span></div>
+            <div style="font-size:8px;color:var(--text-dim)">🎯 ${_t('import_pokemon_count', 'Pokémon')} <span style="color:var(--text)">${pokeCount}</span></div>
+            <div style="font-size:8px;color:var(--text-dim)">👤 ${_t('import_agents_count', 'Agents')} <span style="color:var(--text)">${agentCount}</span></div>
+            <div style="font-size:8px;color:var(--text-dim)">⭐ ${_t('import_rep_count', 'Rép.')} <span style="color:var(--gold)">${reputation}</span></div>
             <div style="font-size:8px;color:var(--text-dim)">₽ <span style="color:var(--text)">${money}</span></div>
             <div style="font-size:8px;color:var(--text-dim)">📖 Kanto <span style="color:var(--text)">${dexKanto}/${getKantoDexSize()}</span></div>
-            <div style="font-size:8px;color:var(--text-dim)">🌐 National <span style="color:var(--text)">${dexCaught}/${getNationalDexSize()}</span></div>
-            <div style="font-size:8px;color:var(--text-dim)">✨ Espèces chromas <span style="color:var(--text)">${shinyCount}</span></div>
+            <div style="font-size:8px;color:var(--text-dim)">🌐 ${_t('import_national_label', 'National')} <span style="color:var(--text)">${dexCaught}/${getNationalDexSize()}</span></div>
+            <div style="font-size:8px;color:var(--text-dim)">✨ ${_t('import_shiny_species', 'Espèces chromas')} <span style="color:var(--text)">${shinyCount}</span></div>
           </div>
           <div style="font-size:7px;color:var(--text-dim);border-top:1px solid var(--border);padding-top:6px;margin-top:2px">
-            Sauvegardé le ${savedAt}<br>Temps de jeu : ${playtime} · Schéma v${schemaVer}
+            ${_t('import_saved_at', 'Sauvegardé le')} ${savedAt}<br>${_t('import_playtime', 'Temps de jeu')} : ${playtime} · ${_t('import_schema', 'Schéma')} v${schemaVer}
           </div>
         </div>
 
         <!-- Champs à migrer -->
         <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;display:flex;flex-direction:column;gap:6px">
-          <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);margin-bottom:4px">MIGRATION AUTOMATIQUE</div>
+          <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);margin-bottom:4px">${_t('import_auto_migration', 'MIGRATION AUTOMATIQUE')}</div>
           ${migHtml}
         </div>
       </div>
 
       <!-- Avertissement écrasement -->
       <div style="background:rgba(204,51,51,.08);border:1px solid rgba(204,51,51,.3);border-radius:var(--radius-sm);padding:10px;font-size:9px;color:var(--text-dim)">
-        ⚠ <b style="color:var(--red)">Import complet</b> : remplacera définitivement la save active (slot ${getActiveSaveSlot() + 1}).
-        Exporte d'abord ta save actuelle si tu veux la conserver.
+        ⚠ <b style="color:var(--red)">${_t('import_full_label', 'Import complet')}</b> : ${_t('import_overwrite_warning', 'remplacera définitivement la save active')} (slot ${getActiveSaveSlot() + 1}).
+        ${_t('import_backup_hint', 'Exporte d\'abord ta save actuelle si tu veux la conserver.')}
       </div>
 
       <div style="display:flex;flex-direction:column;gap:8px">
         <button id="btnImportBackupFirst" style="font-family:var(--font-pixel);font-size:8px;padding:8px 12px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer;text-align:left">
-          💾 Exporter ma save actuelle avant d'importer
+          💾 ${_t('btn_export_before_import', 'Exporter ma save actuelle avant d\'importer')}
         </button>
         <div style="display:flex;gap:8px">
           <button id="btnImportFull" style="flex:2;font-family:var(--font-pixel);font-size:9px;padding:12px;background:var(--bg);border:2px solid var(--gold);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">
-            ⚡ Import complet<br><span style="font-size:7px;color:var(--text-dim);font-family:sans-serif">Tous les données migrées automatiquement</span>
+            ⚡ ${_t('btn_import_full', 'Import complet')}<br><span style="font-size:7px;color:var(--text-dim);font-family:sans-serif">${_t('btn_import_full_sub', 'Tous les données migrées automatiquement')}</span>
           </button>
           ${isLegacy ? `<button id="btnImportHeritage" style="flex:1;font-family:var(--font-pixel);font-size:9px;padding:12px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">
-            🏆 Mode héritage<br><span style="font-size:7px;font-family:sans-serif">1 agent + 2 Pokémon</span>
+            🏆 ${_t('btn_import_heritage', 'Mode héritage')}<br><span style="font-size:7px;font-family:sans-serif">${_t('btn_import_heritage_sub', '1 agent + 2 Pokémon')}</span>
           </button>` : ''}
         </div>
         <button id="btnImportCancel" style="font-family:var(--font-pixel);font-size:8px;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">
-          Annuler
+          ${_t('btn_cancel', 'Annuler')}
         </button>
       </div>
     </div>`;
@@ -413,27 +426,27 @@ function openImportPreviewModal(raw) {
 
   overlay.querySelector('#btnImportBackupFirst')?.addEventListener('click', () => {
     exportSave();
-    overlay.querySelector('#btnImportBackupFirst').textContent = '✅ Save actuelle exportée !';
+    overlay.querySelector('#btnImportBackupFirst').textContent = `✅ ${_t('btn_exported_ok', 'Save actuelle exportée !')}`;
     overlay.querySelector('#btnImportBackupFirst').style.color = 'var(--green)';
   });
 
   overlay.querySelector('#btnImportFull')?.addEventListener('click', () => {
     showConfirm(
-      `Remplacer la save du slot ${getActiveSaveSlot() + 1} par la save importée de "${gangName}" ?`,
+      `${_t('confirm_import_replace', 'Remplacer la save du slot')} ${getActiveSaveSlot() + 1} ${_t('confirm_import_by', 'par la save importée de')} "${gangName}" ?`,
       () => {
         try {
           setState(migrate(raw));
           saveState();
           overlay.remove();
           renderAll();
-          notify(`✅ Save de "${gangName}" importée et convertie au format actuel.`, 'success');
+          notify(`✅ ${_t('notify_import_success_prefix', 'Save de')} "${gangName}" ${_t('notify_import_success_suffix', 'importée et convertie au format actuel.')}`, 'success');
         } catch (err) {
-          notify('Erreur lors de la conversion — save non-importée.', 'error');
+          notify(_t('notify_import_error', 'Erreur lors de la conversion — save non-importée.'), 'error');
           console.error(err);
         }
       },
       null,
-      { confirmLabel: 'Importer', cancelLabel: 'Annuler' }
+      { confirmLabel: _t('btn_import_confirm', 'Importer'), cancelLabel: _t('btn_cancel', 'Annuler') }
     );
   });
 
@@ -458,37 +471,37 @@ function openLegacyImportModal(legacyData) {
         <img src="${a.sprite || ''}" style="width:32px;height:32px" onerror="this.style.display='none'">
         <span style="font-size:10px">${a.name} — Lv.${a.level} (${getAgentRankLabel?.(a) ?? a.title})</span>
       </label>`).join('')
-    : '<div style="color:var(--text-dim);font-size:10px;padding:8px">Aucun agent dans cette save</div>';
+    : `<div style="color:var(--text-dim);font-size:10px;padding:8px">${_t('legacy_no_agent', 'Aucun agent dans cette save')}</div>`;
 
   const pokeHtml = pokemons.slice(0, 60).map(p => `<label style="display:flex;align-items:center;gap:6px;padding:4px;border-bottom:1px solid var(--border);cursor:pointer">
       <input type="checkbox" name="legacyPoke" value="${p.id}" style="accent-color:var(--gold)">
       <img src="${pokeSprite(p.species_en, p.shiny)}" style="width:28px;height:28px">
       <span style="font-size:9px">${speciesName(p.species_en)} Lv.${p.level} ${'*'.repeat(p.potential)}${p.shiny?' [S]':''}</span>
-    </label>`).join('') || '<div style="color:var(--text-dim);font-size:10px">Aucun Pokémon</div>';
+    </label>`).join('') || `<div style="color:var(--text-dim);font-size:10px">${_t('legacy_no_pokemon', 'Aucun Pokémon')}</div>`;
 
   overlay.innerHTML = `
     <div style="background:var(--bg-panel);border:2px solid var(--gold-dim);border-radius:var(--radius);padding:20px;max-width:600px;width:100%;max-height:90vh;overflow-y:auto">
-      <div style="font-family:var(--font-pixel);font-size:12px;color:var(--gold);margin-bottom:8px">IMPORT HERITAGE</div>
+      <div style="font-family:var(--font-pixel);font-size:12px;color:var(--gold);margin-bottom:8px">${_t('legacy_modal_title', 'IMPORT HERITAGE')}</div>
       <div style="font-size:10px;color:var(--text-dim);margin-bottom:16px">
-        Save d'une version antérieure détectée. Tu peux conserver <b style="color:var(--text)">1 agent</b> et <b style="color:var(--text)">2 Pokémon</b>.<br>
-        Les 2 Pokémon seront placés à la Pension pour pondre un oeuf de départ.
+        ${_t('legacy_intro', 'Save d\'une version antérieure détectée. Tu peux conserver')} <b style="color:var(--text)">1 ${_t('legacy_agent', 'agent')}</b> ${_t('legacy_and', 'et')} <b style="color:var(--text)">2 ${_t('legacy_pokemon', 'Pokémon')}</b>.<br>
+        ${_t('legacy_egg_hint', 'Les 2 Pokémon seront placés à la Pension pour pondre un oeuf de départ.')}
       </div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
         <div>
-          <div style="font-family:var(--font-pixel);font-size:9px;color:var(--text-dim);margin-bottom:8px">CHOISIR 1 AGENT</div>
+          <div style="font-family:var(--font-pixel);font-size:9px;color:var(--text-dim);margin-bottom:8px">${_t('legacy_pick_agent', 'CHOISIR 1 AGENT')}</div>
           <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);max-height:200px;overflow-y:auto">${agentHtml}</div>
         </div>
         <div>
-          <div style="font-family:var(--font-pixel);font-size:9px;color:var(--text-dim);margin-bottom:8px">CHOISIR 2 POKEMON</div>
-          <div id="legacyPokeCount" style="font-size:9px;color:var(--red);margin-bottom:4px">0/2 sélectionnés</div>
+          <div style="font-family:var(--font-pixel);font-size:9px;color:var(--text-dim);margin-bottom:8px">${_t('legacy_pick_pokemon', 'CHOISIR 2 POKEMON')}</div>
+          <div id="legacyPokeCount" style="font-size:9px;color:var(--red);margin-bottom:4px">${_t('legacy_poke_count', '0/2 sélectionnés')}</div>
           <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);max-height:200px;overflow-y:auto">${pokeHtml}</div>
         </div>
       </div>
 
       <div style="margin-top:16px;display:flex;gap:8px">
-        <button id="btnLegacyConfirm" style="flex:1;font-family:var(--font-pixel);font-size:10px;padding:10px;background:var(--bg);border:2px solid var(--gold);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">COMMENCER</button>
-        <button id="btnLegacyCancel" style="font-family:var(--font-pixel);font-size:10px;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">Annuler</button>
+        <button id="btnLegacyConfirm" style="flex:1;font-family:var(--font-pixel);font-size:10px;padding:10px;background:var(--bg);border:2px solid var(--gold);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">${_t('btn_legacy_start', 'COMMENCER')}</button>
+        <button id="btnLegacyCancel" style="font-family:var(--font-pixel);font-size:10px;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">${_t('btn_cancel', 'Annuler')}</button>
       </div>
     </div>`;
 
@@ -500,7 +513,7 @@ function openLegacyImportModal(legacyData) {
       const checked = [...overlay.querySelectorAll('input[name="legacyPoke"]:checked')];
       const countEl = document.getElementById('legacyPokeCount');
       if (checked.length > 2) { cb.checked = false; return; }
-      if (countEl) countEl.textContent = `${checked.length}/2 sélectionnés`;
+      if (countEl) countEl.textContent = `${checked.length}/2 ${_t('legacy_selected', 'sélectionnés')}`;
     });
   });
 
@@ -511,14 +524,14 @@ function openLegacyImportModal(legacyData) {
     const pokeIds = [...overlay.querySelectorAll('input[name="legacyPoke"]:checked')].map(cb => cb.value);
 
     if (pokeIds.length !== 2) {
-      notify('Sélectionne exactement 2 Pokémon.'); return;
+      notify(_t('notify_select_2_pokemon', 'Sélectionne exactement 2 Pokémon.')); return;
     }
 
     // Build fresh state
     const fresh = createDefaultState();
     // Transfer gang basics from legacy
-    fresh.gang.name = legacyData.gang?.name || 'La Gang';
-    fresh.gang.bossName = legacyData.gang?.bossName || 'Boss';
+    fresh.gang.name = legacyData.gang?.name || _t('default_gang_name', 'La Gang');
+    fresh.gang.bossName = legacyData.gang?.bossName || _t('default_boss_name', 'Boss');
     fresh.gang.bossSprite = legacyData.gang?.bossSprite || 'rocketgrunt';
 
     // Transfer chosen agent
@@ -542,7 +555,7 @@ function openLegacyImportModal(legacyData) {
     saveState();
     overlay.remove();
     renderAll();
-    notify('Nouvelle partie héritée commencée ! Les Pokémon sont à la Pension.', 'gold');
+    notify(_t('notify_legacy_started', 'Nouvelle partie héritée commencée ! Les Pokémon sont à la Pension.'), 'gold');
     switchTab('tabPC');
   });
 }
@@ -579,7 +592,7 @@ function openHubImportModal(raw) {
     const prev = getSlotPreview(i);
     const label = prev
       ? `<b style="color:var(--text)">${prev.name}</b> <span style="color:var(--text-dim);font-size:9px">(${prev.pokemon} pkm · ⭐${prev.rep})</span>`
-      : `<span style="color:#555;font-style:italic">Vide</span>`;
+      : `<span style="color:#555;font-style:italic">${_t('slot_empty', 'Vide')}</span>`;
     return `<label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;background:var(--bg);transition:border-color .15s" id="hubSlotLabel${i}">
       <input type="radio" name="hubTargetSlot" value="${i}" ${i === 0 ? 'checked' : ''} style="accent-color:var(--gold)">
       <span style="font-family:var(--font-pixel);font-size:8px;color:var(--gold)">SLOT ${i+1}</span>
@@ -589,41 +602,41 @@ function openHubImportModal(raw) {
 
   // ── Warnings ─────────────────────────────────────────────────────────────
   const warnMutation = count4star > 0
-    ? `<span style="color:#ffa040">${count4star} Pokémon 4★ détectés${count4shiny > 0 ? ` (dont ${count4shiny} ✨ shiny)` : ''} — tous passeront en 5★</span>`
-    : `<span style="color:var(--text-dim)">Aucun Pokémon 4★ détecté</span>`;
+    ? `<span style="color:#ffa040">${count4star} ${_t('warn_4star_detected', 'Pokémon 4★ détectés')}${count4shiny > 0 ? ` (${_t('warn_including', 'dont')} ${count4shiny} ✨ shiny)` : ''} — ${_t('warn_will_upgrade', 'tous passeront en 5★')}</span>`
+    : `<span style="color:var(--text-dim)">${_t('warn_no_4star', 'Aucun Pokémon 4★ détecté')}</span>`;
   const warnClean = orphanZones.length > 0
-    ? `<span style="color:#ffa040">${orphanZones.length} zone(s) obsolète(s) supprimée(s)</span>`
-    : `<span style="color:var(--text-dim)">Aucune zone obsolète</span>`;
+    ? `<span style="color:#ffa040">${orphanZones.length} ${_t('warn_orphan_zones', 'zone(s) obsolète(s) supprimée(s)')}</span>`
+    : `<span style="color:var(--text-dim)">${_t('warn_no_orphan', 'Aucune zone obsolète')}</span>`;
 
   overlay.innerHTML = `
     <div style="background:var(--bg-panel);border:2px solid #ffa040;border-radius:var(--radius);padding:24px;max-width:640px;width:100%;max-height:92vh;overflow-y:auto;display:flex;flex-direction:column;gap:16px">
 
       <div style="display:flex;justify-content:space-between;align-items:center">
-        <div style="font-family:var(--font-pixel);font-size:11px;color:#ffa040">📥 Importer une Save</div>
+        <div style="font-family:var(--font-pixel);font-size:11px;color:#ffa040">${_t('hub_import_title', '📥 Importer une Save')}</div>
         <button id="btnHubImportClose" style="background:none;border:none;color:var(--text-dim);font-size:18px;cursor:pointer">✕</button>
       </div>
 
       <!-- Save preview -->
       <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;display:flex;flex-direction:column;gap:6px">
-        <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);margin-bottom:4px">SAVE IMPORTÉE</div>
+        <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);margin-bottom:4px">${_t('hub_imported_save', 'SAVE IMPORTÉE')}</div>
         <div style="font-family:var(--font-pixel);font-size:13px;color:var(--red)">${_esc(gangName)}</div>
-        <div style="font-size:9px;color:var(--text-dim)">Boss : <span style="color:var(--text)">${_esc(bossName)}</span></div>
+        <div style="font-size:9px;color:var(--text-dim)">${_t('import_boss_label', 'Boss')} : <span style="color:var(--text)">${_esc(bossName)}</span></div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-top:4px">
-          <div style="font-size:8px;color:var(--text-dim)">🎯 Pokémon <span style="color:var(--text)">${pokeCount}</span></div>
-          <div style="font-size:8px;color:var(--text-dim)">👤 Agents <span style="color:var(--text)">${agentCount}</span></div>
-          <div style="font-size:8px;color:var(--text-dim)">⭐ Rép. <span style="color:var(--gold)">${reputation}</span></div>
+          <div style="font-size:8px;color:var(--text-dim)">🎯 ${_t('import_pokemon_count', 'Pokémon')} <span style="color:var(--text)">${pokeCount}</span></div>
+          <div style="font-size:8px;color:var(--text-dim)">👤 ${_t('import_agents_count', 'Agents')} <span style="color:var(--text)">${agentCount}</span></div>
+          <div style="font-size:8px;color:var(--text-dim)">⭐ ${_t('import_rep_count', 'Rép.')} <span style="color:var(--gold)">${reputation}</span></div>
           <div style="font-size:8px;color:var(--text-dim)">₽ <span style="color:var(--text)">${money}</span></div>
-          <div style="font-size:8px;color:var(--text-dim)">📖 Pokédex Kanto <span style="color:var(--text)">${dexKanto}/151</span> <span style="opacity:.6">(Nat. ${dexNat})</span></div>
-          <div style="font-size:8px;color:var(--text-dim)">✨ Espèces chroma <span style="color:var(--text)">${shinyCount}</span></div>
+          <div style="font-size:8px;color:var(--text-dim)">📖 ${_t('hub_pokedex_kanto', 'Pokédex Kanto')} <span style="color:var(--text)">${dexKanto}/151</span> <span style="opacity:.6">(${_t('hub_national', 'Nat.')} ${dexNat})</span></div>
+          <div style="font-size:8px;color:var(--text-dim)">✨ ${_t('import_shiny_species', 'Espèces chroma')} <span style="color:var(--text)">${shinyCount}</span></div>
         </div>
         <div style="font-size:7px;color:var(--text-dim);border-top:1px solid var(--border);padding-top:6px;margin-top:2px">
-          Sauvegardé le ${savedAt} · Temps de jeu : ${playtime} · Schéma v${schemaVer}
+          ${_t('import_saved_at', 'Sauvegardé le')} ${savedAt} · ${_t('import_playtime', 'Temps de jeu')} : ${playtime} · ${_t('import_schema', 'Schéma')} v${schemaVer}
         </div>
       </div>
 
       <!-- Slot picker -->
       <div>
-        <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold);margin-bottom:8px;letter-spacing:1px">SLOT DE DESTINATION</div>
+        <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold);margin-bottom:8px;letter-spacing:1px">${_t('hub_slot_dest', 'SLOT DE DESTINATION')}</div>
         <div style="display:flex;flex-direction:column;gap:6px" id="hubSlotPicker">
           ${slotHtml}
         </div>
@@ -631,13 +644,13 @@ function openHubImportModal(raw) {
 
       <!-- Options -->
       <div style="display:flex;flex-direction:column;gap:8px">
-        <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold);letter-spacing:1px">OPTIONS D'IMPORT</div>
+        <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold);letter-spacing:1px">${_t('hub_import_options', 'OPTIONS D\'IMPORT')}</div>
 
         <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);cursor:pointer">
           <input type="checkbox" id="chkAutoMutation" ${count4star > 0 ? 'checked' : ''} style="margin-top:2px;accent-color:var(--gold)">
           <div>
-            <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text);margin-bottom:3px">⚡ Mutation auto 4★ → 5★</div>
-            <div style="font-size:9px;color:var(--text-dim)">Améliore tous les Pokémon 4★ en 5★ automatiquement.<br>Priorité : ✨ shiny → niveau → ordre PC. Les shinys ne seront jamais utilisés comme matière première.</div>
+            <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text);margin-bottom:3px">${_t('opt_mutation_label', '⚡ Mutation auto 4★ → 5★')}</div>
+            <div style="font-size:9px;color:var(--text-dim)">${_t('opt_mutation_desc', 'Améliore tous les Pokémon 4★ en 5★ automatiquement.')}<br>${_t('opt_mutation_desc2', 'Priorité : ✨ shiny → niveau → ordre PC. Les shinys ne seront jamais utilisés comme matière première.')}</div>
             <div style="font-size:8px;margin-top:4px">${warnMutation}</div>
           </div>
         </label>
@@ -645,8 +658,8 @@ function openHubImportModal(raw) {
         <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);cursor:pointer">
           <input type="checkbox" id="chkCleanObsolete" ${orphanZones.length > 0 ? 'checked' : ''} style="margin-top:2px;accent-color:var(--gold)">
           <div>
-            <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text);margin-bottom:3px">🧹 Nettoyage des données obsolètes</div>
-            <div style="font-size:9px;color:var(--text-dim)">Supprime les zones, états et environnements qui n'existent plus dans la version actuelle du jeu.<br>Ces données seront remplacées par <i>"information perdue avec le temps"</i>.</div>
+            <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text);margin-bottom:3px">${_t('opt_clean_label', '🧹 Nettoyage des données obsolètes')}</div>
+            <div style="font-size:9px;color:var(--text-dim)">${_t('opt_clean_desc', 'Supprime les zones, états et environnements qui n\'existent plus dans la version actuelle du jeu.')}<br>${_t('opt_clean_desc2', 'Ces données seront remplacées par')} <i>${_t('opt_clean_lost_data', '"information perdue avec le temps"')}</i>.</div>
             <div style="font-size:8px;margin-top:4px">${warnClean}</div>
           </div>
         </label>
@@ -654,20 +667,20 @@ function openHubImportModal(raw) {
 
       <!-- Warning -->
       <div style="background:rgba(255,140,0,.08);border:1px solid rgba(255,140,0,.3);border-radius:var(--radius-sm);padding:10px;font-size:9px;color:var(--text-dim)">
-        ⚠ Le slot de destination sera <b style="color:#ffa040">écrasé</b>. Exporte ta save actuelle si tu veux la conserver.
+        ⚠ ${_t('hub_overwrite_warning_prefix', 'Le slot de destination sera')} <b style="color:#ffa040">${_t('hub_overwrite_label', 'écrasé')}</b>. ${_t('hub_overwrite_warning_suffix', 'Exporte ta save actuelle si tu veux la conserver.')}
       </div>
 
       <!-- Actions -->
       <div style="display:flex;gap:8px">
         <button id="btnHubImportBackup" style="flex:1;font-family:var(--font-pixel);font-size:8px;padding:10px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">
-          💾 Exporter ma save actuelle
+          💾 ${_t('btn_export_current', 'Exporter ma save actuelle')}
         </button>
         <button id="btnHubImportConfirm" style="flex:2;font-family:var(--font-pixel);font-size:9px;padding:10px;background:var(--bg);border:2px solid #ffa040;border-radius:var(--radius-sm);color:#ffa040;cursor:pointer">
-          📥 Importer dans ce slot
+          📥 ${_t('btn_import_in_slot', 'Importer dans ce slot')}
         </button>
       </div>
       <button id="btnHubImportCancel" style="font-family:var(--font-pixel);font-size:8px;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">
-        Annuler
+        ${_t('btn_cancel', 'Annuler')}
       </button>
 
     </div>`;
@@ -687,7 +700,7 @@ function openHubImportModal(raw) {
   overlay.querySelector('#btnHubImportBackup')?.addEventListener('click', () => {
     exportSave();
     const btn = overlay.querySelector('#btnHubImportBackup');
-    btn.textContent = '✅ Save exportée !';
+    btn.textContent = `✅ ${_t('btn_exported_ok', 'Save exportée !')}`;
     btn.style.color = 'var(--green)';
   });
 
@@ -697,7 +710,7 @@ function openHubImportModal(raw) {
     const doClean    = overlay.querySelector('#chkCleanObsolete')?.checked ?? false;
 
     showConfirm(
-      `Importer la save de <b>${gangName}</b> dans le Slot ${targetSlot + 1} ?<br><span style="color:var(--text-dim);font-size:10px">Le contenu actuel du slot sera effacé.</span>`,
+      `${_t('confirm_hub_import_prefix', 'Importer la save de')} <b>${gangName}</b> ${_t('confirm_hub_import_slot', 'dans le Slot')} ${targetSlot + 1} ?<br><span style="color:var(--text-dim);font-size:10px">${_t('confirm_hub_import_warning', 'Le contenu actuel du slot sera effacé.')}</span>`,
       () => {
         try {
           // Deep clone before mutation
@@ -715,9 +728,8 @@ function openHubImportModal(raw) {
           if (doClean && cleaned > 0) {
             if (!migrated.behaviourLogs) migrated.behaviourLogs = {};
             migrated.behaviourLogs._importCleanedZones = cleaned;
-            // Add a visible log to pokedex area isn't natural — add a note to notifications array if present
             if (!migrated._importNotes) migrated._importNotes = [];
-            migrated._importNotes.push(`information perdue avec le temps (${cleaned} zone(s) obsolète(s) supprimée(s))`);
+            migrated._importNotes.push(`${_t('import_note_lost_data', 'information perdue avec le temps')} (${cleaned} ${_t('import_note_zones_removed', 'zone(s) obsolète(s) supprimée(s)')})`);
           }
 
           // Save to the target slot (don't affect current active game)
@@ -726,31 +738,28 @@ function openHubImportModal(raw) {
           overlay.remove();
 
           // Compose summary message
-          const parts = [`✅ Save de "${gangName}" importée dans le Slot ${targetSlot + 1}.`];
-          if (mutated > 0) parts.push(`⚡ ${mutated} Pokémon 4★ → 5★.`);
-          if (cleaned > 0) parts.push(`🧹 ${cleaned} zone(s) obsolète(s) supprimée(s).`);
-          parts.push('Clique ▶ sur le slot pour jouer.');
+          const parts = [`✅ ${_t('notify_hub_import_prefix', 'Save de')} "${gangName}" ${_t('notify_hub_import_slot', 'importée dans le Slot')} ${targetSlot + 1}.`];
+          if (mutated > 0) parts.push(`⚡ ${mutated} ${_t('notify_mutated', 'Pokémon 4★ → 5★.')}`);
+          if (cleaned > 0) parts.push(`🧹 ${cleaned} ${_t('notify_cleaned', 'zone(s) obsolète(s) supprimée(s).')}`);
+          parts.push(_t('notify_click_to_play', 'Clique ▶ sur le slot pour jouer.'));
           notify(parts.join(' '), 'success');
 
           // Refresh hub slot display if introOverlay is visible
           const introSlots = document.getElementById('introSlots');
           if (introSlots) {
-            // Re-trigger showIntro rendering by dispatching a custom event, or simply reload slots
-            // We call the global renderSlots if accessible — it's locally scoped, so refresh the overlay
             const introOverlay = document.getElementById('introOverlay');
             if (introOverlay?.classList.contains('active')) {
-              // Remove active class to reset, then re-show
               introOverlay.classList.remove('active');
               showIntro();
             }
           }
         } catch (err) {
-          notify('Erreur lors de l\'importation — save non modifiée.', 'error');
+          notify(_t('notify_hub_import_error', 'Erreur lors de l\'importation — save non modifiée.'), 'error');
           console.error(err);
         }
       },
       null,
-      { confirmLabel: 'Importer', cancelLabel: 'Annuler' }
+      { confirmLabel: _t('btn_import_confirm', 'Importer'), cancelLabel: _t('btn_cancel', 'Annuler') }
     );
   });
 }
@@ -771,8 +780,8 @@ function showMigrationBanner({ from, toLegacyKey, fields }) {
     : '';
   const legacyNote = toLegacyKey
     ? `<div style="margin-top:8px;font-size:9px;color:var(--red);background:rgba(255,0,0,.07);padding:6px 8px;border-radius:4px;border-left:2px solid var(--red)">
-        ⚠ Ancienne sauvegarde détectée (<code style="font-size:9px">${toLegacyKey}</code>).<br>
-        Convertie et transférée vers le slot actuel. L'ancienne clé a été supprimée.
+        ⚠ ${_t('migration_old_save', 'Ancienne sauvegarde détectée')} (<code style="font-size:9px">${toLegacyKey}</code>).<br>
+        ${_t('migration_converted', 'Convertie et transférée vers le slot actuel. L\'ancienne clé a été supprimée.')}
       </div>`
     : '';
 
@@ -780,20 +789,20 @@ function showMigrationBanner({ from, toLegacyKey, fields }) {
     <div style="background:var(--bg-panel);border:2px solid var(--gold-dim);border-radius:var(--radius);
                 padding:22px 24px;max-width:420px;width:100%;box-shadow:0 8px 40px rgba(0,0,0,.6)">
       <div style="font-family:var(--font-pixel);font-size:11px;color:var(--gold);margin-bottom:4px">
-        🔄 SAVE MISE À JOUR
+        ${_t('migration_banner_title', '🔄 SAVE MISE À JOUR')}
       </div>
       <div style="font-size:10px;color:var(--text-dim);margin-bottom:4px">
-        Depuis : <span style="color:var(--text)">${from}</span> →
-        schéma <span style="color:var(--gold)">v${getSaveSchemaVersion()}</span>
+        ${_t('migration_from', 'Depuis')} : <span style="color:var(--text)">${from}</span> →
+        ${_t('migration_schema', 'schéma')} <span style="color:var(--gold)">v${getSaveSchemaVersion()}</span>
       </div>
-      ${fields.length ? `<div style="font-size:9px;color:var(--text-dim);margin-top:6px">Nouveaux éléments ajoutés :</div>${fieldsHtml}` : ''}
+      ${fields.length ? `<div style="font-size:9px;color:var(--text-dim);margin-top:6px">${_t('migration_new_fields', 'Nouveaux éléments ajoutés')} :</div>${fieldsHtml}` : ''}
       ${legacyNote}
       <div style="margin-top:8px;font-size:9px;color:var(--text-dim)">
-        Ta progression, Pokémon et argent sont intacts. ✅
+        ${_t('migration_intact', 'Ta progression, Pokémon et argent sont intacts.')} ✅
       </div>
       <div style="margin-top:16px;text-align:right">
         <button id="btnMigrationOk" class="btn-gold" style="padding:6px 20px;font-size:10px">
-          OK, continuer →
+          ${_t('btn_migration_ok', 'OK, continuer →')}
         </button>
       </div>
     </div>`;
