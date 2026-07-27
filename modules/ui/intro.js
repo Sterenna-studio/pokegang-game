@@ -8,6 +8,8 @@ const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg
 const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
 const _topBar = ()               => EventBus.emit(EVENTS.UI_TOPBAR_UPDATE);
 const _save   = ()               => globalThis.saveState?.();
+const _t      = (fr, en)         => (globalThis.state?.lang === 'en' ? en : fr);
+const _lvl    = (n)              => _t(`Niv. ${n}`, `Lvl ${n}`);
 
 
 // ════════════════════════════════════════════════════════════════
@@ -30,28 +32,41 @@ const INTRO_STARTERS = [
   {
     en: 'meowth',
     fr: 'Miaous',
+    nameEn: 'Meowth',
     dex: 52,
     types: ['Normal'],
+    typesEn: ['Normal'],
     desc: 'Agile et opportuniste.\nMaître des combines.',
+    descEn: 'Agile and opportunistic.\nMaster of the hustle.',
     icon: '🪙',
   },
   {
     en: 'zubat',
     fr: 'Nosferapti',
+    nameEn: 'Zubat',
     dex: 41,
     types: ['Poison', 'Vol'],
+    typesEn: ['Poison', 'Flying'],
     desc: 'Discret et tenace.\nIl voit dans l\'ombre.',
+    descEn: 'Stealthy and relentless.\nHe sees in the dark.',
     icon: '🦇',
   },
   {
     en: 'gastly',
     fr: 'Fantominus',
+    nameEn: 'Gastly',
     dex: 92,
     types: ['Spectre', 'Poison'],
+    typesEn: ['Ghost', 'Poison'],
     desc: 'Insaisissable.\nSème la panique.',
+    descEn: 'Elusive.\nSpreads panic.',
     icon: '👻',
   },
 ];
+
+const _starterName  = (s) => _t(s.fr, s.nameEn);
+const _starterTypes = (s) => (_t(s.types, s.typesEn) || []).join(' · ');
+const _starterDesc  = (s) => _t(s.desc, s.descEn);
 
 // ── Boss sprite pool (player-character looking) ───────────────────
 const INTRO_BOSS_SPRITES = [
@@ -61,11 +76,26 @@ const INTRO_BOSS_SPRITES = [
 
 // ── Giovanni's dialog lines ───────────────────────────────────────
 const LINES = {
-  name:    () => `P'tit gars... c'est quoi ton nom déjà ?`,
-  starter: (name) => `${name}. J'ai vu en toi quelque chose — un potentiel. Je vais te confier l'un de mes Pokémon. Choisis celui qui te ressemble.`,
-  gang:    (starter) => `${starter}... bon choix. Maintenant, ce gang a besoin d'un nom. Quelque chose qui en impose.`,
-  sprite:  (gang) => `"${gang}"... j'aime ça. Et toi — à quoi tu ressembles ? Montre-moi ta tête.`,
-  done:    (name, gang) => `Parfait, ${name}. La ${gang} est fondée. Maintenant va — et prouve-moi que tu vaux quelque chose.`,
+  name:    () => _t(
+    `P'tit gars... c'est quoi ton nom déjà ?`,
+    `Kid... what was your name again?`
+  ),
+  starter: (name) => _t(
+    `${name}. J'ai vu en toi quelque chose — un potentiel. Je vais te confier l'un de mes Pokémon. Choisis celui qui te ressemble.`,
+    `${name}. I saw something in you — potential. I'm going to entrust you with one of my Pokémon. Choose the one that suits you.`
+  ),
+  gang:    (starter) => _t(
+    `${starter}... bon choix. Maintenant, ce gang a besoin d'un nom. Quelque chose qui en impose.`,
+    `${starter}... good choice. Now, this gang needs a name. Something that commands respect.`
+  ),
+  sprite:  (gang) => _t(
+    `"${gang}"... j'aime ça. Et toi — à quoi tu ressembles ? Montre-moi ta tête.`,
+    `"${gang}"... I like it. Now you — what do you look like? Show me your face.`
+  ),
+  done:    (name, gang) => _t(
+    `Parfait, ${name}. La ${gang} est fondée. Maintenant va — et prouve-moi que tu vaux quelque chose.`,
+    `Perfect, ${name}. The ${gang} is founded. Now go — and prove to me you're worth something.`
+  ),
 };
 
 // ── Typewriter effect ─────────────────────────────────────────────
@@ -315,10 +345,10 @@ export function openGiovanniIntro({ slotIdx = 0, onComplete } = {}) {
       _fadeTransition(inputArea, () => {
         inputArea.innerHTML = `
           <div style="display:flex;gap:8px;align-items:center">
-            <input class="gi-input" id="gi-name-input" maxlength="20" placeholder="Ton nom de boss…" autocomplete="off">
+            <input class="gi-input" id="gi-name-input" maxlength="20" placeholder="${_t('Ton nom de boss…', 'Your boss name…')}" autocomplete="off">
             <button class="gi-btn gi-btn-primary" id="gi-name-next">→</button>
           </div>
-          <div style="font-size:9px;color:rgba(255,255,255,.25);margin-top:6px">Max. 20 caractères</div>`;
+          <div style="font-size:9px;color:rgba(255,255,255,.25);margin-top:6px">${_t('Max. 20 caractères', 'Max. 20 characters')}</div>`;
         const input = inputArea.querySelector('#gi-name-input');
         const btn   = inputArea.querySelector('#gi-name-next');
         input.focus();
@@ -348,10 +378,10 @@ export function openGiovanniIntro({ slotIdx = 0, onComplete } = {}) {
               <img src="${_ctx.pokeSprite?.(s.en, false) || ''}"
                 style="width:72px;height:72px;image-rendering:pixelated;display:block;margin:0 auto 8px"
                 onerror="this.style.opacity='.2'">
-              <div style="font-family:var(--font-pixel,monospace);font-size:9px;color:#e8e8e8;margin-bottom:4px">${s.fr}</div>
-              <div style="font-size:8px;color:rgba(255,255,255,.35);margin-bottom:8px">${s.types.join(' · ')}</div>
-              <div style="font-size:10px;color:rgba(255,255,255,.6);line-height:1.5;white-space:pre-line">${s.desc}</div>
-              <div style="margin-top:8px;font-size:8px;color:rgba(200,160,0,.7)">Niv. 15 · ★★★</div>
+              <div style="font-family:var(--font-pixel,monospace);font-size:9px;color:#e8e8e8;margin-bottom:4px">${_starterName(s)}</div>
+              <div style="font-size:8px;color:rgba(255,255,255,.35);margin-bottom:8px">${_starterTypes(s)}</div>
+              <div style="font-size:10px;color:rgba(255,255,255,.6);line-height:1.5;white-space:pre-line">${_starterDesc(s)}</div>
+              <div style="margin-top:8px;font-size:8px;color:rgba(200,160,0,.7)">${_lvl(15)} · ★★★</div>
             </div>`).join('')}
         </div>`;
 
@@ -369,7 +399,7 @@ export function openGiovanniIntro({ slotIdx = 0, onComplete } = {}) {
       _say(LINES.starter(bossName), () => {
         _fadeTransition(inputArea, () => {
           inputArea.innerHTML = `<div style="display:flex;justify-content:flex-end">
-            <button class="gi-btn gi-btn-primary" id="gi-starter-next">Choisir →</button>
+            <button class="gi-btn gi-btn-primary" id="gi-starter-next">${_t('Choisir →', 'Choose →')}</button>
           </div>`;
           inputArea.querySelector('#gi-starter-next').addEventListener('click', () => {
             if (!starterEn) {
@@ -378,8 +408,8 @@ export function openGiovanniIntro({ slotIdx = 0, onComplete } = {}) {
               if (firstCard) { firstCard.classList.add('selected'); starterEn = firstCard.dataset.en; }
               else return;
             }
-            const starterFr = INTRO_STARTERS.find(s => s.en === starterEn)?.fr || starterEn;
-            stepGang(starterFr);
+            const starterName = _starterName(INTRO_STARTERS.find(s => s.en === starterEn)) || starterEn;
+            stepGang(starterName);
           });
         });
       });
@@ -387,7 +417,7 @@ export function openGiovanniIntro({ slotIdx = 0, onComplete } = {}) {
   }
 
   // ── STEP 2 — Gang name ────────────────────────────────────────
-  function stepGang(starterFr) {
+  function stepGang(starterName) {
     _clearTypeTimer();
     _updateDots(2);
 
@@ -395,14 +425,14 @@ export function openGiovanniIntro({ slotIdx = 0, onComplete } = {}) {
     _fadeTransition(contentZone, () => { contentZone.innerHTML = ''; });
 
     setTimeout(() => {
-      _say(LINES.gang(starterFr), () => {
+      _say(LINES.gang(starterName), () => {
         _fadeTransition(inputArea, () => {
           inputArea.innerHTML = `
             <div style="display:flex;gap:8px;align-items:center">
-              <input class="gi-input" id="gi-gang-input" maxlength="24" placeholder="Nom du gang…" autocomplete="off">
+              <input class="gi-input" id="gi-gang-input" maxlength="24" placeholder="${_t('Nom du gang…', 'Gang name…')}" autocomplete="off">
               <button class="gi-btn gi-btn-primary" id="gi-gang-next">→</button>
             </div>
-            <div style="font-size:9px;color:rgba(255,255,255,.25);margin-top:6px">Max. 24 caractères</div>`;
+            <div style="font-size:9px;color:rgba(255,255,255,.25);margin-top:6px">${_t('Max. 24 caractères', 'Max. 24 characters')}</div>`;
           const input = inputArea.querySelector('#gi-gang-input');
           const btn   = inputArea.querySelector('#gi-gang-next');
           input.focus();
@@ -457,7 +487,7 @@ export function openGiovanniIntro({ slotIdx = 0, onComplete } = {}) {
       _say(LINES.sprite(gangName), () => {
         _fadeTransition(inputArea, () => {
           inputArea.innerHTML = `<div style="display:flex;justify-content:flex-end">
-            <button class="gi-btn gi-btn-primary" id="gi-sprite-next">C'est moi →</button>
+            <button class="gi-btn gi-btn-primary" id="gi-sprite-next">${_t("C'est moi →", "That's me →")}</button>
           </div>`;
           inputArea.querySelector('#gi-sprite-next').addEventListener('click', stepDone);
         });
@@ -480,7 +510,7 @@ export function openGiovanniIntro({ slotIdx = 0, onComplete } = {}) {
         <div style="width:100%;background:rgba(0,0,0,.3);border:1px solid rgba(200,160,0,.15);
           border-radius:8px;padding:16px 18px;display:flex;flex-direction:column;gap:10px">
           <div style="font-family:var(--font-pixel,monospace);font-size:8px;color:rgba(200,160,0,.7);
-            letter-spacing:.6px;margin-bottom:2px">RÉSUMÉ</div>
+            letter-spacing:.6px;margin-bottom:2px">${_t('RÉSUMÉ', 'SUMMARY')}</div>
           <div style="display:flex;align-items:center;gap:14px">
             <img src="${_trainerSprite(bossSprite)}"
               style="width:52px;height:52px;image-rendering:pixelated"
@@ -493,7 +523,7 @@ export function openGiovanniIntro({ slotIdx = 0, onComplete } = {}) {
               <img src="${_ctx.pokeSprite?.(starterData.en, false) || ''}"
                 style="width:56px;height:56px;image-rendering:pixelated;display:block;margin:0 auto"
                 onerror="this.style.opacity='.2'">
-              <div style="font-size:9px;color:rgba(255,255,255,.45);margin-top:2px">${starterData.fr} niv.15</div>
+              <div style="font-size:9px;color:rgba(255,255,255,.45);margin-top:2px">${_starterName(starterData)} ${_lvl(15)}</div>
             </div>
           </div>
         </div>`;
@@ -504,8 +534,8 @@ export function openGiovanniIntro({ slotIdx = 0, onComplete } = {}) {
         _fadeTransition(inputArea, () => {
           inputArea.innerHTML = `
             <div style="display:flex;justify-content:flex-end;gap:10px;align-items:center">
-              <button class="gi-btn gi-btn-ghost" id="gi-back-btn">← Modifier</button>
-              <button class="gi-btn gi-btn-primary" id="gi-confirm-btn">C'est parti ! 🚀</button>
+              <button class="gi-btn gi-btn-ghost" id="gi-back-btn">${_t('← Modifier', '← Edit')}</button>
+              <button class="gi-btn gi-btn-primary" id="gi-confirm-btn">${_t("C'est parti ! 🚀", "Let's go! 🚀")}</button>
             </div>`;
 
           inputArea.querySelector('#gi-back-btn').addEventListener('click', () => stepName());
@@ -552,7 +582,7 @@ export function openGiovanniIntro({ slotIdx = 0, onComplete } = {}) {
 
       _ctx.setActiveSaveSlot?.(slotIdx);
       _ctx.saveState?.();
-      _ctx.notify?.(`🎉 Bienvenue ${bossName} ! Ta ${gangName} est fondée.`, 'gold');
+      _ctx.notify?.(_t(`🎉 Bienvenue ${bossName} ! Ta ${gangName} est fondée.`, `🎉 Welcome ${bossName}! Your ${gangName} is founded.`), 'gold');
     } catch (err) {
       console.error('[intro] Giovanni intro failed to persist:', err);
     } finally {
@@ -719,7 +749,10 @@ export function openStarterGiftPopup({ onComplete } = {}) {
   }
 
   // ── Giovanni's catch-up line ──────────────────────────────────
-  const line = `Tiens tiens… ${bossName}. Je vois que la ${gangName} est déjà sur pied. Mais tu n'as pas encore choisi ton Pokémon. Remédions à ça.`;
+  const line = _t(
+    `Tiens tiens… ${bossName}. Je vois que la ${gangName} est déjà sur pied. Mais tu n'as pas encore choisi ton Pokémon. Remédions à ça.`,
+    `Well, well… ${bossName}. I see the ${gangName} is already up and running. But you haven't picked your Pokémon yet. Let's fix that.`
+  );
 
   // Show starter cards
   contentZone.innerHTML = `
@@ -729,10 +762,10 @@ export function openStarterGiftPopup({ onComplete } = {}) {
           <img src="${_ctx.pokeSprite?.(s.en, false) || ''}"
             style="width:72px;height:72px;image-rendering:pixelated;display:block;margin:0 auto 8px"
             onerror="this.style.opacity='.2'">
-          <div style="font-family:var(--font-pixel,monospace);font-size:9px;color:#e8e8e8;margin-bottom:4px">${s.fr}</div>
-          <div style="font-size:8px;color:rgba(255,255,255,.35);margin-bottom:8px">${s.types.join(' · ')}</div>
-          <div style="font-size:10px;color:rgba(255,255,255,.6);line-height:1.5;white-space:pre-line">${s.desc}</div>
-          <div style="margin-top:8px;font-size:8px;color:rgba(200,160,0,.7)">Niv. 15 · ★★★</div>
+          <div style="font-family:var(--font-pixel,monospace);font-size:9px;color:#e8e8e8;margin-bottom:4px">${_starterName(s)}</div>
+          <div style="font-size:8px;color:rgba(255,255,255,.35);margin-bottom:8px">${_starterTypes(s)}</div>
+          <div style="font-size:10px;color:rgba(255,255,255,.6);line-height:1.5;white-space:pre-line">${_starterDesc(s)}</div>
+          <div style="margin-top:8px;font-size:8px;color:rgba(200,160,0,.7)">${_lvl(15)} · ★★★</div>
         </div>`).join('')}
     </div>`;
 
@@ -751,7 +784,7 @@ export function openStarterGiftPopup({ onComplete } = {}) {
           font-family:var(--font-pixel,monospace);font-size:10px;
           padding:10px 22px;border-radius:6px;border:none;cursor:pointer;
           background:var(--red,#cc3333);color:#fff;transition:background .15s"
-          id="sgp-confirm-btn">Prendre ce Pokémon →</button>
+          id="sgp-confirm-btn">${_t('Prendre ce Pokémon →', 'Take this Pokémon →')}</button>
       </div>`;
 
     dialog.querySelector('#sgp-confirm-btn').addEventListener('click', () => {
@@ -787,8 +820,8 @@ export function openStarterGiftPopup({ onComplete } = {}) {
       state.gang.introSeen = true;
       _ctx.saveState?.();
 
-      const starterFr = INTRO_STARTERS.find(s => s.en === sp)?.fr || sp;
-      _ctx.notify?.(`🎁 Giovanni t'a offert ${starterFr} niv. 15 !`, 'gold');
+      const starterName = _starterName(INTRO_STARTERS.find(s => s.en === sp)) || sp;
+      _ctx.notify?.(_t(`🎁 Giovanni t'a offert ${starterName} niv. 15 !`, `🎁 Giovanni gave you ${starterName} lvl. 15!`), 'gold');
     } catch (err) {
       console.error('[intro] Starter gift failed to persist:', err);
     } finally {
@@ -808,6 +841,23 @@ export function showIntro() {
   if (!overlay) return;
   overlay.classList.add('active');
 
+  // ── Static markup (index.html) — patched here since it renders
+  // before state.lang is known ────────────────────────────────────
+  const introSettingsBtn = document.getElementById('introSettingsBtn');
+  if (introSettingsBtn) introSettingsBtn.title = _t('Paramètres', 'Settings');
+  const introTagline = overlay.querySelector('.intro-tagline');
+  if (introTagline) introTagline.textContent = _t('Prends le contrôle de Kanto.', 'Take control of Kanto.');
+  const introStartBtn = document.getElementById('introStartGameBtn');
+  if (introStartBtn) introStartBtn.textContent = _t('▶ Commencer une partie', '▶ Start a game');
+  const introSavesLabel = overlay.querySelector('.intro-saves-label');
+  if (introSavesLabel) introSavesLabel.textContent = _t('SAUVEGARDES', 'SAVES');
+  const introSavesHint = overlay.querySelector('.intro-saves-hint');
+  if (introSavesHint) introSavesHint.textContent = _t('Choisis ou crée une partie', 'Choose or create a game');
+  const btnHubImportSave = document.getElementById('btnHubImportSave');
+  if (btnHubImportSave) btnHubImportSave.textContent = _t('📥 Importer une save', '📥 Import a save');
+  const btnHubRepairSlot = document.getElementById('btnHubRepairSlot');
+  if (btnHubRepairSlot) btnHubRepairSlot.textContent = _t('🔧 Réparer une save', '🔧 Repair a save');
+
   // ── Settings gear button ──────────────────────────────────────
   document.getElementById('introSettingsBtn')?.addEventListener('click', () => {
     _ctx.openSettingsModal?.();
@@ -820,19 +870,19 @@ export function showIntro() {
       render: () => {
         const poke = 'pikachu';
         return `
-          <div class="intro-scene-title">Capturez des Pokémon rares</div>
+          <div class="intro-scene-title">${_t('Capturez des Pokémon rares', 'Catch rare Pokémon')}</div>
           <div class="intro-scene-sprites" style="flex-direction:column;gap:8px">
             <img src="${_ctx.pokeSprite?.(poke) || ''}" style="animation:pokeBounce 1s ease-in-out infinite;image-rendering:pixelated;width:64px;height:64px">
             <div style="font-size:18px;animation:pokeballFall 1.2s ease forwards">⚪</div>
           </div>
-          <div class="intro-scene-desc">Des centaines d'espèces à attraper</div>`;
+          <div class="intro-scene-desc">${_t("Des centaines d'espèces à attraper", 'Hundreds of species to catch')}</div>`;
       }
     },
     {
       key: 'combat',
       render: () => {
         return `
-          <div class="intro-scene-title">Combattez des Dresseurs</div>
+          <div class="intro-scene-title">${_t('Combattez des Dresseurs', 'Battle Trainers')}</div>
           <div class="intro-scene-sprites" style="gap:12px;align-items:flex-end">
             <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
               <img src="${_trainerSprite('red')}" style="animation:trainerLeft 1.2s ease-in-out infinite;image-rendering:pixelated;width:56px;height:56px">
@@ -844,23 +894,23 @@ export function showIntro() {
               <div class="intro-hp-bar"><div class="intro-hp-fill" id="introHpRight" style="width:40%;background:#c44"></div></div>
             </div>
           </div>
-          <div class="intro-scene-desc">Montez en puissance et dominez</div>`;
+          <div class="intro-scene-desc">${_t('Montez en puissance et dominez', 'Grow stronger and dominate')}</div>`;
       }
     },
     {
       key: 'gang',
       render: () => {
         return `
-          <div class="intro-scene-title">Développez votre Gang</div>
+          <div class="intro-scene-title">${_t('Développez votre Gang', 'Grow your Gang')}</div>
           <div class="intro-scene-sprites" style="gap:16px">
             <img src="${_trainerSprite('giovanni')}" style="image-rendering:pixelated;width:56px;height:56px">
             <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start">
-              <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">RÉPUTATION</div>
+              <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">${_t('RÉPUTATION', 'REPUTATION')}</div>
               <div style="font-size:22px;font-family:var(--font-pixel);color:var(--gold);animation:repTick .5s ease-in-out infinite alternate" id="introRepCounter">1 337</div>
-              <div style="font-size:10px;color:var(--text-dim)">Agents: 5 &nbsp;|&nbsp; Zones: 4</div>
+              <div style="font-size:10px;color:var(--text-dim)">${_t('Agents: 5 &nbsp;|&nbsp; Zones: 4', 'Agents: 5 &nbsp;|&nbsp; Zones: 4')}</div>
             </div>
           </div>
-          <div class="intro-scene-desc">Conquiers Kanto, un territoire à la fois</div>`;
+          <div class="intro-scene-desc">${_t('Conquiers Kanto, un territoire à la fois', 'Conquer Kanto, one territory at a time')}</div>`;
       }
     }
   ];
@@ -900,7 +950,7 @@ export function showIntro() {
       const preview = _ctx.getSlotPreview?.(i);
       if (preview) {
         const d = new Date(preview.ts);
-        const dateStr = preview.ts ? d.toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'2-digit' }) : '—';
+        const dateStr = preview.ts ? d.toLocaleDateString(_t('fr-FR', 'en-US'), { day:'2-digit', month:'2-digit', year:'2-digit' }) : '—';
         const teamSpritesHtml = (preview.teamSprites || []).map(sp =>
           `<img class="isc-mini" src="${_ctx.pokeSprite?.(sp) || ''}" alt="${sp}" onerror="this.style.display='none'">`
         ).join('');
@@ -919,23 +969,23 @@ export function showIntro() {
           </div>
           <div class="isc-info">
             <div class="isc-gang-name">${preview.name}</div>
-            <div class="isc-boss-name">Boss : ${preview.bossName || '—'} · ${preview.agentCount || 0} agent${(preview.agentCount || 0) > 1 ? 's' : ''}</div>
+            <div class="isc-boss-name">${_t('Boss :', 'Boss:')} ${preview.bossName || '—'} · ${preview.agentCount || 0} ${_t('agent' + ((preview.agentCount || 0) > 1 ? 's' : ''), 'agent' + ((preview.agentCount || 0) > 1 ? 's' : ''))}</div>
             <div class="isc-meta">${preview.pokemon} Pkm · ₽${(preview.money||0).toLocaleString()} · ⭐${preview.rep}</div>
             <div class="isc-date">${dateStr}${preview.playtime ? ' · ' + (_ctx.formatPlaytime?.(preview.playtime) || '') : ''}</div>
             <div class="isc-sprites-row">
               <div class="isc-sprites-group">
-                <span class="isc-sprites-label">Équipe</span>
+                <span class="isc-sprites-label">${_t('Équipe', 'Team')}</span>
                 ${teamSpritesHtml || '<span style="font-size:8px;color:#555">—</span>'}
               </div>
               ${agentSpritesHtml ? `<div class="isc-sprites-group" style="opacity:.72">
-                <span class="isc-sprites-label">Agents</span>
+                <span class="isc-sprites-label">${_t('Agents', 'Agents')}</span>
                 ${agentSpritesHtml}
               </div>` : ''}
             </div>
           </div>
           <div class="isc-actions">
-            <button class="isc-btn isc-play" data-slot="${i}" title="Jouer">▶</button>
-            <button class="isc-btn isc-del" data-slot="${i}" title="Supprimer">🗑</button>
+            <button class="isc-btn isc-play" data-slot="${i}" title="${_t('Jouer', 'Play')}">▶</button>
+            <button class="isc-btn isc-del" data-slot="${i}" title="${_t('Supprimer', 'Delete')}">🗑</button>
           </div>
         </div>`;
       } else {
@@ -946,10 +996,10 @@ export function showIntro() {
             <div style="font-size:22px;opacity:.2">💾</div>
           </div>
           <div class="isc-info">
-            <div style="font-size:10px;color:#555">Vide — cliquer pour nouvelle partie</div>
+            <div style="font-size:10px;color:#555">${_t('Vide — cliquer pour nouvelle partie', 'Empty — click to start a new game')}</div>
           </div>
           <div class="isc-actions">
-            <button class="isc-btn isc-new" data-slot="${i}" title="Sélectionner">✓</button>
+            <button class="isc-btn isc-new" data-slot="${i}" title="${_t('Sélectionner', 'Select')}">✓</button>
           </div>
         </div>`;
       }
@@ -970,13 +1020,16 @@ export function showIntro() {
       btn.addEventListener('click', e => {
         e.stopPropagation();
         const idx = parseInt(btn.dataset.slot);
-        _ctx.showConfirm?.(`Supprimer la sauvegarde Slot ${idx+1} ?<br><span style="color:var(--text-dim);font-size:11px">Cette action est irréversible.</span>`, () => {
+        _ctx.showConfirm?.(_t(
+          `Supprimer la sauvegarde Slot ${idx+1} ?<br><span style="color:var(--text-dim);font-size:11px">Cette action est irréversible.</span>`,
+          `Delete the save in Slot ${idx+1}?<br><span style="color:var(--text-dim);font-size:11px">This action is irreversible.</span>`
+        ), () => {
           localStorage.removeItem((_ctx.getSaveKeys?.() || [])[idx]);
           if (idx === _ctx.getActiveSaveSlot?.()) {
             _ctx.setActiveSaveSlot?.(0);
           }
           renderSlots();
-        }, null, { danger: true, confirmLabel: 'Supprimer', cancelLabel: 'Annuler' });
+        }, null, { danger: true, confirmLabel: _t('Supprimer', 'Delete'), cancelLabel: _t('Annuler', 'Cancel') });
       });
     });
     slotsContainer.querySelectorAll('.isc-new, .intro-slot-card.empty').forEach(btn => {
@@ -1009,7 +1062,10 @@ export function showIntro() {
   document.getElementById('introStartGameBtn')?.addEventListener('click', () => {
     const freeIdx = [0, 1, 2].find(i => !_ctx.getSlotPreview?.(i));
     if (freeIdx === undefined) {
-      _ctx.notify?.('Tous les emplacements sont pleins — supprime une sauvegarde pour en commencer une nouvelle.', 'error');
+      _ctx.notify?.(_t(
+        'Tous les emplacements sont pleins — supprime une sauvegarde pour en commencer une nouvelle.',
+        'All save slots are full — delete a save to start a new one.'
+      ), 'error');
       return;
     }
     startNewGameAtSlot(freeIdx);
@@ -1032,7 +1088,7 @@ export function showIntro() {
           const parsed = JSON.parse(e.target.result);
           _ctx.openHubImportModal?.(parsed);
         } catch {
-          _ctx.notify?.('Fichier invalide — impossible de lire la save.', 'error');
+          _ctx.notify?.(_t('Fichier invalide — impossible de lire la save.', 'Invalid file — could not read the save.'), 'error');
         }
       };
       reader.readAsText(file);
