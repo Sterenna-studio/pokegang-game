@@ -27,6 +27,8 @@ import { EventBus, EVENTS } from '../core/eventBus.js';
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type });
 const _save   = ()               => globalThis.saveState?.();
 
+const _t = (fr, en) => (globalThis.state?.lang === 'en' ? en : fr);
+
 // ── État interne ──────────────────────────────────────────────────
 let _overlay = null;
 
@@ -86,7 +88,6 @@ function _injectStyles() {
       overflow-y:auto;
     }
 
-    /* Scanlines légères */
     #johto-event-overlay::before {
       content:'';
       position:fixed; inset:0;
@@ -164,7 +165,6 @@ function _injectStyles() {
     .joe-btn.red   { border-color:rgba(200,30,30,.5); color:#dd6666; }
     .joe-btn.red:hover { border-color:rgba(220,50,50,.8); background:rgba(200,20,20,.06); }
 
-    /* Portrait Archer */
     .joe-portrait {
       display:flex; align-items:center; gap:14px;
       background:rgba(8,20,12,.6);
@@ -187,7 +187,6 @@ function _injectStyles() {
       animation:joe-bob 3s ease-in-out infinite, joe-appear .6s both;
     }
 
-    /* Barres signal */
     .joe-signal-bar {
       display:flex; gap:3px; align-items:flex-end;
       margin-bottom:16px; justify-content:center;
@@ -197,7 +196,6 @@ function _injectStyles() {
       animation:joe-signal 1.2s ease-in-out infinite;
     }
 
-    /* Flash */
     .joe-flash-overlay {
       position:fixed; inset:0; z-index:10000;
       pointer-events:none;
@@ -317,27 +315,32 @@ async function _step0() {
 async function _step1() {
   _clear();
   const box = _box();
-  _location(box, '◈ Quartier général — 23h44');
-  _title(box, '— Signal parasité —');
+  _location(box, _t('◈ Quartier général — 23h44', '◈ Headquarters — 11:44 PM'));
+  _title(box, _t('— Signal parasité —', '— Scrambled Signal —'));
   _signalBars(box);
   const txt = _text(box);
   const ch  = _choices(box);
 
-  await _typewrite(txt,
+  await _typewrite(txt, _t(
     'Les moniteurs de surveillance se couvrent de parasites.\n\n' +
     'Une fréquence inconnue force l\'accès aux canaux internes\n' +
     'du gang. Signal chiffré — codage ancienne génération.\n\n' +
     'Quelqu\'un cherche à vous contacter depuis l\'intérieur\n' +
     'du réseau Team Rocket.',
-  );
+    'The surveillance monitors fill with static.\n\n' +
+    'An unknown frequency is forcing access to the gang\'s\n' +
+    'internal channels. Encrypted signal — old-gen encoding.\n\n' +
+    'Someone is trying to reach you from inside\n' +
+    'the Team Rocket network.',
+  ));
 
   await _wait(300);
 
-  const b1 = _btn('▸  Décrypter le signal');
+  const b1 = _btn(_t('▸  Décrypter le signal', '▸  Decrypt the signal'));
   b1.onclick = () => _step1b_decrypt();
   ch.appendChild(b1);
 
-  const b2 = _btn('▸  Couper la fréquence', 'red');
+  const b2 = _btn(_t('▸  Couper la fréquence', '▸  Cut the frequency'), 'red');
   b2.onclick = () => _step1b_cut();
   ch.appendChild(b2);
 }
@@ -345,22 +348,26 @@ async function _step1() {
 async function _step1b_decrypt() {
   _clear();
   const box = _box();
-  _location(box, '◈ Fréquence TR-7 — Mahogany Town');
-  _title(box, '— Identification —');
+  _location(box, _t('◈ Fréquence TR-7 — Mahogany Town', '◈ Frequency TR-7 — Mahogany Town'));
+  _title(box, _t('— Identification —', '— Identification —'));
   const txt = _text(box);
   const ch  = _choices(box);
 
-  await _typewrite(txt,
+  await _typewrite(txt, _t(
     'Signal décrypté.\n\n' +
     'Origine : tour-relais abandonnée de Mahogany Town.\n' +
     'Protocole : Team Rocket, chiffrement de 2e génération.\n\n' +
     'Empreinte vocale reconnue : Archer.\n' +
     'Numéro deux de l\'organisation — ou ce qu\'il en reste.',
-    26,
-  );
+    'Signal decrypted.\n\n' +
+    'Origin: abandoned relay tower, Mahogany Town.\n' +
+    'Protocol: Team Rocket, 2nd-gen encryption.\n\n' +
+    'Voiceprint identified: Archer.\n' +
+    'Number two of the organisation — or what remains of it.',
+  ), 26);
 
   await _wait(400);
-  const b = _btn('▸  Répondre à la communication…');
+  const b = _btn(_t('▸  Répondre à la communication…', '▸  Answer the call…'));
   b.onclick = () => _step2();
   ch.appendChild(b);
 }
@@ -368,21 +375,24 @@ async function _step1b_decrypt() {
 async function _step1b_cut() {
   _clear();
   const box = _box();
-  _location(box, '◈ Quartier général — 23h46');
-  _title(box, '— Signal persistant —');
+  _location(box, _t('◈ Quartier général — 23h46', '◈ Headquarters — 11:46 PM'));
+  _title(box, _t('— Signal persistant —', '— Persistent Signal —'));
   const txt = _text(box);
   const ch  = _choices(box);
 
-  await _typewrite(txt,
+  await _typewrite(txt, _t(
     'Le signal est coupé.\n\n' +
     'Il revient immédiatement. Plus fort. Plus direct.\n\n' +
     'Une voix, cette fois — calme, précise,\n' +
     'habituée à ne pas être interrompue.',
-    26,
-  );
+    'The signal is cut.\n\n' +
+    'It comes back immediately. Stronger. More direct.\n\n' +
+    'A voice, this time — calm, precise,\n' +
+    'accustomed to not being interrupted.',
+  ), 26);
 
   await _wait(400);
-  const b = _btn('▸  Écouter…');
+  const b = _btn(_t('▸  Écouter…', '▸  Listen…'));
   b.onclick = () => _step2();
   ch.appendChild(b);
 }
@@ -390,7 +400,7 @@ async function _step1b_cut() {
 async function _step2() {
   _clear();
   const box = _box();
-  _location(box, '◈ Tour Radio — Mahogany Town');
+  _location(box, _t('◈ Tour Radio — Mahogany Town', '◈ Radio Tower — Mahogany Town'));
   _title(box, '— Archer —');
 
   const archerSprite = globalThis.trainerSprite?.('archer') ?? '';
@@ -400,7 +410,7 @@ async function _step2() {
     <img class="joe-portrait-sprite" src="${archerSprite}" alt="Archer" onerror="this.style.opacity='.2'">
     <div>
       <div class="joe-portrait-name">Archer</div>
-      <div class="joe-portrait-role">N°2 — Team Rocket · Mahogany Town</div>
+      <div class="joe-portrait-role">${_t('N°2 — Team Rocket · Mahogany Town', '#2 — Team Rocket · Mahogany Town')}</div>
     </div>`;
   box.appendChild(portrait);
 
@@ -410,18 +420,23 @@ async function _step2() {
 
   const ch = _choices(box);
 
-  await _typewrite(voice,
+  await _typewrite(voice, _t(
     '« Parrain. Je ne m\'attends pas à ce que vous me fassiez confiance.\n\n' +
     'Notre organisation a commis des choses — certaines que vous\n' +
     'connaissez, d\'autres que vous préférerez ne jamais savoir.\n\n' +
     'Giovanni est parti. L\'organisation se fracture.\n' +
     'Johto est en train de nous échapper.\n\n' +
     'C\'est précisément pourquoi je vous appelle. »',
-    20,
-  );
+    '« Boss. I don\'t expect you to trust me.\n\n' +
+    'Our organisation has done things — some you know,\n' +
+    'others you would rather never learn.\n\n' +
+    'Giovanni is gone. The organisation is fracturing.\n' +
+    'Johto is slipping through our fingers.\n\n' +
+    'That is precisely why I am calling you. »',
+  ), 20);
 
   await _wait(400);
-  const b = _btn('▸  "Continuez."');
+  const b = _btn(_t('▸  "Continuez."', '▸  "Go on."'));
   b.onclick = () => _step3();
   ch.appendChild(b);
 }
@@ -429,17 +444,17 @@ async function _step2() {
 async function _step3() {
   _clear();
   const box = _box();
-  _location(box, '◈ Ligne sécurisée TR — 00h01');
-  _title(box, '— La proposition —');
+  _location(box, _t('◈ Ligne sécurisée TR — 00h01', '◈ Secure TR Line — 00:01 AM'));
+  _title(box, _t('— La proposition —', '— The Offer —'));
 
   const state = _state();
-  const bossName = state.gang?.bossName || 'Parrain';
+  const bossName = state.gang?.bossName || _t('Parrain', 'Boss');
 
   const letter = document.createElement('div');
   letter.className = 'joe-letter';
   box.appendChild(letter);
 
-  const letterText =
+  const letterText = _t(
     `« ${bossName},\n\n` +
     `Les Bêtes Sacrées errent sans maître depuis la chute de la Tour Tin.\n` +
     `Raikou dans la brousse. Entei dans les montagnes.\n` +
@@ -451,8 +466,21 @@ async function _step3() {
     `Je vous offre ceci : les routes libres, les territoires vacants,\n` +
     `un accès sans entrave à une région entière.\n` +
     `En échange : si vos hommes croisent les nôtres —\n` +
-    `ignorez-les. Laissez-nous nous retirer en silence.\n`;
-  const sigText = '— Archer, Team Rocket  »';
+    `ignorez-les. Laissez-nous nous retirer en silence.\n`,
+    `« ${bossName},\n\n` +
+    `The Legendary Beasts have been wandering without a master since the fall of Tin Tower.\n` +
+    `Raikou in the wild. Entei in the mountains.\n` +
+    `Suicune on the roads — no one knows where.\n\n` +
+    `Lugia sleeps at the Whirl Islands.\n` +
+    `Ho-Oh waits atop a tower no one guards anymore.\n\n` +
+    `Johto is a void. A territory with no true master.\n` +
+    `Our men still stationed there have neither orders nor a leader.\n\n` +
+    `I offer you this: open roads, vacant territories,\n` +
+    `unhindered access to an entire region.\n` +
+    `In return: if your men cross paths with ours —\n` +
+    `ignore them. Let us withdraw in silence.\n`,
+  );
+  const sigText = _t('— Archer, Team Rocket  »', '— Archer, Team Rocket  »');
 
   const bodyEl = document.createElement('span');
   letter.appendChild(bodyEl);
@@ -467,22 +495,22 @@ async function _step3() {
 
   const ch = _choices(box);
 
-  const b1 = _btn('▸  "Un accord. Johto contre le silence."', 'green');
+  const b1 = _btn(_t('▸  "Un accord. Johto contre le silence."', '▸  "A deal. Johto for silence."'), 'green');
   b1.onclick = () => _step4();
   ch.appendChild(b1);
 
-  const b2 = _btn('▸  "Les Bêtes Sacrées m\'intéressent plus que vous."');
+  const b2 = _btn(_t('▸  "Les Bêtes Sacrées m\'intéressent plus que vous."', '▸  "The Legendary Beasts interest me more than you do."'));
   b2.onclick = () => _step4();
   ch.appendChild(b2);
 
   const inputWrap = document.createElement('div');
-  const b3 = _btn('▸  [Écrire sa propre réponse…]');
+  const b3 = _btn(_t('▸  [Écrire sa propre réponse…]', '▸  [Write your own reply…]'));
   b3.onclick = () => {
     b3.remove();
     const inp = document.createElement('input');
     inp.type = 'text';
     inp.maxLength = 60;
-    inp.placeholder = 'Votre réplique…';
+    inp.placeholder = _t('Votre réplique…', 'Your line…');
     inp.style.cssText = `
       width:100%;box-sizing:border-box;
       background:#020a04;border:1px solid rgba(20,100,50,.5);border-top:none;
@@ -490,7 +518,7 @@ async function _step3() {
       padding:9px 12px;outline:none;`;
     inp.addEventListener('focus', () => { inp.style.borderColor = 'rgba(40,180,80,.8)'; });
     inputWrap.appendChild(inp);
-    const bConfirm = _btn('▸  Répondre', 'green');
+    const bConfirm = _btn(_t('▸  Répondre', '▸  Reply'), 'green');
     bConfirm.onclick = () => { if (inp.value.trim()) _step4(); };
     inputWrap.appendChild(bConfirm);
     setTimeout(() => inp.focus(), 50);
@@ -502,7 +530,7 @@ async function _step3() {
 async function _step4() {
   _clear();
   const box = _box();
-  _location(box, '◈ Ligne sécurisée TR — 00h03');
+  _location(box, _t('◈ Ligne sécurisée TR — 00h03', '◈ Secure TR Line — 00:03 AM'));
   _title(box, '— Archer —');
 
   const archerSprite = globalThis.trainerSprite?.('archer') ?? '';
@@ -512,7 +540,7 @@ async function _step4() {
     <img class="joe-portrait-sprite" src="${archerSprite}" alt="Archer" onerror="this.style.opacity='.2'">
     <div>
       <div class="joe-portrait-name">Archer</div>
-      <div class="joe-portrait-role">N°2 — Team Rocket · Mahogany Town</div>
+      <div class="joe-portrait-role">${_t('N°2 — Team Rocket · Mahogany Town', '#2 — Team Rocket · Mahogany Town')}</div>
     </div>`;
   box.appendChild(portrait);
 
@@ -520,7 +548,7 @@ async function _step4() {
   voice.className = 'joe-voice';
   box.appendChild(voice);
 
-  await _typewrite(voice,
+  await _typewrite(voice, _t(
     '« Bien.\n\n' +
     'Je ne vous demande pas d\'être nos alliés.\n' +
     'Juste de ne pas être nos ennemis\n' +
@@ -529,8 +557,15 @@ async function _step4() {
     'Les Bêtes ne se laissent pas dompter facilement —\n' +
     'elles choisissent elles-mêmes leur maître.\n\n' +
     'Méfiez-vous de la Tour Tin. »',
-    20,
-  );
+    '« Good.\n\n' +
+    'I am not asking you to be our allies.\n' +
+    'Just not to be our enemies\n' +
+    'while we disappear.\n\n' +
+    'Johto is yours. Do with it what you will.\n' +
+    'The Beasts are not easily tamed —\n' +
+    'they choose their own master.\n\n' +
+    'Be wary of Tin Tower. »',
+  ), 20);
 
   _flash();
   await _wait(500);
@@ -539,16 +574,16 @@ async function _step4() {
 
   const badge = document.createElement('div');
   badge.className = 'joe-region-badge';
-  badge.textContent = '🗾 JOHTO — GÉN. II';
+  badge.textContent = _t('🗾 JOHTO — GÉN. II', '🗾 JOHTO — GEN. II');
   box.appendChild(badge);
 
   const ch = _choices(box);
 
-  const bAccept = _btn('→ Traverser vers Johto', 'green');
+  const bAccept = _btn(_t('→ Traverser vers Johto', '→ Cross over to Johto'), 'green');
   bAccept.onclick = () => { _close(); _finish(true); };
   ch.appendChild(bAccept);
 
-  const bDismiss = _btn('▸  Pas encore…');
+  const bDismiss = _btn(_t('▸  Pas encore…', '▸  Not yet…'));
   bDismiss.onclick = () => { _close(); _finish(false); };
   ch.appendChild(bDismiss);
 }
@@ -567,9 +602,9 @@ function _finish(accepted) {
     });
     globalThis.switchTab?.('tabZones');
     globalThis.renderAll?.();
-    _notify('🌏 Johto débloqué — Bienvenue à New Bark Town, Parrain…', 'gold');
+    _notify(_t('🌏 Johto débloqué — Bienvenue à New Bark Town, Parrain…', '🌏 Johto unlocked — Welcome to New Bark Town, Boss…'), 'gold');
   } else {
-    _notify("📡 L'accord d'Archer reste ouvert — accédez à Johto via le sélecteur de zones.", '');
+    _notify(_t("📡 L'accord d'Archer reste ouvert — accédez à Johto via le sélecteur de zones.", "📡 Archer's deal remains open — access Johto via the region selector."), '');
   }
 }
 
@@ -597,11 +632,10 @@ function _startCinematic() {
 export function showJohtoCinematic() {
   const s = _state();
   if (s.gang?.johtoCinematicSeen) return;
-  if (s.purchases?.johtoUnlocked) return; // déjà débloqué silencieusement
+  if (s.purchases?.johtoUnlocked) return;
   _startCinematic();
 }
 
-// Exposer sur globalThis pour modules sans import direct
 Object.assign(globalThis, { showJohtoCinematic });
 
 export {};
