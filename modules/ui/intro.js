@@ -983,23 +983,37 @@ export function showIntro() {
       btn.addEventListener('click', e => {
         const el = btn.closest ? btn.closest('[data-slot]') : btn;
         const idx = parseInt((el || btn).dataset.slot);
-        if (idx !== undefined && !isNaN(idx)) {
-          selectedSlotIdx = idx;
-          renderSlots();
-          openGiovanniIntro({
-            slotIdx: idx,
-            onComplete: () => {
-              // slot switch + saveState already done inside _confirm()
-              document.getElementById('introOverlay')?.classList.remove('active');
-              stopShowcase?.();
-              _ctx.renderAll?.();
-            },
-          });
-        }
+        if (idx !== undefined && !isNaN(idx)) startNewGameAtSlot(idx);
       });
     });
   };
+
+  // ── Start a new game at a given empty slot (shared by slot clicks + hero CTA)
+  function startNewGameAtSlot(idx) {
+    selectedSlotIdx = idx;
+    renderSlots();
+    openGiovanniIntro({
+      slotIdx: idx,
+      onComplete: () => {
+        // slot switch + saveState already done inside _confirm()
+        document.getElementById('introOverlay')?.classList.remove('active');
+        stopShowcase?.();
+        _ctx.renderAll?.();
+      },
+    });
+  }
+
   renderSlots();
+
+  // ── Hero "Commencer une partie" CTA ───────────────────────────
+  document.getElementById('introStartGameBtn')?.addEventListener('click', () => {
+    const freeIdx = [0, 1, 2].find(i => !_ctx.getSlotPreview?.(i));
+    if (freeIdx === undefined) {
+      _ctx.notify?.('Tous les emplacements sont pleins — supprime une sauvegarde pour en commencer une nouvelle.', 'error');
+      return;
+    }
+    startNewGameAtSlot(freeIdx);
+  });
 
   // ── Hub repair button ─────────────────────────────────────────
   document.getElementById('btnHubRepairSlot')?.addEventListener('click', () => _ctx.openHubSlotRepairModal?.());
