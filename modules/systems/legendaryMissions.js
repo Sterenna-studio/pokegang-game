@@ -38,6 +38,7 @@ import { resolveSpecialCombat } from './specialCombat.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type });
 const _save   = ()               => globalThis.saveState?.();
+const _t = (fr, en) => (globalThis.state?.lang === 'en' ? en : fr);
 
 // ── Sprites ──────────────────────────────────────────────────────
 // Showdown gen5 animated sprites (display-only, pas de crossorigin)
@@ -59,26 +60,28 @@ const QUESTS = {
   groudon: {
     key:         'groudonMission',
     rerunItem:   'sigle_magma',
-    rerunLabel:  '🔴 Sigle Magma',
+    rerunLabel:  '🔴 Sigle Magma', rerunLabel_en: '🔴 Magma Emblem',
     zones1:      _MAGMA_ZONES,
     hideout:     'team_magma_hideout',
     target1:     20,
     target2:     12,
-    admin:       { key: 'tabitha',   name: 'Tabitha',       team: 'Numéra, Camérupt',  power: 2000 },
-    chief:       { key: 'maxieGen3', name: 'Maxie',         team: 'Camérupt, Crobat, Claydol', power: 3000 },
+    admin:       { key: 'tabitha',   name: 'Tabitha',       team: 'Numel, Camerupt',  power: 2000 },
+    chief:       { key: 'maxieGen3', name: 'Maxie',         team: 'Camerupt, Crobat, Claydol', power: 3000 },
     legendary:   { name: 'Groudon', sprite: GROUDON_SPRITE, static: GROUDON_STATIC,
                    species: 'groudon', power: 4500, catchBase: 0.40, level: 70, pot: 4 },
     theme:       { accent: '#e63535', glow: 'rgba(230,53,53,.4)', bg: '#110606', label: '🌋 MAGMA',
                    intro:  'linear-gradient(160deg,#110606 0%,#1a0a04 100%)',
                    stepBorder: 'rgba(230,53,53,.25)', stepActiveBorder: 'rgba(230,53,53,.7)' },
-    title:       'Opération Magma',
+    title:       'Opération Magma', title_en: 'Operation Magma',
     stepTitles:  ['Quadriller Hoenn', 'Infiltrer le QG', 'Neutraliser Tabitha',
                   'Stopper Maxie', 'Affronter Groudon'],
+    stepTitles_en: ['Sweep Hoenn', 'Infiltrate the HQ', 'Neutralize Tabitha',
+                  'Stop Maxie', 'Face Groudon'],
   },
   kyogre: {
     key:         'kyogreMission',
     rerunItem:   'sceau_aqua',
-    rerunLabel:  '🔵 Sceau Aqua',
+    rerunLabel:  '🔵 Sceau Aqua', rerunLabel_en: '🔵 Aqua Seal',
     zones1:      _AQUA_ZONES,
     hideout:     'team_aqua_hideout',
     target1:     20,
@@ -90,11 +93,18 @@ const QUESTS = {
     theme:       { accent: '#2299ff', glow: 'rgba(34,153,255,.4)', bg: '#040b11', label: '🌊 AQUA',
                    intro:  'linear-gradient(160deg,#040b11 0%,#041a2a 100%)',
                    stepBorder: 'rgba(34,153,255,.25)', stepActiveBorder: 'rgba(34,153,255,.7)' },
-    title:       'Opération Aqua',
+    title:       'Opération Aqua', title_en: 'Operation Aqua',
     stepTitles:  ['Quadriller Hoenn', 'Infiltrer le QG', 'Neutraliser Matt',
                   'Stopper Archie', 'Affronter Kyogre'],
+    stepTitles_en: ['Sweep Hoenn', 'Infiltrate the HQ', 'Neutralize Matt',
+                  'Stop Archie', 'Face Kyogre'],
   },
 };
+// Accesseurs bilingues sur QUESTS[...] — mêmes proper nouns (Tabitha, Maxie,
+// Groudon…) des deux côtés, seuls titres/libellés/rosters changent.
+const _qTitle      = cfg => _t(cfg.title, cfg.title_en);
+const _qStepTitle  = (cfg, i) => _t(cfg.stepTitles[i], cfg.stepTitles_en[i]);
+const _qRerunLabel = cfg => _t(cfg.rerunLabel, cfg.rerunLabel_en);
 
 // ── Helpers d'état ───────────────────────────────────────────────
 const _state = () => globalThis.state ?? null;
@@ -162,7 +172,7 @@ function _onCombatWon({ zoneId } = {}) {
       gm.magmaFightsWon = Math.min((gm.magmaFightsWon || 0) + 1, QUESTS.groudon.target1);
       if (gm.magmaFightsWon >= QUESTS.groudon.target1) {
         gm.step = 2;
-        _notify('🌋 QG Magma localisé ! Infiltrez le QG Team Magma.', 'gold');
+        _notify(_t('🌋 QG Magma localisé ! Infiltrez le QG Team Magma.', '🌋 Magma HQ located! Infiltrate the Team Magma HQ.'), 'gold');
       }
       dirty = true;
     }
@@ -170,14 +180,14 @@ function _onCombatWon({ zoneId } = {}) {
       gm.hideoutFightsWon = Math.min((gm.hideoutFightsWon || 0) + 1, QUESTS.groudon.target2);
       if (gm.hideoutFightsWon >= QUESTS.groudon.target2) {
         gm.step = 3;
-        _notify('🌋 Laboratoire Magma percé ! Affrontez Tabitha depuis le tracker.', 'gold');
+        _notify(_t('🌋 Laboratoire Magma percé ! Affrontez Tabitha depuis le tracker.', '🌋 Magma lab breached! Face Tabitha from the tracker.'), 'gold');
       }
       dirty = true;
     }
     // Drop Sigle Magma (1,5 % dans toutes zones Magma pendant la quête active)
     if (_MAGMA_ZONES.has(zoneId) && Math.random() < 0.015) {
       s.inventory.sigle_magma = (s.inventory.sigle_magma || 0) + 1;
-      _notify('🔴 Sigle Magma récupéré ! (relance combat Groudon)', 'gold');
+      _notify(_t('🔴 Sigle Magma récupéré ! (relance combat Groudon)', '🔴 Magma Emblem recovered! (retry the Groudon fight)'), 'gold');
       dirty = true;
     }
   }
@@ -189,7 +199,7 @@ function _onCombatWon({ zoneId } = {}) {
       km.aquaFightsWon = Math.min((km.aquaFightsWon || 0) + 1, QUESTS.kyogre.target1);
       if (km.aquaFightsWon >= QUESTS.kyogre.target1) {
         km.step = 2;
-        _notify('🌊 QG Aqua localisé ! Infiltrez le QG Team Aqua.', 'gold');
+        _notify(_t('🌊 QG Aqua localisé ! Infiltrez le QG Team Aqua.', '🌊 Aqua HQ located! Infiltrate the Team Aqua HQ.'), 'gold');
       }
       dirty = true;
     }
@@ -197,14 +207,14 @@ function _onCombatWon({ zoneId } = {}) {
       km.hideoutFightsWon = Math.min((km.hideoutFightsWon || 0) + 1, QUESTS.kyogre.target2);
       if (km.hideoutFightsWon >= QUESTS.kyogre.target2) {
         km.step = 3;
-        _notify('🌊 Bases Aqua démantelées ! Affrontez Matt depuis le tracker.', 'gold');
+        _notify(_t('🌊 Bases Aqua démantelées ! Affrontez Matt depuis le tracker.', '🌊 Aqua bases dismantled! Face Matt from the tracker.'), 'gold');
       }
       dirty = true;
     }
     // Drop Sceau Aqua (1,5 %)
     if (_AQUA_ZONES.has(zoneId) && Math.random() < 0.015) {
       s.inventory.sceau_aqua = (s.inventory.sceau_aqua || 0) + 1;
-      _notify('🔵 Sceau Aqua récupéré ! (relance combat Kyogre)', 'gold');
+      _notify(_t('🔵 Sceau Aqua récupéré ! (relance combat Kyogre)', '🔵 Aqua Seal recovered! (retry the Kyogre fight)'), 'gold');
       dirty = true;
     }
   }
@@ -457,9 +467,9 @@ function _buildOverlay(questId) {
   // à un bouton placé dans le contenu du tracker — même patron que Johto/Kanto).
   const closeBtn = document.createElement('span');
   closeBtn.className = 'lgm-close-btn';
-  closeBtn.textContent = '✕ FERMER';
+  closeBtn.textContent = `✕ ${_t('FERMER', 'CLOSE')}`;
   closeBtn.onclick = () => {
-    if (_resolving) { _notify('⏳ Résolution en cours…', ''); return; }
+    if (_resolving) { _notify(_t('⏳ Résolution en cours…', '⏳ Resolving…'), ''); return; }
     _closeOv();
   };
   document.body.appendChild(closeBtn);
@@ -574,11 +584,11 @@ async function _showQuestIntro() {
   box.style.cssText += ';max-width:560px;background:#07070f;--lgm-accent:#cc9922;--lgm-glow:rgba(200,140,30,.3);--lgm-border:rgba(200,140,30,.25)';
   _overlay.appendChild(box);
 
-  _sublabel(box, '— Alerte Hoenn —');
-  _titleEl(box, '⚡  Conflit de Forces Primitives');
+  _sublabel(box, _t('— Alerte Hoenn —', '— Hoenn Alert —'));
+  _titleEl(box, _t('⚡  Conflit de Forces Primitives', '⚡  Clash of Primal Forces'));
   const txt = _textEl(box);
 
-  await _typewrite(txt,
+  await _typewrite(txt, _t(
     'Deux organisations se disputent l\'avenir de Hoenn.\n\n' +
     'La Team Magma veut réveiller le Titan du Continent —\n' +
     'étendre les terres, éradiquer les océans.\n\n' +
@@ -587,11 +597,19 @@ async function _showQuestIntro() {
     'Leurs QG sont identifiés. Leurs chefs sont localisés.\n' +
     'Il faut les arrêter — ou les contrôler.\n\n' +
     'Deux quêtes parallèles. À vous de choisir l\'ordre.',
-  );
+    'Two organizations are fighting over the fate of Hoenn.\n\n' +
+    'Team Magma wants to awaken the Continent Titan —\n' +
+    'expand the land, eradicate the oceans.\n\n' +
+    'Team Aqua, meanwhile, seeks to free the Abyssal Ruler —\n' +
+    'sink the land under miles of water.\n\n' +
+    'Their HQs are identified. Their leaders are located.\n' +
+    'They must be stopped — or controlled.\n\n' +
+    'Two parallel quests. The order is yours to choose.',
+  ));
 
   const ch = _choices(box);
-  const bGo = _btn('▸  Accepter les deux opérations', 'accent');
-  const bNo = _btn('▸  Pas maintenant');
+  const bGo = _btn(_t('▸  Accepter les deux opérations', '▸  Accept both operations'), 'accent');
+  const bNo = _btn(_t('▸  Pas maintenant', '▸  Not now'));
 
   bGo.onclick = () => {
     const gm = _qs('groudon');
@@ -600,7 +618,7 @@ async function _showQuestIntro() {
     if (km) { km.active = true; if (!km.step) km.step = 1; }
     _save();
     _closeOv();
-    _notify('🌋🌊 Opérations Magma & Aqua lancées — consultez le tracker depuis les zones Hoenn.', 'gold');
+    _notify(_t('🌋🌊 Opérations Magma & Aqua lancées — consultez le tracker depuis les zones Hoenn.', '🌋🌊 Operations Magma & Aqua launched — check the tracker from the Hoenn zones.'), 'gold');
   };
   bNo.onclick = () => {
     // Sans ce reset, openLegendaryMissions() rappellerait _showQuestIntro() plus
@@ -608,7 +626,7 @@ async function _showQuestIntro() {
     // sans effet — le message ci-dessous promet que la quête reste accessible.
     _introShown = false;
     _closeOv();
-    _notify('⚡ Les deux quêtes légendaires Hoenn restent disponibles.', '');
+    _notify(_t('⚡ Les deux quêtes légendaires Hoenn restent disponibles.', '⚡ Both Hoenn legendary quests remain available.'), '');
   };
 
   ch.appendChild(bGo);
@@ -649,7 +667,7 @@ function _renderDualTracker() {
   // Titre général
   const header = document.createElement('div');
   header.style.cssText = 'font-family:var(--font-pixel,monospace);font-size:7px;letter-spacing:3px;color:#888;text-transform:uppercase;text-align:center;margin-bottom:12px';
-  header.textContent = '— Quêtes Légendaires Hoenn —';
+  header.textContent = _t('— Quêtes Légendaires Hoenn —', '— Hoenn Legendary Quests —');
   _overlay.appendChild(header);
 
   const dual = document.createElement('div');
@@ -659,7 +677,7 @@ function _renderDualTracker() {
   // Puissance boss (commun)
   const pBar = document.createElement('div');
   pBar.style.cssText = 'max-width:700px;width:100%;display:flex;align-items:center;gap:10px;padding:8px 12px;background:rgba(0,0,0,.4);border:1px solid rgba(255,204,90,.12);border-radius:3px;margin-bottom:10px;font-family:var(--font-pixel,monospace);font-size:7px;color:#7a8aaa';
-  pBar.innerHTML = `Puissance Boss <span style="margin-left:auto;color:#ffcc5a;font-size:9px">${power.toLocaleString()}</span>`;
+  pBar.innerHTML = `${_t('Puissance Boss', 'Boss Power')} <span style="margin-left:auto;color:#ffcc5a;font-size:9px">${power.toLocaleString()}</span>`;
   _overlay.appendChild(pBar);
   _overlay.insertBefore(pBar, dual);
 
@@ -697,14 +715,14 @@ function _renderQuestCard(container, questId, q, power, rerunItem) {
 
   const ctitle = document.createElement('div');
   ctitle.className = 'lgm-card-title';
-  ctitle.textContent = cfg.title;
+  ctitle.textContent = _qTitle(cfg);
   card.appendChild(ctitle);
 
   // Item rerun
   const iRow = document.createElement('div');
   iRow.className = 'lgm-item-row';
-  iRow.innerHTML = `${cfg.rerunLabel} : <strong style="color:${t.accent};margin-left:4px">${rerunItem}</strong>
-    <span style="opacity:.4;font-size:6px;margin-left:6px">1,5 % / combat</span>`;
+  iRow.innerHTML = `${_qRerunLabel(cfg)} : <strong style="color:${t.accent};margin-left:4px">${rerunItem}</strong>
+    <span style="opacity:.4;font-size:6px;margin-left:6px">${_t('1,5 % / combat', '1.5% / battle')}</span>`;
   card.appendChild(iRow);
 
   // Etapes
@@ -718,30 +736,30 @@ function _renderQuestCard(container, questId, q, power, rerunItem) {
 
   const stepDefs = [
     {
-      n:1, name: cfg.stepTitles[0],
-      sub: `Zones ${questId === 'groudon' ? 'Magma' : 'Aqua'} — ${Math.min(f1, target1)} / ${target1}`,
+      n:1, name: _qStepTitle(cfg, 0),
+      sub: `${_t('Zones', 'Zones')} ${questId === 'groudon' ? 'Magma' : 'Aqua'} — ${Math.min(f1, target1)} / ${target1}`,
       progress: qs > 1 ? 1 : f1 / target1,
     },
     {
-      n:2, name: cfg.stepTitles[1],
-      sub: `${qs > 2 ? target2 : Math.min(f2, target2)} / ${target2} combats`,
+      n:2, name: _qStepTitle(cfg, 1),
+      sub: `${qs > 2 ? target2 : Math.min(f2, target2)} / ${target2} ${_t('combats', 'battles')}`,
       progress: qs > 2 ? 1 : f2 / target2,
     },
     {
-      n:3, name: cfg.stepTitles[2],
-      sub: `Puissance requise : ${cfg.admin.power.toLocaleString()}`,
-      action: { label: `⚔ Affronter ${cfg.admin.name}`, fn: () => { _closeOv(); setTimeout(() => _launchBossFight('admin', questId), 300); } },
+      n:3, name: _qStepTitle(cfg, 2),
+      sub: `${_t('Puissance requise', 'Power required')} : ${cfg.admin.power.toLocaleString()}`,
+      action: { label: `⚔ ${_t('Affronter', 'Face')} ${cfg.admin.name}`, fn: () => { _closeOv(); setTimeout(() => _launchBossFight('admin', questId), 300); } },
     },
     {
-      n:4, name: cfg.stepTitles[3],
-      sub: `Puissance requise : ${cfg.chief.power.toLocaleString()}`,
-      action: { label: `⚔ Affronter ${cfg.chief.name}`, fn: () => { _closeOv(); setTimeout(() => _launchBossFight('chief', questId), 300); } },
+      n:4, name: _qStepTitle(cfg, 3),
+      sub: `${_t('Puissance requise', 'Power required')} : ${cfg.chief.power.toLocaleString()}`,
+      action: { label: `⚔ ${_t('Affronter', 'Face')} ${cfg.chief.name}`, fn: () => { _closeOv(); setTimeout(() => _launchBossFight('chief', questId), 300); } },
     },
     {
-      n:5, name: cfg.stepTitles[4],
-      sub: `Puissance requise : ${cfg.legendary.power.toLocaleString()}`,
+      n:5, name: _qStepTitle(cfg, 4),
+      sub: `${_t('Puissance requise', 'Power required')} : ${cfg.legendary.power.toLocaleString()}`,
       action: {
-        label: qs === 6 ? `♺ Rejouer (1 ${cfg.rerunLabel})` : `☄ Affronter ${cfg.legendary.name}`,
+        label: qs === 6 ? `♺ ${_t('Rejouer', 'Retry')} (1 ${_qRerunLabel(cfg)})` : `☄ ${_t('Affronter', 'Face')} ${cfg.legendary.name}`,
         fn:    () => { _closeOv(); setTimeout(() => _launchLegendaryFight(questId), 300); },
       },
     },
@@ -804,7 +822,7 @@ function _renderQuestCard(container, questId, q, power, rerunItem) {
   if (!q?.active) {
     const na = document.createElement('div');
     na.style.cssText = 'font-family:var(--font-pixel,monospace);font-size:7px;color:#446;text-align:center;padding:8px 0';
-    na.textContent = 'Quête non démarrée';
+    na.textContent = _t('Quête non démarrée', 'Quest not started');
     card.appendChild(na);
   }
 }
@@ -829,8 +847,8 @@ async function _launchBossFight(rank, questId) {
   _buildOverlay(questId);
   const box = _box(questId);
 
-  _sublabel(box, `Étape ${reqStep} — ${cfg.theme.label}`);
-  _titleEl(box, `⚔  ${npcCfg.name} — ${rank === 'admin' ? 'Admin' : 'Chef'} ${questId === 'groudon' ? 'Magma' : 'Aqua'}`);
+  _sublabel(box, `${_t('Étape', 'Step')} ${reqStep} — ${cfg.theme.label}`);
+  _titleEl(box, `⚔  ${npcCfg.name} — ${_t(rank === 'admin' ? 'Admin' : 'Chef', rank === 'admin' ? 'Admin' : 'Leader')} ${questId === 'groudon' ? 'Magma' : 'Aqua'}`);
 
   // Portrait trainer
   if (trainerImg) {
@@ -842,38 +860,43 @@ async function _launchBossFight(rank, questId) {
     const info = document.createElement('div');
     info.className = 'lgm-trainer-info';
     const nEl = document.createElement('div'); nEl.className = 'lgm-trainer-name'; nEl.textContent = npcCfg.name;
-    const tEl = document.createElement('div'); tEl.className = 'lgm-trainer-team'; tEl.textContent = `Équipe : ${npcCfg.team}`;
+    const tEl = document.createElement('div'); tEl.className = 'lgm-trainer-team'; tEl.textContent = `${_t('Équipe', 'Team')} : ${npcCfg.team}`;
     info.appendChild(nEl); info.appendChild(tEl);
     tw.appendChild(img); tw.appendChild(info);
     box.appendChild(tw);
   }
 
   const txt = _textEl(box);
-  const texts = {
+  const texts = _t({
     tabitha:    `"Vous avez l'audace de vous faufiler ici ?\nSoyez prêts à affronter la flamme de la Team Magma."`,
     matt:       `"Ha ! Vous avez du cran. Mais l'océan n'a pitié de personne.\nLa Team Aqua va vous apprendre ce que ça coûte."`,
     maxieGen3:  `"Impressionnant d'être arrivé jusqu'ici.\nMais Groudon sera réveillé. Rien ne peut arrêter notre vision."\n\nMaxie envoie Camérupt, Crobat, Claydol.`,
     archieGen3: `"Vous êtes plus forts que prévu. Je vous respecte — mais\nKyogre sera libéré. L'océan reprendra ses droits."\n\nArchie envoie Sharpedo, Mantine, Crobat.`,
-  };
-  await _typewrite(txt, texts[npcCfg.key] || `"Affrontez-moi si vous l'osez !"`, 22);
+  }, {
+    tabitha:    `"You have the nerve to sneak in here?\nBe ready to face the flame of Team Magma."`,
+    matt:       `"Ha! You've got guts. But the ocean shows no mercy.\nTeam Aqua will teach you what that costs."`,
+    maxieGen3:  `"Impressive, making it this far.\nBut Groudon will be awakened. Nothing can stop our vision."\n\nMaxie sends out Camerupt, Crobat, Claydol.`,
+    archieGen3: `"You're stronger than expected. I respect that — but\nKyogre will be freed. The ocean will reclaim what's hers."\n\nArchie sends out Sharpedo, Mantine, Crobat.`,
+  });
+  await _typewrite(txt, texts[npcCfg.key] || _t(`"Affrontez-moi si vous l'osez !"`, `"Face me if you dare!"`), 22);
 
   // Power row
   const pr = document.createElement('div');
   pr.className = 'lgm-power-row';
-  pr.innerHTML = `<span class="lgm-power-label">Puissance Boss</span>
+  pr.innerHTML = `<span class="lgm-power-label">${_t('Puissance Boss', 'Boss Power')}</span>
     <span class="lgm-power-val">${bosspower.toLocaleString()} / ${npcCfg.power.toLocaleString()}</span>`;
   box.appendChild(pr);
 
   if (!qualified) {
     const w = document.createElement('div');
     w.className = 'lgm-warn';
-    w.textContent = `Puissance insuffisante — il manque ${(npcCfg.power - bosspower).toLocaleString()} PC.`;
+    w.textContent = _t(`Puissance insuffisante — il manque ${(npcCfg.power - bosspower).toLocaleString()} PC.`, `Not enough power — ${(npcCfg.power - bosspower).toLocaleString()} PC short.`);
     box.appendChild(w);
   }
 
   const ch = _choices(box);
   if (qualified) {
-    const bFight = _btn(`⚔  Engager le combat →`, 'accent');
+    const bFight = _btn(`⚔  ${_t('Engager le combat', 'Engage the battle')} →`, 'accent');
     bFight.onclick = async () => {
       bFight.disabled = true;
       _resolving = true;
@@ -888,7 +911,7 @@ async function _launchBossFight(rank, questId) {
     };
     ch.appendChild(bFight);
   }
-  const bBack = _btn('← Retour au tracker');
+  const bBack = _btn(_t('← Retour au tracker', '← Back to tracker'));
   bBack.onclick = () => { _clearOv(); _renderDualTracker(); };
   ch.appendChild(bBack);
 }
@@ -902,7 +925,7 @@ async function _bossVictory(rank, questId, npcName) {
 
   const badge = document.createElement('div');
   badge.className = 'lgm-badge green';
-  badge.textContent = `✓  ${npcName} — Vaincu`;
+  badge.textContent = `✓  ${npcName} — ${_t('Vaincu', 'Defeated')}`;
   box.appendChild(badge);
 
   const txt = _textEl(box);
@@ -911,12 +934,14 @@ async function _bossVictory(rank, questId, npcName) {
     ? (questId === 'groudon' ? 'Maxie' : 'Archie')
     : (questId === 'groudon' ? 'Groudon' : 'Kyogre');
 
-  await _typewrite(txt,
+  await _typewrite(txt, _t(
     isAdmin
       ? `${npcName} recule, essoufflé.\n\n"Ce n'est pas fini… le Chef saura se venger."\n\nLa voie vers le cœur du QG est dégagée.`
       : `${npcName} s'effondre.\n\nIl vous lance un regard où se mêlent la haine et le respect.\n"Vous ne pouvez pas arrêter ce qui a déjà commencé.\n${nextName} est déjà éveillé."\n\nUn tremblement secoue les murs.`,
-    22,
-  );
+    isAdmin
+      ? `${npcName} steps back, out of breath.\n\n"This isn't over… the Boss will get revenge."\n\nThe way to the heart of the HQ is now clear.`
+      : `${npcName} collapses.\n\nThey give you a look that mixes hatred and respect.\n"You can't stop what's already begun.\n${nextName} is already awake."\n\nA tremor shakes the walls.`,
+  ), 22);
 
   if (isAdmin) { q.adminDefeated = true; q.step = 4; }
   else         {
@@ -926,18 +951,18 @@ async function _bossVictory(rank, questId, npcName) {
   }
   _save();
 
-  _notify(`${cfg.theme.label} — Étape ${isAdmin ? 3 : 4} complète !`, 'gold');
+  _notify(_t(`${cfg.theme.label} — Étape ${isAdmin ? 3 : 4} complète !`, `${cfg.theme.label} — Step ${isAdmin ? 3 : 4} complete!`), 'gold');
 
   const ch = _choices(box);
   const autoT = _armAutoReturn();
-  const bNext = _btn(`▸  Suite →`, 'accent');
+  const bNext = _btn(`▸  ${_t('Suite', 'Next')} →`, 'accent');
   bNext.onclick = () => {
     clearTimeout(autoT);
     _closeOv();
     if (isAdmin) setTimeout(() => _launchBossFight('chief', questId), 300);
     else setTimeout(() => _launchLegendaryFight(questId), 300);
   };
-  const bTrack = _btn('← Tracker');
+  const bTrack = _btn(_t('← Tracker', '← Tracker'));
   bTrack.onclick = () => { clearTimeout(autoT); _clearOv(); _renderDualTracker(); };
   ch.appendChild(bNext);
   ch.appendChild(bTrack);
@@ -951,22 +976,22 @@ async function _bossDefeat(rank, questId, npcName) {
 
   const badge = document.createElement('div');
   badge.className = 'lgm-badge red';
-  badge.textContent = `✗  ${npcName} — Défaite`;
+  badge.textContent = `✗  ${npcName} — ${_t('Défaite', 'Defeat')}`;
   box.appendChild(badge);
 
   const txt = _textEl(box);
-  await _typewrite(txt,
+  await _typewrite(txt, _t(
     `${npcName} repousse votre assaut sans peine.\n\n"Revenez quand vous serez prêts."\n\nRenforcez votre équipe et retentez votre chance.`,
-    22,
-  );
+    `${npcName} repels your assault with ease.\n\n"Come back when you're ready."\n\nStrengthen your team and try again.`,
+  ), 22);
 
-  _notify(`${cfg.theme.label} — défaite contre ${npcName}.`, 'error');
+  _notify(_t(`${cfg.theme.label} — défaite contre ${npcName}.`, `${cfg.theme.label} — defeat against ${npcName}.`), 'error');
 
   const ch = _choices(box);
   const autoT = _armAutoReturn();
-  const bRetry = _btn(`⚔  Retenter →`, 'accent');
+  const bRetry = _btn(`⚔  ${_t('Retenter', 'Retry')} →`, 'accent');
   bRetry.onclick = () => { clearTimeout(autoT); _closeOv(); setTimeout(() => _launchBossFight(rank, questId), 300); };
-  const bTrack = _btn('← Tracker');
+  const bTrack = _btn(_t('← Tracker', '← Tracker'));
   bTrack.onclick = () => { clearTimeout(autoT); _clearOv(); _renderDualTracker(); };
   ch.appendChild(bRetry);
   ch.appendChild(bTrack);
@@ -998,8 +1023,8 @@ async function _launchLegendaryFight(questId) {
   _buildOverlay(questId);
   const box = _box(questId);
 
-  _sublabel(box, `Étape 5 — ${t.label}`);
-  _titleEl(box, `☄  ${leg.name} — Titan ${questId === 'groudon' ? 'du Continent' : 'des Abysses'}`);
+  _sublabel(box, `${_t('Étape', 'Step')} 5 — ${t.label}`);
+  _titleEl(box, `☄  ${leg.name} — ${_t(questId === 'groudon' ? 'Titan du Continent' : 'Titan des Abysses', questId === 'groudon' ? 'Continent Titan' : 'Abyssal Ruler')}`);
 
   // Sprite légendaire
   const sw = document.createElement('div');
@@ -1008,15 +1033,18 @@ async function _launchLegendaryFight(questId) {
   box.appendChild(sw);
 
   const txt = _textEl(box);
-  const intros = {
+  const intros = _t({
     groudon: 'La chaleur est insupportable.\nLa lave fissure le sol autour de lui.\n\nGroudon — le Titan du Continent — vous regarde.\nSes yeux brûlent d\'une lumière ancienne.\n\nIl n\'a pas peur. Il n\'a jamais eu peur.',
     kyogre:  'L\'eau monte. La pression des abysses pèse dans l\'air.\n\nKyogre — le Maître des Abysses — émerge lentement.\nSa silhouette éclaire la caverne d\'une lueur bleue froide.\n\nIl vous observe comme on observe une goutte dans l\'océan.',
-  };
+  }, {
+    groudon: 'The heat is unbearable.\nLava cracks the ground around it.\n\nGroudon — the Continent Titan — watches you.\nIts eyes burn with an ancient light.\n\nIt is not afraid. It has never been afraid.',
+    kyogre:  'The water is rising. The pressure of the abyss weighs on the air.\n\nKyogre — the Abyssal Ruler — slowly emerges.\nIts silhouette lights the cave with a cold blue glow.\n\nIt watches you the way one watches a drop in the ocean.',
+  });
   await _typewrite(txt, intros[questId], 22);
 
   const ch = _choices(box);
-  const bFight = _btn(`☄  Engager le combat →`, 'accent');
-  const bFlee  = _btn('← Reculer');
+  const bFight = _btn(`☄  ${_t('Engager le combat', 'Engage the battle')} →`, 'accent');
+  const bFlee  = _btn(_t('← Reculer', '← Retreat'));
   bFight.onclick = async () => {
     bFight.disabled = true; bFlee.disabled = true;
     if (q.step === 6) {
@@ -1055,7 +1083,7 @@ async function _legendaryResolution(questId, bosspower) {
     : ratio * 0.25;
   const won = Math.random() < winChance;
 
-  _sublabel(box, `Résultat — ${cfg.theme.label}`);
+  _sublabel(box, `${_t('Résultat', 'Result')} — ${cfg.theme.label}`);
 
   // Sprite dans le résultat
   const sw = document.createElement('div');
@@ -1071,10 +1099,13 @@ async function _legendaryResolution(questId, bosspower) {
     const catchRoll = Math.random() < (leg.catchBase + Math.max(0, ratio - 1) * 0.25);
 
     if (catchRoll) {
-      const victoryTexts = {
+      const victoryTexts = _t({
         groudon: 'La sphère touche Groudon.\n\nUn grondement sourd. La lave se fige.\nTrois clics.\n\n…\n\n     ★  Le Titan du Continent est à vous.',
         kyogre:  'La sphère touche Kyogre.\n\nLes eaux se calment. La lumière s\'apaise.\nTrois clics.\n\n…\n\n     ★  Le Maître des Abysses est à vous.',
-      };
+      }, {
+        groudon: 'The Ball hits Groudon.\n\nA deep rumble. The lava freezes.\nThree clicks.\n\n…\n\n     ★  The Continent Titan is yours.',
+        kyogre:  'The Ball hits Kyogre.\n\nThe waters calm. The light softens.\nThree clicks.\n\n…\n\n     ★  The Abyssal Ruler is yours.',
+      });
       await _typewrite(txt, victoryTexts[questId], 26);
 
       _addLegendaryToPC(questId);
@@ -1083,35 +1114,35 @@ async function _legendaryResolution(questId, bosspower) {
       q.totalCaptures = (q.totalCaptures || 0) + 1;
       q.step = 6;
       _save();
-      _notify(`★ ${leg.name} capturé — Niv.${leg.level} / Pot.${leg.pot} !`, 'gold');
+      _notify(_t(`★ ${leg.name} capturé — Niv.${leg.level} / Pot.${leg.pot} !`, `★ ${leg.name} caught — Lv.${leg.level} / Pot.${leg.pot}!`), 'gold');
 
       const badge = document.createElement('div');
       badge.className = 'lgm-badge green';
-      badge.textContent = `★  ${leg.name.toUpperCase()} CAPTURÉ`;
+      badge.textContent = `★  ${leg.name.toUpperCase()} ${_t('CAPTURÉ', 'CAUGHT')}`;
       box.appendChild(badge);
 
       const ch = _choices(box);
       const autoT1 = _armAutoReturn();
-      const bPC = _btn(`▸  Voir ${leg.name} dans le PC →`, 'gold');
+      const bPC = _btn(_t(`▸  Voir ${leg.name} dans le PC →`, `▸  View ${leg.name} in the PC →`), 'gold');
       bPC.onclick = () => { clearTimeout(autoT1); _closeOv(); globalThis.switchTab?.('tabPC'); };
-      const bTr = _btn('← Tracker');
+      const bTr = _btn(_t('← Tracker', '← Tracker'));
       bTr.onclick = () => { clearTimeout(autoT1); _clearOv(); _renderDualTracker(); };
       ch.appendChild(bPC);
       ch.appendChild(bTr);
 
     } else {
       // Victoire mais échec capture
-      await _typewrite(txt,
-        `${leg.name} vacille — mais la sphère rebondit.\n\nUne vague d\'énergie vous repousse.\nIl disparaît dans les profondeurs.\n\nRetrouvez un ${cfg.rerunLabel} pour retenter.`,
-        26,
-      );
+      await _typewrite(txt, _t(
+        `${leg.name} vacille — mais la sphère rebondit.\n\nUne vague d\'énergie vous repousse.\nIl disparaît dans les profondeurs.\n\nRetrouvez un ${_qRerunLabel(cfg)} pour retenter.`,
+        `${leg.name} staggers — but the Ball bounces off.\n\nA wave of energy pushes you back.\nIt vanishes into the depths.\n\nFind another ${_qRerunLabel(cfg)} to try again.`,
+      ), 26);
       _save();
 
       const ch = _choices(box);
       const autoT2 = _armAutoReturn();
-      const bRetry = _btn('▸  Réessayer', 'accent');
+      const bRetry = _btn(_t('▸  Réessayer', '▸  Try again'), 'accent');
       bRetry.onclick = () => { clearTimeout(autoT2); _closeOv(); setTimeout(() => _launchLegendaryFight(questId), 300); };
-      const bTr = _btn('← Tracker');
+      const bTr = _btn(_t('← Tracker', '← Tracker'));
       bTr.onclick = () => { clearTimeout(autoT2); _clearOv(); _renderDualTracker(); };
       ch.appendChild(bRetry);
       ch.appendChild(bTr);
@@ -1120,24 +1151,27 @@ async function _legendaryResolution(questId, bosspower) {
   } else {
     // Défaite
     const needed = Math.max(0, leg.power - bosspower);
-    const defeatTexts = {
+    const defeatTexts = _t({
       groudon: `Groudon balaie votre équipe d\'un mouvement.\n"Insignifiant."\n\nLa caverne tremble. Vous reculez.`,
       kyogre:  `Kyogre plonge. Un torrent d\'eau vous emporte.\nQuand vous reprenez vos esprits, il a disparu.`,
-    };
+    }, {
+      groudon: `Groudon sweeps your team aside with one motion.\n"Insignificant."\n\nThe cavern shakes. You retreat.`,
+      kyogre:  `Kyogre dives. A torrent of water sweeps you away.\nWhen you come to your senses, it's gone.`,
+    });
     await _typewrite(txt, defeatTexts[questId], 26);
 
     const w = document.createElement('div');
     w.className = 'lgm-warn';
     w.textContent = qualified
-      ? `Défaite (chance : ${Math.round(winChance * 100)}%) — renforcez votre équipe.`
-      : `Puissance insuffisante (${bosspower.toLocaleString()} / ${leg.power.toLocaleString()}). Manque : ${needed.toLocaleString()} PC.`;
+      ? _t(`Défaite (chance : ${Math.round(winChance * 100)}%) — renforcez votre équipe.`, `Defeat (chance: ${Math.round(winChance * 100)}%) — strengthen your team.`)
+      : _t(`Puissance insuffisante (${bosspower.toLocaleString()} / ${leg.power.toLocaleString()}). Manque : ${needed.toLocaleString()} PC.`, `Not enough power (${bosspower.toLocaleString()} / ${leg.power.toLocaleString()}). Short: ${needed.toLocaleString()} PC.`);
     box.appendChild(w);
 
     const ch = _choices(box);
     const autoT3 = _armAutoReturn();
-    const bRetry = _btn('▸  Réessayer', 'accent');
+    const bRetry = _btn(_t('▸  Réessayer', '▸  Try again'), 'accent');
     bRetry.onclick = () => { clearTimeout(autoT3); _closeOv(); setTimeout(() => _launchLegendaryFight(questId), 300); };
-    const bTr = _btn('← Tracker');
+    const bTr = _btn(_t('← Tracker', '← Tracker'));
     bTr.onclick = () => { clearTimeout(autoT3); _clearOv(); _renderDualTracker(); };
     ch.appendChild(bRetry);
     ch.appendChild(bTr);
