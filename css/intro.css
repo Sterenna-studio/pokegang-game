@@ -198,6 +198,23 @@
   transition: width .5s ease;
 }
 
+/* Start game CTA */
+.intro-start-btn {
+  font-family: var(--font-pixel);
+  font-size: 10px;
+  letter-spacing: 1px;
+  padding: 14px 34px;
+  background: var(--red);
+  border: none;
+  border-radius: var(--radius);
+  color: #fff;
+  cursor: pointer;
+  transition: background .2s, transform .12s;
+  animation: introFadeUp .7s ease .65s both;
+}
+.intro-start-btn:hover  { background: var(--red-dark); transform: translateY(-2px); }
+.intro-start-btn:active { transform: scale(.97); }
+
 /* Dots */
 .intro-dots {
   display: flex;
