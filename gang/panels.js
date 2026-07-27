@@ -15,6 +15,8 @@
 import { renderEnvironmentZone } from './environment.js';
 import { escapeHtml } from '../modules/core/escape.js';
 
+const _t = (fr, en) => (globalThis.state?.lang === 'en' ? en : fr);
+
 const FABRIC_SHOP_COST = 100_000;
 
 // ── Musique ────────────────────────────────────────────────────────────────
@@ -24,20 +26,20 @@ const FABRIC_SHOP_COST = 100_000;
 // de lecteur dupliqué sur cette page.
 export function renderMusicPanel(container) {
   const JUKEBOX_TRACKS = [
-    { key: 'base',     icon: '🏠', label: 'Base' },
-    { key: 'forest',   icon: '🌿', label: 'Route' },
-    { key: 'cave',     icon: '⛏',  label: 'Caverne' },
-    { key: 'city',     icon: '🏙', label: 'Ville' },
-    { key: 'sea',      icon: '🌊', label: 'Mer' },
-    { key: 'safari',   icon: '🦒', label: 'Safari' },
-    { key: 'lavender', icon: '💜', label: 'Lavanville' },
-    { key: 'tower',    icon: '👻', label: 'Tour' },
-    { key: 'mansion',  icon: '🕯',  label: 'Manoir' },
-    { key: 'gym',      icon: '⚔',  label: 'Arène' },
-    { key: 'rocket',   icon: '🚀', label: 'Rocket' },
-    { key: 'silph',    icon: '🔬', label: 'Sylphe' },
-    { key: 'elite4',   icon: '👑', label: 'Élite 4' },
-    { key: 'casino',   icon: '🎰', label: 'Casino' },
+    { key: 'base',     icon: '🏠', label: _t('Base',       'Base') },
+    { key: 'forest',   icon: '🌿', label: _t('Route',      'Route') },
+    { key: 'cave',     icon: '⛏',  label: _t('Caverne',    'Cave') },
+    { key: 'city',     icon: '🏙', label: _t('Ville',      'City') },
+    { key: 'sea',      icon: '🌊', label: _t('Mer',        'Sea') },
+    { key: 'safari',   icon: '🦒', label: _t('Safari',     'Safari') },
+    { key: 'lavender', icon: '💜', label: _t('Lavanville', 'Lavender Town') },
+    { key: 'tower',    icon: '👻', label: _t('Tour',       'Tower') },
+    { key: 'mansion',  icon: '🕯',  label: _t('Manoir',     'Mansion') },
+    { key: 'gym',      icon: '⚔',  label: _t('Arène',      'Gym') },
+    { key: 'rocket',   icon: '🚀', label: _t('Rocket',     'Rocket') },
+    { key: 'silph',    icon: '🔬', label: _t('Sylphe',     'Silph Co.') },
+    { key: 'elite4',   icon: '👑', label: _t('Élite 4',    'Elite Four') },
+    { key: 'casino',   icon: '🎰', label: _t('Casino',     'Casino') },
   ];
   const state = globalThis.state;
   const currentJuke = state.settings?.jukeboxTrack || null;
@@ -49,7 +51,7 @@ export function renderMusicPanel(container) {
   const jukeHtml = JUKEBOX_TRACKS.map(t => {
     const ok  = isTrackUnlocked(t.key);
     const act = currentJuke === t.key;
-    return `<div class="jukebox-track${act ? ' active' : ''}${ok ? '' : ' locked'}" data-jukebox-track="${t.key}" title="${t.label}${ok ? '' : ' — Verrou'}">
+    return `<div class="jukebox-track${act ? ' active' : ''}${ok ? '' : ' locked'}" data-jukebox-track="${t.key}" title="${t.label}${ok ? '' : _t(' — Verrou', ' — Locked')}">
       <span class="juke-icon">${ok ? t.icon : '🔒'}</span>
       <span class="juke-label">${t.label}</span>
     </div>`;
@@ -58,14 +60,14 @@ export function renderMusicPanel(container) {
   const currentLabel = currentJuke ? (JUKEBOX_TRACKS.find(t => t.key === currentJuke)?.label || currentJuke) : 'AUTO';
 
   container.innerHTML = `
-    <div class="gang-panel-title">🎵 MUSIQUE</div>
+    <div class="gang-panel-title">🎵 ${_t('MUSIQUE', 'MUSIC')}</div>
     <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);margin-bottom:10px">
-      En cours : <span style="color:var(--gold)">${currentLabel}</span>
-      <span style="opacity:.6"> — appliqué au prochain chargement du jeu</span>
+      ${_t('En cours :', 'Now playing:')} <span style="color:var(--gold)">${currentLabel}</span>
+      <span style="opacity:.6"> — ${_t('appliqué au prochain chargement du jeu', 'applied on next game load')}</span>
     </div>
     <div class="base-jukebox">
       ${jukeHtml}
-      <div class="jukebox-track${!currentJuke ? ' active' : ''}" data-jukebox-track="__auto__" title="Musique automatique selon la zone">
+      <div class="jukebox-track${!currentJuke ? ' active' : ''}" data-jukebox-track="__auto__" title="${_t('Musique automatique selon la zone', 'Automatic music based on zone')}">
         <span class="juke-icon">🔄</span><span class="juke-label">AUTO</span>
       </div>
     </div>`;
@@ -73,7 +75,7 @@ export function renderMusicPanel(container) {
   container.querySelectorAll('[data-jukebox-track]').forEach(el => {
     el.addEventListener('click', () => {
       const key = el.dataset.jukeboxTrack;
-      if (el.classList.contains('locked')) { globalThis.notify('🔒 Débloquez cette zone pour accéder à cette musique', 'error'); return; }
+      if (el.classList.contains('locked')) { globalThis.notify(_t('🔒 Débloquez cette zone pour accéder à cette musique', '🔒 Unlock this zone to access this track'), 'error'); return; }
       state.settings.jukeboxTrack = key === '__auto__' ? null : key;
       const label = key === '__auto__' ? 'Auto' : (JUKEBOX_TRACKS.find(t => t.key === key)?.label || key);
       globalThis.notify(`🎵 Jukebox → ${label}`, 'success');
@@ -170,15 +172,16 @@ export function renderAppearancePanel(container) {
   const _bgCard = (key, c) => {
     const own   = unlocked.has(key);
     const isAct = active === key;
+    const name  = state.lang === 'en' ? (c.en || c.fr) : c.fr;
     const thumb = c.type === 'image'
       ? `<div style="height:80px;background-image:url('${c.url}');background-size:cover;background-position:center;border-radius:2px;margin-bottom:6px"></div>`
       : `<div style="height:80px;background:${c.gradient};border-radius:2px;margin-bottom:6px"></div>`;
     return `<div class="cosm-card${isAct ? ' cosm-active' : ''}" data-cosm="${key}" data-owned="${own ? '1' : '0'}"
       style="border:2px solid ${isAct ? 'var(--gold)' : own ? 'var(--green)' : 'var(--border)'};border-radius:var(--radius-sm);padding:8px;cursor:pointer;background:var(--bg-card)">
       ${thumb}
-      <div style="font-size:9px">${c.fr}</div>
+      <div style="font-size:9px">${name}</div>
       <div data-cosm-sub style="font-size:8px;color:${isAct ? 'var(--gold)' : own ? 'var(--green)' : 'var(--text-dim)'}">
-        ${isAct ? '[ ACTIF ]' : own ? 'Équiper' : c.cost.toLocaleString() + '₽'}
+        ${isAct ? _t('[ ACTIF ]', '[ ACTIVE ]') : own ? _t('Équiper', 'Equip') : c.cost.toLocaleString() + '₽'}
       </div>
     </div>`;
   };
@@ -186,8 +189,8 @@ export function renderAppearancePanel(container) {
   const defaultCard = `<div class="cosm-card${!active ? ' cosm-active' : ''}" data-cosm="none" data-owned="1"
     style="border:2px solid ${!active ? 'var(--gold)' : 'var(--border)'};border-radius:var(--radius-sm);padding:8px;cursor:pointer;background:var(--bg-card)">
     <div style="height:80px;background:linear-gradient(180deg,#0a0a0a,#1a1a1a);border-radius:2px;margin-bottom:6px"></div>
-    <div style="font-size:9px">Défaut</div>
-    <div data-cosm-sub style="font-size:8px;color:${!active ? 'var(--gold)' : 'var(--text-dim)'}">Gratuit${!active ? ' [ ACTIF ]' : ''}</div>
+    <div style="font-size:9px">${_t('Défaut', 'Default')}</div>
+    <div data-cosm-sub style="font-size:8px;color:${!active ? 'var(--gold)' : 'var(--text-dim)'}">${_t('Gratuit', 'Free')}${!active ? ' ' + _t('[ ACTIF ]', '[ ACTIVE ]') : ''}</div>
   </div>`;
 
   const bgHtml = Object.entries(COSMETIC_BGS).map(([k, c]) => _bgCard(k, c)).join('');
@@ -206,22 +209,22 @@ export function renderAppearancePanel(container) {
     const pid     = parseInt(m[1], 10);
     const variant = m[2] ? parseInt(m[2], 10) : 1;
     const spec    = FABRIC_SPECIES.find(s => s[0] === pid);
-    const fr      = spec ? spec[1] : `#${pid}`;
+    const name    = spec ? (state.lang === 'en' ? (spec[3] || spec[1]) : spec[1]) : `#${pid}`;
     const own     = unlocked.has(key);
     const isAct   = active === key;
     const isFav   = favoriteBgs.includes(key);
     const previewUrl = fabricBgUrl(pid, variant);
     const badge   = variant > 1 ? `v${variant}` : '';
-    const suffix  = variant > 1 ? ' (alt)' : '';
+    const suffix  = variant > 1 ? _t(' (alt)', ' (alt)') : '';
     return `<div class="cosm-card cosm-fabric-card${isAct ? ' cosm-active' : ''}" data-cosm="${key}" data-fabric-key="${key}" data-owned="${own ? '1' : '0'}"
       style="position:relative;border:2px solid ${isAct ? 'var(--gold)' : own ? 'var(--green)' : 'var(--border)'};border-radius:var(--radius-sm);padding:6px;cursor:pointer;background:var(--bg-card);min-width:0">
       <img src="${previewUrl}" style="width:100%;height:110px;object-fit:cover;border-radius:2px;margin-bottom:4px;display:block"
         onerror="this.closest('[data-fabric-key]').style.display='none'">
       ${badge ? `<div style="position:absolute;top:4px;right:4px;font-size:9px;background:rgba(0,0,0,.7);border-radius:3px;padding:1px 4px">${badge}</div>` : ''}
       <button class="cosm-fav-btn" data-fav-key="${key}" style="position:absolute;top:4px;left:4px;background:rgba(0,0,0,.6);border:none;border-radius:3px;cursor:pointer;font-size:10px;padding:1px 3px;line-height:1">${isFav ? '⭐' : '☆'}</button>
-      <div style="font-size:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${fr}${suffix}</div>
+      <div style="font-size:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${name}${suffix}</div>
       <div data-cosm-sub style="font-size:7px;color:${isAct ? 'var(--gold)' : own ? 'var(--green)' : 'var(--text-dim)'}">
-        ${isAct ? '[ ACTIF ]' : own ? 'Équiper' : FABRIC_SHOP_COST.toLocaleString() + '₽'}
+        ${isAct ? _t('[ ACTIF ]', '[ ACTIVE ]') : own ? _t('Équiper', 'Equip') : FABRIC_SHOP_COST.toLocaleString() + '₽'}
       </div>
     </div>`;
   };
@@ -236,15 +239,15 @@ export function renderAppearancePanel(container) {
   };
   const fabricSettingsHtml = isFabricActive ? `
     <div id="fabricSettings" style="margin-top:12px;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm)">
-      <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);margin-bottom:8px;letter-spacing:.4px">⚙ PARAMÈTRES TISSU</div>
+      <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);margin-bottom:8px;letter-spacing:.4px">⚙ ${_t('PARAMÈTRES TISSU', 'FABRIC SETTINGS')}</div>
       <div style="display:flex;gap:8px;margin-bottom:12px">
-        ${_modeBtn('full',   'Plein écran')}
-        ${_modeBtn('repeat', 'Répétition')}
+        ${_modeBtn('full',   _t('Plein écran', 'Full screen'))}
+        ${_modeBtn('repeat', _t('Répétition',  'Repeat'))}
       </div>
       <div style="display:flex;flex-direction:column;gap:10px">
         <div style="${fabricMode === 'repeat' ? '' : 'opacity:0.35;pointer-events:none'}">
           <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-            <span style="font-size:8px;color:var(--text-dim)">Taille motif</span>
+            <span style="font-size:8px;color:var(--text-dim)">${_t('Taille motif', 'Pattern size')}</span>
             <span id="fabricSizeVal" style="font-size:8px;color:var(--gold)">${fabricSize}px</span>
           </div>
           <input type="range" id="fabricSizeRange" min="80" max="600" step="10" value="${fabricSize}"
@@ -252,7 +255,7 @@ export function renderAppearancePanel(container) {
         </div>
         <div>
           <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-            <span style="font-size:8px;color:var(--text-dim)">Transparence UI</span>
+            <span style="font-size:8px;color:var(--text-dim)">${_t('Transparence UI', 'UI Transparency')}</span>
             <span id="fabricOpacityVal" style="font-size:8px;color:var(--gold)">${fabricOpacity}%</span>
           </div>
           <input type="range" id="fabricOpacityRange" min="30" max="95" step="1" value="${fabricOpacity}"
@@ -262,9 +265,21 @@ export function renderAppearancePanel(container) {
     </div>` : '';
 
   const _patchLabel = {
-    1:'Bulbizarre', 4:'Salamèche', 7:'Carapuce', 25:'Pikachu', 39:'Rondoudou',
-    50:'Taupiqueur', 54:'Psykokwak', 94:'Ectoplasma', 129:'Magicarpe', 131:'Lokhlass',
-    132:'Métamorph', 133:'Évoli', 143:'Ronflex', 149:'Dracolosse', 151:'Mew',
+    1:  _t('Bulbizarre', 'Bulbasaur'),
+    4:  _t('Salamèche',  'Charmander'),
+    7:  _t('Carapuce',   'Squirtle'),
+    25: 'Pikachu',
+    39: _t('Rondoudou',  'Jigglypuff'),
+    50: _t('Taupiqueur', 'Diglett'),
+    54: _t('Psykokwak',  'Psyduck'),
+    94: _t('Ectoplasma', 'Gengar'),
+    129: _t('Magicarpe', 'Magikarp'),
+    131: _t('Lokhlass',  'Lapras'),
+    132: _t('Métamorph', 'Ditto'),
+    133: _t('Évoli',     'Eevee'),
+    143: _t('Ronflex',   'Snorlax'),
+    149: _t('Dracolosse','Dragonite'),
+    151: 'Mew',
   };
   const patchesHtml = PATCH_PIDS.map(pid => {
     const isAct = activePatches.includes(pid);
@@ -277,34 +292,34 @@ export function renderAppearancePanel(container) {
   }).join('');
 
   container.innerHTML = `
-    <div class="gang-panel-title">🖼 APPARENCE</div>
-    <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold-dim);margin-bottom:8px;letter-spacing:.5px">🖼 FONDS D'ÉCRAN</div>
+    <div class="gang-panel-title">🖼 ${_t('APPARENCE', 'APPEARANCE')}</div>
+    <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold-dim);margin-bottom:8px;letter-spacing:.5px">🖼 ${_t("FONDS D'ÉCRAN", 'WALLPAPERS')}</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-bottom:20px">
       ${defaultCard}${bgHtml}
     </div>
 
     <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold-dim);margin-bottom:8px;letter-spacing:.5px">
       🧵 ORIGINAL STITCH
-      <span style="font-size:7px;color:var(--text-dim);font-weight:normal;margin-left:6px">${fabricUnlocked.length} débloqué(s)</span>
+      <span style="font-size:7px;color:var(--text-dim);font-weight:normal;margin-left:6px">${fabricUnlocked.length} ${_t('débloqué(s)', 'unlocked')}</span>
     </div>
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
       <button class="fabric-filter-btn" data-fabric-filter="owned"
-        style="font-family:var(--font-pixel);font-size:8px;padding:4px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text-dim);cursor:pointer">Possédé</button>
+        style="font-family:var(--font-pixel);font-size:8px;padding:4px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text-dim);cursor:pointer">${_t('Possédé', 'Owned')}</button>
       <button class="fabric-filter-btn" data-fabric-filter="all"
-        style="font-family:var(--font-pixel);font-size:8px;padding:4px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text-dim);cursor:pointer">Tous</button>
+        style="font-family:var(--font-pixel);font-size:8px;padding:4px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text-dim);cursor:pointer">${_t('Tous', 'All')}</button>
       <button class="fabric-filter-btn" data-fabric-filter="favorites"
-        style="font-family:var(--font-pixel);font-size:8px;padding:4px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text-dim);cursor:pointer">⭐ Favoris</button>
+        style="font-family:var(--font-pixel);font-size:8px;padding:4px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text-dim);cursor:pointer">⭐ ${_t('Favoris', 'Favorites')}</button>
     </div>
     <div id="fabricSlider"
       style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;padding:4px 2px 10px">
       ${fabricUnlocked.length > 0
         ? fabricUnlocked.map(_buildFabricCard).join('')
-        : '<div style="font-size:9px;color:var(--text-dim);padding:12px;grid-column:1/-1">Capture des Pokémon pour débloquer des fonds tissu !</div>'}
+        : `<div style="font-size:9px;color:var(--text-dim);padding:12px;grid-column:1/-1">${_t('Capture des Pokémon pour débloquer des fonds tissu !', 'Catch Pokémon to unlock fabric wallpapers!')}</div>`}
     </div>
     ${fabricSettingsHtml}
 
     <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold-dim);margin-top:20px;margin-bottom:8px;letter-spacing:.5px">
-      📌 PINS <span style="font-size:7px;color:var(--text-dim);font-weight:normal">${activePatches.length}/3 actifs</span>
+      📌 PINS <span style="font-size:7px;color:var(--text-dim);font-weight:normal">${activePatches.length}/3 ${_t('actifs', 'active')}</span>
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">${patchesHtml}</div>
 
@@ -320,21 +335,22 @@ export function renderAppearancePanel(container) {
       }
       const c = COSMETIC_BGS[key];
       if (!c) return;
+      const name = state.lang === 'en' ? (c.en || c.fr) : c.fr;
       if (unlocked.has(key)) {
         state.cosmetics.gameBg = key;
         globalThis.saveState(); globalThis.applyCosmetics();
         _patchActiveBg(container, key);
       } else {
-        if (state.gang.money < c.cost) { globalThis.notify('Fonds insuffisants.', 'error'); return; }
-        globalThis.showConfirm(`Acheter "${c.fr}" pour ${c.cost.toLocaleString()}₽ ?`, () => {
+        if (state.gang.money < c.cost) { globalThis.notify(_t('Fonds insuffisants.', 'Insufficient funds.'), 'error'); return; }
+        globalThis.showConfirm(`${_t('Acheter', 'Buy')} "${name}" ${_t('pour', 'for')} ${c.cost.toLocaleString()}₽ ?`, () => {
           state.gang.money -= c.cost;
           state.cosmetics.unlockedBgs = [...(state.cosmetics.unlockedBgs || []), key];
           state.cosmetics.gameBg = key;
           globalThis.saveState(); globalThis.applyCosmetics();
-          globalThis.notify(`🎨 "${c.fr}" débloqué !`, 'gold');
+          globalThis.notify(`🎨 "${name}" ${_t('débloqué !', 'unlocked!')}`, 'gold');
           el.dataset.owned = '1';
           _patchActiveBg(container, key);
-        }, null, { confirmLabel: 'Acheter', cancelLabel: 'Annuler' });
+        }, null, { confirmLabel: _t('Acheter', 'Buy'), cancelLabel: _t('Annuler', 'Cancel') });
       }
     });
   });
@@ -366,18 +382,18 @@ export function renderAppearancePanel(container) {
           const m   = key.match(/^fabric_(\d+)/);
           const pid = m ? parseInt(m[1], 10) : 0;
           const spec = pid ? FABRIC_SPECIES.find(s => s[0] === pid) : null;
-          const fr   = spec ? spec[1] : `#${pid}`;
-          if (state.gang.money < FABRIC_SHOP_COST) { globalThis.notify('Fonds insuffisants (100 000₽).', 'error'); return; }
-          globalThis.showConfirm(`Acheter le fond tissu "${fr}" pour ${FABRIC_SHOP_COST.toLocaleString()}₽ ?`, () => {
+          const name = spec ? (state.lang === 'en' ? (spec[3] || spec[1]) : spec[1]) : `#${pid}`;
+          if (state.gang.money < FABRIC_SHOP_COST) { globalThis.notify(_t('Fonds insuffisants (100 000₽).', 'Insufficient funds (100,000₽).'), 'error'); return; }
+          globalThis.showConfirm(`${_t('Acheter le fond tissu', 'Buy fabric wallpaper')} "${name}" ${_t('pour', 'for')} ${FABRIC_SHOP_COST.toLocaleString()}₽ ?`, () => {
             state.gang.money -= FABRIC_SHOP_COST;
             state.cosmetics.unlockedBgs = [...(state.cosmetics.unlockedBgs || []), key];
             state.cosmetics.gameBg = key;
             globalThis.saveState(); globalThis.applyCosmetics();
-            globalThis.notify(`🧵 Fond tissu "${fr}" débloqué !`, 'gold');
+            globalThis.notify(`🧵 ${_t('Fond tissu', 'Fabric wallpaper')} "${name}" ${_t('débloqué !', 'unlocked!')}`, 'gold');
             el.dataset.owned = '1';
             _patchActiveBg(container, key);
             _patchActiveFabric(container, key);
-          }, null, { confirmLabel: 'Acheter', cancelLabel: 'Annuler' });
+          }, null, { confirmLabel: _t('Acheter', 'Buy'), cancelLabel: _t('Annuler', 'Cancel') });
         }
       });
     });
@@ -397,7 +413,7 @@ export function renderAppearancePanel(container) {
       keys = [...keys].sort((a, b) => (favSet.has(b) ? 1 : 0) - (favSet.has(a) ? 1 : 0));
       slider.innerHTML = keys.length > 0
         ? keys.map(_buildFabricCard).join('')
-        : '<div style="font-size:9px;color:var(--text-dim);padding:12px">Aucun fond dans cette catégorie.</div>';
+        : `<div style="font-size:9px;color:var(--text-dim);padding:12px">${_t('Aucun fond dans cette catégorie.', 'No wallpaper in this category.')}</div>`;
       _bindFabricHandlers(slider);
     });
   });
@@ -440,11 +456,11 @@ export function renderAppearancePanel(container) {
       const idx     = patches.indexOf(pid);
       if (idx >= 0) {
         patches.splice(idx, 1);
-        globalThis.notify('📌 Pin retiré', 'success');
+        globalThis.notify(_t('📌 Pin retiré', '📌 Pin removed'), 'success');
       } else {
-        if (patches.length >= 3) { globalThis.notify('Maximum 3 pins actifs.', 'error'); return; }
+        if (patches.length >= 3) { globalThis.notify(_t('Maximum 3 pins actifs.', 'Maximum 3 active pins.'), 'error'); return; }
         patches.push(pid);
-        globalThis.notify(`📌 Pin "${_patchLabel[pid] || pid}" activé !`, 'gold');
+        globalThis.notify(`📌 ${_t('Pin', 'Pin')} "${_patchLabel[pid] || pid}" ${_t('activé !', 'activated!')}`, 'gold');
       }
       state.cosmetics.activePatches = patches;
       globalThis.saveState();
@@ -463,12 +479,12 @@ export function renderAppearancePanel(container) {
     btn.addEventListener('click', () => {
       const item = (globalThis.SHOP_ITEMS || [])[parseInt(btn.dataset.gangBuySkin)];
       if (!item || btn.disabled) return;
-      if ((state.gang.money || 0) < item.cost) { globalThis.notify('Fonds insuffisants.', 'error'); return; }
+      if ((state.gang.money || 0) < item.cost) { globalThis.notify(_t('Fonds insuffisants.', 'Insufficient funds.'), 'error'); return; }
       state.gang.money -= item.cost;
       state.purchases[`skin_${item.ballSkin}`] = true;
       state.activeBall = item.ballSkin;
       globalThis.saveState();
-      globalThis.notify(`🎳 Skin "${item.ballSkin}" débloqué !`, 'gold');
+      globalThis.notify(`🎳 Skin "${item.ballSkin}" ${_t('débloqué !', 'unlocked!')}`, 'gold');
       renderAppearancePanel(container);
     });
   });
@@ -476,7 +492,7 @@ export function renderAppearancePanel(container) {
 
 const BALL_SKIN_KEYS = ['greatball', 'duskball', 'ultraball', 'masterball'];
 function _buildBallSkinsHtml(state) {
-  const lang = state.lang === 'fr' ? 'fr' : 'en';
+  const lang = state.lang === 'en' ? 'en' : 'fr';
   const BALLS = globalThis.BALLS || {};
   const BALL_SPRITES = globalThis.BALL_SPRITES || {};
   const activeBall = state.activeBall || 'pokeball';
@@ -494,21 +510,21 @@ function _buildBallSkinsHtml(state) {
       <img src="${BALL_SPRITES[key] || ''}" style="width:24px;height:24px;image-rendering:pixelated;flex-shrink:0">
       <div style="flex:1;min-width:0">
         <div style="font-size:10px;color:var(--text)">${lang === 'fr' ? ballDef.fr : ballDef.en}</div>
-        ${owned ? `<div style="font-size:8px;color:var(--text-dim)">Débloqué</div>` : `<div style="font-size:8px;color:var(--gold)">${cost.toLocaleString()}₽</div>`}
+        ${owned ? `<div style="font-size:8px;color:var(--text-dim)">${_t('Débloqué', 'Unlocked')}</div>` : `<div style="font-size:8px;color:var(--gold)">${cost.toLocaleString()}₽</div>`}
       </div>
       ${owned
         ? `<button data-gang-set-ball="${key}" style="font-family:var(--font-pixel);font-size:8px;padding:4px 9px;cursor:pointer;
             background:${active ? 'var(--red-dark)' : 'var(--bg)'};
             border:1px solid ${active ? 'var(--red)' : 'var(--border-light)'};
             border-radius:var(--radius-sm);color:${active ? 'var(--text)' : 'var(--text-dim)'};white-space:nowrap">
-            ${active ? '✓ ACTIF' : 'UTILISER'}
+            ${active ? _t('✓ ACTIF', '✓ ACTIVE') : _t('UTILISER', 'USE')}
            </button>`
         : `<button data-gang-buy-skin="${shopIdx}" ${canAfford && shopIdx >= 0 ? '' : 'disabled'}
             style="font-family:var(--font-pixel);font-size:8px;padding:4px 9px;
             cursor:${canAfford && shopIdx >= 0 ? 'pointer' : 'default'};
             background:var(--bg);border:1px solid ${canAfford && shopIdx >= 0 ? 'var(--gold-dim)' : 'var(--border)'};
             border-radius:var(--radius-sm);color:${canAfford && shopIdx >= 0 ? 'var(--gold)' : 'var(--text-dim)'}">
-            ACHETER
+            ${_t('ACHETER', 'BUY')}
            </button>`
       }
     </div>`;
@@ -520,11 +536,11 @@ function _buildBallSkinsHtml(state) {
   return `
     <div style="margin-top:20px">
       <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold-dim);margin-bottom:6px;letter-spacing:.5px">
-        🎳 SKINS DE BALL
+        🎳 ${_t('SKINS DE BALL', 'BALL SKINS')}
       </div>
       <div style="font-size:9px;color:var(--text-dim);margin-bottom:8px">
-        Skin actif : <b style="color:var(--gold)">${activeLabel}</b>
-        <span style="font-size:8px;opacity:.6"> — cosmétique uniquement (boss + agents)</span>
+        ${_t('Skin actif :', 'Active skin:')} <b style="color:var(--gold)">${activeLabel}</b>
+        <span style="font-size:8px;opacity:.6"> — ${_t('cosmétique uniquement (boss + agents)', 'cosmetic only (boss + agents)')}</span>
       </div>
       ${rows}
     </div>`;
@@ -534,12 +550,24 @@ function _buildBallSkinsHtml(state) {
 // Portage de modules/systems/titles.js (openTitleModal) — même logique de
 // slots/liaison, ouverte depuis un panneau dédié au lieu d'une modal
 // par-dessus le jeu.
-const LIAISONS = ['', 'de', "de l'", 'du', 'des', 'à', 'et', '&', 'alias', 'dit'];
+const LIAISONS = [
+  { fr: '',        en: ''        },
+  { fr: 'de',      en: 'of'      },
+  { fr: "de l'",   en: "the"     },
+  { fr: 'du',      en: 'of the'  },
+  { fr: 'des',     en: 'of the'  },
+  { fr: 'à',       en: 'at'      },
+  { fr: 'et',      en: 'and'     },
+  { fr: '&',       en: '&'       },
+  { fr: 'alias',   en: 'alias'   },
+  { fr: 'dit',     en: 'aka'     },
+];
+
 const SLOT_DEFS = [
-  { key:'titleA', label:'Titre 1', color:'var(--gold)',  bg:'rgba(255,204,90,.15)' },
-  { key:'titleB', label:'Titre 2', color:'var(--red)',   bg:'rgba(204,51,51,.15)' },
-  { key:'titleC', label:'Badge 1', color:'#4fc3f7',      bg:'rgba(79,195,247,.12)' },
-  { key:'titleD', label:'Badge 2', color:'#ce93d8',      bg:'rgba(206,147,216,.12)' },
+  { key:'titleA', label: _t('Titre 1', 'Title 1'), color:'var(--gold)',  bg:'rgba(255,204,90,.15)' },
+  { key:'titleB', label: _t('Titre 2', 'Title 2'), color:'var(--red)',   bg:'rgba(204,51,51,.15)' },
+  { key:'titleC', label: _t('Badge 1', 'Badge 1'), color:'#4fc3f7',      bg:'rgba(79,195,247,.12)' },
+  { key:'titleD', label: _t('Badge 2', 'Badge 2'), color:'#ce93d8',      bg:'rgba(206,147,216,.12)' },
 ];
 
 function _getTitleLabel(titleId) {
@@ -551,7 +579,8 @@ function _getBossFullTitle() {
   const state = globalThis.state;
   const t1 = _getTitleLabel(state.gang.titleA);
   const t2 = _getTitleLabel(state.gang.titleB);
-  const lia = state.gang.titleLiaison || '';
+  const liaObj = LIAISONS.find(l => l.fr === (state.gang.titleLiaison || '')) || LIAISONS[0];
+  const lia = state.lang === 'en' ? liaObj.en : liaObj.fr;
   if (!t1 && !t2) return state.lang === 'en' ? 'Recruit' : 'Recrue';
   if (t1 && !t2) return t1;
   if (!t1 && t2) return t2;
@@ -569,12 +598,24 @@ export function renderTitrePanel(container) {
     const activeSlotDef = SLOT_DEFS[_activeSlot];
 
     const categories = {
-      rep:'Réputation', type_capture:'Type', stat:'Exploit',
-      shop:'Boutique', special:'Spécial',
-      pokedex:'Pokédex', shiny_special:'Chromatique', collection:'Collection',
+      rep:           _t('Réputation',   'Reputation'),
+      type_capture:  _t('Type',         'Type'),
+      stat:          _t('Exploit',       'Exploit'),
+      shop:          _t('Boutique',      'Shop'),
+      special:       _t('Spécial',       'Special'),
+      pokedex:       'Pokédex',
+      shiny_special: _t('Chromatique',   'Shiny'),
+      collection:    _t('Collection',    'Collection'),
     };
 
-    const liaOptions = LIAISONS.map(l => `<option value="${l}" ${l === lia ? 'selected' : ''}>${l || '(aucun)'}</option>`).join('');
+    const liaOptions = LIAISONS.map(l => {
+      const val   = l.fr;
+      const label = state.lang === 'en'
+        ? (l.en ? l.en : _t('(aucun)', '(none)'))
+        : (l.fr ? l.fr : '(aucun)');
+      return `<option value="${val}" ${val === lia ? 'selected' : ''}>${label}</option>`;
+    }).join('');
+
     const slotBtns = SLOT_DEFS.map((s, i) => {
       const isActive = i === _activeSlot;
       const val = slots[i];
@@ -605,9 +646,12 @@ export function renderTitrePanel(container) {
           ? `background:${assigned ? assignedBg : 'var(--bg-card)'};border:1px solid ${assigned ? assignedColor : 'var(--border)'};color:${assigned ? assignedColor : 'var(--text)'};cursor:pointer`
           : 'background:var(--bg);border:1px solid var(--border);color:var(--text-dim);opacity:.4;cursor:not-allowed';
         const badge = assigned ? ` <span style="font-size:6px;opacity:.7">${SLOT_DEFS[slotIdx].label}</span>` : '';
+        const tooltip = isUnlocked
+          ? (assigned ? _t('Assigné — cliquer pour retirer', 'Assigned — click to remove') : _t(`Assigner au ${activeSlotDef.label}`, `Assign to ${activeSlotDef.label}`))
+          : _t('Verrouillé', 'Locked');
         titlesHtml += `<div class="title-chip ${isUnlocked ? 'title-unlocked' : 'title-locked'}" data-title-id="${t.id}"
           style="font-family:var(--font-pixel);font-size:8px;padding:4px 8px;border-radius:var(--radius-sm);${style}"
-          title="${isUnlocked ? (assigned ? `Assigné — cliquer pour retirer` : `Assigner au ${activeSlotDef.label}`) : 'Verrouillé'}">
+          title="${tooltip}">
           ${_getTitleLabel(t.id)}${badge}
         </div>`;
       }
@@ -615,21 +659,21 @@ export function renderTitrePanel(container) {
     }
 
     container.innerHTML = `
-      <div class="gang-panel-title">🏆 TITRE</div>
+      <div class="gang-panel-title">🏆 ${_t('TITRE', 'TITLE')}</div>
       <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;text-align:center;margin-bottom:12px">
         <div style="font-family:var(--font-pixel);font-size:12px;color:var(--gold-dim)">${_getBossFullTitle()}</div>
         <div style="display:flex;gap:6px;align-items:center;justify-content:center;flex-wrap:wrap;margin-top:8px">
-          <span style="font-size:8px;color:var(--text-dim)">Liaison :</span>
+          <span style="font-size:8px;color:var(--text-dim)">${_t('Liaison :', 'Link:')}</span>
           <select id="gangTitleLiaison" style="background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:3px;font-size:8px;padding:2px 4px">${liaOptions}</select>
-          <button id="gangClearTitles" style="font-size:7px;padding:2px 6px;background:var(--bg);border:1px solid var(--border);border-radius:3px;color:var(--text-dim);cursor:pointer">Tout effacer</button>
+          <button id="gangClearTitles" style="font-size:7px;padding:2px 6px;background:var(--bg);border:1px solid var(--border);border-radius:3px;color:var(--text-dim);cursor:pointer">${_t('Tout effacer', 'Clear all')}</button>
         </div>
       </div>
       <div style="display:flex;gap:6px;margin-bottom:10px">
-        <span style="font-size:8px;color:var(--text-dim);align-self:center;white-space:nowrap">Slot actif :</span>
+        <span style="font-size:8px;color:var(--text-dim);align-self:center;white-space:nowrap">${_t('Slot actif :', 'Active slot:')}</span>
         ${slotBtns}
       </div>
       <div style="font-size:8px;color:var(--text-dim);text-align:center;margin-bottom:10px">
-        Clic → assigner au <span style="color:${activeSlotDef.color}">${activeSlotDef.label}</span> · clic sur un titre déjà assigné → retirer
+        ${_t('Clic → assigner au', 'Click → assign to')} <span style="color:${activeSlotDef.color}">${activeSlotDef.label}</span> · ${_t('clic sur un titre déjà assigné → retirer', 'click an assigned title → remove')}
       </div>
       <div>${titlesHtml}</div>`;
 
@@ -676,19 +720,19 @@ export function renderVitrinePanel(container) {
       return `<div class="gang-vslot filled" data-vslot="${i}">
         <img src="${globalThis.pokeSprite(pk.species_en, pk.shiny)}" alt="">
         <div class="gang-vslot-name">${escapeHtml(globalThis.pokemonDisplayName(pk))}${pk.shiny ? ' ✨' : ''}</div>
-        <button class="gang-vslot-remove" data-vslot-remove="${i}" title="Retirer">✕</button>
+        <button class="gang-vslot-remove" data-vslot-remove="${i}" title="${_t('Retirer', 'Remove')}">✕</button>
       </div>`;
     }
     return `<div class="gang-vslot empty" data-vslot="${i}">
       <div class="gang-vslot-plus">+</div>
-      <div class="gang-vslot-name">Vide</div>
+      <div class="gang-vslot-name">${_t('Vide', 'Empty')}</div>
     </div>`;
   }).join('');
 
   container.innerHTML = `
     <div class="gang-vitrine-layout">
       <div class="gang-vitrine-sidebar">
-        <div class="gang-panel-title" style="margin-bottom:8px">🏛 VITRINE</div>
+        <div class="gang-panel-title" style="margin-bottom:8px">🏛 ${_t('VITRINE', 'SHOWCASE')}</div>
         ${slotHtml}
       </div>
       <div class="gang-environment-zone" id="gangEnvironmentZone"></div>
@@ -732,14 +776,14 @@ function openShowcasePicker(slotIdx, onDone) {
         <div>${escapeHtml(globalThis.pokemonDisplayName(p))}${p.shiny ? ' ✨' : ''} ${'★'.repeat(p.potential)}</div>
         <div class="dim">Lv.${p.level}</div>
       </div>
-    </div>`).join('') || `<div class="gang-picker-empty">Aucun Pokémon disponible</div>`;
+    </div>`).join('') || `<div class="gang-picker-empty">${_t('Aucun Pokémon disponible', 'No Pokémon available')}</div>`;
 
   modal.innerHTML = `
     <div class="gang-picker-box">
-      <div class="gang-panel-title">VITRINE — SLOT ${slotIdx + 1}</div>
-      <input type="text" id="showcasePickSearch" placeholder="Rechercher un Pokémon…">
+      <div class="gang-panel-title">${_t('VITRINE', 'SHOWCASE')} — SLOT ${slotIdx + 1}</div>
+      <input type="text" id="showcasePickSearch" placeholder="${_t('Rechercher un Pokémon…', 'Search a Pokémon…')}">
       <div id="showcasePickList" class="gang-picker-list">${_renderItems(candidates)}</div>
-      <button id="showcasePickCancel">Annuler</button>
+      <button id="showcasePickCancel">${_t('Annuler', 'Cancel')}</button>
     </div>`;
   document.body.appendChild(modal);
 
