@@ -542,13 +542,17 @@ const SLOT_DEFS = [
   { key:'titleD', label:'Badge 2', color:'#ce93d8',      bg:'rgba(206,147,216,.12)' },
 ];
 
-function _getTitleLabel(titleId) { return TITLES.find(t => t.id === titleId)?.label || ''; }
+function _getTitleLabel(titleId) {
+  const t = TITLES.find(t => t.id === titleId);
+  if (!t) return '';
+  return globalThis.state?.lang === 'en' ? (t.label_en || t.label) : t.label;
+}
 function _getBossFullTitle() {
   const state = globalThis.state;
   const t1 = _getTitleLabel(state.gang.titleA);
   const t2 = _getTitleLabel(state.gang.titleB);
   const lia = state.gang.titleLiaison || '';
-  if (!t1 && !t2) return 'Recrue';
+  if (!t1 && !t2) return state.lang === 'en' ? 'Recruit' : 'Recrue';
   if (t1 && !t2) return t1;
   if (!t1 && t2) return t2;
   return `${t1}${lia ? ' ' + lia : ''} ${t2}`;
@@ -604,7 +608,7 @@ export function renderTitrePanel(container) {
         titlesHtml += `<div class="title-chip ${isUnlocked ? 'title-unlocked' : 'title-locked'}" data-title-id="${t.id}"
           style="font-family:var(--font-pixel);font-size:8px;padding:4px 8px;border-radius:var(--radius-sm);${style}"
           title="${isUnlocked ? (assigned ? `Assigné — cliquer pour retirer` : `Assigner au ${activeSlotDef.label}`) : 'Verrouillé'}">
-          ${t.label}${badge}
+          ${_getTitleLabel(t.id)}${badge}
         </div>`;
       }
       titlesHtml += '</div></div>';

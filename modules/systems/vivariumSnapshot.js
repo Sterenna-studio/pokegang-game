@@ -89,11 +89,15 @@ const BOSS_LINES = [
 // est un bare-name classic script chargé par les deux consommateurs de ce
 // module : gang/index.html et index.html).
 function _getBossFullTitle(state) {
-  const label = id => TITLES.find(t => t.id === id)?.label || '';
+  const label = id => {
+    const t = TITLES.find(t => t.id === id);
+    if (!t) return '';
+    return state.lang === 'en' ? (t.label_en || t.label) : t.label;
+  };
   const t1 = label(state.gang.titleA);
   const t2 = label(state.gang.titleB);
   const lia = state.gang.titleLiaison || '';
-  if (!t1 && !t2) return 'Recrue';
+  if (!t1 && !t2) return state.lang === 'en' ? 'Recruit' : 'Recrue';
   if (t1 && !t2) return t1;
   if (!t1 && t2) return t2;
   return `${t1}${lia ? ' ' + lia : ''} ${t2}`;

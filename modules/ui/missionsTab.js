@@ -50,7 +50,7 @@ function renderMissionsTab() {
   const hSec = Math.floor((hourlyRem % 60000) / 1000);
   let hourlyHtml = `<div style="margin-bottom:20px">
     <h3 style="font-family:var(--font-pixel);font-size:11px;color:var(--gold);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">
-      Quêtes Horaires <span style="font-size:9px;color:var(--text-dim)">${hMin}m${String(hSec).padStart(2,'0')}s</span>
+      ${state.lang === 'fr' ? 'Quêtes Horaires' : 'Hourly Quests'} <span style="font-size:9px;color:var(--text-dim)">${hMin}m${String(hSec).padStart(2,'0')}s</span>
     </h3>`;
   for (let i = 0; i < 5; i++) {
     const q = getHourlyQuest(i);
@@ -66,7 +66,7 @@ function renderMissionsTab() {
       <img src="${pokeIcon(q.icon)}" style="width:32px;height:24px;image-rendering:pixelated;flex-shrink:0" onerror="this.style.display='none'">
       <div style="flex:1;min-width:0">
         <div style="font-size:12px;${claimed?'text-decoration:line-through':''}">
-          ${q.fr} <span style="font-size:7px;padding:1px 4px;border-radius:3px;background:${diffColor};color:#fff;font-family:var(--font-pixel)">${q.diff === 'hard' ? 'HARD' : 'MED'}</span>
+          ${state.lang === 'fr' ? q.fr : (q.en || q.fr)} <span style="font-size:7px;padding:1px 4px;border-radius:3px;background:${diffColor};color:#fff;font-family:var(--font-pixel)">${q.diff === 'hard' ? 'HARD' : 'MED'}</span>
         </div>
         <div style="background:var(--bg);border-radius:3px;height:6px;margin-top:4px;overflow:hidden">
           <div style="width:${pct}%;height:100%;background:${fillColor};transition:width .3s"></div>
@@ -75,7 +75,7 @@ function renderMissionsTab() {
       </div>
       <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
         ${complete && !claimed
-          ? `<button class="btn-claim-hourly" data-slot="${i}" style="font-family:var(--font-pixel);font-size:9px;padding:6px 12px;background:var(--green);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--bg);cursor:pointer;white-space:nowrap;animation:glow 1.5s ease-in-out infinite">Récupérer</button>`
+          ? `<button class="btn-claim-hourly" data-slot="${i}" style="font-family:var(--font-pixel);font-size:9px;padding:6px 12px;background:var(--green);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--bg);cursor:pointer;white-space:nowrap;animation:glow 1.5s ease-in-out infinite">${state.lang === 'fr' ? 'Récupérer' : 'Claim'}</button>`
           : claimed ? '<span style="font-size:9px;color:var(--green)">✓</span>' : ''}
         ${!claimed ? `<button class="btn-reroll-hourly" data-slot="${i}" style="font-size:7px;padding:3px 6px;background:var(--bg);border:1px solid var(--border);border-radius:3px;color:var(--text-dim);cursor:pointer;font-family:var(--font-pixel)">↻ ${HOURLY_QUEST_REROLL_COST}₽</button>` : ''}
       </div>

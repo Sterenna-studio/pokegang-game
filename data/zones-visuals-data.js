@@ -155,22 +155,22 @@ const ZONE_BGS = {
 // Cosmetic backgrounds purchasable for the game screen
 const COSMETIC_BGS = {
   // ── Fonds d'écran photo (CDN Showdown) ───────────────────────
-  meadow:        { fr:'Prairie',       cost:5000,  url:`${SD_BG}meadow.png`,   type:'image' },
-  forest:        { fr:'Forêt',         cost:8000,  url:`${SD_BG}forest.png`,   type:'image' },
-  mountain:      { fr:'Montagne',      cost:10000, url:`${SD_BG}mountain.png`, type:'image' },
-  beach:         { fr:'Plage',         cost:8000,  url:`${SD_BG}beach.png`,    type:'image' },
-  river:         { fr:'Rivière',       cost:6000,  url:`${SD_BG}river.png`,    type:'image' },
-  city:          { fr:'Ville',         cost:12000, url:`${SD_BG}city.png`,     type:'image' },
-  desert:        { fr:'Désert',        cost:10000, url:`${SD_BG}desert.png`,   type:'image' },
-  deepsea:       { fr:'Fond Marin',    cost:20000, url:`${SD_BG}deepsea.png`,  type:'image' },
+  meadow:        { fr:'Prairie',       en:'Meadow',       cost:5000,  url:`${SD_BG}meadow.png`,   type:'image' },
+  forest:        { fr:'Forêt',         en:'Forest',       cost:8000,  url:`${SD_BG}forest.png`,   type:'image' },
+  mountain:      { fr:'Montagne',      en:'Mountain',     cost:10000, url:`${SD_BG}mountain.png`, type:'image' },
+  beach:         { fr:'Plage',         en:'Beach',        cost:8000,  url:`${SD_BG}beach.png`,    type:'image' },
+  river:         { fr:'Rivière',       en:'River',        cost:6000,  url:`${SD_BG}river.png`,    type:'image' },
+  city:          { fr:'Ville',         en:'City',         cost:12000, url:`${SD_BG}city.png`,     type:'image' },
+  desert:        { fr:'Désert',        en:'Desert',       cost:10000, url:`${SD_BG}desert.png`,   type:'image' },
+  deepsea:       { fr:'Fond Marin',    en:'Deep Sea',     cost:20000, url:`${SD_BG}deepsea.png`,  type:'image' },
   // ── Thèmes couleur (dégradés CSS) ────────────────────────────
-  theme_red:     { fr:'Rouge Sang',    cost:2000,  gradient:'linear-gradient(145deg,#160000 0%,#2e0808 50%,#0a0000 100%)', type:'gradient' },
-  theme_blue:    { fr:'Bleu Glacé',    cost:2000,  gradient:'linear-gradient(145deg,#000c1a 0%,#081a30 50%,#000810 100%)', type:'gradient' },
-  theme_purple:  { fr:'Nuit Violette', cost:2000,  gradient:'linear-gradient(145deg,#0c0018 0%,#1a0830 50%,#060010 100%)', type:'gradient' },
-  theme_green:   { fr:'Vert Toxik',    cost:2000,  gradient:'linear-gradient(145deg,#001400 0%,#0a2010 50%,#000a00 100%)', type:'gradient' },
-  theme_gold:    { fr:'Doré',          cost:4000,  gradient:'linear-gradient(145deg,#1a1000 0%,#2e2000 50%,#0a0800 100%)', type:'gradient' },
-  theme_sunset:  { fr:'Coucher Soleil',cost:4000,  gradient:'linear-gradient(145deg,#1a0800 0%,#2e1000 40%,#180016 100%)', type:'gradient' },
-  theme_midnight:{ fr:'Minuit',        cost:3000,  gradient:'linear-gradient(145deg,#020204 0%,#060610 50%,#000004 100%)', type:'gradient' },
+  theme_red:     { fr:'Rouge Sang',    en:'Blood Red',    cost:2000,  gradient:'linear-gradient(145deg,#160000 0%,#2e0808 50%,#0a0000 100%)', type:'gradient' },
+  theme_blue:    { fr:'Bleu Glacé',    en:'Ice Blue',     cost:2000,  gradient:'linear-gradient(145deg,#000c1a 0%,#081a30 50%,#000810 100%)', type:'gradient' },
+  theme_purple:  { fr:'Nuit Violette', en:'Violet Night', cost:2000,  gradient:'linear-gradient(145deg,#0c0018 0%,#1a0830 50%,#060010 100%)', type:'gradient' },
+  theme_green:   { fr:'Vert Toxik',    en:'Toxic Green',  cost:2000,  gradient:'linear-gradient(145deg,#001400 0%,#0a2010 50%,#000a00 100%)', type:'gradient' },
+  theme_gold:    { fr:'Doré',          en:'Golden',       cost:4000,  gradient:'linear-gradient(145deg,#1a1000 0%,#2e2000 50%,#0a0800 100%)', type:'gradient' },
+  theme_sunset:  { fr:'Coucher Soleil',en:'Sunset',       cost:4000,  gradient:'linear-gradient(145deg,#1a0800 0%,#2e1000 40%,#180016 100%)', type:'gradient' },
+  theme_midnight:{ fr:'Minuit',        en:'Midnight',     cost:3000,  gradient:'linear-gradient(145deg,#020204 0%,#060610 50%,#000004 100%)', type:'gradient' },
 };
 
 // ── Fonds tissu Original Stitch ─────────────────────────────────────────────
