@@ -31,7 +31,9 @@ import { EventBus, EVENTS } from '../core/eventBus.js';
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type });
 const _save   = ()               => globalThis.saveState?.();
 
-// ── Sprites ───────────────────────────────────────────────────────
+const _t = (fr, en) => (globalThis.state?.lang === 'en' ? en : fr);
+
+// ── Sprites ────────────────────────────────────────────────────────
 const METAGROSS_SPRITE = 'https://play.pokemonshowdown.com/sprites/gen5/metagross.png';
 const KYOGRE_ICON      = 'assets/pokemon_sprite/poke_pixel_pp_16x16/kyogre.png';
 const GROUDON_ICON     = 'assets/pokemon_sprite/poke_pixel_pp_16x16/groudon.png';
@@ -107,7 +109,6 @@ function _injectStyles() {
       overflow-y:auto;
     }
 
-    /* Ocean ambiance — vagues subtiles en bas */
     #hoenn-event-overlay::before {
       content:'';
       position:fixed; bottom:0; left:0; right:0; height:120px;
@@ -198,7 +199,6 @@ function _injectStyles() {
     .hoe-btn.steel { border-color:rgba(160,190,220,.5); color:#c0d0e0; }
     .hoe-btn.steel:hover { border-color:#c0d0e0; background:rgba(180,200,220,.06); }
 
-    /* Metagross sprite */
     .hoe-sprite-wrap {
       position:relative; display:inline-block;
       text-align:center; margin-bottom:14px;
@@ -245,7 +245,6 @@ function _injectStyles() {
     }
     .hoe-sprite.anim-shake { animation:hoe-shake .35s; }
 
-    /* Combat sequence */
     .hoe-combat-log {
       font-family:var(--font-pixel,monospace);
       font-size:7.5px;
@@ -283,14 +282,12 @@ function _injectStyles() {
       background:linear-gradient(90deg,#cc8800,#ffcc5a);
     }
 
-    /* Flash overlay */
     .hoe-flash-overlay {
       position:fixed; inset:0; z-index:10000;
       pointer-events:none;
       animation:hoe-flash .55s ease forwards;
     }
 
-    /* Steven portrait strip at top */
     .hoe-portrait {
       display:flex; align-items:center; gap:14px;
       background:rgba(10,30,70,.6);
@@ -312,13 +309,11 @@ function _injectStyles() {
       letter-spacing:.5px;
     }
 
-    /* Divider */
     .hoe-divider {
       border:none; border-top:1px solid rgba(30,70,140,.35);
       margin:14px 0;
     }
 
-    /* Location tag */
     .hoe-location {
       font-family:var(--font-pixel,monospace);
       font-size:6px; letter-spacing:2px; text-transform:uppercase;
@@ -326,7 +321,6 @@ function _injectStyles() {
       margin-bottom:12px;
     }
 
-    /* Input */
     .hoe-input {
       width:100%; box-sizing:border-box;
       background:#060a14;
@@ -339,7 +333,6 @@ function _injectStyles() {
     }
     .hoe-input:focus { border-color:rgba(60,140,220,.8); }
 
-    /* Hoenn region badge */
     .hoe-region-badge {
       display:inline-flex; align-items:center; gap:6px;
       font-family:var(--font-pixel,monospace);
@@ -437,25 +430,29 @@ async function _step0() {
 async function _step1() {
   _clear();
   const box = _box();
-  _location(box, '◈ Quartier général — 02h14');
-  _title(box, '— Alerte côtière —');
+  _location(box, _t('◈ Quartier général — 02h14', '◈ Headquarters — 02:14 AM'));
+  _title(box, _t('— Alerte côtière —', '— Coastal Alert —'));
   const txt = _text(box);
   const ch  = _choices(box);
 
-  await _typewrite(txt,
+  await _typewrite(txt, _t(
     'La radio de permanence grésille.\n\n' +
     'L\'agent de garde signale une barge inconnue qui remonte lentement\n' +
     'la côte depuis le large — sans pavillon, sans signal AIS.\n\n' +
     'Le radar indique un seul occupant à bord.\nPuissant. Très puissant.',
-  );
+    'The duty radio crackles.\n\n' +
+    'The watch agent reports an unknown barge slowly moving\n' +
+    'up the coast from offshore — no flag, no AIS signal.\n\n' +
+    'Radar shows a single occupant on board.\nPowerful. Very powerful.',
+  ));
 
   await _wait(300);
 
-  const b1 = _btn('▸  Envoyer un agent vérifier');
+  const b1 = _btn(_t('▸  Envoyer un agent vérifier', '▸  Send an agent to check'));
   b1.onclick = () => _step1b_agent();
   ch.appendChild(b1);
 
-  const b2 = _btn('▸  Y aller soi-même');
+  const b2 = _btn(_t('▸  Y aller soi-même', '▸  Go yourself'));
   b2.onclick = () => _step1b_self();
   ch.appendChild(b2);
 }
@@ -463,21 +460,24 @@ async function _step1() {
 async function _step1b_agent() {
   _clear();
   const box = _box();
-  _location(box, '◈ Débarcadère sud — 02h31');
-  _title(box, '— Rapport de l\'agent —');
+  _location(box, _t('◈ Débarcadère sud — 02h31', '◈ South Dock — 02:31 AM'));
+  _title(box, _t('— Rapport de l\'agent —', '— Agent Report —'));
   const txt = _text(box);
   const ch  = _choices(box);
 
-  await _typewrite(txt,
+  await _typewrite(txt, _t(
     'L\'agent revient au bout de dix minutes, pâle comme la lune.\n\n' +
     '"Patron… c\'est un Metagross. Taille réelle. Il est posé là\n' +
     'sur le pont comme une statue. Et il y a une lettre à ses pieds.\n\n' +
     'Je n\'ai pas osé la prendre."',
-    28,
-  );
+    'The agent returns after ten minutes, pale as a ghost.\n\n' +
+    '"Boss… it\'s a Metagross. Full size. It\'s just sitting there\n' +
+    'on the deck like a statue. And there\'s a letter at its feet.\n\n' +
+    'I didn\'t dare pick it up."',
+  ), 28);
 
   await _wait(400);
-  const b = _btn('▸  Descendre au port…');
+  const b = _btn(_t('▸  Descendre au port…', '▸  Head down to the port…'));
   b.onclick = () => _step2();
   ch.appendChild(b);
 }
@@ -485,22 +485,26 @@ async function _step1b_agent() {
 async function _step1b_self() {
   _clear();
   const box = _box();
-  _location(box, '◈ Débarcadère sud — 02h28');
-  _title(box, '— Le port désert —');
+  _location(box, _t('◈ Débarcadère sud — 02h28', '◈ South Dock — 02:28 AM'));
+  _title(box, _t('— Le port désert —', '— The Empty Port —'));
   const txt = _text(box);
   const ch  = _choices(box);
 
-  await _typewrite(txt,
+  await _typewrite(txt, _t(
     'Le brouillard tient le port dans une étreinte froide.\n\n' +
     'Au bout de la jetée, une silhouette de métal, massive,\n' +
     'repose sur la barge comme si elle y avait toujours été.\n\n' +
     'Quatre yeux rouges s\'allument à votre approche.\n' +
     'Aucun mouvement. Juste une évaluation silencieuse.',
-    28,
-  );
+    'Fog holds the port in a cold embrace.\n\n' +
+    'At the end of the pier, a massive metallic silhouette\n' +
+    'rests on the barge as though it had always been there.\n\n' +
+    'Four red eyes light up as you approach.\n' +
+    'No movement. Just a silent evaluation.',
+  ), 28);
 
   await _wait(400);
-  const b = _btn('▸  S\'approcher…');
+  const b = _btn(_t('▸  S\'approcher…', '▸  Move closer…'));
   b.onclick = () => _step2();
   ch.appendChild(b);
 }
@@ -508,10 +512,9 @@ async function _step1b_self() {
 async function _step2() {
   _clear();
   const box = _box();
-  _location(box, '◈ Barge — 02h35');
-  _title(box, '— L\'émissaire —');
+  _location(box, _t('◈ Barge — 02h35', '◈ Barge — 02:35 AM'));
+  _title(box, _t('— L\'émissaire —', '— The Envoy —'));
 
-  // Metagross silhouette + 4 yeux rouges
   const sw  = document.createElement('div');
   sw.className = 'hoe-sprite-wrap steel-aura';
   sw.style.cssText = 'display:inline-block;position:relative;text-align:center;margin-bottom:18px;';
@@ -520,8 +523,6 @@ async function _step2() {
   img.className = 'hoe-sprite silhouette';
   img.alt       = '???';
   sw.appendChild(img);
-  // 4 yeux rouges positionnés sur la croix du visage de Métaloss (sprite 112×112)
-  // Les 4 yeux forment un carré centré sur la croix faciale
   [
     { top: '40%', left: '26%' },
     { top: '40%', left: '62%' },
@@ -542,7 +543,6 @@ async function _step2() {
     ].join(';');
     sw.appendChild(eye);
   });
-  // Centrage du wrapper dans le box
   const swWrap = document.createElement('div');
   swWrap.style.cssText = 'text-align:center;';
   swWrap.appendChild(sw);
@@ -551,17 +551,22 @@ async function _step2() {
   const txt = _text(box);
   const ch  = _choices(box);
 
-  await _typewrite(txt,
+  await _typewrite(txt, _t(
     'Le colosse d\'acier vous fixe de ses quatre yeux rouges.\n\n' +
     'Pas d\'hostilité — une jauge froide, mécanique.\n' +
     'Il évalue votre puissance comme un instrument calibré.\n\n' +
     'Sous l\'une de ses griffes métalliques : une enveloppe\n' +
     'scellée d\'un cachet argenté en forme de rocher taillé.',
-  );
+    'The steel colossus fixes you with its four red eyes.\n\n' +
+    'No hostility — a cold, mechanical assessment.\n' +
+    'It gauges your strength like a calibrated instrument.\n\n' +
+    'Beneath one of its metal claws: an envelope\n' +
+    'sealed with a silver stamp in the shape of a carved rock.',
+  ));
 
   await _wait(300);
 
-  const b = _btn('▸  Prendre la lettre', 'blue');
+  const b = _btn(_t('▸  Prendre la lettre', '▸  Take the letter'), 'blue');
   b.onclick = () => _step3();
   ch.appendChild(b);
 }
@@ -569,18 +574,17 @@ async function _step2() {
 async function _step3() {
   _clear();
   const box = _box();
-  _location(box, '◈ Cachet de la Ligue Hoenn');
-  _title(box, '— La lettre de Pierre —');
+  _location(box, _t('◈ Cachet de la Ligue Hoenn', '◈ Hoenn League Seal'));
+  _title(box, _t('— La lettre de Pierre —', '— Steven\'s Letter —'));
 
   const state = _state();
-  const bossName = state.gang?.bossName || 'Parrain';
+  const bossName = state.gang?.bossName || _t('Parrain', 'Boss');
 
-  // Letter block
   const letter = document.createElement('div');
   letter.className = 'hoe-letter';
   box.appendChild(letter);
 
-  const letterText =
+  const letterText = _t(
     `« ${bossName},\n\n` +
     `J'ai peu de temps, alors je serai direct.\n\n` +
     `Mes informateurs m'ont parlé de vous. Votre gang a mis ` +
@@ -593,13 +597,27 @@ async function _step3() {
     `votre gang mérite d'entrer à Hoenn. Si vous résistez, ` +
     `les routes vous sont ouvertes. Pas comme envahisseurs — ` +
     `comme force indépendante.\n\n` +
-    `Mon émissaire vous attend.\n`;
-  const sigText = '— Pierre, Champion Hoenn  »';
+    `Mon émissaire vous attend. »`,
+    `« ${bossName},\n\n` +
+    `I have little time, so I will be direct.\n\n` +
+    `My informants have told me about you. Your gang brought ` +
+    `Kanto to its knees and made the Johto Council tremble.\n` +
+    `That is no small thing — and it has not gone unnoticed here.\n\n` +
+    `Hoenn is suffering. Team Magma and Team Aqua are fighting over ` +
+    `our continent and risk awakening forces ` +
+    `dormant for millennia. The League is at breaking point.\n\n` +
+    `I propose a deal: prove to my Metagross that ` +
+    `your gang deserves to enter Hoenn. If you hold your ground, ` +
+    `the roads are open to you. Not as invaders — ` +
+    `as an independent force.\n\n` +
+    `My envoy awaits you. »`,
+  );
 
-  // Typewrite the letter body
+  const sigText = _t('— Pierre Stone, Champion Hoenn', '— Steven Stone, Hoenn Champion');
+
   const bodyEl = document.createElement('span');
   letter.appendChild(bodyEl);
-  await _typewrite(bodyEl, letterText, 16);
+  await _typewrite(bodyEl, letterText, 15);
 
   const sigEl = document.createElement('div');
   sigEl.className = 'hoe-letter-sig';
@@ -610,25 +628,25 @@ async function _step3() {
 
   const ch = _choices(box);
 
-  const b1 = _btn('▸  "Un Metagross ? C\'est tout ?"');
+  const b1 = _btn(_t('▸  "Un Metagross ? C\'est tout ?"', '▸  "A Metagross? Is that all?"'));
   b1.onclick = () => _step4();
   ch.appendChild(b1);
 
-  const b2 = _btn('▸  "Un accord. Votre Metagross contre mon gang."');
+  const b2 = _btn(_t('▸  "Un accord. Votre Metagross contre mon gang."', '▸  "A deal. Your Metagross against my gang."'));
   b2.onclick = () => _step4();
   ch.appendChild(b2);
 
   const inputWrap = document.createElement('div');
-  const b3 = _btn('▸  [Écrire sa propre réponse…]');
+  const b3 = _btn(_t('▸  [Écrire sa propre réponse…]', '▸  [Write your own reply…]'));
   b3.onclick = () => {
     b3.remove();
     const inp = document.createElement('input');
-    inp.type        = 'text';
-    inp.maxLength   = 60;
-    inp.placeholder = 'Votre réplique…';
-    inp.className   = 'hoe-input';
+    inp.type      = 'text';
+    inp.maxLength = 60;
+    inp.placeholder = _t('Votre réplique…', 'Your line…');
+    inp.className = 'hoe-input';
     inputWrap.appendChild(inp);
-    const bConfirm = _btn('▸  Répondre', 'blue');
+    const bConfirm = _btn(_t('▸  Répondre', '▸  Reply'), 'blue');
     bConfirm.onclick = () => { if (inp.value.trim()) _step4(); };
     inputWrap.appendChild(bConfirm);
     setTimeout(() => inp.focus(), 50);
@@ -640,88 +658,76 @@ async function _step3() {
 async function _step4() {
   _clear();
   const box = _box();
-  _location(box, '◈ Débarcadère sud — 02h47');
-  _title(box, '— Épreuve d\'acier —');
+  _location(box, _t('◈ Barge — 02h38', '◈ Barge — 02:38 AM'));
+  _title(box, _t('— Épreuve d\'acier —', '— Steel Trial —'));
+
+  const sw  = document.createElement('div');
+  sw.className = 'hoe-sprite-wrap steel-aura';
+  sw.style.cssText = 'display:inline-block;position:relative;text-align:center;margin-bottom:14px;';
+  const img = document.createElement('img');
+  img.src       = METAGROSS_SPRITE;
+  img.className = 'hoe-sprite steel';
+  img.alt       = 'Metagross';
+  sw.appendChild(img);
+  const swWrap = document.createElement('div');
+  swWrap.style.cssText = 'text-align:center;';
+  swWrap.appendChild(sw);
+  box.appendChild(swWrap);
 
   // HP bars
-  const hpWrap = document.createElement('div');
-  hpWrap.style.marginBottom = '12px';
+  const makeHpRow = (labelFr, labelEn, pct, boss = false) => {
+    const row = document.createElement('div');
+    row.className = 'hoe-hp-row';
+    row.innerHTML = `
+      <div class="hoe-hp-label">${_t(labelFr, labelEn)}</div>
+      <div class="hoe-hp-bar"><div class="hoe-hp-fill${boss ? ' boss-fill' : ''}" style="width:${pct}%"></div></div>`;
+    box.appendChild(row);
+    return row.querySelector('.hoe-hp-fill');
+  };
 
-  const metaHpRow = document.createElement('div');
-  metaHpRow.className = 'hoe-hp-row';
-  metaHpRow.innerHTML = `
-    <span class="hoe-hp-label">Metagross (Pierre)</span>
-    <div class="hoe-hp-bar"><div id="hoe-meta-hp" class="hoe-hp-fill" style="width:100%"></div></div>`;
-  hpWrap.appendChild(metaHpRow);
+  const gangFill  = makeHpRow('Votre gang', 'Your gang', 100);
+  const metaFill  = makeHpRow('Metagross', 'Metagross', 100, true);
 
-  const gangHpRow = document.createElement('div');
-  gangHpRow.className = 'hoe-hp-row';
-  gangHpRow.innerHTML = `
-    <span class="hoe-hp-label">Votre gang</span>
-    <div class="hoe-hp-bar"><div id="hoe-gang-hp" class="hoe-hp-fill boss-fill" style="width:100%"></div></div>`;
-  hpWrap.appendChild(gangHpRow);
-  box.appendChild(hpWrap);
-
-  // Combat log
   const log = document.createElement('div');
   log.className = 'hoe-combat-log';
   box.appendChild(log);
 
-  function _addLine(html) {
-    const line = document.createElement('div');
-    line.innerHTML = html;
-    log.appendChild(line);
+  const addLog = (html) => {
+    log.innerHTML += html + '<br>';
     log.scrollTop = log.scrollHeight;
-  }
+  };
 
   const ch = _choices(box);
 
-  // Scripted combat sequence
-  const sequence = [
-    { delay: 400,  metaHp: 98, gangHp: 88,
-      html: '<span class="sys">— Combat lancé —</span>' },
-    { delay: 800,  metaHp: 98, gangHp: 88,
-      html: '<span class="meta">Metagross</span> <span class="hit">observe — il calibre votre puissance avec froideur</span>' },
-    { delay: 1400, metaHp: 98, gangHp: 75,
-      html: '<span class="meta">Metagross</span> frappe avec <span class="hit">Poing Météore</span> — impact lourd, métal contre chair' },
-    { delay: 2000, metaHp: 80, gangHp: 75,
-      html: '<span class="boss">Votre gang</span> riposte — <span class="hit">coup coordonné, solide</span>' },
-    { delay: 2700, metaHp: 80, gangHp: 60,
-      html: '<span class="meta">Metagross</span> — <span class="hit">Armure de Fer</span> — sa défense se durcit, l\'impact l\'effleure à peine' },
-    { delay: 3400, metaHp: 65, gangHp: 60,
-      html: '<span class="boss">Votre gang</span> — <span class="hit">enchaînement ciblé</span> — Metagross accuse le coup' },
-    { delay: 4100, metaHp: 65, gangHp: 45,
-      html: '<span class="meta">Metagross</span> — <span class="hit">Séisme</span> — le sol de la jetée se fissure' },
-    { delay: 4700, metaHp: 50, gangHp: 45,
-      html: '<span class="boss">Votre gang</span> tient bon — <span class="hit">contre-attaque précise</span>' },
-    { delay: 5400, metaHp: 50, gangHp: 30,
-      html: '<span class="meta">Metagross</span> — <span class="hit">Frappe Atlas</span> — votre garde se fissure sous le poids de métal' },
-    { delay: 6000, metaHp: 35, gangHp: 30,
-      html: '<span class="boss">Votre gang</span> — effort combiné — <span class="hit">Metagross recule d\'un pas</span>' },
-    { delay: 6600, metaHp: 35, gangHp: 30,
-      html: '<span class="sys">— Pause —</span>' },
-    { delay: 7400, metaHp: 35, gangHp: 30,
-      html: '<span class="meta">Metagross</span> abaisse lentement sa tête. <span class="hit">Signal de reconnaissance.</span>' },
-    { delay: 8200, metaHp: 35, gangHp: 30,
-      html: '<span class="sys">— Test terminé — Résultat : puissance suffisante —</span>' },
+  // Combat sequence
+  const lines = [
+    { html: `<span class="sys">${_t('[ Combat initialisé ]', '[ Combat initiated ]')}</span>`, gang: 100, meta: 100, delay: 0 },
+    { html: `<span class="meta">Metagross</span> ${_t('utilise', 'uses')} <span class="hit">Coup d\'Acier</span>`, gang: 78, meta: 100, delay: 900 },
+    { html: `<span class="boss">${_t('Votre équipe', 'Your team')}</span> ${_t('réplique', 'strikes back')} <span class="hit">—</span>`, gang: 78, meta: 84, delay: 1800 },
+    { html: `<span class="meta">Metagross</span> ${_t('utilise', 'uses')} <span class="hit">Psyko</span>`, gang: 55, meta: 84, delay: 2700 },
+    { html: `<span class="boss">${_t('Votre équipe', 'Your team')}</span> ${_t('tient bon', 'holds firm')}`, gang: 55, meta: 60, delay: 3600 },
+    { html: `<span class="meta">Metagross</span> ${_t('utilise', 'uses')} <span class="hit">Tranche</span>`, gang: 38, meta: 60, delay: 4500 },
+    { html: `<span class="boss">${_t('Votre équipe', 'Your team')}</span> ${_t('contre-attaque', 'counter-attacks')}`, gang: 38, meta: 42, delay: 5400 },
+    { html: `<span class="meta">Metagross</span> ${_t('se stabilise', 'steadies itself')}`, gang: 38, meta: 42, delay: 6300 },
+    { html: `<span class="boss">${_t('Votre équipe', 'Your team')}</span> ${_t('repousse l\'assaut', 'repels the assault')}`, gang: 38, meta: 22, delay: 7200 },
+    { html: `<span class="meta">Metagross</span> ${_t('recule…', 'steps back…')}`, gang: 38, meta: 22, delay: 8100 },
+    { html: `<span class="sys">${_t('[ Metagross s\'arrête. Il vous observe. ]', '[ Metagross stops. It watches you. ]')}</span>`, gang: 38, meta: 22, delay: 9000 },
+    { html: `<span class="sys">${_t('[ Épreuve réussie. ]', '[ Trial passed. ]')}</span>`, gang: 38, meta: 22, delay: 10200 },
   ];
 
-  let done = false;
-  for (const step of sequence) {
-    if (done) break;
-    await _wait(step.delay - (sequence[sequence.indexOf(step) - 1]?.delay ?? 0));
-    _addLine(step.html);
-    const metaEl = document.getElementById('hoe-meta-hp');
-    const gangEl = document.getElementById('hoe-gang-hp');
-    if (metaEl) metaEl.style.width = step.metaHp + '%';
-    if (gangEl) gangEl.style.width = step.gangHp + '%';
+  for (const line of lines) {
+    await _wait(line.delay === 0 ? 0 : 900);
+    addLog(line.html);
+    gangFill.style.width = line.gang + '%';
+    metaFill.style.width = line.meta + '%';
+    if (line.gang < 50) gangFill.style.background = 'linear-gradient(90deg,#cc8800,#ffcc44)';
+    if (line.meta < 30) metaFill.style.background = 'linear-gradient(90deg,#3080cc,#60b0ff)';
   }
 
-  await _wait(700);
   _flash();
-  await _wait(600);
+  await _wait(800);
 
-  const b = _btn('▸  La suite…', 'steel');
+  const b = _btn(_t('▸  La suite…', '▸  What\'s next…'), 'steel');
   b.onclick = () => _step5();
   ch.appendChild(b);
 }
@@ -729,84 +735,66 @@ async function _step4() {
 async function _step5() {
   _clear();
   const box = _box();
-  _location(box, '◈ Barge — 03h02');
-  _title(box, '— Pierre Stone —');
-
-  const state = _state();
-  const bossName = state.gang?.bossName || 'Parrain';
-
-  // Steven portrait
-  const portrait = document.createElement('div');
-  portrait.className = 'hoe-portrait';
+  _location(box, _t('◈ Barge — Pierre Stone', '◈ Barge — Steven Stone'));
+  _title(box, _t('— Pierre Stone —', '— Steven Stone —'));
 
   const stevenSprite = globalThis.trainerSprite?.('steven') ?? '';
-  const spriteEl = document.createElement('img');
-  spriteEl.src       = stevenSprite;
-  spriteEl.className = 'hoe-sprite trainer';
-  spriteEl.style.cssText = 'width:72px;height:72px;animation:hoe-appear .6s both,hoe-bob 3s ease-in-out infinite;flex-shrink:0';
-  spriteEl.onerror = () => { spriteEl.style.opacity = '.2'; };
-
-  const info = document.createElement('div');
-  info.innerHTML = `
-    <div class="hoe-portrait-name">Pierre / Steven Stone</div>
-    <div class="hoe-portrait-role">Champion Hoenn · Collectionneur de roches</div>`;
-
-  portrait.appendChild(spriteEl);
-  portrait.appendChild(info);
+  const portrait = document.createElement('div');
+  portrait.className = 'hoe-portrait';
+  portrait.innerHTML = `
+    <img src="${stevenSprite}" class="hoe-sprite trainer" alt="Steven" onerror="this.style.opacity='.2'">
+    <div>
+      <div class="hoe-portrait-name">${_t('Pierre Stone', 'Steven Stone')}</div>
+      <div class="hoe-portrait-role">${_t('Champion Hoenn · Collectionneur de roches', 'Hoenn Champion · Rock Collector')}</div>
+    </div>`;
   box.appendChild(portrait);
-
-  // Metagross small icon
-  const sw = document.createElement('div');
-  sw.className = 'hoe-sprite-wrap steel-aura';
-  sw.style.cssText = 'display:block;text-align:center;margin-bottom:18px;';
-  const metaImg = document.createElement('img');
-  metaImg.src       = METAGROSS_SPRITE;
-  metaImg.className = 'hoe-sprite steel';
-  metaImg.style.cssText = 'width:72px;height:72px;';
-  metaImg.alt = 'Metagross';
-  sw.appendChild(metaImg);
-  box.appendChild(sw);
 
   const voice = document.createElement('div');
   voice.className = 'hoe-voice';
   box.appendChild(voice);
 
-  const MESSAGE =
-    `« Bien.\n\n` +
-    `Mon Metagross ne reconnaît que ce qui mérite respect.\n` +
-    `Ce soir, c'est vous.\n\n` +
-    `L'accord de ma lettre tient toujours. Hoenn vous est ouverte — ` +
-    `pas comme envahisseurs, mais comme force indépendante.\n\n` +
-    `Une chose que je n'ai pas écrite : la situation est pire que ` +
-    `ce que Kanto imagine. Magma et Aqua ne cherchent pas seulement ` +
-    `à s'affronter — ils veulent réveiller Groudon et Kyogre. Si ` +
-    `l'un d'eux y parvient, plus aucune règion ne sera épargnée.\n\n` +
-    `Faites ce que vous savez faire.\n` +
-    `Hoenn a besoin de gens qui n'hésitent pas. »`;
+  const state = _state();
+  const bossName = state.gang?.bossName || _t('Parrain', 'Boss');
 
-  await _typewrite(voice, MESSAGE, 18);
+  await _typewrite(voice, _t(
+    `« ${bossName}.\n\n` +
+    `Impressionnant. Mon Metagross ne s'arrête jamais avant d'avoir obtenu ce qu'il veut.\n` +
+    `Ce soir, c'est vous qui l'avez fait reculer.\n\n` +
+    `Hoenn vous est ouvert. Faites ce que vous avez à faire —\n` +
+    `mais si un jour la Team Magma ou la Team Aqua devient un problème,\n` +
+    `sachez que je ne suis jamais loin. »`,
+    `« ${bossName}.\n\n` +
+    `Impressive. My Metagross never stops before it gets what it wants.\n` +
+    `Tonight, you are the one who made it step back.\n\n` +
+    `Hoenn is open to you. Do what you have to do —\n` +
+    `but if Team Magma or Team Aqua ever becomes a problem,\n` +
+    `know that I am never far away. »`,
+  ), 20);
 
-  await _wait(400);
+  _flash();
+  await _wait(500);
 
   _divider(box);
 
-  // Region icons teaser
   const tagIcons = document.createElement('div');
   tagIcons.className = 'hoe-tag-icons';
   tagIcons.innerHTML = `
-    <span style="font-family:var(--font-pixel,monospace);font-size:6.5px;color:rgba(60,120,200,.7);letter-spacing:1px;text-transform:uppercase;">Région :</span>
-    <img class="hoe-tag-icon" src="${KYOGRE_ICON}" alt="Kyogre" title="Kyogre">
-    <img class="hoe-tag-icon" src="${GROUDON_ICON}" alt="Groudon" title="Groudon">
-    <span style="font-family:var(--font-pixel,monospace);font-size:6.5px;color:rgba(80,140,200,.75);letter-spacing:1px">HOENN — GÉN. III</span>`;
+    <img class="hoe-tag-icon" src="${KYOGRE_ICON}" alt="Kyogre">
+    <img class="hoe-tag-icon" src="${GROUDON_ICON}" alt="Groudon">`;
   box.appendChild(tagIcons);
+
+  const badge = document.createElement('div');
+  badge.className = 'hoe-region-badge';
+  badge.textContent = _t('🌊 HOENN — GÉN. III', '🌊 HOENN — GEN. III');
+  box.appendChild(badge);
 
   const ch = _choices(box);
 
-  const bAccept = _btn('→ Traverser vers Hoenn', 'gold');
+  const bAccept = _btn(_t('→ Traverser vers Hoenn', '→ Cross over to Hoenn'), 'gold');
   bAccept.onclick = () => { _close(); _finish(true); };
   ch.appendChild(bAccept);
 
-  const bDismiss = _btn('▸  Pas encore…');
+  const bDismiss = _btn(_t('▸  Pas encore…', '▸  Not yet…'));
   bDismiss.onclick = () => { _close(); _finish(false); };
   ch.appendChild(bDismiss);
 }
@@ -814,12 +802,10 @@ async function _step5() {
 // ── Fin ───────────────────────────────────────────────────────────
 function _finish(accepted) {
   const s = _state();
+  s.gang.hoennCinematicSeen = true;
+  _save();
 
   if (accepted) {
-    // Mark cinematic seen to avoid re-trigger
-    s.gang.hoennCinematicSeen = true;
-    _save();
-    // Activate region via hoenn.js
     globalThis.activateHoennRegion?.();
     globalThis._zsel_setActiveRegion?.('hoenn');
     document.querySelectorAll('#regionSwitcher .region-btn').forEach(b => {
@@ -827,11 +813,9 @@ function _finish(accepted) {
     });
     globalThis.switchTab?.('tabZones');
     globalThis.renderAll?.();
-    _notify('🌊 Hoenn débloqué — Bourg Natal vous attend, Parrain…', 'gold');
+    _notify(_t('🌊 Hoenn débloqué — Bourg Natal vous attend, Parrain…', '🌊 Hoenn unlocked — Littleroot Town awaits, Boss…'), 'gold');
   } else {
-    s.gang.hoennCinematicSeen = true;
-    _save();
-    _notify("📡 L'accord de Pierre reste ouvert — accédez à Hoenn via le sélecteur de zones.", '');
+    _notify(_t("L'accord de Pierre reste ouvert — accédez à Hoenn via le sélecteur de zones.", "Steven's deal remains open — access Hoenn via the region selector."), '');
   }
 }
 
@@ -852,18 +836,13 @@ function _startCinematic() {
   _step0();
 }
 
-/**
- * À appeler depuis checkHoennUnlock() dans hoenn.js
- * quand les conditions de puissance et de progression sont remplies.
- */
 export function showHoennCinematic() {
   const s = _state();
-  if (s.gang?.hoennCinematicSeen)  return;
-  if (s.purchases?.hoennUnlocked)  return; // already unlocked silently
+  if (s.gang?.hoennCinematicSeen) return;
+  if (s.purchases?.hoennUnlocked) return;
   _startCinematic();
 }
 
-// Exposer sur globalThis pour modules sans import direct
 Object.assign(globalThis, { showHoennCinematic });
 
 export {};
