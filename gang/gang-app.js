@@ -34,7 +34,9 @@ import { renderEnvironmentZone, stopEnvironmentZone } from './environment.js';
 // que des exports nommés (même patron que cosmetics.js) — on les relit ici.
 const { pokeSprite, pokeIcon, trainerSprite, speciesName, pokemonDisplayName } = globalThis;
 
-// ── Toast (équivalent minimal de notify()) ───────────────────────
+const _t = (fr, en) => (globalThis.state?.lang === 'en' ? en : fr);
+
+// ── Toast (équivalent minimal de notify()) ─────────────────────────────────
 function notify(msg, type = '') {
   const host = document.getElementById('gangToastHost');
   if (!host) return;
@@ -46,7 +48,7 @@ function notify(msg, type = '') {
   setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 250); }, 2600);
 }
 
-// ── Confirm modal (équivalent minimal de showConfirm()) ──────────
+// ── Confirm modal (équivalent minimal de showConfirm()) ──────────────────
 function showConfirm(message, onConfirm, onCancel = null, opts = {}) {
   const overlay = document.createElement('div');
   overlay.className = 'gang-confirm-overlay';
@@ -54,8 +56,8 @@ function showConfirm(message, onConfirm, onCancel = null, opts = {}) {
     <div class="gang-confirm-box">
       <div class="gang-confirm-msg">${message}</div>
       <div class="gang-confirm-actions">
-        <button class="gang-confirm-cancel">${opts.cancelLabel || 'Annuler'}</button>
-        <button class="gang-confirm-ok">${opts.confirmLabel || 'Confirmer'}</button>
+        <button class="gang-confirm-cancel">${opts.cancelLabel || _t('Annuler', 'Cancel')}</button>
+        <button class="gang-confirm-ok">${opts.confirmLabel || _t('Confirmer', 'Confirm')}</button>
       </div>
     </div>`;
   document.body.appendChild(overlay);
@@ -67,7 +69,7 @@ function showConfirm(message, onConfirm, onCancel = null, opts = {}) {
 // SFX : la page cosmétique n'embarque pas le lecteur de sons du jeu — no-op.
 const SFX = { play() {} };
 
-// ── isZoneUnlocked (portée depuis modules/systems/zoneSystem.js:145) ─────
+// ── isZoneUnlocked (portée depuis modules/systems/zoneSystem.js:145) ───────
 function isZoneUnlocked(zoneId) {
   const state = globalThis.state;
   const zone = ZONE_BY_ID[zoneId];
@@ -112,29 +114,27 @@ const store = createStore({
 
 let state = store.load();
 if (!state) {
-  // store.load() renvoie null aussi bien quand la clé est absente que quand
-  // son contenu est illisible (JSON.parse/migrateSave en échec, loggé en
-  // console par le store) — on relit la clé brute nous-mêmes pour distinguer
-  // les deux cas et ne pas orienter le joueur vers "relancez le jeu" quand
-  // le vrai problème est une sauvegarde corrompue qui a besoin d'un import.
   const rawExists = !!window.localStorage.getItem(store.getSaveKey());
+  // Note: _t() n'est pas encore utilisable ici (state n'existe pas encore),
+  // on lit la langue directement depuis le localStorage si disponible.
+  const savedLang = (() => { try { const s = JSON.parse(window.localStorage.getItem(store.getSaveKey()) || '{}'); return s?.lang; } catch { return null; } })();
+  const isEN = savedLang === 'en';
   const message = rawExists
-    ? `Sauvegarde illisible ou corrompue. Relancez le jeu principal pour voir le détail de l'erreur — une restauration depuis un export ou le cloud sera peut-être nécessaire.`
-    : `Aucune sauvegarde trouvée. Lancez d'abord le jeu principal, puis revenez ici.`;
+    ? (isEN
+        ? `Unreadable or corrupted save. Restart the main game to see the error detail — a restore from an export or the cloud may be needed.`
+        : `Sauvegarde illisible ou corrompue. Relancez le jeu principal pour voir le détail de l'erreur — une restauration depuis un export ou le cloud sera peut-être nécessaire.`)
+    : (isEN
+        ? `No save found. Launch the main game first, then come back here.`
+        : `Aucune sauvegarde trouvée. Lancez d'abord le jeu principal, puis revenez ici.`);
+  const linkLabel = isEN ? '← Launch PokéGang' : '← Lancer PokéGang';
   document.getElementById('gangPanelBody').innerHTML = `
     <div class="gang-empty-state">
       ${message}
-      <br><a href="../index.html">← Lancer PokéGang</a>
+      <br><a href="../index.html">${linkLabel}</a>
     </div>`;
   throw new Error(`[gang] ${rawExists ? 'corrupted save' : 'no save found'}`);
 }
 
-// Écriture prudente : relit le localStorage à froid juste avant d'écrire,
-// pour réduire (sans l'éliminer) le risque d'écraser une progression faite
-// entre-temps dans l'onglet principal resté ouvert — cette page ne modifie
-// jamais autre chose que les champs cosmétiques (cosmetics/showcase/titre/
-// jukebox), donc un rechargement + ré-application de ces seuls champs avant
-// écriture couvre l'essentiel des cas réels.
 function saveState() {
   const fresh = store.load();
   if (fresh) {
@@ -150,13 +150,6 @@ function saveState() {
     fresh.activeBall = state.activeBall;
     fresh.settings.jukeboxTrack = state.settings.jukeboxTrack;
     state = fresh;
-    // Sans ceci, globalThis.state (seule référence lue/mutée par les
-    // panneaux) et cette variable locale `state` divergent après la
-    // première sauvegarde de la session : les champs primitifs (argent,
-    // titres, piste jukebox) cesseraient silencieusement d'être relus par
-    // saveState() à chaque appel suivant (les champs objet/tableau comme
-    // cosmetics restent aliasés et donc corrects par accident, mais pas
-    // les primitives réassignées).
     globalThis.state = fresh;
   }
   store.save();
@@ -184,10 +177,10 @@ EventBus.on(EVENTS.UI_NOTIFY, ({ msg, type }) => notify(msg, type));
 //  Navigation par panneaux
 // ════════════════════════════════════════════════════════════════
 const PANELS = [
-  { id: 'appearance', icon: '🖼', label: 'Apparence', render: renderAppearancePanel },
-  { id: 'music',      icon: '🎵', label: 'Musique',   render: renderMusicPanel },
-  { id: 'titre',      icon: '🏆', label: 'Titre',     render: renderTitrePanel },
-  { id: 'vitrine',    icon: '🏛', label: 'Vitrine',   render: renderVitrinePanel },
+  { id: 'appearance', icon: '🖼', get label() { return _t('Apparence', 'Appearance'); }, render: renderAppearancePanel },
+  { id: 'music',      icon: '🎵', get label() { return _t('Musique',   'Music');      }, render: renderMusicPanel },
+  { id: 'titre',      icon: '🏆', get label() { return _t('Titre',     'Title');      }, render: renderTitrePanel },
+  { id: 'vitrine',    icon: '🏛', get label() { return _t('Vitrine',   'Showcase');   }, render: renderVitrinePanel },
 ];
 
 let activePanel = 'vitrine';
