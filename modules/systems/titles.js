@@ -14,7 +14,9 @@ const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg
 const _save   = ()               => globalThis.saveState?.();
 
 function getTitleLabel(titleId) {
-  return TITLES.find(t => t.id === titleId)?.label || '';
+  const t = TITLES.find(t => t.id === titleId);
+  if (!t) return '';
+  return globalThis.state?.lang === 'en' ? (t.label_en || t.label) : t.label;
 }
 
 function getBossFullTitle() {
@@ -22,7 +24,7 @@ function getBossFullTitle() {
   const t1 = getTitleLabel(state.gang.titleA);
   const t2 = getTitleLabel(state.gang.titleB);
   const lia = state.gang.titleLiaison || '';
-  if (!t1 && !t2) return 'Recrue';
+  if (!t1 && !t2) return state.lang === 'en' ? 'Recruit' : 'Recrue';
   if (t1 && !t2) return t1;
   if (!t1 && t2) return t2;
   return `${t1}${lia ? ' ' + lia : ''} ${t2}`;
@@ -81,7 +83,11 @@ function checkTitleUnlocks() {
   if (newOnes.length > 0) {
     state.unlockedTitles = [...unlocked];
     if (!state.gang.titleA) state.gang.titleA = state.unlockedTitles[0] || 'recrue';
-    newOnes.forEach(t => _notify(`🏆 Titre débloqué : "${t.label}" !`, 'gold'));
+    newOnes.forEach(t => {
+      const label = state.lang === 'en' ? (t.label_en || t.label) : t.label;
+      const msg = state.lang === 'en' ? `🏆 Title unlocked: "${label}"!` : `🏆 Titre débloqué : "${label}" !`;
+      _notify(msg, 'gold');
+    });
     _save();
   }
 }

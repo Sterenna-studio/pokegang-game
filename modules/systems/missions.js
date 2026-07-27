@@ -191,7 +191,11 @@ function claimHourlyQuest(idx) {
     EventBus.emit(EVENTS.REP_CHANGED, { delta: q.reward.rep, newTotal: state.gang.reputation });
     globalThis.checkForNewlyUnlockedZones(prev);
   }
-  _notify(`✓ Quête : ${q.fr} — +${q.reward.money?.toLocaleString() || 0}₽${q.reward.rep ? ' +'+q.reward.rep+' rep' : ''}`, 'gold');
+  const qName = state.lang === 'fr' ? q.fr : (q.en || q.fr);
+  const repPart = q.reward.rep ? ` +${q.reward.rep} rep` : '';
+  _notify(state.lang === 'fr'
+    ? `✓ Quête : ${qName} — +${q.reward.money?.toLocaleString() || 0}₽${repPart}`
+    : `✓ Quest: ${qName} — +${q.reward.money?.toLocaleString() || 0}₽${repPart}`, 'gold');
   globalThis.SFX.play('coin');
   _save();
   _topBar();
@@ -200,7 +204,12 @@ function claimHourlyQuest(idx) {
 function rerollHourlyQuest(idx) {
   const state = globalThis.state;
   const HOURLY_QUEST_REROLL_COST = globalThis.HOURLY_QUEST_REROLL_COST;
-  if (state.gang.money < HOURLY_QUEST_REROLL_COST) { _notify(`Pokédollars insuffisants (${HOURLY_QUEST_REROLL_COST}₽ req)`); return; }
+  if (state.gang.money < HOURLY_QUEST_REROLL_COST) {
+    _notify(state.lang === 'fr'
+      ? `Pokédollars insuffisants (${HOURLY_QUEST_REROLL_COST}₽ req)`
+      : `Not enough Pokédollars (${HOURLY_QUEST_REROLL_COST}₽ required)`);
+    return;
+  }
   const h = state.missions.hourly;
   if (!h || isHourlyClaimed(idx)) return;
   const current = getHourlyQuest(idx);
@@ -211,7 +220,7 @@ function rerollHourlyQuest(idx) {
   const HOURLY_QUEST_POOL = globalThis.HOURLY_QUEST_POOL;
   const pool = HOURLY_QUEST_POOL.filter(q => q.diff === current.diff && q.id !== current.id && !h.slots.includes(q.id));
   if (pool.length === 0) {
-    _notify('Aucune quête disponible pour le reroll');
+    _notify(state.lang === 'fr' ? 'Aucune quête disponible pour le reroll' : 'No quest available to reroll');
     state.gang.money += HOURLY_QUEST_REROLL_COST;
     EventBus.emit(EVENTS.MONEY_CHANGED, { delta: HOURLY_QUEST_REROLL_COST, newTotal: state.gang.money });
     _topBar();
@@ -222,7 +231,8 @@ function rerollHourlyQuest(idx) {
   if (h.baseline[newQ.stat] === undefined) h.baseline[newQ.stat] = getMissionStat(newQ.stat);
   _save();
   _topBar();
-  _notify(`Reroll : ${newQ.fr}`, 'success');
+  const newQName = state.lang === 'fr' ? newQ.fr : (newQ.en || newQ.fr);
+  _notify(state.lang === 'fr' ? `Reroll : ${newQName}` : `Reroll: ${newQName}`, 'success');
 }
 
 function getMissionProgress(mission) {

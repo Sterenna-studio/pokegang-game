@@ -11,4 +11,15 @@ const TRANSLATOR_PHRASES_FR = [
   'Tu ne passeras pas !',
 ];
 
-export { TRANSLATOR_PHRASES_FR };
+const TRANSLATOR_PHRASES_EN = [
+  'I\'ll show you my true power!',
+  'I\'m the best in the neighborhood.',
+  'You\'d better back off.',
+  'My trainer prepared me well.',
+  'I\'m not afraid of you!',
+  'Let\'s see what you\'re made of.',
+  'I fight for my team.',
+  'You shall not pass!',
+];
+
+export { TRANSLATOR_PHRASES_FR, TRANSLATOR_PHRASES_EN };

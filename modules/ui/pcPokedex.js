@@ -2021,9 +2021,9 @@ function renderPokemonDetail() {
     <div style="font-size:11px;margin-bottom:8px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
         <span style="color:var(--text-dim)">${t('moves')}:</span>
-        <button id="btnChangeMoves" style="font-size:8px;padding:2px 7px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer" title="Changer les attaques (10 000₽)">🔄 10k₽</button>
+        <button id="btnChangeMoves" style="font-size:8px;padding:2px 7px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer" title="${state.lang === 'fr' ? 'Changer les attaques (10 000₽)' : 'Change moves (10,000₽)'}">🔄 10k₽</button>
       </div>
-      ${p.moves.map(m => `<div style="padding:2px 0">▸ ${m}</div>`).join('')}
+      ${p.moves.map(m => `<div style="padding:2px 0">▸ ${state.lang === 'fr' ? m : (typeof MOVES_DATA_EN !== 'undefined' ? (MOVES_DATA_EN[m] || m) : m)}</div>`).join('')}
     </div>
     <div id="pcStatsBlock" style="font-size:11px;margin-bottom:8px;padding:8px;background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:var(--radius-sm)">
       ${_statsBlockHTML(p)}
@@ -2093,17 +2093,27 @@ function renderPokemonDetail() {
 
   document.getElementById('btnChangeMoves')?.addEventListener('click', () => {
     const cost = 10000;
-    if (state.gang.money < cost) { notify('Fonds insuffisants (10 000₽).', 'error'); return; }
+    if (state.gang.money < cost) {
+      notify(state.lang === 'fr' ? 'Fonds insuffisants (10 000₽).' : 'Not enough funds (10,000₽).', 'error');
+      return;
+    }
     const sp2 = SPECIES_BY_EN[p.species_en];
-    if (!sp2 || !sp2.moves?.length) { notify('Aucune attaque disponible pour cette espèce.', 'error'); return; }
-    showConfirm(`Changer les attaques de <b>${speciesName(p.species_en)}</b> pour <b>10 000₽</b> ?<br><span style="color:var(--text-dim);font-size:10px">Les nouvelles attaques seront tirées aléatoirement dans le pool de l'espèce.</span>`,
+    if (!sp2 || !sp2.moves?.length) {
+      notify(state.lang === 'fr' ? 'Aucune attaque disponible pour cette espèce.' : 'No move available for this species.', 'error');
+      return;
+    }
+    const confirmMsg = state.lang === 'fr'
+      ? `Changer les attaques de <b>${speciesName(p.species_en)}</b> pour <b>10 000₽</b> ?<br><span style="color:var(--text-dim);font-size:10px">Les nouvelles attaques seront tirées aléatoirement dans le pool de l'espèce.</span>`
+      : `Change <b>${speciesName(p.species_en)}</b>'s moves for <b>10,000₽</b>?<br><span style="color:var(--text-dim);font-size:10px">New moves will be drawn at random from the species' pool.</span>`;
+    showConfirm(confirmMsg,
       () => {
         state.gang.money -= cost;
         EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -cost, newTotal: state.gang.money });
         state.stats.totalMoneySpent = (state.stats.totalMoneySpent || 0) + cost;
         p.moves = rollMoves(p.species_en);
         saveState();
-        notify(`Attaques changées → ${p.moves.join(', ')}`, 'gold');
+        const movesDisplay = p.moves.map(m => state.lang === 'fr' ? m : (typeof MOVES_DATA_EN !== 'undefined' ? (MOVES_DATA_EN[m] || m) : m)).join(', ');
+        notify(state.lang === 'fr' ? `Attaques changées → ${movesDisplay}` : `Moves changed → ${movesDisplay}`, 'gold');
         renderPCTab();
         updateTopBar();
       },
