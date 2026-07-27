@@ -13,7 +13,7 @@
 //  ennemi) quand ils passent près l'un de l'autre.
 //
 //  La construction des données affichées (résidents résolus, pool de
-//  cameos éligibles, fond de zone) vit dans modules/systems/
+//  caméos éligibles, fond de zone) vit dans modules/systems/
 //  vivariumSnapshot.js, partagé avec le snapshot poussé vers Supabase
 //  pour l'affichage distant (OBS) — ce fichier ne fait plus que du
 //  rendu DOM/animation, local (state live) ou distant (blob figé) :
@@ -33,15 +33,13 @@ import {
   buildVivariumBackgroundData,
 } from '../modules/systems/vivariumSnapshot.js';
 
+const _t = (fr, en) => (globalThis.state?.lang === 'en' ? en : fr);
+
 const CAMEO_MIN_DELAY_MS   = 45_000;
 const CAMEO_MAX_DELAY_MS   = 90_000;
 const CAMEO_SPAWN_CHANCE   = 0.5;
 const CAMEO_SPEED_PX_PER_S = 45;
 
-// Traversée en plusieurs étapes plutôt qu'une seule ligne droite (cf.
-// _spawnCameo) — wobble vertical entre étapes + vitesse variable par étape,
-// avec une pause possible (dont une garantie sur l'étape où le dialogue
-// apparaît, pour laisser le temps de le lire).
 const CAMEO_LEGS_MIN     = 2;
 const CAMEO_LEGS_MAX     = 4;
 const CAMEO_PAUSE_CHANCE = 0.65;
@@ -49,40 +47,27 @@ const CAMEO_PAUSE_MIN_MS = 1000;
 const CAMEO_PAUSE_MAX_MS = 2600;
 const CAMEO_Y_WOBBLE_PX  = 26;
 
-// Ambiance jour/nuit — teinte de l'overlay recalculée périodiquement à
-// partir de l'heure locale réelle (pas de cycle accéléré, v1 simple).
 const AMBIANCE_REFRESH_MS = 5 * 60_000;
 
-// Météo — reroll périodique parmi un petit set, particules CSS pures
-// (mêmes conventions que le reste du fichier : pas de canvas).
-const WEATHER_TYPES         = ['clear', 'clear', 'rain', 'snow']; // 'clear' pondéré x2 : le beau temps doit rester la norme
+const WEATHER_TYPES         = ['clear', 'clear', 'rain', 'snow'];
 const WEATHER_REROLL_MIN_MS = 5 * 60_000;
 const WEATHER_REROLL_MAX_MS = 10 * 60_000;
 const RAIN_DROP_COUNT   = 26;
 const SNOW_FLAKE_COUNT  = 18;
 
-// Déplacement des résidents — plage large de vitesse/pause pour que ça ne
-// soit pas un métronome (certains hops sont des petits dashes rapides,
-// d'autres des ambles lentes avec une longue pause).
 const WANDER_MIN_PAUSE_MS = 600;
 const WANDER_MAX_PAUSE_MS = 5500;
-const WANDER_SPEED_MIN    = 26; // px/s
-const WANDER_SPEED_MAX    = 70; // px/s
+const WANDER_SPEED_MIN    = 26;
+const WANDER_SPEED_MAX    = 70;
 
-// Anti-superposition + rencontres
-const MIN_SPRITE_DIST      = 46; // px — distance mini visée entre deux résidents
+const MIN_SPRITE_DIST      = 46;
 const TARGET_RETRY_COUNT   = 5;
-const SEEK_OTHER_CHANCE    = 0.35; // chance de viser près d'un autre résident plutôt qu'une case libre — accélère les rencontres
+const SEEK_OTHER_CHANCE    = 0.35;
 const INTERACTION_DIST_PX  = 44;
-const INTERACTION_COOLDOWN_MS = 20_000; // avant de pouvoir réinteragir avec le même partenaire
+const INTERACTION_COOLDOWN_MS = 20_000;
 const PROXIMITY_SCAN_MS    = 1200;
 const INTERACTION_BADGE_MS = 2300;
 
-// Variété de mini-interactions entre deux résidents qui se croisent — un tirage
-// pondéré plutôt qu'un simple binaire ami/ennemi. `pauseMs` est la durée pendant
-// laquelle les deux résidents restent face à face avant de reprendre leur route
-// (cf. _endInteraction) ; `bounce` réutilise l'anim de rebond du clic pour un
-// rendu plus vivant que le simple badge flottant.
 const INTERACTION_KINDS = [
   { key: 'friend',  icon: '💕', weight: 35, pauseMs: 2000 },
   { key: 'playful', icon: '🎾', weight: 25, pauseMs: 2000, bounce: true },
@@ -91,16 +76,14 @@ const INTERACTION_KINDS = [
   { key: 'enemy',   icon: '💢', weight: 15, pauseMs: 2000, hostile: true },
 ];
 
-// Interaction au clic — "câliner" un résident : pause brève du wander, petit
-// rebond, et une bulle avec une réaction + les infos du Pokémon.
 const CLICK_REACTION_ICONS    = ['💫', '✨', '⭐', '❤️', '😊', '🎵'];
-const CLICK_REACTION_COOLDOWN_MS = 700; // anti-spam-clic
-const CLICK_PAUSE_MS          = 900;    // durée de la pause + du rebond
+const CLICK_REACTION_COOLDOWN_MS = 700;
+const CLICK_PAUSE_MS          = 900;
 
-let _timers    = [];   // tous les setTimeout actifs — nettoyés par stopEnvironmentZone()
-let _residents = [];   // { el, x, y, w, h, interacting, lastPartner, lastInteractionAt, timer }
+let _timers    = [];
+let _residents = [];
 let _zoneEl    = null;
-let _liveCameoPool = []; // dernier pool reçu — seulement utilisé par le rendu distant (blob)
+let _liveCameoPool = [];
 
 function _track(id) { _timers.push(id); return id; }
 
@@ -112,10 +95,6 @@ export function stopEnvironmentZone() {
   _liveCameoPool = [];
 }
 
-// Retire les résidents actuellement affichés (DOM + timers) sans toucher aux
-// boucles météo/ambiance/cameo — utilisé par updateEnvironmentSnapshot() pour
-// rafraîchir juste la liste de résidents sur un poll, sans réinitialiser tout
-// le reste (ce qui ferait clignoter la météo ou couper un cameo en vol).
 function _clearResidents(viewportEl) {
   for (const r of _residents) {
     clearTimeout(r.timer);
@@ -125,12 +104,6 @@ function _clearResidents(viewportEl) {
   viewportEl.querySelector('.gang-env-empty-hint')?.remove();
 }
 
-// ── Fond de la zone (state.cosmetics.bossBg — réutilise le même catalogue
-//    COSMETIC_BGS/unlockedBgs que le fond de page, juste un pointeur
-//    d'équipement séparé) ───────────────────────────────────────────────
-// Applique un descripteur de fond {type, url|value} (cf.
-// vivariumSnapshot.js:buildVivariumBackgroundData) — factorisé pour être
-// utilisable aussi bien avec `state` live qu'avec un blob distant figé.
 function _applyBackgroundData(viewportEl, bgData) {
   if (bgData?.type === 'image' || bgData?.type === 'fabric') {
     viewportEl.style.backgroundImage = `url('${bgData.url}')`;
@@ -154,14 +127,12 @@ function _applyZoneBackground(viewportEl) {
   _applyBackgroundData(viewportEl, buildVivariumBackgroundData(globalThis.state));
 }
 
-// ── Ambiance jour/nuit — teinte calquée sur l'heure locale réelle (v1
-//    simple, pas de cycle accéléré) ─────────────────────────────────────
 function _timeOfDayTint() {
   const h = new Date().getHours();
-  if (h >= 22 || h < 5)  return 'rgba(8,12,36,.5)';     // nuit
-  if (h >= 5  && h < 8)  return 'rgba(255,175,120,.16)'; // aube
-  if (h >= 18 && h < 22) return 'rgba(255,100,60,.20)';  // crépuscule
-  return 'transparent';                                  // jour
+  if (h >= 22 || h < 5)  return 'rgba(8,12,36,.5)';
+  if (h >= 5  && h < 8)  return 'rgba(255,175,120,.16)';
+  if (h >= 18 && h < 22) return 'rgba(255,100,60,.20)';
+  return 'transparent';
 }
 
 function _applyAmbiance(viewportEl) {
@@ -182,11 +153,7 @@ function _scheduleAmbianceRefresh(viewportEl) {
   }, AMBIANCE_REFRESH_MS));
 }
 
-// ── Réaction des résidents à la météo/l'heure — pluie et nuit ralentissent
-// le wander (pauses plus longues, déplacements plus lents) sans jamais
-// l'arrêter, plutôt que d'introduire un nouvel état/sprite "à l'abri"/
-// "endormi" (garde le système à un seul mécanisme : _wanderStep). ────────
-let _currentWeather = 'clear'; // mis à jour par _applyWeather()
+let _currentWeather = 'clear';
 
 function _isNightNow() {
   const h = new Date().getHours();
@@ -201,19 +168,12 @@ function _environmentPaceFactor() {
   return { pauseMult, speedMult };
 }
 
-// ── Météo — reroll périodique, particules CSS pures (pas de canvas) ─────
 function _applyWeather(viewportEl) {
   viewportEl.querySelector('.gang-env-weather')?.remove();
-
   const weather = WEATHER_TYPES[Math.floor(Math.random() * WEATHER_TYPES.length)];
   _currentWeather = weather;
   if (weather === 'clear') return;
-
-  // Distance de chute en px (transform: translateY(), pas top) — calculée
-  // une fois depuis la hauteur réelle du viewport plutôt qu'en pourcentage,
-  // pour rester sur une propriété compositée (voir commentaire CSS).
   const fallDistance = (viewportEl.getBoundingClientRect().height || 400) + 40;
-
   const layer = document.createElement('div');
   layer.className = `gang-env-weather gang-env-weather-${weather}`;
   const count = weather === 'rain' ? RAIN_DROP_COUNT : SNOW_FLAKE_COUNT;
@@ -249,32 +209,33 @@ function _openZoneBgPicker(viewportEl) {
   const modal = document.createElement('div');
   modal.className = 'gang-picker-overlay';
   const cards = Object.entries(COSMETIC_BGS)
-    .filter(([, c]) => c.type !== 'fabric') // fonds tissu gérés via le panneau Apparence uniquement
+    .filter(([, c]) => c.type !== 'fabric')
     .map(([key, c]) => {
       const own = unlocked.has(key);
       const isAct = active === key;
+      const name = state.lang === 'en' ? (c.en || c.fr) : c.fr;
       const thumb = c.type === 'image'
         ? `background-image:url('${c.url}');background-size:cover;background-position:center`
         : `background:${c.gradient}`;
       return `<div class="gang-zonebg-card${isAct ? ' active' : ''}" data-bg-key="${key}" data-owned="${own}">
         <div class="gang-zonebg-thumb" style="${thumb}"></div>
-        <div class="gang-zonebg-label">${c.fr}</div>
-        <div class="gang-zonebg-status">${isAct ? '[ ACTIF ]' : own ? 'Équiper' : c.cost.toLocaleString() + '₽'}</div>
+        <div class="gang-zonebg-label">${name}</div>
+        <div class="gang-zonebg-status">${isAct ? _t('[ ACTIF ]', '[ ACTIVE ]') : own ? _t('Équiper', 'Equip') : c.cost.toLocaleString() + '₽'}</div>
       </div>`;
     }).join('');
 
   modal.innerHTML = `
     <div class="gang-picker-box">
-      <div class="gang-panel-title">FOND DE LA ZONE</div>
+      <div class="gang-panel-title">${_t('FOND DE LA ZONE', 'ZONE BACKGROUND')}</div>
       <div class="gang-zonebg-grid">
         <div class="gang-zonebg-card${!active ? ' active' : ''}" data-bg-key="none" data-owned="true">
           <div class="gang-zonebg-thumb" style="background:linear-gradient(180deg,#0a1a12,#0d2418)"></div>
-          <div class="gang-zonebg-label">Défaut</div>
-          <div class="gang-zonebg-status">${!active ? '[ ACTIF ]' : 'Gratuit'}</div>
+          <div class="gang-zonebg-label">${_t('Défaut', 'Default')}</div>
+          <div class="gang-zonebg-status">${!active ? _t('[ ACTIF ]', '[ ACTIVE ]') : _t('Gratuit', 'Free')}</div>
         </div>
         ${cards}
       </div>
-      <button id="gangZoneBgCancel">Fermer</button>
+      <button id="gangZoneBgCancel">${_t('Fermer', 'Close')}</button>
     </div>`;
   document.body.appendChild(modal);
 
@@ -283,7 +244,7 @@ function _openZoneBgPicker(viewportEl) {
       const key = el.dataset.bgKey === 'none' ? null : el.dataset.bgKey;
       const owned = el.dataset.owned === 'true';
       if (key && !owned) {
-        globalThis.notify?.('Débloquez ce fond depuis le panneau Apparence.', 'error');
+        globalThis.notify?.(_t('Débloquez ce fond depuis le panneau Apparence.', 'Unlock this background from the Appearance panel.'), 'error');
         return;
       }
       state.cosmetics.bossBg = key;
@@ -296,12 +257,6 @@ function _openZoneBgPicker(viewportEl) {
   modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
 }
 
-// ── Déplacement des résidents ─────────────────────────────────────────────
-// Position et sens de marche vivent sur deux éléments distincts (voir
-// gang.css) : .gang-env-sprite porte translate() (transitionné, compositor-
-// only — pas de left/top qui déclencheraient du layout à chaque frame),
-// .gang-env-sprite-inner porte scaleX() (instantané). Les combiner sur le
-// même élément ferait que la transition de position anime aussi le flip.
 function _setPosition(el, x, y) {
   el.style.transform = `translate(${x}px, ${y}px)`;
 }
@@ -315,11 +270,6 @@ function _dist(ax, ay, bx, by) {
   return Math.hypot(ax - bx, ay - by);
 }
 
-// entry.x/entry.y sont la position CIBLE du wander en cours, pas la position
-// réelle à l'écran pendant la transition CSS qui y mène (plusieurs secondes
-// pour les déplacements lents) — pour tout ce qui doit refléter où le sprite
-// est VRAIMENT au moment de l'appel (scan de proximité, badge d'interaction),
-// on relit la position interpolée en cours via le transform calculé.
 function _currentPos(el) {
   const t = getComputedStyle(el).transform;
   if (!t || t === 'none') return { x: 0, y: 0 };
@@ -329,10 +279,6 @@ function _currentPos(el) {
   return { x: parts[4] || 0, y: parts[5] || 0 };
 }
 
-// Choisit une position cible : le plus souvent une case libre (en évitant
-// les autres résidents), mais parfois volontairement proche d'un autre
-// résident, pour que les rencontres arrivent par elles-mêmes plutôt que de
-// compter uniquement sur le hasard du wander libre.
 function _pickTarget(entry, bounds) {
   const maxX = Math.max(0, bounds.width - entry.w);
   const maxY = Math.max(0, bounds.groundHeight - entry.h);
@@ -355,14 +301,12 @@ function _pickTarget(entry, bounds) {
     if (!tooClose) return { x, y };
     best = { x, y };
   }
-  // Aucun essai n'est totalement libre — mieux vaut un léger chevauchement
-  // occasionnel qu'un sprite bloqué indéfiniment sans jamais rebouger.
   return best || { x: Math.random() * maxX, y: bounds.groundTop + Math.random() * maxY };
 }
 
 function _wanderStep(entry, bounds) {
   if (!entry.el.isConnected) return;
-  if (entry.interacting) return; // reprise explicite par _endInteraction
+  if (entry.interacting) return;
 
   const { x: targetX, y: targetY } = _pickTarget(entry, bounds);
   const dist  = _dist(entry.x, entry.y, targetX, targetY);
@@ -385,10 +329,6 @@ function _wanderStep(entry, bounds) {
   }, duration * 1000));
 }
 
-// `meta` transporte les infos déjà résolues affichées au clic ({level,
-// natureLabel}) — jamais une référence live vers un Pokémon, pour que
-// résidents locaux (state) et résidents distants (blob Supabase) suivent
-// exactement le même chemin de code.
 function _spawnResident(viewportEl, imgUrl, label, bounds, meta = {}) {
   const el = document.createElement('div');
   el.className = 'gang-env-sprite idle gang-env-clickable';
@@ -409,29 +349,20 @@ function _spawnResident(viewportEl, imgUrl, label, bounds, meta = {}) {
   return entry;
 }
 
-// ── Interaction au clic sur un résident ───────────────────────────────────
 function _showClickBadge(entry) {
   const icon = CLICK_REACTION_ICONS[Math.floor(Math.random() * CLICK_REACTION_ICONS.length)];
   const info = entry.level != null
     ? `Lv.${entry.level}${entry.natureLabel ? ` · ${entry.natureLabel}` : ''}`
     : '';
-
   const badge = document.createElement('div');
   badge.className = 'gang-env-click-badge';
-  // textContent (jamais innerHTML) : entry.label vient de pokemonDisplayName(),
-  // texte libre (surnom joueur) — pas d'échappement HTML à faire ici puisqu'on
-  // n'injecte jamais de balises.
   badge.textContent = [icon, entry.label, info].filter(Boolean).join(' ');
-  // Enfant direct du sprite (jamais une position page recalculée à la main) :
-  // suit son transform translate() si le résident se remet à marcher avant
-  // que le badge n'ait fini de s'effacer (le wander reprend ~0.9-1.4s après
-  // le clic, avant les 2.4s de vie du badge).
   entry.el.appendChild(badge);
   _track(setTimeout(() => badge.remove(), 2400));
 }
 
 function _onResidentClick(viewportEl, entry, bounds) {
-  if (entry.interacting) return; // déjà en mini-interaction ami/ennemi ou en cooldown de clic
+  if (entry.interacting) return;
   const now = Date.now();
   if (now - (entry.lastClickAt || 0) < CLICK_REACTION_COOLDOWN_MS) return;
   entry.lastClickAt = now;
@@ -450,9 +381,6 @@ function _onResidentClick(viewportEl, entry, bounds) {
   }, CLICK_PAUSE_MS));
 }
 
-// ── Mini-interactions — deux résidents qui se croisent tirent un type
-//    d'interaction (ami/joueur/curieux/somnolent/rival, cf. INTERACTION_KINDS),
-//    se tournent l'un vers l'autre, puis reprennent chacun leur route ──────
 function _pickInteractionKind() {
   const total = INTERACTION_KINDS.reduce((sum, k) => sum + k.weight, 0);
   let r = Math.random() * total;
@@ -467,10 +395,6 @@ function _showInteractionBadge(entryA, kind) {
   const badge = document.createElement('div');
   badge.className = `gang-env-interact ${kind.hostile ? 'enemy' : 'friend'}`;
   badge.textContent = kind.icon;
-  // Enfant du sprite A — les deux partenaires restent immobiles pendant toute
-  // l'interaction, mais rester cohérent avec le reste du fichier (jamais une
-  // position page figée à la main) évite toute désynchronisation si ce
-  // comportement change plus tard.
   entryA.el.appendChild(badge);
   _track(setTimeout(() => badge.remove(), INTERACTION_BADGE_MS));
 }
@@ -498,7 +422,6 @@ function _triggerInteraction(viewportEl, entryA, entryB, bounds) {
   entryA.lastPartner = entryB;
   entryB.lastPartner = entryA;
 
-  // Se tourner l'un vers l'autre pour "se faire face"
   _flip(entryA.el, entryA.x > entryB.x);
   _flip(entryB.el, entryB.x > entryA.x);
 
@@ -527,9 +450,6 @@ function _scheduleProximityScan(viewportEl, bounds) {
   }, PROXIMITY_SCAN_MS));
 }
 
-// ── Cameo — agent, infirmière, chercheur ou pokémon favori qui traverse une
-// fois puis disparaît (hors du système résident/collision) — porte
-// optionnellement une bulle de dialogue (dialogueLine). ──────────────────
 function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl, dialogueLine, hostile = false) {
   const el = document.createElement('div');
   el.className = 'gang-env-sprite gang-env-cameo';
@@ -540,26 +460,15 @@ function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl, dialogueLi
   const endX   = fromLeft ? bounds.width + 60 : -60;
   const baseY  = bounds.groundTop + Math.random() * bounds.groundHeight;
   _setPosition(el, startX, baseY);
-  _flip(el, !fromLeft); // direction constante sur toute la traversée — la progression horizontale ne fait jamais demi-tour d'une étape à l'autre
+  _flip(el, !fromLeft);
   viewportEl.appendChild(el);
 
-  // Bulle en enfant DIRECT de `el` (pas de .gang-env-sprite-inner, qui porte
-  // le flip via scaleX() — sinon le texte se retrouverait inversé quand le
-  // personnage marche vers la gauche) : posée une fois ci-dessous à l'étape
-  // choisie, elle suit ensuite le trajet sans jamais être repositionnée à la main.
   const bubble = dialogueLine ? document.createElement('div') : null;
   if (bubble) {
     bubble.className = `gang-env-speech-bubble${hostile ? ' hostile' : ''}`;
-    bubble.textContent = dialogueLine; // jamais innerHTML — texte fixe interne, mais même discipline que le reste du fichier
+    bubble.textContent = dialogueLine;
   }
 
-  // Traversée en plusieurs étapes plutôt qu'une seule ligne droite : chaque
-  // étape vise une hauteur légèrement différente (wobble vertical, sauf la
-  // dernière qui revient à baseY pour sortir proprement du cadre) avec une
-  // vitesse propre. La bulle de dialogue (si présente) n'apparaît jamais
-  // avant la 1re étape ni sur la dernière — toujours au moins une étape de
-  // marge après, pour laisser le temps de la lire pendant la pause qui
-  // l'accompagne obligatoirement.
   const legs = CAMEO_LEGS_MIN + Math.floor(Math.random() * (CAMEO_LEGS_MAX - CAMEO_LEGS_MIN + 1));
   const bubbleLeg = bubble ? 1 + Math.floor(Math.random() * (legs - 1)) : -1;
   let leg = 0;
@@ -575,7 +484,7 @@ function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl, dialogueLi
 
     const cur = _currentPos(el);
     const dist = Math.max(1, _dist(cur.x, cur.y, x, y));
-    const speed = CAMEO_SPEED_PX_PER_S * (0.7 + Math.random() * 0.6); // variation de vitesse — casse l'effet métronome/ligne droite
+    const speed = CAMEO_SPEED_PX_PER_S * (0.7 + Math.random() * 0.6);
     const duration = Math.max(0.8, dist / speed);
 
     el.classList.remove('idle');
@@ -584,22 +493,19 @@ function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl, dialogueLi
 
     _track(setTimeout(() => {
       if (!el.isConnected) return;
-
       if (leg === bubbleLeg) {
         el.classList.add('idle');
         el.appendChild(bubble);
       }
-
       if (leg >= legs) {
         _track(setTimeout(() => el.remove(), 300));
         return;
       }
-
       const shouldPause = leg === bubbleLeg || Math.random() < CAMEO_PAUSE_CHANCE;
       if (shouldPause) el.classList.add('idle');
       const pause = shouldPause
         ? CAMEO_PAUSE_MIN_MS + Math.random() * (CAMEO_PAUSE_MAX_MS - CAMEO_PAUSE_MIN_MS)
-        : 80 + Math.random() * 200; // enchaînement quasi direct — la pause n'est pas systématique à chaque étape
+        : 80 + Math.random() * 200;
       _track(setTimeout(nextLeg, pause));
     }, duration * 1000));
   }
@@ -607,10 +513,6 @@ function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl, dialogueLi
   requestAnimationFrame(nextLeg);
 }
 
-// Tire un cameo au hasard dans un pool déjà construit (cf. vivariumSnapshot.js
-// :buildVivariumCameoPool) et l'anime — partagé par le rendu local (pool
-// reconstruit à chaque tirage depuis `state`) et le rendu distant (pool
-// figé jusqu'au prochain fetch, cf. renderEnvironmentZoneFromSnapshot).
 function _fireCameoFromPool(viewportEl, bounds, pool) {
   if (!pool || pool.length === 0) return;
   const entry = pool[Math.floor(Math.random() * pool.length)];
@@ -618,14 +520,6 @@ function _fireCameoFromPool(viewportEl, bounds, pool) {
   _spawnCameo(viewportEl, entry.spriteUrl, entry.label, bounds, entry.followIconUrl || null, line, !!entry.hostile);
 }
 
-function _fireCameoEvent(viewportEl, bounds) {
-  _fireCameoFromPool(viewportEl, bounds, buildVivariumCameoPool(globalThis.state));
-}
-
-// `poolProvider` est appelé à CHAQUE tirage (pas une fois pour toutes) : côté
-// rendu local ça garantit un pool toujours à jour avec `state` (comportement
-// inchangé par l'extraction), côté rendu distant ça relit simplement la
-// dernière valeur reçue (cf. _liveCameoPool) sans redéclencher de fetch.
 function _scheduleCameos(viewportEl, bounds, poolProvider) {
   const delay = CAMEO_MIN_DELAY_MS + Math.random() * (CAMEO_MAX_DELAY_MS - CAMEO_MIN_DELAY_MS);
   _track(setTimeout(() => {
@@ -654,9 +548,9 @@ function _openZoneSourcesPicker(rootContainer) {
 
   modal.innerHTML = `
     <div class="gang-picker-box">
-      <div class="gang-panel-title">ZONES AFFICHÉES</div>
+      <div class="gang-panel-title">${_t('ZONES AFFICHÉES', 'DISPLAYED ZONES')}</div>
       <div class="gang-source-list">${rows}</div>
-      <button id="gangSourcesClose">Fermer</button>
+      <button id="gangSourcesClose">${_t('Fermer', 'Close')}</button>
     </div>`;
   document.body.appendChild(modal);
 
@@ -668,7 +562,7 @@ function _openZoneSourcesPicker(rootContainer) {
       state.cosmetics.vivariumSources = [...set];
       globalThis.saveState();
       input.closest('.gang-source-row')?.classList.toggle('active', input.checked);
-      renderEnvironmentZone(rootContainer); // reconstruit les résidents avec le nouveau set de sources
+      renderEnvironmentZone(rootContainer);
     });
   });
   modal.querySelector('#gangSourcesClose').addEventListener('click', () => modal.remove());
@@ -683,8 +577,8 @@ export function renderEnvironmentZone(rootContainer) {
   _zoneEl = zoneEl;
 
   zoneEl.innerHTML = `
-    <button class="gang-zonebg-btn" id="gangZoneBgBtn" title="Changer le fond">🎨</button>
-    <button class="gang-zonesrc-btn" id="gangZoneSrcBtn" title="Choisir les zones affichées">👁</button>
+    <button class="gang-zonebg-btn" id="gangZoneBgBtn" title="${_t('Changer le fond', 'Change background')}">🎨</button>
+    <button class="gang-zonesrc-btn" id="gangZoneSrcBtn" title="${_t('Choisir les zones affichées', 'Choose displayed zones')}">👁</button>
     <div class="gang-env-viewport" id="gangEnvViewport"></div>`;
 
   const viewportEl = zoneEl.querySelector('#gangEnvViewport');
@@ -705,8 +599,6 @@ export function renderEnvironmentZone(rootContainer) {
     groundHeight: (rect.height || 320) * 0.55,
   };
 
-  // Résidents permanents : une ou plusieurs sources au choix du joueur
-  // (state.cosmetics.vivariumSources — voir _openZoneSourcesPicker ci-dessus).
   const residents = buildVivariumResidents(state);
   for (const r of residents) {
     _spawnResident(viewportEl, r.spriteUrl, r.label, bounds, { level: r.level, natureLabel: r.natureLabel });
@@ -715,7 +607,10 @@ export function renderEnvironmentZone(rootContainer) {
   if (residents.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'gang-env-empty-hint';
-    empty.textContent = 'Ajoutez des Pokémon à une zone activée (👁) pour les voir se balader ici.';
+    empty.textContent = _t(
+      'Ajoutez des Pokémon à une zone activée (👁) pour les voir se balader ici.',
+      'Add Pokémon to an active zone (👁) to see them roam here.'
+    );
     viewportEl.appendChild(empty);
   } else {
     _scheduleProximityScan(viewportEl, bounds);
@@ -742,9 +637,6 @@ export function renderEnvironmentZoneFromSnapshot(rootContainer, blob) {
 
   zoneEl.innerHTML = `<div class="gang-env-viewport" id="gangEnvViewport"></div>`;
   const viewportEl = zoneEl.querySelector('#gangEnvViewport');
-  // Contrairement au rendu local (_applyZoneBackground, toujours peint — au
-  // moins le dégradé par défaut), l'absence de fond équipé reste transparente
-  // ici : c'est un overlay OBS par-dessus le flux réel, pas une page à soi.
   if (blob?.backgroundData) _applyBackgroundData(viewportEl, blob.backgroundData);
 
   _applyAmbiance(viewportEl);
@@ -767,7 +659,8 @@ export function renderEnvironmentZoneFromSnapshot(rootContainer, blob) {
   if (residents.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'gang-env-empty-hint';
-    empty.textContent = 'Aucun résident à afficher pour le moment.';
+    // Rendu distant (OBS) : pas de state disponible — EN par défaut.
+    empty.textContent = 'No residents to display for now.';
     viewportEl.appendChild(empty);
   } else {
     _scheduleProximityScan(viewportEl, bounds);
@@ -776,9 +669,6 @@ export function renderEnvironmentZoneFromSnapshot(rootContainer, blob) {
   _scheduleCameos(viewportEl, bounds, () => _liveCameoPool);
 }
 
-// Rafraîchit juste résidents + pool de cameos + fond depuis un nouveau blob,
-// sans redémarrer météo/ambiance/planification des cameos (cf. _clearResidents)
-// — appelée à chaque poll après le premier rendu (renderEnvironmentZoneFromSnapshot).
 export function updateEnvironmentSnapshot(blob) {
   if (!_zoneEl || !_zoneEl.isConnected) return;
   const viewportEl = _zoneEl.querySelector('#gangEnvViewport');
@@ -802,7 +692,7 @@ export function updateEnvironmentSnapshot(blob) {
   if (residents.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'gang-env-empty-hint';
-    empty.textContent = 'Aucun résident à afficher pour le moment.';
+    empty.textContent = 'No residents to display for now.';
     viewportEl.appendChild(empty);
   }
 }
