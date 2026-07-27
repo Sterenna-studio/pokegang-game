@@ -28,6 +28,7 @@ import { resolveSpecialCombat } from './specialCombat.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type });
 const _save   = ()               => globalThis.saveState?.();
+const _t = (fr, en) => (globalThis.state?.lang === 'en' ? en : fr);
 
 // ── Assets ────────────────────────────────────────────────────
 const DEOXYS_SPRITE     = 'assets/pokemon_sprite/legendary_fight_by_muzyun/deoxys.png';
@@ -101,7 +102,7 @@ function _onCombatWon({ zoneId } = {}) {
     q.trainersDefeated = Math.min((q.trainersDefeated || 0) + 1, TARGET_TRAINERS);
     if (q.trainersDefeated >= TARGET_TRAINERS) {
       q.step = 2;
-      _notify('☄️ Signal localisé ! Collectez 3 Météores dans les zones Hoenn.', 'gold');
+      _notify(_t('☄️ Signal localisé ! Collectez 3 Météores dans les zones Hoenn.', '☄️ Signal located! Collect 3 Meteorites in the Hoenn zones.'), 'gold');
       // Des météores peuvent déjà avoir été récoltés avant la fin de l'étape 1
       // (ex: via l'événement de zone meteore_crash, indépendant du step) — valider
       // le seuil tout de suite plutôt que d'attendre un nouveau drop aléatoire.
@@ -109,7 +110,7 @@ function _onCombatWon({ zoneId } = {}) {
       if ((inv0.meteore || 0) >= TARGET_METEORES) {
         inv0.meteore -= TARGET_METEORES;
         q.step = 3;
-        _notify('☄️ Fragments récoltés ! Infiltrez le Laboratoire Spatial Devon.', 'gold');
+        _notify(_t('☄️ Fragments récoltés ! Infiltrez le Laboratoire Spatial Devon.', '☄️ Fragments recovered! Infiltrate the Devon Space Lab.'), 'gold');
       }
     }
     _save();
@@ -120,7 +121,7 @@ function _onCombatWon({ zoneId } = {}) {
     q.labFightsWon = Math.min((q.labFightsWon || 0) + 1, TARGET_LAB_FIGHTS);
     if (q.labFightsWon >= TARGET_LAB_FIGHTS) {
       q.step = 4;
-      _notify('☄️ Laboratoire infiltré ! Affrontez le Directeur Devon depuis la quête.', 'gold');
+      _notify(_t('☄️ Laboratoire infiltré ! Affrontez le Directeur Devon depuis la quête.', '☄️ Lab infiltrated! Face the Devon Director from the quest tracker.'), 'gold');
     }
     _save();
   }
@@ -140,7 +141,7 @@ function _onItemGiftReceived(itemId) {
   if (inv.meteore >= TARGET_METEORES) {
     inv.meteore -= TARGET_METEORES;
     q.step = 3;
-    _notify('☄️ Fragments récoltés ! Infiltrez le Laboratoire Spatial Devon.', 'gold');
+    _notify(_t('☄️ Fragments récoltés ! Infiltrez le Laboratoire Spatial Devon.', '☄️ Fragments recovered! Infiltrate the Devon Space Lab.'), 'gold');
     _save();
   }
 }
@@ -406,9 +407,9 @@ function _buildOverlay() {
   // à un bouton placé dans le contenu du tracker — même patron que Johto/Kanto).
   const closeBtn = document.createElement('span');
   closeBtn.className = 'dxq-close-btn';
-  closeBtn.textContent = '✕ FERMER';
+  closeBtn.textContent = `✕ ${_t('FERMER', 'CLOSE')}`;
   closeBtn.onclick = () => {
-    if (_resolving) { _notify('⏳ Résolution en cours…', ''); return; }
+    if (_resolving) { _notify(_t('⏳ Résolution en cours…', '⏳ Resolving…'), ''); return; }
     _closeOverlay();
   };
   document.body.appendChild(closeBtn);
@@ -514,11 +515,11 @@ async function _showQuestIntro() {
   // Étape 1 : message Devon Research
   _clearOverlay();
   const box = _box();
-  _label(box, 'Devon Research Corporation — Signal classifié');
-  _titleEl(box, '☄️  Anomalie Extraterrestre Détectée');
+  _label(box, _t('Devon Research Corporation — Signal classifié', 'Devon Research Corporation — Classified Signal'));
+  _titleEl(box, _t('☄️  Anomalie Extraterrestre Détectée', '☄️  Extraterrestrial Anomaly Detected'));
   const txt = _textEl(box);
 
-  await _typewrite(txt,
+  await _typewrite(txt, _t(
     'Professeur Cozmo vient de nous transmettre des données alarmantes.\n\n' +
     'Un objet non-identifié a pénétré l\'atmosphère il y a 72 heures.\n' +
     'Les relevés indiquent une signature ADN… vivante.\n\n' +
@@ -526,11 +527,18 @@ async function _showQuestIntro() {
     'Nos laboratoires sont en alerte maximale.\n\n' +
     'Nous avons besoin d\'une organisation capable de mener une opération discrète.\n' +
     'Votre réputation vous précède, Parrain.',
-  );
+    'Professor Cozmo has just transmitted alarming data to us.\n\n' +
+    'An unidentified object entered the atmosphere 72 hours ago.\n' +
+    'Readings show a DNA signature… a living one.\n\n' +
+    'Devon has located the signal: it\'s emanating from several Hoenn zones.\n' +
+    'Our laboratories are on maximum alert.\n\n' +
+    'We need an organization capable of running a discreet operation.\n' +
+    'Your reputation precedes you, Boss.',
+  ));
 
   const ch = _choices(box);
-  const bAcc = _btn('▸  Accepter l\'opération "Forme ADN"', 'cyan');
-  const bDec = _btn('▸  Pas maintenant — fermer');
+  const bAcc = _btn(_t('▸  Accepter l\'opération "Forme ADN"', '▸  Accept Operation "DNA Form"'), 'cyan');
+  const bDec = _btn(_t('▸  Pas maintenant — fermer', '▸  Not now — close'));
 
   bAcc.onclick = () => {
     const q = _qs();
@@ -542,7 +550,7 @@ async function _showQuestIntro() {
   };
   bDec.onclick = () => {
     _closeOverlay();
-    _notify('☄️ Quête Deoxys disponible — rouvrez-la depuis les zones Hoenn.', '');
+    _notify(_t('☄️ Quête Deoxys disponible — rouvrez-la depuis les zones Hoenn.', '☄️ Deoxys quest available — reopen it from the Hoenn zones.'), '');
   };
 
   ch.appendChild(bAcc);
@@ -568,21 +576,27 @@ async function _showQuestStep2() {
   box.appendChild(sw);
 
   const txt = _textEl(box);
-  await _typewrite(txt,
+  await _typewrite(txt, _t(
     'Les scanners captent une présence aux abords de la Tour Céleste\n' +
     'et du Mont Chimère. Elle se déplace. Elle observe.\n\n' +
     'Nous l\'appelons provisoirement… "Forme ADN".\n\n' +
     'Première mission : établissez votre emprise sur Hoenn.\n' +
     'Affrontez les dresseurs locaux — 20 combats — pour repérer\n' +
     'les zones d\'activité du signal.',
-  );
+    'Scanners are picking up a presence near Sky Pillar\n' +
+    'and Mt. Chimney. It moves. It watches.\n\n' +
+    'We\'re provisionally calling it… "DNA Form".\n\n' +
+    'First mission: establish your grip on Hoenn.\n' +
+    'Face local trainers — 20 battles — to pinpoint\n' +
+    'the signal\'s zones of activity.',
+  ));
 
   const ch = _choices(box);
-  const bStart = _btn('▸  Commencer la mission →', 'cyan');
+  const bStart = _btn(_t('▸  Commencer la mission →', '▸  Start the mission →'), 'cyan');
   bStart.onclick = () => {
     _closeOverlay();
     globalThis.switchTab?.('tabZones');
-    _notify('☄️ Étape 1/5 — Vaincre 20 dresseurs dans les zones Hoenn.', 'gold');
+    _notify(_t('☄️ Étape 1/5 — Vaincre 20 dresseurs dans les zones Hoenn.', '☄️ Step 1/5 — Defeat 20 trainers in the Hoenn zones.'), 'gold');
   };
   ch.appendChild(bStart);
 }
@@ -617,20 +631,20 @@ function _renderTracker() {
   const meteores  = s.inventory?.meteore ?? 0;
 
   const box = _box();
-  _label(box, '— Quête Légendaire —');
-  _titleEl(box, '☄️  Opération : Forme ADN');
+  _label(box, _t('— Quête Légendaire —', '— Legendary Quest —'));
+  _titleEl(box, _t('☄️  Opération : Forme ADN', '☄️  Operation: DNA Form'));
 
   // Météore counter
   const mRow = document.createElement('div');
   mRow.className = 'dxq-meteore-row';
-  mRow.innerHTML = `☄️ Météores : <strong style="margin-left:4px">${meteores}</strong>
-    <span style="opacity:.5;font-size:7px;margin-left:8px">— 0,5 % par combat Hoenn</span>`;
+  mRow.innerHTML = `☄️ ${_t('Météores', 'Meteorites')} : <strong style="margin-left:4px">${meteores}</strong>
+    <span style="opacity:.5;font-size:7px;margin-left:8px">— ${_t('0,5 % par combat Hoenn', '0.5% per Hoenn battle')}</span>`;
   box.appendChild(mRow);
 
   // Power
   const pRow = document.createElement('div');
   pRow.className = 'dxq-power-row';
-  pRow.innerHTML = `<span class="dxq-power-label">Puissance Boss</span>
+  pRow.innerHTML = `<span class="dxq-power-label">${_t('Puissance Boss', 'Boss Power')}</span>
     <span class="dxq-power-val">${bosspower.toLocaleString()}</span>`;
   box.appendChild(pRow);
 
@@ -642,33 +656,36 @@ function _renderTracker() {
 
   const steps = [
     {
-      n: 1, title: 'Signal Anomal',
-      desc: `Vaincre 20 dresseurs dans les zones Hoenn`,
+      n: 1, title: _t('Signal Anomal', 'Anomalous Signal'),
+      desc: _t(`Vaincre 20 dresseurs dans les zones Hoenn`, `Defeat 20 trainers in the Hoenn zones`),
       progress: q.step > 1 ? 1 : (q.trainersDefeated || 0) / TARGET_TRAINERS,
       progressLabel: `${Math.min(q.trainersDefeated || 0, TARGET_TRAINERS)} / ${TARGET_TRAINERS}`,
     },
     {
-      n: 2, title: 'Fragments de Météorite',
-      desc: `Collecter 3 Météores (0,5 % par combat Hoenn)\nActuellement : ${meteores} météore${meteores !== 1 ? 's' : ''} en inventaire`,
+      n: 2, title: _t('Fragments de Météorite', 'Meteorite Fragments'),
+      desc: _t(`Collecter 3 Météores (0,5 % par combat Hoenn)\nActuellement : ${meteores} météore${meteores !== 1 ? 's' : ''} en inventaire`,
+                `Collect 3 Meteorites (0.5% per Hoenn battle)\nCurrently: ${meteores} meteorite${meteores !== 1 ? 's' : ''} in inventory`),
       progress: q.step > 2 ? 1 : Math.min(meteores, TARGET_METEORES) / TARGET_METEORES,
     },
     {
-      n: 3, title: 'Infiltration du Laboratoire',
-      desc: `Vaincre 10 combats dans le Laboratoire Spatial Devon`,
+      n: 3, title: _t('Infiltration du Laboratoire', 'Lab Infiltration'),
+      desc: _t(`Vaincre 10 combats dans le Laboratoire Spatial Devon`, `Win 10 battles in the Devon Space Lab`),
       progress: q.step > 3 ? 1 : (q.labFightsWon || 0) / TARGET_LAB_FIGHTS,
       progressLabel: `${Math.min(q.labFightsWon || 0, TARGET_LAB_FIGHTS)} / ${TARGET_LAB_FIGHTS}`,
     },
     {
-      n: 4, title: 'Prise de Contrôle',
-      desc: `Vaincre le Directeur du Laboratoire Devon\n(Puissance requise : ${DIRECTOR_POWER_THRESHOLD.toLocaleString()})`,
-      actionLabel: '⚔ Affronter le Directeur →',
+      n: 4, title: _t('Prise de Contrôle', 'Taking Control'),
+      desc: _t(`Vaincre le Directeur du Laboratoire Devon\n(Puissance requise : ${DIRECTOR_POWER_THRESHOLD.toLocaleString()})`,
+                `Defeat the Devon Lab Director\n(Power required: ${DIRECTOR_POWER_THRESHOLD.toLocaleString()})`),
+      actionLabel: `⚔ ${_t('Affronter le Directeur', 'Face the Director')} →`,
       actionAvail: q.step === 4,
       actionFn: () => { _closeOverlay(); setTimeout(_launchDirectorFight, 300); },
     },
     {
-      n: 5, title: 'Confrontation : Forme ADN',
-      desc: `Combat final contre Deoxys\n(Puissance requise : ${DEOXYS_POWER_THRESHOLD.toLocaleString()})`,
-      actionLabel: q.step === 6 ? '♺ Rejouer (1 Météore)' : '☄ Affronter Deoxys →',
+      n: 5, title: _t('Confrontation : Forme ADN', 'Confrontation: DNA Form'),
+      desc: _t(`Combat final contre Deoxys\n(Puissance requise : ${DEOXYS_POWER_THRESHOLD.toLocaleString()})`,
+                `Final battle against Deoxys\n(Power required: ${DEOXYS_POWER_THRESHOLD.toLocaleString()})`),
+      actionLabel: q.step === 6 ? `♺ ${_t('Rejouer', 'Retry')} (1 ${_t('Météore', 'Meteorite')})` : `☄ ${_t('Affronter Deoxys', 'Face Deoxys')} →`,
       actionAvail: q.step === 5 || (q.step === 6 && meteores >= 1),
       actionFn: () => {
         if (q.step === 6) {
@@ -760,17 +777,22 @@ async function _launchDirectorFight() {
 
   _clearOverlay();
   const box = _box();
-  _label(box, 'Étape 4 — Prise de Contrôle');
-  _titleEl(box, '⚔  Combat : Directeur Devon Stone');
+  _label(box, _t('Étape 4 — Prise de Contrôle', 'Step 4 — Taking Control'));
+  _titleEl(box, _t('⚔  Combat : Directeur Devon Stone', '⚔  Battle: Director Devon Stone'));
 
   const txt = _textEl(box);
-  await _typewrite(txt,
+  await _typewrite(txt, _t(
     'Le Directeur Devon Stone bloque l\'accès au cœur du laboratoire.\n\n' +
     'Son équipe de recherche : Metang, Claydol, Porygon-Z.\n' +
     'Des machines de précision, entraînées dans des conditions extrêmes.\n\n' +
     '"Vous n\'avez aucun droit d\'être ici. Mes Pokémon n\'ont pas perdu\n' +
     'depuis 3 ans. Partez pendant que vous le pouvez encore."',
-  );
+    'Director Devon Stone blocks access to the heart of the lab.\n\n' +
+    'His research team: Metang, Claydol, Porygon-Z.\n' +
+    'Precision machines, trained under extreme conditions.\n\n' +
+    '"You have no right to be here. My Pokémon haven\'t lost\n' +
+    'in 3 years. Leave while you still can."',
+  ));
 
   // Jauge de puissance
   const pct = Math.min(bosspower / DIRECTOR_POWER_THRESHOLD, 1);
@@ -778,21 +800,21 @@ async function _launchDirectorFight() {
   const pRow = document.createElement('div');
   pRow.className = 'dxq-power-row';
   pRow.innerHTML = `
-    <span class="dxq-power-label">Votre puissance</span>
+    <span class="dxq-power-label">${_t('Votre puissance', 'Your power')}</span>
     <span class="dxq-power-val">${bosspower.toLocaleString()} / ${DIRECTOR_POWER_THRESHOLD.toLocaleString()}</span>`;
   box.appendChild(pRow);
 
   if (!qualified) {
     const warn = document.createElement('div');
     warn.style.cssText = 'font-family:var(--font-pixel,monospace);font-size:7px;color:#cc1111;padding:8px 0;letter-spacing:1px';
-    warn.textContent = `Puissance insuffisante — il vous manque ${needed.toLocaleString()} points. Renforcez votre équipe.`;
+    warn.textContent = _t(`Puissance insuffisante — il vous manque ${needed.toLocaleString()} points. Renforcez votre équipe.`, `Not enough power — you're ${needed.toLocaleString()} points short. Strengthen your team.`);
     box.appendChild(warn);
   }
 
   const ch = _choices(box);
 
   if (qualified) {
-    const bFight = _btn('⚔  Engager le combat →', 'cyan');
+    const bFight = _btn(`⚔  ${_t('Engager le combat', 'Engage the battle')} →`, 'cyan');
     bFight.onclick = async () => {
       bFight.disabled = true;
       bFight.textContent = '…';
@@ -809,7 +831,7 @@ async function _launchDirectorFight() {
     ch.appendChild(bFight);
   }
 
-  const bBack = _btn('← Revenir au tracker');
+  const bBack = _btn(_t('← Revenir au tracker', '← Back to tracker'));
   bBack.onclick = () => { _clearOverlay(); _renderTracker(); };
   ch.appendChild(bBack);
 }
@@ -819,15 +841,15 @@ async function _directorVictory() {
   if (!_overlay) return;
   const q = _qs();
   const box = _box();
-  _label(box, 'Étape 4 — Résultat');
+  _label(box, _t('Étape 4 — Résultat', 'Step 4 — Result'));
 
   const badge = document.createElement('div');
   badge.className = 'dxq-badge green';
-  badge.textContent = '✓  Directeur Devon Stone — Vaincu';
+  badge.textContent = `✓  ${_t('Directeur Devon Stone — Vaincu', 'Director Devon Stone — Defeated')}`;
   box.appendChild(badge);
 
   const txt = _textEl(box);
-  await _typewrite(txt,
+  await _typewrite(txt, _t(
     'Stone tombe à genoux.\n\n' +
     '"C\'est… impossible. Mon équipe n\'a jamais…"\n\n' +
     'Il se relève lentement, les yeux fixés sur l\'écran principal.\n' +
@@ -836,18 +858,26 @@ async function _directorVictory() {
     'ce que vous êtes venu chercher. La chambre de confinement\n' +
     'est au sous-sol. Mais vous n\'êtes pas prêts."\n\n' +
     'Il dégage l\'entrée.',
-  );
+    'Stone falls to his knees.\n\n' +
+    '"This is… impossible. My team has never…"\n\n' +
+    'He slowly stands back up, eyes fixed on the main screen.\n' +
+    'The DNA Form pulses on the monitors, stronger than ever.\n\n' +
+    '"If you can defeat that… then maybe you deserve\n' +
+    'what you came looking for. The containment chamber\n' +
+    'is in the basement. But you\'re not ready."\n\n' +
+    'He clears the entrance.',
+  ));
 
   q.labBossDefeated = true;
   q.step = 5;
   _save();
-  _notify('☄️ Étape 4 complète ! Affrontez Deoxys depuis le tracker.', 'gold');
+  _notify(_t('☄️ Étape 4 complète ! Affrontez Deoxys depuis le tracker.', '☄️ Step 4 complete! Face Deoxys from the tracker.'), 'gold');
 
   const ch = _choices(box);
   const autoT = _armAutoReturn();
-  const bNext = _btn('▸  Accéder au sous-sol →', 'cyan');
+  const bNext = _btn(_t('▸  Accéder au sous-sol →', '▸  Access the basement →'), 'cyan');
   bNext.onclick = () => { clearTimeout(autoT); _closeOverlay(); setTimeout(_launchDeoxysFight, 300); };
-  const bTrack = _btn('← Retour au tracker');
+  const bTrack = _btn(_t('← Retour au tracker', '← Back to tracker'));
   bTrack.onclick = () => { clearTimeout(autoT); _clearOverlay(); _renderTracker(); };
   ch.appendChild(bNext);
   ch.appendChild(bTrack);
@@ -857,27 +887,30 @@ async function _directorDefeat() {
   _resolving = false;
   if (!_overlay) return;
   const box = _box();
-  _label(box, 'Étape 4 — Résultat');
+  _label(box, _t('Étape 4 — Résultat', 'Step 4 — Result'));
 
   const badge = document.createElement('div');
   badge.className = 'dxq-badge red';
-  badge.textContent = '✗  Directeur Devon Stone — Défaite';
+  badge.textContent = `✗  ${_t('Directeur Devon Stone — Défaite', 'Director Devon Stone — Defeat')}`;
   box.appendChild(badge);
 
   const txt = _textEl(box);
-  await _typewrite(txt,
+  await _typewrite(txt, _t(
     'Metang encaisse le dernier assaut sans broncher.\n\n' +
     '"Revenez quand vous serez prêts."\n\n' +
     'Renforcez votre équipe et retentez votre chance.',
-  );
+    'Metang absorbs the last assault without flinching.\n\n' +
+    '"Come back when you\'re ready."\n\n' +
+    'Strengthen your team and try again.',
+  ));
 
-  _notify('☄️ Défaite contre le Directeur Devon Stone.', 'error');
+  _notify(_t('☄️ Défaite contre le Directeur Devon Stone.', '☄️ Defeat against Director Devon Stone.'), 'error');
 
   const ch = _choices(box);
   const autoT = _armAutoReturn();
-  const bRetry = _btn('⚔  Retenter →', 'cyan');
+  const bRetry = _btn(`⚔  ${_t('Retenter', 'Retry')} →`, 'cyan');
   bRetry.onclick = () => { clearTimeout(autoT); _closeOverlay(); setTimeout(_launchDirectorFight, 300); };
-  const bTrack = _btn('← Retour au tracker');
+  const bTrack = _btn(_t('← Retour au tracker', '← Back to tracker'));
   bTrack.onclick = () => { clearTimeout(autoT); _clearOverlay(); _renderTracker(); };
   ch.appendChild(bRetry);
   ch.appendChild(bTrack);
@@ -899,7 +932,7 @@ async function _launchDeoxysFight() {
   // ─ Intro ─
   _clearOverlay();
   const box = _box();
-  _label(box, 'Étape 5 — Confrontation Finale');
+  _label(box, _t('Étape 5 — Confrontation Finale', 'Step 5 — Final Confrontation'));
 
   // Image combat
   const fightImg = document.createElement('img');
@@ -909,18 +942,22 @@ async function _launchDeoxysFight() {
   box.appendChild(fightImg);
 
   const txt = _textEl(box);
-  await _typewrite(txt,
+  await _typewrite(txt, _t(
     'La chambre de confinement vibre.\n\n' +
     'Deoxys flotte au centre, son cristal nucléaire pulsant d\'une\n' +
     'lumière qui transperce l\'obscurité.\n\n' +
     'Il n\'est pas prisonnier.\n' +
     'Il attend.',
-    20,
-  );
+    'The containment chamber vibrates.\n\n' +
+    'Deoxys floats at the center, its nucleus crystal pulsing with\n' +
+    'a light that pierces the darkness.\n\n' +
+    'It is not a prisoner.\n' +
+    'It is waiting.',
+  ), 20);
 
   const ch = _choices(box);
-  const bFight = _btn('☄  Engager le combat →', 'cyan');
-  const bFlee  = _btn('← Reculer (sans pénalité)');
+  const bFight = _btn(`☄  ${_t('Engager le combat', 'Engage the battle')} →`, 'cyan');
+  const bFlee  = _btn(_t('← Reculer (sans pénalité)', '← Retreat (no penalty)'));
 
   bFight.onclick = async () => { bFight.disabled = true; bFlee.disabled = true; await _deoxysPhases(bosspower); };
   bFlee.onclick  = () => { _closeOverlay(); };
@@ -933,18 +970,21 @@ async function _deoxysPhases(bosspower) {
   _resolving = true;
   const phases = [
     {
-      name: 'Forme Attaque',
-      desc: 'Les tentacules de Deoxys se déploient en lames tranchantes.\nPuissance brute concentrée en un seul impact.',
+      name: _t('Forme Attaque', 'Attack Forme'),
+      desc: _t('Les tentacules de Deoxys se déploient en lames tranchantes.\nPuissance brute concentrée en un seul impact.',
+               'Deoxys\'s tentacles unfurl into sharp blades.\nRaw power concentrated into a single impact.'),
       color: '#ff3333',
     },
     {
-      name: 'Forme Défense',
-      desc: 'Le cristal se rétracte. Une carapace translucide\nenveloppe sa silhouette — presque impénétrable.',
+      name: _t('Forme Défense', 'Defense Forme'),
+      desc: _t('Le cristal se rétracte. Une carapace translucide\nenveloppe sa silhouette — presque impénétrable.',
+               'The crystal retracts. A translucent shell\nenvelops its form — nearly impenetrable.'),
       color: '#3399ff',
     },
     {
-      name: 'Forme Vitesse',
-      desc: 'Il disparaît.\nTu ne le vois plus — tu ne fais que subir.',
+      name: _t('Forme Vitesse', 'Speed Forme'),
+      desc: _t('Il disparaît.\nTu ne le vois plus — tu ne fais que subir.',
+               'It vanishes.\nYou can no longer see it — you can only endure.'),
       color: '#33ffcc',
     },
   ];
@@ -959,7 +999,7 @@ async function _deoxysPhases(bosspower) {
     badge.className = 'dxq-badge';
     badge.style.borderColor = `rgba(${phase.color.slice(1).match(/../g).map(x=>parseInt(x,16)).join(',')}, .4)`;
     badge.style.color = phase.color;
-    badge.textContent = `— PHASE ${i + 1} / 3 — ${phase.name} —`;
+    badge.textContent = `— ${_t('PHASE', 'PHASE')} ${i + 1} / 3 — ${phase.name} —`;
     box.appendChild(badge);
 
     // Deoxys avec style de phase
@@ -981,7 +1021,7 @@ async function _deoxysPhases(bosspower) {
     if (i < phases.length - 1) {
       await _wait(400);
       const ch = _choices(box);
-      const bNext = _btn(`▸  Phase suivante →`, 'cyan');
+      const bNext = _btn(`▸  ${_t('Phase suivante', 'Next phase')} →`, 'cyan');
       await new Promise(res => { bNext.onclick = () => { ch.innerHTML = ''; res(); }; ch.appendChild(bNext); });
       _flash();
       await _wait(500);
@@ -1012,7 +1052,7 @@ async function _deoxysResolution(bosspower) {
     : powerRatio * 0.3;
   const won = Math.random() < winChance;
 
-  _label(box, 'Résultat du combat');
+  _label(box, _t('Résultat du combat', 'Battle result'));
 
   // Image plein écran
   const fightImg = document.createElement('img');
@@ -1028,14 +1068,20 @@ async function _deoxysResolution(bosspower) {
     const catchRoll = Math.random() < (DEOXYS_CATCH_BASE + (powerRatio - 1) * 0.2);
 
     if (catchRoll) {
-      await _typewrite(txt,
+      await _typewrite(txt, _t(
         'Deoxys s\'immobilise.\n\n' +
         'Son cristal s\'assombrit, vacille. Puis cède.\n\n' +
         'La Poké Ball roule sur le sol du laboratoire.\n' +
         'Un clic. Deux clics. Trois clics.\n\n' +
         '…\n\n' +
         '          ★  Capturé.',
-      );
+        'Deoxys freezes.\n\n' +
+        'Its crystal darkens, flickers. Then gives in.\n\n' +
+        'The Poké Ball rolls across the lab floor.\n' +
+        'One click. Two clicks. Three clicks.\n\n' +
+        '…\n\n' +
+        '          ★  Caught.',
+      ));
 
       // Ajouter Deoxys au PC
       _addDeoxysToPC();
@@ -1046,39 +1092,44 @@ async function _deoxysResolution(bosspower) {
 
       const badge = document.createElement('div');
       badge.className = 'dxq-badge green';
-      badge.textContent = '★  DEOXYS CAPTURÉ — REJOUE AVEC 1 MÉTÉORE';
+      badge.textContent = _t('★  DEOXYS CAPTURÉ — REJOUE AVEC 1 MÉTÉORE', '★  DEOXYS CAUGHT — REPLAY WITH 1 METEORITE');
       box.appendChild(badge);
 
       const ch = _choices(box);
       const autoT1 = _armAutoReturn();
-      const bDone = _btn('▸  Voir Deoxys dans le PC →', 'gold');
+      const bDone = _btn(_t('▸  Voir Deoxys dans le PC →', '▸  View Deoxys in the PC →'), 'gold');
       bDone.onclick = () => { clearTimeout(autoT1); _closeOverlay(); globalThis.switchTab?.('tabPC'); };
       ch.appendChild(bDone);
-      const bTrack = _btn('← Tracker de quête');
+      const bTrack = _btn(_t('← Tracker de quête', '← Quest tracker'));
       bTrack.onclick = () => { clearTimeout(autoT1); _clearOverlay(); _renderTracker(); };
       ch.appendChild(bTrack);
 
     } else {
       // Victoire mais échec de capture
-      await _typewrite(txt,
+      await _typewrite(txt, _t(
         'Deoxys fléchit.\n\n' +
         'Mais au moment où la Poké Ball touche son cristal,\n' +
         'une explosion d\'énergie la repousse.\n\n' +
         'Deoxys disparaît dans une lueur aveuglante.\n\n' +
         'Il reviendra. Vous pourrez retenter.',
-      );
+        'Deoxys wavers.\n\n' +
+        'But the moment the Poké Ball touches its crystal,\n' +
+        'a burst of energy repels it.\n\n' +
+        'Deoxys vanishes in a blinding glow.\n\n' +
+        'It will return. You can try again.',
+      ));
 
       // Réinitialiser step 5 pour retry
       if (q.step !== 6) { /* laisse step 5 pour retry gratuit */ }
       _save();
-      _notify('☄️ Deoxys s\'est échappé — retry gratuit disponible.', '');
+      _notify(_t('☄️ Deoxys s\'est échappé — retry gratuit disponible.', '☄️ Deoxys escaped — free retry available.'), '');
 
       const ch = _choices(box);
       const autoT2 = _armAutoReturn();
-      const bRetry = _btn('▸  Réessayer', 'cyan');
+      const bRetry = _btn(_t('▸  Réessayer', '▸  Try again'), 'cyan');
       bRetry.onclick = () => { clearTimeout(autoT2); _closeOverlay(); setTimeout(_launchDeoxysFight, 300); };
       ch.appendChild(bRetry);
-      const bTrack = _btn('← Tracker de quête');
+      const bTrack = _btn(_t('← Tracker de quête', '← Quest tracker'));
       bTrack.onclick = () => { clearTimeout(autoT2); _clearOverlay(); _renderTracker(); };
       ch.appendChild(bTrack);
     }
@@ -1086,27 +1137,30 @@ async function _deoxysResolution(bosspower) {
   } else {
     // Défaite
     const powerNeeded = Math.max(0, DEOXYS_POWER_THRESHOLD - bosspower);
-    await _typewrite(txt,
+    await _typewrite(txt, _t(
       'Deoxys te traverse d\'un regard vide.\n\n' +
       'En une fraction de seconde, votre équipe est au sol.\n\n' +
       '"…Trop faible."\n\n' +
       'Il tourne le dos et disparaît dans les ténèbres du laboratoire.',
-      28,
-    );
+      'Deoxys looks through you with an empty gaze.\n\n' +
+      'In a split second, your team is on the ground.\n\n' +
+      '"…Too weak."\n\n' +
+      'It turns its back and vanishes into the lab\'s darkness.',
+    ), 28);
 
     const warn = document.createElement('div');
     warn.style.cssText = 'font-family:var(--font-pixel,monospace);font-size:7px;color:#cc1111;padding:8px 0;margin-top:4px;letter-spacing:1px';
     warn.textContent = qualified
-      ? `Défaite (chance : ${Math.round(winChance * 100)}%) — renforcez votre équipe et réessayez.`
-      : `Puissance insuffisante (${bosspower.toLocaleString()} / ${DEOXYS_POWER_THRESHOLD.toLocaleString()}). Il manque ${powerNeeded.toLocaleString()} pts.`;
+      ? _t(`Défaite (chance : ${Math.round(winChance * 100)}%) — renforcez votre équipe et réessayez.`, `Defeat (chance: ${Math.round(winChance * 100)}%) — strengthen your team and try again.`)
+      : _t(`Puissance insuffisante (${bosspower.toLocaleString()} / ${DEOXYS_POWER_THRESHOLD.toLocaleString()}). Il manque ${powerNeeded.toLocaleString()} pts.`, `Not enough power (${bosspower.toLocaleString()} / ${DEOXYS_POWER_THRESHOLD.toLocaleString()}). Short by ${powerNeeded.toLocaleString()} pts.`);
     box.appendChild(warn);
 
     const ch = _choices(box);
     const autoT3 = _armAutoReturn();
-    const bRetry = _btn('▸  Réessayer', 'cyan');
+    const bRetry = _btn(_t('▸  Réessayer', '▸  Try again'), 'cyan');
     bRetry.onclick = () => { clearTimeout(autoT3); _closeOverlay(); setTimeout(_launchDeoxysFight, 300); };
     ch.appendChild(bRetry);
-    const bTrack = _btn('← Tracker de quête');
+    const bTrack = _btn(_t('← Tracker de quête', '← Quest tracker'));
     bTrack.onclick = () => { clearTimeout(autoT3); _clearOverlay(); _renderTracker(); };
     ch.appendChild(bTrack);
   }
@@ -1126,7 +1180,7 @@ function _addDeoxysToPC() {
       EventBus.emit(EVENTS.STATE_DIRTY);
       EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: p, zoneId: 'laboratoire_spatial' });
       globalThis.registerPokedexCapture?.(s, p);
-      _notify(`⭐ Deoxys (Niv.80 / Pot.5) a rejoint le Gang !`, 'gold');
+      _notify(_t(`⭐ Deoxys (Niv.80 / Pot.5) a rejoint le Gang !`, `⭐ Deoxys (Lv.80 / Pot.5) has joined the Gang!`), 'gold');
     }
   } catch (e) {
     console.warn('[deoxysMission] makePokemon failed:', e);

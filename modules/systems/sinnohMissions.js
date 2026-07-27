@@ -40,6 +40,7 @@ import { MISSION_REWARD_SHINY_RATE } from '../../data/gameplay-config-data.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type });
 const _save   = ()               => globalThis.saveState?.();
+const _t = (fr, en) => (globalThis.state?.lang === 'en' ? en : fr);
 
 // ── Sprites ──────────────────────────────────────────────────────
 const DIALGA_SPRITE   = 'https://play.pokemonshowdown.com/sprites/gen5ani/dialga.gif';
@@ -106,7 +107,7 @@ function _captureLegend(species, level, catchBase, pot, missionKey, ownedField) 
   const powerRatio = power / 4000;
   const catchRate  = Math.min(0.92, catchBase + Math.max(0, powerRatio - 1) * 0.25);
   if (Math.random() > catchRate) {
-    _notify('❌ Échec de la capture — réessayez !', 'error');
+    _notify(_t('❌ Échec de la capture — réessayez !', '❌ Capture failed — try again!'), 'error');
     return;
   }
   const pk = globalThis.makePokemon?.(species, null, 'pokeball');
@@ -123,7 +124,8 @@ function _captureLegend(species, level, catchBase, pot, missionKey, ownedField) 
     s[missionKey][ownedField] = true;
     s[missionKey].totalCaptures = (s[missionKey].totalCaptures ?? 0) + 1;
   }
-  _notify(`✅ ${species.charAt(0).toUpperCase() + species.slice(1)} capturé${pk.shiny ? ' ✨ SHINY !' : ' !'}`, 'success');
+  const speciesName = species.charAt(0).toUpperCase() + species.slice(1);
+  _notify(_t(`✅ ${speciesName} capturé${pk.shiny ? ' ✨ SHINY !' : ' !'}`, `✅ ${speciesName} caught${pk.shiny ? ' ✨ SHINY!' : '!'}`), 'success');
   _save();
   setTimeout(() => openSinnohMissions(), 400);
 }
@@ -134,13 +136,13 @@ function _captureLakeLegend(key) {
   const cfg   = LAKES[key];
   const power = _power();
   if (power < cfg.power) {
-    _notify(`⚠️ Puissance insuffisante — il faut ≥ ${cfg.power.toLocaleString()} !`, 'error');
+    _notify(_t(`⚠️ Puissance insuffisante — il faut ≥ ${cfg.power.toLocaleString()} !`, `⚠️ Not enough power — need ≥ ${cfg.power.toLocaleString()}!`), 'error');
     return;
   }
   const powerRatio = power / cfg.power;
   const catchRate  = Math.min(0.92, cfg.catchBase + Math.max(0, powerRatio - 1) * 0.25);
   if (Math.random() > catchRate) {
-    _notify('❌ Échec de la capture — réessayez !', 'error');
+    _notify(_t('❌ Échec de la capture — réessayez !', '❌ Capture failed — try again!'), 'error');
     return;
   }
   const pk = globalThis.makePokemon?.(cfg.species, null, 'pokeball');
@@ -156,7 +158,7 @@ function _captureLakeLegend(key) {
   s.lakeMission[key].owned    = true;
   s.lakeMission[key].captures = (s.lakeMission[key].captures ?? 0) + 1;
   s.lakeMission[key].step     = 3; // done
-  _notify(`✅ ${cfg.name} capturé${pk.shiny ? ' ✨ SHINY !' : ' !'}`, 'success');
+  _notify(_t(`✅ ${cfg.name} capturé${pk.shiny ? ' ✨ SHINY !' : ' !'}`, `✅ ${cfg.name} caught${pk.shiny ? ' ✨ SHINY!' : '!'}`), 'success');
   _save();
   setTimeout(() => openSinnohMissions(), 400);
 }
@@ -165,15 +167,15 @@ function _captureLakeLegend(key) {
 function _launchBoss(trainerKey, afterFn) {
   const power = _power();
   const configs = {
-    mars:       { name: 'Mars', team: 'Golbat, Bronzor, Purugly', required: 5000, role: 'Commandante Team Galaxie', trainerKey: 'mars' },
-    jupiter:    { name: 'Jupiter', team: 'Golbat, Bronzor, Skuntank', required: 5000, role: 'Commandante Team Galaxie', trainerKey: 'jupiter' },
-    saturn:     { name: 'Saturne', team: 'Golbat, Bronzor, Toxicroak', required: 5500, role: 'Commandant Team Galaxie', trainerKey: 'saturn' },
-    cyrus:      { name: 'Cyrus', team: 'Sneasel, Golbat, Honchkrow, Gyarados, Crobat, Weavile', required: 6500, role: 'Chef Team Galaxie', trainerKey: 'cyrus' },
+    mars:       { name: 'Mars', team: 'Golbat, Bronzor, Purugly', required: 5000, role: _t('Commandante Team Galaxie', 'Team Galactic Commander'), trainerKey: 'mars' },
+    jupiter:    { name: 'Jupiter', team: 'Golbat, Bronzor, Skuntank', required: 5000, role: _t('Commandante Team Galaxie', 'Team Galactic Commander'), trainerKey: 'jupiter' },
+    saturn:     { name: 'Saturn', team: 'Golbat, Bronzor, Toxicroak', required: 5500, role: _t('Commandant Team Galaxie', 'Team Galactic Commander'), trainerKey: 'saturn' },
+    cyrus:      { name: 'Cyrus', team: 'Sneasel, Golbat, Honchkrow, Gyarados, Crobat, Weavile', required: 6500, role: _t('Chef Team Galaxie', 'Team Galactic Boss'), trainerKey: 'cyrus' },
   };
   const cfg = configs[trainerKey];
   if (!cfg) return;
   if (power < cfg.required) {
-    _notify(`⚠️ Puissance insuffisante — il faut ≥ ${cfg.required.toLocaleString()} !`, 'error');
+    _notify(_t(`⚠️ Puissance insuffisante — il faut ≥ ${cfg.required.toLocaleString()} !`, `⚠️ Not enough power — need ≥ ${cfg.required.toLocaleString()}!`), 'error');
     return;
   }
 
@@ -183,7 +185,7 @@ function _launchBoss(trainerKey, afterFn) {
   overlay.innerHTML = `
     <div class="snm-modal snm-boss-modal">
       <div class="snm-modal-header">
-        <span class="snm-modal-title">⚔️ Combat — ${cfg.name}</span>
+        <span class="snm-modal-title">⚔️ ${_t('Combat', 'Battle')} — ${cfg.name}</span>
         <button class="snm-modal-close" data-action="close">✕</button>
       </div>
       <div class="snm-boss-card">
@@ -196,13 +198,13 @@ function _launchBoss(trainerKey, afterFn) {
         </div>
       </div>
       <div class="snm-power-bar">
-        <span class="snm-power-label">Votre puissance</span>
+        <span class="snm-power-label">${_t('Votre puissance', 'Your power')}</span>
         <span class="snm-power-value ${power >= cfg.required ? 'snm-ok' : 'snm-warn'}">${power.toLocaleString()}</span>
-        <span class="snm-power-label">/ ${cfg.required.toLocaleString()} requis</span>
+        <span class="snm-power-label">/ ${cfg.required.toLocaleString()} ${_t('requis', 'required')}</span>
       </div>
       <div class="snm-modal-actions">
-        <button class="snm-btn snm-btn-primary" data-action="fight">⚔️ Combattre</button>
-        <button class="snm-btn snm-btn-ghost" data-action="close">Annuler</button>
+        <button class="snm-btn snm-btn-primary" data-action="fight">⚔️ ${_t('Combattre', 'Fight')}</button>
+        <button class="snm-btn snm-btn-ghost" data-action="close">${_t('Annuler', 'Cancel')}</button>
       </div>
     </div>`;
 
@@ -214,8 +216,8 @@ function _launchBoss(trainerKey, afterFn) {
     if (action === 'fight') {
       overlay.remove();
       const { win } = resolveSpecialCombat({ power, requiredPower: cfg.required });
-      if (!win) { _notify(`❌ Défaite contre ${cfg.name} — renforcez votre équipe !`, 'error'); return; }
-      _notify(`🏆 ${cfg.name} vaincu !`, 'success');
+      if (!win) { _notify(_t(`❌ Défaite contre ${cfg.name} — renforcez votre équipe !`, `❌ Defeat against ${cfg.name} — strengthen your team!`), 'error'); return; }
+      _notify(_t(`🏆 ${cfg.name} vaincu !`, `🏆 ${cfg.name} defeated!`), 'success');
       afterFn?.();
     }
   });
@@ -224,7 +226,7 @@ function _launchBoss(trainerKey, afterFn) {
 function _launchLegend(species, spriteSrc, staticSrc, powerReq, catchBase, level, pot, missionKey, ownedField) {
   const power = _power();
   if (power < powerReq) {
-    _notify(`⚠️ Puissance insuffisante — il faut ≥ ${powerReq.toLocaleString()} !`, 'error');
+    _notify(_t(`⚠️ Puissance insuffisante — il faut ≥ ${powerReq.toLocaleString()} !`, `⚠️ Not enough power — need ≥ ${powerReq.toLocaleString()}!`), 'error');
     return;
   }
   const name = species.charAt(0).toUpperCase() + species.slice(1);
@@ -235,7 +237,7 @@ function _launchLegend(species, spriteSrc, staticSrc, powerReq, catchBase, level
   overlay.innerHTML = `
     <div class="snm-modal snm-legend-modal">
       <div class="snm-modal-header">
-        <span class="snm-modal-title">⚡ Légendaire — ${name}</span>
+        <span class="snm-modal-title">⚡ ${_t('Légendaire', 'Legendary')} — ${name}</span>
         <button class="snm-modal-close" data-action="close">✕</button>
       </div>
       <div class="snm-legend-portrait">
@@ -243,13 +245,13 @@ function _launchLegend(species, spriteSrc, staticSrc, powerReq, catchBase, level
              onerror="this.src='${staticSrc}';this.onerror=null">
       </div>
       <div class="snm-power-bar">
-        <span class="snm-power-label">Puissance</span>
+        <span class="snm-power-label">${_t('Puissance', 'Power')}</span>
         <span class="snm-power-value ${power >= powerReq ? 'snm-ok' : 'snm-warn'}">${power.toLocaleString()}</span>
-        <span class="snm-power-label">/ ${powerReq.toLocaleString()} requis</span>
+        <span class="snm-power-label">/ ${powerReq.toLocaleString()} ${_t('requis', 'required')}</span>
       </div>
       <div class="snm-modal-actions">
-        <button class="snm-btn snm-btn-primary" data-action="catch">⚡ Capturer</button>
-        <button class="snm-btn snm-btn-ghost" data-action="close">Annuler</button>
+        <button class="snm-btn snm-btn-primary" data-action="catch">⚡ ${_t('Capturer', 'Catch')}</button>
+        <button class="snm-btn snm-btn-ghost" data-action="close">${_t('Annuler', 'Cancel')}</button>
       </div>
     </div>`;
 
@@ -278,7 +280,7 @@ function _showLegendChooser() {
       static: DIALGA_STATIC,
       accent: '#4060d0',
       icon: '💎',
-      desc: 'Maître du Temps — son rugissement fait vibrer le passé et le futur.',
+      desc: _t('Maître du Temps — son rugissement fait vibrer le passé et le futur.', 'Master of Time — its roar makes the past and future tremble.'),
       catchBase: 0.45,
       level: 70,
     },
@@ -289,7 +291,7 @@ function _showLegendChooser() {
       static: PALKIA_STATIC,
       accent: '#c050a0',
       icon: '🌀',
-      desc: 'Maître de l\'Espace — il distord les dimensions à sa guise.',
+      desc: _t('Maître de l\'Espace — il distord les dimensions à sa guise.', 'Master of Space — it warps dimensions at will.'),
       catchBase: 0.45,
       level: 70,
     },
@@ -301,9 +303,9 @@ function _showLegendChooser() {
   overlay.innerHTML = `
     <div class="snm-modal snm-chooser-modal">
       <div class="snm-modal-header">
-        <span class="snm-modal-title">🌌 Choisissez votre légendaire</span>
+        <span class="snm-modal-title">🌌 ${_t('Choisissez votre légendaire', 'Choose your legendary')}</span>
       </div>
-      <p class="snm-chooser-sub">Au Pilier Axial, deux portes s'ouvrent. Laquelle franchissez-vous ?</p>
+      <p class="snm-chooser-sub">${_t("Au Pilier Axial, deux portes s'ouvrent. Laquelle franchissez-vous ?", 'At Spear Pillar, two doors open. Which one do you go through?')}</p>
       <div class="snm-chooser-grid">
         ${choices.map(c => `
           <div class="snm-chooser-card" data-key="${c.key}" style="--accent:${c.accent}">
@@ -312,11 +314,11 @@ function _showLegendChooser() {
             <div class="snm-chooser-name">${c.icon} ${c.name}</div>
             <div class="snm-chooser-desc">${c.desc}</div>
             <button class="snm-btn snm-btn-accent" data-action="choose" data-key="${c.key}">
-              Choisir ${c.name}
+              ${_t('Choisir', 'Choose')} ${c.name}
             </button>
           </div>`).join('')}
       </div>
-      <button class="snm-btn snm-btn-ghost snm-chooser-cancel" data-action="close">Annuler</button>
+      <button class="snm-btn snm-btn-ghost snm-chooser-cancel" data-action="close">${_t('Annuler', 'Cancel')}</button>
     </div>`;
 
   document.body.appendChild(overlay);
@@ -345,7 +347,7 @@ function _doGalaxieRerun() {
   const s = _state();
   if (!s || !s.galaxieMission?.legendOwned) return;
   if (!s.inventory.fragment_temporel || s.inventory.fragment_temporel < 1) {
-    _notify('⚠️ Aucun Fragment Temporel en inventaire.', 'error');
+    _notify(_t('⚠️ Aucun Fragment Temporel en inventaire.', '⚠️ No Time Fragment in inventory.'), 'error');
     return;
   }
   s.inventory.fragment_temporel--;
@@ -360,7 +362,7 @@ function _doGiratinaRerun() {
   const s = _state();
   if (!s || !s.giratinaMission?.giratinaOwned) return;
   if (!s.inventory.onde_distorsion || s.inventory.onde_distorsion < 1) {
-    _notify('⚠️ Aucune Onde Distorsion en inventaire.', 'error');
+    _notify(_t('⚠️ Aucune Onde Distorsion en inventaire.', '⚠️ No Distortion Wave in inventory.'), 'error');
     return;
   }
   s.inventory.onde_distorsion--;
@@ -372,7 +374,7 @@ function _doLakeRerun(key) {
   const s = _state();
   if (!s || !s.lakeMission?.[key]?.owned) return;
   if (!s.inventory.cristal_lac || s.inventory.cristal_lac < 1) {
-    _notify('⚠️ Aucun Cristal du Lac en inventaire.', 'error');
+    _notify(_t('⚠️ Aucun Cristal du Lac en inventaire.', '⚠️ No Lake Crystal in inventory.'), 'error');
     return;
   }
   s.inventory.cristal_lac--;
@@ -396,7 +398,7 @@ function _renderTrackerBtn() {
   const lkLabel  = lkActive.length ? `${lkActive.map(k => LAKES[k].icon).join('')}` : '';
 
   const parts = [gxLabel, gtLabel, lkLabel].filter(Boolean).join(' ');
-  return `<button class="zone-region-btn snm-quest-btn" data-snm-open="true" title="Quêtes Sinnoh">${parts}</button>`;
+  return `<button class="zone-region-btn snm-quest-btn" data-snm-open="true" title="${_t('Quêtes Sinnoh', 'Sinnoh Quests')}">${parts}</button>`;
 }
 
 // ── Render principal ─────────────────────────────────────────────────────────
@@ -419,45 +421,45 @@ function openSinnohMissions() {
   }
 
   function _galaxieStepHtml() {
-    if (!gx.active) return `<div class="snm-inactive">Victoire à la Ligue Sinnoh requise (Rép ≥ 4 500)</div>`;
+    if (!gx.active) return `<div class="snm-inactive">${_t('Victoire à la Ligue Sinnoh requise (Rép ≥ 4 500)', 'Sinnoh League victory required (Rep ≥ 4,500)')}</div>`;
     const step = gx.step ?? 1;
     const rows = [];
-    rows.push(_progress(gx.galacticFightsWon ?? 0, 20, '1. Sbires Galaxie vaincus'));
+    rows.push(_progress(gx.galacticFightsWon ?? 0, 20, _t('1. Sbires Galaxie vaincus', '1. Galactic grunts defeated')));
     rows.push(`<div class="snm-step-row ${step >= 2 ? 'snm-active' : ''}">
-      2. Commandantes — Mars ${gx.marsDefeated ? '✅' : '⬜'} · Jupiter ${gx.jupiterDefeated ? '✅' : '⬜'}
+      ${_t('2. Commandantes', '2. Commanders')} — Mars ${gx.marsDefeated ? '✅' : '⬜'} · Jupiter ${gx.jupiterDefeated ? '✅' : '⬜'}
       ${step === 2 ? `<div class="snm-step-btns">
         ${!gx.marsDefeated     ? `<button class="snm-btn snm-btn-sm" data-action="boss-mars">⚔️ Mars</button>` : ''}
         ${!gx.jupiterDefeated  ? `<button class="snm-btn snm-btn-sm" data-action="boss-jupiter">⚔️ Jupiter</button>` : ''}
       </div>` : ''}</div>`);
-    rows.push(_progress(gx.spearFightsWon ?? 0, 12, '3. Combats au Pilier Axial'));
+    rows.push(_progress(gx.spearFightsWon ?? 0, 12, _t('3. Combats au Pilier Axial', '3. Battles at Spear Pillar')));
     rows.push(`<div class="snm-step-row ${step >= 4 ? 'snm-active' : ''}">
-      4. Cyrus ${gx.cyrusDefeated ? '✅' : '⬜'}
+      ${_t('4. Cyrus', '4. Cyrus')} ${gx.cyrusDefeated ? '✅' : '⬜'}
       ${step === 4 ? `<button class="snm-btn snm-btn-sm" data-action="boss-cyrus">⚔️ Cyrus</button>` : ''}
     </div>`);
     rows.push(`<div class="snm-step-row ${step >= 5 ? 'snm-active' : ''}">
-      5. Légendaire ${gx.legendOwned ? `✅ ${gx.chosenLegend ?? '?'}` : gx.chosenLegend ? `⬜ ${gx.chosenLegend}` : '⬜'}
-      ${step === 5 && !gx.chosenLegend ? `<button class="snm-btn snm-btn-sm" data-action="choose-legend">🌌 Choisir</button>` : ''}
-      ${step === 5 && gx.chosenLegend && !gx.legendOwned ? `<button class="snm-btn snm-btn-sm" data-action="legend-fight">⚡ Capturer</button>` : ''}
-      ${gx.legendOwned ? `<button class="snm-btn snm-btn-sm snm-rerun" data-action="rerun-galaxie">💎 Rejouer</button>` : ''}
+      ${_t('5. Légendaire', '5. Legendary')} ${gx.legendOwned ? `✅ ${gx.chosenLegend ?? '?'}` : gx.chosenLegend ? `⬜ ${gx.chosenLegend}` : '⬜'}
+      ${step === 5 && !gx.chosenLegend ? `<button class="snm-btn snm-btn-sm" data-action="choose-legend">🌌 ${_t('Choisir', 'Choose')}</button>` : ''}
+      ${step === 5 && gx.chosenLegend && !gx.legendOwned ? `<button class="snm-btn snm-btn-sm" data-action="legend-fight">⚡ ${_t('Capturer', 'Catch')}</button>` : ''}
+      ${gx.legendOwned ? `<button class="snm-btn snm-btn-sm snm-rerun" data-action="rerun-galaxie">💎 ${_t('Rejouer', 'Retry')}</button>` : ''}
     </div>`);
     return rows.join('');
   }
 
   function _giratinaStepHtml() {
     if (!gt.active) {
-      return `<div class="snm-inactive">Déblocable après avoir vaincu Cyrus (quête Galaxie)</div>`;
+      return `<div class="snm-inactive">${_t('Déblocable après avoir vaincu Cyrus (quête Galaxie)', 'Unlockable after defeating Cyrus (Galactic quest)')}</div>`;
     }
     const step = gt.step ?? 1;
     const rows = [];
-    rows.push(_progress(gt.turnbackFightsWon ?? 0, 10, '1. Combats Grotte Retour'));
+    rows.push(_progress(gt.turnbackFightsWon ?? 0, 10, _t('1. Combats Grotte Retour', '1. Turnback Cave battles')));
     rows.push(`<div class="snm-step-row ${step >= 2 ? 'snm-active' : ''}">
-      2. Saturne ${gt.saturnDefeated ? '✅' : '⬜'}
-      ${step === 2 ? `<button class="snm-btn snm-btn-sm" data-action="boss-saturn">⚔️ Saturne</button>` : ''}
+      ${_t('2. Saturne', '2. Saturn')} ${gt.saturnDefeated ? '✅' : '⬜'}
+      ${step === 2 ? `<button class="snm-btn snm-btn-sm" data-action="boss-saturn">⚔️ ${_t('Saturne', 'Saturn')}</button>` : ''}
     </div>`);
     rows.push(`<div class="snm-step-row ${step >= 3 ? 'snm-active' : ''}">
-      3. Giratina ${gt.giratinaOwned ? '✅' : '⬜'}
-      ${step === 3 && !gt.giratinaOwned ? `<button class="snm-btn snm-btn-sm" data-action="legend-giratina">⚡ Capturer</button>` : ''}
-      ${gt.giratinaOwned ? `<button class="snm-btn snm-btn-sm snm-rerun" data-action="rerun-giratina">👁️ Rejouer</button>` : ''}
+      ${_t('3. Giratina', '3. Giratina')} ${gt.giratinaOwned ? '✅' : '⬜'}
+      ${step === 3 && !gt.giratinaOwned ? `<button class="snm-btn snm-btn-sm" data-action="legend-giratina">⚡ ${_t('Capturer', 'Catch')}</button>` : ''}
+      ${gt.giratinaOwned ? `<button class="snm-btn snm-btn-sm snm-rerun" data-action="rerun-giratina">👁️ ${_t('Rejouer', 'Retry')}</button>` : ''}
     </div>`);
     return rows.join('');
   }
@@ -468,17 +470,17 @@ function openSinnohMissions() {
     if (!m.active) return `<div class="snm-lake-card snm-inactive-card">
       <div class="snm-lake-icon">${cfg.icon}</div>
       <div class="snm-lake-name">${cfg.name}</div>
-      <div class="snm-lake-status">Pas encore débloqué</div>
+      <div class="snm-lake-status">${_t('Pas encore débloqué', 'Not yet unlocked')}</div>
     </div>`;
     const step = m.step ?? 1;
     return `<div class="snm-lake-card" style="--accent:${cfg.accent}">
       <img class="snm-lake-gif" src="${cfg.static}" alt="${cfg.name}">
       <div class="snm-lake-name">${cfg.icon} ${cfg.name}</div>
-      ${_progress(m.fightsWon ?? 0, 8, 'Combats au Lac')}
+      ${_progress(m.fightsWon ?? 0, 8, _t('Combats au Lac', 'Lake battles'))}
       <div class="snm-step-row ${step >= 2 ? 'snm-active' : ''}">
-        ${m.owned ? '✅ Capturé' : '⬜ Non capturé'}
-        ${step === 2 && !m.owned ? `<button class="snm-btn snm-btn-sm" data-action="legend-lake-${key}">⚡ Capturer</button>` : ''}
-        ${m.owned ? `<button class="snm-btn snm-btn-sm snm-rerun" data-action="rerun-lake-${key}">💙 Rejouer</button>` : ''}
+        ${m.owned ? `✅ ${_t('Capturé', 'Caught')}` : `⬜ ${_t('Non capturé', 'Not caught')}`}
+        ${step === 2 && !m.owned ? `<button class="snm-btn snm-btn-sm" data-action="legend-lake-${key}">⚡ ${_t('Capturer', 'Catch')}</button>` : ''}
+        ${m.owned ? `<button class="snm-btn snm-btn-sm snm-rerun" data-action="rerun-lake-${key}">💙 ${_t('Rejouer', 'Retry')}</button>` : ''}
       </div>
     </div>`;
   }
@@ -489,7 +491,7 @@ function openSinnohMissions() {
   modal.innerHTML = `
     <div class="snm-panel">
       <div class="snm-header">
-        <span class="snm-title">🌌 Quêtes Sinnoh — Légendaires</span>
+        <span class="snm-title">🌌 ${_t('Quêtes Sinnoh — Légendaires', 'Sinnoh Quests — Legendaries')}</span>
         <button class="snm-close" data-action="close">✕</button>
       </div>
 
@@ -497,9 +499,9 @@ function openSinnohMissions() {
       <section class="snm-section">
         <div class="snm-section-title">
           <span class="snm-sec-icon">💎🌀</span>
-          <span>Quête Galaxie — Dialga & Palkia</span>
-          ${gx.active ? `<span class="snm-badge snm-badge-step">Étape ${gx.step ?? 1}/5</span>` : ''}
-          ${gx.legendOwned ? '<span class="snm-badge snm-badge-done">✅ COMPLÈTE</span>' : ''}
+          <span>${_t('Quête Galaxie — Dialga & Palkia', 'Galactic Quest — Dialga & Palkia')}</span>
+          ${gx.active ? `<span class="snm-badge snm-badge-step">${_t('Étape', 'Step')} ${gx.step ?? 1}/5</span>` : ''}
+          ${gx.legendOwned ? `<span class="snm-badge snm-badge-done">✅ ${_t('COMPLÈTE', 'COMPLETE')}</span>` : ''}
         </div>
         <div class="snm-steps">${_galaxieStepHtml()}</div>
       </section>
@@ -508,9 +510,9 @@ function openSinnohMissions() {
       <section class="snm-section">
         <div class="snm-section-title">
           <span class="snm-sec-icon">👁️</span>
-          <span>Quête Distorsion — Giratina</span>
-          ${gt.active ? `<span class="snm-badge snm-badge-step">Étape ${gt.step ?? 1}/3</span>` : ''}
-          ${gt.giratinaOwned ? '<span class="snm-badge snm-badge-done">✅ COMPLÈTE</span>' : ''}
+          <span>${_t('Quête Distorsion — Giratina', 'Distortion Quest — Giratina')}</span>
+          ${gt.active ? `<span class="snm-badge snm-badge-step">${_t('Étape', 'Step')} ${gt.step ?? 1}/3</span>` : ''}
+          ${gt.giratinaOwned ? `<span class="snm-badge snm-badge-done">✅ ${_t('COMPLÈTE', 'COMPLETE')}</span>` : ''}
         </div>
         <div class="snm-steps">${_giratinaStepHtml()}</div>
       </section>
@@ -519,7 +521,7 @@ function openSinnohMissions() {
       <section class="snm-section">
         <div class="snm-section-title">
           <span class="snm-sec-icon">💛🩷💙</span>
-          <span>Trio du Lac</span>
+          <span>${_t('Trio du Lac', 'Lake Guardians Trio')}</span>
         </div>
         <div class="snm-lake-grid">
           ${_lakeCardHtml('uxie')}
@@ -573,10 +575,10 @@ function _infoBarHtml(s) {
   const cl  = inv.cristal_lac       ?? 0;
   if (!ft && !od && !cl) return '';
   return `<div class="snm-info-bar">
-    <span class="snm-info-label">Inventaire quêtes :</span>
-    ${ft ? `<span class="snm-info-item">💎 Fragment Temporel ×${ft}</span>` : ''}
-    ${od ? `<span class="snm-info-item">👁️ Onde Distorsion ×${od}</span>` : ''}
-    ${cl ? `<span class="snm-info-item">💙 Cristal du Lac ×${cl}</span>` : ''}
+    <span class="snm-info-label">${_t('Inventaire quêtes', 'Quest inventory')} :</span>
+    ${ft ? `<span class="snm-info-item">💎 ${_t('Fragment Temporel', 'Time Fragment')} ×${ft}</span>` : ''}
+    ${od ? `<span class="snm-info-item">👁️ ${_t('Onde Distorsion', 'Distortion Wave')} ×${od}</span>` : ''}
+    ${cl ? `<span class="snm-info-item">💙 ${_t('Cristal du Lac', 'Lake Crystal')} ×${cl}</span>` : ''}
   </div>`;
 }
 
@@ -596,7 +598,7 @@ function _onCombatWon({ zoneId, trainerKey: tk } = {}) {
     gx.galacticFightsWon = (gx.galacticFightsWon ?? 0) + 1;
     if (gx.galacticFightsWon >= 20) {
       gx.step = 2;
-      _notify('🌌 Quête Galaxie — Étape 2 : Défiez Mars et Jupiter !', 'gold');
+      _notify(_t('🌌 Quête Galaxie — Étape 2 : Défiez Mars et Jupiter !', '🌌 Galactic Quest — Step 2: Challenge Mars and Jupiter!'), 'gold');
     }
     changed = true;
   }
@@ -606,7 +608,7 @@ function _onCombatWon({ zoneId, trainerKey: tk } = {}) {
     gx.spearFightsWon = (gx.spearFightsWon ?? 0) + 1;
     if (gx.spearFightsWon >= 12) {
       gx.step = 4;
-      _notify('🌌 Quête Galaxie — Étape 4 : Affrontez Cyrus !', 'gold');
+      _notify(_t('🌌 Quête Galaxie — Étape 4 : Affrontez Cyrus !', '🌌 Galactic Quest — Step 4: Face Cyrus!'), 'gold');
     }
     changed = true;
   }
@@ -616,7 +618,7 @@ function _onCombatWon({ zoneId, trainerKey: tk } = {}) {
     gt.turnbackFightsWon = (gt.turnbackFightsWon ?? 0) + 1;
     if (gt.turnbackFightsWon >= 10) {
       gt.step = 2;
-      _notify('👁️ Quête Distorsion — Étape 2 : Défiez Saturne !', 'gold');
+      _notify(_t('👁️ Quête Distorsion — Étape 2 : Défiez Saturne !', '👁️ Distortion Quest — Step 2: Challenge Saturn!'), 'gold');
     }
     changed = true;
   }
@@ -629,7 +631,7 @@ function _onCombatWon({ zoneId, trainerKey: tk } = {}) {
         m.fightsWon = (m.fightsWon ?? 0) + 1;
         if (m.fightsWon >= 8) {
           m.step = 2;
-          _notify(`${LAKES[key].icon} ${LAKES[key].name} — Prêt à être capturé !`, 'gold');
+          _notify(_t(`${LAKES[key].icon} ${LAKES[key].name} — Prêt à être capturé !`, `${LAKES[key].icon} ${LAKES[key].name} — Ready to be caught!`), 'gold');
         }
         changed = true;
         break; // each fight counts for one pokemon at a time
@@ -648,32 +650,32 @@ function _onBossWin(bossKey) {
 
   if (bossKey === 'mars' && gx) {
     gx.marsDefeated = true;
-    if (gx.jupiterDefeated) { gx.step = 3; _notify('🌌 Quête Galaxie — Étape 3 : Combattez au Pilier Axial !', 'gold'); }
-    else _notify('🌌 Mars vaincue ! Défiez maintenant Jupiter.', 'gold');
+    if (gx.jupiterDefeated) { gx.step = 3; _notify(_t('🌌 Quête Galaxie — Étape 3 : Combattez au Pilier Axial !', '🌌 Galactic Quest — Step 3: Battle at Spear Pillar!'), 'gold'); }
+    else _notify(_t('🌌 Mars vaincue ! Défiez maintenant Jupiter.', '🌌 Mars defeated! Now challenge Jupiter.'), 'gold');
     _save(); setTimeout(() => openSinnohMissions(), 400);
   }
   if (bossKey === 'jupiter' && gx) {
     gx.jupiterDefeated = true;
-    if (gx.marsDefeated) { gx.step = 3; _notify('🌌 Quête Galaxie — Étape 3 : Combattez au Pilier Axial !', 'gold'); }
-    else _notify('🌌 Jupiter vaincue ! Défiez maintenant Mars.', 'gold');
+    if (gx.marsDefeated) { gx.step = 3; _notify(_t('🌌 Quête Galaxie — Étape 3 : Combattez au Pilier Axial !', '🌌 Galactic Quest — Step 3: Battle at Spear Pillar!'), 'gold'); }
+    else _notify(_t('🌌 Jupiter vaincue ! Défiez maintenant Mars.', '🌌 Jupiter defeated! Now challenge Mars.'), 'gold');
     _save(); setTimeout(() => openSinnohMissions(), 400);
   }
   if (bossKey === 'cyrus' && gx) {
     gx.cyrusDefeated = true;
     gx.step = 5;
-    _notify('🌌 Quête Galaxie — Étape 5 : Choisissez votre légendaire !', 'gold');
+    _notify(_t('🌌 Quête Galaxie — Étape 5 : Choisissez votre légendaire !', '🌌 Galactic Quest — Step 5: Choose your legendary!'), 'gold');
     // Unlock Giratina quest
     if (gt && !gt.active) {
       gt.active = true;
       gt.step   = 1;
-      _notify('👁️ Quête Distorsion débloquée — Cyrus a ouvert une fissure dans l\'espace…', 'gold');
+      _notify(_t('👁️ Quête Distorsion débloquée — Cyrus a ouvert une fissure dans l\'espace…', '👁️ Distortion Quest unlocked — Cyrus tore open a rift in space…'), 'gold');
     }
     _save(); setTimeout(() => openSinnohMissions(), 400);
   }
   if (bossKey === 'saturn' && gt) {
     gt.saturnDefeated = true;
     gt.step = 3;
-    _notify('👁️ Quête Distorsion — Étape 3 : Affrontez Giratina dans la Source de l\'Envol !', 'gold');
+    _notify(_t('👁️ Quête Distorsion — Étape 3 : Affrontez Giratina dans la Source de l\'Envol !', '👁️ Distortion Quest — Step 3: Face Giratina at the Sendoff Spring!'), 'gold');
     _save(); setTimeout(() => openSinnohMissions(), 400);
   }
 }
@@ -730,7 +732,7 @@ export function checkSinnohMissionsUnlock() {
       const m = s.lakeMission[key];
       if (!m.active) {
         m.active = true; m.step = 1;
-        _notify(`${LAKES[key].icon} Quête débloquée : ${LAKES[key].name} — explorez les Rives du Lac !`, 'gold');
+        _notify(_t(`${LAKES[key].icon} Quête débloquée : ${LAKES[key].name} — explorez les Rives du Lac !`, `${LAKES[key].icon} Quest unlocked: ${LAKES[key].name} — explore the Lake Trio Shores!`), 'gold');
         changed = true;
       }
     }
@@ -740,7 +742,7 @@ export function checkSinnohMissionsUnlock() {
   if (rep >= 4500 && !s.galaxieMission.active) {
     s.galaxieMission.active = true;
     s.galaxieMission.step   = 1;
-    _notify('💎 Quête débloquée : Dialga & Palkia — La Team Galaxie s\'agite au Mont Couronné !', 'gold');
+    _notify(_t('💎 Quête débloquée : Dialga & Palkia — La Team Galaxie s\'agite au Mont Couronné !', '💎 Quest unlocked: Dialga & Palkia — Team Galactic is stirring at Mt. Coronet!'), 'gold');
     changed = true;
   }
 
