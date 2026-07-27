@@ -1,6 +1,6 @@
 /* Dex helper functions extracted from app.js */
 
-import { POKEDEX_DESC } from './pokedex-desc.js';
+import { POKEDEX_DESC, POKEDEX_DESC_EN } from './pokedex-desc.js';
 
 const TYPE_DESC_FR = {
   Fire:'Type Feu, maîtrise les flammes.',
@@ -20,11 +20,32 @@ const TYPE_DESC_FR = {
   Ghost:'Type Spectre, insaisissable et mystérieux.',
 };
 
+const TYPE_DESC_EN = {
+  Fire:'Fire type — a master of flames.',
+  Water:'Water type — lives in aquatic environments.',
+  Grass:'Grass type — absorbs solar energy.',
+  Electric:'Electric type — generates electric charges.',
+  Psychic:'Psychic type — possesses mental powers.',
+  Ice:'Ice type — withstands extreme cold.',
+  Dragon:'Dragon type — a force to be reckoned with.',
+  Normal:'Normal type — versatile and widespread.',
+  Fighting:'Fighting type — a master of martial arts.',
+  Poison:'Poison type — secretes dangerous toxins.',
+  Ground:'Ground type — digs and moves underground.',
+  Flying:'Flying type — glides on the air currents.',
+  Bug:'Bug type — thrives amid vegetation.',
+  Rock:'Rock type — its body is as hard as stone.',
+  Ghost:'Ghost type — elusive and mysterious.',
+};
+
 function getDexDesc(species_en, speciesByEn = SPECIES_BY_EN) {
-  if (POKEDEX_DESC[species_en]) return POKEDEX_DESC[species_en];
+  const isEn = globalThis.state?.lang === 'en';
+  const dict = isEn ? POKEDEX_DESC_EN : POKEDEX_DESC;
+  if (dict[species_en]) return dict[species_en];
   const sp = speciesByEn?.[species_en];
   if (!sp) return '???';
-  return TYPE_DESC_FR[sp.types?.[0]] || 'Un Pokémon aux capacités encore peu connues.';
+  const typeDesc = isEn ? TYPE_DESC_EN : TYPE_DESC_FR;
+  return typeDesc[sp.types?.[0]] || (isEn ? 'A Pokémon whose abilities remain largely unknown.' : 'Un Pokémon aux capacités encore peu connues.');
 }
 
 function buildSpeciesNameMaps(speciesList) {
