@@ -158,6 +158,8 @@ function saveState() {
 
 function updateTopbar() {
   document.getElementById('gangTopbarMoney').textContent = `${(state.gang.money || 0).toLocaleString()}₽`;
+  document.getElementById('gangBackLink').textContent = _t('← Retour au jeu', '← Back to game');
+  document.getElementById('gangTopbarTitle').textContent = _t('🎨 Personnalisation du Gang', '🎨 Gang Customization');
 }
 
 // ════════════════════════════════════════════════════════════════

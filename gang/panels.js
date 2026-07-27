@@ -9,7 +9,7 @@
 //    pokeSprite, pokemonDisplayName, applyCosmetics,
 //    COSMETIC_BGS, FABRIC_SPECIES, PATCH_PIDS, fabricBgUrl, patchUrl,
 //    SHOWCASE_SLOTS, BALL_SPRITES, BALLS, SHOP_ITEMS
-//  Dépendances classiques (bare-name) : ZONES, TITLES, POKEMON_GEN1
+//  Dépendances classiques (bare-name) : ZONES, TITLES, POKEMON_GEN1, SPECIES_BY_DEX
 // ════════════════════════════════════════════════════════════════
 
 import { renderEnvironmentZone } from './environment.js';
@@ -18,6 +18,16 @@ import { escapeHtml } from '../modules/core/escape.js';
 const _t = (fr, en) => (globalThis.state?.lang === 'en' ? en : fr);
 
 const FABRIC_SHOP_COST = 100_000;
+
+// FABRIC_SPECIES entries are [pid, fr_name, variants_count, has_embroidered] —
+// no English name field (has_embroidered is a boolean, not a translation).
+// Resolve the EN display name via the species dex index instead.
+function _fabricSpeciesName(spec, pid) {
+  if (!spec) return `#${pid}`;
+  if (globalThis.state?.lang !== 'en') return spec[1];
+  const enSlug = (typeof SPECIES_BY_DEX !== 'undefined' && SPECIES_BY_DEX[pid]?.en) || null;
+  return enSlug ? enSlug.charAt(0).toUpperCase() + enSlug.slice(1) : spec[1];
+}
 
 // ── Musique ────────────────────────────────────────────────────────────────
 // Portage quasi-verbatim de modules/ui/gangTab.js:61-121. La lecture audio
@@ -209,7 +219,7 @@ export function renderAppearancePanel(container) {
     const pid     = parseInt(m[1], 10);
     const variant = m[2] ? parseInt(m[2], 10) : 1;
     const spec    = FABRIC_SPECIES.find(s => s[0] === pid);
-    const name    = spec ? (state.lang === 'en' ? (spec[3] || spec[1]) : spec[1]) : `#${pid}`;
+    const name    = _fabricSpeciesName(spec, pid);
     const own     = unlocked.has(key);
     const isAct   = active === key;
     const isFav   = favoriteBgs.includes(key);
@@ -382,7 +392,7 @@ export function renderAppearancePanel(container) {
           const m   = key.match(/^fabric_(\d+)/);
           const pid = m ? parseInt(m[1], 10) : 0;
           const spec = pid ? FABRIC_SPECIES.find(s => s[0] === pid) : null;
-          const name = spec ? (state.lang === 'en' ? (spec[3] || spec[1]) : spec[1]) : `#${pid}`;
+          const name = _fabricSpeciesName(spec, pid);
           if (state.gang.money < FABRIC_SHOP_COST) { globalThis.notify(_t('Fonds insuffisants (100 000₽).', 'Insufficient funds (100,000₽).'), 'error'); return; }
           globalThis.showConfirm(`${_t('Acheter le fond tissu', 'Buy fabric wallpaper')} "${name}" ${_t('pour', 'for')} ${FABRIC_SHOP_COST.toLocaleString()}₽ ?`, () => {
             state.gang.money -= FABRIC_SHOP_COST;
