@@ -1,4 +1,4 @@
-﻿'use strict';
+'use strict';
 
 // ════════════════════════════════════════════════════════════════
 //  DARKRAI EVENT — "L'importance d'une bonne équipe — Cauchemar"
@@ -22,24 +22,22 @@
 // ════════════════════════════════════════════════════════════════
 
 import { invalidateBossTeamPower } from '../systems/bossPower.js';
-
 import { EventBus, EVENTS } from '../core/eventBus.js';
 
-const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
-const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
-const _topBar = ()               => EventBus.emit(EVENTS.UI_TOPBAR_UPDATE);
+const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type });
 const _save   = ()               => globalThis.saveState?.();
 
+const _t = (fr, en) => (globalThis.state?.lang === 'en' ? en : fr);
 
 // ── Constantes ────────────────────────────────────────────────────
 const DARKRAI_SPRITE = 'assets/pokemon_sprite/legendary_fight_by_muzyun/darkray.png';
 
 // ── État interne ──────────────────────────────────────────────────
-let _overlay   = null;
+let _overlay     = null;
 let _torchChoice = null; // 'torch' | 'pokemon'
 
 // ── Helpers globaux ───────────────────────────────────────────────
-const _state    = ()     => globalThis.state ?? {};
+const _state = () => globalThis.state ?? {};
 
 // ── Typewriter ────────────────────────────────────────────────────
 function _typewrite(el, text, speed = 26) {
@@ -47,12 +45,8 @@ function _typewrite(el, text, speed = 26) {
     el.textContent = '';
     let i = 0;
     const tick = () => {
-      if (i < text.length) {
-        el.textContent += text[i++];
-        setTimeout(tick, speed);
-      } else {
-        resolve();
-      }
+      if (i < text.length) { el.textContent += text[i++]; setTimeout(tick, speed); }
+      else resolve();
     };
     tick();
   });
@@ -155,7 +149,6 @@ function _injectStyles() {
       text-align: center;
       margin-bottom: 14px;
     }
-    /* Aura rouge + violet en couches concentriques */
     .dkr-sprite-wrap.aura::before,
     .dkr-sprite-wrap.aura::after {
       content: '';
@@ -191,11 +184,9 @@ function _injectStyles() {
       image-rendering: pixelated;
       animation: dkr-appear .65s .15s both;
     }
-    /* Silhouette : tout noir + légère teinte violette dans l'ombre */
     .dkr-sprite.silhouette {
       filter: brightness(0) drop-shadow(0 0 8px rgba(140, 0, 200, 0.6));
     }
-    /* Revealed : encore sombre mais forme vaguement lisible, aura active */
     .dkr-sprite.revealed {
       filter: brightness(0.08) saturate(0) drop-shadow(0 0 12px rgba(180, 0, 255, 0.7))
               drop-shadow(0 0 6px rgba(204, 17, 17, 0.8));
@@ -272,9 +263,7 @@ function _buildOverlay() {
   return el;
 }
 
-function _clear() {
-  if (_overlay) _overlay.innerHTML = '';
-}
+function _clear() { if (_overlay) _overlay.innerHTML = ''; }
 
 function _box() {
   const b = document.createElement('div');
@@ -317,7 +306,6 @@ function _wait(ms) { return new Promise(r => setTimeout(r, ms)); }
 // ── Steps ─────────────────────────────────────────────────────────
 
 async function _step0() {
-  // Darkness beat before scene starts
   _clear();
   await _wait(1100);
   _step1();
@@ -326,21 +314,22 @@ async function _step0() {
 async function _step1() {
   _clear();
   const box = _box();
-  _title(box, '— CAUCHEMAR —');
+  _title(box, _t('— CAUCHEMAR —', '— NIGHTMARE —'));
   const txt = _text(box);
   const ch  = _choices(box);
 
-  await _typewrite(txt,
+  await _typewrite(txt, _t(
     'Tu avances dans une grotte que tu ne reconnais pas.\nL\'air est lourd. Le silence, oppressant.\nTa torche éclaire à peine quelques pas devant toi.\n\nPuis — un bruit. Un frôlement. Quelque chose de proche.\n\nTa torche s\'éteint brusquement.',
-  );
+    'You move through a cave you don\'t recognise.\nThe air is heavy. The silence, oppressive.\nYour torch barely lights a few steps ahead.\n\nThen — a sound. A brush. Something close.\n\nYour torch goes out.',
+  ));
 
   await _wait(380);
 
-  const b1 = _btn('▸  Tenter de rallumer la torche');
+  const b1 = _btn(_t('▸  Tenter de rallumer la torche', '▸  Try to relight the torch'));
   b1.onclick = () => { _torchChoice = 'torch'; _step1bTorch(); };
   ch.appendChild(b1);
 
-  const b2 = _btn('▸  Se saisir d\'un de ses Pokémon');
+  const b2 = _btn(_t('▸  Se saisir d\'un de ses Pokémon', '▸  Grab one of your Pokémon'));
   b2.onclick = () => { _torchChoice = 'pokemon'; _step1bPokemon(); };
   ch.appendChild(b2);
 }
@@ -348,17 +337,17 @@ async function _step1() {
 async function _step1bPokemon() {
   _clear();
   const box = _box();
-  _title(box, '— VIDE —');
+  _title(box, _t('— VIDE —', '— EMPTY —'));
   const txt = _text(box);
   const ch  = _choices(box);
 
-  await _typewrite(txt,
+  await _typewrite(txt, _t(
     'Par réflexe, ta main se tend vers ta ceinture.\n\nLa sensation de vide en refermant ta paume te glace le sang.\n\nTu n\'as pas tes Pokémon. Tu es seul ici.',
-    30,
-  );
+    'By reflex, your hand reaches for your belt.\n\nThe feeling of emptiness as your palm closes sends a chill through you.\n\nYou don\'t have your Pokémon. You are alone here.',
+  ), 30);
 
   await _wait(500);
-  const b = _btn('▸  Continuer…');
+  const b = _btn(_t('▸  Continuer…', '▸  Continue…'));
   b.onclick = () => _step2();
   ch.appendChild(b);
 }
@@ -366,16 +355,17 @@ async function _step1bPokemon() {
 async function _step1bTorch() {
   _clear();
   const box = _box();
-  _title(box, '— OBSCURITÉ —');
+  _title(box, _t('— OBSCURITÉ —', '— DARKNESS —'));
   const txt = _text(box);
   const ch  = _choices(box);
 
-  await _typewrite(txt,
+  await _typewrite(txt, _t(
     'Tes doigts cherchent l\'allumeur à tâtons.\n\nLa torche clignote — une fraction de seconde — et t\'éblouit.\n\nDu coin de l\'œil tu distingues une masse sombre, suspendue dans les airs au centre de la pièce.\n\nSilencieuse. Immobile.\n\nTu sens son regard peser sur toi, et tu te figes.',
-  );
+    'Your fingers grope for the lighter.\n\nThe torch flickers — a split second — and blinds you.\n\nOut of the corner of your eye you make out a dark mass, suspended in mid-air at the centre of the room.\n\nSilent. Still.\n\nYou feel its gaze weighing on you, and you freeze.',
+  ));
 
   await _wait(400);
-  const b = _btn('▸  Continuer…');
+  const b = _btn(_t('▸  Continuer…', '▸  Continue…'));
   b.onclick = () => _step2();
   ch.appendChild(b);
 }
@@ -383,9 +373,8 @@ async function _step1bTorch() {
 async function _step2() {
   _clear();
   const box = _box();
-  _title(box, '— L\'OMBRE —');
+  _title(box, _t('— L\'OMBRE —', '— THE SHADOW —'));
 
-  // Darkrai silhouette
   const sw  = document.createElement('div');
   sw.className = 'dkr-sprite-wrap aura';
   const img = document.createElement('img');
@@ -398,32 +387,30 @@ async function _step2() {
   const txt = _text(box);
   const ch  = _choices(box);
 
-  await _typewrite(txt,
+  await _typewrite(txt, _t(
     'Tes yeux s\'habituent peu à peu à la pénombre.\n\nDevant toi se dessine une silhouette menaçante —\nsuspendue, immobile, comme si le vide lui obéissait.\n\nQue dites-vous ?',
-  );
+    'Your eyes slowly adjust to the darkness.\n\nA menacing silhouette takes shape before you —\nsuspended, motionless, as though the void obeyed it.\n\nWhat do you say?',
+  ));
 
-  // Option 1
-  const b1 = _btn('▸  "Qui… qui es-tu ?"');
+  const b1 = _btn(_t('▸  "Qui… qui es-tu ?"', '▸  "Who… who are you?"'));
   b1.onclick = () => _step3();
   ch.appendChild(b1);
 
-  // Option 2
-  const b2 = _btn('▸  "Je ne te veux aucun mal."');
+  const b2 = _btn(_t('▸  "Je ne te veux aucun mal."', '▸  "I mean you no harm."'));
   b2.onclick = () => _step3();
   ch.appendChild(b2);
 
-  // Option 3 — custom input
   const inputWrap = document.createElement('div');
-  const b3 = _btn('▸  [Écrire soi-même…]');
+  const b3 = _btn(_t('▸  [Écrire soi-même…]', '▸  [Write your own…]'));
   b3.onclick = () => {
     b3.remove();
     const inp = document.createElement('input');
     inp.type        = 'text';
     inp.maxLength   = 60;
-    inp.placeholder = 'Votre réplique…';
+    inp.placeholder = _t('Votre réplique…', 'Your line…');
     inp.className   = 'dkr-input';
     inputWrap.appendChild(inp);
-    const bConfirm = _btn('▸  Dire cela', 'red');
+    const bConfirm = _btn(_t('▸  Dire cela', '▸  Say this'), 'red');
     bConfirm.onclick = () => { if (inp.value.trim()) _step3(); };
     inputWrap.appendChild(bConfirm);
     setTimeout(() => inp.focus(), 50);
@@ -435,27 +422,26 @@ async function _step2() {
 async function _step3() {
   _clear();
   const box = _box();
-  _title(box, '— DERRIÈRE TOI —');
+  _title(box, _t('— DERRIÈRE TOI —', '— BEHIND YOU —'));
   const txt = _text(box);
 
-  await _typewrite(txt,
+  await _typewrite(txt, _t(
     'L\'ombre disparaît.\n\nUn instant de silence absolu.\n\nPuis tu la sens.\nDerrière toi.',
-    32,
-  );
+    'The shadow vanishes.\n\nA moment of absolute silence.\n\nThen you feel it.\nBehind you.',
+  ), 32);
 
   await _wait(650);
 
   const voice = document.createElement('div');
   voice.className = 'dkr-voice';
   box.appendChild(voice);
-  await _typewrite(voice,
+  await _typewrite(voice, _t(
     '— faible…\n  encore beaucoup trop faible…\n\n  trouve-moi\n  deviens plus fort\n  affronte-moi\n  trouve-moi —',
-    42,
-  );
+    '— weak…\n  still far too weak…\n\n  find me\n  grow stronger\n  face me\n  find me —',
+  ), 42);
 
   await _wait(500);
 
-  // Darkrai slightly more visible
   const sw  = document.createElement('div');
   sw.className = 'dkr-sprite-wrap aura';
   const img = document.createElement('img');
@@ -468,7 +454,7 @@ async function _step3() {
   await _wait(700);
 
   const ch = _choices(box);
-  const b  = _btn('▸  Se retourner…');
+  const b  = _btn(_t('▸  Se retourner…', '▸  Turn around…'));
   b.onclick = () => _step4();
   ch.appendChild(b);
 }
@@ -476,30 +462,29 @@ async function _step3() {
 async function _step4() {
   _clear();
   const box = _box();
-  _title(box, '— RÉVEIL —');
+  _title(box, _t('— RÉVEIL —', '— AWAKENING —'));
   const txt = _text(box);
 
-  await _typewrite(txt,
+  await _typewrite(txt, _t(
     'Tu t\'éveilles.\nLa lumière du matin filtre à travers les volets.\n\nTes Pokémon ne sont pas là.\nUne sensation étrange parcourt ton corps — comme une menace distante, mais bien réelle.\n\nTon Pokédex émet un bip.',
-  );
+    'You wake up.\nMorning light filters through the shutters.\n\nYour Pokémon are not here.\nA strange sensation runs through your body — like a distant, but very real threat.\n\nYour Pokédex beeps.',
+  ));
 
   await _wait(500);
 
-  // Pokédex beep
   const beep = document.createElement('div');
   beep.className = 'dkr-dex-beep';
-  beep.textContent = '[ ★ NOUVELLE ENTRÉE POKÉDEX ★ ]';
+  beep.textContent = _t('[ ★ NOUVELLE ENTRÉE POKÉDEX ★ ]', '[ ★ NEW POKÉDEX ENTRY ★ ]');
   box.appendChild(beep);
 
   await _wait(900);
 
-  // Mysterious entry
   const entry = document.createElement('div');
   entry.className = 'dkr-dex-entry';
   entry.innerHTML = `
     <img class="dkr-dex-img" src="${DARKRAI_SPRITE}" alt="???">
     <div>
-      <div class="dkr-dex-label">★ SINNOH — SECTION DÉVERROUILLÉE</div>
+      <div class="dkr-dex-label">${_t('★ SINNOH — SECTION DÉVERROUILLÉE', '★ SINNOH — SECTION UNLOCKED')}</div>
       <div class="dkr-dex-num">#491 — ???</div>
       <div class="dkr-dex-desc">
         ??? / ???<br>
@@ -510,14 +495,13 @@ async function _step4() {
   `;
   box.appendChild(entry);
 
-  // Unlock sinnoh tease
   const s = _state();
   if (s.discoveryProgress) s.discoveryProgress.sinnohTeaseUnlocked = true;
 
   await _wait(500);
 
   const ch = _choices(box);
-  const b  = _btn('▸  Le lendemain…', 'gold');
+  const b  = _btn(_t('▸  Le lendemain…', '▸  The next day…'), 'gold');
   b.onclick = () => _step5();
   ch.appendChild(b);
 }
@@ -525,23 +509,26 @@ async function _step4() {
 async function _step5() {
   _clear();
   const box = _box();
-  _title(box, '— LE LENDEMAIN —');
+  _title(box, _t('— LE LENDEMAIN —', '— THE NEXT DAY —'));
   const txt = _text(box);
 
-  await _typewrite(txt,
+  await _typewrite(txt, _t(
     'Une envie de puissance s\'est éveillée en toi au cours de la nuit.\n\nTu le sais maintenant — une équipe de trois Pokémon ne suffira pas.\n\nIl te faut une équipe complète. Six Pokémon. Tes meilleurs.',
-    26,
-  );
+    'A desire for power awakened in you during the night.\n\nYou know it now — a team of three Pokémon will not be enough.\n\nYou need a full team. Six Pokémon. Your best.',
+  ), 26);
 
   await _wait(350);
 
   const hint = document.createElement('div');
   hint.className = 'dkr-gang-hint';
-  hint.textContent = 'Rendez-vous dans l\'onglet Gang\npour composer votre équipe à 6 Pokémon.';
+  hint.textContent = _t(
+    'Rendez-vous dans l\'onglet Gang\npour composer votre équipe à 6 Pokémon.',
+    'Head to the Gang tab\nto build your 6-Pokémon team.',
+  );
   box.appendChild(hint);
 
   const ch = _choices(box);
-  const b  = _btn('▸  Constituer mon équipe →', 'red');
+  const b  = _btn(_t('▸  Constituer mon équipe →', '▸  Build my team →'), 'red');
   b.onclick = () => _finish();
   ch.appendChild(b);
 }
@@ -550,10 +537,8 @@ async function _step5() {
 function _finish() {
   const s = _state();
 
-  // Mark seen
   s.gang.darkraiCutsceneSeen = true;
 
-  // Reload boss team from active slot (ensures 6-slot format propagated)
   const slot = s.gang.activeBossTeamSlot ?? 0;
   if (Array.isArray(s.gang.bossTeamSlots?.[slot])) {
     s.gang.bossTeam = [...s.gang.bossTeamSlots[slot]];
@@ -561,15 +546,19 @@ function _finish() {
 
   invalidateBossTeamPower();
   _save();
-  _notify('Équipe du Boss — choisissez vos 6 Pokémon dans l\'onglet Gang', 'success');
+  _notify(
+    _t(
+      'Équipe du Boss — choisissez vos 6 Pokémon dans l\'onglet Gang',
+      'Boss Team — choose your 6 Pokémon in the Gang tab',
+    ),
+    'success',
+  );
 
-  // Fade out
   _overlay.style.transition = 'opacity .55s';
   _overlay.style.opacity    = '0';
   setTimeout(() => {
     _overlay?.remove();
     _overlay = null;
-    // Navigate to gang tab so player immediately sees boss team slots
     globalThis.switchTab?.('tabGang');
     globalThis.renderAll?.();
   }, 580);
@@ -577,38 +566,26 @@ function _finish() {
 
 // ── Déclenchement ─────────────────────────────────────────────────
 function _startCutscene() {
-  if (_overlay) return; // already running
+  if (_overlay) return;
   _overlay      = _buildOverlay();
   _torchChoice  = null;
   _step0();
 }
 
-/**
- * À appeler dans boot() après que l'état est chargé, juste avant
- * d'afficher les éventuels autres popups (johto, starterGift…).
- * Ne fait rien si la cinématique a déjà été vue ou si le joueur n'est
- * pas encore assez avancé.
- */
 export function checkDarkraiCutscene() {
   const s = _state();
-  if (s.gang?.darkraiCutsceneSeen)           return; // already seen
-  if (!s.gang?.initialized)                  return; // not yet onboarded
-  if ((s.pokemons?.length ?? 0) < 3)         return; // too early
+  if (s.gang?.darkraiCutsceneSeen)   return;
+  if (!s.gang?.initialized)          return;
+  if ((s.pokemons?.length ?? 0) < 3) return;
   _startCutscene();
 }
 
-/**
- * Hook à appeler lors de la première victoire à la Ligue Indigo.
- * Déclenche la cinématique pour les nouveaux joueurs qui n'ont pas
- * eu la condition « save existante » (moins de 3 pokémons au boot).
- */
 export function triggerDarkraiOnLeagueVictory() {
   const s = _state();
   if (s.gang?.darkraiCutsceneSeen) return;
   _startCutscene();
 }
 
-// Exposer sur globalThis pour les modules sans import direct
 Object.assign(globalThis, { checkDarkraiCutscene, triggerDarkraiOnLeagueVictory });
 
 export {};
