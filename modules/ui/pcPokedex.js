@@ -1594,20 +1594,27 @@ function renderEvolutionPanel(p) {
 }
 
 // ── Évoluer un Pokémon jusqu'au stade maximum (level + item) ──
+// Branches multiples (ex: Kirlia → Évoli-like double evo) résolues au hasard,
+// même logique que _xpEvolveToMax()/checkEvolution() pour rester cohérent.
 function _evolveToMax(pk) {
   let evolved = false;
   let sanity = 10;
   while (sanity-- > 0) {
     const evos = EVO_BY_SPECIES[pk.species_en];
     if (!evos || evos.length === 0) break;
-    // Try level evolution first
-    const levelEvo = evos.find(e => e.req !== 'item' && typeof e.req === 'number' && pk.level >= e.req);
-    if (levelEvo) { evolvePokemon(pk, levelEvo.to); evolved = true; continue; }
-    // Item evolution: consume a stone
-    const itemEvo = evos.find(e => e.req === 'item');
-    if (itemEvo && (state.inventory.evostone || 0) > 0) {
+    // Try level evolution first (random pick among simultaneously valid branches)
+    const levelCandidates = evos.filter(e => e.req !== 'item' && typeof e.req === 'number' && pk.level >= e.req);
+    if (levelCandidates.length) {
+      const chosen = levelCandidates[Math.floor(Math.random() * levelCandidates.length)];
+      evolvePokemon(pk, chosen.to);
+      evolved = true; continue;
+    }
+    // Item evolution: consume a stone (random pick among simultaneously valid branches)
+    const itemCandidates = evos.filter(e => e.req === 'item');
+    if (itemCandidates.length && (state.inventory.evostone || 0) > 0) {
       state.inventory.evostone--;
-      evolvePokemon(pk, itemEvo.to);
+      const chosen = itemCandidates[Math.floor(Math.random() * itemCandidates.length)];
+      evolvePokemon(pk, chosen.to);
       evolved = true; continue;
     }
     break;

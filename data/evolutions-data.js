@@ -165,6 +165,38 @@ const EVOLUTIONS = [
   ['clamperl','gorebyss','item'],
   ['bagon','shelgon',30],['shelgon','salamence',50],
   ['beldum','metang',20],['metang','metagross',45],
+
+  // ── Gen 4 : évolutions supplémentaires de Gen 1-3 (pierre/objet) ────
+  // Ces évolutions utilisent une pierre/objet spécial dans les jeux
+  // originaux (Pierre Aube, Pierre Lueur, Pierre Crépuscule, objets
+  // d'échange...) — simplifiées ici sur la pierre évolutive unique du jeu.
+  ['togetic','togekiss','item'],
+  ['murkrow','honchkrow','item'],
+  ['misdreavus','mismagius','item'],
+  ['eevee','leafeon','item'],
+  ['eevee','glaceon','item'],
+  ['rhydon','rhyperior','item'],
+  ['electabuzz','electivire','item'],
+  ['magmar','magmortar','item'],
+  ['magneton','magnezone','item'],
+  ['sneasel','weavile','item'],
+  ['gligar','gliscor','item'],
+  ['porygon2','porygon-z','item'],
+  ['dusclops','dusknoir','item'],
+  ['roselia','roserade','item'],
+  ['nosepass','probopass','item'],
+  ['kirlia','gallade','item'],       // split avec gardevoir (évo niveau)
+  ['snorunt','froslass','item'],     // split avec glalie (évo niveau)
+
+  // ── Gen 4 : évolutions supplémentaires de Gen 1-3 (niveau) ──────────
+  ['tangela','tangrowth',36],
+  ['yanma','yanmega',33],
+  ['lickitung','lickilicky',33],
+  ['piloswine','mamoswine',45],
+  ['buneary','lopunny',28],
+  ['combee','vespiquen',21],
+  ['burmy','wormadam',20],           // split avec mothim
+  ['burmy','mothim',20],
 ];
 
 const EVO_BY_SPECIES = {};
