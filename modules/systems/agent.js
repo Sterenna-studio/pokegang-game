@@ -12,6 +12,7 @@ const _notify     = (msg, type = '', category = null) => EventBus.emit(EVENTS.UI
 const _dirty      = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
 const _topBar     = ()               => EventBus.emit(EVENTS.UI_TOPBAR_UPDATE);
 const _save       = ()               => globalThis.saveState?.();
+const _t          = (fr, en)         => (globalThis.state?.lang === 'en' ? en : fr);
 
 // ── Slots d'équipe par rang ─────────────────────────────────────────
 // grunt=1, sergent=2, lieutenant et au-delà=3.
@@ -105,7 +106,7 @@ function openAgentRecruitModal(onAfterRecruit) {
   const cost  = getAgentRecruitCost();
 
   if ((state.gang?.money || 0) < cost) {
-    _notify(`Fonds insuffisants (${cost.toLocaleString()}₽ requis)`, 'error');
+    _notify(_t(`Fonds insuffisants (${cost.toLocaleString()}₽ requis)`, `Insufficient funds (${cost.toLocaleString()}₽ required)`), 'error');
     SFX?.play('error');
     return;
   }
@@ -121,13 +122,13 @@ function openAgentRecruitModal(onAfterRecruit) {
       cursor:pointer;transition:border-color .15s,box-shadow .15s">
       <img src="${ag.sprite}" style="width:48px;height:48px;image-rendering:pixelated">
       <div style="font-family:var(--font-pixel);font-size:10px;color:var(--text);text-align:center">${ag.name}</div>
-      <div style="font-size:8px;color:var(--text-dim);text-align:center">${ag.personality.map(p => p.fr || p).join(' · ')}</div>
+      <div style="font-size:8px;color:var(--text-dim);text-align:center">${ag.personality.map(p => globalThis.state?.lang === 'en' ? (p.en || p.fr || p) : (p.fr || p)).join(' · ')}</div>
       <div style="font-size:8px;color:var(--text-dim);opacity:.7;font-family:var(--font-pixel);text-align:center">Lv.1 · Grunt</div>
       <button class="recruit-pick-btn" data-idx="${i}" style="
         margin-top:4px;font-family:var(--font-pixel);font-size:8px;
         padding:5px 14px;background:var(--bg);border:1px solid var(--gold-dim);
         border-radius:var(--radius-sm);color:var(--gold);cursor:pointer;width:100%">
-        Recruter
+        ${_t('Recruter', 'Recruit')}
       </button>
     </div>`).join('');
 
@@ -136,14 +137,14 @@ function openAgentRecruitModal(onAfterRecruit) {
   modal.innerHTML = `
     <div style="background:var(--bg-panel);border:2px solid var(--gold-dim);border-radius:var(--radius);padding:20px;max-width:640px;width:96%;display:flex;flex-direction:column;gap:14px">
       <div style="text-align:center">
-        <div style="font-family:var(--font-pixel);font-size:11px;color:var(--gold);letter-spacing:1px">RECRUTEMENT</div>
+        <div style="font-family:var(--font-pixel);font-size:11px;color:var(--gold);letter-spacing:1px">${_t('RECRUTEMENT', 'RECRUITMENT')}</div>
         <div style="font-size:8px;color:var(--text-dim);margin-top:4px">
-          Agent ${state.agents.length + 1} — Coût : <span style="color:var(--gold);font-family:var(--font-pixel)">${cost.toLocaleString()}₽</span>
+          ${_t(`Agent ${state.agents.length + 1} — Coût :`, `Agent ${state.agents.length + 1} — Cost:`)} <span style="color:var(--gold);font-family:var(--font-pixel)">${cost.toLocaleString()}₽</span>
         </div>
       </div>
       <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">${cardsHtml}</div>
       <div style="text-align:center">
-        <button id="recruitCancelBtn" style="font-family:var(--font-pixel);font-size:8px;padding:6px 16px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">Annuler</button>
+        <button id="recruitCancelBtn" style="font-family:var(--font-pixel);font-size:8px;padding:6px 16px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">${_t('Annuler', 'Cancel')}</button>
       </div>
     </div>`;
   document.body.appendChild(modal);
@@ -160,14 +161,14 @@ function openAgentRecruitModal(onAfterRecruit) {
       // arrière-plan (raid hostile, etc.) — le solde a pu baisser depuis
       // le check initial à l'ouverture.
       if ((state.gang?.money || 0) < cost) {
-        _notify(`Fonds insuffisants (${cost.toLocaleString()}₽ requis)`, 'error');
+        _notify(_t(`Fonds insuffisants (${cost.toLocaleString()}₽ requis)`, `Insufficient funds (${cost.toLocaleString()}₽ required)`), 'error');
         modal.remove();
         return;
       }
       state.gang.money -= cost;
       EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -cost, newTotal: state.gang.money });
       recruitAgent(candidates[idx]);
-      _notify(`${candidates[idx].name} rejoint votre organisation !`, 'gold');
+      _notify(_t(`${candidates[idx].name} rejoint votre organisation !`, `${candidates[idx].name} joined your organization!`), 'gold');
       _topBar();
       modal.remove();
       onAfterRecruit?.();
@@ -187,7 +188,7 @@ function assignAgentToZone(agentId, zoneId) {
   if (zoneId) {
     const occupant = state.agents.find(a => a.id !== agentId && a.assignedZone === zoneId);
     if (occupant) {
-      _notify(`${occupant.name} est déjà assigné à cette zone.`, 'error');
+      _notify(_t(`${occupant.name} est déjà assigné à cette zone.`, `${occupant.name} is already assigned to this zone.`), 'error');
       return false;
     }
   }
@@ -297,9 +298,10 @@ function checkPromotion(agent) {
   for (const step of steps) {
     if (agent.title === step.from && agent.level >= step.level) {
       agent.title = step.to;
-      const label = AGENT_RANK_LABELS?.[step.to]?.fr || step.to;
-      _notify(`🏅 ${agent.name} promu ${label} !`, 'gold');
-      globalThis.addLog(`${agent.name} — promotion : ${label}`);
+      const rank = AGENT_RANK_LABELS?.[step.to];
+      const label = globalThis.state?.lang === 'en' ? (rank?.en || rank?.fr || step.to) : (rank?.fr || step.to);
+      _notify(_t(`🏅 ${agent.name} promu ${label} !`, `🏅 ${agent.name} promoted to ${label}!`), 'gold');
+      globalThis.addLog(_t(`${agent.name} — promotion : ${label}`, `${agent.name} — promotion: ${label}`));
       promoted = true;
     }
   }
@@ -311,12 +313,12 @@ function checkPromotion(agent) {
     if (eliteCount < 4) {
       agent.title = 'elite';
       state.stats.agentsEliteCount = eliteCount + 1;
-      _notify(`★★ ${agent.name} est désormais Élite ${gangName} ! ★★`, 'gold');
-      globalThis.addLog(`${agent.name} — grade ÉLITE ${gangName} obtenu !`);
+      _notify(_t(`★★ ${agent.name} est désormais Élite ${gangName} ! ★★`, `★★ ${agent.name} is now ${gangName} Elite! ★★`), 'gold');
+      globalThis.addLog(_t(`${agent.name} — grade ÉLITE ${gangName} obtenu !`, `${agent.name} — ${gangName} ELITE rank earned!`));
     } else {
       agent.title = 'general';
-      _notify(`★ ${agent.name} est désormais Général ${gangName} !`, 'gold');
-      globalThis.addLog(`${agent.name} — grade GÉNÉRAL ${gangName} obtenu !`);
+      _notify(_t(`★ ${agent.name} est désormais Général ${gangName} !`, `★ ${agent.name} is now ${gangName} General!`), 'gold');
+      globalThis.addLog(_t(`${agent.name} — grade GÉNÉRAL ${gangName} obtenu !`, `${agent.name} — ${gangName} GENERAL rank earned!`));
     }
     promoted = true;
   }
@@ -415,8 +417,8 @@ function _trainerCombatLogLines(result, mainAgentName, trainerName, reward, repG
   const lines = [
     `${allies} vs ${trainerName} — ⚡${Math.round(result.attackerPower ?? 0)} / 🛡${Math.round(result.defenderPower ?? 0)}`,
     result.attackerWin
-      ? `Victoire ! +${reward}₽ +${repGain}rep`
-      : `Défaite contre ${trainerName}.`,
+      ? _t(`Victoire ! +${reward}₽ +${repGain}rep`, `Victory! +${reward}₽ +${repGain} rep`)
+      : _t(`Défaite contre ${trainerName}.`, `Defeat against ${trainerName}.`),
   ];
   return lines;
 }
@@ -460,7 +462,7 @@ function _applyResolvedAgentCombat(zoneId, spawnObj, combatAgents, result) {
     if (_collecting) {
       globalThis.OfflineReport.pushCombat(false, 0);
     } else if (mainAgent?.notifyCaptures !== false) {
-      _notify(`💀 ${mainAgent?.name || 'Agent'} — défaite`, 'error', 'combat');
+      _notify(_t(`💀 ${mainAgent?.name || 'Agent'} — défaite`, `💀 ${mainAgent?.name || 'Agent'} — defeat`), 'error', 'combat');
     }
     globalThis.addLog(globalThis.t('agent_lose', { agent: mainAgent?.name || 'Agent' }));
   }
@@ -509,7 +511,7 @@ function _tickAgentEnergy(agent) {
     agent.resting = false;
     agent.restUntil = null;
     agent.energy = 5; // retour à 5, pas full
-    _notify(`${agent.name} est sorti de prison et reprend du service.`, 'success');
+    _notify(_t(`${agent.name} est sorti de prison et reprend du service.`, `${agent.name} left prison and is back on duty.`), 'success');
   }
 }
 
@@ -540,14 +542,14 @@ function bailOutAgent(agentId) {
   }
   const cost = getAgentBailCost(agent);
   if ((state.gang.money || 0) < cost) {
-    _notify(`Pas assez d'argent pour payer la caution (${cost.toLocaleString()}₽).`, 'error');
+    _notify(_t(`Pas assez d'argent pour payer la caution (${cost.toLocaleString()}₽).`, `Not enough money to pay bail (${cost.toLocaleString()}₽).`), 'error');
     return false;
   }
   state.gang.money -= cost;
   agent.resting = false;
   agent.restUntil = null;
   agent.energy = 5; // même valeur que la sortie naturelle — payer accélère, ne soigne pas plus
-  _notify(`${agent.name} est sorti de prison contre ${cost.toLocaleString()}₽.`, 'gold');
+  _notify(_t(`${agent.name} est sorti de prison contre ${cost.toLocaleString()}₽.`, `${agent.name} was released from prison for ${cost.toLocaleString()}₽.`), 'gold');
   _save();
   return true;
 }
@@ -585,7 +587,7 @@ function resolveBackgroundSpawnForZone(zoneId) {
       const _now = Date.now();
       if (!resolveBackgroundSpawnForZone._noBallWarnAt || _now - resolveBackgroundSpawnForZone._noBallWarnAt > 120_000) {
         resolveBackgroundSpawnForZone._noBallWarnAt = _now;
-        _notify(`⚠️ Plus de Poké Balls — les agents ne capturent plus !`, 'error');
+        _notify(_t('⚠️ Plus de Poké Balls — les agents ne capturent plus !', '⚠️ No Poké Balls left — agents can no longer catch Pokémon!'), 'error');
       }
       return false;
     }
@@ -638,9 +640,9 @@ function resolveBackgroundSpawnForZone(zoneId) {
       _notify(`✨ ${capturer.name} — SHINY ! ${name} ${stars} ✨`, 'gold', 'capture');
       setTimeout(() => globalThis.showShinyPopup?.(pokemon.species_en), 200);
     } else if (rarity === 'legendary') {
-      _notify(`🏆 ${capturer.name} — LÉGENDAIRE ! ${name} ${stars}`, 'gold', 'capture');
+      _notify(_t(`🏆 ${capturer.name} — LÉGENDAIRE ! ${name} ${stars}`, `🏆 ${capturer.name} — LEGENDARY! ${name} ${stars}`), 'gold', 'capture');
     } else if (rarity === 'very_rare') {
-      _notify(`⭐ ${capturer.name} — Très rare ! ${name} ${stars}`, 'gold', 'capture');
+      _notify(_t(`⭐ ${capturer.name} — Très rare ! ${name} ${stars}`, `⭐ ${capturer.name} — Very rare! ${name} ${stars}`), 'gold', 'capture');
     }
     globalThis.addLog(globalThis.t('agent_catch', { agent: capturer.name, pokemon: name }));
     globalThis.pushFeedEvent?.({
@@ -676,8 +678,13 @@ function resolveBackgroundSpawnForZone(zoneId) {
         if (mainAgent.energy === 0) {
           mainAgent.resting = true;
           mainAgent.restUntil = Date.now() + AGENT_PRISON_MS;
-          _notify(`${mainAgent.name} est épuisé — en prison 1h (rachat possible).`, 'error');
-          globalThis.pushFeedEvent?.({ category:'zone', title:`${mainAgent.name} KO — en prison`, detail:`Zone ${zoneId} · rachetable, ou sort seul dans 1h à 50% d'énergie`, win:false });
+          _notify(_t(`${mainAgent.name} est épuisé — en prison 1h (rachat possible).`, `${mainAgent.name} is exhausted — imprisoned for 1 hour (bail available).`), 'error');
+          globalThis.pushFeedEvent?.({
+            category:'zone',
+            title:_t(`${mainAgent.name} KO — en prison`, `${mainAgent.name} KO — imprisoned`),
+            detail:_t(`Zone ${zoneId} · rachetable, ou sort seul dans 1h à 50% d'énergie`, `Zone ${zoneId} · bail available, or released in 1 hour at 50% energy`),
+            win:false,
+          });
         }
       }
     }
@@ -748,14 +755,14 @@ function _resolveOccupiedZoneRaid(zoneId, agents) {
     state.gang.money      = (state.gang.money || 0) + moneyGain;
     EventBus.emit(EVENTS.REP_CHANGED,   { delta: repGain, newTotal: state.gang.reputation });
     EventBus.emit(EVENTS.MONEY_CHANGED, { delta: moneyGain, newTotal: state.gang.money });
-    _notify(`🛡 Raid repoussé sur ${zoneName} ! +${repGain} REP +${moneyGain.toLocaleString()}₽`, 'gold', 'combat');
-    globalThis.pushFeedEvent?.({ category: 'raid', title: `Raid repoussé — ${zoneName}`, detail: `Défense ${defensePower} vs Attaque ${attackPower} · +${repGain} REP`, win: true });
+    _notify(_t(`🛡 Raid repoussé sur ${zoneName} ! +${repGain} REP +${moneyGain.toLocaleString()}₽`, `🛡 Raid repelled in ${zoneName}! +${repGain} REP +${moneyGain.toLocaleString()}₽`), 'gold', 'combat');
+    globalThis.pushFeedEvent?.({ category: 'raid', title: _t(`Raid repoussé — ${zoneName}`, `Raid repelled — ${zoneName}`), detail: _t(`Défense ${defensePower} vs Attaque ${attackPower} · +${repGain} REP`, `Defense ${defensePower} vs Attack ${attackPower} · +${repGain} REP`), win: true });
   } else {
     const moneyLoss = Math.round(Math.min(state.gang.money * 0.03, zoneDiff * 500));
     state.gang.money = Math.max(0, (state.gang.money || 0) - moneyLoss);
     EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -moneyLoss, newTotal: state.gang.money });
-    _notify(`⚠️ Raid ennemi sur ${zoneName} ! −${moneyLoss.toLocaleString()}₽`, 'error', 'combat');
-    globalThis.pushFeedEvent?.({ category: 'raid', title: `Raid subi — ${zoneName}`, detail: `Défense ${defensePower} vs Attaque ${attackPower} · −${moneyLoss.toLocaleString()}₽`, win: false });
+    _notify(_t(`⚠️ Raid ennemi sur ${zoneName} ! −${moneyLoss.toLocaleString()}₽`, `⚠️ Enemy raid in ${zoneName}! −${moneyLoss.toLocaleString()}₽`), 'error', 'combat');
+    globalThis.pushFeedEvent?.({ category: 'raid', title: _t(`Raid subi — ${zoneName}`, `Raid suffered — ${zoneName}`), detail: _t(`Défense ${defensePower} vs Attaque ${attackPower} · −${moneyLoss.toLocaleString()}₽`, `Defense ${defensePower} vs Attack ${attackPower} · −${moneyLoss.toLocaleString()}₽`), win: false });
   }
   _save();
   _topBar();
@@ -951,9 +958,9 @@ function agentCaptureVisibleSpawn(agent, zoneId, spawnObj) {
       if (caught.shiny) {
         _notify(`✨ ${agent.name} — SHINY ! ${cName} ${cStars} ✨`, 'gold', 'capture');
       } else if (cRarity === 'legendary') {
-        _notify(`🏆 ${agent.name} — LÉGENDAIRE ! ${cName} ${cStars}`, 'gold', 'capture');
+        _notify(_t(`🏆 ${agent.name} — LÉGENDAIRE ! ${cName} ${cStars}`, `🏆 ${agent.name} — LEGENDARY! ${cName} ${cStars}`), 'gold', 'capture');
       } else if (cRarity === 'very_rare') {
-        _notify(`⭐ ${agent.name} — Très rare ! ${cName} ${cStars}`, 'gold', 'capture');
+        _notify(_t(`⭐ ${agent.name} — Très rare ! ${cName} ${cStars}`, `⭐ ${agent.name} — Very rare! ${cName} ${cStars}`), 'gold', 'capture');
       }
       globalThis.addLog(globalThis.t('agent_catch', { agent: agent.name, pokemon: cName }));
       globalThis.pushFeedEvent({
@@ -1029,8 +1036,8 @@ function _bossAutoCombat(zoneId, spawnObj) {
       _notify(`⚔️ ${bossName} +${reward}₽ +${repGain}rep`, 'success', 'combat');
       globalThis.addLog?.(globalThis.t?.('agent_win', { agent: bossName }) ?? `${bossName} a vaincu ${trainerName}.`);
     } else {
-      _notify(`💀 ${bossName} — défaite contre ${trainerName}`, 'error', 'combat');
-      globalThis.addLog?.(globalThis.t?.('agent_lose', { agent: bossName }) ?? `${bossName} a perdu contre ${trainerName}.`);
+      _notify(_t(`💀 ${bossName} — défaite contre ${trainerName}`, `💀 ${bossName} — defeat against ${trainerName}`), 'error', 'combat');
+      globalThis.addLog?.(globalThis.t?.('agent_lose', { agent: bossName }) ?? _t(`${bossName} a perdu contre ${trainerName}.`, `${bossName} lost against ${trainerName}.`));
     }
 
     globalThis.addBattleLogEntry?.({
@@ -1041,7 +1048,9 @@ function _bossAutoCombat(zoneId, spawnObj) {
       repGain,
       lines: [
         `${bossName} vs ${trainerName} — ⚡${Math.round(result.attackerPower)} / 🛡${Math.round(result.defenderPower)}`,
-        result.attackerWin ? `Victoire ! +${reward}₽ +${repGain}rep` : `Défaite contre ${trainerName}.`,
+        result.attackerWin
+          ? _t(`Victoire ! +${reward}₽ +${repGain}rep`, `Victory! +${reward}₽ +${repGain} rep`)
+          : _t(`Défaite contre ${trainerName}.`, `Defeat against ${trainerName}.`),
       ],
       trainerKey: spawnObj.trainerKey,
       isAgent: true,
@@ -1110,8 +1119,8 @@ function agentAutoCombat(zoneId, spawnObj, agent) {
         if (mainAgent.energy === 0) {
           mainAgent.resting = true;
           mainAgent.restUntil = Date.now() + AGENT_PRISON_MS;
-          _notify(`${mainAgent.name} est épuisé — en prison 1h (rachat possible).`, 'error');
-          globalThis.pushFeedEvent?.({ category: 'zone', title: `${mainAgent.name} KO — en prison`, detail: `Zone ${zoneId} · rachetable, ou sort seul dans 1h à 50% d'énergie`, win: false });
+          _notify(_t(`${mainAgent.name} est épuisé — en prison 1h (rachat possible).`, `${mainAgent.name} is exhausted — imprisoned for 1 hour (bail available).`), 'error');
+          globalThis.pushFeedEvent?.({ category: 'zone', title: _t(`${mainAgent.name} KO — en prison`, `${mainAgent.name} KO — imprisoned`), detail: _t(`Zone ${zoneId} · rachetable, ou sort seul dans 1h à 50% d'énergie`, `Zone ${zoneId} · bail available, or released in 1 hour at 50% energy`), win: false });
         }
       }
     }
@@ -1154,33 +1163,37 @@ function unlockAgent(agentId) {
 
   const cost = getAgentUnlockCost(idx);
   if ((state.gang?.money || 0) < cost) {
-    _notify(`Fonds insuffisants (${cost.toLocaleString()}₽ requis)`, 'error');
+    _notify(_t(`Fonds insuffisants (${cost.toLocaleString()}₽ requis)`, `Insufficient funds (${cost.toLocaleString()}₽ required)`), 'error');
     return;
   }
 
   globalThis.showConfirm?.(
-    `Débloquer <b>${agent.name}</b> pour <b>${cost.toLocaleString()}₽</b> ?<br>
+    _t(`Débloquer <b>${agent.name}</b> pour <b>${cost.toLocaleString()}₽</b> ?<br>
      <span style="color:var(--text-dim);font-size:10px">
        De nos jours, le management coûte cher…<br>
        Cet agent rejoindra pleinement votre organisation.
-     </span>`,
+     </span>`, `Unlock <b>${agent.name}</b> for <b>${cost.toLocaleString()}₽</b>?<br>
+     <span style="color:var(--text-dim);font-size:10px">
+       Management is expensive these days…<br>
+       This agent will fully join your organization.
+     </span>`),
     () => {
       // Revérifier : showConfirm est async (attend un clic utilisateur), le
       // solde a pu baisser depuis le check initial.
       if ((state.gang?.money || 0) < cost) {
-        _notify(`Fonds insuffisants (${cost.toLocaleString()}₽ requis)`, 'error');
+        _notify(_t(`Fonds insuffisants (${cost.toLocaleString()}₽ requis)`, `Insufficient funds (${cost.toLocaleString()}₽ required)`), 'error');
         return;
       }
       state.gang.money -= cost;
       EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -cost, newTotal: state.gang.money });
       agent.legacyLocked = false;
       _save();
-      _notify(`✅ ${agent.name} intègre officiellement votre organisation !`, 'success');
+      _notify(_t(`✅ ${agent.name} intègre officiellement votre organisation !`, `✅ ${agent.name} officially joined your organization!`), 'success');
       globalThis.renderAgentsTab?.();
       _topBar();
     },
     null,
-    { confirmLabel: 'Débloquer', cancelLabel: 'Annuler' }
+    { confirmLabel: _t('Débloquer', 'Unlock'), cancelLabel: _t('Annuler', 'Cancel') }
   );
 }
 
