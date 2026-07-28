@@ -1,4 +1,4 @@
-﻿'use strict';
+'use strict';
 
 import { BOSS_TEAM_SLOTS, SHOWCASE_SLOTS, MAX_BOSS_NAME_LENGTH, MAX_GANG_NAME_LENGTH } from '../../data/game-config-data.js';
 
@@ -9,6 +9,7 @@ const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
 const _topBar = ()               => EventBus.emit(EVENTS.UI_TOPBAR_UPDATE);
 const _save   = ()               => globalThis.saveState?.();
 
+const _t = (fr, en) => (globalThis.state?.lang === 'en' ? en : fr);
 
 // ── Picker modals ────────────────────────────────────────────────────────────
 // openTeamPicker      — choisir un Pokémon pour une équipe (boss ou agent)
@@ -37,7 +38,7 @@ function openTeamPicker(type, targetId, onDone) {
     .sort((a, b) => globalThis.getPokemonPower(b) - globalThis.getPokemonPower(a));
 
   if (available.length === 0) {
-    _notify(state.lang === 'fr' ? 'Aucun Pokémon disponible' : 'No Pokémon available');
+    _notify(_t('Aucun Pokémon disponible', 'No Pokémon available'));
     return;
   }
 
@@ -46,7 +47,7 @@ function openTeamPicker(type, targetId, onDone) {
   overlay.style.cssText = 'position:fixed;inset:0;z-index:3000;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;animation:fadeIn .2s ease';
 
   const targetLabel = type === 'boss'
-    ? (state.lang === 'fr' ? 'Équipe du Boss' : 'Boss Team')
+    ? _t('Équipe du Boss', 'Boss Team')
     : (state.agents.find(a => a.id === targetId)?.name || 'Agent');
 
   const _renderRow = p => {
@@ -62,11 +63,11 @@ function openTeamPicker(type, targetId, onDone) {
 
   overlay.innerHTML = `<div style="background:var(--bg-panel);border:2px solid var(--border);border-radius:var(--radius);width:90%;max-width:400px;max-height:70vh;display:flex;flex-direction:column">
     <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:2px solid var(--border)">
-      <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold)">${state.lang === 'fr' ? 'Choisir un Pokémon' : 'Choose a Pokémon'} → ${targetLabel}</div>
+      <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold)">${_t('Choisir un Pokémon', 'Choose a Pokémon')} → ${targetLabel}</div>
       <button id="btnClosePicker" style="background:none;border:none;color:var(--text-dim);font-size:20px;cursor:pointer;line-height:1">&times;</button>
     </div>
     <div style="padding:6px 10px;border-bottom:1px solid var(--border)">
-      <input id="pickerSearch" type="text" placeholder="Filtrer..." style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:11px;padding:4px 8px;box-sizing:border-box">
+      <input id="pickerSearch" type="text" placeholder="${_t('Filtrer...', 'Filter...')}" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:11px;padding:4px 8px;box-sizing:border-box">
     </div>
     <div id="pickerList" style="overflow-y:auto;flex:1">${available.slice(0, 30).map(_renderRow).join('')}</div>
   </div>`;
@@ -126,7 +127,7 @@ function openAssignToPicker(pokemonId) {
   const assignedIds = new Set([...state.gang.bossTeam]);
   for (const a of state.agents) a.team.forEach(id => assignedIds.add(id));
   if (assignedIds.has(pokemonId)) {
-    _notify(state.lang === 'fr' ? 'Déjà dans une équipe !' : 'Already in a team!');
+    _notify(_t('Déjà dans une équipe !', 'Already in a team!'));
     return;
   }
 
@@ -144,7 +145,7 @@ function openAssignToPicker(pokemonId) {
   }
 
   if (destinations.length === 0) {
-    _notify(state.lang === 'fr' ? 'Toutes les équipes sont pleines !' : 'All teams are full!');
+    _notify(_t('Toutes les équipes sont pleines !', 'All teams are full!'));
     return;
   }
 
@@ -226,14 +227,14 @@ function openShowcasePicker(slotIdx) {
         <div style="font-size:10px">${globalThis.pokemonDisplayName(p)}${p.shiny ? ' ✨' : ''} ${'★'.repeat(p.potential)}</div>
         <div style="font-size:9px;color:var(--text-dim)">Lv.${p.level}</div>
       </div>
-    </div>`).join('') || `<div style="padding:16px;text-align:center;color:var(--text-dim);font-size:10px">Aucun Pokémon disponible</div>`;
+    </div>`).join('') || `<div style="padding:16px;text-align:center;color:var(--text-dim);font-size:10px">${_t('Aucun Pokémon disponible', 'No Pokémon available')}</div>`;
 
   modal.innerHTML = `
     <div style="background:var(--bg-panel);border:2px solid var(--gold-dim);border-radius:var(--radius);padding:20px;max-width:360px;width:90%;display:flex;flex-direction:column;gap:12px;max-height:80vh">
-      <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">VITRINE — SLOT ${slotIdx + 1}</div>
-      <input type="text" id="showcasePickSearch" placeholder="Rechercher un Pokémon…" style="font-family:var(--font-body);font-size:11px;padding:7px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text)">
+      <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">${_t('VITRINE — SLOT', 'SHOWCASE — SLOT')} ${slotIdx + 1}</div>
+      <input type="text" id="showcasePickSearch" placeholder="${_t('Rechercher un Pokémon…', 'Search for a Pokémon…')}" style="font-family:var(--font-body);font-size:11px;padding:7px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text)">
       <div id="showcasePickList" style="overflow-y:auto;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);max-height:360px">${_renderItems(candidates)}</div>
-      <button id="showcasePickCancel" style="font-family:var(--font-pixel);font-size:8px;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">Annuler</button>
+      <button id="showcasePickCancel" style="font-family:var(--font-pixel);font-size:8px;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">${_t('Annuler', 'Cancel')}</button>
     </div>`;
   document.body.appendChild(modal);
 
@@ -282,12 +283,14 @@ function showEvoPreviewModal(p) {
   }
 
   const sp = SPECIES_BY_EN[bestEvo.to];
-  const reqText = bestEvo.req === 'item' ? 'Pierre d\'évolution' : `Niveau ${bestEvo.req}`;
+  const reqText = bestEvo.req === 'item'
+    ? _t('Pierre d\'évolution', 'Evolution Stone')
+    : `${_t('Niveau', 'Level')} ${bestEvo.req}`;
   const modal = document.createElement('div');
   modal.style.cssText = 'position:fixed;inset:0;z-index:9100;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center';
   modal.innerHTML = `
     <div style="background:var(--bg-panel);border:2px solid var(--gold-dim);border-radius:var(--radius);padding:20px;max-width:300px;width:90%;display:flex;flex-direction:column;align-items:center;gap:12px">
-      <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">ÉVOLUTION</div>
+      <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">${_t('ÉVOLUTION', 'EVOLUTION')}</div>
       <div style="display:flex;align-items:center;gap:16px">
         <div style="text-align:center">
           <img src="${globalThis.pokeSprite(p.species_en, p.shiny)}" style="width:64px;height:64px;image-rendering:pixelated">
@@ -301,8 +304,8 @@ function showEvoPreviewModal(p) {
           <div style="font-size:8px;color:var(--text-dim)">${reqText}</div>
         </div>
       </div>
-      ${evos.length > 1 ? `<div style="font-size:8px;color:var(--text-dim);text-align:center">Autres formes : ${evos.slice(1).map(e => globalThis.speciesName(e.to)).join(', ')}</div>` : ''}
-      <button style="font-family:var(--font-pixel);font-size:8px;padding:8px 16px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer" id="evoModalClose">Fermer</button>
+      ${evos.length > 1 ? `<div style="font-size:8px;color:var(--text-dim);text-align:center">${_t('Autres formes :', 'Other forms:')} ${evos.slice(1).map(e => globalThis.speciesName(e.to)).join(', ')}</div>` : ''}
+      <button style="font-family:var(--font-pixel);font-size:8px;padding:8px 16px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer" id="evoModalClose">${_t('Fermer', 'Close')}</button>
     </div>`;
   document.body.appendChild(modal);
   modal.querySelector('#evoModalClose').addEventListener('click', () => modal.remove());
@@ -321,19 +324,19 @@ function openBossEditModal(onDone) {
   modal.style.cssText = 'position:fixed;inset:0;z-index:9100;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center';
   modal.innerHTML = `
     <div style="background:var(--bg-panel);border:2px solid var(--gold-dim);border-radius:var(--radius);padding:20px;max-width:340px;width:90%;display:flex;flex-direction:column;gap:12px">
-      <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">MODIFIER LE BOSS</div>
+      <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">${_t('MODIFIER LE BOSS', 'EDIT BOSS')}</div>
       <div style="display:flex;flex-direction:column;gap:8px">
-        <label style="font-size:9px;color:var(--text-dim)">Nom du Boss</label>
+        <label style="font-size:9px;color:var(--text-dim)">${_t('Nom du Boss', 'Boss Name')}</label>
         <input id="bossEditName" type="text" maxlength="${MAX_BOSS_NAME_LENGTH}" value="${state.gang.bossName}"
           style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);padding:8px 10px;font-size:12px;outline:none;width:100%;box-sizing:border-box">
-        <label style="font-size:9px;color:var(--text-dim)">Nom du Gang</label>
+        <label style="font-size:9px;color:var(--text-dim)">${_t('Nom du Gang', 'Gang Name')}</label>
         <input id="bossEditGangName" type="text" maxlength="${MAX_GANG_NAME_LENGTH}" value="${state.gang.name}"
           style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);padding:8px 10px;font-size:12px;outline:none;width:100%;box-sizing:border-box">
       </div>
-      <button id="bossEditSprite" style="font-family:var(--font-pixel);font-size:8px;padding:8px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">🎨 Changer le sprite</button>
+      <button id="bossEditSprite" style="font-family:var(--font-pixel);font-size:8px;padding:8px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">🎨 ${_t('Changer le sprite', 'Change sprite')}</button>
       <div style="display:flex;gap:8px">
-        <button id="bossEditCancel" style="flex:1;font-family:var(--font-pixel);font-size:8px;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">Annuler</button>
-        <button id="bossEditConfirm" style="flex:1;font-family:var(--font-pixel);font-size:8px;padding:8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">Confirmer</button>
+        <button id="bossEditCancel" style="flex:1;font-family:var(--font-pixel);font-size:8px;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">${_t('Annuler', 'Cancel')}</button>
+        <button id="bossEditConfirm" style="flex:1;font-family:var(--font-pixel);font-size:8px;padding:8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">${_t('Confirmer', 'Confirm')}</button>
       </div>
     </div>`;
   document.body.appendChild(modal);
@@ -344,7 +347,7 @@ function openBossEditModal(onDone) {
     if (newGangName) state.gang.name = newGangName.slice(0, MAX_GANG_NAME_LENGTH);
     _save();
     globalThis.updateTopBar?.();
-    _notify('Gang mis à jour', 'success');
+    _notify(_t('Gang mis à jour', 'Gang updated'), 'success');
     modal.remove();
     if (onDone) onDone();
   });
