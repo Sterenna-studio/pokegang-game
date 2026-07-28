@@ -9,6 +9,8 @@
 //   state, saveState, notify, COSMETIC_BGS, FABRIC_SPECIES, fabricBgUrl,
 //   BOSS_SPRITES, trainerSprite
 
+const _t = (...a) => globalThis.t?.(...a) ?? a[0];
+
 function _resolveFabricBgUrl(bgKey) {
   const m = bgKey.match(/^fabric_(\d+)(?:_v(\d+))?$/);
   if (!m) return null;
@@ -101,12 +103,12 @@ function _unlockFabricBg(dexNum, isShiny) {
 function openNameModal(opts = {}) {
   const state = globalThis.state;
   const {
-    title        = 'Entrer un nom',
+    title        = _t('cosm_name_title'),
     placeholder  = '',
     current      = '',
     maxLength    = 16,
     cost         = 0,
-    confirmLabel = 'Confirmer',
+    confirmLabel = _t('confirm'),
     onConfirm    = () => {},
   } = opts;
 
@@ -118,10 +120,10 @@ function openNameModal(opts = {}) {
       <input id="nameModalInput" type="text" maxlength="${maxLength}" placeholder="${placeholder}"
         value="${current.replace(/"/g,'&quot;')}"
         style="padding:9px 12px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text);font-size:12px;outline:none;width:100%;box-sizing:border-box">
-      ${cost ? `<div style="font-size:8px;color:var(--text-dim);font-family:var(--font-pixel)">Coût : <span style="color:var(--gold)">${cost.toLocaleString()}₽</span> &nbsp;·&nbsp; Solde : ${(state.gang.money||0).toLocaleString()}₽</div>` : ''}
+      ${cost ? `<div style="font-size:8px;color:var(--text-dim);font-family:var(--font-pixel)">${_t('cosm_cost')} <span style="color:var(--gold)">${cost.toLocaleString()}₽</span> &nbsp;·&nbsp; ${(state.gang.money||0).toLocaleString()}₽</div>` : ''}
       <div style="display:flex;gap:8px">
         <button id="nameModalConfirm" style="flex:1;font-family:var(--font-pixel);font-size:9px;padding:9px;background:var(--red);border:none;border-radius:var(--radius-sm);color:#fff;cursor:pointer">${confirmLabel}</button>
-        <button id="nameModalCancel" style="font-family:var(--font-pixel);font-size:9px;padding:9px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">Annuler</button>
+        <button id="nameModalCancel" style="font-family:var(--font-pixel);font-size:9px;padding:9px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">${_t('cancel')}</button>
       </div>
     </div>`;
   document.body.appendChild(overlay);
@@ -155,7 +157,7 @@ function openSpritePicker(currentSprite, callback) {
   overlay.style.cssText = 'position:fixed;inset:0;z-index:5000;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;';
   overlay.innerHTML = `
     <div style="background:var(--bg-panel);border:2px solid var(--gold-dim);border-radius:var(--radius);padding:16px;max-width:500px;width:95%;display:flex;flex-direction:column;gap:12px">
-      <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold)">Choisir un sprite</div>
+      <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold)">${_t('cosm_sprite_title')}</div>
       <div style="display:flex;flex-wrap:wrap;gap:8px;max-height:280px;overflow-y:auto" id="spritePickerGrid">
         ${BOSS_SPRITES.map(s => `
           <div class="spr-opt" data-spr="${s}" style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px;border:2px solid ${s === currentSprite ? 'var(--gold)' : 'var(--border)'};border-radius:4px;cursor:pointer;background:var(--bg-card)">
@@ -164,8 +166,8 @@ function openSpritePicker(currentSprite, callback) {
           </div>`).join('')}
       </div>
       <div style="display:flex;gap:8px;justify-content:flex-end">
-        <button id="spritePickerCancel" style="font-family:var(--font-pixel);font-size:9px;padding:6px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">Annuler</button>
-        <button id="spritePickerConfirm" style="font-family:var(--font-pixel);font-size:9px;padding:6px 12px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">Confirmer</button>
+        <button id="spritePickerCancel" style="font-family:var(--font-pixel);font-size:9px;padding:6px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">${_t('cancel')}</button>
+        <button id="spritePickerConfirm" style="font-family:var(--font-pixel);font-size:9px;padding:6px 12px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">${_t('confirm')}</button>
       </div>
     </div>`;
   document.body.appendChild(overlay);
