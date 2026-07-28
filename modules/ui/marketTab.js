@@ -134,7 +134,7 @@ function renderBarterPanel() {
     return `<div style="display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--border);opacity:${canAfford ? 1 : 0.5}">
       ${itemSprite(giveId)}
       <div style="flex:1;font-size:9px;color:var(--text)">${label}</div>
-      <div style="font-size:8px;color:${canAfford ? 'var(--gold-dim)' : 'var(--text-dim)'}">\u00d7${owned}</div>
+      <div style="font-size:8px;color:${canAfford ? 'var(--gold-dim)' : 'var(--text-dim)'}">×${owned}</div>
       <button data-barter="${i}" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:${canAfford ? 'var(--bg-hover)' : 'var(--bg)'};border:1px solid ${canAfford ? 'var(--gold-dim)' : 'var(--border)'};border-radius:var(--radius-sm);color:${canAfford ? 'var(--gold)' : 'var(--text-dim)'};cursor:${canAfford ? 'pointer' : 'default'}" ${canAfford ? '' : 'disabled'}>${_t('market_barter_trade')}</button>
     </div>`;
   }).join('');
@@ -155,7 +155,7 @@ function renderBarterPanel() {
         return `<div style="display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--border);opacity:${canAfford ? 1 : 0.5}">
           ${itemSprite(wx.giveId)}
           <div style="flex:1;font-size:9px;color:var(--text)">${label}</div>
-          <div style="font-size:8px;color:${canAfford ? 'var(--gold-dim)' : 'var(--text-dim)'}">\u00d7${owned}</div>
+          <div style="font-size:8px;color:${canAfford ? 'var(--gold-dim)' : 'var(--text-dim)'}">×${owned}</div>
           <button data-wing-barter="${i}" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:${canAfford ? 'var(--bg-hover)' : 'var(--bg)'};border:1px solid ${canAfford ? 'var(--gold-dim)' : 'var(--border)'};border-radius:var(--radius-sm);color:${canAfford ? 'var(--gold)' : 'var(--text-dim)'};cursor:${canAfford ? 'pointer' : 'default'}" ${canAfford ? '' : 'disabled'}>${_t('market_barter_trade')}</button>
         </div>`;
       }).join('')}
@@ -179,8 +179,8 @@ function renderBarterPanel() {
         return `<div style="display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--border);opacity:${alreadyOwned ? 0.6 : 1}">
           ${itemSprite(wp.wingId)}
           <div style="flex:1">
-            <div style="font-size:9px;color:var(--text)">${wp.wingQty}\u00d7 ${wName} \u2192 ${wp.icon} ${zName}</div>
-            <div style="font-size:8px;color:var(--text-dim);margin-top:2px">L\u00e9gendaire : ${wp.legendary}</div>
+            <div style="font-size:9px;color:var(--text)">${wp.wingQty}× ${wName} → ${wp.icon} ${zName}</div>
+            <div style="font-size:8px;color:var(--text-dim);margin-top:2px">Légendaire : ${wp.legendary}</div>
             <div style="height:4px;background:var(--border);border-radius:2px;margin-top:4px;overflow:hidden">
               <div style="height:100%;width:${alreadyOwned ? 100 : pct}%;background:${progressColor};border-radius:2px;transition:width .3s"></div>
             </div>
@@ -268,7 +268,7 @@ function renderSpecialItemPanel() {
     const btnLabel = alreadyOwned
       ? _t('market_acquired')
       : isAchievement
-        ? '\ud83c\udfc6 Succ\u00e8s'
+        ? _t('market_achievement')
         : isWingPermit
           ? `${item.wingCost?.qty||50}\u00d7 ${wingName}`
           : `${item.cost.toLocaleString()}\u20bd`;
