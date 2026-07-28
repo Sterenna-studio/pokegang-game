@@ -16,6 +16,16 @@
 import { EventBus, EVENTS } from '../core/eventBus.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type });
+const _t = (fr, en) => (globalThis.state?.lang === 'en' ? en : fr);
+
+function _localizedEvent(ev) {
+  const suffix = globalThis.state?.lang === 'en' ? '_en' : '_fr';
+  return {
+    ...ev,
+    label: ev[`label${suffix}`] ?? ev.label,
+    detail: ev[`detail${suffix}`] ?? ev.detail,
+  };
+}
 
 // ── Pools de générateurs d'événements ─────────────────────────────
 
@@ -31,8 +41,10 @@ const EVENT_TEMPLATES = {
       return {
         type: 'species_boost', target, mult,
         emoji: '📈',
-        label: `Demande explosive pour ${speciesName}`,
-        detail: `+${Math.round((mult - 1) * 100)}% sur la vente`,
+        label_fr: `Demande explosive pour ${speciesName}`,
+        label_en: `Explosive demand for ${speciesName}`,
+        detail_fr: `+${Math.round((mult - 1) * 100)}% sur la vente`,
+        detail_en: `+${Math.round((mult - 1) * 100)}% sale value`,
       };
     },
   },
@@ -47,8 +59,10 @@ const EVENT_TEMPLATES = {
       return {
         type: 'species_malus', target, mult,
         emoji: '📉',
-        label: `Marché saturé en ${speciesName}`,
-        detail: `−${Math.round((1 - mult) * 100)}% sur la vente`,
+        label_fr: `Marché saturé en ${speciesName}`,
+        label_en: `Market flooded with ${speciesName}`,
+        detail_fr: `−${Math.round((1 - mult) * 100)}% sur la vente`,
+        detail_en: `−${Math.round((1 - mult) * 100)}% sale value`,
       };
     },
   },
@@ -64,16 +78,19 @@ const EVENT_TEMPLATES = {
       const mults = { common: 1.5, uncommon: 1.4, rare: 1.3, very_rare: 1.25 };
       const mult = mults[rarity] || 1.25;
       const labels = {
-        common:     'Demande de Pokémon communs',
-        uncommon:   'Demande de Pokémon peu communs',
-        rare:       'Boom du marché rare',
-        very_rare:  'Collectionneurs en chasse',
+        common:     { fr:'Demande de Pokémon communs', en:'Demand for common Pokémon' },
+        uncommon:   { fr:'Demande de Pokémon peu communs', en:'Demand for uncommon Pokémon' },
+        rare:       { fr:'Boom du marché rare', en:'Rare market boom' },
+        very_rare:  { fr:'Collectionneurs en chasse', en:'Collectors on the hunt' },
       };
+      const label = labels[rarity] || { fr:`Boost ${rarity}`, en:`${rarity} boost` };
       return {
         type: 'rarity_boost', target: rarity, mult,
         emoji: '💎',
-        label: labels[rarity] || `Boost ${rarity}`,
-        detail: `Tous les Pokémon "${rarity}" : +${Math.round((mult - 1) * 100)}%`,
+        label_fr: label.fr,
+        label_en: label.en,
+        detail_fr: `Tous les Pokémon "${rarity}" : +${Math.round((mult - 1) * 100)}%`,
+        detail_en: `All "${rarity}" Pokémon: +${Math.round((mult - 1) * 100)}%`,
       };
     },
   },
@@ -87,8 +104,10 @@ const EVENT_TEMPLATES = {
       return {
         type: 'shiny_premium', target: 'shiny', mult,
         emoji: '✨',
-        label: 'Frénésie des chromatiques',
-        detail: `Tous les shinies : ×${mult.toFixed(2)}`,
+        label_fr: 'Frénésie des chromatiques',
+        label_en: 'Shiny frenzy',
+        detail_fr: `Tous les shinies : ×${mult.toFixed(2)}`,
+        detail_en: `All shinies: ×${mult.toFixed(2)}`,
       };
     },
   },
@@ -102,8 +121,10 @@ const EVENT_TEMPLATES = {
       return {
         type: 'shiny_premium', target: 'shiny', mult,
         emoji: '💥',
-        label: 'Krach du marché chromatique',
-        detail: `Shinies dévalorisés : ×${mult.toFixed(2)}`,
+        label_fr: 'Krach du marché chromatique',
+        label_en: 'Shiny market crash',
+        detail_fr: `Shinies dévalorisés : ×${mult.toFixed(2)}`,
+        detail_en: `Shinies devalued: ×${mult.toFixed(2)}`,
       };
     },
   },
@@ -119,8 +140,10 @@ const EVENT_TEMPLATES = {
       return {
         type: 'family_boost', target: targetEN, members: family, mult,
         emoji: '🌳',
-        label: `Lignée ${head} recherchée`,
-        detail: `${family.length} espèces concernées : +${Math.round((mult - 1) * 100)}%`,
+        label_fr: `Lignée ${head} recherchée`,
+        label_en: `${head} family wanted`,
+        detail_fr: `${family.length} espèces concernées : +${Math.round((mult - 1) * 100)}%`,
+        detail_en: `${family.length} affected species: +${Math.round((mult - 1) * 100)}%`,
       };
     },
   },
@@ -184,6 +207,8 @@ export function triggerMarketEvent() {
   const target = chosenTpl.pickTarget();
   if (!target) return null;
   const data = chosenTpl.generate(target);
+  data.label = _t(data.label_fr, data.label_en);
+  data.detail = _t(data.detail_fr, data.detail_en);
   const now = Date.now();
   const ev = {
     id: `me-${Math.random().toString(36).slice(2, 9)}`,
@@ -217,7 +242,7 @@ export function pruneExpiredEvents() {
  */
 export function getActiveMarketEvents() {
   pruneExpiredEvents();
-  return globalThis.state?.marketEvents || [];
+  return (globalThis.state?.marketEvents || []).map(_localizedEvent);
 }
 
 /**

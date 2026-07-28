@@ -2,6 +2,8 @@
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
 const _save   = ()               => globalThis.saveState?.();
+const _t      = (fr, en)         => (globalThis.state?.lang === 'en' ? en : fr);
+const _name   = value            => value?.[globalThis.state?.lang] ?? value?.en ?? value?.fr ?? '';
 
 // ════════════════════════════════════════════════════════════════
 // SESSION TRACKING + NEXT OBJECTIVE + BOOST HELPERS + ITEM SPRITE
@@ -99,30 +101,38 @@ function getNextObjective() {
   const dex    = Object.values(state.pokedex).filter(e => e.caught).length;
 
   if (!state.gang.initialized)
-    return { text: '👋 Crée ton Gang pour commencer', tab: null };
+    return { text: _t('👋 Crée ton Gang pour commencer', '👋 Create your Gang to get started'), tab: null };
   if (pc === 0)
-    return { text: '⚡ Capture ton premier Pokémon', detail: '→ Zones', tab: 'tabZones' };
+    return { text: _t('⚡ Capture ton premier Pokémon', '⚡ Catch your first Pokémon'), detail: '→ Zones', tab: 'tabZones' };
   if (team === 0)
-    return { text: '⚔ Place un Pokémon dans ton équipe Boss', detail: '→ PC', tab: 'tabPC' };
+    return { text: _t('⚔ Place un Pokémon dans ton équipe Boss', '⚔ Add a Pokémon to your Boss team'), detail: '→ PC', tab: 'tabPC' };
   if (team < 3)
-    return { text: `⚔ Complète ton équipe Boss`, detail: `${team}/6`, tab: 'tabPC' };
+    return { text: _t('⚔ Complète ton équipe Boss', '⚔ Complete your Boss team'), detail: `${team}/6`, tab: 'tabPC' };
   if (agents === 0) {
     const cost = typeof globalThis.getAgentRecruitCost === 'function' ? globalThis.getAgentRecruitCost() : 10000;
-    const progress = money >= cost ? 'Prêt !' : `₽${money.toLocaleString()}/${cost.toLocaleString()}`;
-    return { text: '👤 Recrute ton premier agent', detail: progress, tab: 'tabPC' };
+    const progress = money >= cost ? _t('Prêt !', 'Ready!') : `₽${money.toLocaleString()}/${cost.toLocaleString()}`;
+    return { text: _t('👤 Recrute ton premier agent', '👤 Recruit your first agent'), detail: progress, tab: 'tabPC' };
   }
   // Zone suivante verrouillée
   const nextLocked = ZONES.find(z => !globalThis.isZoneUnlocked(z.id));
   if (nextLocked) {
     const req = nextLocked.repRequired || 0;
     if (req > 0)
-      return { text: `🗺 Débloquer ${nextLocked.fr}`, detail: `Rép. ${rep}/${req}`, tab: 'tabZones' };
+      return {
+        text: _t(`🗺 Débloquer ${_name(nextLocked)}`, `🗺 Unlock ${_name(nextLocked)}`),
+        detail: _t(`Rép. ${rep}/${req}`, `Rep. ${rep}/${req}`),
+        tab: 'tabZones',
+      };
   }
   if (agents < 3)
-    return { text: `👥 Avoir ${agents+1} agents`, detail: `${agents}/3`, tab: 'tabAgents' };
+    return { text: _t(`👥 Avoir ${agents+1} agents`, `👥 Recruit ${agents+1} agents`), detail: `${agents}/3`, tab: 'tabAgents' };
   if (dex < 151)
-    return { text: `📖 Pokédex ${dex}/151`, detail: `${151 - dex} espèces manquantes`, tab: 'tabPokedex' };
-  return { text: '🏆 Pokédex complet — Tu domines Kanto !', detail: null, tab: null };
+    return {
+      text: `📖 Pokédex ${dex}/151`,
+      detail: _t(`${151 - dex} espèces manquantes`, `${151 - dex} species missing`),
+      tab: 'tabPokedex',
+    };
+  return { text: _t('🏆 Pokédex complet — Tu domines Kanto !', '🏆 Pokédex complete — You rule Kanto!'), detail: null, tab: null };
 }
 
 // ── Boost helpers ─────────────────────────────────────────────

@@ -20,14 +20,20 @@
 // ════════════════════════════════════════════════════════════════
 
 const TIERS = [
-  { id: 'trivial',    label: 'Trivial',   emoji: '⚪',  color: '#888',     rewardMult: 0.7, max: 0.20 },
-  { id: 'easy',       label: 'Facile',    emoji: '🟢',  color: '#4caf50',  rewardMult: 0.9, max: 0.50 },
-  { id: 'standard',   label: 'Standard',  emoji: '🔵',  color: '#64b5f6',  rewardMult: 1.0, max: 1.20 },
-  { id: 'hard',       label: 'Difficile', emoji: '🟡',  color: '#ffb74d',  rewardMult: 1.3, max: 2.00 },
-  { id: 'elite',      label: 'Élite',     emoji: '🟠',  color: '#ff7043',  rewardMult: 1.6, max: 3.50 },
-  { id: 'extreme',    label: 'Extrême',   emoji: '🔴',  color: '#e53935',  rewardMult: 2.0, max: 6.00 },
-  { id: 'impossible', label: 'Suicide',   emoji: '💀',  color: '#9b27b0',  rewardMult: 2.5, max: Infinity },
+  { id: 'trivial',    label: 'Trivial',   label_en:'Trivial',    emoji: '⚪', color: '#888',    rewardMult: 0.7, max: 0.20 },
+  { id: 'easy',       label: 'Facile',    label_en:'Easy',       emoji: '🟢', color: '#4caf50', rewardMult: 0.9, max: 0.50 },
+  { id: 'standard',   label: 'Standard',  label_en:'Standard',   emoji: '🔵', color: '#64b5f6', rewardMult: 1.0, max: 1.20 },
+  { id: 'hard',       label: 'Difficile', label_en:'Hard',       emoji: '🟡', color: '#ffb74d', rewardMult: 1.3, max: 2.00 },
+  { id: 'elite',      label: 'Élite',     label_en:'Elite',      emoji: '🟠', color: '#ff7043', rewardMult: 1.6, max: 3.50 },
+  { id: 'extreme',    label: 'Extrême',   label_en:'Extreme',    emoji: '🔴', color: '#e53935', rewardMult: 2.0, max: 6.00 },
+  { id: 'impossible', label: 'Suicide',   label_en:'Impossible', emoji: '💀', color: '#9b27b0', rewardMult: 2.5, max: Infinity },
 ];
+
+const _t = (fr, en) => (globalThis.state?.lang === 'en' ? en : fr);
+const _localizedTier = tier => ({
+  ...tier,
+  label: globalThis.state?.lang === 'en' ? tier.label_en : tier.label,
+});
 
 /**
  * Calcule le tier de difficulté d'un combat.
@@ -45,15 +51,18 @@ const TIERS = [
  */
 export function getDifficultyTier(playerPower, enemyPower) {
   if (!enemyPower || enemyPower <= 0) {
-    return { ...TIERS[0], ratio: 0, rationale: 'Adversaire sans puissance détectée' };
+    return { ..._localizedTier(TIERS[0]), ratio: 0, rationale: _t('Adversaire sans puissance détectée', 'Opponent has no detected power') };
   }
   if (!playerPower || playerPower <= 0) {
-    return { ...TIERS[6], ratio: Infinity, rationale: 'Aucune équipe assignée' };
+    return { ..._localizedTier(TIERS[6]), ratio: Infinity, rationale: _t('Aucune équipe assignée', 'No team assigned') };
   }
   const ratio = enemyPower / playerPower;
   const tier = TIERS.find(t => ratio <= t.max) || TIERS[TIERS.length - 1];
-  const rationale = `Adversaire ${Math.round(ratio * 100)}% de ta puissance`;
-  return { ...tier, ratio, rationale };
+  const rationale = _t(
+    `Adversaire à ${Math.round(ratio * 100)}% de ta puissance`,
+    `Opponent at ${Math.round(ratio * 100)}% of your power`,
+  );
+  return { ..._localizedTier(tier), ratio, rationale };
 }
 
 /**
@@ -62,7 +71,7 @@ export function getDifficultyTier(playerPower, enemyPower) {
  */
 export function getDifficultyBadgeHtml(tier) {
   if (!tier) return '';
-  return `<div class="diff-tier-badge" style="background:${tier.color}1a;border-color:${tier.color};color:${tier.color}" title="${tier.label} — ${tier.rationale} (récompense ×${tier.rewardMult})">
+  return `<div class="diff-tier-badge" style="background:${tier.color}1a;border-color:${tier.color};color:${tier.color}" title="${tier.label} — ${tier.rationale} (${_t('récompense', 'reward')} ×${tier.rewardMult})">
     ${tier.emoji}
   </div>`;
 }

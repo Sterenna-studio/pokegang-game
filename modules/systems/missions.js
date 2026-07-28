@@ -18,6 +18,7 @@ const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg
 const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
 const _topBar = ()               => EventBus.emit(EVENTS.UI_TOPBAR_UPDATE);
 const _save   = ()               => globalThis.saveState?.();
+const _t      = (fr, en)         => (globalThis.state?.lang === 'en' ? en : fr);
 
 // ── Tracking des stats par région ───────────────────────────────────────────
 // Lit ZONE_BY_ID (classic-script global) pour déduire la région de chaque capture/combat.
@@ -129,7 +130,7 @@ function checkHourlyQuestResetTick() {
   if (Date.now() - state.missions.hourly.reset < HOUR_MS) return;
   initHourlyQuests();
   refreshMissionsUiTick();
-  _notify('⏰ Nouvelles quêtes horaires disponibles !', 'gold');
+  _notify(_t('⏰ Nouvelles quêtes horaires disponibles !', '⏰ New hourly quests available!'), 'gold');
 }
 
 function initHourlyQuests() {
@@ -191,11 +192,12 @@ function claimHourlyQuest(idx) {
     EventBus.emit(EVENTS.REP_CHANGED, { delta: q.reward.rep, newTotal: state.gang.reputation });
     globalThis.checkForNewlyUnlockedZones(prev);
   }
-  const qName = state.lang === 'fr' ? q.fr : (q.en || q.fr);
+  const qName = state.lang === 'en' ? (q.en || q.fr) : q.fr;
   const repPart = q.reward.rep ? ` +${q.reward.rep} rep` : '';
-  _notify(state.lang === 'fr'
-    ? `✓ Quête : ${qName} — +${q.reward.money?.toLocaleString() || 0}₽${repPart}`
-    : `✓ Quest: ${qName} — +${q.reward.money?.toLocaleString() || 0}₽${repPart}`, 'gold');
+  _notify(_t(
+    `✓ Quête : ${qName} — +${q.reward.money?.toLocaleString() || 0}₽${repPart}`,
+    `✓ Quest: ${qName} — +${q.reward.money?.toLocaleString() || 0}₽${repPart}`,
+  ), 'gold');
   globalThis.SFX.play('coin');
   _save();
   _topBar();
@@ -205,9 +207,10 @@ function rerollHourlyQuest(idx) {
   const state = globalThis.state;
   const HOURLY_QUEST_REROLL_COST = globalThis.HOURLY_QUEST_REROLL_COST;
   if (state.gang.money < HOURLY_QUEST_REROLL_COST) {
-    _notify(state.lang === 'fr'
-      ? `Pokédollars insuffisants (${HOURLY_QUEST_REROLL_COST}₽ req)`
-      : `Not enough Pokédollars (${HOURLY_QUEST_REROLL_COST}₽ required)`);
+    _notify(_t(
+      `Pokédollars insuffisants (${HOURLY_QUEST_REROLL_COST}₽ requis)`,
+      `Not enough Pokédollars (${HOURLY_QUEST_REROLL_COST}₽ required)`,
+    ));
     return;
   }
   const h = state.missions.hourly;
@@ -220,7 +223,7 @@ function rerollHourlyQuest(idx) {
   const HOURLY_QUEST_POOL = globalThis.HOURLY_QUEST_POOL;
   const pool = HOURLY_QUEST_POOL.filter(q => q.diff === current.diff && q.id !== current.id && !h.slots.includes(q.id));
   if (pool.length === 0) {
-    _notify(state.lang === 'fr' ? 'Aucune quête disponible pour le reroll' : 'No quest available to reroll');
+    _notify(_t('Aucune quête disponible pour le reroll', 'No quest available to reroll'));
     state.gang.money += HOURLY_QUEST_REROLL_COST;
     EventBus.emit(EVENTS.MONEY_CHANGED, { delta: HOURLY_QUEST_REROLL_COST, newTotal: state.gang.money });
     _topBar();
@@ -231,8 +234,8 @@ function rerollHourlyQuest(idx) {
   if (h.baseline[newQ.stat] === undefined) h.baseline[newQ.stat] = getMissionStat(newQ.stat);
   _save();
   _topBar();
-  const newQName = state.lang === 'fr' ? newQ.fr : (newQ.en || newQ.fr);
-  _notify(state.lang === 'fr' ? `Reroll : ${newQName}` : `Reroll: ${newQName}`, 'success');
+  const newQName = state.lang === 'en' ? (newQ.en || newQ.fr) : newQ.fr;
+  _notify(_t(`Reroll : ${newQName}`, `Reroll: ${newQName}`), 'success');
 }
 
 function getMissionProgress(mission) {
@@ -279,8 +282,8 @@ function claimMission(mission) {
     const period = mission.type === 'daily' ? state.missions.daily : state.missions.weekly;
     period.claimed.push(mission.id);
   }
-  const name = state.lang === 'fr' ? mission.fr : mission.en;
-  _notify(`${mission.icon} ${name} — ${state.lang === 'fr' ? 'Récompense récupérée !' : 'Reward claimed!'}`, 'gold');
+  const name = state.lang === 'en' ? (mission.en || mission.fr) : mission.fr;
+  _notify(`${mission.icon} ${name} — ${_t('Récompense récupérée !', 'Reward claimed!')}`, 'gold');
   _save();
   _topBar();
 }
