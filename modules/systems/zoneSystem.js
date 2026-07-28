@@ -35,6 +35,7 @@ const _notify = (msg, type = '', category = null) => EventBus.emit(EVENTS.UI_NOT
 const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
 const _topBar = ()               => EventBus.emit(EVENTS.UI_TOPBAR_UPDATE);
 const _save   = ()               => globalThis.saveState?.();
+const _t      = (fr, en)         => (globalThis.state?.lang === 'en' ? en : fr);
 
 // État exclusif par zone : une seule activité à la fois
 // zoneActivity[zoneId] = { mode: 'idle' | 'event', eventId?, expiresAt? }
@@ -518,7 +519,7 @@ function rollChestLoot(zoneId, passive = false) {
     if (roll <= 0) { loot = l; break; }
   }
   const zone = ZONE_BY_ID[zoneId];
-  const name = state.lang === 'fr' ? loot.fr : loot.en;
+  const name = state.lang === 'en' ? (loot.en || loot.fr) : loot.fr;
   globalThis.addZoneXP?.(zoneId, 'chest'); // XP de zone v2
 
   switch (loot.type) {
@@ -590,7 +591,7 @@ function rollChestLoot(zoneId, passive = false) {
       if (eligible.length > 0 && zone) {
         const event = globalThis.pick(eligible);
         activateEvent(zoneId, event);
-        return { msg: `📦 ${state.lang === 'fr' ? event.fr : event.en}`, type: 'gold' };
+        return { msg: `📦 ${state.lang === 'en' ? (event.en || event.fr) : event.fr}`, type: 'gold' };
       }
       state.gang.money += 2000;
       EventBus.emit(EVENTS.MONEY_CHANGED, { delta: 2000, newTotal: state.gang.money });
@@ -607,7 +608,7 @@ function rollChestLoot(zoneId, passive = false) {
 function activateEvent(zoneId, event) {
   const state = globalThis.state;
   const reward = event.reward;
-  const label = state.lang === 'fr' ? event.fr : event.en;
+  const label = state.lang === 'en' ? (event.en || event.fr) : event.fr;
   state.stats.eventsCompleted++;
 
   // Collect all reward messages before notifying once
@@ -619,11 +620,11 @@ function activateEvent(zoneId, event) {
   }
   if (reward.chestBoost) {
     state.activeBoosts.chestBoost = Math.max(state.activeBoosts.chestBoost || 0, Date.now() + reward.chestBoost);
-    parts.push('📦 Coffres boostés');
+    parts.push(_t('📦 Coffres boostés', '📦 Boosted chests'));
   }
   if (reward.rareBoost) {
     state.activeBoosts.rarescope = Math.max(state.activeBoosts.rarescope || 0, Date.now() + reward.rareBoost);
-    parts.push('🔭 Rares boostés');
+    parts.push(_t('🔭 Rares boostés', '🔭 Boosted rare spawns'));
   }
   if (reward.money) {
     const amount = globalThis.randInt(reward.money[0], reward.money[1]);
@@ -658,7 +659,10 @@ function activateEvent(zoneId, event) {
         p.stats = globalThis.calculateStats(p);
         state.pokemons.push(p); _dirty();
         EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: p, zoneId });
-        parts.push(`${globalThis.speciesName(reward.pokemonGift)} rejoint le gang !`);
+        parts.push(_t(
+          `${globalThis.speciesName(reward.pokemonGift)} rejoint le gang !`,
+          `${globalThis.speciesName(reward.pokemonGift)} joined the gang!`,
+        ));
       }
     }
   }
@@ -670,7 +674,7 @@ function activateEvent(zoneId, event) {
       const shiny = Math.random() < EVENT_EGG_GIFT_SHINY_RATE;
       state.eggs.push({ id: globalThis.uid(), species_en, hatchAt: null, incubating: false, potential, shiny, gifted: true });
       globalThis.tryAutoIncubate();
-      parts.push('🥚 Un œuf mystérieux est apparu…');
+      parts.push(_t('🥚 Un œuf mystérieux est apparu…', '🥚 A mysterious egg appeared…'));
     }
   }
   if (reward.itemGift) {
@@ -694,7 +698,7 @@ function activateEvent(zoneId, event) {
       onde_distorsion:   '👁️ Onde Distorsion',
       cristal_lac:       '💙 Cristal du Lac',
     }[itemId] ?? itemId;
-    parts.push(`${itemLabel} récupéré !`);
+    parts.push(_t(`${itemLabel} récupéré !`, `${itemLabel} obtained!`));
   }
 
   // Single notification for the whole event
@@ -719,7 +723,7 @@ function investInZone(zoneId) {
   if (zState.invested) return false;
   const cost = zone.investCost || 0;
   if (state.gang.money < cost) {
-    _notify(state.lang === 'fr' ? 'Pas assez d\'argent !' : 'Not enough money!');
+    _notify(_t('Pas assez d\'argent !', 'Not enough money!'));
     globalThis.SFX.play('error');
     return false;
   }
@@ -732,9 +736,10 @@ function investInZone(zoneId) {
     }
   }
   if (zonePower < minPower && minPower > 0) {
-    _notify(state.lang === 'fr'
-      ? `Puissance insuffisante ! (${zonePower}/${minPower}) Assignez des agents avec des Pokémon.`
-      : `Not enough power! (${zonePower}/${minPower}) Assign agents with Pokémon.`);
+    _notify(_t(
+      `Puissance insuffisante ! (${zonePower}/${minPower}) Assignez des agents avec des Pokémon.`,
+      `Not enough power! (${zonePower}/${minPower}) Assign agents with Pokémon.`,
+    ));
     globalThis.SFX.play('error');
     return false;
   }
@@ -744,9 +749,10 @@ function investInZone(zoneId) {
   zState.unlocked = true;  // persistent: zone stays accessible even if rep drops later
   zState.invested = true;
   zState.investPower = zonePower;
-  _notify(state.lang === 'fr'
-    ? `🏴 Zone investie ! Événements & élites débloqués.`
-    : `🏴 Zone invested! Events & elites unlocked.`, 'gold');
+  _notify(_t(
+    '🏴 Zone investie ! Événements & élites débloqués.',
+    '🏴 Zone invested! Events & elites unlocked.',
+  ), 'gold');
   _save();
   return true;
 }
@@ -1094,8 +1100,8 @@ function _processZoneUnlockQueue() {
   const nameEl = document.getElementById('zoneUnlockName');
   const repEl  = document.getElementById('zoneUnlockRep');
   if (!popup || !nameEl) return;
-  nameEl.textContent = state.lang === 'fr' ? zone.fr : zone.en;
-  if (repEl) repEl.textContent = `Réputation requise : ${zone.rep}`;
+  nameEl.textContent = state.lang === 'en' ? (zone.en || zone.fr) : zone.fr;
+  if (repEl) repEl.textContent = _t(`Réputation requise : ${zone.rep}`, `Required reputation: ${zone.rep}`);
   popup._zoneId = zone.id;
   popup.classList.add('show');
 }
@@ -1108,11 +1114,11 @@ function triggerGymRaid(zoneId, isAuto) {
   const zs = initZone(zoneId);
   const raidCooldownMs = 5 * 60 * 1000;
   if (Date.now() - (zs.gymRaidLastFight || 0) < raidCooldownMs) {
-    if (!isAuto) _notify('⏳ Raid d\'arène en cooldown !', 'error');
+    if (!isAuto) _notify(_t('⏳ Raid d\'arène en cooldown !', '⏳ Gym raid is on cooldown!'), 'error');
     return false;
   }
   if ((zs.combatsWon || 0) < 10) {
-    if (!isAuto) _notify('⚔ Remportez 10 combats d\'abord !', 'error');
+    if (!isAuto) _notify(_t('⚔ Remportez 10 combats d\'abord !', '⚔ Win 10 battles first!'), 'error');
     return false;
   }
   // Auto requires at least 1 manual win
@@ -1174,12 +1180,14 @@ function triggerGymRaid(zoneId, isAuto) {
       state.stats.totalFightsWon++;
       zs.combatsWon = (zs.combatsWon || 0) + 1;
       zs.gymDefeated = true;
-      _notify(`🏆 RAID AUTO — ${zone.fr} vaincu ! +${reward}₽`, 'gold');
-      globalThis.addBattleLogEntry({ ts: Date.now(), zoneName: `[RAID] ${zone.fr}`, win: true,
-        reward, repGain: raidTrainer.rep, lines: [`Raid auto réussi contre ${trainerKey}`], trainerKey, isAgent: true });
+      const zoneName = state.lang === 'en' ? (zone.en || zone.fr) : zone.fr;
+      _notify(_t(`🏆 RAID AUTO — ${zoneName} vaincu ! +${reward}₽`, `🏆 AUTO RAID — ${zoneName} defeated! +${reward}₽`), 'gold');
+      globalThis.addBattleLogEntry({ ts: Date.now(), zoneName: `[RAID] ${zoneName}`, win: true,
+        reward, repGain: raidTrainer.rep, lines: [_t(`Raid auto réussi contre ${trainerKey}`, `Auto raid won against ${trainerKey}`)], trainerKey, isAgent: true });
     } else {
       state.stats.totalFights++;
-      _notify(`❌ Raid auto échoué — ${zone.fr}`, 'error');
+      const zoneName = state.lang === 'en' ? (zone.en || zone.fr) : zone.fr;
+      _notify(_t(`❌ Raid auto échoué — ${zoneName}`, `❌ Auto raid failed — ${zoneName}`), 'error');
     }
     _save();
     _topBar();
