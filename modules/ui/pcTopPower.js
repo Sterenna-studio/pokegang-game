@@ -1,35 +1,27 @@
 // ════════════════════════════════════════════════════════════════
 //  PC TOP POWER — Leaderboard des Pokémon par puissance Lv.100
-//
-//  Affiche un classement triable des Pokémon du joueur selon leur
-//  puissance MAXIMALE (au Lv.100), pour faciliter l'optimisation
-//  d'équipe et identifier les Pokémon sous-exploités.
-//
-//  Activé via le switcher PC : bouton [TOP].
-//
-//  Dépendances globalThis :
-//    state, pokeSprite, speciesName, switchTab, openAssignToPicker
 // ════════════════════════════════════════════════════════════════
 
 import { getLv100Data, getPokemonLocation, getProgressionRatio } from '../systems/pokemonRating.js';
 import { esc as _esc } from '../core/escape.js';
 
+const _t = (...a) => globalThis.t?.(...a) ?? a[0];
+
 // ── État local de la vue ──────────────────────────────────────────
 let _topState = {
-  sortBy:  'lv100PC',  // 'lv100PC' | 'currentPC' | 'grade' | 'level' | 'progress' | 'name'
-  sortDir: 'desc',     // 'asc' | 'desc'
-  filter:  'all',      // 'all' | 'team' | 'free' | 'underused' | 'shiny'
-  limit:   50,         // top N affichés
+  sortBy:  'lv100PC',
+  sortDir: 'desc',
+  filter:  'all',
+  limit:   50,
 };
 
-// ── API publique ──────────────────────────────────────────────────
+// ── API publique ────────────────────────────────────────────────
 
 export function renderTopPowerView(container) {
   if (!container) return;
   const state = globalThis.state;
   const pokemons = state?.pokemons || [];
 
-  // 1. Calcul des projections Lv.100 pour tous les Pokémon
   const rows = pokemons.map(p => {
     const rating  = getLv100Data(p);
     const loc     = getPokemonLocation(p, state);
@@ -38,54 +30,48 @@ export function renderTopPowerView(container) {
     return { p, rating, loc, currPC, progress };
   });
 
-  // 2. Filtrage
   let filtered = rows;
   if (_topState.filter === 'team')       filtered = rows.filter(r => r.loc.slot === 'team');
   else if (_topState.filter === 'free')  filtered = rows.filter(r => r.loc.slot === 'free');
   else if (_topState.filter === 'underused') filtered = rows.filter(r => r.loc.slot === 'free' && r.rating.grade.startsWith('A') || r.rating.grade === 'S');
   else if (_topState.filter === 'shiny') filtered = rows.filter(r => r.p.shiny);
 
-  // 3. Tri
   const sortKey = _topState.sortBy;
   const dir = _topState.sortDir === 'asc' ? 1 : -1;
   filtered.sort((a, b) => {
     let av, bv;
     switch (sortKey) {
-      case 'lv100PC':  av = a.rating.lv100PC; bv = b.rating.lv100PC; break;
+      case 'lv100PC':   av = a.rating.lv100PC; bv = b.rating.lv100PC; break;
       case 'currentPC': av = a.currPC; bv = b.currPC; break;
-      case 'grade':    av = a.rating.gradePct; bv = b.rating.gradePct; break;
-      case 'level':    av = a.p.level; bv = b.p.level; break;
-      case 'progress': av = a.progress; bv = b.progress; break;
-      case 'name':     av = globalThis.speciesName(a.p.species_en); bv = globalThis.speciesName(b.p.species_en);
-                       return av.localeCompare(bv) * dir;
-      default:         av = a.rating.lv100PC; bv = b.rating.lv100PC;
+      case 'grade':     av = a.rating.gradePct; bv = b.rating.gradePct; break;
+      case 'level':     av = a.p.level; bv = b.p.level; break;
+      case 'progress':  av = a.progress; bv = b.progress; break;
+      case 'name':      av = globalThis.speciesName(a.p.species_en); bv = globalThis.speciesName(b.p.species_en);
+                        return av.localeCompare(bv) * dir;
+      default:          av = a.rating.lv100PC; bv = b.rating.lv100PC;
     }
     return (av - bv) * dir;
   });
 
-  // 4. Limit
-  const displayed = filtered.slice(0, _topState.limit);
+  const displayed  = filtered.slice(0, _topState.limit);
   const totalCount = pokemons.length;
+  const teamCount  = rows.filter(r => r.loc.slot === 'team').length;
+  const grades     = rows.reduce((acc, r) => { acc[r.rating.grade] = (acc[r.rating.grade] || 0) + 1; return acc; }, {});
+  const avgLv100PC = rows.length ? Math.round(rows.reduce((s, r) => s + r.rating.lv100PC, 0) / rows.length) : 0;
+  const maxLv100PC = rows.length ? Math.max(...rows.map(r => r.rating.lv100PC)) : 0;
 
-  // 5. Stats globales
-  const teamCount     = rows.filter(r => r.loc.slot === 'team').length;
-  const grades        = rows.reduce((acc, r) => { acc[r.rating.grade] = (acc[r.rating.grade] || 0) + 1; return acc; }, {});
-  const avgLv100PC    = rows.length ? Math.round(rows.reduce((s, r) => s + r.rating.lv100PC, 0) / rows.length) : 0;
-  const maxLv100PC    = rows.length ? Math.max(...rows.map(r => r.rating.lv100PC)) : 0;
-
-  // ── Render ──────────────────────────────────────────────────────
   container.innerHTML = `
     <div class="top-power-view">
       <div class="top-power-header">
         <div class="top-power-title">
-          🏆 <strong>TOP PUISSANCE</strong>
-          <span class="top-power-subtitle">Classement par PC max au niveau 100</span>
+          <strong>${_t('pc_top_title')}</strong>
+          <span class="top-power-subtitle">${_t('pc_top_subtitle')}</span>
         </div>
         <div class="top-power-stats">
           <span class="tp-stat"><strong>${totalCount}</strong> Pokémon</span>
-          <span class="tp-stat">Équipe : <strong>${teamCount}</strong></span>
-          <span class="tp-stat">Moy. Lv.100 : <strong>${avgLv100PC.toLocaleString()}</strong> PC</span>
-          <span class="tp-stat" style="color:var(--gold)">Max : <strong>${maxLv100PC.toLocaleString()}</strong> PC</span>
+          <span class="tp-stat">${_t('pc_top_team_count', { n: teamCount })}</span>
+          <span class="tp-stat">${_t('pc_top_avg_pc', { n: avgLv100PC.toLocaleString() })}</span>
+          <span class="tp-stat" style="color:var(--gold)">${_t('pc_top_max_pc', { n: maxLv100PC.toLocaleString() })}</span>
         </div>
       </div>
 
@@ -100,19 +86,19 @@ export function renderTopPowerView(container) {
       <div class="top-power-filters">
         <div class="tp-filter-group">
           ${[
-            ['all',       'Tous'],
-            ['team',      '⚔ En équipe'],
-            ['free',      '🆓 Libres'],
-            ['underused', '⚠️ Sous-exploités (A+ libres)'],
-            ['shiny',     '✨ Shiny'],
+            ['all',       _t('pc_top_filter_all')],
+            ['team',      _t('pc_top_filter_team')],
+            ['free',      _t('pc_top_filter_free')],
+            ['underused', _t('pc_top_filter_underused')],
+            ['shiny',     _t('pc_top_filter_shiny')],
           ].map(([key, label]) => `
             <button class="tp-filter-btn ${_topState.filter === key ? 'active' : ''}" data-filter="${key}">${label}</button>
           `).join('')}
         </div>
         <div class="tp-limit-group">
-          <span class="tp-limit-label">Afficher :</span>
+          <span class="tp-limit-label">${_t('pc_top_show')}</span>
           ${[25, 50, 100, 999].map(n => `
-            <button class="tp-limit-btn ${_topState.limit === n ? 'active' : ''}" data-limit="${n}">${n === 999 ? 'TOUS' : n}</button>
+            <button class="tp-limit-btn ${_topState.limit === n ? 'active' : ''}" data-limit="${n}">${n === 999 ? _t('pc_top_all') : n}</button>
           `).join('')}
         </div>
       </div>
@@ -123,15 +109,15 @@ export function renderTopPowerView(container) {
             <tr>
               <th class="tp-col-rank">#</th>
               <th class="tp-col-sprite"></th>
-              <th class="tp-col-name tp-sortable" data-sort="name">Nom ${_sortIcon('name')}</th>
-              <th class="tp-col-grade tp-sortable" data-sort="grade">Grade ${_sortIcon('grade')}</th>
-              <th class="tp-col-role">Rôle</th>
-              <th class="tp-col-pc tp-sortable" data-sort="lv100PC">PC Lv.100 ${_sortIcon('lv100PC')}</th>
-              <th class="tp-col-pc tp-sortable" data-sort="currentPC">PC actuel ${_sortIcon('currentPC')}</th>
-              <th class="tp-col-progress tp-sortable" data-sort="progress">Progression ${_sortIcon('progress')}</th>
-              <th class="tp-col-stats">Stats Lv.100</th>
-              <th class="tp-col-meta tp-sortable" data-sort="level">Niveau ${_sortIcon('level')}</th>
-              <th class="tp-col-loc">Affectation</th>
+              <th class="tp-col-name tp-sortable" data-sort="name">${_t('pc_top_col_name')} ${_sortIcon('name')}</th>
+              <th class="tp-col-grade tp-sortable" data-sort="grade">${_t('pc_top_col_grade')} ${_sortIcon('grade')}</th>
+              <th class="tp-col-role">${_t('pc_top_col_role')}</th>
+              <th class="tp-col-pc tp-sortable" data-sort="lv100PC">${_t('pc_top_col_pc_lv100')} ${_sortIcon('lv100PC')}</th>
+              <th class="tp-col-pc tp-sortable" data-sort="currentPC">${_t('pc_top_col_pc_current')} ${_sortIcon('currentPC')}</th>
+              <th class="tp-col-progress tp-sortable" data-sort="progress">${_t('pc_top_col_progress')} ${_sortIcon('progress')}</th>
+              <th class="tp-col-stats">${_t('pc_top_col_stats')}</th>
+              <th class="tp-col-meta tp-sortable" data-sort="level">${_t('pc_top_col_level')} ${_sortIcon('level')}</th>
+              <th class="tp-col-loc">${_t('pc_top_col_assign')}</th>
               <th class="tp-col-actions"></th>
             </tr>
           </thead>
@@ -140,15 +126,14 @@ export function renderTopPowerView(container) {
           </tbody>
         </table>
         ${displayed.length === 0 ? `
-          <div class="tp-empty">Aucun Pokémon ne correspond au filtre actuel.</div>
+          <div class="tp-empty">${_t('pc_top_empty')}</div>
         ` : ''}
         ${filtered.length > _topState.limit ? `
-          <div class="tp-overflow">… ${filtered.length - _topState.limit} Pokémon supplémentaires masqués. Augmente la limite ci-dessus.</div>
+          <div class="tp-overflow">${_t('pc_top_overflow', { n: filtered.length - _topState.limit })}</div>
         ` : ''}
       </div>
     </div>`;
 
-  // ── Listeners ───────────────────────────────────────────────────
   container.querySelectorAll('.tp-filter-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       _topState.filter = btn.dataset.filter;
@@ -185,7 +170,6 @@ export function renderTopPowerView(container) {
       const id = row.dataset.pid;
       const pk = (globalThis.state.pokemons || []).find(p => p.id === id);
       if (!pk) return;
-      // Sélectionner le pokémon dans le PC + basculer vers la vue grille pour voir la fiche détail
       globalThis._pcSetSelectedIds?.([id]);
       globalThis.setPcView?.('grid');
       globalThis.renderPCTab?.();
@@ -193,7 +177,7 @@ export function renderTopPowerView(container) {
   });
 }
 
-// ── Helpers de rendu ──────────────────────────────────────────────
+// ── Helpers de rendu ────────────────────────────────────────────
 
 function _sortIcon(key) {
   if (_topState.sortBy !== key) return '<span class="tp-sort-icon-dim">⇅</span>';
@@ -249,7 +233,7 @@ function _renderRow(r, idx) {
       <td class="tp-col-stats">
         <span class="tp-stat-atk">ATK ${rating.s100.atk}</span>
         <span class="tp-stat-def">DEF ${rating.s100.def}</span>
-        <span class="tp-stat-spd">VIT ${rating.s100.spd}</span>
+        <span class="tp-stat-spd">${_t('pc_top_stat_spd')} ${rating.s100.spd}</span>
       </td>
       <td class="tp-col-meta">
         <span class="${isMax ? 'tp-level-max' : 'tp-level'}">Lv.${p.level}</span>
@@ -260,7 +244,7 @@ function _renderRow(r, idx) {
         <span class="tp-loc" style="color:${loc.color}">${loc.label}</span>
       </td>
       <td class="tp-col-actions">
-        <button class="tp-row-assign" data-pid="${p.id}" title="Assigner">→</button>
+        <button class="tp-row-assign" data-pid="${p.id}" title="${_t('pc_top_assign_title')}'">→</button>
       </td>
     </tr>`;
 }
