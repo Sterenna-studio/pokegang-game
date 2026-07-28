@@ -1,15 +1,14 @@
 ﻿'use strict';
 
 import { BOSS_TEAM_SLOTS } from '../../data/game-config-data.js';
-
 import { EventBus, EVENTS } from '../core/eventBus.js';
 import { esc as _esc } from '../core/escape.js';
 
-const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
+const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type });
 const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
 const _topBar = ()               => EventBus.emit(EVENTS.UI_TOPBAR_UPDATE);
 const _save   = ()               => globalThis.saveState?.();
-
+const _t = (fr, en) => (globalThis.state?.lang === 'en' ? en : fr);
 
 // deps (globalThis): state, notify, saveState, updateTopBar, switchTab, showConfirm, SFX,
 //   pokeSprite, pokeIcon, trainerSprite, pokemonDisplayName,
@@ -17,20 +16,10 @@ const _save   = ()               => globalThis.saveState?.();
 //   getDexKantoCaught, getDexNationalCaught, KANTO_DEX_SIZE, NATIONAL_DEX_SIZE,
 //   GAME_VERSION, openBossEditModal, openTeamPickerModal,
 //   openNameModal, openSpritePicker, _gbase_openExportModal
-//
-// La musique, l'apparence (fonds/pins/skins) et la vitrine ont été extraites
-// vers la page séparée gang/ (pokegang.sterenna.fr/gang/) — voir
-// gang/panels.js et gang/environment.js. Ce fichier ne garde que la partie
-// non-cosmétique de l'onglet Gang (stats, services, équipe boss, titre).
 
 const _gangCollapsed = { services: false, stats: false };
 let _statsViewMode = 'session';
 
-// ── Render guard — évite les rechargements intempestifs du tab Gang ──
-// _gangTabLocked        : posé par les pickers/modals ouverts sur ce tab
-// _gangTabTimer         : debounce 80 ms pour regrouper les appels rapides successifs
-// _gangTabPendingRender : render différé (lock actif ou focus dans le tab)
-// _gangFocusOutWired    : listener focusout déjà posé (évite les doublons)
 let _gangTabLocked        = false;
 let _gangTabTimer         = null;
 let _gangTabPendingRender = false;
@@ -42,19 +31,17 @@ export function unlockGangTab() {
   if (_gangTabPendingRender) { _gangTabPendingRender = false; renderGangTab(); }
 }
 
-// Pose un listener focusout unique sur le tab pour déclencher le render différé
-// dès que l'utilisateur quitte l'input actif.
 function _ensureGangFocusOutHandler(tab) {
   if (_gangFocusOutWired) return;
   _gangFocusOutWired = true;
   tab.addEventListener('focusout', function onFocusOut(e) {
-    // Ignorer si le focus reste dans le tab (ex: passer d'un range à un bouton)
     if (tab.contains(e.relatedTarget)) return;
     _gangFocusOutWired = false;
     tab.removeEventListener('focusout', onFocusOut);
     if (_gangTabPendingRender) { _gangTabPendingRender = false; renderGangTab(); }
   });
 }
+
 // ── Services HTML builder ─────────────────────────────────────────────────────
 function _buildServicesHtml(state) {
   const parts = [];
@@ -65,14 +52,14 @@ function _buildServicesHtml(state) {
   parts.push(`<div style="background:var(--bg);border:1px solid ${ownAC ? (enAC ? 'var(--green)' : 'var(--border)') : 'var(--border)'};border-radius:var(--radius-sm);padding:10px;display:flex;gap:10px;align-items:flex-start">
     <div style="font-size:22px;flex-shrink:0;${ownAC && !enAC ? 'opacity:.4;filter:grayscale(1)' : ''}">🪙</div>
     <div style="flex:1">
-      <div style="font-family:var(--font-pixel);font-size:8px;color:${ownAC ? (enAC ? 'var(--green)' : 'var(--text-dim)') : 'var(--text)'};margin-bottom:3px">Récolte automatique</div>
-      <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">Collecte les revenus de zone sans animation. Combat calculé en arrière-plan.</div>
+      <div style="font-family:var(--font-pixel);font-size:8px;color:${ownAC ? (enAC ? 'var(--green)' : 'var(--text-dim)') : 'var(--text)'};margin-bottom:3px">${_t('Récolte automatique', 'Auto collect')}</div>
+      <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">${_t('Collecte les revenus de zone sans animation. Combat calculé en arrière-plan.', 'Collects zone earnings without animation. Battle computed in background.')}</div>
       ${ownAC
         ? `<div style="display:flex;align-items:center;gap:8px">
-             <span style="font-family:var(--font-pixel);font-size:7px;color:${enAC ? 'var(--green)' : 'var(--text-dim)'}">${enAC ? '✓ ACTIVE' : '✗ INACTIVE'}</span>
-             <button id="btnToggleAutoCollect" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid ${enAC ? 'var(--red)' : 'var(--green)'};border-radius:var(--radius-sm);color:${enAC ? 'var(--red)' : 'var(--green)'};cursor:pointer">${enAC ? 'Désactiver' : 'Activer'}</button>
+             <span style="font-family:var(--font-pixel);font-size:7px;color:${enAC ? 'var(--green)' : 'var(--text-dim)'}">${enAC ? _t('✓ ACTIVE', '✓ ACTIVE') : _t('✗ INACTIVE', '✗ INACTIVE')}</span>
+             <button id="btnToggleAutoCollect" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid ${enAC ? 'var(--red)' : 'var(--green)'};border-radius:var(--radius-sm);color:${enAC ? 'var(--red)' : 'var(--green)'};cursor:pointer">${enAC ? _t('Désactiver', 'Disable') : _t('Activer', 'Enable')}</button>
            </div>`
-        : `<button id="btnBuyAutoCollect" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">Acheter — 100 000₽</button>`}
+        : `<button id="btnBuyAutoCollect" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">${_t('Acheter — 100 000₽', 'Buy — 100,000₽')}</button>`}
     </div>
   </div>`);
 
@@ -82,21 +69,21 @@ function _buildServicesHtml(state) {
   parts.push(`<div style="background:var(--bg);border:1px solid ${ownAS ? (enAS ? 'var(--green)' : 'var(--border)') : 'var(--border)'};border-radius:var(--radius-sm);padding:10px;display:flex;gap:10px;align-items:flex-start">
     <div style="font-size:22px;flex-shrink:0;${ownAS && !enAS ? 'opacity:.4;filter:grayscale(1)' : ''}">🤖</div>
     <div style="flex:1">
-      <div style="font-family:var(--font-pixel);font-size:8px;color:${ownAS ? (enAS ? 'var(--green)' : 'var(--text-dim)') : 'var(--text)'};margin-bottom:3px">Vente automatique (captures agent)</div>
-      <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">Vend automatiquement les Pokémon capturés par les agents. Shinies toujours protégés.</div>
+      <div style="font-family:var(--font-pixel);font-size:8px;color:${ownAS ? (enAS ? 'var(--green)' : 'var(--text-dim)') : 'var(--text)'};margin-bottom:3px">${_t('Vente automatique (captures agent)', 'Auto-sell (agent catches)')}</div>
+      <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">${_t('Vend automatiquement les Pokémon capturés par les agents. Shinies toujours protégés.', 'Automatically sells Pokémon caught by agents. Shinies are always protected.')}</div>
       ${ownAS
         ? `<div style="display:flex;flex-direction:column;gap:6px">
              <div style="display:flex;align-items:center;gap:8px">
-               <span style="font-family:var(--font-pixel);font-size:7px;color:${enAS ? 'var(--green)' : 'var(--text-dim)'}">${enAS ? '✓ ACTIVE' : '✗ INACTIVE'}</span>
-               <button id="btnToggleAutoSellAgent" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid ${enAS ? 'var(--red)' : 'var(--green)'};border-radius:var(--radius-sm);color:${enAS ? 'var(--red)' : 'var(--green)'};cursor:pointer">${enAS ? 'Désactiver' : 'Activer'}</button>
+               <span style="font-family:var(--font-pixel);font-size:7px;color:${enAS ? 'var(--green)' : 'var(--text-dim)'}">${enAS ? _t('✓ ACTIVE', '✓ ACTIVE') : _t('✗ INACTIVE', '✗ INACTIVE')}</span>
+               <button id="btnToggleAutoSellAgent" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid ${enAS ? 'var(--red)' : 'var(--green)'};border-radius:var(--radius-sm);color:${enAS ? 'var(--red)' : 'var(--green)'};cursor:pointer">${enAS ? _t('Désactiver', 'Disable') : _t('Activer', 'Enable')}</button>
              </div>
              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-               <label style="display:flex;align-items:center;gap:4px;font-size:8px;cursor:pointer"><input type="radio" name="autoSellMode" value="all" ${(state.settings.autoSellAgent?.mode || 'all') === 'all' ? 'checked' : ''}> Tout vendre</label>
-               <label style="display:flex;align-items:center;gap:4px;font-size:8px;cursor:pointer"><input type="radio" name="autoSellMode" value="by_potential" ${state.settings.autoSellAgent?.mode === 'by_potential' ? 'checked' : ''}> Par potentiel</label>
+               <label style="display:flex;align-items:center;gap:4px;font-size:8px;cursor:pointer"><input type="radio" name="autoSellMode" value="all" ${(state.settings.autoSellAgent?.mode || 'all') === 'all' ? 'checked' : ''}> ${_t('Tout vendre', 'Sell all')}</label>
+               <label style="display:flex;align-items:center;gap:4px;font-size:8px;cursor:pointer"><input type="radio" name="autoSellMode" value="by_potential" ${state.settings.autoSellAgent?.mode === 'by_potential' ? 'checked' : ''}> ${_t('Par potentiel', 'By potential')}</label>
              </div>
              ${state.settings.autoSellAgent?.mode === 'by_potential' ? `<div style="display:flex;gap:6px;flex-wrap:wrap">${[1,2,3,4,5].map(p => `<label style="display:flex;align-items:center;gap:3px;font-size:8px;cursor:pointer"><input type="checkbox" class="autoSellPot" value="${p}" ${(state.settings.autoSellAgent?.potentials || []).includes(p) ? 'checked' : ''}> ${'★'.repeat(p)}</label>`).join('')}</div>` : ''}
            </div>`
-        : `<button id="btnBuyAutoSellAgent" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">Acheter — 10 000 000₽</button>`}
+        : `<button id="btnBuyAutoSellAgent" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">${_t('Acheter — 10 000 000₽', 'Buy — 10,000,000₽')}</button>`}
     </div>
   </div>`);
 
@@ -106,14 +93,14 @@ function _buildServicesHtml(state) {
   parts.push(`<div style="background:var(--bg);border:1px solid ${ownN ? (enN ? 'var(--green)' : 'var(--border)') : 'var(--border)'};border-radius:var(--radius-sm);padding:10px;display:flex;gap:10px;align-items:flex-start">
     <img src="${globalThis.trainerSprite('nurse')}" style="width:36px;height:36px;image-rendering:pixelated;flex-shrink:0;${ownN && !enN ? 'opacity:.4;filter:grayscale(1)' : ''}" onerror="this.style.display='none'">
     <div style="flex:1">
-      <div style="font-family:var(--font-pixel);font-size:8px;color:${ownN ? (enN ? 'var(--green)' : 'var(--text-dim)') : 'var(--text)'};margin-bottom:3px">Infirmière Joëlle corrompue</div>
-      <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">Auto-incube les œufs dès qu'un incubateur est libre.</div>
+      <div style="font-family:var(--font-pixel);font-size:8px;color:${ownN ? (enN ? 'var(--green)' : 'var(--text-dim)') : 'var(--text)'};margin-bottom:3px">${_t('Infirmière Joëlle corrompue', 'Corrupted Nurse Joy')}</div>
+      <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">${_t('Auto-incube les œufs dès qu'un incubateur est libre.', 'Auto-incubates eggs as soon as an incubator is free.')}</div>
       ${ownN
         ? `<div style="display:flex;align-items:center;gap:8px">
-             <span style="font-family:var(--font-pixel);font-size:7px;color:${enN ? 'var(--green)' : 'var(--text-dim)'}">${enN ? '✓ EN POSTE' : '✗ CONGÉ'}</span>
-             <button id="btnToggleNurse" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid ${enN ? 'var(--red)' : 'var(--green)'};border-radius:var(--radius-sm);color:${enN ? 'var(--red)' : 'var(--green)'};cursor:pointer">${enN ? 'Mettre en congé' : 'Rappeler'}</button>
+             <span style="font-family:var(--font-pixel);font-size:7px;color:${enN ? 'var(--green)' : 'var(--text-dim)'}">${enN ? _t('✓ EN POSTE', '✓ ON DUTY') : _t('✗ CONGÉ', '✗ OFF DUTY')}</span>
+             <button id="btnToggleNurse" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid ${enN ? 'var(--red)' : 'var(--green)'};border-radius:var(--radius-sm);color:${enN ? 'var(--red)' : 'var(--green)'};cursor:pointer">${enN ? _t('Mettre en congé', 'Send on leave') : _t('Rappeler', 'Recall')}</button>
            </div>`
-        : `<button id="btnBuyNurse" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">Embaucher — 300 000₽</button>`}
+        : `<button id="btnBuyNurse" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">${_t('Embaucher — 300 000₽', 'Hire — 300,000₽')}</button>`}
     </div>
   </div>`);
 
@@ -123,39 +110,50 @@ function _buildServicesHtml(state) {
   parts.push(`<div style="background:var(--bg);border:1px solid ${ownSc ? (enSc ? 'var(--green)' : 'var(--border)') : 'var(--border)'};border-radius:var(--radius-sm);padding:10px;display:flex;gap:10px;align-items:flex-start">
     <img src="${globalThis.trainerSprite('scientist')}" style="width:36px;height:36px;image-rendering:pixelated;flex-shrink:0;${ownSc && !enSc ? 'opacity:.4;filter:grayscale(1)' : ''}" onerror="this.style.display='none'">
     <div style="flex:1">
-      <div style="font-family:var(--font-pixel);font-size:8px;color:${ownSc ? (enSc ? 'var(--green)' : 'var(--text-dim)') : 'var(--text)'};margin-bottom:3px">Scientifique peu scrupuleux</div>
-      <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">Révèle l'espèce des œufs (10k₽) · Mutation artificielle : sacrifice ★★★★★ même espèce pour potentiel max.</div>
+      <div style="font-family:var(--font-pixel);font-size:8px;color:${ownSc ? (enSc ? 'var(--green)' : 'var(--text-dim)') : 'var(--text)'};margin-bottom:3px">${_t('Scientifique peu scrupuleux', 'Unscrupulous Scientist')}</div>
+      <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">${_t('Révèle l'espèce des œufs (10k₽) · Mutation artificielle : sacrifice ★★★★★ même espèce pour potentiel max.', 'Reveals egg species (10k₽) · Artificial mutation: sacrifice ★★★★★ same species for max potential.')}</div>
       ${ownSc
         ? `<div style="display:flex;align-items:center;gap:8px">
-             <span style="font-family:var(--font-pixel);font-size:7px;color:${enSc ? 'var(--green)' : 'var(--text-dim)'}">${enSc ? '✓ EN POSTE' : '✗ RENVOYÉ'}</span>
-             <button id="btnToggleScientist" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid ${enSc ? 'var(--red)' : 'var(--green)'};border-radius:var(--radius-sm);color:${enSc ? 'var(--red)' : 'var(--green)'};cursor:pointer">${enSc ? 'Renvoyer' : 'Rappeler'}</button>
+             <span style="font-family:var(--font-pixel);font-size:7px;color:${enSc ? 'var(--green)' : 'var(--text-dim)'}">${enSc ? _t('✓ EN POSTE', '✓ ON DUTY') : _t('✗ RENVOYÉ', '✗ DISMISSED')}</span>
+             <button id="btnToggleScientist" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid ${enSc ? 'var(--red)' : 'var(--green)'};border-radius:var(--radius-sm);color:${enSc ? 'var(--red)' : 'var(--green)'};cursor:pointer">${enSc ? _t('Renvoyer', 'Dismiss') : _t('Rappeler', 'Recall')}</button>
            </div>`
-        : `<button id="btnBuyScientist" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">Engager — 15 000₽</button>`}
+        : `<button id="btnBuyScientist" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">${_t('Engager — 15 000₽', 'Hire — 15,000₽')}</button>`}
     </div>
   </div>`);
 
   // Special purchases
   const SPECIALS = [
-    { id:'title_richissime',     icon:'💰', label:'Titre "Richissime"',        desc:'Débloque le titre légendaire. Ostentation maximale.',  cost:5_000_000,
+    { id:'title_richissime',      icon:'💰',
+      labelFr:'Titre "Richissime"',         labelEn:'Title "Filthy Rich"',
+      descFr:'Débloque le titre légendaire. Ostentation maximale.',  descEn:'Unlocks the legendary title. Maximum ostentation.',
+      cost:5_000_000,
       owned: () => !!state.purchases.title_richissime || (state.unlockedTitles||[]).includes('richissime') },
-    { id:'title_doublerichissim', icon:'💎', label:'Titre "Double Richissime"', desc:'Débloque le titre ultime. Noblesse oblige.',           cost:10_000_000,
+    { id:'title_doublerichissim', icon:'💎',
+      labelFr:'Titre "Double Richissime"',  labelEn:'Title "Double Filthy Rich"',
+      descFr:'Débloque le titre ultime. Noblesse oblige.',           descEn:'Unlocks the ultimate title. Noblesse oblige.',
+      cost:10_000_000,
       owned: () => !!state.purchases.title_doublerichissim || (state.unlockedTitles||[]).includes('doublerichissim') },
-    { id:'chromaCharm',           icon:'✨', label:'Charme Chroma',             desc:'Double le taux de Pokémon chromatiques. Permanent.',   cost:5_000_000,
+    { id:'chromaCharm',           icon:'✨',
+      labelFr:'Charme Chroma',              labelEn:'Shiny Charm',
+      descFr:'Double le taux de Pokémon chromatiques. Permanent.',   descEn:'Doubles the shiny Pokémon rate. Permanent.',
+      cost:5_000_000,
       owned: () => !!state.purchases.chromaCharm },
   ];
   parts.push(`<div>
-    <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold-dim);margin:4px 0 6px;letter-spacing:1px">🛒 ACHATS SPÉCIAUX</div>
+    <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold-dim);margin:4px 0 6px;letter-spacing:1px">🛒 ${_t('ACHATS SPÉCIAUX', 'SPECIAL PURCHASES')}</div>
     <div style="display:flex;flex-direction:column;gap:6px">
       ${SPECIALS.map(sp => {
-        const own = sp.owned();
+        const own   = sp.owned();
+        const label = _t(sp.labelFr, sp.labelEn);
+        const desc  = _t(sp.descFr,  sp.descEn);
         return `<div style="background:var(--bg);border:1px solid ${own ? 'var(--green)' : 'var(--border)'};border-radius:var(--radius-sm);padding:8px;display:flex;gap:10px;align-items:center">
           <div style="font-size:20px;flex-shrink:0">${sp.icon}</div>
           <div style="flex:1">
-            <div style="font-family:var(--font-pixel);font-size:8px;color:${own ? 'var(--green)' : 'var(--text)'};margin-bottom:2px">${sp.label}</div>
-            <div style="font-size:7px;color:var(--text-dim)">${sp.desc}</div>
+            <div style="font-family:var(--font-pixel);font-size:8px;color:${own ? 'var(--green)' : 'var(--text)'};margin-bottom:2px">${label}</div>
+            <div style="font-size:7px;color:var(--text-dim)">${desc}</div>
           </div>
           ${own
-            ? `<div style="font-family:var(--font-pixel);font-size:7px;color:var(--green);white-space:nowrap">✓ ACTIF</div>`
+            ? `<div style="font-family:var(--font-pixel);font-size:7px;color:var(--green);white-space:nowrap">${_t('✓ ACTIF', '✓ ACTIVE')}</div>`
             : `<button class="btn-special-buy" data-sp-id="${sp.id}" style="font-family:var(--font-pixel);font-size:7px;padding:4px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer;white-space:nowrap">${sp.cost.toLocaleString()}₽</button>`}
         </div>`;
       }).join('')}
@@ -171,8 +169,6 @@ function renderGangTab() {
   if (_gangTabTimer) { clearTimeout(_gangTabTimer); _gangTabTimer = null; }
   _gangTabTimer = setTimeout(() => {
     _gangTabTimer = null;
-    // Ne pas reconstruire le DOM si l'utilisateur a le focus sur un input/range/select
-    // (évite de reset les sliders, radios, dropdowns en cours d'interaction)
     const focused = document.activeElement;
     const tab = document.getElementById('tabGang');
     if (focused && tab?.contains(focused) && ['INPUT', 'SELECT', 'TEXTAREA'].includes(focused.tagName)) {
@@ -184,20 +180,19 @@ function renderGangTab() {
   }, 80);
 }
 
-// ── Fragments partagés rebuild complet / patch ciblé ──────────────
 function _buildGangStatsHtml(state) {
   const s          = state.stats;
   const _sb        = globalThis._gangSessionStatsBase || {};
   const _isSession = _statsViewMode === 'session';
   const _sv        = k => _isSession ? Math.max(0, (s[k] || 0) - (_sb[k] || 0)) : (s[k] || 0);
   return [
-    [state.pokemons.length,                                                      'Possédés'],
-    [_sv('totalCaught'),                                                         'Capturés'],
-    [_sv('totalSold'),                                                           'Vendus'],
-    [_isSession ? _sv('shinyCaught') : globalThis.getShinySpeciesCount?.(),      _isSession ? '✨ Chromas' : '✨ Espèces chroma'],
-    [_isSession ? '' : s.shinyCaught,                                            _isSession ? '' : '✨ Chromas (total)'],
-    [`${_sv('totalFightsWon')}/${_sv('totalFights')}`,                           'Combats'],
-    [`${_sv('totalMoneyEarned').toLocaleString()}₽`,                             'Gains'],
+    [state.pokemons.length,                                                      _t('Possédés',           'Owned')],
+    [_sv('totalCaught'),                                                         _t('Capturés',           'Caught')],
+    [_sv('totalSold'),                                                           _t('Vendus',             'Sold')],
+    [_isSession ? _sv('shinyCaught') : globalThis.getShinySpeciesCount?.(),      _isSession ? _t('✨ Chromas', '✨ Shinies') : _t('✨ Espèces chroma', '✨ Shiny species')],
+    [_isSession ? '' : s.shinyCaught,                                            _isSession ? '' : _t('✨ Chromas (total)', '✨ Shinies (total)')],
+    [`${_sv('totalFightsWon')}/${_sv('totalFights')}`,                           _t('Combats',            'Battles')],
+    [`${_sv('totalMoneyEarned').toLocaleString()}₽`,                             _t('Gains',              'Earnings')],
   ].filter(([val]) => val !== '').map(([val, label]) =>
     `<div class="gang-stat-card"><div class="stat-value">${val}</div><div class="stat-label">${label}</div></div>`
   ).join('');
@@ -211,9 +206,7 @@ function _doRenderGangTab() {
   const tab = document.getElementById('tabGang');
   if (!tab) return;
 
-  // Sauvegarder les positions de scroll avant reconstruction
-  const _savedTabScroll  = tab.scrollTop;
-
+  const _savedTabScroll = tab.scrollTop;
   const state      = globalThis.state;
   const g          = state.gang;
   const activeSlot = g.activeBossTeamSlot || 0;
@@ -242,18 +235,16 @@ function _doRenderGangTab() {
     return `<div class="gang-team-slot empty" data-boss-slot="${i}"><span style="font-size:7px;color:var(--text-dim)">Slot ${i+1}</span></div>`;
   }).join('');
 
-  // Stats (fragment partagé avec _patchGangTabDynamic)
   const _isSession = _statsViewMode === 'session';
   const statsHtml  = _buildGangStatsHtml(state);
-
-  const repPct = Math.min(100, g.reputation);
+  const repPct     = Math.min(100, g.reputation);
 
   tab.innerHTML = `
   <div class="gang-card-layout">
     <div class="gang-section-label gang-collapsible-header" data-section="stats" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none">
-      <span>— STATISTIQUES —</span>
+      <span>— ${_t('STATISTIQUES', 'STATISTICS')} —</span>
       <div style="display:flex;align-items:center;gap:8px">
-        <button id="btnToggleStatsView" onclick="event.stopPropagation()" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:${_isSession ? 'var(--gold)' : 'var(--text-dim)'};cursor:pointer">${_isSession ? '⏱ SESSION' : '🌐 GLOBAL'}</button>
+        <button id="btnToggleStatsView" onclick="event.stopPropagation()" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:${_isSession ? 'var(--gold)' : 'var(--text-dim)'};cursor:pointer">${_isSession ? _t('⏱ SESSION', '⏱ SESSION') : _t('🌐 GLOBAL', '🌐 GLOBAL')}</button>
         <span class="gang-collapse-arrow" style="font-size:9px;color:var(--text-dim)">${_gangCollapsed.stats ? '▶' : '▼'}</span>
       </div>
     </div>
@@ -268,7 +259,7 @@ function _doRenderGangTab() {
         </div>
         <div style="flex:1;min-width:0">
           <div style="font-family:var(--font-pixel);font-size:15px;color:var(--red);line-height:1.3">${g.name}</div>
-          <div style="font-size:11px;color:var(--text-dim);margin-top:2px">Boss : <span style="color:var(--text)">${_esc(g.bossName)}</span></div>
+          <div style="font-size:11px;color:var(--text-dim);margin-top:2px">${_t('Boss', 'Boss')} : <span style="color:var(--text)">${_esc(g.bossName)}</span></div>
           <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold-dim);margin-top:2px;letter-spacing:.5px">${globalThis.getBossFullTitle?.() || ''}</div>
           ${(() => {
             const tC = globalThis.getTitleLabel?.(g.titleC);
@@ -288,12 +279,12 @@ function _doRenderGangTab() {
           </div>
         </div>
         <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end;flex-shrink:0">
-          <button id="btnExportGang" style="font-family:var(--font-pixel);font-size:7px;padding:5px 8px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">📋 Exporter</button>
-          <button id="btnEditBoss"   style="font-family:var(--font-pixel);font-size:7px;padding:5px 8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">✏ Modifier</button>
+          <button id="btnExportGang" style="font-family:var(--font-pixel);font-size:7px;padding:5px 8px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">📋 ${_t('Exporter', 'Export')}</button>
+          <button id="btnEditBoss"   style="font-family:var(--font-pixel);font-size:7px;padding:5px 8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">✏ ${_t('Modifier', 'Edit')}</button>
         </div>
       </div>
       <div style="border-top:1px solid var(--border);padding:10px 14px 14px">
-        <div style="font-family:var(--font-pixel);font-size:7px;color:var(--gold-dim);letter-spacing:1px;margin-bottom:6px">— ÉQUIPE BOSS —</div>
+        <div style="font-family:var(--font-pixel);font-size:7px;color:var(--gold-dim);letter-spacing:1px;margin-bottom:6px">— ${_t('ÉQUIPE BOSS', 'BOSS TEAM')} —</div>
         <div style="display:flex;gap:0;margin-bottom:-1px">${teamTabsHtml}</div>
         <div style="border:1px solid var(--border);border-radius:0 var(--radius-sm) var(--radius-sm) var(--radius-sm);padding:8px;background:var(--bg-panel)">
           <div class="gang-team-row" style="margin-bottom:0">${teamHtml}</div>
@@ -302,7 +293,7 @@ function _doRenderGangTab() {
     </div>
 
     <div class="gang-section-label gang-collapsible-header" data-section="services" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none">
-      <span>— SERVICES —</span><span class="gang-collapse-arrow" style="font-size:9px;color:var(--text-dim)">${_gangCollapsed.services ? '▶' : '▼'}</span>
+      <span>— ${_t('SERVICES', 'SERVICES')} —</span><span class="gang-collapse-arrow" style="font-size:9px;color:var(--text-dim)">${_gangCollapsed.services ? '▶' : '▼'}</span>
     </div>
     <div class="gang-collapsible-body" data-section-body="services" style="${_gangCollapsed.services ? 'display:none' : ''}">
       <div style="padding:0 2px 8px;display:flex;flex-direction:column;gap:8px">${_buildServicesHtml(state)}</div>
@@ -310,8 +301,8 @@ function _doRenderGangTab() {
 
     <a href="https://pokegang.sterenna.fr/gang/" target="_blank" rel="noopener" id="btnOpenGangCustomization" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:4px;padding:14px;background:var(--bg-card);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);text-decoration:none;cursor:pointer">
       <div>
-        <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold)">🎨 Personnalisation</div>
-        <div style="font-size:9px;color:var(--text-dim);margin-top:3px">Musique, apparence, titre, vitrine — pokegang.sterenna.fr/gang</div>
+        <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold)">🎨 ${_t('Personnalisation', 'Customisation')}</div>
+        <div style="font-size:9px;color:var(--text-dim);margin-top:3px">${_t('Musique, apparence, titre, vitrine — pokegang.sterenna.fr/gang', 'Music, appearance, title, showcase — pokegang.sterenna.fr/gang')}</div>
       </div>
       <span style="font-family:var(--font-pixel);font-size:12px;color:var(--gold-dim)">→</span>
     </a>
@@ -319,7 +310,6 @@ function _doRenderGangTab() {
     <div style="margin-top:16px;text-align:center;font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);letter-spacing:1px;opacity:.5">${globalThis.GAME_VERSION || ''}</div>
   </div>`;
 
-  // Restaurer le scroll du tab immédiatement après reconstruction
   tab.scrollTop = _savedTabScroll;
 
   // Collapsible toggles
@@ -363,86 +353,87 @@ function _doRenderGangTab() {
   // Services handlers
   tab.querySelector('#btnBuyScientist')?.addEventListener('click', () => {
     const st = globalThis.state;
-    if (st.gang.money < 15_000) { _notify('Fonds insuffisants.', 'error'); return; }
-    globalThis.showConfirm('Engager le <b>Scientifique peu scrupuleux</b> pour <b>15 000₽</b> ?', () => {
+    if (st.gang.money < 15_000) { _notify(_t('Fonds insuffisants.', 'Insufficient funds.'), 'error'); return; }
+    globalThis.showConfirm(_t('Engager le <b>Scientifique peu scrupuleux</b> pour <b>15 000₽</b> ?', 'Hire the <b>Unscrupulous Scientist</b> for <b>15,000₽</b>?'), () => {
       st.gang.money -= 15_000; st.purchases.scientist = true; st.purchases.scientistEnabled = true;
       _save(); _topBar(); globalThis.SFX.play('unlock');
-      _notify('🧬 Le scientifique est en poste !', 'gold'); renderGangTab();
-    }, null, { confirmLabel: 'Engager', cancelLabel: 'Annuler' });
+      _notify(_t('🧬 Le scientifique est en poste !', '🧬 The scientist is on duty!'), 'gold'); renderGangTab();
+    }, null, { confirmLabel: _t('Engager', 'Hire'), cancelLabel: _t('Annuler', 'Cancel') });
   });
   tab.querySelector('#btnToggleScientist')?.addEventListener('click', () => {
     const st = globalThis.state;
     st.purchases.scientistEnabled = st.purchases.scientistEnabled === false;
     _save();
-    _notify(st.purchases.scientistEnabled !== false ? '🧬 Scientifique rappelé !' : '🚫 Scientifique renvoyé.', 'success');
+    _notify(st.purchases.scientistEnabled !== false ? _t('🧬 Scientifique rappelé !', '🧬 Scientist recalled!') : _t('🚫 Scientifique renvoyé.', '🚫 Scientist dismissed.'), 'success');
     renderGangTab();
   });
 
   tab.querySelector('#btnBuyAutoCollect')?.addEventListener('click', () => {
     const st = globalThis.state;
-    if (st.gang.money < 100_000) { _notify('Fonds insuffisants.', 'error'); return; }
-    globalThis.showConfirm('Acheter la <b>Récolte automatique</b> pour <b>100 000₽</b> ?', () => {
+    if (st.gang.money < 100_000) { _notify(_t('Fonds insuffisants.', 'Insufficient funds.'), 'error'); return; }
+    globalThis.showConfirm(_t('Acheter la <b>Récolte automatique</b> pour <b>100 000₽</b> ?', 'Buy <b>Auto collect</b> for <b>100,000₽</b>?'), () => {
       st.gang.money -= 100_000; st.purchases.autoCollect = true; st.purchases.autoCollectEnabled = true;
       _save(); _topBar(); globalThis.SFX.play('unlock');
-      _notify('🪙 Récolte automatique activée !', 'gold'); renderGangTab();
-    }, null, { confirmLabel: 'Acheter', cancelLabel: 'Annuler' });
+      _notify(_t('🪙 Récolte automatique activée !', '🪙 Auto collect enabled!'), 'gold'); renderGangTab();
+    }, null, { confirmLabel: _t('Acheter', 'Buy'), cancelLabel: _t('Annuler', 'Cancel') });
   });
   tab.querySelector('#btnToggleAutoCollect')?.addEventListener('click', () => {
     const st = globalThis.state;
     st.purchases.autoCollectEnabled = st.purchases.autoCollectEnabled === false;
     _save();
-    _notify(st.purchases.autoCollectEnabled !== false ? '🪙 Récolte automatique activée !' : '🚫 Récolte automatique désactivée.', '');
+    _notify(st.purchases.autoCollectEnabled !== false ? _t('🪙 Récolte automatique activée !', '🪙 Auto collect enabled!') : _t('🚫 Récolte automatique désactivée.', '🚫 Auto collect disabled.'), '');
     renderGangTab();
   });
 
   tab.querySelector('#btnBuyAutoSellAgent')?.addEventListener('click', () => {
     const st = globalThis.state;
-    if (st.gang.money < 10_000_000) { _notify('Fonds insuffisants.', 'error'); return; }
-    globalThis.showConfirm('Acheter la <b>Vente automatique</b> pour <b>10 000 000₽</b> ?', () => {
+    if (st.gang.money < 10_000_000) { _notify(_t('Fonds insuffisants.', 'Insufficient funds.'), 'error'); return; }
+    globalThis.showConfirm(_t('Acheter la <b>Vente automatique</b> pour <b>10 000 000₽</b> ?', 'Buy <b>Auto-sell</b> for <b>10,000,000₽</b>?'), () => {
       st.gang.money -= 10_000_000; st.purchases.autoSellAgent = true; st.purchases.autoSellAgentEnabled = true;
       if (!st.settings.autoSellAgent) st.settings.autoSellAgent = { mode: 'all', potentials: [] };
       _save(); _topBar(); globalThis.SFX.play('unlock');
-      _notify('🤖 Vente automatique activée !', 'gold'); renderGangTab();
-    }, null, { confirmLabel: 'Acheter', cancelLabel: 'Annuler' });
+      _notify(_t('🤖 Vente automatique activée !', '🤖 Auto-sell enabled!'), 'gold'); renderGangTab();
+    }, null, { confirmLabel: _t('Acheter', 'Buy'), cancelLabel: _t('Annuler', 'Cancel') });
   });
   tab.querySelector('#btnToggleAutoSellAgent')?.addEventListener('click', () => {
     const st = globalThis.state;
     st.purchases.autoSellAgentEnabled = st.purchases.autoSellAgentEnabled === false;
     _save();
-    _notify(st.purchases.autoSellAgentEnabled !== false ? '🤖 Vente automatique activée !' : '🚫 Vente automatique désactivée.', '');
+    _notify(st.purchases.autoSellAgentEnabled !== false ? _t('🤖 Vente automatique activée !', '🤖 Auto-sell enabled!') : _t('🚫 Vente automatique désactivée.', '🚫 Auto-sell disabled.'), '');
     renderGangTab();
   });
 
   tab.querySelector('#btnBuyNurse')?.addEventListener('click', () => {
     const st = globalThis.state;
-    if (st.gang.money < 300_000) { _notify('Fonds insuffisants.', 'error'); return; }
-    globalThis.showConfirm("Embaucher l'<b>Infirmière Joëlle</b> pour <b>300 000₽</b> ?", () => {
+    if (st.gang.money < 300_000) { _notify(_t('Fonds insuffisants.', 'Insufficient funds.'), 'error'); return; }
+    globalThis.showConfirm(_t("Embaucher l'<b>Infirmière Joëlle</b> pour <b>300 000₽</b> ?", 'Hire <b>Nurse Joy</b> for <b>300,000₽</b>?'), () => {
       st.gang.money -= 300_000; st.purchases.autoIncubator = true; st.purchases.autoIncubatorEnabled = true;
       _save(); _topBar(); globalThis.SFX.play('unlock');
-      _notify('💉 Joëlle est en poste !', 'gold'); renderGangTab();
-    }, null, { confirmLabel: 'Embaucher', cancelLabel: 'Annuler' });
+      _notify(_t('💉 Joëlle est en poste !', '💉 Nurse Joy is on duty!'), 'gold'); renderGangTab();
+    }, null, { confirmLabel: _t('Embaucher', 'Hire'), cancelLabel: _t('Annuler', 'Cancel') });
   });
   tab.querySelector('#btnToggleNurse')?.addEventListener('click', () => {
     const st = globalThis.state;
     st.purchases.autoIncubatorEnabled = st.purchases.autoIncubatorEnabled === false;
     _save();
-    _notify(st.purchases.autoIncubatorEnabled !== false ? '💉 Joëlle est de retour !' : '💤 Joëlle en congé.', '');
+    _notify(st.purchases.autoIncubatorEnabled !== false ? _t('💉 Joëlle est de retour !', '💉 Nurse Joy is back!') : _t('💤 Joëlle en congé.', '💤 Nurse Joy on leave.'), '');
     renderGangTab();
   });
 
   const SPECIAL_DEFS = {
-    title_richissime:      { cost: 5_000_000,  label: 'Titre "Richissime"' },
-    title_doublerichissim: { cost: 10_000_000, label: 'Titre "Double Richissime"' },
-    chromaCharm:           { cost: 5_000_000,  label: 'Charme Chroma' },
+    title_richissime:      { cost: 5_000_000,  labelFr: 'Titre "Richissime"',         labelEn: 'Title "Filthy Rich"' },
+    title_doublerichissim: { cost: 10_000_000, labelFr: 'Titre "Double Richissime"',  labelEn: 'Title "Double Filthy Rich"' },
+    chromaCharm:           { cost: 5_000_000,  labelFr: 'Charme Chroma',              labelEn: 'Shiny Charm' },
   };
   tab.querySelectorAll('.btn-special-buy').forEach(btn => {
     btn.addEventListener('click', () => {
       const spId = btn.dataset.spId;
       const def  = SPECIAL_DEFS[spId];
       if (!def) return;
+      const label = _t(def.labelFr, def.labelEn);
       const st = globalThis.state;
-      if (st.gang.money < def.cost) { _notify('Fonds insuffisants.', 'error'); return; }
-      globalThis.showConfirm(`Acheter <b>${def.label}</b> pour <b>${def.cost.toLocaleString()}₽</b> ?`, () => {
+      if (st.gang.money < def.cost) { _notify(_t('Fonds insuffisants.', 'Insufficient funds.'), 'error'); return; }
+      globalThis.showConfirm(_t(`Acheter <b>${def.labelFr}</b> pour <b>${def.cost.toLocaleString()}₽</b> ?`, `Buy <b>${def.labelEn}</b> for <b>${def.cost.toLocaleString()}₽</b>?`), () => {
         st.gang.money -= def.cost;
         st.purchases[spId] = true;
         if (spId === 'title_richissime') {
@@ -453,8 +444,8 @@ function _doRenderGangTab() {
           if (!st.unlockedTitles.includes('doublerichissim')) st.unlockedTitles.push('doublerichissim');
         }
         _save(); _topBar(); globalThis.SFX.play('unlock');
-        _notify(`✨ ${def.label} débloqué !`, 'gold'); renderGangTab();
-      }, null, { confirmLabel: 'Acheter', cancelLabel: 'Annuler' });
+        _notify(_t(`✨ ${def.labelFr} débloqué !`, `✨ ${def.labelEn} unlocked!`), 'gold'); renderGangTab();
+      }, null, { confirmLabel: _t('Acheter', 'Buy'), cancelLabel: _t('Annuler', 'Cancel') });
     });
   });
 
@@ -470,14 +461,14 @@ function _doRenderGangTab() {
       const isPur   = (st.gang.bossTeamSlotsPurchased || [true, false, false])[slotIdx];
       if (!isPur) {
         const cost = SLOT_COSTS[slotIdx];
-        globalThis.showConfirm(`Débloquer le Slot ${slotIdx + 1} pour ${cost.toLocaleString()}₽ ?`, () => {
-          if (st.gang.money < cost) { _notify('Fonds insuffisants.', 'error'); globalThis.SFX.play('error'); return; }
+        globalThis.showConfirm(_t(`Débloquer le Slot ${slotIdx + 1} pour ${cost.toLocaleString()}₽ ?`, `Unlock Slot ${slotIdx + 1} for ${cost.toLocaleString()}₽?`), () => {
+          if (st.gang.money < cost) { _notify(_t('Fonds insuffisants.', 'Insufficient funds.'), 'error'); globalThis.SFX.play('error'); return; }
           st.gang.money -= cost;
           st.gang.bossTeamSlotsPurchased[slotIdx] = true;
           st.gang.activeBossTeamSlot = slotIdx;
           st.gang.bossTeam = [...(st.gang.bossTeamSlots[slotIdx] || [])];
           _save(); _topBar(); globalThis.SFX.play('unlock'); renderGangTab();
-        }, null, { confirmLabel: 'Acheter', cancelLabel: 'Annuler' }); return;
+        }, null, { confirmLabel: _t('Acheter', 'Buy'), cancelLabel: _t('Annuler', 'Cancel') }); return;
       }
       st.gang.activeBossTeamSlot = slotIdx;
       st.gang.bossTeam = [...(st.gang.bossTeamSlots[slotIdx] || [])];
@@ -499,16 +490,9 @@ function _doRenderGangTab() {
       }
     });
   });
-
 }
 
 // ── Patch ciblé des valeurs dynamiques ────────────────────────────
-// Pendant l'activité background (agents qui combattent/capturent), seuls les
-// chiffres bougent : stats, argent/rep du header, niveaux équipe.
-// On met à jour ces nœuds en place au lieu de reconstruire les ~1100 lignes de
-// HTML du tab à chaque rafale d'events. Le rebuild complet reste réservé aux
-// changements structurels : composition d'équipe modifiée (vente d'un Pokémon
-// exposé) — détecté ici et dérouté vers renderGangTab().
 function _patchGangTabDynamic() {
   if (globalThis.activeTab !== 'tabGang') return;
   const tab = document.getElementById('tabGang');
@@ -517,7 +501,7 @@ function _patchGangTabDynamic() {
   const g     = state.gang;
 
   const statsRow = tab.querySelector('.gang-stats-row');
-  if (!statsRow) { renderGangTab(); return; } // structure inattendue → rebuild
+  if (!statsRow) { renderGangTab(); return; }
   statsRow.innerHTML = _buildGangStatsHtml(state);
 
   const repEl = tab.querySelector('#gangHeaderRep');
@@ -529,8 +513,6 @@ function _patchGangTabDynamic() {
   const repFill = tab.querySelector('#gangRepBarFill');
   if (repFill) repFill.style.width = `${Math.min(100, g.reputation)}%`;
 
-  // Équipe boss : niveaux (XP passif/combats). Si la composition a changé
-  // sous nos pieds (slot rempli↔vide), c'est structurel → rebuild.
   let structural = false;
   const teamPks = (g.bossTeam || []).map(id => state.pokemons.find(p => p.id === id)).filter(Boolean);
   tab.querySelectorAll('.gang-team-slot[data-boss-slot]').forEach(el => {
@@ -546,21 +528,10 @@ function _patchGangTabDynamic() {
 }
 
 // ── Refresh automatique via EventBus ──────────────────────────────────────────
-// Filet de sécurité : ces événements changent des données affichées dans le tab
-// (argent, rep, stats de captures/ventes/combats) et doivent le rafraîchir
-// quel que soit l'endroit du code qui les déclenche — plutôt que de compter sur
-// un appel manuel `if (activeTab === 'tabGang') renderGangTab()` ajouté à la main
-// à chaque nouveau point d'entrée (source d'oublis constatée dans agent.js,
-// zoneWindows.js, etc.). Les cas plus spécifiques (loot de coffre, promotion
-// d'agent, déblocage de titre) restent gérés par leurs appels directs existants.
-// Debounce dédié : avec plusieurs agents actifs en arrière-plan, ces events
-// arrivent en rafale — on regroupe la rafale en UN patch ciblé (pas un rebuild,
-// voir _patchGangTabDynamic). Le chemin des clics utilisateur (renderGangTab()
-// appelé directement depuis les handlers du tab) garde son rebuild complet.
 const GANG_TAB_EVENT_DEBOUNCE_MS = 400;
 let _gangTabEventDebounceTimer = null;
-
 let _gangTabEventsRegistered = false;
+
 function _registerGangTabEvents() {
   if (_gangTabEventsRegistered) return;
   _gangTabEventsRegistered = true;
