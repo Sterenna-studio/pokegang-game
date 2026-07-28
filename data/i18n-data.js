@@ -75,6 +75,9 @@ const I18N = {
   llm_off:       { fr:'LLM hors-ligne', en:'LLM offline' },
   // Misc
   pokedex_progress:{ fr:'{caught}/{total} capturés', en:'{caught}/{total} caught' },
+  // Common UI
+  confirm:       { fr:'Confirmer',   en:'Confirm'     },
+  cancel:        { fr:'Annuler',     en:'Cancel'      },
   // Hub modals
   hub_slot_repair_title:   { fr:'🔧 Réparer un slot',    en:'🔧 Repair a slot'   },
   hub_slot_empty:          { fr:'Slot vide — rien à réparer.', en:'Empty slot — nothing to repair.' },
@@ -100,6 +103,10 @@ const I18N = {
   missions_completed:      { fr:'Terminés',              en:'Completed'          },
   missions_claim:          { fr:'Récupérer',             en:'Claim'              },
   missions_claim_all:      { fr:'✓ Tout réclamer ({n})', en:'✓ Claim all ({n})'  },
+  // Cosmetics modals
+  cosm_name_title:         { fr:'Entrer un nom',         en:'Enter a name'       },
+  cosm_cost:               { fr:'Coût :',               en:'Cost:'              },
+  cosm_sprite_title:       { fr:'Choisir un sprite',     en:'Choose a sprite'    },
 };
 
 export { I18N };
