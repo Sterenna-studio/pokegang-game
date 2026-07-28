@@ -19,6 +19,11 @@ const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg
 const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
 const _topBar = ()               => EventBus.emit(EVENTS.UI_TOPBAR_UPDATE);
 const _save   = ()               => globalThis.saveState?.();
+const _t      = (...a)           => globalThis.t?.(...a) ?? a[0];
+
+function _localized(record) {
+  return record?.[globalThis.state?.lang] ?? record?.en ?? record?.fr ?? '';
+}
 
 
 // ── Internal state ────────────────────────────────────────────
@@ -126,13 +131,13 @@ function toggleZoneFav(zoneId) {
   if (!state.favoriteZones) state.favoriteZones = [];
   const idx = state.favoriteZones.indexOf(zoneId);
   const zone = _getActiveZoneById()?.[zoneId];
-  const name = state.lang === 'fr' ? zone?.fr : zone?.en;
+  const name = _localized(zone);
   if (idx === -1) {
     state.favoriteZones.push(zoneId);
-    _notify(`${name} ajoutée aux favoris`, 'success');
+    _notify(_t('zone_selector_added_favorite', { name }), 'success');
   } else {
     state.favoriteZones.splice(idx, 1);
-    _notify(`${name} retirée des favoris`, 'success');
+    _notify(_t('zone_selector_removed_favorite', { name }), 'success');
   }
   globalThis.SFX?.play('click');
   _save();
@@ -143,7 +148,7 @@ function toggleZoneFav(zoneId) {
   if (favBtn) {
     const isFav = state.favoriteZones.includes(zoneId);
     favBtn.textContent = isFav ? '★' : '☆';
-    favBtn.title = isFav ? 'Retirer des favoris' : "Favori (s'ouvre au démarrage)";
+    favBtn.title = isFav ? _t('zone_selector_remove_favorite') : _t('zone_selector_favorite_hint');
     favBtn.classList.toggle('active', isFav);
   }
 
@@ -159,7 +164,7 @@ function _syncFavPill() {
   if (!pill) return;
   const active = _zoneFilter === 'fav';
   pill.classList.toggle('active', active);
-  pill.title = active ? 'Voir toutes les zones' : 'Voir uniquement les favoris';
+  pill.title = active ? _t('zone_selector_show_all') : _t('zone_selector_show_favorites');
 }
 
 // ── Context menu ──────────────────────────────────────────────
@@ -180,7 +185,7 @@ export function showZoneContextMenu(zoneId, x, y) {
   const isOpen     = openZones?.has(zoneId);
   const hasPending = (zState.pendingIncome || 0) > 0;
   const isFav      = (state.favoriteZones || []).includes(zoneId);
-  const name       = state.lang === 'fr' ? zone.fr : zone.en;
+  const name       = _localized(zone);
 
   _ctxMenu = document.createElement('div');
   _ctxMenu.className = 'zone-ctx-menu';
@@ -190,23 +195,23 @@ export function showZoneContextMenu(zoneId, x, y) {
     const items = [
       {
         icon: isOpen ? '✕' : '▶',
-        label: isOpen ? 'Fermer la zone' : 'Ouvrir la zone',
+        label: isOpen ? _t('zone_selector_close_zone') : _t('zone_selector_open_zone'),
         action: () => isOpen
           ? globalThis.closeZoneWindow?.(zoneId)
           : globalThis.openZoneWindow?.(zoneId),
       },
       hasPending && {
         icon: '₽',
-        label: 'Récolter les gains',
+        label: _t('zone_selector_collect_income'),
         action: () => globalThis.openCollectionModal?.(zoneId),
       },
       {
         icon: isFav ? '★' : '☆',
-        label: isFav ? 'Retirer des favoris' : 'Mettre en favori',
+        label: isFav ? _t('zone_selector_remove_favorite') : _t('zone_selector_add_favorite'),
         action: () => { toggleZoneFav(zoneId); _dismissCtxMenu(); },
       },
       {
-        icon: '👤', label: 'Assigner un agent →',
+        icon: '👤', label: `${_t('zone_selector_assign_agent')} →`,
         action: () => renderAgentSubmenu(),
         sub: true,
       },
@@ -243,7 +248,7 @@ export function showZoneContextMenu(zoneId, x, y) {
       </div>`;
 
     if (assigned.length > 0) {
-      html += `<div class="zone-ctx-section">ASSIGNÉS (${assigned.length})</div>`;
+      html += `<div class="zone-ctx-section">${_t('zone_selector_assigned_count', { n: assigned.length }).toUpperCase()}</div>`;
       for (const a of assigned) {
         html += `<button class="zone-ctx-item zone-ctx-agent assigned" data-agent-id="${a.id}">
           <span class="zone-ctx-icon">✓</span>${a.name}
@@ -253,11 +258,11 @@ export function showZoneContextMenu(zoneId, x, y) {
     }
 
     if (available.length > 0) {
-      html += `<div class="zone-ctx-section">DISPONIBLES</div>`;
+      html += `<div class="zone-ctx-section">${_t('zone_selector_available').toUpperCase()}</div>`;
       for (const a of available) {
         const curZone = a.assignedZone
-          ? (_getAnyZoneById(a.assignedZone)?.fr || a.assignedZone)
-          : 'sans zone';
+          ? (_localized(_getAnyZoneById(a.assignedZone)) || a.assignedZone)
+          : _t('zone_selector_without_zone');
         html += `<button class="zone-ctx-item zone-ctx-agent${canAdd ? '' : ' zone-ctx-disabled'}"
           data-agent-id="${a.id}" ${canAdd ? '' : 'disabled'}>
           <span class="zone-ctx-icon">👤</span>${a.name}
@@ -267,7 +272,7 @@ export function showZoneContextMenu(zoneId, x, y) {
     }
 
     if (agents.length === 0) {
-      html += `<div class="zone-ctx-empty">Aucun agent recruté</div>`;
+      html += `<div class="zone-ctx-empty">${_t('zone_selector_no_agent')}</div>`;
     }
 
     _ctxMenu.innerHTML = html;
@@ -285,7 +290,7 @@ export function showZoneContextMenu(zoneId, x, y) {
         const isAssigned = btn.classList.contains('assigned');
         if (isAssigned) {
           globalThis.assignAgentToZone?.(agentId, null);
-          _notify(`Agent retiré de ${name}`, 'success');
+          _notify(_t('zone_selector_agent_removed', { name }), 'success');
         } else {
           globalThis.assignAgentToZone?.(agentId, zoneId);
         }
@@ -333,7 +338,7 @@ function _buildGangParkTile(zone) {
   const agentCount = state.agents.length;
   const trainingCount = (state.trainingRoom?.pokemon || []).length;
   const pensionCount = (state.pension?.slots || []).length;
-  const name = state.lang === 'fr' ? zone.fr : zone.en;
+  const name = _localized(zone);
   return `<div class="fog-tile unlocked gang-park-tile${isOpen ? ' zone-open' : ''}" data-zone="gang_park"
     style="background:linear-gradient(135deg,#1a1a2e,#16213e);border:2px solid ${isOpen ? 'var(--gold)' : 'var(--border-light)'};position:relative;cursor:pointer">
     <div class="fog-tile-content" style="gap:3px">
@@ -344,7 +349,7 @@ function _buildGangParkTile(zone) {
         ${trainingCount > 0 ? `<span style="font-size:7px;color:var(--text-dim)">🏋${trainingCount}</span>` : ''}
         ${pensionCount > 0 ? `<span style="font-size:7px;color:var(--text-dim)">🏠${pensionCount}</span>` : ''}
       </div>
-      ${isOpen ? `<div style="font-size:7px;color:var(--gold);margin-top:2px">OUVERT</div>` : ''}
+      ${isOpen ? `<div style="font-size:7px;color:var(--gold);margin-top:2px">${_t('zone_selector_open').toUpperCase()}</div>` : ''}
     </div>
   </div>`;
 }
@@ -359,7 +364,7 @@ function _buildTile(zone) {
   const ZONE_BGS  = globalThis.ZONE_BGS;
   const unlocked  = globalThis.isZoneUnlocked?.(zone.id);
   const isOpen    = openZones?.has(zone.id);
-  const name      = state.lang === 'fr' ? zone.fr : zone.en;
+  const name      = _localized(zone);
   const bg        = ZONE_BGS?.[zone.id];
   const bgStyle   = bg
     ? `background-image:url('${bg.url}'),linear-gradient(180deg,${bg.fb});background-size:cover;background-position:center;`
@@ -395,7 +400,7 @@ function _buildTile(zone) {
     const poolPreview = (zone.pool || []).slice(0, 5).map(en =>
       `<img src="${globalThis.pokeSprite?.(en) || ''}"
         style="width:16px;height:16px;image-rendering:pixelated;filter:drop-shadow(0 1px 3px rgba(0,0,0,1))"
-        title="${SPECIES_BY_EN?.[en]?.fr || en}">`
+        title="${_localized(SPECIES_BY_EN?.[en]) || en}">`
     ).join('');
 
     // Barre de complétion Pokédex / Chroma (visible dans les filtres dédiés)
@@ -417,14 +422,14 @@ function _buildTile(zone) {
 
     // Calcul du statut affiché sur la tuile
     const statusText = isOpen
-      ? '[OUVERT]'
+      ? _t('zone_selector_status_open')
       : hasEvent
-        ? '[ÉVÉNEMENT]'
+        ? _t('zone_selector_status_event')
         : degraded
-          ? '[COMBAT]'
+          ? _t('zone_selector_status_combat')
           : hasAgent
-              ? '[AUTO]'
-              : '[ENTRER]';
+              ? _t('zone_selector_status_auto')
+              : _t('zone_selector_status_enter');
 
     const tileClass = [
       'fog-tile unlocked',
@@ -437,7 +442,7 @@ function _buildTile(zone) {
     const zoneLevel   = globalThis.getZoneLevel?.(zone.id) || 1;
     const activeEvent = zState.activeEvent && !zState.activeEvent.resolved ? zState.activeEvent : null;
     const levelBadge  = zoneLevel > 1
-      ? `<div class="fog-tile-level-badge">Nv.${zoneLevel}</div>` : '';
+      ? `<div class="fog-tile-level-badge">${_t('zone_selector_level_short')}${zoneLevel}</div>` : '';
     const eventBadge  = activeEvent
       ? `<div class="fog-tile-event-badge">${_eventIcon(activeEvent.type)}</div>` : '';
 
@@ -447,14 +452,14 @@ function _buildTile(zone) {
       <div class="fog-tile-pool-preview">${poolPreview}</div>
       <div class="fog-tile-content">
         <div class="fog-tile-name">${displayName}${degradedTag}</div>
-        <div class="fog-tile-stats">${'★'.repeat(mastery)}${mastery ? ' ' : ''}${combats}W${musicIcon}</div>
+        <div class="fog-tile-stats">${'★'.repeat(mastery)}${mastery ? ' ' : ''}${_t('zone_selector_wins_short', { n: combats })}${musicIcon}</div>
         <div class="fog-tile-status">${statusText}</div>
       </div>
       ${levelBadge}${eventBadge}
       ${incomeHtml}
       ${dexBarHtml}
       <button class="zone-fav-btn${isFav ? ' active' : ''}" data-fav-zone="${zone.id}"
-        title="${isFav ? 'Retirer des favoris' : "Favori (s'ouvre au démarrage)"}">${isFav ? '★' : '☆'}</button>
+        title="${isFav ? _t('zone_selector_remove_favorite') : _t('zone_selector_favorite_hint')}">${isFav ? '★' : '☆'}</button>
     </div>`;
   } else {
     const SHOP_ITEMS = globalThis.SHOP_ITEMS;
@@ -467,7 +472,9 @@ function _buildTile(zone) {
     let lockHint, lockSub;
     if (isWingPermit) {
       const wingId   = zone.unlockItem === 'tourbillon_permit' ? 'silver_wing' : 'rainbow_wing';
-      const wingName = zone.unlockItem === 'tourbillon_permit' ? "Argent'Aile" : "Arcenci'Aile";
+      const wingName = zone.unlockItem === 'tourbillon_permit'
+        ? _t('zone_selector_silver_wing')
+        : _t('zone_selector_rainbow_wing');
       const have     = state.inventory?.[wingId] || 0;
       const pct      = Math.min(100, Math.round(have / 50 * 100));
       lockHint = wingName;
@@ -476,10 +483,10 @@ function _buildTile(zone) {
                   </div>
                   <div style="font-size:8px;color:var(--gold)">${have}/50</div>`;
     } else if (needsItem) {
-      lockHint = state.lang === 'fr' ? (itemDef?.fr || zone.unlockItem) : (itemDef?.en || zone.unlockItem);
+      lockHint = _localized(itemDef) || zone.unlockItem;
       lockSub  = '';
     } else {
-      lockHint = `Rep +${repDiff}`;
+      lockHint = _t('zone_selector_reputation_required', { value: repDiff });
       lockSub  = '';
     }
 
@@ -578,7 +585,7 @@ export function refreshZoneTile(zoneId) {
   const degraded = globalThis.isZoneDegraded?.(zoneId);
   const mastery  = globalThis.getZoneMastery?.(zoneId) || 0;
   const combats  = zState.combatsWon || 0;
-  const name     = state?.lang === 'fr' ? zone.fr : zone.en;
+  const name     = _localized(zone);
 
   const hasAgent     = state?.agents?.some(a => a.assignedZone === zoneId);
   const activityMode = globalThis.getZoneActivityMode?.(zoneId) || 'idle';
@@ -591,14 +598,14 @@ export function refreshZoneTile(zoneId) {
 
   const statusEl = tile.querySelector('.fog-tile-status');
   if (statusEl) statusEl.textContent = isOpen
-    ? '[OUVERT]'
-    : hasEvent    ? '[ÉVÉNEMENT]'
-    : degraded    ? '[COMBAT]'
-    : hasAgent    ? '[AUTO]'
-    : '[ENTRER]';
+    ? _t('zone_selector_status_open')
+    : hasEvent    ? _t('zone_selector_status_event')
+    : degraded    ? _t('zone_selector_status_combat')
+    : hasAgent    ? _t('zone_selector_status_auto')
+    : _t('zone_selector_status_enter');
 
   const statsEl = tile.querySelector('.fog-tile-stats');
-  if (statsEl) statsEl.textContent = `${'★'.repeat(mastery)}${mastery ? ' ' : ''}${combats}W${zone.music ? ' 🎵' : ''}`;
+  if (statsEl) statsEl.textContent = `${'★'.repeat(mastery)}${mastery ? ' ' : ''}${_t('zone_selector_wins_short', { n: combats })}${zone.music ? ' 🎵' : ''}`;
 
   const nameEl = tile.querySelector('.fog-tile-name');
   if (nameEl && zone.type === 'city') {
@@ -669,11 +676,11 @@ export function updateZoneButtons() {
   const hasOpen   = openCount > 0;
   const counter   = document.getElementById('zoneOpenCount');
   if (counter) {
-    counter.textContent = `${openCount} zone${openCount > 1 ? 's' : ''} ouverte${openCount > 1 ? 's' : ''}`;
+    counter.textContent = _t('zone_selector_open_count', { n: openCount });
     counter.classList.toggle('zone-open-count-warn', openCount > 10);
     counter.title = openCount > 10
-      ? 'Beaucoup de zones ouvertes : timers, rendu et spawns restent actifs.'
-      : 'Nombre de zones actuellement ouvertes.';
+      ? _t('zone_selector_many_open_warning')
+      : _t('zone_selector_open_count_title');
   }
   if (btnClose)   btnClose.style.display   = hasOpen ? '' : 'none';
   if (btnCollect) {
