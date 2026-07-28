@@ -3,32 +3,35 @@
 import { BALL_SPRITES, FALLBACK_TRAINER_SVG } from '../../data/assets-data.js';
 import { EventBus, EVENTS } from '../core/eventBus.js';
 
-// HTML escape — sécurise les strings user-input avant injection via innerHTML
 const _esc = s => String(s ?? '').replace(/[&<>"']/g, ch => (
   ch === '&' ? '&amp;' : ch === '<' ? '&lt;' : ch === '>' ? '&gt;' : ch === '"' ? '&quot;' : '&#39;'));
 
-// 18b. UI — AGENTS TAB
+const _t = (fr, en) => (globalThis.state?.lang === 'en' ? en : fr);
+
+// ════════════════════════════════════════════════════════════════
+// UI — AGENTS TAB
 // ════════════════════════════════════════════════════════════════
 
-// Skins de ball disponibles pour les agents — pokeball toujours disponible, les autres selon purchases
 const ALL_BALL_SKINS = ['pokeball','greatball','duskball','ultraball','masterball'];
-const AGENT_BALL_LABELS = { pokeball:'Poké Ball', greatball:'Super Ball', ultraball:'Hyper Ball', duskball:'Sombre Ball', masterball:'Master Ball' };
+const AGENT_BALL_LABELS = () => ({
+  pokeball:   _t('Poké Ball',   'Poké Ball'),
+  greatball:  _t('Super Ball',  'Great Ball'),
+  ultraball:  _t('Hyper Ball',  'Ultra Ball'),
+  duskball:   _t('Sombre Ball', 'Dusk Ball'),
+  masterball: _t('Master Ball', 'Master Ball'),
+});
 function getUnlockedBallSkins() {
   const s = globalThis.state;
   return ALL_BALL_SKINS.filter(b => b === 'pokeball' || !!(s?.purchases?.[`skin_${b}`]));
 }
-// Behavior flag config (used for global "tout" buttons)
 const BEHAVIOR_FLAGS = [
-  { key:'autoCombat',  icon:'⚔️',  label:'Combat'  },
-  { key:'autoRaid',    icon:'💣',  label:'Raid'    },
-  { key:'autoCapture', icon:'🎯', label:'Capture' },
+  { key:'autoCombat',  icon:'⚔️',  labelFr:'Combat',  labelEn:'Battle'  },
+  { key:'autoRaid',    icon:'💣',  labelFr:'Raid',    labelEn:'Raid'    },
+  { key:'autoCapture', icon:'🎯', labelFr:'Capture', labelEn:'Capture' },
 ];
+const _bfLabel = f => _t(f.labelFr, f.labelEn);
 
-// ── Render guard — même pattern que gangTab.js ────────────────────
-// Debounce 80 ms pour regrouper les appels rapides successifs, et report du
-// rebuild si l'utilisateur est en train d'interagir avec un champ du tab
-// (le <select> d'assignation de zone serait reset en pleine ouverture sinon).
-// Les checkboxes sont exclues de la garde : pas d'état "en cours de saisie".
+// ── Render guard ───────────────────────────────────────────────────────
 let _agentsTabTimer         = null;
 let _agentsTabPendingRender = false;
 let _agentsFocusOutWired    = false;
@@ -63,20 +66,12 @@ function renderAgentsTab() {
   }, 80);
 }
 
-// ── Fragment énergie/repos d'une carte agent ──────────────────────
-// Partagé entre le rebuild complet et le patch ciblé (_patchAgentsTabDynamic).
 function _agentEnergyRowHtml(a, agentTeamSlots) {
-  // Le tick qui remet a.resting à false ne tourne que pour les agents sur
-  // une zone active (voir agent.js:_tickAgentEnergy) — un agent sur une zone
-  // en arrière-plan à faible spawnRate peut donc rester "resting" en mémoire
-  // bien après restUntil. On traite ce cas comme "plus en prison" côté
-  // affichage uniquement (pas de mutation ici) pour éviter un bouton
-  // "Payer" fantôme jusqu'au prochain tick/patch déclenché par un event.
   const stillResting = a.resting && Date.now() < (a.restUntil || 0);
   if (stillResting) {
     const cost = globalThis.getAgentBailCost?.(a) ?? 0;
-    return `<span style="font-family:var(--font-pixel);font-size:7px;color:var(--red)">🔒 PRISON ${Math.max(0, Math.round(((a.restUntil || 0) - Date.now()) / 60000))}min</span>
-      <button data-bail-agent="${a.id}" style="font-size:7px;padding:2px 6px;background:var(--bg-card);border:1px solid var(--gold-dim,#665522);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer;margin-left:4px">🔓 Payer ${cost.toLocaleString()}₽</button>`;
+    return `<span style="font-family:var(--font-pixel);font-size:7px;color:var(--red)">🔒 ${_t('PRISON', 'PRISON')} ${Math.max(0, Math.round(((a.restUntil || 0) - Date.now()) / 60000))}min</span>
+      <button data-bail-agent="${a.id}" style="font-size:7px;padding:2px 6px;background:var(--bg-card);border:1px solid var(--gold-dim,#665522);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer;margin-left:4px">🔓 ${_t('Payer', 'Pay')} ${cost.toLocaleString()}₽</button>`;
   }
   return `<div style="flex:1;height:3px;background:var(--border);border-radius:2px;overflow:hidden">
          <div style="width:${Math.round((a.energy ?? 10) / (a.maxEnergy || 10) * 100)}%;height:100%;background:${(a.energy ?? 10) <= 3 ? 'var(--red)' : 'var(--green)'};border-radius:2px"></div>
@@ -91,46 +86,47 @@ function _doRenderAgentsTab() {
 
   const unlockedZones = ZONES.filter(z => isZoneUnlocked(z.id));
   const RECRUIT_COST  = getAgentRecruitCost();
+  const ballLabels    = AGENT_BALL_LABELS();
 
-  // ── Boss card ────────────────────────────────────────────────────
-  const bossRep   = state.gang.reputation || 0;
+  // ── Boss card ───────────────────────────────────────────────────────────
+const bossRep   = state.gang.reputation || 0;
   const bossTitle = typeof getBossFullTitle === 'function' ? getBossFullTitle() : '';
 
   let html = `
     <div class="agent-card-full" style="border-color:var(--gold)" id="playerStatCard">
       <div class="agent-header">
-        ${state.gang.bossSprite ? `<img src="${trainerSprite(state.gang.bossSprite)}" alt="Boss" style="width:44px;height:44px;image-rendering:pixelated">` : '<div style="width:44px;height:44px;background:var(--bg-card);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:20px">👤</div>'}
+        ${state.gang.bossSprite ? `<img src="${trainerSprite(state.gang.bossSprite)}" alt="${_t('Boss','Boss')}" style="width:44px;height:44px;image-rendering:pixelated">` : `<div style="width:44px;height:44px;background:var(--bg-card);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:20px">👤</div>`}
         <div class="agent-meta">
           <div class="agent-name" style="color:var(--gold)">${_esc(state.gang.bossName || 'Boss')}</div>
-          <div class="agent-title" style="color:var(--gold)">${bossTitle || 'Chef de gang'}</div>
+          <div class="agent-title" style="color:var(--gold)">${bossTitle || _t('Chef de gang', 'Gang Leader')}</div>
           <div id="agentBossCounters" style="font-size:8px;color:var(--text-dim)">
-            ${state.pokemons.length} Pokémon · ${state.agents.filter(a => !a.legacyLocked).length} agents actifs · REP ${bossRep}
+            ${state.pokemons.length} Pokémon · ${state.agents.filter(a => !a.legacyLocked).length} ${_t('agents actifs', 'active agents')} · REP ${bossRep}
           </div>
         </div>
       </div>
     </div>`;
 
-  // ── Global ball setters ─────────────────────────────────────────
+  // ── Global ball setters ────────────────────────────────────────────────
   const availBalls = getUnlockedBallSkins();
   html += `<div id="agentGlobalControls" style="grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);margin-bottom:4px">
-    <span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">TOUT :</span>
-    ${availBalls.map(b => `<button data-setallball="${b}" title="Définir ${AGENT_BALL_LABELS[b]} pour tous" style="display:flex;align-items:center;gap:3px;padding:3px 7px;font-size:8px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;color:var(--text)">
-      <img src="${BALL_SPRITES[b] || ''}" style="width:14px;height:14px;image-rendering:pixelated"> ${AGENT_BALL_LABELS[b]}
+    <span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">${_t('TOUT :', 'ALL:')}}</span>
+    ${availBalls.map(b => `<button data-setallball="${b}" title="${_t('Définir','Set')} ${ballLabels[b]} ${_t('pour tous','for all')}" style="display:flex;align-items:center;gap:3px;padding:3px 7px;font-size:8px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;color:var(--text)">
+      <img src="${BALL_SPRITES[b] || ''}" style="width:14px;height:14px;image-rendering:pixelated"> ${ballLabels[b]}
     </button>`).join('')}
-    <span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);margin-left:8px">AUTO :</span>
-    ${BEHAVIOR_FLAGS.map(f => `<button data-setallflag="${f.key}" data-val="true" title="${f.label} ON pour tous" style="padding:3px 7px;font-size:8px;background:var(--bg-card);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);cursor:pointer;color:var(--gold)">${f.icon} ${f.label} ON</button><button data-setallflag="${f.key}" data-val="false" title="${f.label} OFF pour tous" style="padding:3px 7px;font-size:8px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;color:var(--text-dim)">${f.icon} OFF</button>`).join('')}
+    <span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);margin-left:8px">${_t('AUTO :', 'AUTO:')}</span>
+    ${BEHAVIOR_FLAGS.map(f => `<button data-setallflag="${f.key}" data-val="true" title="${_bfLabel(f)} ON ${_t('pour tous','for all')}" style="padding:3px 7px;font-size:8px;background:var(--bg-card);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);cursor:pointer;color:var(--gold)">${f.icon} ${_bfLabel(f)} ON</button><button data-setallflag="${f.key}" data-val="false" title="${_bfLabel(f)} OFF ${_t('pour tous','for all')}" style="padding:3px 7px;font-size:8px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;color:var(--text-dim)">${f.icon} OFF</button>`).join('')}
   </div>`;
 
-  // ── Agent cards ─────────────────────────────────────────────────
+  // ── Agent cards ────────────────────────────────────────────────────────────
   for (let agIdx = 0; agIdx < state.agents.length; agIdx++) {
     const a = state.agents[agIdx];
     const xpNeeded = a.level * 30;
     const xpPct    = Math.min(100, (a.xp / xpNeeded) * 100);
     const zoneOptions = unlockedZones.map(z =>
-      `<option value="${z.id}" ${a.assignedZone === z.id ? 'selected' : ''}>${state.lang === 'fr' ? z.fr : z.en}</option>`
+      `<option value="${z.id}" ${a.assignedZone === z.id ? 'selected' : ''}>${state.lang === 'en' ? z.en : z.fr}</option>`
     ).join('');
 
-    const agentTeamSlots = getAgentTeamSlots(a); // rank-based slots: grunt=1, sergent=2, lieutenant+=3
+    const agentTeamSlots = getAgentTeamSlots(a);
     const teamSlots = Array.from({length: agentTeamSlots}, (_, i) => {
       const pkId = a.team[i];
       const pk   = pkId ? state.pokemons.find(p => p.id === pkId) : null;
@@ -138,26 +134,23 @@ function _doRenderAgentsTab() {
       return `<div class="agent-team-slot" data-agent-team="${a.id}" data-slot="${i}">+</div>`;
     }).join('');
 
-    // Ball skin selector (cosmétique uniquement — pokeball = ressource unique de capture)
     const curBall   = a.ball || 'pokeball';
-    const curBallSp = BALL_SPRITES[curBall] || '';
     const unlockedSkins = getUnlockedBallSkins();
     const ballBtns  = unlockedSkins.map(b => {
       const active = b === curBall;
-      return `<button data-agent-ball="${a.id}" data-ball="${b}" title="${AGENT_BALL_LABELS[b]}" style="padding:2px 4px;border:1px solid ${active ? 'var(--gold)' : 'var(--border)'};background:${active ? 'rgba(255,204,90,.15)' : 'var(--bg)'};border-radius:3px;cursor:pointer">
+      return `<button data-agent-ball="${a.id}" data-ball="${b}" title="${ballLabels[b]}" style="padding:2px 4px;border:1px solid ${active ? 'var(--gold)' : 'var(--border)'};background:${active ? 'rgba(255,204,90,.15)' : 'var(--bg)'};border-radius:3px;cursor:pointer">
         <img src="${BALL_SPRITES[b] || ''}" style="width:16px;height:16px;image-rendering:pixelated">
       </button>`;
     }).join('');
 
-    // Behavior toggles (3 independent flags)
-    const _bhBtn = (flag, icon, label) => {
+    const _bhBtn = (flag, icon, labelFr, labelEn) => {
       const on = a[flag] !== false;
+      const label = _t(labelFr, labelEn);
       const activeStyle = on ? 'border:1px solid var(--gold);background:rgba(255,204,90,.15);color:var(--gold)' : 'border:1px solid var(--border);background:var(--bg);color:var(--text-dim)';
       return `<button data-ag-flag="${a.id}" data-flag="${flag}" style="padding:2px 7px;font-size:8px;border-radius:3px;cursor:pointer;${activeStyle}">${icon} ${label}${on ? '' : ' ✗'}</button>`;
     };
-    const bhBtns = _bhBtn('autoCombat','⚔️','Combat') + _bhBtn('autoRaid','💣','Raid') + _bhBtn('autoCapture','🎯','Capture');
+    const bhBtns = _bhBtn('autoCombat','⚔️','Combat','Battle') + _bhBtn('autoRaid','💣','Raid','Raid') + _bhBtn('autoCapture','🎯','Capture','Capture');
 
-    // ── Carte verrouillée (agents au-delà du 10e slot) ──────────────
     if (a.legacyLocked) {
       const unlockCost = globalThis.getAgentUnlockCost?.(agIdx) ?? 0;
       html += `<div class="agent-card-full" data-agent-id="${a.id}"
@@ -165,13 +158,13 @@ function _doRenderAgentsTab() {
         <div style="position:absolute;inset:0;background:rgba(0,0,0,.45);z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:12px">
           <div style="font-size:28px">🔒</div>
           <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);text-align:center">
-            De nos jours, le management coûte cher…
+            ${_t('De nos jours, le management coûte cher…', 'Management is expensive these days…')}
           </div>
           <button class="agent-unlock-btn" data-agent-id="${a.id}"
             style="font-family:var(--font-pixel);font-size:8px;padding:7px 14px;
                    background:rgba(255,204,90,.1);border:1px solid var(--gold-dim);
                    border-radius:var(--radius-sm);color:var(--gold);cursor:pointer;z-index:2">
-            Débloquer — ${unlockCost.toLocaleString()}₽
+            ${_t('Débloquer', 'Unlock')} — ${unlockCost.toLocaleString()}₽
           </button>
         </div>
         <div class="agent-header" style="filter:blur(2px)">
@@ -189,7 +182,7 @@ function _doRenderAgentsTab() {
     html += `<div class="agent-card-full" data-agent-id="${a.id}" data-rank="${a.title || 'grunt'}">
       <div class="agent-header">
         <img src="${a.sprite}" alt="${a.name}" onerror="this.src='${FALLBACK_TRAINER_SVG}';this.onerror=null"
-          style="cursor:pointer" class="agent-sprite-open-sheet" data-agent-id="${a.id}" title="Voir la fiche">
+          style="cursor:pointer" class="agent-sprite-open-sheet" data-agent-id="${a.id}" title="${_t('Voir la fiche', 'View profile')}">
         <div class="agent-meta">
           <div class="agent-title agent-rank-${a.title}" style="display:flex;align-items:baseline;gap:5px;flex-wrap:nowrap;overflow:hidden">
             <span style="font-size:7px;opacity:.75;flex-shrink:0">[${getAgentRankLabel(a)}]</span>
@@ -202,11 +195,11 @@ function _doRenderAgentsTab() {
           </div>
         </div>
         <div style="display:flex;flex-direction:column;gap:3px;margin-left:auto;padding-left:6px">
-          <button class="agent-open-sheet" data-agent-id="${a.id}" title="Fiche détaillée"
+          <button class="agent-open-sheet" data-agent-id="${a.id}" title="${_t('Fiche détaillée', 'Detailed profile')}"
             style="font-size:10px;padding:2px 6px;background:var(--bg);border:1px solid var(--red);border-radius:3px;cursor:pointer;color:var(--red)">📋</button>
           ${cosmUnlockedAgent ? `
-          <button class="agent-card-rename" data-agent-id="${a.id}" title="Renommer (2 000₽)" style="font-size:10px;padding:2px 5px;background:var(--bg);border:1px solid var(--border);border-radius:3px;cursor:pointer;color:var(--text-dim)">✏</button>
-          <button class="agent-card-sprite" data-agent-id="${a.id}" title="Changer sprite (5 000₽)" style="font-size:10px;padding:2px 5px;background:var(--bg);border:1px solid var(--border);border-radius:3px;cursor:pointer;color:var(--text-dim)">🎨</button>` : ''}
+          <button class="agent-card-rename" data-agent-id="${a.id}" title="${_t('Renommer (2 000₽)', 'Rename (2,000₽)')}" style="font-size:10px;padding:2px 5px;background:var(--bg);border:1px solid var(--border);border-radius:3px;cursor:pointer;color:var(--text-dim)">✏</button>
+          <button class="agent-card-sprite" data-agent-id="${a.id}" title="${_t('Changer sprite (5 000₽)', 'Change sprite (5,000₽)')}" style="font-size:10px;padding:2px 5px;background:var(--bg);border:1px solid var(--border);border-radius:3px;cursor:pointer;color:var(--text-dim)">🎨</button>` : ''}
         </div>
       </div>
 
@@ -224,7 +217,7 @@ function _doRenderAgentsTab() {
 
       <div style="font-size:9px">
         <select class="agents-zone-select" data-agent-id="${a.id}" style="background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:4px;font-size:9px;padding:2px 4px;width:100%">
-          <option value="">— Aucune zone —</option>
+          <option value="">${_t('— Aucune zone —', '— No zone —')}</option>
           ${zoneOptions}
         </select>
       </div>
@@ -233,7 +226,7 @@ function _doRenderAgentsTab() {
 
       <label class="agent-notify-toggle">
         <input type="checkbox" class="agent-notify-cb" data-agent-id="${a.id}" ${a.notifyCaptures !== false ? 'checked' : ''}>
-        ${a.notifyCaptures !== false ? '🔔' : '🔕'} Notifications
+        ${a.notifyCaptures !== false ? '🔔' : '🔕'} ${_t('Notifications', 'Notifications')}
       </label>
     </div>`;
   }
@@ -245,18 +238,16 @@ function _doRenderAgentsTab() {
     <div style="text-align:center">
       <div style="font-size:22px;margin-bottom:6px">+</div>
       <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim)">
-        RECRUTER UN AGENT
+        ${_t('RECRUTER UN AGENT', 'RECRUIT AN AGENT')}
       </div>
       <div style="font-size:9px;color:var(--gold);margin-top:3px">
-        Agent ${state.agents.length + 1} — ${RECRUIT_COST.toLocaleString()}₽
+        ${_t('Agent', 'Agent')} ${state.agents.length + 1} — ${RECRUIT_COST.toLocaleString()}₽
       </div>
     </div>
   </div>`;
 
   grid.innerHTML = html;
 
-  // Agent tree toggle (once, guarded — le bouton vit hors du grid, il survit aux rebuilds :
-  // sans garde, chaque render empilait un listener de plus et un clic togglait N fois)
   const treeBtn = document.getElementById('btnToggleAgentTree');
   const treeCon = document.getElementById('agentTreeContainer');
   if (treeBtn && treeCon && !treeBtn.dataset.wired) {
@@ -264,12 +255,11 @@ function _doRenderAgentsTab() {
     treeBtn.addEventListener('click', () => {
       const open = treeCon.style.display === 'none';
       treeCon.style.display = open ? 'block' : 'none';
-      treeBtn.textContent  = open ? '🌳 Masquer l\'arbre' : '🌳 Afficher l\'arbre';
+      treeBtn.textContent  = open ? _t('🌳 Masquer l\'arbre', '🌳 Hide tree') : _t('🌳 Afficher l\'arbre', '🌳 Show tree');
       if (open) renderAgentTree(treeCon);
     });
   }
 
-  // Wire unequip-all button (once, guarded)
   const unequipBtn = document.getElementById('btnUnequipAll');
   if (unequipBtn && !unequipBtn.dataset.wired) {
     unequipBtn.dataset.wired = '1';
@@ -277,24 +267,20 @@ function _doRenderAgentsTab() {
       for (const a of state.agents) a.team = [];
       saveState();
       renderAgentsTab();
-      notify(state.lang === 'fr' ? 'Toutes les équipes vidées' : 'All teams cleared', 'success');
+      notify(_t('Toutes les équipes vidées', 'All teams cleared'), 'success');
     });
   }
 
-  // Bind events
-  // Recruit
   document.getElementById('btnRecruitAgentFull')?.addEventListener('click', () => {
     openAgentRecruitModal(() => renderAgentsTab());
   });
 
-  // Agent sheet (📋 button + sprite click)
   grid.querySelectorAll('.agent-open-sheet, .agent-sprite-open-sheet').forEach(btn => {
     btn.addEventListener('click', () => {
       openAgentSheet(btn.dataset.agentId, () => renderAgentsTab());
     });
   });
 
-  // Zone assignment
   grid.querySelectorAll('.agents-zone-select').forEach(sel => {
     sel.addEventListener('change', (e) => {
       assignAgentToZone(e.target.dataset.agentId, e.target.value || null);
@@ -302,7 +288,6 @@ function _doRenderAgentsTab() {
     });
   });
 
-  // Team slot clicks
   grid.querySelectorAll('[data-agent-team]').forEach(slot => {
     slot.addEventListener('click', () => {
       const agentId = slot.dataset.agentTeam;
@@ -311,18 +296,15 @@ function _doRenderAgentsTab() {
       if (!agent) return;
       const pkId = agent.team[slotIdx];
       if (pkId) {
-        // Remove from team
         agent.team.splice(slotIdx, 1);
         saveState();
         renderAgentsTab();
       } else {
-        // Show picker
         openTeamPicker('agent', agentId, () => renderAgentsTab());
       }
     });
   });
 
-  // Notification toggle
   grid.querySelectorAll('.agent-notify-cb').forEach(cb => {
     cb.addEventListener('change', (e) => {
       const agent = state.agents.find(a => a.id === e.target.dataset.agentId);
@@ -334,7 +316,6 @@ function _doRenderAgentsTab() {
     });
   });
 
-  // Ball selector per agent
   grid.querySelectorAll('[data-agent-ball]').forEach(btn => {
     btn.addEventListener('click', () => {
       const agent = state.agents.find(a => a.id === btn.dataset.agentBall);
@@ -345,30 +326,27 @@ function _doRenderAgentsTab() {
     });
   });
 
-  // Behavior flag toggles per agent
   grid.querySelectorAll('[data-ag-flag]').forEach(btn => {
     btn.addEventListener('click', () => {
       const agent = state.agents.find(a => a.id === btn.dataset.agFlag);
       if (!agent) return;
       const flag = btn.dataset.flag;
-      agent[flag] = agent[flag] === false ? true : false; // toggle
+      agent[flag] = agent[flag] === false ? true : false;
       saveState();
       renderAgentsTab();
     });
   });
 
-  // Global ball setters
   grid.querySelectorAll('[data-setallball]').forEach(btn => {
     btn.addEventListener('click', () => {
       const ball = btn.dataset.setallball;
       state.agents.forEach(a => { a.ball = ball; });
       saveState();
       renderAgentsTab();
-      notify(`Tous les agents → ${AGENT_BALL_LABELS[ball]}`, 'success');
+      notify(`${_t('Tous les agents →', 'All agents →')} ${ballLabels[ball]}`, 'success');
     });
   });
 
-  // Global behavior flag setters
   grid.querySelectorAll('[data-setallflag]').forEach(btn => {
     btn.addEventListener('click', () => {
       const flag = btn.dataset.setallflag;
@@ -377,11 +355,10 @@ function _doRenderAgentsTab() {
       saveState();
       renderAgentsTab();
       const cfg = BEHAVIOR_FLAGS.find(f => f.key === flag);
-      notify(`Tous les agents → ${cfg?.label || flag} ${val ? 'ON' : 'OFF'}`, val ? 'success' : '');
+      notify(`${_t('Tous les agents →', 'All agents →')} ${cfg ? _bfLabel(cfg) : flag} ${val ? 'ON' : 'OFF'}`, val ? 'success' : '');
     });
   });
 
-  // Unlock button for legacy-locked agents
   grid.querySelectorAll('.agent-unlock-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -389,7 +366,6 @@ function _doRenderAgentsTab() {
     });
   });
 
-  // Right-click context menu on agent cards
   grid.querySelectorAll('.agent-card-full[data-agent-id]').forEach(card => {
     card.addEventListener('contextmenu', (e) => {
       e.preventDefault();
@@ -399,49 +375,48 @@ function _doRenderAgentsTab() {
       const unlockedZones = ZONES.filter(z => isZoneUnlocked(z.id));
       const zoneItems = unlockedZones.slice(0, 8).map(z => ({
         action: 'zone_' + z.id,
-        label: (state.lang === 'fr' ? z.fr : z.en),
+        label: (state.lang === 'en' ? z.en : z.fr),
         fn: () => {
           if (!assignAgentToZone(agent.id, z.id)) return;
           renderAgentsTab();
-          notify(agent.name + ' -> ' + (state.lang === 'fr' ? z.fr : z.en), 'success');
+          notify(agent.name + ' → ' + (state.lang === 'en' ? z.en : z.fr), 'success');
         }
       }));
       showContextMenu(e.clientX, e.clientY, [
-        { action:'clearteam', label:'Vider l\'equipe', fn: () => { agent.team = []; saveState(); renderAgentsTab(); } },
-        { action:'autoteam', label:`Auto-equipe (top ${getAgentTeamSlots(agent)})`, fn: () => {
+        { action:'clearteam', label: _t('Vider l\'equipe', 'Clear team'), fn: () => { agent.team = []; saveState(); renderAgentsTab(); } },
+        { action:'autoteam', label: _t(`Auto-equipe (top ${getAgentTeamSlots(agent)})`, `Auto-team (top ${getAgentTeamSlots(agent)})`), fn: () => {
           const usedIds = new Set();
           state.agents.forEach(a => { if (a.id !== agent.id) a.team.forEach(id => usedIds.add(id)); });
           state.gang.bossTeam.forEach(id => usedIds.add(id));
           const avail = state.pokemons.filter(p => !usedIds.has(p.id)).sort((a,b) => getPokemonPower(b) - getPokemonPower(a));
           agent.team = avail.slice(0, getAgentTeamSlots(agent)).map(p => p.id);
-          saveState(); renderAgentsTab(); notify('Equipe auto assignee', 'success');
+          saveState(); renderAgentsTab(); notify(_t('Equipe auto assignée', 'Auto-team assigned'), 'success');
         }},
-        ...zoneItems.length ? [{ action:'envoyer', label:'Envoyer en zone', fn: () => {} }, ...zoneItems] : [],
-        { action:'unassign', label:'Retirer de la zone', fn: () => { assignAgentToZone(agent.id, null); renderAgentsTab(); } },
+        ...zoneItems.length ? [{ action:'envoyer', label: _t('Envoyer en zone', 'Send to zone'), fn: () => {} }, ...zoneItems] : [],
+        { action:'unassign', label: _t('Retirer de la zone', 'Remove from zone'), fn: () => { assignAgentToZone(agent.id, null); renderAgentsTab(); } },
       ]);
     });
   });
 
-  // Rename / sprite buttons (cosmétiques dans agents tab)
   grid.querySelectorAll('.agent-card-rename').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      if (state.gang.money < 2000) { notify('Fonds insuffisants (2 000₽)', 'error'); return; }
+      if (state.gang.money < 2000) { notify(_t('Fonds insuffisants (2 000₽)', 'Insufficient funds (2,000₽)'), 'error'); return; }
       const agent = state.agents.find(a => a.id === btn.dataset.agentId);
       if (!agent) return;
-      openNameModal({ title: `Renommer ${agent.name}`, current: agent.name, cost: 2000, onConfirm: (val) => {
+      openNameModal({ title: _t(`Renommer ${agent.name}`, `Rename ${agent.name}`), current: agent.name, cost: 2000, onConfirm: (val) => {
         state.gang.money -= 2000;
         EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -2000, newTotal: state.gang.money });
         agent.name = val;
         saveState(); renderAgentsTab();
-        notify(`Agent renommé : ${val}`, 'gold');
+        notify(_t(`Agent renommé : ${val}`, `Agent renamed: ${val}`), 'gold');
       }});
     });
   });
   grid.querySelectorAll('.agent-card-sprite').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      if (state.gang.money < 5000) { notify('Fonds insuffisants (5 000₽)', 'error'); return; }
+      if (state.gang.money < 5000) { notify(_t('Fonds insuffisants (5 000₽)', 'Insufficient funds (5,000₽)'), 'error'); return; }
       const agent = state.agents.find(a => a.id === btn.dataset.agentId);
       if (!agent) return;
       openSpritePicker(null, (newSprite) => {
@@ -449,23 +424,17 @@ function _doRenderAgentsTab() {
         EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -5000, newTotal: state.gang.money });
         agent.sprite = trainerSprite(newSprite);
         saveState(); renderAgentsTab();
-        notify(`Sprite de ${agent.name} mis à jour !`, 'gold');
+        notify(_t(`Sprite de ${agent.name} mis à jour !`, `${agent.name}'s sprite updated!`), 'gold');
       });
     });
   });
-
 }
 
-// ── Agent org-chart (proto — visual only, no mechanical assignment yet) ──
-// Ranks: grunt → sergent → lieutenant → commandant → elite/général
-// Capacity per rank (how many direct reports they can have):
+// ── Agent org-chart ────────────────────────────────────────────────────────────
 const RANK_CAPACITY = { grunt: 0, sergent: 2, lieutenant: 3, commandant: 4, elite: 5, general: 6 };
-// Rank level (higher = more senior)
-const RANK_LEVEL = { grunt: 0, sergent: 1, lieutenant: 2, commandant: 3, elite: 4, general: 5 };
+const RANK_LEVEL    = { grunt: 0, sergent: 1, lieutenant: 2, commandant: 3, elite: 4, general: 5 };
 
 function renderAgentTree(container) {
-  // Alignées sur .agent-rank-* (css/game-ui.css) pour que l'arbre et les
-  // cartes agent normales n'aient jamais de couleurs divergentes.
   const RANK_COLOR = {
     grunt:      'var(--text-dim)',
     sergent:    '#7eb8f7',
@@ -475,16 +444,11 @@ function renderAgentTree(container) {
     general:    '#e05c5c',
   };
 
-  // Sort agents by rank level desc
   const sorted = [...state.agents].sort((a, b) => (RANK_LEVEL[b.title] ?? 0) - (RANK_LEVEL[a.title] ?? 0));
-
-  // Group by rank
   const byRank = {};
   for (const a of sorted) {
     (byRank[a.title] = byRank[a.title] || []).push(a);
   }
-
-  // Build rank tiers, du plus haut au plus bas
   const rankOrder = ['general','elite','commandant','lieutenant','sergent','grunt'];
   const usedRanks = rankOrder.filter(r => byRank[r]?.length);
 
@@ -495,7 +459,7 @@ function renderAgentTree(container) {
   const agentNode = (a) => {
     const cap  = RANK_CAPACITY[a.title] || 0;
     const col  = RANK_COLOR[a.title]   || 'var(--text-dim)';
-    const zone = a.assignedZone ? (ZONE_BY_ID[a.assignedZone]?.fr || a.assignedZone) : '—';
+    const zone = a.assignedZone ? (ZONE_BY_ID[a.assignedZone]?.[state.lang === 'en' ? 'en' : 'fr'] || a.assignedZone) : '—';
     return `<div class="agent-tree-node" style="border-color:${col};background:var(--bg-panel)">
       <img src="${a.sprite}" style="width:32px;height:32px;image-rendering:pixelated" onerror="this.style.display='none'">
       <div>
@@ -527,13 +491,10 @@ function renderAgentTree(container) {
   ];
 
   if (!state.agents.length) {
-    container.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text-dim);font-size:10px;font-family:var(--font-pixel)">Recrutez des agents pour construire votre organisation.</div>`;
+    container.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text-dim);font-size:10px;font-family:var(--font-pixel)">${_t('Recrutez des agents pour construire votre organisation.', 'Recruit agents to build your organisation.')}</div>`;
     return;
   }
 
-  // Empilement vertical par palier (du plus haut grade au plus bas), façon
-  // organigramme — se lit de haut en bas sans défilement latéral, contrairement
-  // à l'ancienne disposition en colonnes.
   container.innerHTML = `
     <div style="display:flex;flex-direction:column;align-items:center;gap:4px;width:100%">
       ${tiers.map((tier, ti) => `
@@ -547,17 +508,11 @@ function renderAgentTree(container) {
       `).join('')}
     </div>
     <div style="margin-top:12px;font-size:8px;color:var(--text-dim);font-family:var(--font-pixel);opacity:.6;text-align:center">
-      Vue organisationnelle — l'assignation hiérarchique n'est pas encore mécanique.
+      ${_t('Vue organisationnelle — l\'assignation hiérarchique n\'est pas encore mécanique.', 'Organisational view — hierarchical assignment is not yet mechanical.')}
     </div>`;
 }
 
-// ── Patch ciblé des valeurs dynamiques ────────────────────────────
-// Pendant l'activité background (agents qui combattent/capturent), seuls
-// niveau, XP, énergie et compteurs bougent — on met à jour ces nœuds en place
-// au lieu de reconstruire toute la grille (cartes complexes × nombre d'agents,
-// le coût exact qui explose en late-game). Le rebuild complet reste réservé
-// aux changements structurels : promotion (le rang change les slots d'équipe),
-// recrutement/déblocage (le nombre de cartes change).
+// ── Patch ciblé des valeurs dynamiques ─────────────────────────────────────────
 function _patchAgentsTabDynamic() {
   if (globalThis.activeTab !== 'tabAgents') return;
   const grid = document.getElementById('agentsGrid');
@@ -567,14 +522,12 @@ function _patchAgentsTabDynamic() {
   const counters = grid.querySelector('#agentBossCounters');
   if (counters) {
     counters.textContent =
-      `${state.pokemons.length} Pokémon · ${state.agents.filter(a => !a.legacyLocked).length} agents actifs · REP ${state.gang.reputation || 0}`;
+      `${state.pokemons.length} Pokémon · ${state.agents.filter(a => !a.legacyLocked).length} ${_t('agents actifs', 'active agents')} · REP ${state.gang.reputation || 0}`;
   }
 
   for (const a of state.agents) {
     if (a.legacyLocked) continue;
     const card = grid.querySelector(`.agent-card-full[data-agent-id="${a.id}"]`);
-    // Carte absente (recrutement) ou rang changé (slots d'équipe différents) :
-    // structurel → rebuild complet et on s'arrête là.
     if (!card || card.dataset.rank !== (a.title || 'grunt')) { renderAgentsTab(); return; }
 
     const lvEl = card.querySelector('.agent-lv');
@@ -586,21 +539,14 @@ function _patchAgentsTabDynamic() {
   }
 }
 
-// ── Refresh automatique via EventBus (patch ciblé, jamais de rebuild) ─────────
-// Ces events sont émis en rafale par les agents en arrière-plan ; le debounce
-// regroupe la rafale, et le handler ne touche que les nœuds dynamiques.
 const AGENTS_TAB_EVENT_DEBOUNCE_MS = 400;
 let _agentsPatchTimer = null;
-
 let _agentsTabEventsRegistered = false;
+
 function _registerAgentsTabEvents() {
   if (_agentsTabEventsRegistered) return;
   _agentsTabEventsRegistered = true;
 
-  // Délégué sur le conteneur persistant : le bouton de rachat vit dans
-  // .agent-energy-row, régénérée aussi bien par le rebuild complet que par
-  // _patchAgentsTabDynamic (innerHTML ciblé) — un listener posé sur chaque
-  // bouton individuel serait perdu après un patch ciblé.
   document.getElementById('agentsGrid')?.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-bail-agent]');
     if (!btn) return;
@@ -613,10 +559,10 @@ function _registerAgentsTabEvents() {
     clearTimeout(_agentsPatchTimer);
     _agentsPatchTimer = setTimeout(_patchAgentsTabDynamic, AGENTS_TAB_EVENT_DEBOUNCE_MS);
   };
-  EventBus.on(EVENTS.COMBAT_WON,       _patchIfActive); // XP/level agents
-  EventBus.on(EVENTS.COMBAT_LOST,      _patchIfActive); // énergie (baisse sur défaite)
-  EventBus.on(EVENTS.POKEMON_CAPTURED, _patchIfActive); // XP agents + compteur Pokémon
-  EventBus.on(EVENTS.POKEMON_SOLD,     _patchIfActive); // compteur Pokémon (auto-vente)
+  EventBus.on(EVENTS.COMBAT_WON,       _patchIfActive);
+  EventBus.on(EVENTS.COMBAT_LOST,      _patchIfActive);
+  EventBus.on(EVENTS.POKEMON_CAPTURED, _patchIfActive);
+  EventBus.on(EVENTS.POKEMON_SOLD,     _patchIfActive);
 }
 _registerAgentsTabEvents();
 
