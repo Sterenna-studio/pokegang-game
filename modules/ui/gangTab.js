@@ -94,7 +94,7 @@ function _buildServicesHtml(state) {
     <img src="${globalThis.trainerSprite('nurse')}" style="width:36px;height:36px;image-rendering:pixelated;flex-shrink:0;${ownN && !enN ? 'opacity:.4;filter:grayscale(1)' : ''}" onerror="this.style.display='none'">
     <div style="flex:1">
       <div style="font-family:var(--font-pixel);font-size:8px;color:${ownN ? (enN ? 'var(--green)' : 'var(--text-dim)') : 'var(--text)'};margin-bottom:3px">${_t('Infirmière Joëlle corrompue', 'Corrupted Nurse Joy')}</div>
-      <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">${_t('Auto-incube les œufs dès qu'un incubateur est libre.', 'Auto-incubates eggs as soon as an incubator is free.')}</div>
+      <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">${_t('Auto-incube les œufs dès qu\'un incubateur est libre.', 'Auto-incubates eggs as soon as an incubator is free.')}</div>
       ${ownN
         ? `<div style="display:flex;align-items:center;gap:8px">
              <span style="font-family:var(--font-pixel);font-size:7px;color:${enN ? 'var(--green)' : 'var(--text-dim)'}">${enN ? _t('✓ EN POSTE', '✓ ON DUTY') : _t('✗ CONGÉ', '✗ OFF DUTY')}</span>
@@ -111,7 +111,7 @@ function _buildServicesHtml(state) {
     <img src="${globalThis.trainerSprite('scientist')}" style="width:36px;height:36px;image-rendering:pixelated;flex-shrink:0;${ownSc && !enSc ? 'opacity:.4;filter:grayscale(1)' : ''}" onerror="this.style.display='none'">
     <div style="flex:1">
       <div style="font-family:var(--font-pixel);font-size:8px;color:${ownSc ? (enSc ? 'var(--green)' : 'var(--text-dim)') : 'var(--text)'};margin-bottom:3px">${_t('Scientifique peu scrupuleux', 'Unscrupulous Scientist')}</div>
-      <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">${_t('Révèle l'espèce des œufs (10k₽) · Mutation artificielle : sacrifice ★★★★★ même espèce pour potentiel max.', 'Reveals egg species (10k₽) · Artificial mutation: sacrifice ★★★★★ same species for max potential.')}</div>
+      <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">${_t('Révèle l\'espèce des œufs (10k₽) · Mutation artificielle : sacrifice ★★★★★ même espèce pour potentiel max.', 'Reveals egg species (10k₽) · Artificial mutation: sacrifice ★★★★★ same species for max potential.')}</div>
       ${ownSc
         ? `<div style="display:flex;align-items:center;gap:8px">
              <span style="font-family:var(--font-pixel);font-size:7px;color:${enSc ? 'var(--green)' : 'var(--text-dim)'}">${enSc ? _t('✓ EN POSTE', '✓ ON DUTY') : _t('✗ RENVOYÉ', '✗ DISMISSED')}</span>
