@@ -596,6 +596,16 @@ const I18N = {
   static_close:               { fr:'Fermer', en:'Close' },
   static_validate:            { fr:'✓ Valider', en:'✓ Apply' },
   static_close_with_icon:     { fr:'✕ Fermer', en:'✕ Close' },
+  chroma_alert_title:         { fr:'⚠ ALERTE — {cost}₽ DÉTECTÉS', en:'⚠ ALERT — {cost}₽ DETECTED' },
+  chroma_alert_thanks:        { fr:"L'équipe de développement vous remercie<br>pour ces ressources utiles à la création<br>de son empire...<br><span style=\"font-size:13px;color:var(--red)\">MOUAHAHAHA !</span>", en:'The development team thanks you<br>for these resources, useful for building<br>its empire...<br><span style="font-size:13px;color:var(--red)">MUAHAHAHA!</span>' },
+  chroma_alert_conversion:    { fr:'Vos <b style="color:var(--red)">{cost}₽</b> ont été convertis en<br><b style="color:var(--gold)">✨ Charme Chroma</b> — taux shiny ×2 permanent !', en:'Your <b style="color:var(--red)">{cost}₽</b> were converted into a<br><b style="color:var(--gold)">✨ Shiny Charm</b> — permanent ×2 Shiny rate!' },
+  chroma_alert_close:         { fr:'... Très bien.', en:'... Very well.' },
+  chroma_alert_obtained:      { fr:'✨ Charme Chroma obtenu ! Taux shiny ×2', en:'✨ Shiny Charm obtained! ×2 Shiny rate' },
+  cheat_used:                 { fr:'❌ Code déjà utilisé cette session', en:'❌ Code already used this session' },
+  cheat_invalid:              { fr:'❌ Code invalide', en:'❌ Invalid code' },
+  cheat_title_obtained:       { fr:'🏆 Titre obtenu : {title}', en:'🏆 Title obtained: {title}' },
+  runtime_error_notice:       { fr:'⚠ Une erreur est survenue — la partie continue (F12 pour détails)', en:'⚠ An error occurred — the game will continue (F12 for details)' },
+  limit_violation_reward:     { fr:'⚠️ Valeurs hors-limites détectées et corrigées — MissingNo Lv.1 ajouté au PC !', en:'⚠️ Out-of-range values detected and fixed — MissingNo Lv.1 added to the PC!' },
 
   // Notification panel
   notif_category_important: { fr:'Importants', en:'Important' },

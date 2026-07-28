@@ -591,26 +591,22 @@ function checkMoneyMilestone() {
     modal.innerHTML = `
       <div style="background:var(--bg-panel);border:3px solid var(--red);border-radius:var(--radius);padding:28px 32px;max-width:440px;width:92%;text-align:center;display:flex;flex-direction:column;align-items:center;gap:14px">
         <img src="${LOGO_URL}" style="width:72px;height:72px;image-rendering:pixelated" onerror="this.style.display='none'">
-        <div style="font-family:var(--font-pixel);font-size:9px;color:var(--red);letter-spacing:2px">⚠ ALERTE — ${CHROMA_CHARM_COST.toLocaleString()}₽ DÉTECTÉS</div>
+        <div style="font-family:var(--font-pixel);font-size:9px;color:var(--red);letter-spacing:2px">${t('chroma_alert_title', { cost: CHROMA_CHARM_COST.toLocaleString() })}</div>
         <div style="display:flex;align-items:center;justify-content:center;gap:20px">
           <img src="${trainerSprite('scientist')}" style="width:52px;height:52px;image-rendering:pixelated">
           <img src="${trainerSprite('giovanni')}" style="width:52px;height:52px;image-rendering:pixelated">
         </div>
         <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold);line-height:2">
-          L'équipe de développement vous remercie<br>
-          pour ces ressources utiles à la création<br>
-          de son empire...<br>
-          <span style="font-size:13px;color:var(--red)">MOUAHAHAHA !</span>
+          ${t('chroma_alert_thanks')}
         </div>
         <div style="font-size:10px;color:var(--text-dim);line-height:1.6">
-          Vos <b style="color:var(--red)">${CHROMA_CHARM_COST.toLocaleString()}₽</b> ont été convertis en<br>
-          <b style="color:var(--gold)">✨ Charme Chroma</b> — taux shiny ×2 permanent !
+          ${t('chroma_alert_conversion', { cost: CHROMA_CHARM_COST.toLocaleString() })}
         </div>
-        <button style="font-family:var(--font-pixel);font-size:9px;padding:9px 24px;background:var(--red-dark);border:2px solid var(--red);border-radius:var(--radius-sm);color:var(--text);cursor:pointer" id="btnChromaCharmClose">... Très bien.</button>
+        <button style="font-family:var(--font-pixel);font-size:9px;padding:9px 24px;background:var(--red-dark);border:2px solid var(--red);border-radius:var(--radius-sm);color:var(--text);cursor:pointer" id="btnChromaCharmClose">${t('chroma_alert_close')}</button>
       </div>`;
     document.body.appendChild(modal);
     modal.querySelector('#btnChromaCharmClose').addEventListener('click', () => modal.remove());
-    notify('✨ Charme Chroma obtenu ! Taux shiny ×2', 'gold');
+    notify(t('chroma_alert_obtained'), 'gold');
   }
 }
 
@@ -636,9 +632,9 @@ function tryCheatCode(inputId) {
 
   // 2. Sinon legacy _CHEAT_CODES
   const key = btoa(raw);
-  if (_usedCodes.has(key)) { notify('❌ Code déjà utilisé cette session', 'error'); return; }
+  if (_usedCodes.has(key)) { notify(t('cheat_used'), 'error'); return; }
   const code = _CHEAT_CODES[key];
-  if (!code) { notify('❌ Code invalide', 'error'); SFX.play('error'); return; }
+  if (!code) { notify(t('cheat_invalid'), 'error'); SFX.play('error'); return; }
   _usedCodes.add(key);
   if (code.money) {
     addMoney(code.money);
@@ -648,7 +644,7 @@ function tryCheatCode(inputId) {
   }
   if (code.title) {
     state.purchases[`title_${code.title}`] = true;
-    notify(`🏆 Titre obtenu : ${code.title}`, 'gold');
+    notify(t('cheat_title_obtained', { title: code.title }), 'gold');
   }
   saveState();
 }
@@ -1416,7 +1412,7 @@ window.onerror = function(msg, src, line, col, err) {
   try {
     const el = document.getElementById('notification');
     if (el) {
-      el.textContent = '⚠ Une erreur est survenue — la partie continue (F12 pour détails)';
+      el.textContent = t('runtime_error_notice');
       el.className = 'notification show error';
       setTimeout(() => el.classList.remove('show'), 6000);
     }
@@ -1459,7 +1455,7 @@ function initializeRuntimeState() {
 
   if (state._limitViolationReward) {
     setTimeout(() => notify(
-      '⚠️ Valeurs hors-limites détectées et corrigées — MissingNo Lv.1 ajouté au PC !'
+      t('limit_violation_reward')
     , 'gold'), 2000);
     delete state._limitViolationReward;
     saveState();
