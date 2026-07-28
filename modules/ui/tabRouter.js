@@ -19,6 +19,7 @@ import { BALLS } from '../../data/economy-data.js';
 import { KANTO_DEX_MIN, KANTO_DEX_MAX } from '../../data/game-config-data.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type });
+const _t = (fr, en) => (globalThis.state?.lang === 'en' ? en : fr);
 
 let tabRouterCtx = {};
 
@@ -66,64 +67,164 @@ function getTabHint(tabId) {
 
   switch (tabId) {
     case 'tabGang':
-      if (!state.gang.initialized) return 'Crée ton gang pour commencer.';
-      if (bossTeam === 0 && pc === 0) return `Capture des Pokémon dans ${hintLink('Zones', 'tabZones')} puis assigne-en à ton équipe Boss.`;
-      if (bossTeam === 0) return `Assigne des Pokémon à ton équipe Boss depuis le ${hintLink('PC', 'tabPC')} — clique sur un Pokémon → Équipe.`;
-      if (!hasZone) return `Ouvre une zone dans ${hintLink('Zones', 'tabZones')} pour explorer et combattre.`;
-      return `Vitrine : montre tes meilleurs Pokémon. L\'équipe Boss combat quand tu entres en zone.`;
+      if (!state.gang.initialized) return _t('Crée ton gang pour commencer.', 'Create your gang to get started.');
+      if (bossTeam === 0 && pc === 0) return _t(
+        `Capture des Pokémon dans ${hintLink('Zones', 'tabZones')} puis assigne-en à ton équipe Boss.`,
+        `Catch Pokémon in ${hintLink('Zones', 'tabZones')} then assign some to your Boss team.`);
+      if (bossTeam === 0) return _t(
+        `Assigne des Pokémon à ton équipe Boss depuis le ${hintLink('PC', 'tabPC')} — clique sur un Pokémon → Équipe.`,
+        `Assign Pokémon to your Boss team from the ${hintLink('PC', 'tabPC')} — click a Pokémon → Team.`);
+      if (!hasZone) return _t(
+        `Ouvre une zone dans ${hintLink('Zones', 'tabZones')} pour explorer et combattre.`,
+        `Open a zone in ${hintLink('Zones', 'tabZones')} to explore and battle.`);
+      return _t(
+        `Vitrine : montre tes meilleurs Pokémon. L\'équipe Boss combat quand tu entres en zone.`,
+        `Showcase: display your best Pokémon. The Boss team fights when you enter a zone.`);
     case 'tabAgents':
-      if (pc === 0) return `Capture des Pokémon en ${hintLink('Zones', 'tabZones')} — tu pourras en recruter comme agents.`;
-      if (agents === 0) return `Recrute un agent depuis le ${hintLink('PC', 'tabPC')} : clique sur un Pokémon → Recruter Agent. Les agents explorent les zones et ramènent de l'argent automatiquement.`;
-      if (!hasZone) return `Assigne tes agents à une zone depuis ${hintLink('Zones', 'tabZones')} ou directement ici via le menu déroulant.`;
-      return `Les agents assignés à une zone génèrent des ₽ toutes les 5 min. Collecte depuis l'onglet ${hintLink('Zones', 'tabZones')}.`;
+      if (pc === 0) return _t(
+        `Capture des Pokémon en ${hintLink('Zones', 'tabZones')} — tu pourras en recruter comme agents.`,
+        `Catch Pokémon in ${hintLink('Zones', 'tabZones')} — you can recruit them as agents.`);
+      if (agents === 0) return _t(
+        `Recrute un agent depuis le ${hintLink('PC', 'tabPC')} : clique sur un Pokémon → Recruter Agent. Les agents explorent les zones et ramènent de l'argent automatiquement.`,
+        `Recruit an agent from the ${hintLink('PC', 'tabPC')}: click a Pokémon → Recruit Agent. Agents explore zones and earn money automatically.`);
+      if (!hasZone) return _t(
+        `Assigne tes agents à une zone depuis ${hintLink('Zones', 'tabZones')} ou directement ici via le menu déroulant.`,
+        `Assign your agents to a zone from ${hintLink('Zones', 'tabZones')} or directly here via the dropdown.`);
+      return _t(
+        `Les agents assignés à une zone génèrent des ₽ toutes les 5 min. Collecte depuis l'onglet ${hintLink('Zones', 'tabZones')}.`,
+        `Agents assigned to a zone earn ₽ every 5 min. Collect from the ${hintLink('Zones', 'tabZones')} tab.`);
     case 'tabZones':
-      if (!hasZone) return `Clique sur <b>Route 1</b> puis sur <b>Ouvrir</b> pour explorer ta première zone.`;
-      if (bossTeam === 0) return `Entre dans une zone avec ton boss — assigne d'abord un Pokémon à ton équipe depuis le ${hintLink('PC', 'tabPC')}.`;
-      return `Capture des Pokémon, bats des dresseurs. 10 victoires → combats élites. Clique 💰 pour collecter les revenus.`;
+      if (!hasZone) return _t(
+        `Clique sur <b>Route 1</b> puis sur <b>Ouvrir</b> pour explorer ta première zone.`,
+        `Click on <b>Route 1</b> then <b>Open</b> to explore your first zone.`);
+      if (bossTeam === 0) return _t(
+        `Entre dans une zone avec ton boss — assigne d'abord un Pokémon à ton équipe depuis le ${hintLink('PC', 'tabPC')}.`,
+        `Enter a zone with your boss — first assign a Pokémon to your team from the ${hintLink('PC', 'tabPC')}.`);
+      return _t(
+        `Capture des Pokémon, bats des dresseurs. 10 victoires → combats élites. Clique 💰 pour collecter les revenus.`,
+        `Catch Pokémon, beat trainers. 10 wins → elite battles. Click 💰 to collect earnings.`);
     case 'tabMarket':
-      if (money < 500) return `Tu n'as presque plus d'argent. Bats des dresseurs ou vends des Pokémon en double depuis le ${hintLink('PC', 'tabPC')}.`;
-      if (!state.inventory.pokeball) return `Achète des Pokéballs (100₽) dans la boutique pour pouvoir capturer des Pokémon.`;
-      return `Boutique : Pokéballs, objets de boost, incubateurs. Quêtes : missions journalières pour des récompenses.`;
+      if (money < 500) return _t(
+        `Tu n'as presque plus d'argent. Bats des dresseurs ou vends des Pokémon en double depuis le ${hintLink('PC', 'tabPC')}.`,
+        `You're almost out of money. Beat trainers or sell duplicate Pokémon from the ${hintLink('PC', 'tabPC')}.`);
+      if (!state.inventory.pokeball) return _t(
+        `Achète des Pokéballs (100₽) dans la boutique pour pouvoir capturer des Pokémon.`,
+        `Buy Pokéballs (100₽) in the shop to catch Pokémon.`);
+      return _t(
+        `Boutique : Pokéballs, objets de boost, incubateurs. Quêtes : missions journalières pour des récompenses.`,
+        `Shop: Pokéballs, boost items, incubators. Quests: daily missions for rewards.`);
     case 'tabPC':
-      if (pc === 0) return `Ton PC est vide. Capture des Pokémon en ${hintLink('Zones', 'tabZones')} pour les voir ici.`;
-      if (bossTeam === 0) return `Clique sur un Pokémon → menu → <b>Équipe Boss</b> pour l'ajouter à ton équipe de combat.`;
-      return `Filtre (Eq/Tr/PS), trie par prix/niveau/potentiel, vends les doublons.`;
+      if (pc === 0) return _t(
+        `Ton PC est vide. Capture des Pokémon en ${hintLink('Zones', 'tabZones')} pour les voir ici.`,
+        `Your PC is empty. Catch Pokémon in ${hintLink('Zones', 'tabZones')} to see them here.`);
+      if (bossTeam === 0) return _t(
+        `Clique sur un Pokémon → menu → <b>Équipe Boss</b> pour l'ajouter à ton équipe de combat.`,
+        `Click a Pokémon → menu → <b>Boss Team</b> to add it to your battle team.`);
+      return _t(
+        `Filtre (Eq/Tr/PS), trie par prix/niveau/potentiel, vends les doublons.`,
+        `Filter (Team/Train/Pension), sort by price/level/potential, sell duplicates.`);
     case 'tabTraining':
-      if (pc === 0) return `Capture des Pokémon en ${hintLink('Zones', 'tabZones')} pour les entraîner.`;
-      return `Place 2 à 6 Pokémon — ils s'affrontent automatiquement toutes les 60s. Gagnant : XP ×1.25, tous gagnent de l'XP.`;
+      if (pc === 0) return _t(
+        `Capture des Pokémon en ${hintLink('Zones', 'tabZones')} pour les entraîner.`,
+        `Catch Pokémon in ${hintLink('Zones', 'tabZones')} to train them.`);
+      return _t(
+        `Place 2 à 6 Pokémon — ils s'affrontent automatiquement toutes les 60s. Gagnant : XP ×1.25, tous gagnent de l'XP.`,
+        `Place 2 to 6 Pokémon — they battle automatically every 60s. Winner: XP ×1.25, all gain XP.`);
     case 'tabLab':
-      if (pc < 3) return `Capture plusieurs exemplaires du même Pokémon pour les fusionner au Labo et augmenter le Potentiel.`;
-      return `Potentiel (⭐) = multiplicateur de prix et de stats. Sacrifie des doublons pour monter jusqu'à 5⭐ (max).`;
+      if (pc < 3) return _t(
+        `Capture plusieurs exemplaires du même Pokémon pour les fusionner au Labo et augmenter le Potentiel.`,
+        `Catch multiple copies of the same Pokémon to merge them in the Lab and raise Potential.`);
+      return _t(
+        `Potentiel (⭐) = multiplicateur de prix et de stats. Sacrifie des doublons pour monter jusqu'à 5⭐ (max).`,
+        `Potential (⭐) = price and stat multiplier. Sacrifice duplicates to reach 5⭐ (max).`);
     case 'tabMissions':
-      return `Missions journalières et hebdomadaires = source de ₽ et d'objets rares. Reviens chaque jour.`;
+      return _t(
+        `Missions journalières et hebdomadaires = source de ₽ et d'objets rares. Reviens chaque jour.`,
+        `Daily and weekly missions = source of ₽ and rare items. Come back every day.`);
     case 'tabPokedex':
-      return `Kanto ${getDexKantoCaught()}/${getKantoDexSize()} · National ${getDexNationalCaught()}/${getNationalDexSize()} · Chromas ${getShinySpeciesCount()} espèces. Explore toutes les zones pour compléter !`;
+      return _t(
+        `Kanto ${getDexKantoCaught()}/${getKantoDexSize()} · National ${getDexNationalCaught()}/${getNationalDexSize()} · Chromas ${getShinySpeciesCount()} espèces. Explore toutes les zones pour compléter !`,
+        `Kanto ${getDexKantoCaught()}/${getKantoDexSize()} · National ${getDexNationalCaught()}/${getNationalDexSize()} · Shinies ${getShinySpeciesCount()} species. Explore all zones to complete!`);
     case 'tabCompetition':
-      return `Défie les gangs adverses. Côté défense, publie 3 agents DEF + le Boss. Côté attaque, envoie jusqu'à 3 agents en raid : les combats s'enchaînent un à un avant le Boss.`;
+      return _t(
+        `Défie les gangs adverses. Côté défense, publie 3 agents DEF + le Boss. Côté attaque, envoie jusqu'à 3 agents en raid : les combats s'enchaînent un à un avant le Boss.`,
+        `Challenge rival gangs. Defence: post 3 DEF agents + the Boss. Attack: send up to 3 agents on a raid — battles chain one by one before the Boss.`);
     default:
       return null;
   }
 }
 
-// ── First-visit contextual hint (non-bloquant, disparaît en 6s ou au clic) ──
+// ── First-visit contextual hint ───────────────────────────────────────────────
 const _FIRST_VISIT_HINTS = {
-  tabGang:     { icon: '👑', title: 'Ton Gang', body: 'Ta base d\'opérations. Gère l\'équipe Boss (3 slots sauvegardables), place tes meilleurs Pokémon en vitrine, et débloque des upgrades spéciaux au Marché.' },
-  tabAgents:   { icon: '👥', title: 'Les Agents', body: 'Assigne-leur une zone → ils capturent et combattent automatiquement, même zones fermées. Chaque agent a un comportement (tout / capture / combat) et une stat de chance qui augmente les potentiels.' },
-  tabZones:    { icon: '🗺', title: 'Zones', body: 'Ouvre jusqu\'à 6 zones simultanément pour capturer des Pokémon et battre des dresseurs. Les zones fermées avec agent continuent en arrière-plan. Double-clic sur une zone pour y envoyer ton Boss — il ne combat que dans la zone où il est assigné.' },
-  tabMarket:   { icon: '🛒', title: 'Marché', body: 'Achète des Pokéballs pour capturer, des incubateurs pour faire éclore des œufs, et plus encore.' },
-  tabPC:       { icon: '💾', title: 'Le PC', body: 'Tous tes Pokémon sont ici. Assigne-les à ton équipe, à un agent, à la pension ou à la salle d\'entraînement.' },
-  tabTraining: { icon: '🏋', title: 'Salle d\'entraînement', body: 'Tes Pokémon s\'entraînent automatiquement. Parfait pour monter en niveau des Pokémon que tu n\'utilises pas.' },
-  tabLab:      { icon: '🔬', title: 'Laboratoire', body: 'Le Potentiel (⭐) multiplie la valeur et les stats d\'un Pokémon. Fusionne des doublons pour monter jusqu\'à 5⭐.' },
-  tabMissions: { icon: '📋', title: 'Missions', body: 'Objectifs quotidiens et hebdomadaires. Complète-les pour des ₽ et des objets rares.' },
-  tabPokedex:   { icon: '📖', title: 'Pokédex', body: 'Chaque espèce capturée est enregistrée ici. Vise 151/151 pour tout débloquer.' },
-  tabCompetition: { icon: '⚔️', title: 'Compétition', body: `Affronte les gangs des autres joueurs avec des raids séquentiels : 3 agents DEF plus le Boss en face, jusqu'à 3 attaquants envoyés au combat, puis le Boss adverse prend le relais.` },
+  tabGang:     {
+    icon: '👑',
+    titleFr: 'Ton Gang',                              titleEn: 'Your Gang',
+    bodyFr:  'Ta base d\'opérations. Gère l\'équipe Boss (3 slots sauvegardables), place tes meilleurs Pokémon en vitrine, et débloque des upgrades spéciaux au Marché.',
+    bodyEn:  'Your base of operations. Manage the Boss team (3 saveable slots), showcase your best Pokémon, and unlock special upgrades at the Market.',
+  },
+  tabAgents:   {
+    icon: '👥',
+    titleFr: 'Les Agents',                            titleEn: 'Agents',
+    bodyFr:  'Assigne-leur une zone → ils capturent et combattent automatiquement, même zones fermées. Chaque agent a un comportement (tout / capture / combat) et une stat de chance qui augmente les potentiels.',
+    bodyEn:  'Assign them a zone → they catch and battle automatically, even in closed zones. Each agent has a behaviour (all / catch / battle) and a luck stat that raises potentials.',
+  },
+  tabZones:    {
+    icon: '🗺',
+    titleFr: 'Zones',                                 titleEn: 'Zones',
+    bodyFr:  'Ouvre jusqu\'à 6 zones simultanément pour capturer des Pokémon et battre des dresseurs. Les zones fermées avec agent continuent en arrière-plan. Double-clic sur une zone pour y envoyer ton Boss — il ne combat que dans la zone où il est assigné.',
+    bodyEn:  'Open up to 6 zones simultaneously to catch Pokémon and beat trainers. Closed zones with an agent keep running in the background. Double-click a zone to send your Boss there — he only fights in his assigned zone.',
+  },
+  tabMarket:   {
+    icon: '🛒',
+    titleFr: 'Marché',                                titleEn: 'Market',
+    bodyFr:  'Achète des Pokéballs pour capturer, des incubateurs pour faire éclore des œufs, et plus encore.',
+    bodyEn:  'Buy Pokéballs to catch, incubators to hatch eggs, and more.',
+  },
+  tabPC:       {
+    icon: '💾',
+    titleFr: 'Le PC',                                 titleEn: 'PC',
+    bodyFr:  'Tous tes Pokémon sont ici. Assigne-les à ton équipe, à un agent, à la pension ou à la salle d\'entraînement.',
+    bodyEn:  'All your Pokémon are here. Assign them to your team, an agent, the daycare, or the training room.',
+  },
+  tabTraining: {
+    icon: '🏋',
+    titleFr: 'Salle d\'entraînement',                 titleEn: 'Training Room',
+    bodyFr:  'Tes Pokémon s\'entraînent automatiquement. Parfait pour monter en niveau des Pokémon que tu n\'utilises pas.',
+    bodyEn:  'Your Pokémon train automatically. Perfect for levelling up Pokémon you\'re not using.',
+  },
+  tabLab:      {
+    icon: '🔬',
+    titleFr: 'Laboratoire',                           titleEn: 'Laboratory',
+    bodyFr:  'Le Potentiel (⭐) multiplie la valeur et les stats d\'un Pokémon. Fusionne des doublons pour monter jusqu\'à 5⭐.',
+    bodyEn:  'Potential (⭐) multiplies a Pokémon\'s value and stats. Merge duplicates to reach 5⭐.',
+  },
+  tabMissions: {
+    icon: '📋',
+    titleFr: 'Missions',                              titleEn: 'Missions',
+    bodyFr:  'Objectifs quotidiens et hebdomadaires. Complète-les pour des ₽ et des objets rares.',
+    bodyEn:  'Daily and weekly goals. Complete them for ₽ and rare items.',
+  },
+  tabPokedex:  {
+    icon: '📖',
+    titleFr: 'Pokédex',                               titleEn: 'Pokédex',
+    bodyFr:  'Chaque espèce capturée est enregistrée ici. Vise 151/151 pour tout débloquer.',
+    bodyEn:  'Every caught species is recorded here. Aim for 151/151 to unlock everything.',
+  },
+  tabCompetition: {
+    icon: '⚔️',
+    titleFr: 'Compétition',                           titleEn: 'Competition',
+    bodyFr:  `Affronte les gangs des autres joueurs avec des raids séquentiels : 3 agents DEF plus le Boss en face, jusqu'à 3 attaquants envoyés au combat, puis le Boss adverse prend le relais.`,
+    bodyEn:  `Challenge other players' gangs with sequential raids: 3 DEF agents plus the Boss on the other side, up to 3 attackers sent into battle, then the rival Boss takes over.`,
+  },
 };
 
 function showFirstVisitHint(tabId) {
   const def = _FIRST_VISIT_HINTS[tabId];
   if (!def) return;
-  // Remove any existing hint
   document.getElementById('firstVisitHint')?.remove();
+
+  const title = _t(def.titleFr, def.titleEn);
+  const body  = _t(def.bodyFr,  def.bodyEn);
 
   const el = document.createElement('div');
   el.id = 'firstVisitHint';
@@ -137,15 +238,14 @@ function showFirstVisitHint(tabId) {
     <div style="display:flex;align-items:flex-start;gap:10px">
       <span style="font-size:20px;flex-shrink:0">${def.icon}</span>
       <div>
-        <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold);margin-bottom:4px">${def.title}</div>
-        <div style="font-size:10px;color:var(--text-dim);line-height:1.5">${def.body}</div>
+        <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold);margin-bottom:4px">${title}</div>
+        <div style="font-size:10px;color:var(--text-dim);line-height:1.5">${body}</div>
       </div>
-      <button style="background:none;border:none;color:var(--text-dim);font-size:14px;cursor:pointer;padding:0;flex-shrink:0;line-height:1" onclick="document.getElementById('firstVisitHint')?.remove()">✕</button>
+      <button style="background:none;border:none;color:var(--text-dim);font-size:14px;cursor:pointer;padding:0;flex-shrink:0;line-height:1" onclick="document.getElementById('firstVisitHint')?.remove()">&#x2715;</button>
     </div>`;
 
   document.body.appendChild(el);
 
-  // Auto-dismiss after 7s
   const timer = setTimeout(() => {
     el.style.animation = 'fvhOut .3s ease forwards';
     setTimeout(() => el.remove(), 300);
@@ -189,7 +289,7 @@ const _visitedTabs = new Set(JSON.parse(sessionStorage.getItem('pg_visited_tabs'
 
 function switchTab(tabId) {
   const state = getState();
-  if (tabId !== 'tabPC') globalThis.resetPcRenderCache?.(); // force full rebuild on next PC visit
+  if (tabId !== 'tabPC') globalThis.resetPcRenderCache?.();
   SFX.play('tabSwitch');
   globalThis.activeTab = tabId;
   document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -198,32 +298,26 @@ function switchTab(tabId) {
   document.querySelectorAll('.tab-pane').forEach(pane => {
     pane.classList.toggle('active', pane.id === tabId);
   });
-  // Notifie les modules abonnés (ex: gangBase auto-refresh à l'arrivée sur Zones)
   EventBus.emit(EVENTS.UI_TAB_CHANGED, { tabId });
   renderHint(tabId);
   renderActiveTab();
   MusicPlayer.updateFromContext();
-  updateTopBar(); // refresh objective / session on tab change
-  // First-visit contextual hint
+  updateTopBar();
   if (!_visitedTabs.has(tabId)) {
     _visitedTabs.add(tabId);
     sessionStorage.setItem('pg_visited_tabs', JSON.stringify([..._visitedTabs]));
     showFirstVisitHint(tabId);
   }
-  // Behavioural log — compteur de visites par onglet
   if (!state.behaviourLogs) state.behaviourLogs = {};
   if (!state.behaviourLogs.tabViewCounts) state.behaviourLogs.tabViewCounts = {};
   state.behaviourLogs.tabViewCounts[tabId] = (state.behaviourLogs.tabViewCounts[tabId] || 0) + 1;
 }
 
-// ── Chantier 5 — updateTopBar debounce + dex badge cache ─────────────────────
-// updateTopBar() est appelée ~80× par tick d'agent (capture + save + topBar).
-// On la debounce via rAF (1 seul DOM write par frame) et on cache le badge dex
-// (scan O(n) sur POKEMON_GEN1) jusqu'à ce que le compte de pokémons capturés change.
+// ── updateTopBar debounce + dex badge cache ───────────────────────────────────
 
-let _topBarRafId   = 0;           // rAF handle pour debounce
-let _dexBadgeCache = '';          // icon cached
-let _dexBadgeCaughtCount = -1;    // invalidation clé : nb de pokémons distincts capturés
+let _topBarRafId   = 0;
+let _dexBadgeCache = '';
+let _dexBadgeCaughtCount = -1;
 
 function _updateTopBarImpl() {
   const state = getState();
@@ -245,9 +339,9 @@ function _updateTopBarImpl() {
   const pkCountEl = document.getElementById('pokemonCountDisplay');
   if (pkCountEl) pkCountEl.innerHTML = `<img src="${ITEM_SPRITE_URLS.pokeball}" style="width:20px;height:20px;image-rendering:pixelated" onerror="this.style.display='none'"> ${state.pokemons.length.toLocaleString()}`;
 
-  // ── Ball assist silencieux (early-game) ───────────────────
   globalThis.checkBallAssist?.();
   globalThis.checkTitleUnlocks?.();
+
   // Auto-buy ball
   if (state.settings.autoBuyBall) {
     const ballId = state.settings.autoBuyBall;
@@ -256,25 +350,25 @@ function _updateTopBarImpl() {
       if (ballDef && state.gang.money >= ballDef.cost) {
         state.inventory[ballId] = (state.inventory[ballId] || 0) + 1;
         globalThis.addMoney?.(-ballDef.cost);
-        _notify(`🔄 Achat auto : 1× ${ballDef.fr}`, 'success');
+        _notify(_t(`🔄 Achat auto : 1× ${ballDef.fr}`, `🔄 Auto-buy: 1× ${ballDef.en ?? ballDef.fr}`), 'success');
       }
     }
   }
 
-  // ── Session delta bar ──────────────────────────────────────
+  // Session delta bar
   globalThis._saveSessionActivity?.();
   const sessionBar = document.getElementById('sessionBar');
   if (sessionBar) {
     const delta = globalThis.getSessionDelta?.();
     if (delta) {
-      sessionBar.innerHTML = `<span style="color:var(--text-dim);font-family:var(--font-pixel);font-size:7px;letter-spacing:.05em">SESSION</span> ${delta}`;
+      sessionBar.innerHTML = `<span style="color:var(--text-dim);font-family:var(--font-pixel);font-size:7px;letter-spacing:.05em">${_t('SESSION', 'SESSION')}</span> ${delta}`;
       sessionBar.style.display = 'flex';
     } else {
       sessionBar.style.display = 'none';
     }
   }
 
-  // ── Objective bar ──────────────────────────────────────────
+  // Objective bar
   const objBar = document.getElementById('objectiveBar');
   if (objBar) {
     const obj = globalThis.getNextObjective?.();
@@ -290,10 +384,8 @@ function _updateTopBarImpl() {
   }
 }
 
-// updateTopBar publique — debounce via rAF pour éviter N DOM writes par tick.
-// Les appels multiples dans la même frame sont fusionnés en un seul rendu.
 function updateTopBar() {
-  if (_topBarRafId) return; // déjà en attente
+  if (_topBarRafId) return;
   _topBarRafId = requestAnimationFrame(() => {
     _topBarRafId = 0;
     _updateTopBarImpl();
@@ -312,15 +404,12 @@ function renderAll() {
 // ════════════════════════════════════════════════════════════════
 function initKeyboardShortcuts() {
   document.addEventListener('keydown', e => {
-    // Ignore si le focus est dans un champ texte
     const tag = e.target.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-    // Ignore si une modale bloquante est ouverte
     if (document.getElementById('settingsModal')?.classList.contains('active')) return;
     if (document.getElementById('confirmModal')) return;
 
     switch (e.key) {
-      // ── Onglets principaux ───────────────────────────────────
       case '1': switchTab('tabZones');    break;
       case '2': switchTab('tabPC');       break;
       case '3': switchTab('tabAgents');   break;
@@ -328,7 +417,6 @@ function initKeyboardShortcuts() {
       case '5': switchTab('tabGang');     break;
       case '6': switchTab('tabPokedex');  break;
 
-      // ── Sous-vues PC ─────────────────────────────────────────
       case 'p': case 'P':
         setPcView('grid'); switchTab('tabPC'); break;
       case 'e': case 'E':
@@ -338,9 +426,7 @@ function initKeyboardShortcuts() {
       case 'l': case 'L':
         setPcView('lab'); switchTab('tabPC'); break;
 
-      // ── Fermeture rapide ─────────────────────────────────────
       case 'Escape': {
-        // Ferme d'abord les fenêtres de zone ouvertes
         const openZones = getOpenZones();
         if (openZones && openZones.size > 0) {
           for (const zid of [...openZones]) globalThis.closeZoneWindow?.(zid);
