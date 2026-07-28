@@ -4,6 +4,6 @@ Auto-updated on every commit by .githooks/pre-commit.
 Garantit qu'un marqueur horodaté est présent dans chaque commit
 et que le workflow GitHub Actions se déclenche.
 
-Last update : 2026-07-28 20:20:03 +0200
+Last update : 2026-07-28 20:21:16 +0200
 Branch      : i18n/gangbase-commit1-dictionaries
-Previous sha: 3368ac2
+Previous sha: f287d4e
