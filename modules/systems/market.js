@@ -18,6 +18,7 @@ const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg
 const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
 const _topBar = ()               => EventBus.emit(EVENTS.UI_TOPBAR_UPDATE);
 const _save   = ()               => globalThis.saveState?.();
+const _t      = (fr, en)         => (globalThis.state?.lang === 'en' ? en : fr);
 
 // ════════════════════════════════════════════════════════════════
 //  9.  MARKET MODULE
@@ -99,7 +100,7 @@ function sellPokemon(pokemonIds, _shinyConfirmed = false) {
     return species?.noSell === true;
   });
   if (noSellBlocked.length > 0) {
-    _notify('Ce Pokémon ne peut pas être vendu.', 'error');
+    _notify(_t('Ce Pokémon ne peut pas être vendu.', 'This Pokémon cannot be sold.'), 'error');
     pokemonIds = pokemonIds.filter(id => !noSellBlocked.includes(id));
     if (pokemonIds.length === 0) return;
   }
@@ -109,7 +110,7 @@ function sellPokemon(pokemonIds, _shinyConfirmed = false) {
     return p && p.homesick;
   });
   if (homesickBlocked.length > 0) {
-    _notify('Ce Pokémon souffre du mal du pays et ne peut pas être vendu.', 'error');
+    _notify(_t('Ce Pokémon souffre du mal du pays et ne peut pas être vendu.', 'This Pokémon is homesick and cannot be sold.'), 'error');
     pokemonIds = pokemonIds.filter(id => !homesickBlocked.includes(id));
     if (pokemonIds.length === 0) return;
   }
@@ -117,7 +118,7 @@ function sellPokemon(pokemonIds, _shinyConfirmed = false) {
   const pensionSet = globalThis.getPensionSlotIds();
   const pensionBlocked = pokemonIds.filter(id => pensionSet.has(id));
   if (pensionBlocked.length > 0) {
-    _notify('Les Pokémon en pension ne peuvent pas être vendus.', 'error');
+    _notify(_t('Les Pokémon en pension ne peuvent pas être vendus.', 'Pokémon in the Daycare cannot be sold.'), 'error');
     pokemonIds = pokemonIds.filter(id => !pensionSet.has(id));
     if (pokemonIds.length === 0) return;
   }
@@ -125,7 +126,7 @@ function sellPokemon(pokemonIds, _shinyConfirmed = false) {
   const trainingSet = new Set(state.trainingRoom?.pokemon || []);
   const trainingBlocked = pokemonIds.filter(id => trainingSet.has(id));
   if (trainingBlocked.length > 0) {
-    _notify('Les Pokémon en formation ne peuvent pas être vendus.', 'error');
+    _notify(_t('Les Pokémon en formation ne peuvent pas être vendus.', 'Pokémon in training cannot be sold.'), 'error');
     pokemonIds = pokemonIds.filter(id => !trainingSet.has(id));
     if (pokemonIds.length === 0) return;
   }
@@ -137,12 +138,15 @@ function sellPokemon(pokemonIds, _shinyConfirmed = false) {
       const modal = document.createElement('div');
       modal.style.cssText = 'position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center';
       modal.innerHTML = `<div style="background:var(--bg-panel);border:2px solid var(--gold);border-radius:var(--radius);padding:20px;max-width:360px;width:92%;display:flex;flex-direction:column;gap:14px">
-        <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold)">⚠ Vente de Chromatique</div>
-        <div style="font-size:11px;color:var(--text)">Tu t'apprêtes à vendre <b style="color:#ffcc5a">${shinyIds.length} Pokémon Shiny</b> :<br><span style="font-size:9px;color:#aaa">${names}</span></div>
-        <div style="font-size:9px;color:var(--text-dim)">Cette action est irréversible.</div>
+        <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold)">${_t('⚠ Vente de Chromatique', '⚠ Shiny Sale')}</div>
+        <div style="font-size:11px;color:var(--text)">${_t(
+          `Tu t'apprêtes à vendre <b style="color:#ffcc5a">${shinyIds.length} Pokémon Shiny</b> :`,
+          `You are about to sell <b style="color:#ffcc5a">${shinyIds.length} Shiny Pokémon</b>:`,
+        )}<br><span style="font-size:9px;color:#aaa">${names}</span></div>
+        <div style="font-size:9px;color:var(--text-dim)">${_t('Cette action est irréversible.', 'This action cannot be undone.')}</div>
         <div style="display:flex;gap:8px;justify-content:flex-end">
-          <button id="shinyCancel" style="font-family:var(--font-pixel);font-size:9px;padding:8px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">Annuler</button>
-          <button id="shinyConfirm" style="font-family:var(--font-pixel);font-size:9px;padding:8px 14px;background:var(--bg);border:1px solid var(--gold);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">Vendre quand même</button>
+          <button id="shinyCancel" style="font-family:var(--font-pixel);font-size:9px;padding:8px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">${_t('Annuler', 'Cancel')}</button>
+          <button id="shinyConfirm" style="font-family:var(--font-pixel);font-size:9px;padding:8px 14px;background:var(--bg);border:1px solid var(--gold);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">${_t('Vendre quand même', 'Sell anyway')}</button>
         </div>
       </div>`;
       document.body.appendChild(modal);
@@ -215,14 +219,14 @@ function buyItem(itemDef) {
     }
     state.purchases[itemDef.id] = true;
     const name = state.lang === 'fr' ? (itemDef.fr || itemDef.id) : (itemDef.en || itemDef.id);
-    _notify(`${name} débloqué !`, 'gold');
+    _notify(_t(`${name} débloqué !`, `${name} unlocked!`), 'gold');
     _save();
     return true;
   }
 
   if (itemDef.id === 'incubator') {
     state.inventory.incubator = (state.inventory.incubator || 0) + 1;
-    _notify(`Incubateur obtenu ! Total: ${state.inventory.incubator}`, 'gold');
+    _notify(_t(`Incubateur obtenu ! Total : ${state.inventory.incubator}`, `Incubator obtained! Total: ${state.inventory.incubator}`), 'gold');
     _save();
     return true;
   }
@@ -237,8 +241,13 @@ function buyItem(itemDef) {
     const wc = itemDef.wingCost;
     const have = state.inventory[wc.item] || 0;
     if (have < wc.qty) {
-      const itemName = wc.item === 'silver_wing' ? 'Argent\'Aile' : 'Arcenci\'Aile';
-      _notify(`Il te faut ${wc.qty}× ${itemName} (tu en as ${have}).`, 'error');
+      const itemName = wc.item === 'silver_wing'
+        ? _t("Argent'Aile", 'Silver Wing')
+        : _t("Arcenci'Aile", 'Rainbow Wing');
+      _notify(_t(
+        `Il te faut ${wc.qty}× ${itemName} (tu en as ${have}).`,
+        `You need ${wc.qty}× ${itemName} (you have ${have}).`,
+      ), 'error');
       return false;
     }
     state.inventory[wc.item] -= wc.qty;
@@ -246,7 +255,10 @@ function buyItem(itemDef) {
     const zone = ZONES.find(z => z.unlockItem === itemDef.id);
     const zLabel = zone ? (state.lang === 'fr' ? zone.fr : zone.en) : '';
     const pName  = state.lang === 'fr' ? itemDef.fr : itemDef.en;
-    _notify(`${pName} obtenu !${zLabel ? ' → ' + zLabel + ' accessible' : ''}`, 'gold');
+    _notify(_t(
+      `${pName} obtenu !${zLabel ? ` → ${zLabel} accessible` : ''}`,
+      `${pName} obtained!${zLabel ? ` → ${zLabel} accessible` : ''}`,
+    ), 'gold');
     _save();
     globalThis.renderZonesTab?.();
     return true;
@@ -265,7 +277,10 @@ function buyItem(itemDef) {
     const zoneName = ZONES.find(z => z.unlockItem === itemDef.id);
     const name = state.lang === 'fr' ? (itemDef.fr || itemDef.id) : (itemDef.en || itemDef.id);
     const zLabel = zoneName ? (state.lang === 'fr' ? zoneName.fr : zoneName.en) : '';
-    _notify(`${name} obtenu !${zLabel ? ' → ' + zLabel + ' accessible' : ''}`, 'gold');
+    _notify(_t(
+      `${name} obtenu !${zLabel ? ` → ${zLabel} accessible` : ''}`,
+      `${name} obtained!${zLabel ? ` → ${zLabel} accessible` : ''}`,
+    ), 'gold');
     _save();
     globalThis.renderZonesTab?.();
     return true;
@@ -295,7 +310,10 @@ function buyItem(itemDef) {
       return false;
     }
     state.purchases.silver_permit = true;
-    _notify('🗻 Permis Mont Argenté obtenu ! Red vous attend au sommet…', 'gold');
+    _notify(_t(
+      '🗻 Permis Mont Argenté obtenu ! Red vous attend au sommet…',
+      '🗻 Mt. Silver Permit obtained! Red awaits you at the summit…',
+    ), 'gold');
     _save();
     globalThis.renderZonesTab?.();
     return true;
@@ -313,7 +331,7 @@ function buyItem(itemDef) {
     }
     state.purchases[skinKey] = true;
     const name = state.lang === 'fr' ? itemDef.fr : itemDef.en;
-    _notify(`🎨 ${name} débloqué !`, 'gold');
+    _notify(_t(`🎨 ${name} débloqué !`, `🎨 ${name} unlocked!`), 'gold');
     _save();
     return true;
   }
@@ -325,7 +343,10 @@ function buyItem(itemDef) {
     state.eggs.push({ id: globalThis.uid(), species_en, hatchAt: null, incubating: false, potential, shiny, mystery: true });
     state.purchases.mysteryEggCount = (state.purchases.mysteryEggCount || 0) + 1;
     tryAutoIncubate();
-    _notify(`🥚 Un œuf mystérieux est apparu… On se demande ce qu'il contient !`, 'gold');
+    _notify(_t(
+      "🥚 Un œuf mystérieux est apparu… On se demande ce qu'il contient !",
+      '🥚 A mysterious Egg appeared… What could be inside?',
+    ), 'gold');
     _save();
     return true;
   }
@@ -333,7 +354,7 @@ function buyItem(itemDef) {
   // All consumables go to inventory — player activates manually from the Zone bag bar
   state.inventory[itemDef.id] = (state.inventory[itemDef.id] || 0) + itemDef.qty;
   const _itemName = state.lang === 'fr' ? (itemDef.fr || globalThis.BALLS[itemDef.id]?.fr || itemDef.id) : (itemDef.en || globalThis.BALLS[itemDef.id]?.en || itemDef.id);
-  _notify(`${itemDef.qty}× ${_itemName} → sac`, 'success');
+  _notify(_t(`${itemDef.qty}× ${_itemName} → sac`, `${itemDef.qty}× ${_itemName} → bag`), 'success');
   globalThis.SFX.play('buy');
   globalThis.playSE('buy', 0.5);
   _save();
@@ -374,7 +395,7 @@ function buyItemBulk(itemDef, count = 1) {
   const name = state.lang === 'fr'
     ? (itemDef.fr || globalThis.BALLS[itemDef.id]?.fr || itemDef.id)
     : (itemDef.en || globalThis.BALLS[itemDef.id]?.en || itemDef.id);
-  _notify(`${itemDef.qty * affordable}× ${name} → sac`, 'success');
+  _notify(_t(`${itemDef.qty * affordable}× ${name} → sac`, `${itemDef.qty * affordable}× ${name} → bag`), 'success');
   globalThis.SFX.play('buy');
   globalThis.playSE?.('buy', 0.5);
   _save();
