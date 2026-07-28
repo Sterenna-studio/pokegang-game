@@ -211,7 +211,7 @@ function buyItem(itemDef) {
   const GANG_UPGRADES = new Set(['translator', 'autoSellAgent']);
   if (GANG_UPGRADES.has(itemDef.id)) {
     if (state.purchases[itemDef.id]) {
-      _notify(state.lang === 'fr' ? 'Déjà possédé !' : 'Already owned!');
+      _notify(_t('Déjà possédé !', 'Already owned!'));
       state.gang.money += actualCost;
       EventBus.emit(EVENTS.MONEY_CHANGED, { delta: actualCost, newTotal: state.gang.money });
       state.stats.totalMoneySpent -= actualCost;
@@ -235,7 +235,7 @@ function buyItem(itemDef) {
   const WING_PERMIT_ITEMS = new Set(['tourbillon_permit','carillon_permit']);
   if (WING_PERMIT_ITEMS.has(itemDef.id)) {
     if (state.purchases[itemDef.id]) {
-      _notify(state.lang === 'fr' ? 'Déjà possédé !' : 'Already owned!');
+      _notify(_t('Déjà possédé !', 'Already owned!'));
       return false;
     }
     const wc = itemDef.wingCost;
@@ -267,7 +267,7 @@ function buyItem(itemDef) {
   const ZONE_UNLOCK_ITEMS = new Set(['map_pallet','casino_ticket','silph_keycard','boat_ticket']);
   if (ZONE_UNLOCK_ITEMS.has(itemDef.id)) {
     if (state.purchases[itemDef.id]) {
-      _notify(state.lang === 'fr' ? 'Déjà possédé !' : 'Already owned!');
+      _notify(_t('Déjà possédé !', 'Already owned!'));
       state.gang.money += actualCost; // refund
       EventBus.emit(EVENTS.MONEY_CHANGED, { delta: actualCost, newTotal: state.gang.money });
       state.stats.totalMoneySpent -= actualCost;
@@ -289,7 +289,7 @@ function buyItem(itemDef) {
   // ── Permis Mont Argenté (1M₽ + toutes arènes Kanto+Johto vaincues) ────────
   if (itemDef.id === 'silver_permit') {
     if (state.purchases.silver_permit) {
-      _notify(state.lang === 'fr' ? 'Déjà possédé !' : 'Already owned!');
+      _notify(_t('Déjà possédé !', 'Already owned!'));
       state.gang.money += actualCost;
       EventBus.emit(EVENTS.MONEY_CHANGED, { delta: actualCost, newTotal: state.gang.money });
       state.stats.totalMoneySpent -= actualCost;
@@ -300,9 +300,10 @@ function buyItem(itemDef) {
     const johtoGyms = globalThis.JOHTO_GYM_ORDER ?? [];
     const allGymsBeaten = [...kantoGyms, ...johtoGyms].every(id => state.zones[id]?.gymDefeated);
     if (!allGymsBeaten) {
-      const msg = state.lang === 'fr'
-        ? 'Il faut vaincre toutes les arènes Kanto + Johto pour obtenir ce permis.'
-        : 'You must defeat all Kanto + Johto gyms to obtain this permit.';
+      const msg = _t(
+        'Il faut vaincre toutes les arènes Kanto + Johto pour obtenir ce permis.',
+        'You must defeat all Kanto + Johto gyms to obtain this permit.',
+      );
       _notify(msg, 'error');
       state.gang.money += actualCost;
       EventBus.emit(EVENTS.MONEY_CHANGED, { delta: actualCost, newTotal: state.gang.money });
@@ -323,7 +324,7 @@ function buyItem(itemDef) {
   if (itemDef.ballSkin) {
     const skinKey = `skin_${itemDef.ballSkin}`;
     if (state.purchases[skinKey]) {
-      _notify(state.lang === 'fr' ? 'Déjà possédé !' : 'Already owned!');
+      _notify(_t('Déjà possédé !', 'Already owned!'));
       state.gang.money += actualCost;
       EventBus.emit(EVENTS.MONEY_CHANGED, { delta: actualCost, newTotal: state.gang.money });
       state.stats.totalMoneySpent -= actualCost;
