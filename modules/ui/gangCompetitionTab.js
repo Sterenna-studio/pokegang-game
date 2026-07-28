@@ -38,6 +38,7 @@ const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg
 const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
 const _topBar = ()               => EventBus.emit(EVENTS.UI_TOPBAR_UPDATE);
 const _save   = ()               => globalThis.saveState?.();
+const _t      = (...a)           => globalThis.t?.(...a) ?? a[0];
 
 
 // ── Helpers locaux ────────────────────────────────────────────────
@@ -62,7 +63,7 @@ function _fmtMs(ms) {
   return m >= 60 ? `${Math.ceil(m / 60)}h` : `${m}min`;
 }
 
-function _fmtNum(n) { return (n ?? 0).toLocaleString('fr-FR'); }
+function _fmtNum(n) { return (n ?? 0).toLocaleString(_t('competition_locale')); }
 
 function _agentTeamPower(agent, s = state()) {
   let power = 0;
@@ -144,14 +145,14 @@ export async function renderGangCompetitionTab() {
     <div style="padding:16px;max-width:900px">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
         <div style="font-family:var(--font-pixel);font-size:12px;color:var(--red);margin-right:auto">
-          ⚔️ COMPÉTITION DE GANGS
-          ${pendingCount > 0 ? `<span style="margin-left:12px;background:var(--red);color:#fff;font-size:8px;padding:2px 7px;border-radius:99px;vertical-align:middle">${pendingCount} raid${pendingCount > 1 ? 's' : ''} à voir</span>` : ''}
+          ⚔️ ${_t('competition_title').toUpperCase()}
+          ${pendingCount > 0 ? `<span style="margin-left:12px;background:var(--red);color:#fff;font-size:8px;padding:2px 7px;border-radius:99px;vertical-align:middle">${_t('competition_pending_count', { n: pendingCount })}</span>` : ''}
         </div>
-        <button id="comp-purge-legacy-defense" title="Purger l'ancienne défense publiée et recharger le module" style="
+        <button id="comp-purge-legacy-defense" title="${_t('competition_refresh_purge_title')}" style="
           font-family:var(--font-pixel);font-size:7px;padding:6px 9px;background:var(--bg);
           border:1px solid var(--red);border-radius:var(--radius-sm);color:var(--red);
           cursor:pointer;letter-spacing:.02em
-        ">⟳ Rafraîchir / purger défense</button>
+        ">⟳ ${_t('competition_refresh_purge')}</button>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
         <div id="comp-defense-panel"></div>
@@ -174,7 +175,7 @@ function _bindLegacyDefensePurge(tab) {
 
   btn.addEventListener('click', () => {
     showConfirm(
-      `Purger l'ancienne défense de gang ?<br><span style="color:var(--text-dim);font-size:10px">La défense locale sera vidée et la défense publiée en ligne sera supprimée si le compte Supabase est connecté. Les stats de raids restent intactes.</span>`,
+      _t('competition_purge_confirm'),
       () => {
         void (async () => {
           btn.disabled = true;
@@ -184,7 +185,7 @@ function _bindLegacyDefensePurge(tab) {
           _topBar();
         })();
       },
-      { danger: true, confirmLabel: 'Purger', cancelLabel: 'Annuler' },
+      { danger: true, confirmLabel: _t('competition_purge'), cancelLabel: _t('competition_cancel') },
     );
   });
 }
@@ -212,7 +213,7 @@ function _renderDefensePanel(el) {
     return `<div class="comp-boss-slot empty" data-slot="${i}" style="
       width:52px;height:52px;background:var(--bg);border:2px dashed var(--border);
       border-radius:var(--radius-sm);color:var(--text-dim);font-size:18px;display:flex;align-items:center;justify-content:center
-    " title="Slot Boss vide">+</div>`;
+    " title="${_t('competition_empty_boss_slot')}">+</div>`;
   }).join('');
 
   const manualAgentIds = _getManualDefenseAgentIds(comp);
@@ -222,7 +223,7 @@ function _renderDefensePanel(el) {
     const agent = id ? s.agents.find(a => a.id === id) : null;
     const agentDefaulted = !!agent && manualAgentIds[i] !== id;
     if (!agent) {
-      return `<button class="comp-pick-agent" data-slot="${i}" style="width:100%;padding:7px;background:var(--bg);border:2px dashed var(--border);border-radius:var(--radius-sm);cursor:pointer;color:var(--text-dim);font-size:10px">+ Agent DEF ${i + 1}</button>`;
+      return `<button class="comp-pick-agent" data-slot="${i}" style="width:100%;padding:7px;background:var(--bg);border:2px dashed var(--border);border-radius:var(--radius-sm);cursor:pointer;color:var(--text-dim);font-size:10px">${_t('competition_def_agent_slot', { n: i + 1 })}</button>`;
     }
     return `<div style="display:flex;align-items:center;gap:8px;padding:6px;background:var(--bg);border:1px solid ${agentDefaulted ? 'var(--gold-dim)' : 'var(--border)'};border-radius:var(--radius-sm)">
       <img src="https://play.pokemonshowdown.com/sprites/gen5/${agent.spriteKey ?? ''}.png" style="width:32px;height:32px;image-rendering:pixelated" onerror="this.style.display='none'">
@@ -230,7 +231,7 @@ function _renderDefensePanel(el) {
         <div style="font-size:9px">${i + 1}. ${_esc(agent.name)}</div>
         <div style="font-size:8px;color:var(--text-dim)">Lv.${agent.level} · ${agent.title} · ⚡${_fmtNum(_agentPower(agent, s))}${agentDefaulted ? ' · AUTO' : ''}</div>
       </div>
-      <button class="comp-pick-agent" data-slot="${i}" style="background:none;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer;font-size:8px;padding:3px 6px">Changer</button>
+      <button class="comp-pick-agent" data-slot="${i}" style="background:none;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer;font-size:8px;padding:3px 6px">${_t('competition_change')}</button>
       ${agentDefaulted ? '' : `<button class="comp-clear-agent" data-slot="${i}" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:13px">✕</button>`}
     </div>`;
   }).join('');
@@ -246,27 +247,27 @@ function _renderDefensePanel(el) {
 
   el.innerHTML = `
     <div style="background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);padding:14px">
-      <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold);margin-bottom:10px">🛡 MA DÉFENSE</div>
-      ${!hasManualAgents ? `<div style="font-size:8px;color:var(--gold-dim);margin-bottom:10px">AUTO · Les agents DEF les plus forts remplacent les slots vides.</div>` : ''}
+      <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold);margin-bottom:10px">🛡 ${_t('competition_my_defense').toUpperCase()}</div>
+      ${!hasManualAgents ? `<div style="font-size:8px;color:var(--gold-dim);margin-bottom:10px">${_t('competition_auto_defense_hint')}</div>` : ''}
 
-      <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">Équipe Boss (${PVP_BOSS_TEAM_SLOTS} Pokémon)</div>
+      <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">${_t('competition_boss_team_count', { n: PVP_BOSS_TEAM_SLOTS })}</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">${teamSlots}</div>
-      ${!hasBossTeam ? `<div style="font-size:8px;color:var(--red);margin-top:-6px;margin-bottom:12px">Aucun Pokémon dans l'équipe Boss.</div>` : ''}
+      ${!hasBossTeam ? `<div style="font-size:8px;color:var(--red);margin-top:-6px;margin-bottom:12px">${_t('competition_no_boss_pokemon')}</div>` : ''}
 
-      <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">Agents défenseurs (${PVP_AGENT_SLOTS} slots + Boss)</div>
+      <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">${_t('competition_defenders_count', { n: PVP_AGENT_SLOTS })}</div>
       <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">${agentHtml}</div>
 
-      <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">Zone d'arène</div>
+      <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">${_t('competition_arena_zone')}</div>
       <select id="comp-zone-select" style="width:100%;padding:6px 8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:9px;margin-bottom:12px">
-        <option value="">— Choisir une zone —</option>
+        <option value="">${_t('competition_choose_zone')}</option>
         ${zoneOptions}
       </select>
 
       <button id="comp-publish-btn" style="
         width:100%;padding:9px;background:var(--red);border:none;border-radius:var(--radius-sm);
         color:#fff;font-family:var(--font-pixel);font-size:8px;cursor:pointer;letter-spacing:.04em
-      ">${comp.defensePublished ? '🔄 Mettre à jour la défense' : (hasManualAgents ? '📡 Publier la défense' : '📡 Publier la base')}</button>
-      ${comp.defensePublished ? `<div style="font-size:8px;color:var(--green);text-align:center;margin-top:5px">✓ Défense en ligne</div>` : ''}
+      ">${comp.defensePublished ? _t('competition_update_defense') : (hasManualAgents ? _t('competition_publish_defense') : _t('competition_publish_base'))}</button>
+      ${comp.defensePublished ? `<div style="font-size:8px;color:var(--green);text-align:center;margin-top:5px">${_t('competition_defense_online')}</div>` : ''}
     </div>`;
 
   el.querySelectorAll('.comp-pick-agent').forEach(btn => {
@@ -298,7 +299,7 @@ function _renderDefensePanel(el) {
     if (ok) _renderDefensePanel(el);
     else {
       btn.disabled = false;
-      btn.textContent = hasManualAgents ? '📡 Publier la défense' : '📡 Publier la base';
+      btn.textContent = hasManualAgents ? _t('competition_publish_defense') : _t('competition_publish_base');
     }
   });
 }
@@ -313,33 +314,33 @@ function _renderStatsPanel(el) {
 
   el.innerHTML = `
     <div style="background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);padding:14px">
-      <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold);margin-bottom:10px">📊 STATISTIQUES</div>
+      <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold);margin-bottom:10px">📊 ${_t('competition_statistics').toUpperCase()}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
         <div style="background:var(--bg);border-radius:var(--radius-sm);padding:8px;text-align:center">
           <div style="font-family:var(--font-pixel);font-size:14px;color:var(--green)">${comp.wins?.attack ?? 0}</div>
-          <div style="font-size:8px;color:var(--text-dim)">Raids gagnés</div>
+          <div style="font-size:8px;color:var(--text-dim)">${_t('competition_raids_won')}</div>
         </div>
         <div style="background:var(--bg);border-radius:var(--radius-sm);padding:8px;text-align:center">
           <div style="font-family:var(--font-pixel);font-size:14px;color:var(--red)">${comp.losses?.attack ?? 0}</div>
-          <div style="font-size:8px;color:var(--text-dim)">Raids perdus</div>
+          <div style="font-size:8px;color:var(--text-dim)">${_t('competition_raids_lost')}</div>
         </div>
         <div style="background:var(--bg);border-radius:var(--radius-sm);padding:8px;text-align:center">
           <div style="font-family:var(--font-pixel);font-size:14px;color:var(--blue)">${comp.wins?.defense ?? 0}</div>
-          <div style="font-size:8px;color:var(--text-dim)">Défenses tenues</div>
+          <div style="font-size:8px;color:var(--text-dim)">${_t('competition_defenses_held')}</div>
         </div>
         <div style="background:var(--bg);border-radius:var(--radius-sm);padding:8px;text-align:center">
           <div style="font-family:var(--font-pixel);font-size:14px;color:var(--gold-dim)">${comp.losses?.defense ?? 0}</div>
-          <div style="font-size:8px;color:var(--text-dim)">Défenses perdues</div>
+          <div style="font-size:8px;color:var(--text-dim)">${_t('competition_defenses_lost')}</div>
         </div>
       </div>
       <div style="font-size:8px;color:var(--text-dim);line-height:1.8;border-top:1px solid var(--border);padding-top:10px">
-        <div>⚔️ <b>1 raid / heure</b> par gang ciblé</div>
-        <div>✅ Victoire raid : <b>or uniquement</b>, aucune réputation volée</div>
-        <div>💰 Butin : base <b>${pct}% rép. adverse × ${_fmtNum(RAID_GOLD_PER_REP)} ₽</b>, max ${_fmtNum(RAID_GOLD_MAX)} ₽</div>
-        <div>❌ Défaite raid : <b>-${_fmtNum(RAID_PENALTY)} ₽</b> ${RAID_NO_DEFENSE_PENALTY_MULT > 1 ? '(×2 auto/vide)' : ''}</div>
-        <div>⚠️ Défense auto/vide : <b>malus ×${RAID_NO_DEFENSE_PENALTY_MULT}</b> pour le perdant</div>
-        <div>🛡 Défense réussie : <b>+${_fmtNum(RAID_PENALTY)} ₽</b> ${RAID_NO_DEFENSE_PENALTY_MULT > 1 ? '(×2 auto/vide)' : ''}</div>
-        <div>⭐ Réputation PvP : <b>inchangée</b> côté attaquant et défenseur</div>
+        <div>${_t('competition_rule_cooldown')}</div>
+        <div>${_t('competition_rule_victory')}</div>
+        <div>${_t('competition_rule_loot', { percent: pct, perRep: _fmtNum(RAID_GOLD_PER_REP), max: _fmtNum(RAID_GOLD_MAX) })}</div>
+        <div>${_t('competition_rule_defeat', { penalty: _fmtNum(RAID_PENALTY), suffix: RAID_NO_DEFENSE_PENALTY_MULT > 1 ? _t('competition_auto_empty_multiplier') : '' })}</div>
+        <div>${_t('competition_rule_auto_defense', { mult: RAID_NO_DEFENSE_PENALTY_MULT })}</div>
+        <div>${_t('competition_rule_defense_success', { reward: _fmtNum(RAID_PENALTY), suffix: RAID_NO_DEFENSE_PENALTY_MULT > 1 ? _t('competition_auto_empty_multiplier') : '' })}</div>
+        <div>${_t('competition_rule_reputation')}</div>
       </div>
     </div>`;
 }
@@ -353,14 +354,14 @@ async function _renderPendingRaidsPanel(el) {
   el.innerHTML = `
     <div style="background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);padding:14px">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-        <span style="font-family:var(--font-pixel);font-size:9px;color:var(--red)">📬 RAIDS SUBIS</span>
-        <button id="comp-load-raids" style="margin-left:auto;font-family:var(--font-pixel);font-size:7px;padding:4px 9px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">⟳ Vérifier</button>
+        <span style="font-family:var(--font-pixel);font-size:9px;color:var(--red)">📬 ${_t('competition_incoming_raids').toUpperCase()}</span>
+        <button id="comp-load-raids" style="margin-left:auto;font-family:var(--font-pixel);font-size:7px;padding:4px 9px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">⟳ ${_t('competition_check')}</button>
       </div>
       <div id="comp-raids-list"></div>
       <button id="comp-ack-raids" style="
         display:none;margin-top:10px;width:100%;padding:8px;background:var(--red);border:none;
         border-radius:var(--radius-sm);color:#fff;font-family:var(--font-pixel);font-size:8px;cursor:pointer
-      ">✓ Confirmer et appliquer les résultats</button>
+      ">✓ ${_t('competition_apply_results')}</button>
     </div>`;
 
   const listEl = el.querySelector('#comp-raids-list');
@@ -368,20 +369,20 @@ async function _renderPendingRaidsPanel(el) {
 
   function _renderRaidList(raids) {
     if (!raids.length) {
-      listEl.innerHTML = `<div style="color:var(--text-dim);font-size:9px;font-style:italic">Aucun raid en attente.</div>`;
+    listEl.innerHTML = `<div style="color:var(--text-dim);font-size:9px;font-style:italic">${_t('competition_no_pending_raid')}</div>`;
       if (ackBtn) ackBtn.style.display = 'none';
       return;
     }
     listEl.innerHTML = raids.map(r => {
       const won  = r.result === 'defender_win';
-      const ts   = new Date(r.executed_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+      const ts   = new Date(r.executed_at).toLocaleString(_t('competition_locale'), { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
       const delta = won
         ? `<span style="color:var(--green)">+${_fmtNum(r.money_penalty)} ₽</span>`
-        : `<span style="color:var(--gold-dim)">Rép. intacte</span>`;
+        : `<span style="color:var(--gold-dim)">${_t('competition_rep_unchanged_short')}</span>`;
       return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
         <span style="font-size:16px">${won ? '🛡' : '💀'}</span>
         <div style="flex:1;min-width:0">
-          <div style="font-size:9px">${won ? 'Défense réussie' : 'Défense échouée'} vs <b>${_esc(r.attacker_gang ?? '?')}</b></div>
+          <div style="font-size:9px">${won ? _t('competition_defense_success') : _t('competition_defense_failed')} vs <b>${_esc(r.attacker_gang ?? '?')}</b></div>
           <div style="font-size:8px;color:var(--text-dim)">${ts}</div>
         </div>
         <div style="text-align:right;font-family:var(--font-pixel);font-size:9px">${delta}</div>
@@ -400,7 +401,7 @@ async function _renderPendingRaidsPanel(el) {
     const raids = await loadPendingRaids();
     _renderRaidList(raids);
     btn.disabled = false;
-    btn.textContent = '⟳ Vérifier';
+    btn.textContent = `⟳ ${_t('competition_check')}`;
   });
 
   ackBtn?.addEventListener('click', async () => {
@@ -419,10 +420,10 @@ async function _renderGangListPanel(el) {
   el.innerHTML = `
     <div style="background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);padding:14px">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-        <span style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">⚔️ GANGS ADVERSES</span>
+        <span style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">⚔️ ${_t('competition_opponent_gangs').toUpperCase()}</span>
         <button id="comp-refresh-gangs" style="margin-left:auto;font-family:var(--font-pixel);font-size:7px;padding:4px 9px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">⟳</button>
       </div>
-      <div id="comp-gang-list"><div style="color:var(--text-dim);font-size:9px">Chargement…</div></div>
+      <div id="comp-gang-list"><div style="color:var(--text-dim);font-size:9px">${_t('competition_loading')}</div></div>
     </div>`;
 
   el.querySelector('#comp-refresh-gangs')?.addEventListener('click', () => _loadAndRenderGangs(el));
@@ -433,11 +434,11 @@ async function _loadAndRenderGangs(panelEl) {
   const listEl = panelEl?.querySelector('#comp-gang-list');
   if (!listEl) return;
 
-  listEl.innerHTML = `<div style="color:var(--text-dim);font-size:9px">Chargement…</div>`;
+  listEl.innerHTML = `<div style="color:var(--text-dim);font-size:9px">${_t('competition_loading')}</div>`;
   const gangs = await loadGangList();
 
   if (!gangs.length) {
-    listEl.innerHTML = `<div style="color:var(--text-dim);font-size:9px;font-style:italic">Aucun gang publié pour l'instant.</div>`;
+    listEl.innerHTML = `<div style="color:var(--text-dim);font-size:9px;font-style:italic">${_t('competition_no_published_gang')}</div>`;
     return;
   }
 
@@ -459,7 +460,7 @@ async function _loadAndRenderGangs(panelEl) {
       ? defensePokemons.slice(0, PVP_BOSS_TEAM_SLOTS).map(p =>
       `<img src="${_esc(pokeSprite(p.species_en, p.shiny))}" style="width:24px;height:24px;image-rendering:pixelated" title="${_esc(p.species_en)} Lv.${_esc(p.level)}">`
       ).join('')
-      : `<span style="font-size:8px;color:${noDefense ? 'var(--red)' : 'var(--text-dim)'}">${noDefense ? 'Sans défense' : 'Aucune équipe'}</span>`;
+      : `<span style="font-size:8px;color:${noDefense ? 'var(--red)' : 'var(--text-dim)'}">${noDefense ? _t('competition_no_defense') : _t('competition_no_team')}</span>`;
 
     const powerInfo = `<span style="font-size:8px;color:var(--gold-dim)">🛡 ${_fmtNum(preview.defenderPower)}</span>`;
 
@@ -472,16 +473,16 @@ async function _loadAndRenderGangs(panelEl) {
       : '';
 
     const noDefenseInfo = defaultDefense
-      ? `<span style="font-size:8px;color:var(--red)">⚠ malus ×${RAID_NO_DEFENSE_PENALTY_MULT} si vaincu</span>`
+      ? `<span style="font-size:8px;color:var(--red)">${_t('competition_defeat_malus', { mult: RAID_NO_DEFENSE_PENALTY_MULT })}</span>`
       : '';
 
     let btnHtml;
     if (hasPending) {
-      btnHtml = `<button disabled style="padding:6px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);font-size:8px;cursor:not-allowed">Raids en attente</button>`;
+      btnHtml = `<button disabled style="padding:6px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);font-size:8px;cursor:not-allowed">${_t('competition_raids_pending')}</button>`;
     } else if (onCooldown) {
       btnHtml = `<button disabled style="padding:6px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);font-size:8px;cursor:not-allowed">⏱ ${_fmtMs(cooldownMs)}</button>`;
     } else {
-      btnHtml = `<button class="comp-raid-btn" data-uid="${g.user_id}" style="padding:6px 12px;background:var(--red);border:none;border-radius:var(--radius-sm);color:#fff;font-family:var(--font-pixel);font-size:8px;cursor:pointer">⚔️ Raider</button>`;
+      btnHtml = `<button class="comp-raid-btn" data-uid="${g.user_id}" style="padding:6px 12px;background:var(--red);border:none;border-radius:var(--radius-sm);color:#fff;font-family:var(--font-pixel);font-size:8px;cursor:pointer">⚔️ ${_t('competition_raid')}</button>`;
     }
 
     return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
@@ -490,7 +491,7 @@ async function _loadAndRenderGangs(panelEl) {
         : `<div style="width:40px;height:40px;background:var(--bg);border-radius:4px;flex-shrink:0"></div>`}
       <div style="flex:1;min-width:0">
         <div style="font-family:var(--font-pixel);font-size:9px;margin-bottom:2px">${_esc(g.gang_name)}</div>
-        <div style="font-size:8px;color:var(--text-dim);margin-bottom:4px">${_esc(g.boss_name)} · ⭐ ${_fmtNum(g.reputation_snapshot)} rép.</div>
+        <div style="font-size:8px;color:var(--text-dim);margin-bottom:4px">${_esc(g.boss_name)} · ⭐ ${_t('competition_reputation_short', { value: _fmtNum(g.reputation_snapshot) })}</div>
         <div style="display:flex;gap:2px;flex-wrap:wrap;align-items:center;margin-bottom:3px">${miniPokemons}</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">${powerInfo}${agentInfo}${zoneInfo}${noDefenseInfo}</div>
       </div>
@@ -509,13 +510,13 @@ async function _loadAndRenderGangs(panelEl) {
 
 // ── Helpers cinématique ───────────────────────────────────────────
 function _repTitle(rep) {
-  if (rep >= 500_000) return 'Seigneur des Ombres';
-  if (rep >= 100_000) return 'Grand Parrain';
-  if (rep >= 50_000)  return 'Caïd de la Région';
-  if (rep >= 20_000)  return 'Chef Redouté';
-  if (rep >= 5_000)   return 'Chef de Quartier';
-  if (rep >= 1_000)   return 'Aspirant Chef';
-  return 'Recrue';
+  if (rep >= 500_000) return _t('competition_rank_shadow_lord');
+  if (rep >= 100_000) return _t('competition_rank_godfather');
+  if (rep >= 50_000)  return _t('competition_rank_region_boss');
+  if (rep >= 20_000)  return _t('competition_rank_feared_leader');
+  if (rep >= 5_000)   return _t('competition_rank_district_boss');
+  if (rep >= 1_000)   return _t('competition_rank_aspiring_boss');
+  return _t('competition_rank_recruit');
 }
 
 function _hashStr(s) {
@@ -525,13 +526,13 @@ function _hashStr(s) {
 }
 
 const _BOSS_TAUNTS = [
-  'Vous osez défier notre gang ?!',
-  'Personne ne nous a jamais résisté.',
-  'Vous regretterez d\'être venus ici.',
-  'Notre territoire ne se négocie pas.',
-  'Préparez-vous à être anéantis !',
-  'Vous n\'avez aucune chance contre nous.',
-  'On a vu des plus forts que vous tomber.',
+  'competition_taunt_1',
+  'competition_taunt_2',
+  'competition_taunt_3',
+  'competition_taunt_4',
+  'competition_taunt_5',
+  'competition_taunt_6',
+  'competition_taunt_7',
 ];
 
 // ── Modal sélection équipe d'attaque ──────────────────────────────
@@ -556,9 +557,9 @@ function _openAttackPrepModal(defData, panelEl) {
     const preview = getRaidPreview(defData, selectedAgentIds);
     const power = preview.attackerPower;
     const ratio = preview.defenderPower > 0 ? preview.attackerPower / preview.defenderPower : Infinity;
-    const matchupLabel = preview.defenderPower <= 0 ? 'Base vulnérable' : ratio >= 1.15 ? 'Avantage' : ratio >= 0.85 ? 'Équilibré' : 'Risque';
+    const matchupLabel = preview.defenderPower <= 0 ? _t('competition_base_vulnerable') : ratio >= 1.15 ? _t('competition_advantage') : ratio >= 0.85 ? _t('competition_balanced') : _t('competition_risk');
     const matchupColor = preview.defenderPower <= 0 || ratio >= 1.15 ? 'var(--green)' : ratio >= 0.85 ? 'var(--gold)' : 'var(--red)';
-    const goldCap = preview.goldOnWin >= RAID_GOLD_MAX ? ' · plafond' : '';
+    const goldCap = preview.goldOnWin >= RAID_GOLD_MAX ? _t('competition_cap_suffix') : '';
     const defBossEl = defData.boss_sprite
       ? `<img src="https://play.pokemonshowdown.com/sprites/gen5/${_esc(defData.boss_sprite)}.png" style="width:40px;height:40px;image-rendering:pixelated" onerror="this.style.display='none'">`
       : `<div style="width:40px;height:40px;background:var(--bg);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:20px">👤</div>`;
@@ -579,33 +580,33 @@ function _openAttackPrepModal(defData, panelEl) {
     }).join('');
 
     return `<div style="background:var(--bg-panel);border:2px solid var(--red);border-radius:var(--radius);padding:20px;max-width:400px;width:94%;display:flex;flex-direction:column;gap:14px;font-family:var(--font-pixel);max-height:88vh;overflow-y:auto">
-      <div style="font-size:11px;color:var(--red)">⚔️ PRÉPARER LE RAID</div>
+      <div style="font-size:11px;color:var(--red)">⚔️ ${_t('competition_prepare_raid').toUpperCase()}</div>
 
       <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg);border-radius:var(--radius-sm);border:1px solid var(--border)">
         ${defBossEl}
         <div>
           <div style="font-size:9px;color:var(--gold)">${_esc(defData.gang_name)}</div>
-          <div style="font-size:8px;color:var(--text-dim)">${_esc(defData.boss_name)} · ⭐ ${_fmtNum(defData.reputation_snapshot)} rép.</div>
+          <div style="font-size:8px;color:var(--text-dim)">${_esc(defData.boss_name)} · ⭐ ${_t('competition_reputation_short', { value: _fmtNum(defData.reputation_snapshot) })}</div>
         </div>
       </div>
 
       <div>
-        <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">AGENTS D'ATTAQUE &nbsp;<span style="color:${selectedIds.size === PVP_AGENT_SLOTS ? 'var(--gold)' : 'var(--text-dim)'}">${selectedIds.size}/${PVP_AGENT_SLOTS} sélectionnés</span></div>
+        <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">${_t('competition_attack_agents').toUpperCase()} &nbsp;<span style="color:${selectedIds.size === PVP_AGENT_SLOTS ? 'var(--gold)' : 'var(--text-dim)'}">${_t('competition_selected_slots', { selected: selectedIds.size, total: PVP_AGENT_SLOTS })}</span></div>
         <div style="border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;max-height:200px;overflow-y:auto">
           ${agents.length
             ? agentRows
-            : '<div style="padding:12px;font-size:9px;color:var(--text-dim)">Aucun agent recruté. Les agents DEF adverses bloqueront le raid.</div>'}
+            : `<div style="padding:12px;font-size:9px;color:var(--text-dim)">${_t('competition_no_attack_agent')}</div>`}
         </div>
-        ${fallbackAgent ? `<div style="font-size:8px;color:var(--gold-dim);margin-top:6px">AUTO · ${fallbackAgent.name} entre en jeu si aucun agent n'est sélectionné.</div>` : ''}
+        ${fallbackAgent ? `<div style="font-size:8px;color:var(--gold-dim);margin-top:6px">${_t('competition_auto_agent_fallback', { agent: fallbackAgent.name })}</div>` : ''}
       </div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:center;padding:8px 10px;background:var(--bg);border-radius:var(--radius-sm)">
         <div>
-          <div style="font-size:8px;color:var(--text-dim)">Attaque</div>
+          <div style="font-size:8px;color:var(--text-dim)">${_t('competition_attack')}</div>
           <div style="font-size:10px;color:var(--gold)">⚡ ${_fmtNum(power)}</div>
         </div>
         <div>
-          <div style="font-size:8px;color:var(--text-dim)">Défense</div>
+          <div style="font-size:8px;color:var(--text-dim)">${_t('competition_defense')}</div>
           <div style="font-size:10px;color:var(--gold-dim)">🛡 ${_fmtNum(preview.defenderPower)}</div>
         </div>
         <div style="font-size:9px;color:${matchupColor};text-align:right">${matchupLabel}</div>
@@ -613,20 +614,20 @@ function _openAttackPrepModal(defData, panelEl) {
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:8px;color:var(--text-dim)">
         <div style="background:rgba(76,175,80,.08);border:1px solid rgba(76,175,80,.25);border-radius:var(--radius-sm);padding:8px">
-          <div style="color:var(--green);margin-bottom:3px">Victoire</div>
+          <div style="color:var(--green);margin-bottom:3px">${_t('competition_victory')}</div>
           <div>+${_fmtNum(preview.goldOnWin)} ₽${goldCap}</div>
-          <div>Réputation inchangée</div>
+          <div>${_t('competition_reputation_unchanged')}</div>
         </div>
         <div style="background:rgba(244,67,54,.08);border:1px solid rgba(244,67,54,.25);border-radius:var(--radius-sm);padding:8px">
-          <div style="color:var(--red);margin-bottom:3px">Défaite</div>
+          <div style="color:var(--red);margin-bottom:3px">${_t('competition_defeat')}</div>
           <div>-${_fmtNum(preview.moneyPenaltyOnLoss)} ₽</div>
-          <div>${preview.defaultDefense ? `malus ×${RAID_NO_DEFENSE_PENALTY_MULT}` : 'défense manuelle'}</div>
+          <div>${preview.defaultDefense ? _t('competition_malus_multiplier', { mult: RAID_NO_DEFENSE_PENALTY_MULT }) : _t('competition_manual_defense')}</div>
         </div>
       </div>
 
       <div style="display:flex;gap:8px;justify-content:flex-end">
-        <button id="raidPrepCancel" style="font-size:9px;padding:8px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">Annuler</button>
-        <button id="raidPrepLaunch" style="font-size:9px;padding:8px 18px;background:var(--red);border:none;border-radius:var(--radius-sm);color:#fff;cursor:pointer">⚔️ Lancer le raid</button>
+        <button id="raidPrepCancel" style="font-size:9px;padding:8px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">${_t('competition_cancel')}</button>
+        <button id="raidPrepLaunch" style="font-size:9px;padding:8px 18px;background:var(--red);border:none;border-radius:var(--radius-sm);color:#fff;cursor:pointer">⚔️ ${_t('competition_launch_raid')}</button>
       </div>
     </div>`;
   }
@@ -674,62 +675,75 @@ function _openRaidCinematic(defData, agentIds, result, onDone) {
   const s = state();
   const myBossSprite    = s.gang.bossSprite ?? '';
   const myBossName      = s.gang.bossName   ?? 'Boss';
-  const myGangName      = s.gang.name       ?? 'Notre Gang';
+  const myGangName      = s.gang.name       ?? _t('competition_our_gang');
   const defBossSprite   = defData.boss_sprite ?? '';
   const defBossName     = defData.boss_name   ?? 'Boss';
-  const defGangName     = defData.gang_name   ?? 'Gang Adverse';
+  const defGangName     = defData.gang_name   ?? _t('competition_opponent_gang');
   const defBossTitle    = defData.boss_title  ?? _repTitle(defData.reputation_snapshot ?? 0);
   const defPokemons     = (defData.defense_pokemon ?? []).filter(Boolean);
   const defAgents       = _defenseAgentsFromData(defData);
   const effectiveAgentIds = _effectiveAttackAgentIds(agentIds, s);
   const selectedAgents  = effectiveAgentIds.map(id => s.agents?.find(a => a.id === id)).filter(Boolean);
 
-  const taunt = _BOSS_TAUNTS[_hashStr(defBossName) % _BOSS_TAUNTS.length];
+  const taunt = _t(_BOSS_TAUNTS[_hashStr(defBossName) % _BOSS_TAUNTS.length]);
 
   // Taglines narratives
   const taglines = [];
   if (selectedAgents.length > 0) {
-    taglines.push(`${selectedAgents.map(a => a.name).join(', ')} se positionnent...`);
+    taglines.push(_t('competition_agents_take_position', { agents: selectedAgents.map(a => a.name).join(', ') }));
   } else {
-    taglines.push('La gang avance vers la base ennemie...');
+    taglines.push(_t('competition_gang_advances'));
   }
-  taglines.push(`La gang ${defGangName} active sa défense !`);
+  taglines.push(_t('competition_gang_activates_defense', { gang: defGangName }));
   if (defAgents.length > 0) {
-    taglines.push(`${defAgents.length} agent${defAgents.length > 1 ? 's' : ''} DEF barrent la route.`);
+    taglines.push(_t('competition_def_agents_block', { n: defAgents.length }));
   }
   if (result.noDefense) {
-    taglines.push('⚠ La base adverse est sans défense !');
+    taglines.push(_t('competition_enemy_base_undefended'));
   } else if (result.defaultDefense) {
-    taglines.push('La défense automatique se déclenche...');
+    taglines.push(_t('competition_auto_defense_triggers'));
   }
-  taglines.push(`Puissance attaque : ⚡ ${_fmtNum(result.attackerPower)}`);
-  taglines.push(`Puissance défense : 🛡 ${_fmtNum(result.defenderPower)}`);
+  taglines.push(_t('competition_attack_power', { power: _fmtNum(result.attackerPower) }));
+  taglines.push(_t('competition_defense_power', { power: _fmtNum(result.defenderPower) }));
   for (const duel of (result.duels || [])) {
-    taglines.push(`${duel.attacker.name} affronte ${duel.defender.name} (${_fmtNum(duel.attackerPower)} vs ${_fmtNum(duel.defenderPower)})`);
-    taglines.push(duel.attackerWin ? `${duel.defender.name} tombe.` : `${duel.attacker.name} est hors combat.`);
+    taglines.push(_t('competition_duel', {
+      attacker: duel.attacker.name,
+      defender: duel.defender.name,
+      attack: _fmtNum(duel.attackerPower),
+      defense: _fmtNum(duel.defenderPower),
+    }));
+    taglines.push(duel.attackerWin
+      ? _t('competition_fighter_falls', { name: duel.defender.name })
+      : _t('competition_fighter_knocked_out', { name: duel.attacker.name }));
   }
   if (result.finalBattle?.skipped) {
-    taglines.push(`${myBossName} est mis hors combat avant d'atteindre ${defBossName}.`);
+    taglines.push(_t('competition_boss_stopped_before', { boss: myBossName, defender: defBossName }));
   } else if (result.finalBattle) {
     if (result.finalBattle.bossFightsBefore > 0) {
-      taglines.push(`${myBossName} arrive fatigué (-${result.finalBattle.bossFightsBefore * 10}% de puissance).`);
+      taglines.push(_t('competition_boss_arrives_tired', {
+        boss: myBossName,
+        percent: result.finalBattle.bossFightsBefore * 10,
+      }));
     }
     if (defPokemons.length > 0) {
       const pk     = defPokemons[0];
       const pkName = globalThis.speciesName?.(pk.species_en) ?? pk.species_en;
-      taglines.push(`${defBossName} engage son équipe Boss avec ${pkName}.`);
+      taglines.push(_t('competition_boss_engages_team', { boss: defBossName, pokemon: pkName }));
     }
-    taglines.push(`Combat final Boss : ⚡ ${_fmtNum(result.finalBattle.attackerPower)} vs 🛡 ${_fmtNum(result.finalBattle.defenderPower)}`);
+    taglines.push(_t('competition_final_boss_fight', {
+      attack: _fmtNum(result.finalBattle.attackerPower),
+      defense: _fmtNum(result.finalBattle.defenderPower),
+    }));
   }
   if (result.attackerWin) {
-    taglines.push('— VICTOIRE ! —');
-    if (result.defaultDefense && RAID_NO_DEFENSE_PENALTY_MULT > 1) taglines.push(`Bonus ×${RAID_NO_DEFENSE_PENALTY_MULT} (défense auto)`);
+    taglines.push(_t('competition_victory_tagline'));
+    if (result.defaultDefense && RAID_NO_DEFENSE_PENALTY_MULT > 1) taglines.push(_t('competition_auto_defense_bonus', { mult: RAID_NO_DEFENSE_PENALTY_MULT }));
     taglines.push(`+${_fmtNum(result.goldWon)} ₽`);
-    taglines.push('Réputation inchangée.');
+    taglines.push(_t('competition_reputation_unchanged_period'));
   } else {
-    taglines.push('— DÉFAITE... —');
+    taglines.push(_t('competition_defeat_banner'));
     taglines.push(`-${_fmtNum(result.moneyPenalty)} ₽`);
-    taglines.push('Réputation inchangée.');
+    taglines.push(_t('competition_reputation_unchanged_period'));
   }
 
   const overlay = document.createElement('div');
@@ -740,7 +754,7 @@ function _openRaidCinematic(defData, agentIds, result, onDone) {
     <div style="width:100%;max-width:580px;padding:28px 20px;display:flex;flex-direction:column;gap:20px">
 
       <!-- Header -->
-      <div style="font-family:var(--font-pixel);font-size:8px;color:var(--red);text-align:center;letter-spacing:.18em">⚔ RAID EN COURS ⚔</div>
+      <div style="font-family:var(--font-pixel);font-size:8px;color:var(--red);text-align:center;letter-spacing:.18em">⚔ ${_t('competition_raid_in_progress').toUpperCase()} ⚔</div>
 
       <!-- Boss intro -->
       <div style="display:flex;gap:14px;align-items:flex-start">
@@ -753,7 +767,7 @@ function _openRaidCinematic(defData, agentIds, result, onDone) {
         <div style="flex:1;background:#0d1119;border:2px solid var(--red);border-radius:8px;border-top-left-radius:2px;padding:12px;position:relative">
           <div style="position:absolute;left:-10px;top:16px;width:0;height:0;border-top:7px solid transparent;border-bottom:7px solid transparent;border-right:10px solid var(--red)"></div>
           <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold);margin-bottom:3px">${_esc(defBossName)}</div>
-          <div style="font-size:8px;color:var(--text-dim);margin-bottom:8px">${_esc(defBossTitle)} · Chef de ${_esc(defGangName)}</div>
+          <div style="font-size:8px;color:var(--text-dim);margin-bottom:8px">${_esc(defBossTitle)} · ${_t('competition_leader_of', { gang: _esc(defGangName) })}</div>
           <div style="font-size:9px;color:var(--text);font-style:italic">"${taunt}"</div>
         </div>
       </div>
@@ -768,7 +782,7 @@ function _openRaidCinematic(defData, agentIds, result, onDone) {
       <div style="display:flex;gap:8px;justify-content:space-around;align-items:flex-start">
         <!-- Attacker side -->
         <div style="display:flex;flex-direction:column;align-items:center;gap:6px;min-width:120px">
-          <div style="font-size:7px;color:var(--text-dim);font-family:var(--font-pixel);letter-spacing:.06em">VOTRE GANG</div>
+          <div style="font-size:7px;color:var(--text-dim);font-family:var(--font-pixel);letter-spacing:.06em">${_t('competition_your_gang').toUpperCase()}</div>
           <div style="display:flex;gap:3px;flex-wrap:wrap;justify-content:center;max-width:150px">
             ${myBossSprite
               ? `<img src="https://play.pokemonshowdown.com/sprites/gen5/${myBossSprite}.png" style="width:38px;height:38px;image-rendering:pixelated" onerror="this.style.display='none'" title="${_esc(myBossName)}">`
@@ -784,13 +798,13 @@ function _openRaidCinematic(defData, agentIds, result, onDone) {
 
         <!-- Defender side -->
         <div style="display:flex;flex-direction:column;align-items:center;gap:6px;min-width:120px">
-          <div style="font-size:7px;color:var(--text-dim);font-family:var(--font-pixel);letter-spacing:.06em">DÉFENSE ADVERSE</div>
+          <div style="font-size:7px;color:var(--text-dim);font-family:var(--font-pixel);letter-spacing:.06em">${_t('competition_enemy_defense').toUpperCase()}</div>
           <div style="display:flex;gap:3px;flex-wrap:wrap;justify-content:center;max-width:150px">
             ${defPokemons.length > 0
               ? defPokemons.slice(0, PVP_BOSS_TEAM_SLOTS).map(p =>
                   `<img src="${_esc(pokeSprite(p.species_en, p.shiny))}" style="width:30px;height:30px;image-rendering:pixelated" title="${_esc(p.species_en)}">`
                 ).join('')
-              : `<span style="font-size:8px;color:var(--red)">${defAgents.length ? 'Boss sans équipe' : 'Base vide'}</span>`}
+              : `<span style="font-size:8px;color:var(--red)">${defAgents.length ? _t('competition_boss_without_team') : _t('competition_empty_base')}</span>`}
             ${defAgents.map(a =>
               `<img src="https://play.pokemonshowdown.com/sprites/gen5/${_esc(a.sprite ?? '')}.png" style="width:30px;height:30px;image-rendering:pixelated" onerror="this.style.display='none'" title="${_esc(a.name)}">`
             ).join('')}
@@ -805,14 +819,14 @@ function _openRaidCinematic(defData, agentIds, result, onDone) {
       <!-- Result (hidden until log ends) -->
       <div id="cine-result" style="display:none;text-align:center;padding:18px;background:${result.attackerWin ? 'rgba(76,175,80,.1)' : 'rgba(244,67,54,.1)'};border:2px solid ${result.attackerWin ? 'var(--green)' : 'var(--red)'};border-radius:var(--radius)">
         <div style="font-family:var(--font-pixel);font-size:18px;color:${result.attackerWin ? 'var(--green)' : 'var(--red)'}">
-          ${result.attackerWin ? '✅ VICTOIRE !' : '❌ DÉFAITE'}
+          ${result.attackerWin ? _t('competition_victory_banner') : _t('competition_defeat_result')}
         </div>
         <div style="font-size:10px;color:var(--text-dim);margin-top:6px">
           ${result.attackerWin
-            ? `+${_fmtNum(result.goldWon)} ₽ · réputation inchangée`
-            : `-${_fmtNum(result.moneyPenalty)} ₽ · réputation inchangée`}
+            ? _t('competition_win_result_line', { gold: _fmtNum(result.goldWon) })
+            : _t('competition_loss_result_line', { penalty: _fmtNum(result.moneyPenalty) })}
         </div>
-        <button id="cine-continue" style="margin-top:14px;padding:10px 30px;background:${result.attackerWin ? 'var(--green)' : 'var(--red)'};border:none;border-radius:var(--radius-sm);color:#fff;font-family:var(--font-pixel);font-size:9px;cursor:pointer">Continuer →</button>
+        <button id="cine-continue" style="margin-top:14px;padding:10px 30px;background:${result.attackerWin ? 'var(--green)' : 'var(--red)'};border:none;border-radius:var(--radius-sm);color:#fff;font-family:var(--font-pixel);font-size:9px;cursor:pointer">${_t('competition_continue')} →</button>
       </div>
     </div>`;
 
@@ -859,7 +873,7 @@ function _openAgentPicker(defPanelEl, slotIndex = 0) {
   const manual = _getManualDefenseAgentIds(s.gang.competition);
   const usedElsewhere = new Set(manual.filter((id, idx) => id && idx !== slotIndex));
 
-  if (!agents.length) { notify('Aucun agent recruté.', 'error'); return; }
+  if (!agents.length) { notify(_t('competition_no_recruited_agent'), 'error'); return; }
 
   const rows = agents.map(a => {
     const disabled = usedElsewhere.has(a.id);
@@ -869,9 +883,9 @@ function _openAgentPicker(defPanelEl, slotIndex = 0) {
       <img src="https://play.pokemonshowdown.com/sprites/gen5/${a.spriteKey ?? ''}.png" style="width:32px;height:32px;image-rendering:pixelated" onerror="this.style.display='none'">
       <div style="flex:1;min-width:0">
         <div style="font-size:9px">${_esc(a.name)}</div>
-        <div style="font-size:8px;color:var(--text-dim)">Lv.${a.level} · ${_esc(a.title)} · Combat ${a.stats?.combat ?? 0}</div>
+        <div style="font-size:8px;color:var(--text-dim)">Lv.${a.level} · ${_esc(a.title)} · ${_t('competition_combat')} ${a.stats?.combat ?? 0}</div>
       </div>
-      ${disabled ? '<span style="font-size:8px;color:var(--red)">Déjà en DEF</span>' : ''}
+      ${disabled ? `<span style="font-size:8px;color:var(--red)">${_t('competition_already_defending')}</span>` : ''}
     </div>`;
   }).join('');
 
@@ -881,7 +895,7 @@ function _openAgentPicker(defPanelEl, slotIndex = 0) {
   modal.innerHTML = `
     <div style="background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);width:320px;max-height:60vh;display:flex;flex-direction:column">
       <div style="display:flex;align-items:center;padding:12px 14px;border-bottom:1px solid var(--border)">
-        <span style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">Slot DEF ${slotIndex + 1} — Choisir un agent</span>
+        <span style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">${_t('competition_choose_def_agent', { n: slotIndex + 1 })}</span>
         <button id="comp-ap-close" style="margin-left:auto;background:none;border:none;color:var(--text-dim);font-size:16px;cursor:pointer">✕</button>
       </div>
       <div style="overflow-y:auto;flex:1">${rows}</div>
