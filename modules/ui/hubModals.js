@@ -6,16 +6,8 @@ const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg
 const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
 const _topBar = ()               => EventBus.emit(EVENTS.UI_TOPBAR_UPDATE);
 const _save   = ()               => globalThis.saveState?.();
+const _t      = (...a)           => globalThis.t?.(...a) ?? a[0];
 
-function _t(key, vars = {}) {
-  const lang = globalThis.state?.lang || 'fr';
-  const I18N  = globalThis.I18N ?? {};
-  const entry = I18N[key];
-  if (!entry) return key;
-  let str = entry[lang] || entry.fr || key;
-  for (const [k, v] of Object.entries(vars)) str = str.replace(`{${k}}`, v);
-  return str;
-}
 
 // ── Modales du hub : réparation de slot + validateur de sprite boss ──────────
 //
@@ -121,7 +113,7 @@ function openHubSlotRepairModal() {
           _notify(
             histTrimmed > 0
               ? _t('hub_slot_repaired_hist', { slot: targetSlot + 1, n: histTrimmed })
-              : _t('hub_slot_repaired',      { slot: targetSlot + 1 }),
+              : _t('hub_slot_repaired', { slot: targetSlot + 1 }),
             'success'
           );
 
@@ -190,7 +182,7 @@ function showBossSpriteRepairModal() {
       </div>
       <button id="spriteRepairConfirm" style="
         font-family:var(--font-pixel);font-size:10px;padding:10px 20px;
-        background:var(--red-dark);border:1px solid var(--red);border-radius:var(--radius));
+        background:var(--red-dark);border:1px solid var(--red);border-radius:var(--radius);
         color:var(--text);cursor:pointer;align-self:center
       ">${_t('hub_sprite_confirm')}</button>
     </div>
