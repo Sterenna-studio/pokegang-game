@@ -204,6 +204,7 @@ const I18N = {
   market_wing_section:     { fr:'— ÉCHANGE D\'AILES —',   en:'— WING EXCHANGE —'  },
   market_wing_zones:       { fr:'— ZONES LÉGENDAIRES —', en:'— LEGENDARY ZONES —'},
   market_acquired:         { fr:'Acquis',                 en:'Acquired'            },
+  market_achievement:      { fr:'🏆 Succès',              en:'🏆 Achievement'      },
   market_exchange:         { fr:'Échanger',               en:'Exchange'            },
   market_zone_unlocked:    { fr:'✓ Zone débloquée',       en:'✓ Zone unlocked'     },
   market_zone_unlock:      { fr:'Débloque une zone',     en:'Unlocks a zone'      },
