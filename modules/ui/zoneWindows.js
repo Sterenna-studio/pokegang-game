@@ -52,6 +52,7 @@ const _notify = (msg, type = '', category = null) => EventBus.emit(EVENTS.UI_NOT
 const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
 const _topBar = ()               => EventBus.emit(EVENTS.UI_TOPBAR_UPDATE);
 const _save   = ()               => globalThis.saveState?.();
+const _t      = (...a)           => globalThis.t?.(...a) ?? a[0];
 let zoneWindowTickContext = {};
 
 function configureZoneWindowTicks(ctx = {}) {
@@ -216,7 +217,7 @@ function openCollectionModal(zoneId) {
     autoCollectZone(zoneId);
     _save();
     _topBar();
-    _notify(`🤖 +${income.toLocaleString()}₽ (auto-récolte)`, 'gold');
+    _notify(_t('zone_auto_collect_notice', { amount: income.toLocaleString() }), 'gold');
     _zsRefreshIncome(zoneId);
       _zsUpdateButtons();
     return;
@@ -259,7 +260,7 @@ function showCollectionEncounter(zoneId, agentIds, income, items) {
 
   modal.innerHTML = `
     <div style="background:var(--bg-panel);border:2px solid var(--gold-dim);border-radius:var(--radius);padding:24px;max-width:480px;width:92%;display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center">
-      <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">⚡ INTERCEPTION — ${zoneName}</div>
+        <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">⚡ ${_t('zone_interception').toUpperCase()} — ${zoneName}</div>
 
       <!-- Scène de rencontre -->
       <div style="display:flex;align-items:center;justify-content:center;gap:24px;width:100%;padding:12px;background:rgba(0,0,0,.4);border-radius:var(--radius-sm);border:1px solid var(--border)">
@@ -279,13 +280,13 @@ function showCollectionEncounter(zoneId, agentIds, income, items) {
         <!-- Côté ennemi -->
         <div style="display:flex;flex-direction:column;align-items:center;gap:6px">
           <img src="${trainerSprite(enemyKey)}" style="width:56px;height:56px;image-rendering:pixelated;animation:trainerRight 1s ease-in-out infinite;transform:scaleX(-1)">
-          <span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">Officier Jenny</span>
+        <span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">${_t('zone_officer_jenny')}</span>
         </div>
       </div>
 
-      <div style="font-size:10px;color:var(--text-dim)">La police intercepte le convoy de récolte...</div>
+      <div style="font-size:10px;color:var(--text-dim)">${_t('zone_police_intercepts')}</div>
 
-      <button id="btnEncounterFight" style="font-family:var(--font-pixel);font-size:9px;padding:10px 24px;background:var(--red-dark);border:2px solid var(--red);border-radius:var(--radius-sm);color:var(--text);cursor:pointer;animation:glow 1.5s ease-in-out infinite alternate">⚔ COMBATTRE !</button>
+      <button id="btnEncounterFight" style="font-family:var(--font-pixel);font-size:9px;padding:10px 24px;background:var(--red-dark);border:2px solid var(--red);border-radius:var(--radius-sm);color:var(--text);cursor:pointer;animation:glow 1.5s ease-in-out infinite alternate">⚔ ${_t('zone_fight').toUpperCase()} !</button>
     </div>`;
 
   document.body.appendChild(modal);
@@ -367,7 +368,7 @@ function showCollectionResult(win, amount, items, agentIds) {
       <div style="display:flex;flex-direction:column;align-items:center;gap:3px">
         ${state.gang.bossSprite ? `<img src="${trainerSprite(state.gang.bossSprite)}" style="width:40px;height:40px;image-rendering:pixelated;${win ? '' : 'opacity:0.5;filter:grayscale(1)'}">` : ''}
         ${(agentIds || []).slice(0,2).map(id => { const ag = state.agents.find(a => a.id === id); return ag ? `<img src="${ag.sprite}" style="width:28px;height:28px;image-rendering:pixelated;${win ? '' : 'opacity:0.5;filter:grayscale(1)'}">` : ''; }).join('')}
-        <span style="font-size:8px;color:${win ? 'var(--green)' : 'var(--red)'}">${win ? 'Victoire' : 'KO'}</span>
+          <span style="font-size:8px;color:${win ? 'var(--green)' : 'var(--red)'}">${win ? _t('zone_victory') : 'KO'}</span>
       </div>
       <div style="font-family:var(--font-pixel);font-size:14px;color:${win ? 'var(--gold)' : 'var(--red)'}">VS</div>
       <div style="display:flex;flex-direction:column;align-items:center;gap:3px">
@@ -380,11 +381,11 @@ function showCollectionResult(win, amount, items, agentIds) {
     <div style="background:var(--bg-panel);border:2px solid ${win ? 'var(--gold)' : 'var(--red)'};border-radius:var(--radius);padding:28px;max-width:400px;width:90%;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center">
       ${combatSceneHtml}
       <div style="font-family:var(--font-pixel);font-size:12px;color:${win ? 'var(--gold)' : 'var(--red)'}">
-        ${win ? 'Récolte réussie !' : 'Défaite — 50% récupérés'}
+        ${win ? _t('zone_collect_success') : _t('zone_collect_defeat_half')}
       </div>
       <div style="font-family:var(--font-pixel);font-size:18px;color:var(--gold)" id="collectAmountDisplay">0₽</div>
       ${itemsHtml}
-      <button id="collectResultClose" style="font-family:var(--font-pixel);font-size:9px;padding:8px 20px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer;margin-top:4px">Fermer</button>
+      <button id="collectResultClose" style="font-family:var(--font-pixel);font-size:9px;padding:8px 20px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer;margin-top:4px">${_t('zone_close')}</button>
     </div>`;
 
   document.body.appendChild(modal);
@@ -485,7 +486,7 @@ function collectAllZones() {
   const state = globalThis.state;
   // Include ALL zones (open or closed) that have pending income from agents
   const zones = Object.keys(state.zones).filter(zid => (state.zones[zid]?.pendingIncome || 0) > 0);
-  if (zones.length === 0) { _notify('Aucune récolte en attente.', ''); return; }
+  if (zones.length === 0) { _notify(_t('zone_no_pending_collection'), ''); return; }
 
   // Si auto-collect débloqué et activé → récolte silencieuse instantanée
   if (state.purchases?.autoCollect && state.purchases?.autoCollectEnabled !== false) {
@@ -493,7 +494,7 @@ function collectAllZones() {
     for (const zid of zones) total += autoCollectZone(zid);
     _save();
     _topBar();
-    _notify(`🤖 Récolte auto : +${total.toLocaleString()}₽`, 'gold');
+    _notify(_t('zone_auto_collect_total', { amount: total.toLocaleString() }), 'gold');
     zones.forEach(zid => _zsRefreshIncome(zid));
       _zsUpdateButtons();
     return;
@@ -529,16 +530,16 @@ function collectAllZones() {
   modal.innerHTML = `
     <div style="background:var(--bg-panel);border:2px solid ${win ? 'var(--gold)' : 'var(--red)'};border-radius:var(--radius);padding:24px;max-width:480px;width:92%;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center">
       <img src="${mascotSrc}" style="width:80px;height:80px;image-rendering:pixelated;${win ? '' : 'filter:grayscale(.5)'}">
-      <div style="font-family:var(--font-pixel);font-size:12px;color:${win ? 'var(--gold)' : 'var(--red)'}">${win ? '✓ Récolte réussie !' : '✗ Défaite — 50% récupérés'}</div>
+      <div style="font-family:var(--font-pixel);font-size:12px;color:${win ? 'var(--gold)' : 'var(--red)'}">${win ? _t('zone_collect_success_mark') : _t('zone_collect_defeat_half_mark')}</div>
       <div id="collectAllRows" style="width:100%;display:flex;flex-direction:column;gap:4px;max-height:200px;overflow-y:auto">
         ${zoneRows.map((r, i) => `<div id="collectRow_${i}" style="display:flex;justify-content:space-between;padding:4px 8px;border-bottom:1px solid var(--border);font-size:10px;opacity:.4">
           <span style="color:var(--text-dim)">${r.name}</span>
           <span id="collectRowAmt_${i}" style="color:var(--gold)">—</span>
         </div>`).join('')}
       </div>
-      <div style="font-family:var(--font-pixel);font-size:9px;color:var(--text-dim)">TOTAL</div>
+      <div style="font-family:var(--font-pixel);font-size:9px;color:var(--text-dim)">${_t('zone_total').toUpperCase()}</div>
       <div style="font-family:var(--font-pixel);font-size:20px;color:var(--gold)" id="collectAllTotal">—</div>
-      <button id="collectAllClose" style="font-family:var(--font-pixel);font-size:9px;padding:8px 20px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer;opacity:0" disabled>Fermer</button>
+      <button id="collectAllClose" style="font-family:var(--font-pixel);font-size:9px;padding:8px 20px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer;opacity:0" disabled>${_t('zone_close')}</button>
     </div>`;
 
   document.body.appendChild(modal);
@@ -706,11 +707,11 @@ function renderZonesTab() {
       } else if (johtoQualified) {
         johtoBtn.classList.add('region-btn-available');
         johtoBtn.textContent = 'Johto ✉';
-        johtoBtn.title = 'Un message vous attend — cliquez pour découvrir';
+        johtoBtn.title = _t('zone_johto_message_waiting');
       } else {
         johtoBtn.classList.add('region-btn-locked');
         johtoBtn.textContent = 'Johto 🔒';
-        johtoBtn.title = 'Vainquez le Champion Lance au Plateau Indigo pour débloquer';
+        johtoBtn.title = _t('zone_johto_unlock_hint');
       }
     }
 
@@ -723,7 +724,7 @@ function renderZonesTab() {
       } else if (hoennQualified) {
         hoennBtn.classList.add('region-btn-available');
         hoennBtn.textContent = 'Hoenn ✉';
-        hoennBtn.title = 'Steven Stone vous contacte — cliquez pour découvrir';
+        hoennBtn.title = _t('zone_hoenn_message_waiting');
       } else {
         hoennBtn.classList.add('region-btn-locked');
         hoennBtn.textContent = 'Hoenn 🔒';
@@ -740,7 +741,7 @@ function renderZonesTab() {
       } else if (sinnohQualified) {
         sinnohBtn.classList.add('region-btn-available');
         sinnohBtn.textContent = 'Sinnoh ✉';
-        sinnohBtn.title = 'Cynthia vous contacte — cliquez pour découvrir';
+        sinnohBtn.title = _t('zone_sinnoh_message_waiting');
       } else {
         sinnohBtn.classList.add('region-btn-locked');
         sinnohBtn.textContent = 'Sinnoh 🔒';
@@ -776,16 +777,16 @@ function renderZonesTab() {
       const kDone = kStep === 6;
       if (gDone && kDone) {
         lgmBtn.textContent = '🌋🌊 ✓✓';
-        lgmBtn.title = 'Groudon & Kyogre capturés — Rejouer avec Sigle/Sceau';
+        lgmBtn.title = _t('zone_legendary_replay_hint');
         lgmBtn.style.borderColor = 'rgba(0,255,136,.3)'; lgmBtn.style.color = '#00ff88';
       } else if (!state?.groudonMission?.active) {
-        lgmBtn.textContent = '🌋🌊 Quêtes';
-        lgmBtn.title = 'Quêtes légendaires Groudon & Kyogre disponibles !';
+        lgmBtn.textContent = _t('zone_quests_button');
+        lgmBtn.title = _t('zone_legendary_quests_available');
         lgmBtn.style.borderColor = 'rgba(255,204,90,.4)'; lgmBtn.style.color = '#ffcc5a';
       } else {
         const total = (gStep > 0 ? gStep : 0) + (kStep > 0 ? kStep : 0);
         lgmBtn.textContent = `🌋🌊 ${Math.min(gStep, 5)}·${Math.min(kStep, 5)}`;
-        lgmBtn.title = `Légendaires — Magma étape ${gStep}/5 · Aqua étape ${kStep}/5`;
+        lgmBtn.title = _t('zone_legendary_progress', { magma: gStep, aqua: kStep });
       }
     } else if (lgmBtn) {
       lgmBtn.style.display = 'none';
@@ -814,20 +815,20 @@ function renderZonesTab() {
       const step = deoxysMission?.step ?? 0;
       dxqBtn.style.display = '';
       if (!deoxysMission?.active) {
-        dxqBtn.textContent = '☄️ Quête';
-        dxqBtn.title = 'Quête Deoxys disponible — cliquez pour commencer';
+        dxqBtn.textContent = _t('zone_quest_button');
+        dxqBtn.title = _t('zone_deoxys_available');
         dxqBtn.style.borderColor = 'rgba(255,204,90,.4)';
         dxqBtn.style.color = '#ffcc5a';
         dxqBtn.style.background = 'rgba(255,204,90,.06)';
       } else if (step === 6) {
         dxqBtn.textContent = '☄️ Deoxys ✓';
-        dxqBtn.title = `Quête Deoxys — Complète ! Utilisez un Météore pour relancer.`;
+        dxqBtn.title = _t('zone_deoxys_complete');
         dxqBtn.style.borderColor = 'rgba(0,255,136,.3)';
         dxqBtn.style.color = '#00ff88';
         dxqBtn.style.background = 'rgba(0,255,136,.05)';
       } else {
         dxqBtn.textContent = `☄️ Deoxys ${step}/5`;
-        dxqBtn.title = `Quête Deoxys — Étape ${step}/5 en cours`;
+        dxqBtn.title = _t('zone_deoxys_progress', { step });
         dxqBtn.style.borderColor = 'rgba(0,200,255,.25)';
         dxqBtn.style.color = 'rgba(0,200,255,.8)';
         dxqBtn.style.background = 'rgba(0,200,255,.08)';
@@ -863,11 +864,11 @@ function renderZonesTab() {
       const allDone = bStep === 6 && lStep === 6 && hStep === 6;
       if (allDone) {
         jhmBtn.textContent = '🐅🌊🌈 ✓';
-        jhmBtn.title = 'Toutes les quêtes Johto complètes !';
+        jhmBtn.title = _t('zone_johto_quests_complete');
         jhmBtn.style.borderColor = 'rgba(0,255,136,.3)'; jhmBtn.style.color = '#00ff88';
       } else {
         jhmBtn.textContent = `🐅🌊🌈 ${Math.min(bStep,5)}·${Math.min(lStep,5)}·${Math.min(hStep,5)}`;
-        jhmBtn.title = `Johto — Bêtes ${bStep}/5 · Lugia ${lStep}/5 · Ho-Oh ${hStep}/5`;
+        jhmBtn.title = _t('zone_johto_quests_progress', { beasts: bStep, lugia: lStep, hooh: hStep });
       }
     } else if (jhmBtn) {
       jhmBtn.style.display = 'none';
@@ -904,12 +905,12 @@ function renderZonesTab() {
       const allKantoDone = aStep >= 6 && zStep >= 6 && mStep >= 6 && mwStep >= 6;
       if (allKantoDone) {
         ktmBtn.textContent = '❄️⚡🔥🧬 ✓';
-        ktmBtn.title = 'Toutes les quêtes Kanto complètes !';
+        ktmBtn.title = _t('zone_kanto_quests_complete');
         ktmBtn.style.borderColor = 'rgba(0,255,136,.3)'; ktmBtn.style.color = '#00ff88';
       } else {
         const bDone = [aStep,zStep,mStep].filter(s => s >= 6).length;
         ktmBtn.textContent = `❄️⚡🔥${bDone}/3 · 🧬${Math.min(mwStep,5)}/5`;
-        ktmBtn.title = `Kanto — Artikodin ${aStep}/3 · Électhor ${zStep}/3 · Sulfura ${mStep}/3 · Mewtwo ${mwStep}/5`;
+        ktmBtn.title = _t('zone_kanto_quests_progress', { articuno: aStep, zapdos: zStep, moltres: mStep, mewtwo: mwStep });
       }
     } else if (ktmBtn) {
       ktmBtn.style.display = 'none';
@@ -948,7 +949,7 @@ function renderZonesTab() {
       const allDone  = gxStep >= 6 && lkDone >= 3 && giratinaMission?.giratinaOwned;
       if (allDone) {
         snmBtn.textContent = '🌌💎👁️💛🩷💙 ✓';
-        snmBtn.title = 'Toutes les quêtes Sinnoh complètes !';
+        snmBtn.title = _t('zone_sinnoh_quests_complete');
         snmBtn.style.borderColor = 'rgba(0,255,136,.3)'; snmBtn.style.color = '#00ff88';
       } else {
         const parts = [];
@@ -956,7 +957,7 @@ function renderZonesTab() {
         if (giratinaMission?.active) parts.push(`👁️${gtDone}`);
         if (lkActive) parts.push(`💛🩷💙${lkDone}/${lkActive}`);
         snmBtn.textContent = parts.join(' · ');
-        snmBtn.title = `Sinnoh — Galaxie ét.${gxStep}/5 · Giratina · Lac ${lkDone}/3`;
+        snmBtn.title = _t('zone_sinnoh_quests_progress', { galaxy: gxStep, lake: lkDone });
       }
     } else if (snmBtn) {
       snmBtn.style.display = 'none';
@@ -1024,8 +1025,8 @@ function _renderZoneStatsView() {
     //   Activité : ACTIF (vert) si timer tourne, INACTIF (gris) sinon
     //   Fenêtre  : Visible (or) si ouverte, Fond (gris) si agent seul, rien si inactif
     const actifBadge = isRunning
-      ? `<span style="font-family:var(--font-pixel);font-size:7px;color:var(--green)">ACTIF</span>`
-      : `<span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">INACTIF</span>`;
+      ? `<span style="font-family:var(--font-pixel);font-size:7px;color:var(--green)">${_t('zone_active').toUpperCase()}</span>`
+      : `<span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">${_t('zone_inactive').toUpperCase()}</span>`;
     const fenetreBadge = isRunning
       ? `<span style="font-family:var(--font-pixel);font-size:6px;color:${isVisible ? 'var(--gold)' : 'var(--text-dim)'}">
            ${isVisible ? '👁 Visible' : '⚙ Fond'}
@@ -1037,11 +1038,11 @@ function _renderZoneStatsView() {
     const incomeFmt  = income > 0 ? `<b style="color:var(--gold)">₽</b>` : '<span style="color:var(--text-dim)">—</span>';
 
     const collectBtn = income > 0
-      ? `<button class="zstat-collect" data-zone="${zone.id}" style="font-family:var(--font-pixel);font-size:7px;padding:2px 7px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer;white-space:nowrap">₽ Récolter</button>`
+      ? `<button class="zstat-collect" data-zone="${zone.id}" style="font-family:var(--font-pixel);font-size:7px;padding:2px 7px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer;white-space:nowrap">₽ ${_t('zone_collect')}</button>`
       : '';
     const openBtn = !isVisible
-      ? `<button class="zstat-open" data-zone="${zone.id}" style="font-family:var(--font-pixel);font-size:7px;padding:2px 7px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer;white-space:nowrap">▶ Ouvrir</button>`
-      : `<button class="zstat-close" data-zone="${zone.id}" style="font-family:var(--font-pixel);font-size:7px;padding:2px 7px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer;white-space:nowrap">✕ Fermer</button>`;
+      ? `<button class="zstat-open" data-zone="${zone.id}" style="font-family:var(--font-pixel);font-size:7px;padding:2px 7px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer;white-space:nowrap">▶ ${_t('zone_open')}</button>`
+      : `<button class="zstat-close" data-zone="${zone.id}" style="font-family:var(--font-pixel);font-size:7px;padding:2px 7px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer;white-space:nowrap">✕ ${_t('zone_close')}</button>`;
 
     return `<tr style="border-bottom:1px solid var(--border);${income > 0 ? 'background:rgba(255,204,90,.04)' : ''}">
       <td style="padding:5px 8px;font-size:9px;white-space:nowrap">
@@ -1069,22 +1070,22 @@ function _renderZoneStatsView() {
 
   overlay.innerHTML = `
     <div style="padding:8px 4px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
-      <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">📊 STATISTIQUES DES ZONES</div>
-      ${totalIncome > 0 ? `<button id="zstatCollectAll" style="font-family:var(--font-pixel);font-size:8px;padding:4px 10px;background:rgba(255,204,90,.12);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">₽ Tout récolter</button>` : ''}
+      <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">📊 ${_t('zone_statistics').toUpperCase()}</div>
+      ${totalIncome > 0 ? `<button id="zstatCollectAll" style="font-family:var(--font-pixel);font-size:8px;padding:4px 10px;background:rgba(255,204,90,.12);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">₽ ${_t('zone_collect_all')}</button>` : ''}
     </div>
     <table style="width:100%;border-collapse:collapse;font-size:9px">
       <thead>
         <tr style="border-bottom:2px solid var(--border)">
-          <th style="padding:4px 8px;text-align:left;font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);font-weight:normal">ZONE</th>
-          <th style="padding:4px 8px;font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);font-weight:normal">ÉTAT</th>
-          <th style="padding:4px 8px;text-align:left;font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);font-weight:normal">AGENTS</th>
-          <th style="padding:4px 8px;text-align:right;font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);font-weight:normal">À RÉCOLTER</th>
-          <th style="padding:4px 8px;font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);font-weight:normal">COMBATS</th>
-          <th style="padding:4px 8px;font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);font-weight:normal">CAPTURES</th>
+          <th style="padding:4px 8px;text-align:left;font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);font-weight:normal">${_t('zone_zone').toUpperCase()}</th>
+          <th style="padding:4px 8px;font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);font-weight:normal">${_t('zone_status').toUpperCase()}</th>
+          <th style="padding:4px 8px;text-align:left;font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);font-weight:normal">${_t('zone_agents').toUpperCase()}</th>
+          <th style="padding:4px 8px;text-align:right;font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);font-weight:normal">${_t('zone_to_collect').toUpperCase()}</th>
+          <th style="padding:4px 8px;font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);font-weight:normal">${_t('zone_battles').toUpperCase()}</th>
+          <th style="padding:4px 8px;font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);font-weight:normal">${_t('zone_captures').toUpperCase()}</th>
           <th style="padding:4px 8px;font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);font-weight:normal"></th>
         </tr>
       </thead>
-      <tbody>${rows || '<tr><td colspan="7" style="padding:16px;text-align:center;color:var(--text-dim);font-size:9px">Aucune zone accessible</td></tr>'}</tbody>
+      <tbody>${rows || `<tr><td colspan="7" style="padding:16px;text-align:center;color:var(--text-dim);font-size:9px">${_t('zone_none_accessible')}</td></tr>`}</tbody>
     </table>`;
 
   // Bind buttons
@@ -1118,15 +1119,15 @@ function maybeWarnManyOpenZones(openZones) {
   if (zoneOpenWarningShown || (openZones?.size || 0) <= ZONE_OPEN_WARNING_THRESHOLD) return;
   zoneOpenWarningShown = true;
   const count = openZones.size;
-  const message = `<b>${count} zones ouvertes</b><br><span style="color:var(--text-dim);font-size:11px">Chaque zone ouverte garde des timers, du rendu et des spawns actifs. Tu peux continuer, mais ferme les zones inutiles si le jeu ralentit.</span>`;
+  const message = `<b>${_t('zone_open_count', { n: count })}</b><br><span style="color:var(--text-dim);font-size:11px">${_t('zone_open_performance_hint')}</span>`;
   if (typeof globalThis.showConfirm === 'function') {
     setTimeout(() => globalThis.showConfirm(message, null, null, {
       lang: globalThis.state?.lang || 'fr',
-      confirmLabel: 'Compris',
-      cancelLabel: 'Fermer',
+      confirmLabel: _t('zone_understood'),
+      cancelLabel: _t('zone_close'),
     }), 0);
   } else {
-    _notify(`${count} zones ouvertes : pense à fermer les zones inutiles si le jeu ralentit.`, 'gold');
+    _notify(_t('zone_many_open_warning', { n: count }), 'gold');
   }
 }
 
@@ -1223,7 +1224,7 @@ function renderZoneWindows() {
       placeholder = document.createElement('div');
       placeholder.className = 'zone-placeholder';
       placeholder.style.cssText = 'color:var(--text-dim);padding:20px 0;text-align:center;width:100%';
-      placeholder.textContent = 'Sélectionnez une zone dans la grille pour commencer';
+      placeholder.textContent = _t('zone_select_grid_hint');
       container.appendChild(placeholder);
     }
     container.querySelectorAll('.zone-window').forEach(el => el.remove());
@@ -1282,7 +1283,7 @@ function renderZoneWindows() {
 // ── Zone level badge ─────────────────────────────────────────────
 function _zoneLevelHtml(zoneId) {
   const lv = globalThis.getZoneLevel?.(zoneId) || 1;
-  return `<span style="font-family:var(--font-pixel);font-size:8px;color:var(--gold)">Nv.${lv}</span>`;
+  return `<span style="font-family:var(--font-pixel);font-size:8px;color:var(--gold)">${_t('zone_level_short', { level: lv })}</span>`;
 }
 
 // ── Zone context menu (right-click on viewport) ───────────────────────────────
@@ -1333,7 +1334,7 @@ function _openZoneContextMenu(zoneId, clientX, clientY) {
       <img src="${tSprite}" style="width:28px;height:28px;image-rendering:pixelated;flex-shrink:0" onerror="this.style.display='none'">
       <div style="flex:1;min-width:0">
         <div style="font-size:10px;color:var(--text)">${tName}</div>
-        <div style="font-size:8px;color:var(--text-dim)">diff ${t.diff} · ${t.reward[0]}–${t.reward[1]}₽ · +${t.rep}⭐</div>
+        <div style="font-size:8px;color:var(--text-dim)">${_t('zone_difficulty_short')} ${t.diff} · ${t.reward[0]}–${t.reward[1]}₽ · +${t.rep}⭐</div>
       </div>
       ${badge ? `<span style="font-family:var(--font-pixel);font-size:7px;padding:1px 4px;background:rgba(200,60,60,.3);border:1px solid var(--red);border-radius:2px;color:var(--red);white-space:nowrap">${badge}</span>` : ''}
     </div>`;
@@ -1343,7 +1344,7 @@ function _openZoneContextMenu(zoneId, clientX, clientY) {
   const uniqRegular = [...new Set(regularTrainers)];
   const trainersHtml = [
     ...uniqRegular.map(k => _trainerRow(k, '')),
-    eliteKey && eliteKey !== gymKey ? _trainerRow(eliteKey, 'ÉLITE') : '',
+    eliteKey && eliteKey !== gymKey ? _trainerRow(eliteKey, _t('zone_elite_badge')) : '',
     gymKey ? _trainerRow(gymKey, gymDefeated ? `GYM ✓ ${gymType}` : `GYM ${gymType}`) : '',
   ].filter(Boolean).join('');
 
@@ -1363,7 +1364,7 @@ function _openZoneContextMenu(zoneId, clientX, clientY) {
           <span style="color:var(--text-dim);font-size:9px;margin-left:auto">${a.title ?? ''} · PC ${tp}</span>
         </div>`;
       }).join('')
-    : `<span style="color:var(--text-dim);font-size:10px">Aucun agent assigné</span>`;
+    : `<span style="color:var(--text-dim);font-size:10px">${_t('zone_no_assigned_agent')}</span>`;
 
   // ── Spawn rate display ────────────────────────────────────────
   const spawnSecs = zone.spawnRate > 0 ? Math.round(1 / zone.spawnRate) : null;
@@ -1371,7 +1372,12 @@ function _openZoneContextMenu(zoneId, clientX, clientY) {
 
   // ── Type badge ────────────────────────────────────────────────
   const typeColors = { route:'#2a6', city:'#26a', special:'#96a', gang_park:'#a62' };
-  const typeLabels = { route:'ROUTE', city:'VILLE', special:'SPÉCIALE', gang_park:'QG' };
+  const typeLabels = {
+    route: _t('zone_type_route'),
+    city: _t('zone_type_city'),
+    special: _t('zone_type_special'),
+    gang_park: _t('zone_type_hq'),
+  };
   const typeBg  = typeColors[zone.type] ?? '#444';
   const typeLabel = typeLabels[zone.type] ?? (zone.type ?? '?').toUpperCase();
 
@@ -1414,10 +1420,10 @@ function _openZoneContextMenu(zoneId, clientX, clientY) {
     <!-- Zone stats row -->
     <div style="display:flex;gap:0;border-bottom:1px solid var(--border)">
       ${[
-        ['⭐', `Rép. req.`, zone.repRequired ?? zone.rep ?? 0],
-        ['🎯', `Captures`, zState.captures || 0],
-        ['⚔', `Combats`, zState.combatsWon || 0],
-        ['⏱', `Spawn`, spawnLabel],
+        ['⭐', _t('zone_required_rep_short'), zone.repRequired ?? zone.rep ?? 0],
+        ['🎯', _t('zone_captures'), zState.captures || 0],
+        ['⚔', _t('zone_battles'), zState.combatsWon || 0],
+        ['⏱', _t('zone_spawn'), spawnLabel],
       ].map(([icon, label, val]) => `
         <div style="flex:1;padding:5px 4px;text-align:center;border-right:1px solid var(--border)">
           <div style="font-size:9px;color:var(--text-dim)">${icon} ${label}</div>
@@ -1427,36 +1433,36 @@ function _openZoneContextMenu(zoneId, clientX, clientY) {
 
     <!-- Combat power preview -->
     <div style="padding:8px 10px;border-bottom:1px solid var(--border)">
-      <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);margin-bottom:5px">PUISSANCE COMBAT</div>
+      <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);margin-bottom:5px">${_t('zone_combat_power').toUpperCase()}</div>
       <div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:4px">
-        <span style="color:#5af">Attaque <strong>${atkPow.toLocaleString()}</strong></span>
-        <span style="color:${winPct >= 50 ? '#5a5' : '#a55'}">${winPct}% victoire</span>
-        <span style="color:#f55">Défense <strong>${defPow.toLocaleString()}</strong></span>
+        <span style="color:#5af">${_t('zone_attack')} <strong>${atkPow.toLocaleString()}</strong></span>
+        <span style="color:${winPct >= 50 ? '#5a5' : '#a55'}">${_t('zone_win_percent', { percent: winPct })}</span>
+        <span style="color:#f55">${_t('zone_defense')} <strong>${defPow.toLocaleString()}</strong></span>
       </div>
       <div style="height:5px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden">
         <div style="height:100%;width:${barW}%;background:linear-gradient(90deg,#4af,#5a5);transition:width .3s"></div>
       </div>
       <div style="font-size:8px;color:var(--text-dim);margin-top:3px">
-        Type dresseur : <span style="color:var(--text)">${preview.trainerType}</span>
+        ${_t('zone_trainer_type')} <span style="color:var(--text)">${preview.trainerType}</span>
         · ×${preview.trainerTypeMultiplier}
       </div>
     </div>
 
     <!-- Pokémon pool -->
     <div style="padding:8px 10px;border-bottom:1px solid var(--border)">
-      <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);margin-bottom:5px">POKÉMON (${pool.length})</div>
+      <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);margin-bottom:5px">${_t('zone_pokemon').toUpperCase()} (${pool.length})</div>
       <div style="display:flex;flex-wrap:wrap;gap:2px">${poolHtml}</div>
     </div>
 
     <!-- Trainers -->
     <div style="padding:8px 10px;border-bottom:1px solid var(--border)">
-      <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);margin-bottom:5px">DRESSEURS</div>
+      <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);margin-bottom:5px">${_t('zone_trainers').toUpperCase()}</div>
       ${trainersHtml || '<span style="color:var(--text-dim);font-size:10px">—</span>'}
     </div>
 
     <!-- Assigned agents -->
     <div style="padding:8px 10px">
-      <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);margin-bottom:5px">AGENTS ASSIGNÉS</div>
+      <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);margin-bottom:5px">${_t('zone_assigned_agents').toUpperCase()}</div>
       ${agentsHtml}
     </div>
   `;
@@ -1508,8 +1514,8 @@ function buildZoneWindowEl(zoneId) {
   const captures = zState.captures || 0;
   const nextMastery = mastery < 3 ? (mastery < 2 ? 10 : 50) : null;
   const progressText = zone.type === 'city'
-    ? `Combats: ${combats}${gymDefeated ? ' ✓GYM' : combats >= 10 && zone.gymLeader ? ' — RAID!' : ''}`
-    : `Combats: ${combats}${nextMastery ? `/${nextMastery}` : ''} | Cap: ${captures}`;
+    ? _t('zone_combat_progress_city', { count: combats, suffix: gymDefeated ? ' ✓GYM' : combats >= 10 && zone.gymLeader ? ' — RAID!' : '' })
+    : _t('zone_combat_progress', { count: combats, target: nextMastery ? `/${nextMastery}` : '', captures });
 
   const bgStyle = (() => {
     const b = ZONE_BGS[zoneId];
@@ -1532,7 +1538,7 @@ function buildZoneWindowEl(zoneId) {
       <button class="headbar-close" data-close-zone="${zoneId}" title="Fermer">✕</button>
     </div>
     <div class="zone-viewport">
-      ${degraded ? `<div class="zone-degraded-banner">⚠ ${state.lang === 'fr' ? 'MODE COMBAT — Réputation insuffisante' : 'COMBAT MODE — Reputation too low'}</div>` : ''}
+      ${degraded ? `<div class="zone-degraded-banner">⚠ ${_t('zone_degraded_banner')}</div>` : ''}
       ${eventActive && eventDef ? (() => {
         const secsLeft = activeEvt?.expiresAt ? Math.max(0, Math.ceil((activeEvt.expiresAt - Date.now()) / 1000)) : '?';
         const label = state.lang === 'fr' ? eventDef.fr : eventDef.en;
@@ -1574,7 +1580,7 @@ function buildZoneWindowEl(zoneId) {
           <span class="boss-cd-label" style="display:none;font-family:var(--font-pixel);font-size:7px;color:var(--red);background:rgba(0,0,0,.8);border-radius:2px;padding:1px 3px;white-space:nowrap;position:absolute;top:-14px;left:50%;transform:translateX(-50%)"></span>
         </div>` : ''}
         <div class="zone-slot-info">
-          <span class="slot-count" style="color:var(--text-dim)">Agents: ${assignedAgents.length}</span>
+        <span class="slot-count" style="color:var(--text-dim)">${_t('zone_agent_count', { n: assignedAgents.length })}</span>
         </div>
       </div>
     </div>
@@ -1627,8 +1633,8 @@ function patchZoneWindow(zoneId, win) {
   const captures = zState.captures || 0;
   const nextMastery = mastery < 3 ? (mastery < 2 ? 10 : 50) : null;
   const progressText = zone.type === 'city'
-    ? `Combats: ${combats}${gymDefeated ? ' ✓GYM' : combats >= 10 && zone.gymLeader ? ' — RAID!' : ''}`
-    : `Combats: ${combats}${nextMastery ? `/${nextMastery}` : ''} | Cap: ${captures}`;
+    ? _t('zone_combat_progress_city', { count: combats, suffix: gymDefeated ? ' ✓GYM' : combats >= 10 && zone.gymLeader ? ' — RAID!' : '' })
+    : _t('zone_combat_progress', { count: combats, target: nextMastery ? `/${nextMastery}` : '', captures });
 
   // Headbar
   const headbar = win.querySelector(`[data-zone-hb="${zoneId}"]`);
@@ -1660,7 +1666,7 @@ function patchZoneWindow(zoneId, win) {
   if (degraded && !banner) {
     banner = document.createElement('div');
     banner.className = 'zone-degraded-banner';
-    banner.textContent = `⚠ ${state.lang === 'fr' ? 'MODE COMBAT — Réputation insuffisante' : 'COMBAT MODE — Reputation too low'}`;
+    banner.textContent = `⚠ ${_t('zone_degraded_banner')}`;
     viewport.insertBefore(banner, viewport.firstChild);
   } else if (!degraded && banner) {
     banner.remove();
@@ -1718,7 +1724,7 @@ function patchZoneWindow(zoneId, win) {
   const freshAssigned = state.agents.filter(a => a.assignedZone === zoneId);
   const slotInfo = win.querySelector('.zone-slot-info');
   if (slotInfo) {
-    slotInfo.innerHTML = `<span class="slot-count" style="color:var(--text-dim)">Agents: ${freshAssigned.length}</span>`;
+  slotInfo.innerHTML = `<span class="slot-count" style="color:var(--text-dim)">${_t('zone_agent_count', { n: freshAssigned.length })}</span>`;
   }
 
   updateZoneTimers(zoneId);
@@ -1743,8 +1749,8 @@ function updateZoneTimers(zoneId) {
   const progressBar = win.querySelector(`#zpb-${zoneId}`);
   if (progressBar) {
     const progressText = zone.type === 'city'
-      ? `Combats: ${combats}${zState.gymDefeated ? ' ✓GYM' : combats >= 10 && zone.gymLeader ? ' — RAID!' : ''}`
-      : `Combats: ${combats}${nextMastery ? `/${nextMastery}` : ''} | Cap: ${captures}`;
+      ? _t('zone_combat_progress_city', { count: combats, suffix: zState.gymDefeated ? ' ✓GYM' : combats >= 10 && zone.gymLeader ? ' — RAID!' : '' })
+      : _t('zone_combat_progress', { count: combats, target: nextMastery ? `/${nextMastery}` : '', captures });
     progressBar.textContent = `${progressText}${zone.type === 'city' ? ` — XP×${zone.xpBonus}` : ''}`;
   }
 
@@ -1976,7 +1982,7 @@ function renderSpawnInWindow(zoneId, spawnObj) {
     const tierR    = getDifficultyTier(previewR.attackerPower, previewR.defenderPower);
     el.innerHTML = globalThis.safeTrainerImg(raidLeaderKey, { style: 'width:52px;height:52px;image-rendering:pixelated;filter:drop-shadow(0 0 8px #f44)' }) +
       getDifficultyBadgeHtml(tierR) +
-      `<div style="font-family:var(--font-pixel);font-size:6px;color:#f66;background:rgba(0,0,0,.75);border-radius:2px;padding:1px 4px;margin-top:2px;text-align:center">⚔ RAID</div>`;
+      `<div style="font-family:var(--font-pixel);font-size:6px;color:#f66;background:rgba(0,0,0,.75);border-radius:2px;padding:1px 4px;margin-top:2px;text-align:center">⚔ ${_t('zone_raid').toUpperCase()}</div>`;
     el.title = state.lang === 'fr'
       ? (spawnObj.trainer?.fr ?? spawnObj.trainerKey ?? 'Raid')
       : (spawnObj.trainer?.en ?? spawnObj.trainerKey ?? 'Raid');
@@ -2003,7 +2009,7 @@ function renderSpawnInWindow(zoneId, spawnObj) {
     });
   } else if (spawnObj.type === 'chest') {
     el.innerHTML = `<div class="chest-sprite">📦</div>`;
-    el.title = state.lang === 'fr' ? 'Coffre au trésor !' : 'Treasure Chest!';
+    el.title = _t('zone_treasure_chest');
     el.style.animation = 'float 2s ease-in-out infinite';
     el.addEventListener('click', () => {
       if (el.classList.contains('catching')) return;
@@ -2055,7 +2061,7 @@ function renderSpawnInWindow(zoneId, spawnObj) {
         state.inventory[cfg.item] = (state.inventory[cfg.item] || 0) + qty;
 
         // Feedback + log
-        const msg = `✦ ${qty}× ${cfg.itemName} obtenu${qty > 1 ? 's' : ''} ! (${cfg.shadowLabel})`;
+        const msg = _t('zone_shadow_item_obtained', { qty, item: cfg.itemName, shadow: cfg.shadowLabel });
         _notify(msg, 'gold');
         globalThis.addLog(msg);
 
@@ -2323,17 +2329,21 @@ function buildTrainerCombatTaglines(spawnObj, result, reward, repGain) {
     ? ` (×${result.trainerTypeMultiplier.toFixed(2)} ${result.trainerType})`
     : '';
 
-  taglines.push(`${alliesList} affrontent ${tName}.`);
-  taglines.push(`${tName} aligne ${enemyCount} Pok.${typeMod}`);
-  taglines.push(`⚡ Attaque : ${fmtCombatNum(result.attackerPower)} (Boss ${fmtCombatNum(result.bossTeamPower ?? 0)} + Agents ${fmtCombatNum(result.agentsPower ?? 0)})`);
-  taglines.push(`🛡 Défense : ${fmtCombatNum(result.defenderPower)}`);
+  taglines.push(_t('zone_allies_face_trainer', { allies: alliesList, trainer: tName }));
+  taglines.push(_t('zone_trainer_enemy_count', { trainer: tName, count: enemyCount, mod: typeMod }));
+  taglines.push(_t('zone_attack_breakdown', {
+    total: fmtCombatNum(result.attackerPower),
+    boss: fmtCombatNum(result.bossTeamPower ?? 0),
+    agents: fmtCombatNum(result.agentsPower ?? 0),
+  }));
+  taglines.push(_t('zone_defense_line', { power: fmtCombatNum(result.defenderPower) }));
 
   if (result.attackerWin) {
-    taglines.push('— VICTOIRE ! —');
-    if (reward > 0) taglines.push(`+${fmtCombatNum(reward)} ₽ · +${fmtCombatNum(repGain)} rép`);
+    taglines.push(_t('zone_victory_banner'));
+    if (reward > 0) taglines.push(_t('zone_reward_line', { reward: fmtCombatNum(reward), rep: fmtCombatNum(repGain) }));
   } else {
-    taglines.push('— DÉFAITE... —');
-    taglines.push('Aucun loot récupéré.');
+    taglines.push(_t('zone_defeat_banner'));
+    taglines.push(_t('zone_no_loot'));
   }
 
   return taglines;
@@ -2555,7 +2565,7 @@ function openCombatPopup(zoneId, spawnObj) {
   const agentIds = getZoneCombatAgentIds(zoneId);
   const available = buildPlayerTeamForZone(zoneId);
   if (available.length === 0) {
-    _notify('Équipez votre Boss pour pouvoir combattre !', 'error');
+    _notify(_t('zone_equip_boss_required'), 'error');
     return;
   }
 
@@ -2573,7 +2583,7 @@ function openCombatPopup(zoneId, spawnObj) {
     .map(id => state.pokemons.find(pokemon => pokemon.id === id))
     .filter(Boolean);
   if (battlePlayerTeam.length === 0) {
-    _notify('Équipez votre Boss pour pouvoir combattre !', 'error');
+    _notify(_t('zone_equip_boss_required'), 'error');
     return;
   }
   const preview = getTrainerCombatPreview(spawnWithZone, agentIds);
@@ -2679,7 +2689,7 @@ function openCombatPopup(zoneId, spawnObj) {
       <span class="ct-reward">×${combatTier.rewardMult}</span>
     </div>
     <span class="zchud-vs">⚔ ${_esc(trainerName)} <span style="color:var(--text-dim);font-size:7px">${enemyPool.length} Pok. · ⚡${fmtCombatNum(preview.attackerPower)} / 🛡${fmtCombatNum(preview.defenderPower)}</span></span>
-    <button class="zchud-flee" id="zchud-flee-${zoneId}">Fuir</button>`;
+      <button class="zchud-flee" id="zchud-flee-${zoneId}">${_t('zone_flee')}</button>`;
   viewport.appendChild(hud);
 
   // ── Auto-start + flee ─────────────────────────────────────────
@@ -2719,7 +2729,7 @@ function executeCombat() {
     const zoneState = state.zones[zoneId];
     if (zoneState) zoneState.combatsWon = (zoneState.combatsWon || 0) + 1;
   } else {
-    _notify(`Défaite contre ${trainerCombatName(spawnWithZone)} — aucun loot.`, 'error', 'combat');
+    _notify(_t('zone_defeat_no_loot_notice', { trainer: trainerCombatName(spawnWithZone) }), 'error', 'combat');
   }
   _save();
 
@@ -2731,9 +2741,9 @@ function executeCombat() {
   globalThis.pushFeedEvent?.({
     category: 'combat',
     title: result.attackerWin
-      ? `Victoire — ${spawnWithZone.trainer?.fr || spawnWithZone.trainerKey} +${reward}₽ +${repGain}rep`
-      : `Défaite — ${spawnWithZone.trainer?.fr || spawnWithZone.trainerKey}`,
-    detail: `Zone: ${zName} · ⚡${fmtCombatNum(result.attackerPower)} / 🛡${fmtCombatNum(result.defenderPower)} · ${enemyPool.length} Pok. adverses`,
+      ? _t('zone_feed_victory', { trainer: trainerCombatName(spawnWithZone), reward, rep: repGain })
+      : _t('zone_feed_defeat', { trainer: trainerCombatName(spawnWithZone) }),
+    detail: _t('zone_feed_combat_detail', { zone: zName, attack: fmtCombatNum(result.attackerPower), defense: fmtCombatNum(result.defenderPower), count: enemyPool.length }),
     win: result.attackerWin,
     combatLog: [
       ...introLines,
@@ -2833,7 +2843,7 @@ function executeCombat() {
   const fleeBtn = hudEl?.querySelector('.zchud-flee');
   if (fleeBtn) {
     fleeBtn.disabled = true;
-    fleeBtn.textContent = 'Combat...';
+    fleeBtn.textContent = _t('zone_combat_in_progress');
   }
 
   const script = [
@@ -2856,15 +2866,15 @@ function executeCombat() {
         playSwitch(item);
       } else if (item.type === 'attack') {
         const atkName = globalThis.speciesName(item.attackerSpecies);
-        const effTxt = item.effectiveness > 1 ? ' Coup super efficace !'
-          : (item.effectiveness > 0 && item.effectiveness < 1) ? " Ce n'est pas très efficace..."
-          : item.effectiveness === 0 ? " Ça n'affecte pas l'adversaire..." : '';
-        logLine(`${atkName} utilise ${item.move} !${effTxt}`);
+        const effTxt = item.effectiveness > 1 ? _t('zone_effective_super')
+          : (item.effectiveness > 0 && item.effectiveness < 1) ? _t('zone_effective_low')
+          : item.effectiveness === 0 ? _t('zone_effective_none') : '';
+        logLine(_t('zone_uses_move', { pokemon: atkName, move: item.move, effectiveness: effTxt }));
         const targetOv = item.side === 'player' ? ensureEnemyOverlay() : ensurePlayerOverlay();
         setCombatHpBar(targetOv, item.defenderHp, item.defenderMaxHp);
         playCombatHitEffect(item.side === 'player' ? (enemySpriteEl || spawnEl) : (playerSpriteEl || playerAnchorEl));
       } else if (item.type === 'faint') {
-        logLine(`${globalThis.speciesName(item.species_en)} est mis K.O. !`);
+        logLine(_t('zone_knocked_out', { pokemon: globalThis.speciesName(item.species_en) }));
       }
       queueTimer(nextStep, delay);
       return;
@@ -2873,7 +2883,7 @@ function executeCombat() {
     const closeBtn = hudEl?.querySelector('.zchud-flee');
     if (closeBtn) {
       closeBtn.disabled = false;
-      closeBtn.textContent = 'Fermer';
+      closeBtn.textContent = _t('zone_close');
       closeBtn.onclick = doClose;
     }
     queueTimer(doClose, 1800);
@@ -2934,7 +2944,7 @@ function openEventBattlePopup(zoneId) {
 
   const playerPokemon = buildPlayerTeamForZone(zoneId);
   if (playerPokemon.length === 0) {
-    _notify('Équipez votre Boss pour pouvoir combattre !', 'error');
+    _notify(_t('zone_equip_boss_required'), 'error');
     return;
   }
 
@@ -2973,7 +2983,7 @@ function openEventBattlePopup(zoneId) {
   hud.id = `zchud-${zoneId}`;
   hud.innerHTML = `
     <span class="zchud-vs">⚔ ${_esc(trainerName)} <span style="color:var(--text-dim);font-size:7px">${enemyTeam.length} Pok.</span></span>
-    <button class="zchud-flee" id="zchud-flee-${zoneId}">Fuir</button>`;
+      <button class="zchud-flee" id="zchud-flee-${zoneId}">${_t('zone_flee')}</button>`;
   viewport.appendChild(hud);
 
   const autoTimer = setTimeout(executeEventBattle, 600);
@@ -3082,26 +3092,26 @@ function executeEventBattle() {
       if (zoneState) zoneState.combatsWon = (zoneState.combatsWon || 0) + 1;
       globalThis.activateEvent(zoneId, eventDef);
       globalThis.clearZoneActivity?.(zoneId);
-      logLine('— VICTOIRE ! —', 'result');
-      if (reward > 0) logLine(`+${fmtCombatNum(reward)} ₽ · +${fmtCombatNum(repGain)} rép`, 'loot');
+      logLine(_t('zone_victory_banner'), 'result');
+      if (reward > 0) logLine(_t('zone_reward_line', { reward: fmtCombatNum(reward), rep: fmtCombatNum(repGain) }), 'loot');
     } else {
-      logLine('— DÉFAITE... —', 'result');
-      logLine('Aucun loot récupéré.', 'loot');
-      _notify(`Défaite contre ${trainerName} — aucun loot.`, 'error', 'combat');
+      logLine(_t('zone_defeat_banner'), 'result');
+      logLine(_t('zone_no_loot'), 'loot');
+      _notify(_t('zone_defeat_no_loot_notice', { trainer: trainerName }), 'error', 'combat');
     }
     _save();
 
     globalThis.pushFeedEvent?.({
       category: 'combat',
-      title: win ? `Victoire — ${trainerName} +${reward}₽ +${repGain}rep` : `Défaite — ${trainerName}`,
-      detail: `Zone: ${zoneName} · Événement · ${enemyTeam.length} Pok. adverses`,
+      title: win ? _t('zone_feed_victory', { trainer: trainerName, reward, rep: repGain }) : _t('zone_feed_defeat', { trainer: trainerName }),
+      detail: _t('zone_feed_event_detail', { zone: zoneName, count: enemyTeam.length }),
       win,
       combatLog: battle.turns.filter(t => t.type === 'attack').map(t => `${globalThis.speciesName(t.attackerSpecies)} → ${t.move} (${t.damage} dgts)`),
     });
 
     const hudEl = document.getElementById(`zchud-${zoneId}`);
     const fleeBtn = hudEl?.querySelector('.zchud-flee');
-    if (fleeBtn) { fleeBtn.textContent = 'Fermer'; fleeBtn.onclick = closeEventBattle; }
+    if (fleeBtn) { fleeBtn.textContent = _t('zone_close'); fleeBtn.onclick = closeEventBattle; }
     queueTimer(closeEventBattle, 1800);
   }
 
@@ -3115,15 +3125,15 @@ function executeEventBattle() {
       playSwitch(t);
     } else if (t.type === 'attack') {
       const atkName = globalThis.speciesName(t.attackerSpecies);
-      const effTxt = t.effectiveness > 1 ? ' Coup super efficace !'
-        : (t.effectiveness > 0 && t.effectiveness < 1) ? " Ce n'est pas très efficace..."
-        : t.effectiveness === 0 ? " Ça n'affecte pas l'adversaire..." : '';
-      logLine(`${atkName} utilise ${t.move} !${effTxt}`);
+      const effTxt = t.effectiveness > 1 ? _t('zone_effective_super')
+        : (t.effectiveness > 0 && t.effectiveness < 1) ? _t('zone_effective_low')
+        : t.effectiveness === 0 ? _t('zone_effective_none') : '';
+      logLine(_t('zone_uses_move', { pokemon: atkName, move: t.move, effectiveness: effTxt }));
       const targetOv = t.side === 'player' ? ensureEnemyOverlay() : ensurePlayerOverlay();
       setHpBar(targetOv, t.defenderHp, t.defenderMaxHp);
       playCombatHitEffect(t.side === 'player' ? npcEl : (playerSpriteEl || anchorPlayerEl));
     } else if (t.type === 'faint') {
-      logLine(`${globalThis.speciesName(t.species_en)} est mis K.O. !`);
+      logLine(_t('zone_knocked_out', { pokemon: globalThis.speciesName(t.species_en) }));
     }
     queueTimer(nextTurn, delay);
   }

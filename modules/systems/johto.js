@@ -4,6 +4,7 @@ import { EventBus, EVENTS } from '../core/eventBus.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
 const _save   = ()               => globalThis.saveState?.();
+const _t      = (fr, en)         => (globalThis.state?.lang === 'en' ? en : fr);
 
 // ── Johto region unlock system ───────────────────────────────────────────────
 // Logique d'activation et de cinématique de déblocage de la région Johto.
@@ -47,14 +48,22 @@ function showJohtoUnlockModal() {
   const archerSprite = globalThis.trainerSprite('archer');
   const bossName = state.gang?.bossName || 'Parrain';
 
-  const MESSAGE =
+  const MESSAGE = _t(
     `« J'ai entendu parler de vous, ${bossName}.\n\n` +
     `Le Plateau Indigo est tombé. Votre réputation a traversé le Détroit Tohjo.\n\n` +
     `Notre organisation traverse une période... difficile. ` +
     `Les territoires de Johto sont vacants. Les Bêtes Sacrées rôdent sans maître. ` +
     `Lugia dort dans les Îles Tourbillon. Ho-Oh attend un gardien digne de lui.\n\n` +
     `Une opportunité unique — pour ceux qui savent saisir leur chance.\n\n` +
-    `Johto vous tend les bras. »`;
+    `Johto vous tend les bras. »`,
+    `“I've heard about you, ${bossName}.\n\n` +
+    `The Indigo Plateau has fallen. Your reputation has crossed the Tohjo Falls.\n\n` +
+    `Our organization is going through a... difficult time. ` +
+    `Johto's territories are vacant. The Legendary Beasts roam without a master. ` +
+    `Lugia sleeps in the Whirl Islands. Ho-Oh awaits a worthy guardian.\n\n` +
+    `A unique opportunity — for those who know how to seize it.\n\n` +
+    `Johto is waiting for you.”`,
+  );
 
   // ── Overlay ───────────────────────────────────────────────────────────────
   const overlay = document.createElement('div');
@@ -114,7 +123,7 @@ function showJohtoUnlockModal() {
   dialog.innerHTML = `
     <div style="font-family:var(--font-pixel,monospace);font-size:7px;
       color:rgba(40,200,100,.85);letter-spacing:.8px;text-transform:uppercase;
-      margin-bottom:8px">Archer — QG Johto</div>
+      margin-bottom:8px">${_t('Archer — QG Johto', 'Archer — Johto HQ')}</div>
     <div id="ji-text" style="font-size:14px;color:#ddeedd;line-height:1.7;min-height:46px;
       white-space:pre-wrap"></div>
     <div id="ji-actions" style="margin-top:16px;display:none;
@@ -186,8 +195,8 @@ function showJohtoUnlockModal() {
     cursor.style.display = 'none';
     actionsEl.style.display = 'flex';
     actionsEl.innerHTML = `
-      <button class="ji-btn-dismiss" id="ji-dismiss">Pas encore...</button>
-      <button class="ji-btn-accept"  id="ji-accept">→ Traverser vers Johto</button>`;
+      <button class="ji-btn-dismiss" id="ji-dismiss">${_t('Pas encore...', 'Not yet...')}</button>
+      <button class="ji-btn-accept"  id="ji-accept">${_t('→ Traverser vers Johto', '→ Travel to Johto')}</button>`;
 
     actionsEl.querySelector('#ji-accept').addEventListener('click', () => {
       _close();
@@ -197,12 +206,12 @@ function showJohtoUnlockModal() {
         b.classList.toggle('active', b.dataset.region === 'johto');
       });
       globalThis.switchTab?.('tabZones');
-      _notify('🌏 Johto débloqué ! Bienvenue à New Bark Town, Parrain...', 'gold');
+      _notify(_t('🌏 Johto débloqué ! Bienvenue à New Bark Town, Parrain...', '🌏 Johto unlocked! Welcome to New Bark Town, Boss...'), 'gold');
     });
 
     actionsEl.querySelector('#ji-dismiss').addEventListener('click', () => {
       _close();
-      _notify('📡 L\'offre reste disponible — bouton Johto ✉ dans les zones.', '');
+      _notify(_t("📡 L'offre reste disponible — bouton Johto ✉ dans les zones.", '📡 The offer remains available — use the Johto ✉ button in Zones.'), '');
     });
   }
 

@@ -10,6 +10,7 @@ import { EventBus, EVENTS } from '../core/eventBus.js';
 
 let _trSearch = '';           // persisté entre re-renders
 let _trSelected = new Set(); // IDs cochés pour ajout groupé
+const _t = (fr, en) => (globalThis.state?.lang === 'en' ? en : fr);
 
 // Costs for extra slots 7..12 (index 0 = slot 7)
 const TRAINING_EXTRA_SLOT_COSTS = [100_000, 250_000, 500_000, 1_000_000, 2_000_000, 3_000_000];
@@ -46,37 +47,37 @@ function renderTrainingTab() {
         <img src="${pokeSprite(p.species_en, p.shiny)}" style="width:52px;height:52px;${p.shiny?'filter:drop-shadow(0 0 4px var(--gold))':''}">
         <div style="font-size:8px;margin-top:2px">${speciesName(p.species_en)}</div>
         <div style="font-size:8px;color:var(--text-dim)">Lv.${p.level} ${'*'.repeat(p.potential)}</div>
-        <button class="tr-remove-btn" data-tr-remove="${p.id}" style="margin-top:4px;font-size:8px;padding:2px 6px;background:var(--bg);border:1px solid var(--red);border-radius:var(--radius-sm);color:var(--red);cursor:pointer">Retirer</button>
+        <button class="tr-remove-btn" data-tr-remove="${p.id}" style="margin-top:4px;font-size:8px;padding:2px 6px;background:var(--bg);border:1px solid var(--red);border-radius:var(--radius-sm);color:var(--red);cursor:pointer">${_t('Retirer', 'Remove')}</button>
       </div>`;
     } else {
-      slotsHtml += `<div class="training-slot empty"><span style="color:var(--text-dim);font-size:8px">Slot libre</span></div>`;
+      slotsHtml += `<div class="training-slot empty"><span style="color:var(--text-dim);font-size:8px">${_t('Slot libre', 'Free slot')}</span></div>`;
     }
   }
 
   const recentLog = (tr.log || []).slice(-8).reverse().map(e => {
     let color = 'var(--text-dim)';
-    if (e.includes('[W]')) color = 'var(--gold)';
-    else if (e.includes('[L]')) color = 'var(--red-dim, var(--red))';
+    if (e.includes('[W]') || e.includes('[V]')) color = 'var(--gold)';
+    else if (e.includes('[L]') || e.includes('[D]')) color = 'var(--red-dim, var(--red))';
     return `<div style="font-size:9px;color:${color};padding:2px 0">${e}</div>`;
-  }).join('') || '<div style="font-size:9px;color:var(--text-dim)">Aucun evenement</div>';
+  }).join('') || `<div style="font-size:9px;color:var(--text-dim)">${_t('Aucun événement', 'No events')}</div>`;
 
   // Last fight display
   let lastFightHtml = '';
   if (tr.lastFight) {
     const { winner, loser } = tr.lastFight;
     lastFightHtml = `
-      <div style="font-family:var(--font-pixel);font-size:9px;color:var(--text-dim);margin-bottom:6px">DERNIER COMBAT</div>
+      <div style="font-family:var(--font-pixel);font-size:9px;color:var(--text-dim);margin-bottom:6px">${_t('DERNIER COMBAT', 'LAST BATTLE')}</div>
       <div style="display:flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px;margin-bottom:12px">
         <div style="text-align:center">
           <img src="${pokeSprite(winner.species_en)}" style="width:48px;height:48px">
           <div style="font-size:8px;color:var(--gold)">${speciesName(winner.species_en)}</div>
-          <div style="font-size:7px;color:var(--text-dim)">Lv.${winner.level} [W]</div>
+          <div style="font-size:7px;color:var(--text-dim)">Lv.${winner.level} ${_t('[V]', '[W]')}</div>
         </div>
         <div style="font-family:var(--font-pixel);font-size:10px;color:var(--text-dim)">VS</div>
         <div style="text-align:center;transform:scaleX(-1)">
           <img src="${pokeSprite(loser.species_en)}" style="width:48px;height:48px">
           <div style="font-size:8px;color:var(--red);transform:scaleX(-1)">${speciesName(loser.species_en)}</div>
-          <div style="font-size:7px;color:var(--text-dim);transform:scaleX(-1)">Lv.${loser.level} [L]</div>
+          <div style="font-size:7px;color:var(--text-dim);transform:scaleX(-1)">Lv.${loser.level} ${_t('[D]', '[L]')}</div>
         </div>
       </div>`;
   }
@@ -90,30 +91,33 @@ function renderTrainingTab() {
     <div style="display:grid;grid-template-columns:1fr 300px;gap:16px;padding:12px">
       <div>
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
-          <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold)">SALLE D\'ENTRAINEMENT</div>
-          <div style="font-size:9px;color:var(--text-dim)">Niv.${roomLevel} — XP x${mult}% — ${tr.pokemon.length}/${maxSlots} slots</div>
+          <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold)">${_t("SALLE D'ENTRAÎNEMENT", 'TRAINING ROOM')}</div>
+          <div style="font-size:9px;color:var(--text-dim)">${_t('Niv.', 'Lv.')}${roomLevel} — XP x${mult}% — ${tr.pokemon.length}/${maxSlots} slots</div>
           ${buySlotBtn}
-          ${tr.pokemon.length > 0 ? `<button id="btnTrClearAll" style="margin-left:auto;font-family:var(--font-pixel);font-size:8px;padding:4px 8px;background:var(--bg);border:1px solid var(--red);border-radius:var(--radius-sm);color:var(--red);cursor:pointer">Tout retirer</button>` : ''}
+          ${tr.pokemon.length > 0 ? `<button id="btnTrClearAll" style="margin-left:auto;font-family:var(--font-pixel);font-size:8px;padding:4px 8px;background:var(--bg);border:1px solid var(--red);border-radius:var(--radius-sm);color:var(--red);cursor:pointer">${_t('Tout retirer', 'Remove all')}</button>` : ''}
         </div>
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px">
           <div style="flex:1;font-size:9px;color:var(--text-dim)">
-            <b style="color:var(--text)">Melee generale</b> — Mode actif : gagnant +${winXPPreview} XP (x1.25), perdant +${Math.round(10*(mult/100))} XP
+            <b style="color:var(--text)">${_t('Mêlée générale', 'Free-for-all')}</b> — ${_t(
+              `Mode actif : gagnant +${winXPPreview} XP (x1.25), perdant +${Math.round(10*(mult/100))} XP`,
+              `Active mode: winner +${winXPPreview} XP (x1.25), loser +${Math.round(10*(mult/100))} XP`,
+            )}
           </div>
           <button id="btnTrainingUpgrade" style="font-family:var(--font-pixel);font-size:8px;padding:6px 10px;background:var(--bg);border:2px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">
-            AMELIORER<br>${upgradeCost.toLocaleString()}P
+            ${_t('AMÉLIORER', 'UPGRADE')}<br>${upgradeCost.toLocaleString()}₽
           </button>
         </div>
         <div style="font-size:10px;color:var(--text-dim);margin-bottom:12px">
-          Min. 2 Pokemon pour s\'entrainer. Combat toutes les 60s.
+          ${_t("Min. 2 Pokémon pour s'entraîner. Combat toutes les 60s.", 'Min. 2 Pokémon to train. Battle every 60s.')}
         </div>
         ${lastFightHtml}
         <div class="training-slots" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px">${slotsHtml}</div>
-        <div style="font-family:var(--font-pixel);font-size:9px;color:var(--text-dim);margin-bottom:8px">JOURNAL</div>
+        <div style="font-family:var(--font-pixel);font-size:9px;color:var(--text-dim);margin-bottom:8px">${_t('JOURNAL', 'LOG')}</div>
         <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px;max-height:120px;overflow-y:auto">${recentLog}</div>
       </div>
       <div>
-        <div style="font-family:var(--font-pixel);font-size:9px;color:var(--text-dim);margin-bottom:8px">AJOUTER UN POKEMON</div>
-        <input id="trSearchInput" type="text" placeholder="Rechercher…" value="${_trSearch}"
+        <div style="font-family:var(--font-pixel);font-size:9px;color:var(--text-dim);margin-bottom:8px">${_t('AJOUTER UN POKÉMON', 'ADD A POKÉMON')}</div>
+        <input id="trSearchInput" type="text" placeholder="${_t('Rechercher…', 'Search…')}" value="${_trSearch}"
           style="width:100%;padding:6px 8px;margin-bottom:6px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:10px;box-sizing:border-box;outline:none">
         <div id="trPickerArea"></div>
       </div>
@@ -127,7 +131,7 @@ function renderTrainingTab() {
     const state = globalThis.state;
     state.trainingRoom.pokemon = [];
     saveState();
-    notify('Salle d\'entrainement vidée.', 'success');
+    notify(_t("Salle d'entraînement vidée.", 'Training room cleared.'), 'success');
     renderTrainingTab();
   });
 
@@ -138,14 +142,14 @@ function renderTrainingTab() {
     const extra = tr.extraSlots || 0;
     const cost = TRAINING_EXTRA_SLOT_COSTS[extra];
     if (cost === undefined) return;
-    if (state.gang.money < cost) { notify('Fonds insuffisants.'); return; }
+    if (state.gang.money < cost) { notify(_t('Fonds insuffisants.', 'Insufficient funds.')); return; }
     state.gang.money -= cost;
     EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -cost, newTotal: state.gang.money });
     state.stats.totalMoneySpent = (state.stats.totalMoneySpent || 0) + cost;
     tr.extraSlots = extra + 1;
     saveState();
     updateTopBar();
-    notify(`Slot ${6 + tr.extraSlots} débloqué !`, 'gold');
+    notify(_t(`Slot ${6 + tr.extraSlots} débloqué !`, `Slot ${6 + tr.extraSlots} unlocked!`), 'gold');
     renderTrainingTab();
   });
 
@@ -154,14 +158,17 @@ function renderTrainingTab() {
     const state = globalThis.state;
     const lvl = state.trainingRoom.level || 1;
     const cost = Math.round(5000 * Math.pow(2, lvl - 1));
-    if (state.gang.money < cost) { notify('Fonds insuffisants.'); return; }
+    if (state.gang.money < cost) { notify(_t('Fonds insuffisants.', 'Insufficient funds.')); return; }
     state.gang.money -= cost;
     EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -cost, newTotal: state.gang.money });
     state.stats.totalMoneySpent = (state.stats.totalMoneySpent || 0) + cost;
     state.trainingRoom.level = lvl + 1;
     saveState();
     updateTopBar();
-    notify(`Salle d'entrainement Niv.${state.trainingRoom.level} !`, 'gold');
+    notify(_t(
+      `Salle d'entraînement Niv.${state.trainingRoom.level} !`,
+      `Training room Lv.${state.trainingRoom.level}!`,
+    ), 'gold');
     renderTrainingTab();
   });
 
@@ -220,12 +227,15 @@ function _refreshTrPicker(tab) {
         <div style="font-size:9px;color:var(--text-dim)">Lv.${p.level}</div>
       </div>
     </label>`;
-  }).join('') || `<div style="color:var(--text-dim);font-size:10px;padding:12px">Aucun Pokemon disponible</div>`;
+  }).join('') || `<div style="color:var(--text-dim);font-size:10px;padding:12px">${_t('Aucun Pokémon disponible', 'No Pokémon available')}</div>`;
 
   pickerArea.innerHTML = `
     ${_trSelected.size > 0 ? `
     <button id="btnTrAddSelected" style="width:100%;margin-bottom:6px;padding:6px;background:var(--bg);border:1px solid var(--blue);border-radius:var(--radius-sm);color:var(--blue);font-family:var(--font-pixel);font-size:8px;cursor:pointer">
-      + Ajouter ${addableCount} sélectionné${addableCount > 1 ? 's' : ''} (${freeSlots} slot${freeSlots > 1 ? 's' : ''} libre${freeSlots > 1 ? 's' : ''})
+      ${_t(
+        `+ Ajouter ${addableCount} sélectionné(s) (${freeSlots} slot(s) libre(s))`,
+        `+ Add ${addableCount} selected (${freeSlots} free slot(s))`,
+      )}
     </button>` : ''}
     <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);max-height:400px;overflow-y:auto">${candidatesHtml}</div>`;
 
@@ -269,7 +279,10 @@ function _refreshTrPicker(tab) {
     }
     _trSelected.clear();
     saveState();
-    notify(`${added} Pokémon ajouté${added > 1 ? 's' : ''} à la salle`, 'success');
+    notify(_t(
+      `${added} Pokémon ajouté(s) à la salle`,
+      `${added} Pokémon added to the room`,
+    ), 'success');
     renderTrainingTab();
   });
 }
@@ -308,7 +321,10 @@ function trainingRoomTick() {
   levelUpPokemon(winner, winXP);
   levelUpPokemon(loser, loseXP);
 
-  const msg = `${prevWinnerName} [W] bat ${prevLoserName} [L] (+${winXP} / +${loseXP} XP)`;
+  const msg = _t(
+    `${prevWinnerName} [V] bat ${prevLoserName} [D] (+${winXP} / +${loseXP} XP)`,
+    `${prevWinnerName} [W] beats ${prevLoserName} [L] (+${winXP} / +${loseXP} XP)`,
+  );
   room.log.push(msg);
 
   // Store last fight for visual display
@@ -328,7 +344,10 @@ function trainingRoomTick() {
     const nameBefore = speciesName(p.species_en);
     const evolved = tryAutoEvolution(p);
     if (evolved) {
-      const m = `${nameBefore} evolue en ${speciesName(p.species_en)} dans la salle !`;
+      const m = _t(
+        `${nameBefore} évolue en ${speciesName(p.species_en)} dans la salle !`,
+        `${nameBefore} evolves into ${speciesName(p.species_en)} in the training room!`,
+      );
       room.log.push(m);
       notify(m, 'gold');
     }
@@ -338,7 +357,10 @@ function trainingRoomTick() {
   for (const p of fighters) {
     if (Math.random() < 0.002 && p.potential < 5) {
       p.potential++;
-      const m = `${speciesName(p.species_en)} a gagne du potentiel en s'entrainant ! (${p.potential}*)`;
+      const m = _t(
+        `${speciesName(p.species_en)} a gagné du potentiel en s'entraînant ! (${p.potential}★)`,
+        `${speciesName(p.species_en)} gained potential while training! (${p.potential}★)`,
+      );
       room.log.push(m);
       notify(m, 'gold');
     }

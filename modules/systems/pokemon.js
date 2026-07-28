@@ -26,6 +26,7 @@ import { BASE_SHINY_RATE, AURA_SHINY_RATE, CHROMA_CHARM_MULT } from '../../data/
 import { EventBus, EVENTS } from '../core/eventBus.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
+const _t = (fr, en) => (globalThis.state?.lang === 'en' ? en : fr);
 const _save   = ()               => globalThis.saveState?.();
 let passiveProgressionContext = {};
 
@@ -243,7 +244,7 @@ function evolvePokemon(pokemon, targetEN) {
   registerPokedexCapture(state, pokemon);
   showPokemonLevelPopup(pokemon, pokemon.level);
   const newName = globalThis.speciesName?.(sp.en) ?? sp.en;
-  _notify(`${oldName} ${state.lang === 'fr' ? 'évolue en' : 'evolved into'} ${newName} !`, 'gold');
+  _notify(_t(`${oldName} évolue en ${newName} !`, `${oldName} evolved into ${newName}!`), 'gold');
   globalThis.SFX?.play('evolve');
   _save();
   return true;

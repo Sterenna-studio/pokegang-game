@@ -33,6 +33,7 @@ const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg
 const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
 const _topBar = ()               => EventBus.emit(EVENTS.UI_TOPBAR_UPDATE);
 const _save   = ()               => globalThis.saveState?.();
+const _t      = (...a)           => globalThis.t?.(...a) ?? a[0];
 
 // HTML escape — sécurise les strings user-input (bossName, gangName) avant injection via innerHTML
 const _esc = s => String(s ?? '').replace(/[&<>"']/g, ch => (
@@ -107,7 +108,7 @@ function _baseFocusZone(state) {
 }
 
 function _baseZoneName(zone, state) {
-  if (!zone) return state.lang === 'fr' ? 'Aucun front' : 'No front';
+  if (!zone) return _t('gang_base_no_front');
   return state.lang === 'fr' ? (zone.fr || zone.en || zone.id) : (zone.en || zone.fr || zone.id);
 }
 
@@ -136,8 +137,8 @@ function _baseZoneStatus(zone, state, zState, assignedCount) {
     18 + mastery * 18 + Math.min(24, combats * 2) + Math.min(18, captures) + assignedCount * 12 + (open ? 10 : 0)
   ));
   const dangerScore = (zone.rep || 0) + (zone.type === 'city' ? 140 : 0) + (zone.type === 'special' ? 90 : 0) + (degraded ? 250 : 0);
-  const dangerLabel = degraded ? 'Critique' : dangerScore >= 900 ? 'Extreme' : dangerScore >= 550 ? 'Eleve' : dangerScore >= 250 ? 'Modere' : 'Faible';
-  const stateLabel = degraded ? 'Fragilise' : open ? 'Ouverte' : assignedCount > 0 ? 'Tenue' : repGap > 0 ? 'Verrouillee' : 'Disponible';
+  const dangerLabel = degraded ? _t('gang_base_danger_critical') : dangerScore >= 900 ? _t('gang_base_danger_extreme') : dangerScore >= 550 ? _t('gang_base_danger_high') : dangerScore >= 250 ? _t('gang_base_danger_moderate') : _t('gang_base_danger_low');
+  const stateLabel = degraded ? _t('gang_base_state_weakened') : open ? _t('gang_base_state_open') : assignedCount > 0 ? _t('gang_base_state_held') : repGap > 0 ? _t('gang_base_state_locked') : _t('gang_base_state_available');
   return { stateLabel, dangerLabel, possession };
 }
 
@@ -379,7 +380,7 @@ function _patchGangBaseV1(win, state) {
             <img src="${pokeSprite(pk.species_en, pk.shiny)}" alt="${speciesName(pk.species_en)}">
           </div>`;
         }
-        return `<div class="base-team-slot" data-boss-slot="${i}" title="${state.lang === 'fr' ? 'Assigner un Pokémon' : 'Assign a Pokémon'}">+</div>`;
+      return `<div class="base-team-slot" data-boss-slot="${i}" title="${_t('gang_base_assign_pokemon')}">+</div>`;
       }).join('');
       teamRow.innerHTML = html;
     }
@@ -434,7 +435,7 @@ function renderGangBaseWindow() {
         <img src="${pokeSprite(pk.species_en, pk.shiny)}" alt="${speciesName(pk.species_en)}">
       </div>`;
     }
-    return `<div class="base-team-slot" data-boss-slot="${i}" title="${state.lang === 'fr' ? 'Assigner un Pokémon' : 'Assign a Pokémon'}">+</div>`;
+    return `<div class="base-team-slot" data-boss-slot="${i}" title="${_t('gang_base_assign_pokemon')}">+</div>`;
   }).join('');
 
   // ── Item tiles
@@ -466,7 +467,7 @@ function renderGangBaseWindow() {
     const badge = owned
       ? `<span class="base-item-qty on">✓</span>`
       : `<span class="base-item-qty off">✗</span>`;
-    return `<div class="base-item-tile${owned ? '' : ' locked-key'}" data-bag-item="${id}" title="${id}${owned ? ' — Obtenu' : ' — Non obtenu'}">
+    return `<div class="base-item-tile${owned ? '' : ' locked-key'}" data-bag-item="${id}" title="${id}${owned ? _t('gang_base_key_owned') : _t('gang_base_key_missing')}">
       <div class="base-item-sprite${owned ? '' : ' locked'}">${itemSprite(id)}</div>
       ${badge}
     </div>`;
@@ -497,7 +498,7 @@ function renderGangBaseWindow() {
         const eggSrc = globalThis.eggSprite?.(egg, isReady) || '';
         incSlotsHtml += `
           <div class="base-inc-slot ${isReady ? 'ready' : 'active'}" data-egg-id="${egg.id}"
-            title="${egg.species_en}${isReady ? ' — PRÊT !' : timeLeftMin !== null ? ' — '+timeLeftMin+'min' : ''}">
+            title="${egg.species_en}${isReady ? _t('gang_base_egg_ready_suffix') : timeLeftMin !== null ? ` — ${timeLeftMin}min` : ''}">
             <img src="${eggSrc}" class="base-inc-egg" alt="">
             <div class="base-inc-bar">
               <div class="base-inc-fill ${isReady ? 'done' : ''}" style="width:${isReady ? 100 : progress}%"></div>
@@ -536,7 +537,7 @@ function renderGangBaseWindow() {
   const locStatusClass = isFocusOpen ? 'open' : focusAgents.length ? 'held' : 'idle';
   const locAgentLine   = focusAgents.length
     ? `${focusAgents.length} agent${focusAgents.length > 1 ? 's' : ''}`
-    : 'Aucun agent';
+    : _t('gang_base_no_agent');
   const locationHtml = focusZone
     ? `<div class="base-boss-location">
         <span class="base-loc-pin">📍</span>
@@ -548,14 +549,14 @@ function renderGangBaseWindow() {
       </div>`
     : `<div class="base-boss-location idle">
         <span class="base-loc-pin">📍</span>
-        <span class="base-loc-name">Ouvrez une zone pour lancer les operations</span>
+        <span class="base-loc-name">${_t('gang_base_open_zone_hint')}</span>
       </div>`;
 
   const territoryCards = [
-    ['Possession', `${focusMeta.possession}%`, 'base-possession', `${Math.max(4, focusMeta.possession)}%`],
-    ['Danger', focusMeta.dangerLabel, 'base-danger', focusMeta.dangerLabel === 'Critique' ? '100%' : focusMeta.dangerLabel === 'Extreme' ? '84%' : focusMeta.dangerLabel === 'Eleve' ? '66%' : focusMeta.dangerLabel === 'Modere' ? '42%' : '22%'],
-    ['Rarete', focusRarity, 'base-rarity', focusRarity.includes('+') || focusRarity.includes('Legendaire') ? '86%' : focusRarity.includes('Rare') ? '66%' : '38%'],
-    ['Etat', focusMeta.stateLabel, 'base-state', isFocusOpen ? '100%' : focusAgents.length ? '68%' : '36%'],
+    [_t('gang_base_possession'), `${focusMeta.possession}%`, 'base-possession', `${Math.max(4, focusMeta.possession)}%`],
+    [_t('gang_base_danger'), focusMeta.dangerLabel, 'base-danger', focusMeta.dangerLabel === _t('gang_base_danger_critical') ? '100%' : focusMeta.dangerLabel === _t('gang_base_danger_extreme') ? '84%' : focusMeta.dangerLabel === _t('gang_base_danger_high') ? '66%' : focusMeta.dangerLabel === _t('gang_base_danger_moderate') ? '42%' : '22%'],
+    [_t('gang_base_rarity'), focusRarity, 'base-rarity', focusRarity.includes('+') || focusRarity.includes('Legendaire') ? '86%' : focusRarity.includes('Rare') ? '66%' : '38%'],
+    [_t('gang_base_state'), focusMeta.stateLabel, 'base-state', isFocusOpen ? '100%' : focusAgents.length ? '68%' : '36%'],
   ].map(([label, value, cls, fill]) => `
     <div class="base-status-card ${cls}">
       <span>${label}</span>
@@ -573,8 +574,8 @@ function renderGangBaseWindow() {
       <div class="base-header-stats">
         <span>₽${(state.gang.money || 0).toLocaleString()}</span>
         <span>⭐${(state.gang.reputation || 0).toLocaleString()}</span>
-        <button class="gb-view-toggle" data-gb-view="v2" title="Vue v2 — 3 colonnes">V2</button>
-        <button class="base-export-btn" title="${state.lang === 'fr' ? 'Exporter mon gang' : 'Export my gang'}">📷</button>
+        <button class="gb-view-toggle" data-gb-view="v2" title="${_t('gang_base_view_v2')}">V2</button>
+        <button class="base-export-btn" title="${_t('gang_base_export')}">📷</button>
       </div>
     </div>
 
@@ -597,13 +598,13 @@ function renderGangBaseWindow() {
           ${locationHtml}
           <div class="base-team-slots">${bossTeamHtml}</div>
           <div class="base-boss-auto-row">
-            <span class="base-boss-auto-label">⚔️ Combat auto</span>
+            <span class="base-boss-auto-label">⚔️ ${_t('gang_base_auto_combat')}</span>
             <button
               class="base-boss-auto-toggle${state.gang.bossAutoCombat ? ' active' : ''}"
               data-base-boss-auto
               title="${state.gang.bossAutoCombat
-                ? 'Le boss engage automatiquement les dresseurs'
-                : 'Le boss attend votre ordre pour combattre'}"
+                ? _t('gang_base_auto_combat_on_hint')
+                : _t('gang_base_auto_combat_off_hint')}"
             >${state.gang.bossAutoCombat ? 'ON' : 'OFF'}</button>
           </div>
         </div>
@@ -614,12 +615,12 @@ function renderGangBaseWindow() {
 
       <section class="base-modules-grid">
         <div class="base-inv-section base-module-card">
-          ${_baseModuleTitle('Balls', state.activeBall || '')}
+          ${_baseModuleTitle(_t('gang_base_balls'), state.activeBall || '')}
           <div class="base-inv-row">${ballsHtml}</div>
         </div>
         <div class="base-inv-section base-module-card">
           <div class="base-module-head">
-            <span>Boosts</span>
+            <span>${_t('gang_base_boosts')}</span>
             <div class="base-boost-tabs">
               ${[1,5,10,100].map(n => `<button data-boost-mult="${n}" class="${_boostMult === n ? 'active' : ''}">×${n}</button>`).join('')}
             </div>
@@ -627,14 +628,14 @@ function renderGangBaseWindow() {
           <div class="base-inv-row">${boostsHtml}</div>
         </div>
         <div class="base-inv-section base-module-card">
-          ${_baseModuleTitle('Objets', 'logistique')}
+          ${_baseModuleTitle(_t('gang_base_items'), _t('gang_base_logistics'))}
           <div class="base-inv-row">${craftHtml}${keysHtml}</div>
         </div>
         <div class="base-inv-section base-module-card"${incCount > 0 ? ' data-base-action="pension"' : ''}>
-          ${_baseModuleTitle('Incubateurs', waitingEggs.length > 0 ? `+${waitingEggs.length}` : '')}
+          ${_baseModuleTitle(_t('gang_base_incubators'), waitingEggs.length > 0 ? `+${waitingEggs.length}` : '')}
           ${incCount > 0
             ? `<div class="base-inc-slots">${incSlotsHtml}</div>`
-            : `<div class="base-empty-note">${state.lang === 'fr' ? 'Aucun incubateur' : 'No incubators'}</div>`}
+            : `<div class="base-empty-note">${_t('gang_base_no_incubators')}</div>`}
         </div>
       </section>
 
@@ -668,7 +669,11 @@ function renderGangBaseWindowV2() {
   const bossTitle   = globalThis.getBossFullTitle?.() || globalThis.getTitleLabel?.(state.gang.title) || 'Boss';
   const poss        = focusMeta.possession;
   const possClass   = poss >= 70 ? 'high' : poss >= 40 ? 'med' : 'low';
-  const dangerClass = focusMeta.dangerLabel.toLowerCase();
+  const dangerClass = focusMeta.dangerLabel === _t('gang_base_danger_critical') ? 'critique'
+    : focusMeta.dangerLabel === _t('gang_base_danger_extreme') ? 'extreme'
+    : focusMeta.dangerLabel === _t('gang_base_danger_high') ? 'eleve'
+    : focusMeta.dangerLabel === _t('gang_base_danger_moderate') ? 'modere'
+    : 'faible';
   const stateClass  = isFocusOpen ? 'ouverte' : focusAgents.length > 0 ? 'tenue' : 'libre';
 
   // ── Boss team (6 Pokémon) ──
@@ -707,11 +712,11 @@ function renderGangBaseWindowV2() {
       <span class="gb2-zone-row-icon">${icon}</span>
       <div class="gb2-zone-row-info">
         <div class="gb2-zone-row-name">${_baseZoneName(zone, state)}</div>
-        <div class="gb2-zone-row-sub">${agents} agent${agents !== 1 ? 's' : ''}${isOpen ? ' · Ouverte' : ''}</div>
+        <div class="gb2-zone-row-sub">${_t('gang_base_agent_count', { n: agents })}${isOpen ? ` · ${_t('gang_base_state_open')}` : ''}</div>
       </div>
       <div class="gb2-zone-row-poss ${pc}">${isOpen ? '●' : meta.possession + '%'}</div>
     </div>`;
-  }).join('') || `<div class="base-empty-note">Aucun front débloqué</div>`;
+  }).join('') || `<div class="base-empty-note">${_t('gang_base_no_unlocked_front')}</div>`;
 
   // ── Inventaire ──
   const BALL_IDS  = ['pokeball','greatball','ultraball','duskball','masterball'];
@@ -775,21 +780,21 @@ function renderGangBaseWindowV2() {
   const readyEggs     = incubatingEggs.filter(e => e.status === 'ready').length;
   const zoneDesc      = focusZone
     ? (state.lang === 'fr' ? (focusZone.desc_fr || focusZone.fr) : (focusZone.desc_en || focusZone.en))
-    : 'Ouvrez une zone pour démarrer les opérations.';
+    : _t('gang_base_start_operations_hint');
 
   const feedHtml = [
     focusZone ? {
       tag:    focusMeta.stateLabel,
       title:  `${focusName} · ${poss}%`,
-      detail: pendingIncome > 0 ? `₽ à récupérer` : zoneDesc,
-      cls:    focusMeta.dangerLabel === 'Critique' || focusMeta.dangerLabel === 'Extreme' ? 'alert'
+      detail: pendingIncome > 0 ? _t('gang_base_income_to_collect') : zoneDesc,
+      cls:    focusMeta.dangerLabel === _t('gang_base_danger_critical') || focusMeta.dangerLabel === _t('gang_base_danger_extreme') ? 'alert'
               : isFocusOpen ? 'ok' : '',
     } : null,
     readyEggs > 0
-      ? { tag: 'Pension', title: `${readyEggs} œuf(s) prêt(s)`, detail: 'Incubateurs disponibles.', cls: 'ok' }
+      ? { tag: _t('gang_base_pension'), title: _t('gang_base_ready_eggs', { n: readyEggs }), detail: _t('gang_base_incubators_available'), cls: 'ok' }
       : null,
     focusAgents.length === 0
-      ? { tag: 'Cellule', title: 'Front sans agent', detail: 'Assignez un agent pour produire hors fenêtre.', cls: 'alert' }
+      ? { tag: _t('gang_base_cell'), title: _t('gang_base_front_without_agent'), detail: _t('gang_base_assign_agent_background_hint'), cls: 'alert' }
       : null,
   ].filter(Boolean).map(item => `
     <div class="gb2-feed-item ${item.cls || ''}">
@@ -801,7 +806,7 @@ function renderGangBaseWindowV2() {
   const allAgents  = state.agents || [];
   const agentsHtml = allAgents.length ? allAgents.map(agent => {
     const inFocus   = agent.assignedZone === focusZoneId;
-    const zoneName  = agent.assignedZone ? _baseZoneName(_baseZoneById(agent.assignedZone), state) : 'Réserve';
+    const zoneName  = agent.assignedZone ? _baseZoneName(_baseZoneById(agent.assignedZone), state) : _t('gang_base_reserve');
     const rank      = globalThis.getAgentRankLabel?.(agent) || BASE_RANK_FR[agent.title] || agent.title || 'Agent';
     const agPks     = (agent.team || []).map(id => state.pokemons.find(p => p.id === id)).filter(Boolean);
     const teamSlots = [0, 1, 2].map(i => {
@@ -821,15 +826,15 @@ function renderGangBaseWindowV2() {
         <div class="gb2-agent-team-row">${teamSlots}</div>
       </div>
       <div class="gb2-agent-zone-col">
-        <div class="gb2-az-label">Zone</div>
+        <div class="gb2-az-label">${_t('gang_base_zone')}</div>
         <div class="gb2-az-zone ${isAssigned ? 'assigned' : ''}">${zoneName}</div>
         <button class="gb2-agent-assign-btn ${inFocus ? 'retirer' : ''}"
           data-gb2-assign-agent="${agent.id}" data-gb2-target-zone="${focusZoneId}">
-          ${inFocus ? 'Retirer' : 'Assigner'}
+          ${inFocus ? _t('gang_base_remove') : _t('gang_base_assign')}
         </button>
       </div>
     </div>`;
-  }).join('') : `<div class="base-empty-note">Aucun agent recruté</div>`;
+  }).join('') : `<div class="base-empty-note">${_t('gang_base_no_recruited_agent')}</div>`;
 
   // ── Panneau assignation (bas colonne droite) ──
   const zapSlots = focusAgents.slice(0, 4).map(agent =>
@@ -853,8 +858,8 @@ function renderGangBaseWindowV2() {
       <div class="gb2-h-right">
         <span class="gb2-h-money">₽${(state.gang.money||0).toLocaleString()}</span>
         <span class="gb2-h-rep">⭐${(state.gang.reputation||0).toLocaleString()}</span>
-        <button class="gb-view-toggle v2-active" data-gb-view="v1" title="Vue v1 — Compacte">V1</button>
-        <button class="base-export-btn" title="Exporter">📷</button>
+        <button class="gb-view-toggle v2-active" data-gb-view="v1" title="${_t('gang_base_view_v1')}">V1</button>
+        <button class="base-export-btn" title="${_t('gang_base_export_short')}">📷</button>
       </div>
     </div>
 
@@ -889,10 +894,10 @@ function renderGangBaseWindowV2() {
         <div class="gb2-possession-meter">
           <div class="gb2-poss-top">
             <div>
-              <div class="gb2-poss-label">Possession</div>
+              <div class="gb2-poss-label">${_t('gang_base_possession')}</div>
               <div class="gb2-poss-val ${possClass}">${poss}%</div>
             </div>
-            <div class="gb2-poss-sub">${focusAgents.length} agent(s)</div>
+            <div class="gb2-poss-sub">${_t('gang_base_agent_count', { n: focusAgents.length })}</div>
           </div>
           <div class="gb2-poss-bar-track"><div class="gb2-poss-bar-fill" style="width:${poss}%"></div></div>
           <div class="gb2-poss-badges">
@@ -902,7 +907,7 @@ function renderGangBaseWindowV2() {
         </div>
         <div class="gb2-zone-list-wrap">
           <div class="gb2-zone-list-head">
-            <span>Fronts <strong class="gb2-fronts-count">${unlockedZones.length}</strong></span>
+            <span>${_t('gang_base_fronts')} <strong class="gb2-fronts-count">${unlockedZones.length}</strong></span>
           </div>
           <div>${zoneListHtml}</div>
         </div>
@@ -911,17 +916,17 @@ function renderGangBaseWindowV2() {
       <!-- ══ CENTRE : Actions + Inventaire + Feed ══ -->
       <div class="gb2-center">
         <div class="gb2-action-bar">
-          <button class="gb2-act-btn primary" data-base-command="intervene" data-zone="${focusZoneId}">⚔ Intervenir</button>
-          <button class="gb2-act-btn" data-base-command="toggle-zone" data-zone="${focusZoneId}">${isFocusOpen ? 'Fermer' : 'Ouvrir'}</button>
-          <button class="gb2-act-btn" data-base-command="assign-agent" data-zone="${focusZoneId}">👥 Assigner</button>
+          <button class="gb2-act-btn primary" data-base-command="intervene" data-zone="${focusZoneId}">⚔ ${_t('gang_base_intervene')}</button>
+          <button class="gb2-act-btn" data-base-command="toggle-zone" data-zone="${focusZoneId}">${isFocusOpen ? _t('gang_base_close') : _t('gang_base_open')}</button>
+          <button class="gb2-act-btn" data-base-command="assign-agent" data-zone="${focusZoneId}">👥 ${_t('gang_base_assign')}</button>
           <div class="gb2-act-sep"></div>
-          <button class="gb2-act-btn warn" data-base-command="retake" data-zone="${focusZoneId}">↩ Reprendre</button>
+          <button class="gb2-act-btn warn" data-base-command="retake" data-zone="${focusZoneId}">↩ ${_t('gang_base_retake')}</button>
         </div>
         <div class="gb2-center-scroll">
           <!-- Équipe du boss -->
           <div class="gb2-inv-block">
             <div class="gb2-inv-block-head">
-              <span class="gb2-inv-section-label">Équipe du boss</span>
+              <span class="gb2-inv-section-label">${_t('gang_base_boss_team')}</span>
               <span class="gb2-inv-section-label">${state.gang.bossTeam.filter(Boolean).length}/${BOSS_TEAM_SLOTS}</span>
             </div>
             <div class="gb2-team-center">
@@ -931,7 +936,7 @@ function renderGangBaseWindowV2() {
                 if (pk) {
                   const stats = globalThis.calculateStats?.(pk) || {};
                   const power = globalThis.getPokemonPower?.(pk) || 0;
-                  return `<div class="gb2-boss-team-card filled" data-boss-slot="${i}" title="Retirer ${speciesName(pk.species_en)}">
+                  return `<div class="gb2-boss-team-card filled" data-boss-slot="${i}" title="${_t('gang_base_remove_pokemon', { name: speciesName(pk.species_en) })}">
                     <img src="${pokeSprite(pk.species_en, pk.shiny)}" alt="">
                     <div class="gb2-btc-name">${speciesName(pk.species_en)}${pk.shiny ? ' ✨' : ''}</div>
                     <div class="gb2-btc-level">Lv.${pk.level} ${'★'.repeat(pk.potential)}</div>
@@ -940,7 +945,7 @@ function renderGangBaseWindowV2() {
                 }
                 return `<div class="gb2-boss-team-card empty" data-boss-slot="${i}">
                   <span class="gb2-btc-plus">+</span>
-                  <div class="gb2-btc-name empty">Slot ${i+1}</div>
+                  <div class="gb2-btc-name empty">${_t('gang_base_slot', { n: i + 1 })}</div>
                 </div>`;
               }).join('')}
             </div>
@@ -948,7 +953,7 @@ function renderGangBaseWindowV2() {
           <!-- Boosts -->
           <div class="gb2-inv-block">
             <div class="gb2-inv-block-head">
-              <span class="gb2-inv-section-label">Boosts</span>
+              <span class="gb2-inv-section-label">${_t('gang_base_boosts')}</span>
               <div class="gb2-boost-tabs">
                 ${[1,5,10,100].map(n => `<button class="gb2-boost-tab${_boostMult===n?' active':''}" data-boost-mult="${n}">×${n}</button>`).join('')}
               </div>
@@ -958,21 +963,21 @@ function renderGangBaseWindowV2() {
           <!-- Balls + Objets + Clés -->
           <div class="gb2-inv-block">
             <div class="gb2-inv-block-head">
-              <span class="gb2-inv-section-label">Balls & Objets</span>
-              <span class="gb2-inv-section-label">Active : ${state.activeBall || 'pokeball'}</span>
+              <span class="gb2-inv-section-label">${_t('gang_base_balls_items')}</span>
+              <span class="gb2-inv-section-label">${_t('gang_base_active_ball', { ball: state.activeBall || 'pokeball' })}</span>
             </div>
             <div class="gb2-inv-row">${ballsHtml}${craftHtml}${keysHtml}</div>
           </div>
           ${incCount > 0 ? `<div class="gb2-inv-block" data-base-action="pension">
             <div class="gb2-inv-block-head">
-              <span class="gb2-inv-section-label">Incubateurs</span>
-              ${waitingEggs.length > 0 ? `<span class="gb2-inv-section-label gold">+${waitingEggs.length} en attente</span>` : ''}
+              <span class="gb2-inv-section-label">${_t('gang_base_incubators')}</span>
+              ${waitingEggs.length > 0 ? `<span class="gb2-inv-section-label gold">${_t('gang_base_waiting_count', { n: waitingEggs.length })}</span>` : ''}
             </div>
             <div class="gb2-inv-row">${incSlotsHtml}</div>
           </div>` : ''}
           <div class="gb2-feed-section">
-            <div class="gb2-feed-lbl">Intel QG</div>
-            ${feedHtml || '<div class="base-empty-note">Aucune activité récente</div>'}
+            <div class="gb2-feed-lbl">${_t('gang_base_hq_intel')}</div>
+            ${feedHtml || `<div class="base-empty-note">${_t('gang_base_no_recent_activity')}</div>`}
           </div>
         </div>
       </div>
@@ -980,15 +985,15 @@ function renderGangBaseWindowV2() {
       <!-- ══ DROITE : Agents ══ -->
       <div class="gb2-right">
         <div class="gb2-panel-head">
-          <div class="gb2-ph-title">Agents</div>
-          <div class="gb2-ph-meta">${allAgents.length} opérationnel(s)</div>
+          <div class="gb2-ph-title">${_t('gang_base_agents')}</div>
+          <div class="gb2-ph-meta">${_t('gang_base_operational_count', { n: allAgents.length })}</div>
         </div>
         <div class="gb2-agents-wrap">${agentsHtml}</div>
         <div class="gb2-zap">
-          <div class="gb2-zap-title">Cellule assignée</div>
+          <div class="gb2-zap-title">${_t('gang_base_assigned_cell')}</div>
           <div class="gb2-zap-zone-name">${focusName}</div>
           <div class="gb2-zap-slots">${zapSlots.join('')}</div>
-          <div class="gb2-zap-info">${focusAgents.length > 0 ? focusAgents.map(a => a.name).join(', ') : 'Aucun agent sur ce front'}</div>
+          <div class="gb2-zap-info">${focusAgents.length > 0 ? focusAgents.map(a => a.name).join(', ') : _t('gang_base_no_agent_on_front')}</div>
         </div>
       </div>
 
@@ -1029,7 +1034,9 @@ function bindGangBaseV2(container) {
       if (globalThis.assignAgentToZone) globalThis.assignAgentToZone(agentId, newZone);
       else { agent.assignedZone = newZone; _save(); }
       const targetZone  = newZone ? _baseZoneById(newZone) : null;
-      _notify(newZone ? `${agent.name} → ${_baseZoneName(targetZone, state)}` : `${agent.name} retiré du front`, newZone ? 'success' : '');
+      _notify(newZone
+        ? _t('gang_base_agent_assigned_notice', { agent: agent.name, zone: _baseZoneName(targetZone, state) })
+        : _t('gang_base_agent_removed_notice', { agent: agent.name }), newZone ? 'success' : '');
       _refreshBaseRuntime();
     });
   });
@@ -1063,12 +1070,12 @@ function bindGangBaseV2(container) {
     el.textContent = on ? 'ON' : 'OFF';
     el.classList.toggle('active', on);
     el.title = on
-      ? 'Le boss engage automatiquement les dresseurs'
-      : 'Le boss attend votre ordre pour combattre';
+      ? _t('gang_base_auto_combat_on_hint')
+      : _t('gang_base_auto_combat_off_hint');
     _save();
     _notify(on
-      ? `⚔️ ${state.gang.bossName} — combat automatique activé`
-      : `🛑 ${state.gang.bossName} — combat manuel`, '');
+      ? _t('gang_base_auto_enabled_notice', { boss: state.gang.bossName })
+      : _t('gang_base_manual_notice', { boss: state.gang.bossName }), '');
   });
 
   // Export
@@ -1115,7 +1122,7 @@ function bindGangBaseV2(container) {
         const uses = Math.min(_boostMult, qty);
         if (uses > 0) {
           for (let i = 0; i < uses; i++) globalThis.activateBoost?.(id);
-          _notify(`Boost ×${uses} activé — ${Math.ceil(globalThis.boostRemaining?.(id) || 0)}s`, 'success');
+          _notify(_t('gang_base_boost_enabled', { n: uses, seconds: Math.ceil(globalThis.boostRemaining?.(id) || 0) }), 'success');
         }
         globalThis.renderZoneWindows?.();
         renderGangBasePanel();
@@ -1140,7 +1147,7 @@ function _setBaseFocusZone(zoneId, notify = false) {
   _save();
   globalThis.renderZoneWindows?.();
   renderGangBasePanel();
-  if (notify) _notify(`Boss repositionne sur ${_baseZoneName(zone, state)}`, 'gold');
+  if (notify) _notify(_t('gang_base_boss_repositioned', { zone: _baseZoneName(zone, state) }), 'gold');
   return true;
 }
 
@@ -1154,14 +1161,14 @@ function _openBaseAgentPicker(zoneId) {
 
   const rows = (state.agents || []).map(agent => {
     const sameZone = agent.assignedZone === zoneId;
-    const currentZone = agent.assignedZone ? _baseZoneName(_baseZoneById(agent.assignedZone), state) : 'Reserve';
+    const currentZone = agent.assignedZone ? _baseZoneName(_baseZoneById(agent.assignedZone), state) : _t('gang_base_reserve');
     const rank = globalThis.getAgentRankLabel?.(agent) || BASE_RANK_FR[agent.title] || agent.title || 'Agent';
     return `<button class="base-picker-agent${sameZone ? ' active' : ''}" data-pick-agent="${agent.id}">
       <img src="${agent.sprite || globalThis.trainerSprite?.('acetrainer') || ''}" alt="" onerror="this.src='${globalThis.trainerSprite?.('acetrainer') || ''}'">
       <span><strong>${agent.name}</strong><em>${rank} · ${currentZone}</em></span>
-      <b>${sameZone ? 'Retirer' : 'Assigner'}</b>
+      <b>${sameZone ? _t('gang_base_remove') : _t('gang_base_assign')}</b>
     </button>`;
-  }).join('') || `<div class="base-empty-note">Aucun agent recrute</div>`;
+  }).join('') || `<div class="base-empty-note">${_t('gang_base_no_recruited_agent')}</div>`;
 
   const modal = document.createElement('div');
   modal.id = 'baseAgentPickerModal';
@@ -1169,10 +1176,10 @@ function _openBaseAgentPicker(zoneId) {
   modal.innerHTML = `
     <div class="base-command-dialog">
       <div class="base-dialog-head">
-        <span>Assigner · ${zoneName}</span>
+        <span>${_t('gang_base_assign')} · ${zoneName}</span>
         <button data-base-dialog-close>×</button>
       </div>
-      <div class="base-dialog-sub">${assignedCount} agent(s) assigné(s)</div>
+      <div class="base-dialog-sub">${_t('gang_base_assigned_count', { n: assignedCount })}</div>
       <div class="base-picker-list">${rows}</div>
     </div>`;
   document.body.appendChild(modal);
@@ -1190,7 +1197,9 @@ function _openBaseAgentPicker(zoneId) {
         agent.assignedZone = targetZone;
         _save();
       }
-      _notify(targetZone ? `${agent.name} -> ${zoneName}` : `${agent.name} retire du front`, targetZone ? 'success' : '');
+      _notify(targetZone
+        ? _t('gang_base_agent_assigned_notice', { agent: agent.name, zone: zoneName })
+        : _t('gang_base_agent_removed_notice', { agent: agent.name }), targetZone ? 'success' : '');
       modal.remove();
       _refreshBaseRuntime();
     });
@@ -1202,7 +1211,7 @@ function _handleBaseCommand(command, zoneId) {
   const state = globalThis.state;
   const zone = _baseZoneById(zoneId);
   if (!state || !zone) {
-    _notify('Aucune zone disponible', 'error');
+    _notify(_t('gang_base_no_zone_available'), 'error');
     return;
   }
   if (command === 'toggle-zone') {
@@ -1229,7 +1238,7 @@ function _handleBaseCommand(command, zoneId) {
       return;
     }
     if (!globalThis.openZones?.has(zoneId)) globalThis.openZoneWindow?.(zoneId);
-    _notify(`Intervention lancee sur ${_baseZoneName(zone, state)}`, 'gold');
+    _notify(_t('gang_base_intervention_started', { zone: _baseZoneName(zone, state) }), 'gold');
     setTimeout(() => globalThis.tickZoneSpawn?.(zoneId), 80);
     return;
   }
@@ -1297,12 +1306,12 @@ function bindGangBase(container) {
     el.textContent = on ? 'ON' : 'OFF';
     el.classList.toggle('active', on);
     el.title = on
-      ? 'Le boss engage automatiquement les dresseurs'
-      : 'Le boss attend votre ordre pour combattre';
+      ? _t('gang_base_auto_combat_on_hint')
+      : _t('gang_base_auto_combat_off_hint');
     _save();
     _notify(on
-      ? `⚔️ ${state.gang.bossName} — combat automatique activé`
-      : `🛑 ${state.gang.bossName} — combat manuel`, '');
+      ? _t('gang_base_auto_enabled_notice', { boss: state.gang.bossName })
+      : _t('gang_base_manual_notice', { boss: state.gang.bossName }), '');
   });
 
   // Incubator section background → pension tab
@@ -1353,7 +1362,7 @@ function bindGangBase(container) {
         if (uses > 0) {
           for (let i = 0; i < uses; i++) globalThis.activateBoost(id);
           const rem = Math.ceil(globalThis.boostRemaining(id));
-          _notify(`Boost ×${uses} activé — ${rem}s`, 'success');
+          _notify(_t('gang_base_boost_enabled', { n: uses, seconds: rem }), 'success');
         }
         globalThis.renderZoneWindows();
         renderGangBasePanel();
@@ -1426,8 +1435,8 @@ function openCodexModal() {
         <table style="border-collapse:collapse;font-family:'Courier New',monospace;font-size:11px;width:100%">
           <thead>
             <tr style="border-bottom:1px solid #333">
-              <th style="padding:6px 10px;text-align:left;color:#888">Rareté</th>
-              <th style="padding:6px 10px;color:#888">Base</th>
+              <th style="padding:6px 10px;text-align:left;color:#888">${_t('gang_base_codex_rarity')}</th>
+              <th style="padding:6px 10px;color:#888">${_t('gang_base_codex_base')}</th>
               ${headCells}
             </tr>
           </thead>
@@ -1435,7 +1444,7 @@ function openCodexModal() {
         </table>
       </div>
       <div style="margin-top:10px;font-size:9px;color:#555;font-family:'Courier New',monospace">
-        Nature : toutes les natures ont un multiplicateur moyen de ×1.0 — aucun impact sur le prix final.
+        ${_t('gang_base_codex_nature_note')}
       </div>`;
   }
 
@@ -1456,7 +1465,7 @@ function openCodexModal() {
       if (!zones.length) continue;
       html += `<div style="margin-bottom:20px">
         <div style="font-family:var(--font-pixel);font-size:9px;color:${TYPE_COLOR[type]};margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,.08)">
-          ${TYPE_LABEL[type]} — ${zones.length} zones
+          ${TYPE_LABEL[type]} — ${_t('gang_base_codex_zone_count', { n: zones.length })}
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px">`;
 
@@ -1475,7 +1484,7 @@ function openCodexModal() {
 
         const rareHtml = zone.rarePool ? `
           <div style="margin-top:6px;padding-top:5px;border-top:1px solid rgba(255,255,255,.06)">
-            <span style="font-size:7px;font-family:var(--font-pixel);color:#888">✨ Rare (10%) : </span>
+            <span style="font-size:7px;font-family:var(--font-pixel);color:#888">✨ ${_t('gang_base_codex_rare')} (10%) : </span>
             ${zone.rarePool.slice(0,6).map(e => {
               const sp = SPECIES_BY_EN[e.en];
               return `<img src="${pokeSprite(e.en)}" style="width:20px;height:20px;image-rendering:pixelated;opacity:.7" title="${sp?.fr || e.en} (w:${e.w})">`;
@@ -1499,10 +1508,10 @@ function openCodexModal() {
             <div style="position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;padding:4px 8px;height:100%">
               <div>
                 <div style="font-family:var(--font-pixel);font-size:8px;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.9)">${zone.fr}</div>
-                <div style="font-size:7px;color:rgba(255,255,255,.5)">Rep ≥ ${zone.rep}${zone.unlockItem ? ' · 🔑' : ''}</div>
+                <div style="font-size:7px;color:rgba(255,255,255,.5)">${_t('gang_base_codex_reputation_short')} ≥ ${zone.rep}${zone.unlockItem ? ' · 🔑' : ''}</div>
               </div>
               <div style="text-align:right;font-size:7px;color:rgba(255,255,255,.5)">
-                ${zone.spawnRate ? `Spawn ×${zone.spawnRate}` : ''}
+                ${zone.spawnRate ? `${_t('gang_base_codex_spawn')} ×${zone.spawnRate}` : ''}
               </div>
             </div>
           </div>
@@ -1528,12 +1537,12 @@ function openCodexModal() {
   modal.innerHTML = `
     <div style="background:var(--bg-panel);border:2px solid var(--border);border-radius:var(--radius);width:100%;max-width:800px;display:flex;flex-direction:column;gap:0">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border)">
-        <span style="font-family:var(--font-pixel);font-size:11px;color:var(--gold)">📖 Codex — Référence</span>
+        <span style="font-family:var(--font-pixel);font-size:11px;color:var(--gold)">📖 ${_t('gang_base_codex_title')}</span>
         <button id="codexClose" style="background:transparent;border:none;color:#aaa;font-size:18px;cursor:pointer;line-height:1">×</button>
       </div>
       <div style="display:flex;gap:0;border-bottom:1px solid var(--border)">
-        <button class="codex-tab active" data-ct="prix" style="font-family:var(--font-pixel);font-size:9px;padding:10px 18px;background:transparent;border:none;border-bottom:2px solid var(--gold);color:var(--gold);cursor:pointer">💰 Prix</button>
-        <button class="codex-tab" data-ct="spawns" style="font-family:var(--font-pixel);font-size:9px;padding:10px 18px;background:transparent;border:none;border-bottom:2px solid transparent;color:#888;cursor:pointer">🗺 Spawns</button>
+        <button class="codex-tab active" data-ct="prix" style="font-family:var(--font-pixel);font-size:9px;padding:10px 18px;background:transparent;border:none;border-bottom:2px solid var(--gold);color:var(--gold);cursor:pointer">💰 ${_t('gang_base_codex_prices')}</button>
+        <button class="codex-tab" data-ct="spawns" style="font-family:var(--font-pixel);font-size:9px;padding:10px 18px;background:transparent;border:none;border-bottom:2px solid transparent;color:#888;cursor:pointer">🗺 ${_t('gang_base_codex_spawns')}</button>
       </div>
       <div id="codexBody" style="padding:18px;overflow-y:auto;max-height:calc(100vh - 160px)">
         ${buildPrixTab()}
@@ -2100,7 +2109,7 @@ function renderGangParkWindow(el) {
       </div>
       <div style="display:flex;gap:2px;flex-wrap:wrap;max-width:100px;justify-content:flex-end">${teamHtml || '<span style="font-size:8px;color:var(--text-dim)">—</span>'}</div>
     </div>`;
-  }).join('') || '<div style="font-size:9px;color:var(--text-dim);padding:10px;text-align:center">Aucun agent recruté</div>';
+  }).join('') || `<div style="font-size:9px;color:var(--text-dim);padding:10px;text-align:center">${_t('gang_base_no_recruited_agent')}</div>`;
 
   const trainingIds = state.trainingRoom?.pokemon || [];
   const trainingHtml = trainingIds.map(id => {
@@ -2109,7 +2118,7 @@ function renderGangParkWindow(el) {
       <img src="${pokeSprite(pk.species_en)}" style="width:28px;height:28px;image-rendering:pixelated">
       <div style="font-size:9px">${speciesName(pk.species_en)} Lv.${pk.level} ${'★'.repeat(pk.potential)}</div>
     </div>` : '';
-  }).join('') || '<div style="font-size:9px;color:var(--text-dim);padding:8px">Salle vide</div>';
+  }).join('') || `<div style="font-size:9px;color:var(--text-dim);padding:8px">${_t('gang_base_empty_training_room')}</div>`;
 
   const pensionIds = state.pension?.slots || [];
   const pensionHtml = pensionIds.map(id => {
@@ -2118,20 +2127,20 @@ function renderGangParkWindow(el) {
       <img src="${pokeSprite(pk.species_en, pk.shiny)}" style="width:28px;height:28px;image-rendering:pixelated">
       <div style="font-size:9px">${speciesName(pk.species_en)} Lv.${pk.level}${pk.shiny ? ' ✨' : ''}</div>
     </div>` : '';
-  }).join('') || '<div style="font-size:9px;color:var(--text-dim);padding:8px">Pension vide</div>';
+  }).join('') || `<div style="font-size:9px;color:var(--text-dim);padding:8px">${_t('gang_base_empty_pension')}</div>`;
 
   // Random ambient event (purely cosmetic)
   const AMBIENT_EVENTS = [
-    '🌿 Un Pikachu se promène dans la cour.',
-    '🥚 Un Pokémon dépose un œuf devant la porte.',
-    '☁️ Deux Pokémon jouent sous la pluie.',
-    '🌙 Les Pokémon en formation s\'entraînent à la lueur de la lune.',
-    '🎵 Un Meloetta chante pour booster le moral.',
-    '🌸 Des pétales de Cerisaies tombent sur la cour.',
-    '🍖 Ton agent prépare un festin pour les Pokémon.',
-    '⚡ Un Raichu génère de l\'électricité pour la base.',
-    '💤 Snorlax bloque l\'entrée principale... encore.',
-    '🏋️ Les Pokémon en formation se motivent entre eux.',
+    _t('gang_base_ambient_pikachu'),
+    _t('gang_base_ambient_egg'),
+    _t('gang_base_ambient_rain'),
+    _t('gang_base_ambient_training'),
+    _t('gang_base_ambient_meloetta'),
+    _t('gang_base_ambient_petals'),
+    _t('gang_base_ambient_feast'),
+    _t('gang_base_ambient_raichu'),
+    _t('gang_base_ambient_snorlax'),
+    _t('gang_base_ambient_motivation'),
   ];
   const ambient = AMBIENT_EVENTS[Math.floor(Date.now() / 30000) % AMBIENT_EVENTS.length];
 
@@ -2141,7 +2150,7 @@ function renderGangParkWindow(el) {
         <span style="font-size:16px">🏛️</span>
         <div>
           <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">${state.gang.name}</div>
-          <div style="font-size:8px;color:var(--text-dim)">Quartier Général</div>
+          <div style="font-size:8px;color:var(--text-dim)">${_t('gang_base_headquarters')}</div>
         </div>
       </div>
       <button class="gp-close" style="font-size:11px;background:none;border:none;color:var(--text-dim);cursor:pointer">✕</button>
@@ -2153,19 +2162,19 @@ function renderGangParkWindow(el) {
 
     <div style="overflow-y:auto;flex:1">
       <div style="padding:8px 12px">
-        <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold-dim);margin-bottom:6px;letter-spacing:1px">AGENTS (${state.agents.length})</div>
+        <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold-dim);margin-bottom:6px;letter-spacing:1px">${_t('gang_base_agents').toUpperCase()} (${state.agents.length})</div>
         ${agentRows}
       </div>
 
       ${trainingIds.length > 0 ? `
       <div style="padding:8px 12px;border-top:1px solid rgba(255,255,255,.07)">
-        <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold-dim);margin-bottom:4px;letter-spacing:1px">FORMATION (${trainingIds.length})</div>
+        <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold-dim);margin-bottom:4px;letter-spacing:1px">${_t('gang_base_training').toUpperCase()} (${trainingIds.length})</div>
         ${trainingHtml}
       </div>` : ''}
 
       ${pensionIds.length > 0 ? `
       <div style="padding:8px 12px;border-top:1px solid rgba(255,255,255,.07)">
-        <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold-dim);margin-bottom:4px;letter-spacing:1px">PENSION (${pensionIds.length})</div>
+        <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold-dim);margin-bottom:4px;letter-spacing:1px">${_t('gang_base_pension').toUpperCase()} (${pensionIds.length})</div>
         ${pensionHtml}
       </div>` : ''}
     </div>`;

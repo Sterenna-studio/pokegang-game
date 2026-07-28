@@ -5,6 +5,7 @@ const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg
 const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
 const _topBar = ()               => EventBus.emit(EVENTS.UI_TOPBAR_UPDATE);
 const _save   = ()               => globalThis.saveState?.();
+const _t      = (fr, en)         => (globalThis.state?.lang === 'en' ? en : fr);
 
 // ════════════════════════════════════════════════════════════════
 // pension.js — Pension & Eggs system
@@ -81,10 +82,10 @@ function pensionTick() {
       state.eggs.push(egg);
       tryAutoIncubate();
       p.eggAt = now + EGG_GEN_MS;
-      notify(
+      notify(_t(
         `Un œuf mystérieux est apparu à la pension !${state.purchases?.autoIncubator ? ' (auto-incubé)' : ' Placez-le dans un incubateur.'}`,
-        'gold',
-      );
+        `A mysterious egg appeared at the Daycare!${state.purchases?.autoIncubator ? ' (auto-incubated)' : ' Place it in an incubator.'}`,
+      ), 'gold');
       saveState();
       if (activeTab === 'tabPC') renderPCTab();
     }
@@ -105,7 +106,10 @@ function pensionTick() {
   if (justReady.length > 0) {
     for (const egg of justReady) egg.status = 'ready';
     saveState();
-    notify(`${justReady.length > 1 ? `${justReady.length} œufs sont` : 'Un œuf est'} prêt${justReady.length > 1 ? 's' : ''} à éclore !`, 'gold');
+    notify(_t(
+      `${justReady.length > 1 ? `${justReady.length} œufs sont` : 'Un œuf est'} prêt${justReady.length > 1 ? 's' : ''} à éclore !`,
+      `${justReady.length > 1 ? `${justReady.length} eggs are` : 'One egg is'} ready to hatch!`,
+    ), 'gold');
     if (activeTab === 'tabPC') renderPCTab();
   }
 }
@@ -159,7 +163,10 @@ function _autoSellHatched(pokemon) {
   state.stats.totalMoneyEarned = (state.stats.totalMoneyEarned || 0) + price;
   EventBus.emit(EVENTS.MONEY_CHANGED, { delta: price, newTotal: state.gang.money });
   EventBus.emit(EVENTS.POKEMON_SOLD, { pokemonIds: [pokemon.id], totalPrice: price });
-  globalThis.addLog?.(`[Auto-vente œuf] ${globalThis.speciesName(pokemon.species_en)} → ${price.toLocaleString()}₽`);
+  globalThis.addLog?.(_t(
+    `[Auto-vente œuf] ${globalThis.speciesName(pokemon.species_en)} → ${price.toLocaleString()}₽`,
+    `[Egg auto-sell] ${globalThis.speciesName(pokemon.species_en)} → ${price.toLocaleString()}₽`,
+  ));
   return true;
 }
 
@@ -190,12 +197,12 @@ function openHatchPopup() {
   }).join('');
 
   modal.innerHTML = `<div style="background:var(--bg-panel);border:2px solid var(--gold);border-radius:var(--radius);padding:20px;max-width:380px;width:94%;display:flex;flex-direction:column;gap:14px">
-    <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold)">🥚 ŒUFS PRÊTS (${readyEggs.length})</div>
+    <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold)">🥚 ${_t('ŒUFS PRÊTS', 'READY EGGS')} (${readyEggs.length})</div>
     <div style="max-height:320px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-sm)">${eggRows}</div>
-    <div style="font-size:9px;color:var(--text-dim)">Sélectionne les œufs à faire éclore.</div>
+    <div style="font-size:9px;color:var(--text-dim)">${_t('Sélectionne les œufs à faire éclore.', 'Select the eggs to hatch.')}</div>
     <div style="display:flex;gap:8px;justify-content:flex-end">
-      <button id="hatchCancel" style="font-family:var(--font-pixel);font-size:9px;padding:8px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">Annuler</button>
-      <button id="hatchConfirm" style="font-family:var(--font-pixel);font-size:9px;padding:8px 14px;background:var(--bg);border:1px solid var(--gold);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">Faire éclore ✓</button>
+      <button id="hatchCancel" style="font-family:var(--font-pixel);font-size:9px;padding:8px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">${_t('Annuler', 'Cancel')}</button>
+      <button id="hatchConfirm" style="font-family:var(--font-pixel);font-size:9px;padding:8px 14px;background:var(--bg);border:1px solid var(--gold);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">${_t('Faire éclore ✓', 'Hatch ✓')}</button>
     </div>
   </div>`;
 
@@ -214,8 +221,8 @@ function openHatchPopup() {
     }
     _save();
     if (sold > 0) _topBar();
-    let msg = `${hatched} Pokémon ont éclos !`;
-    if (sold > 0) msg += ` (${sold} vendu${sold > 1 ? 's' : ''} automatiquement)`;
+    let msg = _t(`${hatched} Pokémon ont éclos !`, `${hatched} Pokémon hatched!`);
+    if (sold > 0) msg += _t(` (${sold} vendu${sold > 1 ? 's' : ''} automatiquement)`, ` (${sold} automatically sold)`);
     if (hatched > 0) _notify(msg, 'gold');
     modal.remove();
     if (globalThis.activeTab === 'tabPC') globalThis.renderPCTab();
@@ -237,9 +244,9 @@ function openHatchAnimation(egg, onDone) {
         @keyframes _eggCrack{0%{transform:scale(1);opacity:1}40%{transform:scale(1.4);filter:brightness(3) saturate(0);opacity:.8}100%{transform:scale(0.2);opacity:0}}
         @keyframes _pokeReveal{0%{transform:scale(0) rotate(-10deg);opacity:0}65%{transform:scale(1.15) rotate(3deg);opacity:1}100%{transform:scale(1) rotate(0);opacity:1}}
       </style>
-      <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold);letter-spacing:2px">ÉCLOSION !</div>
+      <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold);letter-spacing:2px">${_t('ÉCLOSION !', 'HATCHING!')}</div>
       <img id="_hatchEggImg" src="${eggSrc}" style="width:88px;height:88px;image-rendering:pixelated;animation:_eggWobble .35s ease-in-out infinite">
-      <div style="font-size:8px;color:var(--text-dim);animation:none">Tap pour continuer…</div>
+      <div style="font-size:8px;color:var(--text-dim);animation:none">${_t('Tap pour continuer…', 'Tap to continue…')}</div>
     </div>`;
 
   document.body.appendChild(overlay);
@@ -270,14 +277,14 @@ function openHatchAnimation(egg, onDone) {
     const pokeImg = pk ? (globalThis.pokeSprite?.(pk.species_en, pk.shiny) || '') : '';
     root.innerHTML = `
       ${pk
-        ? `<div style="font-family:var(--font-pixel);font-size:11px;color:${pk.shiny ? '#ffcc5a' : 'var(--green)'};letter-spacing:2px">${pk.shiny ? '✨ ' : ''}ÉCLOS !</div>
+        ? `<div style="font-family:var(--font-pixel);font-size:11px;color:${pk.shiny ? '#ffcc5a' : 'var(--green)'};letter-spacing:2px">${pk.shiny ? '✨ ' : ''}${_t('ÉCLOS !', 'HATCHED!')}</div>
            <img src="${pokeImg}" style="width:96px;height:96px;image-rendering:pixelated;animation:_pokeReveal .5s ease-out forwards;${pk.shiny ? 'filter:drop-shadow(0 0 10px #ffcc5a)' : ''}">
            <div style="font-family:var(--font-pixel);font-size:10px;color:var(--text)">${globalThis.speciesName?.(pk.species_en) || pk.species_en}</div>
            <div style="font-size:9px;color:var(--gold)">${'★'.repeat(pk.potential)}${pk.shiny ? ' ✨' : ''}</div>
-           ${sold ? `<div style="font-size:8px;color:var(--text-dim);margin-top:2px">Vendu automatiquement !</div>` : ''}
-           <div style="font-size:8px;color:var(--text-dim);margin-top:8px">Tap pour fermer</div>`
-        : `<div style="font-size:9px;color:var(--red)">Erreur — œuf invalide</div>
-           <div style="font-size:8px;color:var(--text-dim)">Tap pour fermer</div>`}`;
+           ${sold ? `<div style="font-size:8px;color:var(--text-dim);margin-top:2px">${_t('Vendu automatiquement !', 'Automatically sold!')}</div>` : ''}
+           <div style="font-size:8px;color:var(--text-dim);margin-top:8px">${_t('Tap pour fermer', 'Tap to close')}</div>`
+        : `<div style="font-size:9px;color:var(--red)">${_t('Erreur — œuf invalide', 'Error — invalid egg')}</div>
+           <div style="font-size:8px;color:var(--text-dim)">${_t('Tap pour fermer', 'Tap to close')}</div>`}`;
     _phase = 'done';
   }
 
@@ -354,7 +361,7 @@ function renderPensionView(container) {
   // ── Incubator grid cells ────────────────────────────────────
   let incubatorHtml = '';
   if (incubatorCount === 0) {
-    incubatorHtml = `<div style="font-size:9px;color:var(--text-dim);padding:8px;text-align:center;border:1px dashed var(--border);border-radius:var(--radius-sm)">Aucun incubateur — achetez-en un au Marché (15 000₽)</div>`;
+    incubatorHtml = `<div style="font-size:9px;color:var(--text-dim);padding:8px;text-align:center;border:1px dashed var(--border);border-radius:var(--radius-sm)">${_t('Aucun incubateur — achetez-en un au Marché (15 000₽)', 'No incubator — buy one at the Market (15,000₽)')}</div>`;
   } else {
     const _incubSlots = [];
     for (const egg of allIncubated) {
@@ -363,7 +370,7 @@ function renderPensionView(container) {
       const total   = EGG_HATCH_MS[rarity] || EGG_HATCH_MS.common;
       const rem     = isReady ? 0 : Math.max(0, (egg.hatchAt || 0) - now);
       const pct     = isReady ? 100 : (total > 0 ? Math.round((1 - rem / total) * 100) : 0);
-      const remStr  = isReady ? '✓ Prêt !' : rem < 60000 ? `${Math.ceil(rem / 1000)}s` : `${Math.ceil(rem / 60000)}min`;
+      const remStr  = isReady ? _t('✓ Prêt !', '✓ Ready!') : rem < 60000 ? `${Math.ceil(rem / 1000)}s` : `${Math.ceil(rem / 60000)}min`;
       const imgTag  = globalThis.eggImgTag?.(egg, false, 'width:44px;height:44px;image-rendering:pixelated') || '🥚';
       const lbl     = _eggLabel(egg);
       _incubSlots.push(`
@@ -381,7 +388,7 @@ function renderPensionView(container) {
       _incubSlots.push(`
         <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 8px;gap:5px;border:1px dashed var(--border);border-radius:var(--radius-sm);background:var(--bg);min-height:110px">
           <img src="${globalThis.ITEM_SPRITE_URLS?.incubator || ''}" style="width:28px;height:28px;opacity:.3;image-rendering:pixelated" onerror="this.style.display='none'">
-          <div style="font-size:8px;color:var(--text-dim)">Libre</div>
+          <div style="font-size:8px;color:var(--text-dim)">${_t('Libre', 'Free')}</div>
         </div>`);
     }
     incubatorHtml = _incubSlots.join('');
@@ -398,7 +405,7 @@ function renderPensionView(container) {
         <div style="font-size:8px;color:var(--text-dim)">${rarity}</div>
       </div>
       ${_revealBtn(egg)}
-      ${freeIncubators > 0 ? `<div class="egg-incubate-action" style="font-size:8px;color:var(--gold)">▶ Incuber</div>` : ''}
+      ${freeIncubators > 0 ? `<div class="egg-incubate-action" style="font-size:8px;color:var(--gold)">▶ ${_t('Incuber', 'Incubate')}</div>` : ''}
     </div>`;
   }).join('') || '';
 
@@ -410,14 +417,14 @@ function renderPensionView(container) {
   const nurseHtml = `<div style="background:var(--bg);border:1px solid ${nurseColor};border-radius:var(--radius-sm);padding:10px;display:flex;gap:10px;align-items:flex-start">
     <img src="${globalThis.trainerSprite?.('nurse') || ''}" style="width:36px;height:36px;image-rendering:pixelated;flex-shrink:0;${nurseOwned && !nurseEnabled ? 'opacity:.4;filter:grayscale(1)' : ''}" onerror="this.style.display='none'">
     <div style="flex:1">
-      <div style="font-family:var(--font-pixel);font-size:8px;color:${nurseOwned ? (nurseEnabled ? 'var(--green)' : 'var(--text-dim)') : 'var(--text)'};margin-bottom:3px">Infirmière Joëlle corrompue</div>
-      <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">Auto-incube les œufs dès qu'un incubateur est libre.</div>
+      <div style="font-family:var(--font-pixel);font-size:8px;color:${nurseOwned ? (nurseEnabled ? 'var(--green)' : 'var(--text-dim)') : 'var(--text)'};margin-bottom:3px">${_t('Infirmière Joëlle corrompue', 'Corrupted Nurse Joy')}</div>
+      <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">${_t("Auto-incube les œufs dès qu'un incubateur est libre.", 'Automatically incubates eggs as soon as an incubator is free.')}</div>
       ${nurseOwned
         ? `<div style="display:flex;align-items:center;gap:8px">
-             <span style="font-family:var(--font-pixel);font-size:7px;color:${nurseEnabled ? 'var(--green)' : 'var(--text-dim)'}">${nurseEnabled ? '✓ EN POSTE' : '✗ CONGÉ'}</span>
-             <button id="btnToggleNurse" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid ${nurseEnabled ? 'var(--red)' : 'var(--green)'};border-radius:var(--radius-sm);color:${nurseEnabled ? 'var(--red)' : 'var(--green)'};cursor:pointer">${nurseEnabled ? 'Congé' : 'Rappeler'}</button>
+             <span style="font-family:var(--font-pixel);font-size:7px;color:${nurseEnabled ? 'var(--green)' : 'var(--text-dim)'}">${nurseEnabled ? _t('✓ EN POSTE', '✓ ON DUTY') : _t('✗ CONGÉ', '✗ OFF DUTY')}</span>
+             <button id="btnToggleNurse" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid ${nurseEnabled ? 'var(--red)' : 'var(--green)'};border-radius:var(--radius-sm);color:${nurseEnabled ? 'var(--red)' : 'var(--green)'};cursor:pointer">${nurseEnabled ? _t('Congé', 'Dismiss') : _t('Rappeler', 'Recall')}</button>
            </div>`
-        : `<button id="btnBuyNurse" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">Embaucher — 300 000₽</button>`}
+        : `<button id="btnBuyNurse" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">${_t('Embaucher', 'Hire')} — 300 000₽</button>`}
     </div>
   </div>`;
 
@@ -425,56 +432,56 @@ function renderPensionView(container) {
   const autoSellHtml = `<div style="background:var(--bg);border:1px solid ${autoSellColor};border-radius:var(--radius-sm);padding:10px">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
       <span style="font-size:14px">🤖</span>
-      <div style="font-family:var(--font-pixel);font-size:8px;color:${autoSellOwned ? (autoSellEnabled ? 'var(--green)' : 'var(--text-dim)') : 'var(--text)'}">Vente auto des éclots</div>
+      <div style="font-family:var(--font-pixel);font-size:8px;color:${autoSellOwned ? (autoSellEnabled ? 'var(--green)' : 'var(--text-dim)') : 'var(--text)'}">${_t('Vente auto des éclots', 'Auto-sell hatched Pokémon')}</div>
     </div>
-    <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">Vend automatiquement les Pokémon issus des œufs après éclosion.</div>
+    <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">${_t('Vend automatiquement les Pokémon issus des œufs après éclosion.', 'Automatically sells Pokémon produced by eggs after they hatch.')}</div>
     ${autoSellOwned
       ? `<div style="display:flex;flex-direction:column;gap:6px">
            <div style="display:flex;align-items:center;gap:8px">
-             <span style="font-family:var(--font-pixel);font-size:7px;color:${autoSellEnabled ? 'var(--green)' : 'var(--text-dim)'}">${autoSellEnabled ? '✓ ACTIF' : '✗ INACTIF'}</span>
-             <button id="btnToggleAutoSellEggs" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid ${autoSellEnabled ? 'var(--red)' : 'var(--green)'};border-radius:var(--radius-sm);color:${autoSellEnabled ? 'var(--red)' : 'var(--green)'};cursor:pointer">${autoSellEnabled ? 'Désactiver' : 'Activer'}</button>
+             <span style="font-family:var(--font-pixel);font-size:7px;color:${autoSellEnabled ? 'var(--green)' : 'var(--text-dim)'}">${autoSellEnabled ? _t('✓ ACTIF', '✓ ACTIVE') : _t('✗ INACTIF', '✗ INACTIVE')}</span>
+             <button id="btnToggleAutoSellEggs" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid ${autoSellEnabled ? 'var(--red)' : 'var(--green)'};border-radius:var(--radius-sm);color:${autoSellEnabled ? 'var(--red)' : 'var(--green)'};cursor:pointer">${autoSellEnabled ? _t('Désactiver', 'Disable') : _t('Activer', 'Enable')}</button>
            </div>
            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
              <label style="font-size:8px;color:var(--text-dim);display:flex;align-items:center;gap:4px;cursor:pointer">
-               <input type="radio" name="autoSellEggsMode" value="all" ${(autoSellCfg.mode||'all')==='all' ? 'checked' : ''}> Tous
+               <input type="radio" name="autoSellEggsMode" value="all" ${(autoSellCfg.mode||'all')==='all' ? 'checked' : ''}> ${_t('Tous', 'All')}
              </label>
              <label style="font-size:8px;color:var(--text-dim);display:flex;align-items:center;gap:4px;cursor:pointer">
-               <input type="radio" name="autoSellEggsMode" value="by_potential" ${autoSellCfg.mode==='by_potential' ? 'checked' : ''}> Par potentiel
+               <input type="radio" name="autoSellEggsMode" value="by_potential" ${autoSellCfg.mode==='by_potential' ? 'checked' : ''}> ${_t('Par potentiel', 'By potential')}
              </label>
              ${autoSellCfg.mode === 'by_potential' ? `<div style="display:flex;gap:3px;flex-wrap:wrap">${[1,2,3,4,5].map(n => `<label style="font-size:8px;cursor:pointer;display:flex;align-items:center;gap:2px"><input type="checkbox" class="pot-filter" value="${n}" ${(autoSellCfg.potentials||[]).includes(n) ? 'checked' : ''}> ${'★'.repeat(n)}</label>`).join('')}</div>` : ''}
              <label style="font-size:8px;color:var(--gold);display:flex;align-items:center;gap:4px;cursor:pointer">
-               <input type="checkbox" id="autoSellEggsAllowShiny" ${autoSellCfg.allowShiny ? 'checked' : ''}> Inclure ✨ shiny
+               <input type="checkbox" id="autoSellEggsAllowShiny" ${autoSellCfg.allowShiny ? 'checked' : ''}> ${_t('Inclure ✨ shiny', 'Include ✨ Shiny')}
              </label>
            </div>
          </div>`
-      : `<button id="btnBuyAutoSellEggs" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">Acheter — 5 000 000₽</button>`}
+      : `<button id="btnBuyAutoSellEggs" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">${_t('Acheter', 'Buy')} — 5 000 000₽</button>`}
   </div>`;
 
   const scientistHtml = `<div style="background:var(--bg);border:1px solid ${scColor};border-radius:var(--radius-sm);padding:10px;display:flex;gap:10px;align-items:flex-start">
     <img src="${globalThis.trainerSprite?.('scientist') || ''}" style="width:36px;height:36px;image-rendering:pixelated;flex-shrink:0;${hasScientist && !scEnabled ? 'opacity:.4;filter:grayscale(1)' : ''}" onerror="this.style.display='none'">
     <div style="flex:1">
-      <div style="font-family:var(--font-pixel);font-size:8px;color:${hasScientist ? (scEnabled ? 'var(--green)' : 'var(--text-dim)') : 'var(--text)'};margin-bottom:3px">Scientifique peu scrupuleux</div>
-      <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">Révèle l'espèce d'un œuf (10k₽) · Mutation artificielle : sacrifice ★★★★★ même espèce pour porter un Pokémon au max.</div>
+      <div style="font-family:var(--font-pixel);font-size:8px;color:${hasScientist ? (scEnabled ? 'var(--green)' : 'var(--text-dim)') : 'var(--text)'};margin-bottom:3px">${_t('Scientifique peu scrupuleux', 'Unscrupulous Scientist')}</div>
+      <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">${_t("Révèle l'espèce d'un œuf (10k₽) · Mutation artificielle : sacrifice ★★★★★ même espèce pour porter un Pokémon au max.", 'Reveals the species inside an egg (10k₽) · Artificial mutation: sacrifice a ★★★★★ Pokémon of the same species to maximize another Pokémon.')}</div>
       ${hasScientist
         ? `<div style="display:flex;align-items:center;gap:8px">
-             <span style="font-family:var(--font-pixel);font-size:7px;color:${scEnabled ? 'var(--green)' : 'var(--text-dim)'}">${scEnabled ? '✓ EN POSTE' : '✗ RENVOYÉ'}</span>
-             <button id="btnToggleScientistPension" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid ${scEnabled ? 'var(--red)' : 'var(--green)'};border-radius:var(--radius-sm);color:${scEnabled ? 'var(--red)' : 'var(--green)'};cursor:pointer">${scEnabled ? 'Renvoyer' : 'Rappeler'}</button>
+             <span style="font-family:var(--font-pixel);font-size:7px;color:${scEnabled ? 'var(--green)' : 'var(--text-dim)'}">${scEnabled ? _t('✓ EN POSTE', '✓ ON DUTY') : _t('✗ RENVOYÉ', '✗ DISMISSED')}</span>
+             <button id="btnToggleScientistPension" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid ${scEnabled ? 'var(--red)' : 'var(--green)'};border-radius:var(--radius-sm);color:${scEnabled ? 'var(--red)' : 'var(--green)'};cursor:pointer">${scEnabled ? _t('Renvoyer', 'Dismiss') : _t('Rappeler', 'Recall')}</button>
            </div>`
-        : `<button id="btnBuyScientistPension" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">Engager — 15 000₽</button>`}
+        : `<button id="btnBuyScientistPension" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">${_t('Engager', 'Hire')} — 15 000₽</button>`}
     </div>
   </div>`;
 
   // ── Proto boosts (placeholder) ──────────────────────────────
   const boostHtml = `<div style="background:var(--bg);border:1px dashed var(--border);border-radius:var(--radius-sm);padding:10px;opacity:.5">
-    <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);margin-bottom:6px">⚗️ BOOSTS (bientôt)</div>
+    <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);margin-bottom:6px">⚗️ ${_t('BOOSTS (bientôt)', 'BOOSTS (coming soon)')}</div>
     <div style="display:flex;gap:6px">
       <div style="flex:1;padding:8px;border:1px dashed var(--border);border-radius:var(--radius-sm);text-align:center">
         <div style="font-size:11px">🥚</div>
-        <div style="font-size:7px;color:var(--text-dim);margin-top:2px">Boost reproduction<br><span style="color:var(--gold)">500 000₽</span></div>
+        <div style="font-size:7px;color:var(--text-dim);margin-top:2px">${_t('Boost reproduction', 'Breeding boost')}<br><span style="color:var(--gold)">500 000₽</span></div>
       </div>
       <div style="flex:1;padding:8px;border:1px dashed var(--border);border-radius:var(--radius-sm);text-align:center">
         <div style="font-size:11px">🔥</div>
-        <div style="font-size:7px;color:var(--text-dim);margin-top:2px">Boost incubation<br><span style="color:var(--gold)">500 000₽</span></div>
+        <div style="font-size:7px;color:var(--text-dim);margin-top:2px">${_t('Boost incubation', 'Incubation boost')}<br><span style="color:var(--gold)">500 000₽</span></div>
       </div>
     </div>
   </div>`;
@@ -502,7 +509,7 @@ function renderPensionView(container) {
         <div style="font-size:8px;color:var(--text-dim)">Lv.${pk.level}</div>
       </div>
     </div>`,
-  ).join('') || `<div style="color:var(--text-dim);font-size:9px;padding:12px;text-align:center">Aucun Pokémon disponible</div>`;
+  ).join('') || `<div style="color:var(--text-dim);font-size:9px;padding:12px;text-align:center">${_t('Aucun Pokémon disponible', 'No Pokémon available')}</div>`;
 
   container.innerHTML = `
     <div style="display:grid;grid-template-columns:1fr 220px;gap:16px;padding:12px">
@@ -513,19 +520,19 @@ function renderPensionView(container) {
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
             <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold)">PENSION (${slots.length}/${maxSlots})</div>
             ${buySlotBtn}
-            ${slots.length > 0 ? `<button id="btnPensionClearAll" style="margin-left:auto;font-family:var(--font-pixel);font-size:8px;padding:4px 8px;background:var(--bg);border:1px solid var(--red);border-radius:var(--radius-sm);color:var(--red);cursor:pointer">Tout retirer</button>` : ''}
+            ${slots.length > 0 ? `<button id="btnPensionClearAll" style="margin-left:auto;font-family:var(--font-pixel);font-size:8px;padding:4px 8px;background:var(--bg);border:1px solid var(--red);border-radius:var(--radius-sm);color:var(--red);cursor:pointer">${_t('Tout retirer', 'Remove all')}</button>` : ''}
           </div>
-          <div style="font-size:9px;color:var(--text-dim);margin-bottom:8px">Accouplement aléatoire entre tous les pensionnaires — un œuf toutes les ${EGG_GEN_MS / 60000} min. (min. 2 Pokémon)</div>
+          <div style="font-size:9px;color:var(--text-dim);margin-bottom:8px">${_t(`Accouplement aléatoire entre tous les pensionnaires — un œuf toutes les ${EGG_GEN_MS / 60000} min. (min. 2 Pokémon)`, `Random breeding among all Daycare residents — one egg every ${EGG_GEN_MS / 60000} min. (min. 2 Pokémon)`)}</div>
           <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">${slotsHtml.join('')}</div>
-          ${hasPair ? `<div style="margin-top:8px;font-size:9px;color:var(--text-dim);padding:6px 8px;background:var(--bg);border-radius:var(--radius-sm)">Prochain œuf dans : <b style="color:var(--gold)">${nextEggStr}</b></div>` : ''}
+          ${hasPair ? `<div style="margin-top:8px;font-size:9px;color:var(--text-dim);padding:6px 8px;background:var(--bg);border-radius:var(--radius-sm)">${_t('Prochain œuf dans :', 'Next egg in:')} <b style="color:var(--gold)">${nextEggStr}</b></div>` : ''}
         </div>
 
         <!-- Ready eggs -->
         ${readyEggs.length > 0 ? `
         <div>
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-            <div style="font-family:var(--font-pixel);font-size:10px;color:var(--green)">🥚 PRÊTS À ÉCLORE (${readyEggs.length})</div>
-            <button id="btnHatchAll" style="margin-left:auto;font-family:var(--font-pixel);font-size:8px;padding:4px 10px;background:var(--bg);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--green);cursor:pointer">Faire éclore ▶</button>
+            <div style="font-family:var(--font-pixel);font-size:10px;color:var(--green)">🥚 ${_t('PRÊTS À ÉCLORE', 'READY TO HATCH')} (${readyEggs.length})</div>
+            <button id="btnHatchAll" style="margin-left:auto;font-family:var(--font-pixel);font-size:8px;padding:4px 10px;background:var(--bg);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--green);cursor:pointer">${_t('Faire éclore', 'Hatch')} ▶</button>
           </div>
           <div style="display:flex;flex-wrap:wrap;gap:8px">
             ${readyEggs.map(egg => {
@@ -545,13 +552,13 @@ function renderPensionView(container) {
         <div>
           <style>@keyframes eggReadyGlow{from{box-shadow:0 0 0 rgba(110,207,138,0)}to{box-shadow:0 0 12px rgba(110,207,138,.7)}}@keyframes eggReadyBadge{from{transform:scale(1)}to{transform:scale(1.35)}}</style>
           <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold);margin-bottom:8px">INCUBATEURS (${allIncubated.length}/${incubatorCount})</div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:8px">${incubatorHtml || `<div style="font-size:9px;color:var(--text-dim);text-align:center;padding:8px">Aucun incubateur — achetez-en un au Marché</div>`}</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:8px">${incubatorHtml || `<div style="font-size:9px;color:var(--text-dim);text-align:center;padding:8px">${_t('Aucun incubateur — achetez-en un au Marché', 'No incubator — buy one at the Market')}</div>`}</div>
         </div>
 
         <!-- Waiting eggs -->
         ${waitingEggs.length > 0 ? `
         <div>
-          <div style="font-family:var(--font-pixel);font-size:10px;color:var(--text-dim);margin-bottom:8px">EN ATTENTE D'INCUBATION (${waitingEggs.length})</div>
+          <div style="font-family:var(--font-pixel);font-size:10px;color:var(--text-dim);margin-bottom:8px">${_t("EN ATTENTE D'INCUBATION", 'WAITING FOR INCUBATION')} (${waitingEggs.length})</div>
           <div style="display:flex;flex-direction:column;gap:6px">${waitingEggsHtml}</div>
         </div>` : ''}
 
@@ -570,10 +577,10 @@ function renderPensionView(container) {
 
       <!-- Picker column -->
       <div>
-        <div style="font-family:var(--font-pixel);font-size:9px;color:var(--text-dim);margin-bottom:8px">AJOUTER À LA PENSION</div>
-        <input id="pensionSearchInput" type="text" placeholder="Rechercher…" value="${_pensionSearch}"
+        <div style="font-family:var(--font-pixel);font-size:9px;color:var(--text-dim);margin-bottom:8px">${_t('AJOUTER À LA PENSION', 'ADD TO DAYCARE')}</div>
+        <input id="pensionSearchInput" type="text" placeholder="${_t('Rechercher…', 'Search…')}" value="${_pensionSearch}"
           style="width:100%;padding:6px 8px;margin-bottom:6px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:10px;box-sizing:border-box;outline:none">
-        <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">${pensionFull ? 'Pension pleine.' : 'Cliquer pour ajouter.'}</div>
+        <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">${pensionFull ? _t('Pension pleine.', 'Daycare full.') : _t('Cliquer pour ajouter.', 'Click to add.')}</div>
         <div id="pensionPicker" style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);max-height:500px;overflow-y:auto">${pickerHtml}</div>
       </div>
     </div>`;
@@ -584,19 +591,19 @@ function renderPensionView(container) {
     state.pension.slots = [];
     state.pension.eggAt = null;
     saveState();
-    notify('Pension vidée.', 'success');
+    notify(_t('Pension vidée.', 'Daycare cleared.'), 'success');
     renderPensionView(container);
   });
 
   container.querySelector('#btnBuyPensionSlot')?.addEventListener('click', () => {
     const cost = SLOT_PRICES[maxSlots];
-    if (state.gang.money < cost) { notify('Fonds insuffisants.', 'error'); return; }
+    if (state.gang.money < cost) { notify(_t('Fonds insuffisants.', 'Insufficient funds.'), 'error'); return; }
     state.gang.money -= cost;
     EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -cost, newTotal: state.gang.money });
     state.pension.extraSlotsPurchased = (state.pension.extraSlotsPurchased || 0) + 1;
     saveState();
     _topBar();
-    notify(`Slot de pension débloqué ! (${globalThis.getMaxPensionSlots()} slots)`, 'gold');
+    notify(_t(`Slot de pension débloqué ! (${globalThis.getMaxPensionSlots()} slots)`, `Daycare slot unlocked! (${globalThis.getMaxPensionSlots()} slots)`), 'gold');
     renderPensionView(container);
   });
 
@@ -618,35 +625,39 @@ function renderPensionView(container) {
   container.querySelector('#btnToggleNurse')?.addEventListener('click', () => {
     state.purchases.autoIncubatorEnabled = !nurseEnabled;
     saveState();
-    notify(state.purchases.autoIncubatorEnabled ? '💉 Joëlle est de retour !' : '😴 Joëlle est en congé.', 'success');
+    notify(state.purchases.autoIncubatorEnabled
+      ? _t('💉 Joëlle est de retour !', '💉 Joy is back!')
+      : _t('😴 Joëlle est en congé.', '😴 Joy is off duty.'), 'success');
     renderPensionView(container);
   });
 
   container.querySelector('#btnBuyNurse')?.addEventListener('click', () => {
-    if (state.gang.money < 300000) { notify('Fonds insuffisants.', 'error'); return; }
-    globalThis.showConfirm?.('Embaucher l\'Infirmière Joëlle corrompue pour 300 000₽ ? (permanent)', () => {
+    if (state.gang.money < 300000) { notify(_t('Fonds insuffisants.', 'Insufficient funds.'), 'error'); return; }
+    globalThis.showConfirm?.(_t("Embaucher l'Infirmière Joëlle corrompue pour 300 000₽ ? (permanent)", 'Hire Corrupted Nurse Joy for 300,000₽? (permanent)'), () => {
       state.gang.money -= 300000;
       EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -300000, newTotal: state.gang.money });
       state.purchases.autoIncubator = true;
       state.purchases.autoIncubatorEnabled = true;
       saveState();
       _topBar();
-      notify('💉 Joëlle est en poste !', 'gold');
+      notify(_t('💉 Joëlle est en poste !', '💉 Joy is on duty!'), 'gold');
       globalThis.tryAutoIncubate?.();
       renderPensionView(container);
-    }, null, { confirmLabel: 'Embaucher', cancelLabel: 'Annuler' });
+    }, null, { confirmLabel: _t('Embaucher', 'Hire'), cancelLabel: _t('Annuler', 'Cancel') });
   });
 
   container.querySelector('#btnToggleScientistPension')?.addEventListener('click', () => {
     state.purchases.scientistEnabled = !scEnabled;
     saveState();
-    notify(state.purchases.scientistEnabled ? '🧬 Scientifique rappelé !' : '🧬 Scientifique renvoyé.', 'success');
+    notify(state.purchases.scientistEnabled
+      ? _t('🧬 Scientifique rappelé !', '🧬 Scientist recalled!')
+      : _t('🧬 Scientifique renvoyé.', '🧬 Scientist dismissed.'), 'success');
     renderPensionView(container);
   });
 
   container.querySelector('#btnBuyScientistPension')?.addEventListener('click', () => {
-    if (state.gang.money < 15_000) { notify('Fonds insuffisants.', 'error'); return; }
-    globalThis.showConfirm?.('Engager le Scientifique peu scrupuleux pour 15 000₽ ?', () => {
+    if (state.gang.money < 15_000) { notify(_t('Fonds insuffisants.', 'Insufficient funds.'), 'error'); return; }
+    globalThis.showConfirm?.(_t('Engager le Scientifique peu scrupuleux pour 15 000₽ ?', 'Hire the Unscrupulous Scientist for 15,000₽?'), () => {
       state.gang.money -= 15_000;
       EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -15_000, newTotal: state.gang.money });
       state.stats.totalMoneySpent = (state.stats.totalMoneySpent || 0) + 15_000;
@@ -654,29 +665,31 @@ function renderPensionView(container) {
       state.purchases.scientistEnabled = true;
       saveState();
       _topBar();
-      notify('🧬 Scientifique engagé !', 'gold');
+      notify(_t('🧬 Scientifique engagé !', '🧬 Scientist hired!'), 'gold');
       renderPensionView(container);
-    }, null, { confirmLabel: 'Engager', cancelLabel: 'Annuler' });
+    }, null, { confirmLabel: _t('Engager', 'Hire'), cancelLabel: _t('Annuler', 'Cancel') });
   });
 
   container.querySelector('#btnBuyAutoSellEggs')?.addEventListener('click', () => {
-    if (state.gang.money < 5_000_000) { notify('Fonds insuffisants.', 'error'); return; }
-    globalThis.showConfirm?.('Acheter la vente automatique des éclots pour 5 000 000₽ ?', () => {
+    if (state.gang.money < 5_000_000) { notify(_t('Fonds insuffisants.', 'Insufficient funds.'), 'error'); return; }
+    globalThis.showConfirm?.(_t('Acheter la vente automatique des éclots pour 5 000 000₽ ?', 'Buy automatic sales for hatched Pokémon for 5,000,000₽?'), () => {
       state.gang.money -= 5_000_000;
       EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -5_000_000, newTotal: state.gang.money });
       state.purchases.autoSellEggs = true;
       state.purchases.autoSellEggsEnabled = true;
       saveState();
       _topBar();
-      notify('🤖 Vente automatique des éclots activée !', 'gold');
+      notify(_t('🤖 Vente automatique des éclots activée !', '🤖 Automatic sales for hatched Pokémon enabled!'), 'gold');
       renderPensionView(container);
-    }, null, { confirmLabel: 'Acheter', cancelLabel: 'Annuler' });
+    }, null, { confirmLabel: _t('Acheter', 'Buy'), cancelLabel: _t('Annuler', 'Cancel') });
   });
 
   container.querySelector('#btnToggleAutoSellEggs')?.addEventListener('click', () => {
     state.purchases.autoSellEggsEnabled = !autoSellEnabled;
     saveState();
-    notify(state.purchases.autoSellEggsEnabled ? '🤖 Vente auto éclots activée.' : '⏸ Vente auto éclots désactivée.', 'success');
+    notify(state.purchases.autoSellEggsEnabled
+      ? _t('🤖 Vente auto éclots activée.', '🤖 Auto-sell for hatched Pokémon enabled.')
+      : _t('⏸ Vente auto éclots désactivée.', '⏸ Auto-sell for hatched Pokémon disabled.'), 'success');
     renderPensionView(container);
   });
 
@@ -723,7 +736,7 @@ function renderPensionView(container) {
 
   container.querySelectorAll('.pension-candidate').forEach(el => {
     el.addEventListener('click', () => {
-      if (slots.length >= maxSlots) { notify('Pension pleine.', 'error'); return; }
+      if (slots.length >= maxSlots) { notify(_t('Pension pleine.', 'Daycare full.'), 'error'); return; }
       const pkId = el.dataset.pkId;
       removePokemonFromAllAssignments(pkId);
       if (!state.pension.slots.includes(pkId)) {
@@ -746,7 +759,7 @@ function renderPensionView(container) {
       egg.incubating = true;
       egg.hatchAt = Date.now() + (EGG_HATCH_MS[rarity] || EGG_HATCH_MS.common);
       saveState();
-      notify(`Œuf placé dans l'incubateur !`, 'success');
+      notify(_t("Œuf placé dans l'incubateur !", 'Egg placed in the incubator!'), 'success');
       renderPensionView(container);
     });
   });
@@ -758,7 +771,7 @@ function renderPensionView(container) {
       const eggId = btn.dataset.eggId;
       const egg = state.eggs.find(eg => eg.id === eggId);
       if (!egg || egg.revealed) return;
-      if (state.gang.money < 10000) { notify('Fonds insuffisants (10 000₽).', 'error'); return; }
+      if (state.gang.money < 10000) { notify(_t('Fonds insuffisants (10 000₽).', 'Insufficient funds (10,000₽).'), 'error'); return; }
       state.gang.money -= 10000;
       EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -10000, newTotal: state.gang.money });
       egg.revealed = true;

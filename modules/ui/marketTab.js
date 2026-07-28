@@ -50,7 +50,12 @@ function renderBlackMarketPanel() {
       `).join('')}
     </div>` : '';
 
-  const ITEM_LABELS = { masterball:'Master Ball', ultraball:'Hyper Ball', evostone:'Pierre Évo', aura:'Aura Shiny' };
+  const ITEM_LABELS = {
+    masterball: _t('market_item_masterball'),
+    ultraball: _t('market_item_ultraball'),
+    evostone: _t('market_item_evostone'),
+    aura: _t('market_item_aura'),
+  };
   const state = globalThis.state;
   const listingsHtml = (bulletin?.listings || []).map(listing => {
     const isDone = listing.completed;
@@ -180,7 +185,7 @@ function renderBarterPanel() {
           ${itemSprite(wp.wingId)}
           <div style="flex:1">
             <div style="font-size:9px;color:var(--text)">${wp.wingQty}× ${wName} → ${wp.icon} ${zName}</div>
-            <div style="font-size:8px;color:var(--text-dim);margin-top:2px">Légendaire : ${wp.legendary}</div>
+            <div style="font-size:8px;color:var(--text-dim);margin-top:2px">${_t('market_legendary')} : ${wp.legendary}</div>
             <div style="height:4px;background:var(--border);border-radius:2px;margin-top:4px;overflow:hidden">
               <div style="height:100%;width:${alreadyOwned ? 100 : pct}%;background:${progressColor};border-radius:2px;transition:width .3s"></div>
             </div>

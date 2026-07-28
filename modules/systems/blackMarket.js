@@ -19,6 +19,21 @@
 import { EventBus, EVENTS } from '../core/eventBus.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type });
+const _t = (fr, en) => (globalThis.state?.lang === 'en' ? en : fr);
+
+function _localizedListing(listing) {
+  if (!listing) return listing;
+  return {
+    ...listing,
+    label: globalThis.state?.lang === 'en' ? (listing.label_en || listing.label) : listing.label,
+    detail: globalThis.state?.lang === 'en' ? (listing.detail_en || listing.detail) : listing.detail,
+  };
+}
+
+function _localizedBulletin(bulletin) {
+  if (!bulletin) return bulletin;
+  return { ...bulletin, listings: (bulletin.listings || []).map(_localizedListing) };
+}
 
 const BULLETIN_LIFE_MS  = 2 * 60 * 60 * 1000; // 2h
 const LISTINGS_PER_ISSUE = 4;
@@ -45,6 +60,8 @@ const LISTING_TYPES = {
         emoji: '🎯',
         label: `Livraison : ${qty}× ${speciesName} Lv.${minLevel}+`,
         detail: `${speciesName} en bonne condition pour un collectionneur fortuné.`,
+        label_en: `Delivery: ${qty}× ${speciesName} Lv.${minLevel}+`,
+        detail_en: `${speciesName} in good condition for a wealthy collector.`,
         reward: { money: baseReward, rep: Math.round(baseReward / 1000) * 4, items },
       };
     },
@@ -62,6 +79,8 @@ const LISTING_TYPES = {
         emoji: '✨',
         label: `Recherche shiny : ${speciesName}`,
         detail: 'Un acheteur fortuné paie le prix fort pour un spécimen chromatique.',
+        label_en: `Shiny wanted: ${speciesName}`,
+        detail_en: 'A wealthy buyer is paying top price for a shiny specimen.',
         reward: { money: 1200000, rep: 200, items: { aura: 1 } },
       };
     },
@@ -96,6 +115,8 @@ const LISTING_TYPES = {
         emoji: '🌳',
         label: `Lignée complète : ${headName}`,
         detail: `Livrez 1 spécimen de chaque évolution (${family.length} pokémon).`,
+        label_en: `Complete family: ${headName}`,
+        detail_en: `Deliver 1 specimen from each evolution (${family.length} Pokémon).`,
         reward: { money, rep: 60 + family.length * 15, items: { evostone: 5 } },
       };
     },
@@ -116,6 +137,8 @@ const LISTING_TYPES = {
         // Pas de mécanisme de rareté "par zone" dans le jeu — active le même
         // boost global rarescope que les récompenses d'événement de zone.
         detail: 'Validez pour booster ×3 le taux de raretés pendant 4h (toutes zones).',
+        label_en: `Rumors about ${z.en || z.id}`,
+        detail_en: 'Complete to boost rare rates ×3 for 4h in all zones.',
         reward: { rareBoost: 4 * 3600000, money: 30000 },
       };
     },
@@ -132,6 +155,8 @@ const LISTING_TYPES = {
         emoji: '💰',
         label: `Dépôt en cash : ${baseTarget.toLocaleString()}₽`,
         detail: `Versez ${baseTarget.toLocaleString()}₽ — le syndicat les blanchit à un multiplicateur premium.`,
+        label_en: `Cash deposit: ${baseTarget.toLocaleString()}₽`,
+        detail_en: `Pay ${baseTarget.toLocaleString()}₽ — the syndicate launders it at a premium multiplier.`,
         reward: { money: Math.round(baseTarget * rewardMult), rep: Math.round(baseTarget / 3000) },
       };
     },
@@ -153,6 +178,8 @@ const LISTING_TYPES = {
         emoji: '💎',
         label: `Collection ${tier === 'very_rare' ? 'extra-rare' : 'rare'} : ${qty} espèces différentes`,
         detail: `Livrez ${qty} Pokémon différents de tier "${tier}" — niveau libre.`,
+        label_en: `${tier === 'very_rare' ? 'Very rare' : 'Rare'} collection: ${qty} different species`,
+        detail_en: `Deliver ${qty} different "${tier}" Pokémon — any level.`,
         reward: { money, rep: tier === 'very_rare' ? 250 : 120, items: { ultraball: 3, evostone: 1 } },
       };
     },
@@ -171,6 +198,8 @@ const LISTING_TYPES = {
         emoji: '⭐',
         label: `Spécimen parfait : ${speciesName} 5★ Lv.${minLevel}+`,
         detail: `Un sponsor cherche un ${speciesName} de potentiel maximum (5 étoiles).`,
+        label_en: `Perfect specimen: ${speciesName} 5★ Lv.${minLevel}+`,
+        detail_en: `A sponsor wants a ${speciesName} with maximum potential (5 stars).`,
         reward: { money: 1500000, rep: 180, items: { evostone: 5 } },
       };
     },
@@ -186,6 +215,8 @@ const LISTING_TYPES = {
         emoji: '🛡️',
         label: `Escouade d'élite : 6 Pokémon Lv.${minLevel}+`,
         detail: `Livrez 6 Pokémon libres de niveau ${minLevel}+ pour une mission black-ops.`,
+        label_en: `Elite squad: 6 Pokémon Lv.${minLevel}+`,
+        detail_en: `Deliver 6 unassigned Pokémon at level ${minLevel}+ for a black-ops mission.`,
         reward: { money: 2500000, rep: 350, items: { masterball: 1, evostone: 3 } },
       };
     },
@@ -203,13 +234,20 @@ const LISTING_TYPES = {
       ];
       const pool = POOLS[Math.floor(Math.random() * POOLS.length)];
       const qty = pool.qty[0] + Math.floor(Math.random() * (pool.qty[1] - pool.qty[0] + 1));
-      const ITEM_LABELS = { evostone:'Pierre Évolution', aura:'Aura Shiny', ultraball:'Hyper Ball', masterball:'Master Ball' };
-      const label = ITEM_LABELS[pool.id] || pool.id;
+      const ITEM_LABELS = {
+        evostone:{ fr:'Pierre Évolution', en:'Evolution Stone' },
+        aura:{ fr:'Aura Shiny', en:'Shiny Aura' },
+        ultraball:{ fr:'Hyper Ball', en:'Ultra Ball' },
+        masterball:{ fr:'Master Ball', en:'Master Ball' },
+      };
+      const itemLabel = ITEM_LABELS[pool.id] || { fr:pool.id, en:pool.id };
       return {
         type: 'item_smuggle', target: pool.id, qty,
         emoji: '📦',
-        label: `Contrebande : ${qty}× ${label}`,
-        detail: `Livrez ${qty}× ${label} contre du cash sale.`,
+        label: `Contrebande : ${qty}× ${itemLabel.fr}`,
+        detail: `Livrez ${qty}× ${itemLabel.fr} contre du cash sale.`,
+        label_en: `Smuggling: ${qty}× ${itemLabel.en}`,
+        detail_en: `Deliver ${qty}× ${itemLabel.en} for dirty cash.`,
         reward: { money: pool.reward * qty, rep: 30 + qty * 5 },
       };
     },
@@ -221,9 +259,9 @@ const LISTING_TYPES = {
     generate() {
       // Listing passif — récompense pour avoir gagné N combats spéciaux
       const targets = [
-        { count: 3,  reward: 300000,  rep: 80,  label: '3 combats Élite remportés' },
-        { count: 5,  reward: 700000,  rep: 200, label: '5 combats Élite remportés' },
-        { count: 10, reward: 1800000, rep: 500, label: '10 combats Élite remportés' },
+        { count: 3,  reward: 300000,  rep: 80,  label: '3 combats Élite remportés', label_en:'3 Elite battles won' },
+        { count: 5,  reward: 700000,  rep: 200, label: '5 combats Élite remportés', label_en:'5 Elite battles won' },
+        { count: 10, reward: 1800000, rep: 500, label: '10 combats Élite remportés', label_en:'10 Elite battles won' },
       ];
       const t = targets[Math.floor(Math.random() * targets.length)];
       return {
@@ -231,6 +269,8 @@ const LISTING_TYPES = {
         emoji: '🔫',
         label: `Contrat : ${t.label}`,
         detail: `Gagnez ${t.count} combats contre un dresseur Élite ou Champion (tier ≥ Difficile) pour valider ce contrat.`,
+        label_en: `Contract: ${t.label_en}`,
+        detail_en: `Win ${t.count} battles against an Elite or Champion trainer (Hard tier or above) to complete this contract.`,
         reward: { money: t.reward, rep: t.rep, items: { masterball: t.count >= 10 ? 1 : 0 } },
       };
     },
@@ -298,8 +338,8 @@ export function rotateBlackMarketBulletin() {
     listings,
   };
   EventBus.emit(EVENTS.STATE_DIRTY);
-  _notify('🌑 Nouveau bulletin du marché noir disponible', 'gold');
-  return state.blackMarketBulletin;
+  _notify(_t('🌑 Nouveau bulletin du marché noir disponible', '🌑 New black market bulletin available'), 'gold');
+  return _localizedBulletin(state.blackMarketBulletin);
 }
 
 /**
@@ -320,10 +360,12 @@ export function blackMarketTick() {
 export function getCurrentBulletin() {
   const state = globalThis.state;
   if (!state) return null;
-  if (!state.blackMarketBulletin || Date.now() >= state.blackMarketBulletin.expiresAt) {
+  const needsEnglishRefresh = state.lang === 'en'
+    && state.blackMarketBulletin?.listings?.some(listing => !listing.label_en || !listing.detail_en);
+  if (!state.blackMarketBulletin || Date.now() >= state.blackMarketBulletin.expiresAt || needsEnglishRefresh) {
     return rotateBlackMarketBulletin();
   }
-  return state.blackMarketBulletin;
+  return _localizedBulletin(state.blackMarketBulletin);
 }
 
 /**
@@ -350,7 +392,11 @@ export function completeBlackMarketListing(listingId) {
   listing.completed = true;
 
   EventBus.emit(EVENTS.STATE_DIRTY);
-  _notify(`🌑 Marché noir : "${listing.label}" complété !`, 'gold');
+  const displayListing = _localizedListing(listing);
+  _notify(_t(
+    `🌑 Marché noir : "${displayListing.label}" complété !`,
+    `🌑 Black market: "${displayListing.label}" completed!`,
+  ), 'gold');
   return true;
 }
 
@@ -373,13 +419,19 @@ function _validateListing(listing) {
         _isFree(p, state)
       );
       if (candidates.length < listing.qty) {
-        return { ok: false, reason: `Il faut ${listing.qty} ${globalThis.speciesName?.(listing.target)} Lv.${listing.minLevel}+ libres (tu en as ${candidates.length}).` };
+        return { ok: false, reason: _t(
+          `Il faut ${listing.qty} ${globalThis.speciesName?.(listing.target)} Lv.${listing.minLevel}+ libres (tu en as ${candidates.length}).`,
+          `You need ${listing.qty} unassigned ${globalThis.speciesName?.(listing.target)} at Lv.${listing.minLevel}+ (you have ${candidates.length}).`,
+        ) };
       }
       return { ok: true, candidates: candidates.slice(0, listing.qty) };
     }
     case 'shiny_demand': {
       const candidate = state.pokemons.find(p => p.species_en === listing.target && p.shiny && _isFree(p, state));
-      if (!candidate) return { ok: false, reason: `Aucun ${globalThis.speciesName?.(listing.target)} shiny libre dans ta collection.` };
+      if (!candidate) return { ok: false, reason: _t(
+        `Aucun ${globalThis.speciesName?.(listing.target)} shiny libre dans ta collection.`,
+        `No unassigned shiny ${globalThis.speciesName?.(listing.target)} in your collection.`,
+      ) };
       return { ok: true, candidates: [candidate] };
     }
     case 'family_complete': {
@@ -392,14 +444,20 @@ function _validateListing(listing) {
         else missing.push(en);
       }
       if (missing.length) {
-        return { ok: false, reason: `Lignée incomplète : ${missing.length} espèce(s) libre(s) manquante(s).` };
+        return { ok: false, reason: _t(
+          `Lignée incomplète : ${missing.length} espèce(s) libre(s) manquante(s).`,
+          `Incomplete family: ${missing.length} unassigned species missing.`,
+        ) };
       }
       return { ok: true, candidates: picks };
     }
     case 'zone_boost': return { ok: true };
     case 'bulk_money': {
       if (state.gang.money < listing.qty) {
-        return { ok: false, reason: `Pas assez d'argent (${state.gang.money.toLocaleString()}₽ / ${listing.qty.toLocaleString()}₽).` };
+        return { ok: false, reason: _t(
+          `Pas assez d'argent (${state.gang.money.toLocaleString()}₽ / ${listing.qty.toLocaleString()}₽).`,
+          `Not enough money (${state.gang.money.toLocaleString()}₽ / ${listing.qty.toLocaleString()}₽).`,
+        ) };
       }
       return { ok: true };
     }
@@ -411,7 +469,10 @@ function _validateListing(listing) {
           .map(p => p.species_en)
       );
       if (distinctOwned.size < listing.qty) {
-        return { ok: false, reason: `Il faut ${listing.qty} espèces différentes "${listing.target}" libres (tu en as ${distinctOwned.size}).` };
+        return { ok: false, reason: _t(
+          `Il faut ${listing.qty} espèces différentes "${listing.target}" libres (tu en as ${distinctOwned.size}).`,
+          `You need ${listing.qty} different unassigned "${listing.target}" species (you have ${distinctOwned.size}).`,
+        ) };
       }
       // Sélectionner 1 spécimen de chaque, jusqu'à qty
       const picks = [];
@@ -429,7 +490,10 @@ function _validateListing(listing) {
         p.level >= (listing.minLevel || 1) &&
         _isFree(p, state)
       );
-      if (!candidate) return { ok: false, reason: `Aucun ${globalThis.speciesName?.(listing.target)} ${listing.minPotential}★ Lv.${listing.minLevel}+ libre.` };
+      if (!candidate) return { ok: false, reason: _t(
+        `Aucun ${globalThis.speciesName?.(listing.target)} ${listing.minPotential}★ Lv.${listing.minLevel}+ libre.`,
+        `No unassigned ${globalThis.speciesName?.(listing.target)} ${listing.minPotential}★ at Lv.${listing.minLevel}+.`,
+      ) };
       return { ok: true, candidates: [candidate] };
     }
     case 'elite_squad': {
@@ -437,7 +501,10 @@ function _validateListing(listing) {
         p.level >= (listing.minLevel || 1) && _isFree(p, state)
       );
       if (eligibles.length < listing.qty) {
-        return { ok: false, reason: `Il faut ${listing.qty} Pokémon libres Lv.${listing.minLevel}+ (tu en as ${eligibles.length}).` };
+        return { ok: false, reason: _t(
+          `Il faut ${listing.qty} Pokémon libres Lv.${listing.minLevel}+ (tu en as ${eligibles.length}).`,
+          `You need ${listing.qty} unassigned Pokémon at Lv.${listing.minLevel}+ (you have ${eligibles.length}).`,
+        ) };
       }
       // Trier par level desc pour livrer les plus solides (politesse joueur)
       const sorted = [...eligibles].sort((a, b) => b.level - a.level);
@@ -446,19 +513,25 @@ function _validateListing(listing) {
     case 'item_smuggle': {
       const owned = state.inventory?.[listing.target] || 0;
       if (owned < listing.qty) {
-        return { ok: false, reason: `Pas assez de ${listing.target} (${owned}/${listing.qty}).` };
+        return { ok: false, reason: _t(
+          `Pas assez de ${listing.target} (${owned}/${listing.qty}).`,
+          `Not enough ${listing.target} (${owned}/${listing.qty}).`,
+        ) };
       }
       return { ok: true };
     }
     case 'trainer_bounty': {
       const progress = state.bountyProgress?.[listing.id] || 0;
       if (progress < listing.qty) {
-        return { ok: false, reason: `Contrat en cours : ${progress}/${listing.qty} combats Élite remportés.` };
+        return { ok: false, reason: _t(
+          `Contrat en cours : ${progress}/${listing.qty} combats Élite remportés.`,
+          `Contract in progress: ${progress}/${listing.qty} Elite battles won.`,
+        ) };
       }
       return { ok: true };
     }
   }
-  return { ok: false, reason: 'Type de demande inconnu.' };
+  return { ok: false, reason: _t('Type de demande inconnu.', 'Unknown request type.') };
 }
 
 function _consumeListing(listing) {

@@ -52,9 +52,14 @@ export function getLv100Data(p) {
   const natMalus = nat.atk < 1 ? '−ATK' : nat.def < 1 ? '−DEF' : nat.spd < 1 ? '−VIT' : null;
 
   const s100 = lv100.stats;
-  const roleKey = s100.atk >= s100.def && s100.atk >= s100.spd ? 'Offensif' :
-                  s100.def >= s100.atk && s100.def >= s100.spd ? 'Défensif' : 'Vitesse';
-  const roleIcon = { Offensif: '⚔', Défensif: '🛡', Vitesse: '⚡' }[roleKey];
+  const roleId = s100.atk >= s100.def && s100.atk >= s100.spd ? 'offense' :
+                 s100.def >= s100.atk && s100.def >= s100.spd ? 'defense' : 'speed';
+  const roleKey = {
+    offense: globalThis.state?.lang === 'en' ? 'Offensive' : 'Offensif',
+    defense: globalThis.state?.lang === 'en' ? 'Defensive' : 'Défensif',
+    speed: globalThis.state?.lang === 'en' ? 'Speed' : 'Vitesse',
+  }[roleId];
+  const roleIcon = { offense: '⚔', defense: '🛡', speed: '⚡' }[roleId];
 
   return { lv100, lv100PC, perfPC, gradePct, grade, gradeColor, nat, natBonus, natMalus, s100, roleKey, roleIcon };
 }
@@ -99,5 +104,5 @@ export function getPokemonLocation(p, state) {
   if (state.gang?.showcase?.includes(p.id)) {
     return { slot: 'team', label: '✨ Showcase', color: 'var(--gold)' };
   }
-  return { slot: 'free', label: 'Libre', color: 'var(--text-dim)' };
+  return { slot: 'free', label: globalThis.state?.lang === 'en' ? 'Free' : 'Libre', color: 'var(--text-dim)' };
 }

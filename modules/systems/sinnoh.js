@@ -4,6 +4,7 @@ import { EventBus, EVENTS } from '../core/eventBus.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
 const _save   = ()               => globalThis.saveState?.();
+const _t      = (fr, en)         => (globalThis.state?.lang === 'en' ? en : fr);
 
 // ── Sinnoh region unlock system ──────────────────────────────────────────────
 // Logique d'activation et de cinématique de déblocage de la région Sinnoh.
@@ -47,7 +48,7 @@ function showSinnohUnlockModal() {
   const cynthiaSprite = globalThis.trainerSprite?.('cynthia') ?? '';
   const bossName = state.gang?.bossName || 'Parrain';
 
-  const MESSAGE =
+  const MESSAGE = _t(
     `« Je vous attendais, ${bossName}.\n\n` +
     `Sinnoh n'est pas une région ordinaire. Le temps et l'espace y ont une forme, ` +
     `une présence que les autres régions ne connaissent pas. ` +
@@ -55,7 +56,16 @@ function showSinnohUnlockModal() {
     `Mais la Team Galaxie veut détruire le monde pour en recréer un selon la vision de Cyrus. ` +
     `Un homme sans émotion qui croit que les sentiments sont une faiblesse.\n\n` +
     `Votre gang a ce que Cyrus ne comprend pas — des liens, des ambitions, une raison de se battre.\n\n` +
-    `Sinnoh a besoin de vous. Bonaugure est ouvert. »`;
+    `Sinnoh a besoin de vous. Bonaugure est ouvert. »`,
+    `“I've been waiting for you, ${bossName}.\n\n` +
+    `Sinnoh is no ordinary region. Time and space have a form there, ` +
+    `a presence unknown to other regions. ` +
+    `Dialga, Palkia and Giratina sleep deep within Mt. Coronet and the Spear Pillar.\n\n` +
+    `But Team Galactic wants to destroy the world and recreate it according to Cyrus's vision. ` +
+    `A man without emotion who believes feelings are a weakness.\n\n` +
+    `Your gang has what Cyrus cannot understand — bonds, ambition, a reason to fight.\n\n` +
+    `Sinnoh needs you. Twinleaf Town is open.”`,
+  );
 
   // ── Overlay ───────────────────────────────────────────────────────────────
   const overlay = document.createElement('div');
@@ -115,7 +125,7 @@ function showSinnohUnlockModal() {
   dialog.innerHTML = `
     <div style="font-family:var(--font-pixel,monospace);font-size:7px;
       color:rgba(180,120,255,.85);letter-spacing:.8px;text-transform:uppercase;
-      margin-bottom:8px">Cynthia — Championne Sinnoh</div>
+      margin-bottom:8px">${_t('Cynthia — Championne Sinnoh', 'Cynthia — Sinnoh Champion')}</div>
     <div id="si-text" style="font-size:14px;color:#eeddff;line-height:1.7;min-height:46px;
       white-space:pre-wrap"></div>
     <div id="si-actions" style="margin-top:16px;display:none;
@@ -186,8 +196,8 @@ function showSinnohUnlockModal() {
     cursor.style.display = 'none';
     actionsEl.style.display = 'flex';
     actionsEl.innerHTML = `
-      <button class="si-btn-dismiss" id="si-dismiss">Pas encore...</button>
-      <button class="si-btn-accept"  id="si-accept">→ Traverser vers Sinnoh</button>`;
+      <button class="si-btn-dismiss" id="si-dismiss">${_t('Pas encore...', 'Not yet...')}</button>
+      <button class="si-btn-accept"  id="si-accept">${_t('→ Traverser vers Sinnoh', '→ Travel to Sinnoh')}</button>`;
 
     actionsEl.querySelector('#si-accept').addEventListener('click', () => {
       _close();
@@ -197,12 +207,12 @@ function showSinnohUnlockModal() {
         b.classList.toggle('active', b.dataset.region === 'sinnoh');
       });
       globalThis.switchTab?.('tabZones');
-      _notify('❄️ Sinnoh débloqué ! Bienvenue à Bonaugure, Parrain...', 'gold');
+      _notify(_t('❄️ Sinnoh débloqué ! Bienvenue à Bonaugure, Parrain...', '❄️ Sinnoh unlocked! Welcome to Twinleaf Town, Boss...'), 'gold');
     });
 
     actionsEl.querySelector('#si-dismiss').addEventListener('click', () => {
       _close();
-      _notify("📡 L'offre reste disponible — bouton Sinnoh ✉ dans les zones.", '');
+      _notify(_t("📡 L'offre reste disponible — bouton Sinnoh ✉ dans les zones.", '📡 The offer remains available — use the Sinnoh ✉ button in Zones.'), '');
     });
   }
 

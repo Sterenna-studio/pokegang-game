@@ -132,6 +132,10 @@ function notify(...args) {
   return requireContext('notify')(...args);
 }
 
+function _t(fr, en) {
+  return state.lang === 'en' ? en : fr;
+}
+
 function showConfirm(...args) {
   return requireContext('showConfirm')(...args);
 }
@@ -286,7 +290,7 @@ function initSupabase() {
 
 // ── Auth ──────────────────────────────────────────────────────────
 async function supaSignIn(email, password) {
-  if (!_supabase) return { error: 'Supabase non configuré' };
+  if (!_supabase) return { error: _t('Supabase non configuré', 'Supabase is not configured') };
   const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
   if (error) return { error: error.message };
   supaSession = data.session || supaSession;
@@ -297,7 +301,7 @@ async function supaSignIn(email, password) {
 }
 
 async function supaSignUp(email, password) {
-  if (!_supabase) return { error: 'Supabase non configuré' };
+  if (!_supabase) return { error: _t('Supabase non configuré', 'Supabase is not configured') };
   const { data, error } = await _supabase.auth.signUp({ email, password });
   if (error) return { error: error.message };
   return { data };
@@ -449,7 +453,7 @@ async function supaCheckCloudLoad() {
   const localRep  = state.gang?.reputation         || 0;
   const cloudPkm  = (data.state?.pokemons?.length) || 0;
   const localPkm  = (state.pokemons?.length)        || 0;
-  const fmt       = new Date(cloudTs).toLocaleString('fr-FR');
+  const fmt       = new Date(cloudTs).toLocaleString(state.lang === 'en' ? 'en-US' : 'fr-FR');
 
   // Si le cloud a significativement moins de progression → ignorer silencieusement
   // (évite d'écraser une save avancée avec un état vide ou early)
@@ -463,19 +467,23 @@ async function supaCheckCloudLoad() {
     : `<span style="color:var(--red)">⭐ ${cloudRep.toLocaleString()}</span> (<b>−${Math.abs(repDiff).toLocaleString()}</b> vs local)`;
 
   showConfirm(
-    `☁ Save cloud du <b>${fmt}</b><br>
+    _t(`☁ Save cloud du <b>${fmt}</b><br>
      ${repLine}<br>
      <span style="color:var(--text-dim);font-size:10px">${cloudPkm} Pokémon · Slot ${getActiveSaveSlot() + 1}</span><br>
      <span style="color:var(--text-dim);font-size:10px">La save locale sera remplacée.</span>`,
+     `☁ Cloud save from <b>${fmt}</b><br>
+     ${repLine}<br>
+     <span style="color:var(--text-dim);font-size:10px">${cloudPkm} Pokémon · Slot ${getActiveSaveSlot() + 1}</span><br>
+     <span style="color:var(--text-dim);font-size:10px">The local save will be replaced.</span>`),
     () => {
       setState(migrate(data.state));
       saveState();
       renderAll();
-      notify('Sauvegarde cloud chargée !', 'success');
+      notify(_t('Sauvegarde cloud chargée !', 'Cloud save loaded!'), 'success');
       supaUpdateLeaderboard();
     },
     null,
-    { confirmLabel: 'Charger le cloud', cancelLabel: 'Garder le local' }
+    { confirmLabel: _t('Charger le cloud', 'Load cloud'), cancelLabel: _t('Garder le local', 'Keep local') }
   );
 }
 
@@ -489,21 +497,24 @@ async function supaForceCloudLoad() {
       .eq('user_id', supaSession.user.id)
       .eq('slot', getActiveSaveSlot())
       .single());
-  } catch { notify('Erreur réseau — réessaie dans un moment.', 'error'); return; }
-  if (error || !data) { notify('Aucune sauvegarde cloud trouvée.', 'error'); return; }
+  } catch { notify(_t('Erreur réseau — réessaie dans un moment.', 'Network error — try again in a moment.'), 'error'); return; }
+  if (error || !data) { notify(_t('Aucune sauvegarde cloud trouvée.', 'No cloud save found.'), 'error'); return; }
 
-  const fmt = new Date(data.saved_at).toLocaleString('fr-FR');
+  const fmt = new Date(data.saved_at).toLocaleString(state.lang === 'en' ? 'en-US' : 'fr-FR');
   showConfirm(
-    `Charger la save cloud du ${fmt} ?<br><span style="color:var(--text-dim);font-size:11px">La save locale sera écrasée.</span>`,
+    _t(
+      `Charger la save cloud du ${fmt} ?<br><span style="color:var(--text-dim);font-size:11px">La save locale sera écrasée.</span>`,
+      `Load the cloud save from ${fmt}?<br><span style="color:var(--text-dim);font-size:11px">The local save will be overwritten.</span>`,
+    ),
     () => {
       setState(migrate(data.state));
       saveState();
       renderAll();
-      notify('Sauvegarde cloud chargée !', 'success');
+      notify(_t('Sauvegarde cloud chargée !', 'Cloud save loaded!'), 'success');
       supaUpdateLeaderboard();
     },
     null,
-    { confirmLabel: 'Charger', cancelLabel: 'Annuler', danger: true }
+    { confirmLabel: _t('Charger', 'Load'), cancelLabel: _t('Annuler', 'Cancel'), danger: true }
   );
 }
 
@@ -591,20 +602,23 @@ async function supaRestoreSnapshot(snapshotId) {
     .eq('id', snapshotId)
     .eq('user_id', supaSession.user.id)
     .single();
-  if (error || !data) { notify('Snapshot introuvable.', 'error'); return; }
+  if (error || !data) { notify(_t('Snapshot introuvable.', 'Snapshot not found.'), 'error'); return; }
 
-  const fmt = new Date(data.saved_at).toLocaleString('fr-FR');
+  const fmt = new Date(data.saved_at).toLocaleString(state.lang === 'en' ? 'en-US' : 'fr-FR');
   showConfirm(
-    `Restaurer le snapshot du <b>${fmt}</b> ?<br><span style="color:var(--text-dim);font-size:11px">La save actuelle sera écrasée — exporte-la d'abord si nécessaire.</span>`,
+    _t(
+      `Restaurer le snapshot du <b>${fmt}</b> ?<br><span style="color:var(--text-dim);font-size:11px">La save actuelle sera écrasée — exporte-la d'abord si nécessaire.</span>`,
+      `Restore the snapshot from <b>${fmt}</b>?<br><span style="color:var(--text-dim);font-size:11px">The current save will be overwritten — export it first if needed.</span>`,
+    ),
     () => {
       setState(migrate(data.state));
       saveState();
       renderAll();
-      notify(`⏪ Snapshot du ${fmt} restauré !`, 'success');
+      notify(_t(`⏪ Snapshot du ${fmt} restauré !`, `⏪ Snapshot from ${fmt} restored!`), 'success');
       supaUpdateLeaderboard();
     },
     null,
-    { confirmLabel: 'Restaurer', cancelLabel: 'Annuler', danger: true }
+    { confirmLabel: _t('Restaurer', 'Restore'), cancelLabel: _t('Annuler', 'Cancel'), danger: true }
   );
 }
 
@@ -636,7 +650,8 @@ function _buildBossTeamData() {
     const pk = state.pokemons.find(p => p.id === id);
     if (!pk) return null;
     const pot = pk.potential || 0;
-    const threat = pot >= 5 ? 'ÉLEVÉE' : pot >= 4 ? 'HAUTE' : pot >= 3 ? 'MODÉRÉE' : 'FAIBLE';
+    const threatFr = pot >= 5 ? 'ÉLEVÉE' : pot >= 4 ? 'HAUTE' : pot >= 3 ? 'MODÉRÉE' : 'FAIBLE';
+    const threatEn = pot >= 5 ? 'EXTREME' : pot >= 4 ? 'HIGH' : pot >= 3 ? 'MODERATE' : 'LOW';
     return {
       slot:       i,
       species_en: pk.species_en,
@@ -644,7 +659,9 @@ function _buildBossTeamData() {
       level:      pk.level || 1,
       potential:  pot,
       shiny:      pk.shiny || false,
-      threat,
+      threat: state.lang === 'en' ? threatEn : threatFr,
+      threat_fr: threatFr,
+      threat_en: threatEn,
       sprite:     `https://play.pokemonshowdown.com/sprites/gen5/${pk.species_en}.png`,
     };
   }).filter(Boolean);
@@ -658,11 +675,14 @@ function _buildBadgesData() {
   const kantoTotal    = globalThis.KANTO_DEX_SIZE               ?? 151;
   const natTotal      = globalThis.NATIONAL_DEX_SIZE            ?? 493;
   const badges = [];
-  if (kantoCaught >= kantoTotal)                badges.push({ id: 'kanto_complete',    label: 'Kanto Complet',    icon: '🏅', color: '#ffcc5a' });
-  if (natCaught   >= natTotal)                  badges.push({ id: 'national_complete', label: 'National Complet', icon: '🌐', color: '#4fc3f7' });
-  if (shinySpecies >= 30)                       badges.push({ id: 'shiny_hunter',      label: 'Chasseur Shiny',   icon: '✦', color: '#e879f9' });
-  if ((state.stats?.totalFightsWon || 0) >= 100) badges.push({ id: 'veteran',          label: 'Vétéran',          icon: '⚔', color: '#f97316' });
-  if ((state.stats?.totalCaught    || 0) >= 500) badges.push({ id: 'great_hunter',     label: 'Grand Chasseur',   icon: '◎', color: '#22c55e' });
+  const badge = (id, labelFr, labelEn, icon, color) => ({
+    id, label: state.lang === 'en' ? labelEn : labelFr, label_fr: labelFr, label_en: labelEn, icon, color,
+  });
+  if (kantoCaught >= kantoTotal)                 badges.push(badge('kanto_complete', 'Kanto Complet', 'Kanto Complete', '🏅', '#ffcc5a'));
+  if (natCaught   >= natTotal)                   badges.push(badge('national_complete', 'National Complet', 'National Complete', '🌐', '#4fc3f7'));
+  if (shinySpecies >= 30)                        badges.push(badge('shiny_hunter', 'Chasseur Shiny', 'Shiny Hunter', '✦', '#e879f9'));
+  if ((state.stats?.totalFightsWon || 0) >= 100) badges.push(badge('veteran', 'Vétéran', 'Veteran', '⚔', '#f97316'));
+  if ((state.stats?.totalCaught    || 0) >= 500) badges.push(badge('great_hunter', 'Grand Chasseur', 'Great Hunter', '◎', '#22c55e'));
   return badges;
 }
 
@@ -716,7 +736,7 @@ async function supaUpdateLeaderboard() {
 
 // ── Toggle opt-in profil public ───────────────────────────────────────────────
 async function supaTogglePublicProfile(enable) {
-  if (!_supabase || !supaSession) return { error: 'Non connecté' };
+  if (!_supabase || !supaSession) return { error: _t('Non connecté', 'Not signed in') };
   if (!state.settings) state.settings = {};
   state.settings.publicProfile = !!enable;
   globalThis.saveState?.();
@@ -841,20 +861,20 @@ function updateSupaIndicator() {
   if (!supaSession) {
     el.textContent = '☁';
     el.style.color = 'var(--text-dim)';
-    el.title       = 'Non connecté — cliquer pour se connecter';
+    el.title       = _t('Non connecté — cliquer pour se connecter', 'Not signed in — click to sign in');
   } else if (supaSyncing) {
     el.textContent = '⟳';
     el.style.color = 'var(--gold)';
-    el.title       = 'Synchronisation en cours…';
+    el.title       = _t('Synchronisation en cours…', 'Sync in progress…');
   } else if (supaLastSync) {
     const ago = Math.round((Date.now() - supaLastSync) / 1000);
     el.textContent = '☁';
     el.style.color = 'var(--green)';
-    el.title       = `Cloud syncé il y a ${ago}s`;
+    el.title       = _t(`Cloud syncé il y a ${ago}s`, `Cloud synced ${ago}s ago`);
   } else {
     el.textContent = '☁';
     el.style.color = '#ff9900';
-    el.title       = 'Connecté — non encore syncé';
+    el.title       = _t('Connecté — non encore syncé', 'Signed in — not synced yet');
   }
 
   // Clic = aller sur l'onglet Compte
@@ -865,7 +885,7 @@ function updateSupaIndicator() {
 function updateSupaTabLabel() {
   const btn = document.getElementById('tabBtnCompte');
   if (!btn) return;
-  btn.textContent = supaSession ? '☁ Compte ●' : '☁ Compte';
+  btn.textContent = supaSession ? _t('☁ Compte ●', '☁ Account ●') : _t('☁ Compte', '☁ Account');
   btn.style.color = supaSession ? 'var(--green)' : '';
 }
 
@@ -875,18 +895,18 @@ let _lbPeriod   = 'monthly';   // 'monthly' | 'alltime'
 
 // Sorts available per period
 const _LB_SORTS_MONTHLY = [
-  { key: 'reputation',          label: '⭐ Réputation'   },
-  { key: 'total_caught',        label: '🎯 Capturés'    },
-  { key: 'shiny_species_count', label: '✨ Chromas'       },
+  { key: 'reputation',          label: '⭐ Réputation', label_en: '⭐ Reputation' },
+  { key: 'total_caught',        label: '🎯 Capturés',   label_en: '🎯 Caught' },
+  { key: 'shiny_species_count', label: '✨ Chromas',    label_en: '✨ Shinies' },
 ];
 const _LB_SORTS_ALLTIME = [
-  { key: 'reputation',          label: '⭐ Réputation'   },
-  { key: 'dex_kanto_count',     label: '📖 Dex Kanto'   },
-  { key: 'dex_national_count',  label: '📗 Dex National' },
-  { key: 'shiny_species_count', label: '✨ Chromas'       },
-  { key: 'total_caught',        label: '🎯 Capturés'    },
-  { key: 'total_sold',          label: '💰 Ventes'      },
-  { key: 'total_money_earned',  label: '💵 Gains total'  },
+  { key: 'reputation',          label: '⭐ Réputation',  label_en: '⭐ Reputation' },
+  { key: 'dex_kanto_count',     label: '📖 Dex Kanto',   label_en: '📖 Kanto Dex' },
+  { key: 'dex_national_count',  label: '📗 Dex National',label_en: '📗 National Dex' },
+  { key: 'shiny_species_count', label: '✨ Chromas',     label_en: '✨ Shinies' },
+  { key: 'total_caught',        label: '🎯 Capturés',    label_en: '🎯 Caught' },
+  { key: 'total_sold',          label: '💰 Ventes',      label_en: '💰 Sales' },
+  { key: 'total_money_earned',  label: '💵 Gains total', label_en: '💵 Total earnings' },
 ];
 
 async function renderLeaderboardTab() {
@@ -895,15 +915,15 @@ async function renderLeaderboardTab() {
 
   if (!supaConfigured()) {
     tab.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-dim);font-family:var(--font-pixel);font-size:10px">
-      🏆 CLASSEMENT<br><br><span style="font-size:9px;font-family:inherit">Supabase non configuré — le classement n'est pas disponible en mode hors-ligne.</span>
+      🏆 ${_t('CLASSEMENT', 'LEADERBOARD')}<br><br><span style="font-size:9px;font-family:inherit">${_t("Supabase non configuré — le classement n'est pas disponible en mode hors-ligne.", 'Supabase is not configured — the leaderboard is unavailable offline.')}</span>
     </div>`;
     return;
   }
 
   const SORTS   = _lbPeriod === 'monthly' ? _LB_SORTS_MONTHLY : _LB_SORTS_ALLTIME;
   const PERIODS = [
-    { key: 'monthly', label: '📅 Ce mois' },
-    { key: 'alltime', label: '🌍 Depuis toujours' },
+    { key: 'monthly', label: _t('📅 Ce mois', '📅 This month') },
+    { key: 'alltime', label: _t('🌍 Depuis toujours', '🌍 All time') },
   ];
 
   // Reset sort if not valid for current period
@@ -915,32 +935,32 @@ async function renderLeaderboardTab() {
     `border:1px solid ${active ? 'var(--red)' : 'var(--border)'};` +
     `color:${active ? '#fff' : 'var(--text-dim)'}`;
 
-  const monthLabel = new Date().toLocaleString('fr-FR', { month: 'long', year: 'numeric' });
+  const monthLabel = new Date().toLocaleString(state.lang === 'en' ? 'en-US' : 'fr-FR', { month: 'long', year: 'numeric' });
 
   tab.innerHTML = `
     <div style="padding:16px;max-width:820px">
       <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px">
-        <span style="font-family:var(--font-pixel);font-size:12px;color:var(--gold)">🏆 CLASSEMENT MONDIAL</span>
+        <span style="font-family:var(--font-pixel);font-size:12px;color:var(--gold)">🏆 ${_t('CLASSEMENT MONDIAL', 'WORLD LEADERBOARD')}</span>
         ${_lbPeriod === 'monthly' ? `<span style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim)">${monthLabel}</span>` : ''}
       </div>
       <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;align-items:center">
-        <span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">PÉRIODE :</span>
+        <span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">${_t('PÉRIODE :', 'PERIOD:')}</span>
         ${PERIODS.map(p => `<button class="lb-period-btn" data-period="${p.key}" style="${btnStyle(_lbPeriod === p.key)}">${p.label}</button>`).join('')}
         <button id="btnLbRefresh" style="${btnStyle(false)};margin-left:auto">⟳</button>
       </div>
       <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
-        <span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">CATÉGORIE :</span>
-        ${SORTS.map(s => `<button class="lb-sort-btn" data-sort="${s.key}" style="${btnStyle(_lbSortBy === s.key)}">${s.label}</button>`).join('')}
+        <span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">${_t('CATÉGORIE :', 'CATEGORY:')}</span>
+        ${SORTS.map(s => `<button class="lb-sort-btn" data-sort="${s.key}" style="${btnStyle(_lbSortBy === s.key)}">${state.lang === 'en' ? s.label_en : s.label}</button>`).join('')}
       </div>
       <div id="lbMyEntry" style="margin-bottom:10px;padding:10px 12px;background:rgba(255,204,90,.07);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);font-size:9px;color:var(--text-dim)">
-        Chargement de votre position…
+        ${_t('Chargement de votre position…', 'Loading your position…')}
       </div>
       <div id="lbTable" style="background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;min-height:120px">
-        <div style="padding:16px;color:var(--text-dim);font-size:10px;text-align:center">Chargement…</div>
+        <div style="padding:16px;color:var(--text-dim);font-size:10px;text-align:center">${_t('Chargement…', 'Loading…')}</div>
       </div>
       <div style="margin-top:8px;font-size:8px;color:var(--text-dim);text-align:right">
-        Top 50 · Mis à jour toutes les 2h si actif ·
-        ${supaSession ? `<span style="color:var(--green)">Connecté ✓</span>` : `<span>Anonyme — <a href="#" id="lbGoLogin" style="color:var(--gold);text-decoration:none">Connecte-toi</a></span>`}
+        ${_t('Top 50 · Mis à jour toutes les 2h si actif ·', 'Top 50 · Updated every 2h when active ·')}
+        ${supaSession ? `<span style="color:var(--green)">${_t('Connecté ✓', 'Signed in ✓')}</span>` : `<span>${_t('Anonyme', 'Anonymous')} — <a href="#" id="lbGoLogin" style="color:var(--gold);text-decoration:none">${_t('Connecte-toi', 'Sign in')}</a></span>`}
       </div>
     </div>`;
 
@@ -978,13 +998,13 @@ async function _loadLeaderboardTable() {
     total_money_earned:  'total_money_earned',
   };
   const SORT_LABELS = {
-    reputation:          '⭐ Rép.',
+    reputation:          _t('⭐ Rép.', '⭐ Rep.'),
     dex_kanto_count:     '📖 Kanto',
     dex_national_count:  '📗 National',
     shiny_species_count: '✨ Chroma',
     total_caught:        '🎯 Cap.',
-    total_sold:          '💰 Ventes',
-    total_money_earned:  '💵 Gains',
+    total_sold:          _t('💰 Ventes', '💰 Sales'),
+    total_money_earned:  _t('💵 Gains', '💵 Earnings'),
   };
 
   const SORT_COLS = isMonthly ? SORT_COLS_MONTHLY : SORT_COLS_ALLTIME;
@@ -1025,27 +1045,27 @@ async function _loadLeaderboardTable() {
         const repM = isSameMonth ? (myRow.rep_monthly           ?? 0) : 0;
         const capM = isSameMonth ? (myRow.caught_monthly        ?? 0) : 0;
         const shM  = isSameMonth ? (myRow.shiny_species_monthly ?? 0) : 0;
-        const _s   = (n) => (n > 0 ? '+' : '') + n.toLocaleString('fr-FR');
+        const _s   = (n) => (n > 0 ? '+' : '') + n.toLocaleString(state.lang === 'en' ? 'en-US' : 'fr-FR');
         const repColor = repM < 0 ? 'var(--red)' : 'var(--text-dim)';
         myEntryEl.innerHTML = `
           <span style="color:var(--gold);font-family:var(--font-pixel);font-size:9px">${_esc(myRow.gang_name)}</span>
-          <span style="margin-left:12px">Rang <b style="color:var(--gold)">${myRank}</b></span>
-          <span style="margin-left:12px;color:${repColor}">⭐ ${_s(repM)} rép.</span>
+          <span style="margin-left:12px">${_t('Rang', 'Rank')} <b style="color:var(--gold)">${myRank}</b></span>
+          <span style="margin-left:12px;color:${repColor}">⭐ ${_s(repM)} ${_t('rép.', 'rep.')}</span>
           <span style="margin-left:12px;color:var(--text-dim)">🎯 ${_s(capM)}</span>
           <span style="margin-left:12px;color:var(--text-dim)">✨ ${_s(shM)}</span>
-          <span style="margin-left:auto;font-size:8px;opacity:.6">${isSameMonth ? `maj ${updAgo}` : 'pas encore de données ce mois'}</span>`;
+          <span style="margin-left:auto;font-size:8px;opacity:.6">${isSameMonth ? `${_t('maj', 'updated')} ${updAgo}` : _t('pas encore de données ce mois', 'no data yet this month')}</span>`;
       } else {
         myEntryEl.innerHTML = `
           <span style="color:var(--gold);font-family:var(--font-pixel);font-size:9px">${_esc(myRow.gang_name)}</span>
-          <span style="margin-left:12px">Rang <b style="color:var(--gold)">${myRank}</b></span>
-          <span style="margin-left:12px;color:var(--text-dim)">⭐ ${(myRow.reputation||0).toLocaleString('fr-FR')}</span>
+          <span style="margin-left:12px">${_t('Rang', 'Rank')} <b style="color:var(--gold)">${myRank}</b></span>
+          <span style="margin-left:12px;color:var(--text-dim)">⭐ ${(myRow.reputation||0).toLocaleString(state.lang === 'en' ? 'en-US' : 'fr-FR')}</span>
           <span style="margin-left:12px;color:var(--text-dim)">✨ ${myRow.shiny_species_count||0}</span>
           <span style="margin-left:12px;color:var(--text-dim)">📖 ${myRow.dex_kanto_count||0}/151</span>
-          <span style="margin-left:auto;font-size:8px;opacity:.6">maj ${updAgo}</span>`;
+          <span style="margin-left:auto;font-size:8px;opacity:.6">${_t('maj', 'updated')} ${updAgo}</span>`;
       }
       myEntryEl.style.cssText += ';display:flex;align-items:center;gap:0;flex-wrap:wrap';
     } else {
-      myEntryEl.textContent = "Votre entrée n'est pas encore dans le classement.";
+      myEntryEl.textContent = _t("Votre entrée n'est pas encore dans le classement.", 'Your entry is not on the leaderboard yet.');
     }
   }
 
@@ -1053,16 +1073,16 @@ async function _loadLeaderboardTable() {
   if (!tableEl) return;
 
   if (error || !rows?.length) {
-    const periodLabel = isMonthly ? 'ce mois-ci' : 'all time';
-    tableEl.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text-dim);font-size:10px">Aucune entrée ${periodLabel} — sois le premier !</div>`;
+    const periodLabel = isMonthly ? _t('ce mois-ci', 'this month') : _t('depuis toujours', 'all time');
+    tableEl.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text-dim);font-size:10px">${_t(`Aucune entrée ${periodLabel} — sois le premier !`, `No entries ${periodLabel} — be the first!`)}</div>`;
     return;
   }
 
   const MEDALS = ['🥇','🥈','🥉'];
-  const sortLabel = SORT_LABELS[_lbSortBy] || '⭐ Rép.';
+  const sortLabel = SORT_LABELS[_lbSortBy] || _t('⭐ Rép.', '⭐ Rep.');
   // Sign helper: prepends '+' for positive, nothing for negative (already has '-')
   const _sign = (n) => (typeof n === 'number' && n > 0) ? '+' : '';
-  const _fmt  = (n) => typeof n === 'number' ? (_sign(n) + n.toLocaleString('fr-FR')) : String(n ?? 0);
+  const _fmt  = (n) => typeof n === 'number' ? (_sign(n) + n.toLocaleString(state.lang === 'en' ? 'en-US' : 'fr-FR')) : String(n ?? 0);
 
   tableEl.innerHTML = `
     <div style="display:grid;grid-template-columns:36px 1fr auto;border-bottom:1px solid var(--border);padding:6px 10px;font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">
@@ -1074,13 +1094,13 @@ async function _loadLeaderboardTable() {
         ? `<span style="font-size:18px">${MEDALS[i]}</span>`
         : `<span style="font-family:var(--font-pixel);font-size:9px;color:var(--text-dim)">${i+1}</span>`;
       const nameTag = p.is_anonymous
-        ? `<span style="font-size:8px;color:var(--text-dim)">Joueur anonyme <span style="opacity:.5">#${p.token.slice(-5)}</span></span>`
+        ? `<span style="font-size:8px;color:var(--text-dim)">${_t('Joueur anonyme', 'Anonymous player')} <span style="opacity:.5">#${p.token.slice(-5)}</span></span>`
         : `<span style="font-size:9px">${_esc(p.gang_name)}</span>`;
       const sprite = p.boss_sprite
         ? `<img src="https://play.pokemonshowdown.com/sprites/gen5/${_esc(p.boss_sprite)}.png" style="width:32px;height:32px;image-rendering:pixelated" onerror="this.style.display='none'">`
         : `<div style="width:32px;height:32px;background:var(--bg);border-radius:4px"></div>`;
       const val    = p[col] ?? 0;
-      const valStr = isMonthly ? _fmt(val) : (typeof val === 'number' ? val.toLocaleString('fr-FR') : String(val ?? 0));
+      const valStr = isMonthly ? _fmt(val) : (typeof val === 'number' ? val.toLocaleString(state.lang === 'en' ? 'en-US' : 'fr-FR') : String(val ?? 0));
       const valColor = isMonthly && val < 0 ? 'var(--red)' : 'var(--gold)';
       const ago = p.updated_at ? _lbAgo(new Date(p.updated_at)) : '';
       const shM  = p.shiny_species_monthly ?? 0;
@@ -1092,7 +1112,7 @@ async function _loadLeaderboardTable() {
         <span style="text-align:center">${medal}</span>
         ${sprite}
         <div style="min-width:0">
-          ${isMe ? `<div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">${_esc(p.gang_name)} <span style="font-size:7px;opacity:.7">◄ toi</span></div>` : nameTag}
+          ${isMe ? `<div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">${_esc(p.gang_name)} <span style="font-size:7px;opacity:.7">◄ ${_t('toi', 'you')}</span></div>` : nameTag}
           <div style="font-size:8px;color:var(--text-dim);margin-top:1px">${_esc(p.boss_name || '')}${ago ? ` · ${ago}` : ''}</div>
         </div>
         <div style="text-align:right;flex-shrink:0">
@@ -1105,10 +1125,10 @@ async function _loadLeaderboardTable() {
 
 function _lbAgo(date) {
   const ms = Date.now() - date.getTime();
-  if (ms < 60_000)    return "à l'instant";
-  if (ms < 3600_000)  return `il y a ${Math.round(ms/60_000)}min`;
-  if (ms < 86400_000) return `il y a ${Math.round(ms/3600_000)}h`;
-  return `il y a ${Math.round(ms/86400_000)}j`;
+  if (ms < 60_000)    return _t("à l'instant", 'just now');
+  if (ms < 3600_000)  return _t(`il y a ${Math.round(ms/60_000)}min`, `${Math.round(ms/60_000)}min ago`);
+  if (ms < 86400_000) return _t(`il y a ${Math.round(ms/3600_000)}h`, `${Math.round(ms/3600_000)}h ago`);
+  return _t(`il y a ${Math.round(ms/86400_000)}j`, `${Math.round(ms/86400_000)}d ago`);
 }
 
 // ── Compte Tab UI ─────────────────────────────────────────────────
@@ -1119,21 +1139,21 @@ async function renderCompteTab() {
   if (!supaConfigured()) {
     tab.innerHTML = `
       <div style="padding:40px;text-align:center;color:var(--text-dim)">
-        <div style="font-family:var(--font-pixel);font-size:12px;color:var(--gold);margin-bottom:20px">☁ COMPTE CLOUD</div>
-        <div style="font-size:11px;margin-bottom:12px">Supabase non configuré.</div>
+        <div style="font-family:var(--font-pixel);font-size:12px;color:var(--gold);margin-bottom:20px">☁ ${_t('COMPTE CLOUD', 'CLOUD ACCOUNT')}</div>
+        <div style="font-size:11px;margin-bottom:12px">${_t('Supabase non configuré.', 'Supabase is not configured.')}</div>
         <div style="font-size:10px;line-height:1.8">
-          1. Crée <code style="color:var(--gold)">config.js</code> à la racine du repo<br>
-          2. Remplis <code>SUPABASE_URL</code> et <code>SUPABASE_ANON_KEY</code><br>
-          3. Suis le guide SQL dans <code>docs/supabase-setup.md</code>
+          ${_t('1. Crée', '1. Create')} <code style="color:var(--gold)">config.js</code> ${_t('à la racine du repo', 'at the repository root')}<br>
+          ${_t('2. Remplis', '2. Fill in')} <code>SUPABASE_URL</code> ${_t('et', 'and')} <code>SUPABASE_ANON_KEY</code><br>
+          ${_t('3. Suis le guide SQL dans', '3. Follow the SQL guide in')} <code>docs/supabase-setup.md</code>
         </div>
       </div>`;
   } else if (!supaSession) {
     // ── Formulaire de connexion ──────────────────────────────────
     tab.innerHTML = `
       <div style="max-width:380px;margin:48px auto;padding:28px;background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius)">
-        <div style="font-family:var(--font-pixel);font-size:12px;color:var(--gold);margin-bottom:8px;text-align:center">☁ COMPTE CLOUD</div>
+        <div style="font-family:var(--font-pixel);font-size:12px;color:var(--gold);margin-bottom:8px;text-align:center">☁ ${_t('COMPTE CLOUD', 'CLOUD ACCOUNT')}</div>
         <div style="font-size:9px;color:var(--text-dim);text-align:center;margin-bottom:24px">
-          Connecte-toi pour activer la sauvegarde cloud et le classement.
+          ${_t('Connecte-toi pour activer la sauvegarde cloud et le classement.', 'Sign in to enable cloud saves and the leaderboard.')}
         </div>
         <div id="supaMsg" style="font-size:10px;min-height:18px;text-align:center;margin-bottom:12px"></div>
         <div style="margin-bottom:12px">
@@ -1141,12 +1161,12 @@ async function renderCompteTab() {
           <input id="supaEmail" type="email" placeholder="joueur@exemple.com" style="width:100%;padding:9px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:11px;outline:none">
         </div>
         <div style="margin-bottom:24px">
-          <label style="font-size:9px;display:block;margin-bottom:4px;color:var(--text-dim);letter-spacing:.05em">MOT DE PASSE</label>
+          <label style="font-size:9px;display:block;margin-bottom:4px;color:var(--text-dim);letter-spacing:.05em">${_t('MOT DE PASSE', 'PASSWORD')}</label>
           <input id="supaPassword" type="password" placeholder="••••••••" style="width:100%;padding:9px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:11px;outline:none">
         </div>
         <div style="display:flex;gap:8px">
-          <button id="btnSupaLogin"    style="flex:1;padding:11px;background:var(--red);border:none;border-radius:var(--radius-sm);color:#fff;font-family:var(--font-pixel);font-size:9px;cursor:pointer;letter-spacing:.04em">CONNEXION</button>
-          <button id="btnSupaRegister" style="flex:1;padding:11px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text);font-family:var(--font-pixel);font-size:9px;cursor:pointer;letter-spacing:.04em">CRÉER COMPTE</button>
+          <button id="btnSupaLogin"    style="flex:1;padding:11px;background:var(--red);border:none;border-radius:var(--radius-sm);color:#fff;font-family:var(--font-pixel);font-size:9px;cursor:pointer;letter-spacing:.04em">${_t('CONNEXION', 'SIGN IN')}</button>
+          <button id="btnSupaRegister" style="flex:1;padding:11px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text);font-family:var(--font-pixel);font-size:9px;cursor:pointer;letter-spacing:.04em">${_t('CRÉER COMPTE', 'CREATE ACCOUNT')}</button>
         </div>
       </div>`;
 
@@ -1159,8 +1179,8 @@ async function renderCompteTab() {
     tab.querySelector('#btnSupaLogin')?.addEventListener('click', async () => {
       const email    = tab.querySelector('#supaEmail')?.value.trim();
       const password = tab.querySelector('#supaPassword')?.value;
-      if (!email || !password) { setMsg('Remplis tous les champs.', 'var(--red)'); return; }
-      setMsg('Connexion…', 'var(--gold)');
+      if (!email || !password) { setMsg(_t('Remplis tous les champs.', 'Fill in all fields.'), 'var(--red)'); return; }
+      setMsg(_t('Connexion…', 'Signing in…'), 'var(--gold)');
       const { error } = await supaSignIn(email, password);
       if (error) setMsg(error, 'var(--red)');
     });
@@ -1168,26 +1188,26 @@ async function renderCompteTab() {
     tab.querySelector('#btnSupaRegister')?.addEventListener('click', async () => {
       const email    = tab.querySelector('#supaEmail')?.value.trim();
       const password = tab.querySelector('#supaPassword')?.value;
-      if (!email || !password) { setMsg('Remplis tous les champs.', 'var(--red)'); return; }
-      if (password.length < 6) { setMsg('Mot de passe trop court (6 caractères min).', 'var(--red)'); return; }
-      setMsg('Création du compte…', 'var(--gold)');
+      if (!email || !password) { setMsg(_t('Remplis tous les champs.', 'Fill in all fields.'), 'var(--red)'); return; }
+      if (password.length < 6) { setMsg(_t('Mot de passe trop court (6 caractères min).', 'Password too short (6 characters minimum).'), 'var(--red)'); return; }
+      setMsg(_t('Création du compte…', 'Creating account…'), 'var(--gold)');
       const { error } = await supaSignUp(email, password);
       if (error) setMsg(error, 'var(--red)');
-      else setMsg('Compte créé ! Vérifie ton email pour confirmer, puis connecte-toi.', 'var(--green)');
+      else setMsg(_t('Compte créé ! Vérifie ton email pour confirmer, puis connecte-toi.', 'Account created! Check your email to confirm, then sign in.'), 'var(--green)');
     });
 
   } else {
     // ── Interface connectée ──────────────────────────────────────
     const user     = supaSession.user;
     const syncAgo  = supaLastSync
-      ? `il y a ${Math.round((Date.now() - supaLastSync) / 1000)}s`
-      : 'jamais';
+      ? _t(`il y a ${Math.round((Date.now() - supaLastSync) / 1000)}s`, `${Math.round((Date.now() - supaLastSync) / 1000)}s ago`)
+      : _t('jamais', 'never');
     const syncColor = supaLastSync ? 'var(--green)' : '#ff9900';
-    const syncLabel = supaSyncing ? '⟳ Synchronisation…' : supaLastSync ? `✅ Syncé ${syncAgo}` : '⚠ Non encore syncé';
+    const syncLabel = supaSyncing ? _t('⟳ Synchronisation…', '⟳ Syncing…') : supaLastSync ? _t(`✅ Syncé ${syncAgo}`, `✅ Synced ${syncAgo}`) : _t('⚠ Non encore syncé', '⚠ Not synced yet');
 
     tab.innerHTML = `
       <div style="padding:16px;max-width:760px">
-        <div style="font-family:var(--font-pixel);font-size:12px;color:var(--gold);margin-bottom:16px">☁ COMPTE CLOUD</div>
+        <div style="font-family:var(--font-pixel);font-size:12px;color:var(--gold);margin-bottom:16px">☁ ${_t('COMPTE CLOUD', 'CLOUD ACCOUNT')}</div>
 
         <!-- Carte joueur -->
         <div style="background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
@@ -1197,21 +1217,21 @@ async function renderCompteTab() {
           <div style="flex:1;min-width:160px">
             <div style="font-family:var(--font-pixel);font-size:11px;margin-bottom:6px">${_esc(state.gang.name)}</div>
             <div style="font-size:10px;color:var(--text-dim);margin-bottom:4px">${user.email}</div>
-            <div style="font-size:10px">⭐ <b style="color:var(--gold)">${state.gang.reputation || 0}</b> réputation</div>
+            <div style="font-size:10px">⭐ <b style="color:var(--gold)">${state.gang.reputation || 0}</b> ${_t('réputation', 'reputation')}</div>
           </div>
           <div style="display:flex;flex-direction:column;gap:6px;min-width:160px">
             <div style="font-size:9px;color:${syncColor};text-align:right;margin-bottom:2px">${syncLabel}</div>
-            <button id="btnSupaForceSave"  style="padding:7px 12px;background:var(--bg);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--green);font-size:9px;cursor:pointer;letter-spacing:.04em">↑ Sauvegarder maintenant</button>
-            <button id="btnSupaLoadCloud"  style="padding:7px 12px;background:var(--bg);border:1px solid var(--blue);border-radius:var(--radius-sm);color:var(--blue);font-size:9px;cursor:pointer;letter-spacing:.04em">↓ Charger depuis le cloud</button>
-            <button id="btnSupaLogout"     style="padding:7px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);font-size:9px;cursor:pointer">Déconnexion</button>
+            <button id="btnSupaForceSave"  style="padding:7px 12px;background:var(--bg);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--green);font-size:9px;cursor:pointer;letter-spacing:.04em">↑ ${_t('Sauvegarder maintenant', 'Save now')}</button>
+            <button id="btnSupaLoadCloud"  style="padding:7px 12px;background:var(--bg);border:1px solid var(--blue);border-radius:var(--radius-sm);color:var(--blue);font-size:9px;cursor:pointer;letter-spacing:.04em">↓ ${_t('Charger depuis le cloud', 'Load from cloud')}</button>
+            <button id="btnSupaLogout"     style="padding:7px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);font-size:9px;cursor:pointer">${_t('Déconnexion', 'Sign out')}</button>
           </div>
         </div>
 
         <!-- Historique des snapshots -->
         <div style="background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:16px">
-          <div style="font-family:var(--font-pixel);font-size:10px;color:var(--blue);margin-bottom:12px">📸 HISTORIQUE CLOUD <span style="font-size:7px;opacity:.6">(toutes les 6h · 2 max)</span></div>
+          <div style="font-family:var(--font-pixel);font-size:10px;color:var(--blue);margin-bottom:12px">📸 ${_t('HISTORIQUE CLOUD', 'CLOUD HISTORY')} <span style="font-size:7px;opacity:.6">${_t('(toutes les 6h · 2 max)', '(every 6h · 2 max)')}</span></div>
           <div id="supaSnapshots" style="min-height:40px">
-            <div style="color:var(--text-dim);font-size:10px;padding:4px">Chargement…</div>
+            <div style="color:var(--text-dim);font-size:10px;padding:4px">${_t('Chargement…', 'Loading…')}</div>
           </div>
         </div>
 
@@ -1224,21 +1244,21 @@ async function renderCompteTab() {
         <div style="background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:16px">
           <div style="font-family:var(--font-pixel);font-size:9px;color:var(--blue);margin-bottom:8px">🔗 PROFIL PUBLIC / API</div>
           <div style="font-size:9px;color:var(--text-dim);margin-bottom:10px;line-height:1.6">
-            Rends ta fiche gang publique pour l'intégrer sur d'autres sites via l'API.<br>
-            <a href="https://pokegang.sterenna.fr/docs/api.html" target="_blank" rel="noopener" style="color:var(--blue)">→ Documentation API</a>
+            ${_t("Rends ta fiche gang publique pour l'intégrer sur d'autres sites via l'API.", 'Make your gang profile public to embed it on other sites through the API.')}<br>
+            <a href="https://pokegang.sterenna.fr/docs/api.html" target="_blank" rel="noopener" style="color:var(--blue)">→ ${_t('Documentation API', 'API documentation')}</a>
           </div>
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
             <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:9px;color:var(--text)">
               <input type="checkbox" id="chkPublicProfile" ${isPublic ? 'checked' : ''} style="accent-color:var(--blue);width:16px;height:16px">
-              Profil public activé
+              ${_t('Profil public activé', 'Public profile enabled')}
             </label>
             ${isPublic && apiUrl ? `
             <div style="flex:1;min-width:200px">
               <input id="apiUrlDisplay" type="text" readonly value="${apiUrl}"
                 style="width:100%;padding:5px 8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:8px;color:var(--text-dim);cursor:pointer"
-                onclick="this.select()" title="Cliquer pour sélectionner">
+                onclick="this.select()" title="${_t('Cliquer pour sélectionner', 'Click to select')}">
             </div>
-            <button id="btnCopyApiUrl" style="font-size:8px;padding:5px 10px;background:var(--bg);border:1px solid var(--blue);border-radius:var(--radius-sm);color:var(--blue);cursor:pointer;white-space:nowrap">📋 Copier</button>
+            <button id="btnCopyApiUrl" style="font-size:8px;padding:5px 10px;background:var(--bg);border:1px solid var(--blue);border-radius:var(--radius-sm);color:var(--blue);cursor:pointer;white-space:nowrap">📋 ${_t('Copier', 'Copy')}</button>
             ` : ''}
           </div>
         </div>`;
@@ -1247,10 +1267,10 @@ async function renderCompteTab() {
         <!-- Lien classement -->
         <div style="background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);padding:14px;display:flex;align-items:center;gap:12px">
           <div style="flex:1">
-            <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold);margin-bottom:4px">🏆 CLASSEMENT MONDIAL</div>
-            <div style="font-size:9px;color:var(--text-dim)">Visible depuis l'onglet dédié — disponible pour tous, même sans compte.</div>
+            <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold);margin-bottom:4px">🏆 ${_t('CLASSEMENT MONDIAL', 'WORLD LEADERBOARD')}</div>
+            <div style="font-size:9px;color:var(--text-dim)">${_t("Visible depuis l'onglet dédié — disponible pour tous, même sans compte.", 'Available from the dedicated tab — accessible to everyone, even without an account.')}</div>
           </div>
-          <button id="btnGoLeaderboard" style="font-family:var(--font-pixel);font-size:8px;padding:8px 14px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer;white-space:nowrap">Voir 🏆</button>
+          <button id="btnGoLeaderboard" style="font-family:var(--font-pixel);font-size:8px;padding:8px 14px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer;white-space:nowrap">${_t('Voir', 'View')} 🏆</button>
         </div>
       </div>`;
 
@@ -1267,7 +1287,7 @@ async function renderCompteTab() {
       await supaForceCloudLoad();
     });
     tab.querySelector('#btnSupaLogout')?.addEventListener('click', () => {
-      showConfirm('Se déconnecter du compte cloud ?', async () => { await supaSignOut(); }, null, { danger: true, confirmLabel: 'Déconnecter', cancelLabel: 'Annuler' });
+      showConfirm(_t('Se déconnecter du compte cloud ?', 'Sign out of the cloud account?'), async () => { await supaSignOut(); }, null, { danger: true, confirmLabel: _t('Déconnecter', 'Sign out'), cancelLabel: _t('Annuler', 'Cancel') });
     });
     tab.querySelector('#btnGoLeaderboard')?.addEventListener('click', () => switchTab('tabLeaderboard'));
 
@@ -1289,7 +1309,7 @@ async function renderCompteTab() {
       if (url) {
         navigator.clipboard.writeText(url).then(() => {
           const btn = tab.querySelector('#btnCopyApiUrl');
-          if (btn) { btn.textContent = '✅ Copié !'; setTimeout(() => { btn.textContent = '📋 Copier'; }, 2000); }
+          if (btn) { btn.textContent = _t('✅ Copié !', '✅ Copied!'); setTimeout(() => { btn.textContent = _t('📋 Copier', '📋 Copy'); }, 2000); }
         });
       }
     });
@@ -1299,7 +1319,7 @@ async function renderCompteTab() {
       const el = document.getElementById('supaSnapshots');
       if (!el) return;
       if (!snapshots.length) {
-        el.innerHTML = `<div style="color:var(--text-dim);font-size:9px;font-style:italic">Aucun snapshot disponible — le premier sera créé dans 5 minutes.</div>`;
+        el.innerHTML = `<div style="color:var(--text-dim);font-size:9px;font-style:italic">${_t('Aucun snapshot disponible — le premier sera créé dans 5 minutes.', 'No snapshot available — the first will be created in 5 minutes.')}</div>`;
         return;
       }
       const now = Date.now();
@@ -1307,16 +1327,16 @@ async function renderCompteTab() {
         const ts      = new Date(s.saved_at);
         const diffMs  = now - ts.getTime();
         const diffMin = Math.round(diffMs / 60000);
-        const ago     = diffMin < 1 ? 'à l\'instant'
-                      : diffMin < 60 ? `il y a ${diffMin} min`
-                      : `il y a ${Math.round(diffMin / 60)}h`;
-        const label   = ts.toLocaleString('fr-FR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+        const ago     = diffMin < 1 ? _t("à l'instant", 'just now')
+                      : diffMin < 60 ? _t(`il y a ${diffMin} min`, `${diffMin} min ago`)
+                      : _t(`il y a ${Math.round(diffMin / 60)}h`, `${Math.round(diffMin / 60)}h ago`);
+        const label   = ts.toLocaleString(state.lang === 'en' ? 'en-US' : 'fr-FR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
         return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border)">
           <div style="flex:1;min-width:0">
             <div style="font-size:9px;color:var(--text)">${_esc(s.gang_name)}</div>
-            <div style="font-size:8px;color:var(--text-dim)">⭐ ${(s.rep||0).toLocaleString('fr-FR')} rép · ${label} <span style="opacity:.6">(${ago})</span></div>
+            <div style="font-size:8px;color:var(--text-dim)">⭐ ${(s.rep||0).toLocaleString(state.lang === 'en' ? 'en-US' : 'fr-FR')} ${_t('rép', 'rep')} · ${label} <span style="opacity:.6">(${ago})</span></div>
           </div>
-          <button data-snapshot-id="${s.id}" style="flex-shrink:0;font-family:var(--font-pixel);font-size:7px;padding:4px 8px;background:var(--bg);border:1px solid var(--blue);border-radius:var(--radius-sm);color:var(--blue);cursor:pointer;white-space:nowrap">⏪ Restaurer</button>
+          <button data-snapshot-id="${s.id}" style="flex-shrink:0;font-family:var(--font-pixel);font-size:7px;padding:4px 8px;background:var(--bg);border:1px solid var(--blue);border-radius:var(--radius-sm);color:var(--blue);cursor:pointer;white-space:nowrap">⏪ ${_t('Restaurer', 'Restore')}</button>
         </div>`;
       }).join('');
 
@@ -1343,8 +1363,8 @@ async function _appendNitroSection(tab) {
   wrapper.style.cssText = 'padding:0 16px 16px;max-width:760px';
   wrapper.innerHTML = `
     <div style="background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);padding:16px">
-      <div style="font-family:var(--font-pixel);font-size:10px;color:#7ec8e3;margin-bottom:10px">🌐 COMPTE NITRO / GWEN HA STAR</div>
-      <div id="nitroStatus" style="font-size:9px;color:var(--text-dim)">Vérification…</div>
+      <div style="font-family:var(--font-pixel);font-size:10px;color:#7ec8e3;margin-bottom:10px">🌐 ${_t('COMPTE NITRO / GWEN HA STAR', 'NITRO / GWEN HA STAR ACCOUNT')}</div>
+      <div id="nitroStatus" style="font-size:9px;color:var(--text-dim)">${_t('Vérification…', 'Checking…')}</div>
     </div>`;
   tab.appendChild(wrapper);
 
@@ -1355,10 +1375,9 @@ async function _appendNitroSection(tab) {
 
   if (!nitro.available) {
     statusEl.innerHTML = `
-      <div style="color:var(--text-dim)">Intégration Nitro indisponible pour le moment.</div>
+      <div style="color:var(--text-dim)">${_t('Intégration Nitro indisponible pour le moment.', 'Nitro integration is currently unavailable.')}</div>
       <div style="font-size:8px;color:var(--text-dim);margin-top:4px;opacity:.7">
-        Le module partagé n'a pas pu être chargé (CORS, réseau ou maintenance).
-        Le jeu continue localement.
+        ${_t("Le module partagé n'a pas pu être chargé (CORS, réseau ou maintenance). Le jeu continue localement.", 'The shared module could not be loaded (CORS, network, or maintenance). The game continues locally.')}
       </div>`;
     return;
   }
@@ -1368,7 +1387,7 @@ async function _appendNitroSection(tab) {
     statusEl.innerHTML = `
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <div style="flex:1;min-width:160px">
-          <div style="color:#7ec8e3;margin-bottom:4px">✅ Identité Nitro détectée</div>
+          <div style="color:#7ec8e3;margin-bottom:4px">✅ ${_t('Identité Nitro détectée', 'Nitro identity detected')}</div>
           <div style="margin-bottom:2px"><b style="color:var(--text)">${_escHtml(name)}</b></div>
           <div style="color:var(--text-dim);font-size:8px">${_escHtml(nitro.user.email ?? '')}</div>
           <div style="color:var(--text-dim);font-size:7px;font-family:var(--font-mono,monospace);margin-top:4px;opacity:.55">id · ${_escHtml(nitro.user.id ?? '')}</div>
@@ -1376,25 +1395,28 @@ async function _appendNitroSection(tab) {
         <div style="display:flex;flex-direction:column;gap:6px">
           <a href="https://nitro.sterenna.fr/star/" target="_blank" rel="noopener"
              style="padding:7px 12px;background:var(--bg);border:1px solid #7ec8e3;border-radius:var(--radius-sm);color:#7ec8e3;font-size:9px;text-decoration:none;text-align:center;white-space:nowrap">
-            Voir mon espace ★ Star
+            ${_t('Voir mon espace ★ Star', 'View my ★ Star space')}
           </a>
         </div>
       </div>
       <div style="font-size:7px;color:var(--text-dim);margin-top:10px;opacity:.65;line-height:1.5">
-        PokéGang est sur un sous-domaine séparé. La liaison complète du compte
-        (sauvegardes cloud Nitro, récompenses cross-app) sera ajoutée progressivement.
+        ${_t(
+          'PokéGang est sur un sous-domaine séparé. La liaison complète du compte (sauvegardes cloud Nitro, récompenses cross-app) sera ajoutée progressivement.',
+          'PokéGang is hosted on a separate subdomain. Full account linking (Nitro cloud saves and cross-app rewards) will be added progressively.',
+        )}
       </div>`;
   } else {
     statusEl.innerHTML = `
-      <div style="color:var(--text-dim);margin-bottom:8px">Aucune session Nitro détectée.</div>
+      <div style="color:var(--text-dim);margin-bottom:8px">${_t('Aucune session Nitro détectée.', 'No Nitro session detected.')}</div>
       <div style="font-size:8px;color:var(--text-dim);margin-bottom:10px;line-height:1.6;opacity:.8">
-        PokéGang est hébergé sur un sous-domaine différent de Nitro.<br>
-        Même avec CORS, la session ne se partage pas automatiquement.
-        Connecte-toi à Nitro pour lier ton profil plus tard.
+        ${_t(
+          "PokéGang est hébergé sur un sous-domaine différent de Nitro.<br>Même avec CORS, la session ne se partage pas automatiquement. Connecte-toi à Nitro pour lier ton profil plus tard.",
+          'PokéGang is hosted on a different subdomain from Nitro.<br>Even with CORS, the session is not shared automatically. Sign in to Nitro to link your profile later.',
+        )}
       </div>
       <button id="btnNitroLogin"
         style="padding:8px 14px;background:var(--bg);border:1px solid #7ec8e3;border-radius:var(--radius-sm);color:#7ec8e3;font-family:var(--font-pixel);font-size:8px;cursor:pointer;letter-spacing:.04em">
-        Se connecter sur Nitro
+        ${_t('Se connecter sur Nitro', 'Sign in to Nitro')}
       </button>`;
     wrapper.querySelector('#btnNitroLogin')?.addEventListener('click', () => {
       redirectToNitroLogin(window.location.href);

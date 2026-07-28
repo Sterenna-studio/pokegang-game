@@ -39,6 +39,8 @@ export function configureGangCompetition(ctx = {}) {
 }
 
 function getState()           { return _ctx.getState?.() ?? globalThis.state ?? {}; }
+function _t(fr, en)           { return getState()?.lang === 'en' ? en : fr; }
+function _locale()            { return getState()?.lang === 'en' ? 'en-US' : 'fr-FR'; }
 function saveState()          { return _ctx.saveState?.(); }
 function notify(msg, type, category) { return _ctx.notify?.(msg, type, category) ?? _notify(msg, type, category); }
 function slimPokemon(p)       { return _ctx.slimPokemon?.(p) ?? p; }
@@ -383,7 +385,7 @@ export function buildDefensePayload() {
 export async function publishDefense() {
   const db      = getSupabaseClient();
   const session = getSupaSession();
-  if (!db || !session) { notify('Connexion Supabase requise pour publier.', 'error'); return false; }
+  if (!db || !session) { notify(_t('Connexion Supabase requise pour publier.', 'Supabase connection required to publish.'), 'error'); return false; }
 
   const state   = getState();
   const comp    = state.gang.competition;
@@ -396,13 +398,16 @@ export async function publishDefense() {
       ...payload,
       updated_at: new Date().toISOString(),
     });
-    if (error) { notify('Erreur publication : ' + error.message, 'error'); return false; }
+    if (error) { notify(_t('Erreur de publication : ', 'Publish error: ') + error.message, 'error'); return false; }
     comp.defensePublished = true;
     saveState();
-    notify(hasAny ? 'Défense publiée !' : 'Base publiée sans défense.', hasAny ? 'success' : 'gold');
+    notify(
+      hasAny ? _t('Défense publiée !', 'Defense published!') : _t('Base publiée sans défense.', 'Base published without a defense.'),
+      hasAny ? 'success' : 'gold',
+    );
     return true;
   } catch (e) {
-    notify('Erreur réseau lors de la publication.', 'error');
+    notify(_t('Erreur réseau lors de la publication.', 'Network error while publishing.'), 'error');
     return false;
   }
 }
@@ -412,7 +417,7 @@ export async function purgeLegacyDefenseData() {
   const state = getState();
   const comp = state.gang?.competition;
   if (!comp) {
-    notify('Module compétition introuvable.', 'error');
+    notify(_t('Module compétition introuvable.', 'Competition module not found.'), 'error');
     return { ok: false, localPurged: false, remotePurged: false };
   }
 
@@ -422,7 +427,10 @@ export async function purgeLegacyDefenseData() {
   const session = getSupaSession();
   if (!db || !session) {
     saveState();
-    notify('Défense locale purgée. Connexion Supabase requise pour purger la défense en ligne.', 'gold');
+    notify(_t(
+      'Défense locale purgée. Connexion Supabase requise pour purger la défense en ligne.',
+      'Local defense purged. Supabase connection required to purge the online defense.',
+    ), 'gold');
     return { ok: true, localPurged: true, remotePurged: false };
   }
 
@@ -433,17 +441,20 @@ export async function purgeLegacyDefenseData() {
       .eq('user_id', session.user.id);
     if (error) {
       saveState();
-      notify('Défense locale purgée, mais purge en ligne impossible : ' + error.message, 'error');
+      notify(_t('Défense locale purgée, mais purge en ligne impossible : ', 'Local defense purged, but online purge failed: ') + error.message, 'error');
       return { ok: false, localPurged: true, remotePurged: false, error };
     }
   } catch (error) {
     saveState();
-    notify('Défense locale purgée, mais erreur réseau pendant la purge en ligne.', 'error');
+    notify(_t(
+      'Défense locale purgée, mais erreur réseau pendant la purge en ligne.',
+      'Local defense purged, but a network error occurred during the online purge.',
+    ), 'error');
     return { ok: false, localPurged: true, remotePurged: false, error };
   }
 
   saveState();
-  notify('Ancienne défense purgée. Republie une défense neuve.', 'success');
+  notify(_t('Ancienne défense purgée. Republie une défense neuve.', 'Old defense purged. Publish a fresh defense.'), 'success');
   return { ok: true, localPurged: true, remotePurged: true };
 }
 
@@ -472,12 +483,12 @@ export async function loadGangList() {
 export async function executeRaid(defData, agentIds = null) {
   const db      = getSupabaseClient();
   const session = getSupaSession();
-  if (!db || !session) { notify('Connexion requise pour raider.', 'error'); return null; }
+  if (!db || !session) { notify(_t('Connexion requise pour raider.', 'Connection required to raid.'), 'error'); return null; }
 
   // Garde anti self-raid : impossible de se raider soi-même pour minter de l'or.
   // (loadGangList exclut déjà soi-même côté UI, ceci est le filet défensif.)
   if (defData?.user_id && defData.user_id === session.user.id) {
-    notify('Impossible de raider son propre gang.', 'error');
+    notify(_t('Impossible de raider son propre gang.', 'You cannot raid your own gang.'), 'error');
     return null;
   }
 
@@ -488,13 +499,16 @@ export async function executeRaid(defData, agentIds = null) {
   const lastRaid = comp.raidCooldowns?.[defData.user_id] ?? 0;
   if (Date.now() - lastRaid < RAID_COOLDOWN_MS) {
     const remaining = Math.ceil((RAID_COOLDOWN_MS - (Date.now() - lastRaid)) / 60_000);
-    notify(`Cooldown actif — encore ${remaining} min avant de raider ce gang.`, 'error');
+    notify(_t(
+      `Cooldown actif — encore ${remaining} min avant de raider ce gang.`,
+      `Cooldown active — ${remaining} min before you can raid this gang.`,
+    ), 'error');
     return null;
   }
 
   // Vérifier raids en attente
   if ((comp.pendingRaids ?? []).length > 0) {
-    notify('Consultez d\'abord les raids subis avant d\'attaquer.', 'error');
+    notify(_t("Consulte d'abord les raids subis avant d'attaquer.", 'Review incoming raids before attacking.'), 'error');
     return null;
   }
 
@@ -520,9 +534,9 @@ export async function executeRaid(defData, agentIds = null) {
       money_penalty:     moneyPenalty,
       defender_snap_rep: snapRep,
     });
-    if (error) { notify('Erreur enregistrement raid : ' + error.message, 'error'); return null; }
+    if (error) { notify(_t("Erreur d'enregistrement du raid : ", 'Raid recording error: ') + error.message, 'error'); return null; }
   } catch {
-    notify('Erreur réseau lors du raid.', 'error');
+    notify(_t('Erreur réseau lors du raid.', 'Network error during the raid.'), 'error');
     return null;
   }
 
@@ -536,13 +550,19 @@ export async function executeRaid(defData, agentIds = null) {
     EventBus.emit(EVENTS.MONEY_CHANGED, { delta: goldWon, newTotal: state.gang.money });
     comp.wins.attack      = (comp.wins.attack ?? 0) + 1;
     const bonus = defaultDefense ? ` ×${RAID_NO_DEFENSE_PENALTY_MULT}` : '';
-    notify(`Raid réussi${bonus} ! +${goldWon.toLocaleString('fr-FR')} ₽`, 'success', 'combat');
+    notify(_t(
+      `Raid réussi${bonus} ! +${goldWon.toLocaleString(_locale())} ₽`,
+      `Raid successful${bonus}! +${goldWon.toLocaleString(_locale())} ₽`,
+    ), 'success', 'combat');
   } else {
     state.gang.money  = Math.max(0, (state.gang.money ?? 0) - moneyPenalty);
     EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -moneyPenalty, newTotal: state.gang.money });
     comp.losses.attack = (comp.losses.attack ?? 0) + 1;
-    const reason = noDefense ? 'base vide' : 'défense trop forte';
-    notify(`Raid échoué — ${reason}. -${moneyPenalty.toLocaleString('fr-FR')} ₽`, 'error', 'combat');
+    const reason = noDefense ? _t('base vide', 'empty base') : _t('défense trop forte', 'defense too strong');
+    notify(_t(
+      `Raid échoué — ${reason}. -${moneyPenalty.toLocaleString(_locale())} ₽`,
+      `Raid failed — ${reason}. -${moneyPenalty.toLocaleString(_locale())} ₽`,
+    ), 'error', 'combat');
   }
 
   saveState();
@@ -586,9 +606,9 @@ export async function acknowledgeRaids() {
   const ids = raids.map(r => r.id);
   try {
     const { error } = await db.from('pokegang_gang_raids').update({ seen_by_defender: true }).in('id', ids);
-    if (error) { notify('Erreur acquittement raids : ' + error.message, 'error'); return; }
+    if (error) { notify(_t("Erreur d'acquittement des raids : ", 'Raid acknowledgement error: ') + error.message, 'error'); return; }
   } catch {
-    notify('Erreur réseau lors de l\'acquittement.', 'error');
+    notify(_t("Erreur réseau lors de l'acquittement.", 'Network error while acknowledging raids.'), 'error');
     return;
   }
 
@@ -614,9 +634,9 @@ export async function acknowledgeRaids() {
   saveState();
 
   const parts = [];
-  if (totalGoldGain > 0) parts.push(`+${totalGoldGain.toLocaleString('fr-FR')} ₽`);
-  if (parts.length) notify(`Raids acquittés : ${parts.join('  ')}`, 'success', 'combat');
-  else notify('Raids acquittés.', 'success', 'combat');
+  if (totalGoldGain > 0) parts.push(`+${totalGoldGain.toLocaleString(_locale())} ₽`);
+  if (parts.length) notify(_t(`Raids acquittés : ${parts.join('  ')}`, `Raids acknowledged: ${parts.join('  ')}`), 'success', 'combat');
+  else notify(_t('Raids acquittés.', 'Raids acknowledged.'), 'success', 'combat');
 }
 
 // ── Cooldown restant pour une cible (ms) ─────────────────────────

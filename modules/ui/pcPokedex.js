@@ -19,6 +19,7 @@ const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg
 const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
 const _topBar = ()               => EventBus.emit(EVENTS.UI_TOPBAR_UPDATE);
 const _save   = ()               => globalThis.saveState?.();
+const _t      = (...a)           => globalThis.t?.(...a) ?? a[0];
 
 
 let pcPokedexContext = {};
@@ -381,12 +382,12 @@ const FEED_MAX = 100;
 let feedFilter = 'all';
 
 const FEED_CAT = {
-  combat:  { icon: '⚔', label: 'Combat' },
-  capture: { icon: '🔴', label: 'Capture' },
-  agent:   { icon: '🕵', label: 'Agent' },
-  loot:    { icon: '💰', label: 'Butin' },
-  zone:    { icon: '🗺', label: 'Zone' },
-  system:  { icon: '⚙', label: 'Système' },
+  combat:  { icon: '⚔', labelKey: 'pc_feed_combat' },
+  capture: { icon: '🔴', labelKey: 'pc_feed_capture' },
+  agent:   { icon: '🕵', labelKey: 'pc_feed_agent' },
+  loot:    { icon: '💰', labelKey: 'pc_feed_loot' },
+  zone:    { icon: '🗺', labelKey: 'pc_feed_zone' },
+  system:  { icon: '⚙', labelKey: 'pc_feed_system' },
 };
 
 function _exportFeed() {
@@ -408,7 +409,7 @@ function _exportFeed() {
   a.download = `pokegang-logs-${ts}.json`;
   a.click();
   URL.revokeObjectURL(url);
-  _notify('📥 Logs exportés', 'success');
+  _notify(_t('pc_logs_exported'), 'success');
 }
 
 function pushFeedEvent({ category = 'system', title = '', detail = '', win = null, ...extra } = {}) {
@@ -437,12 +438,12 @@ function renderEventsTab() {
     const cats = ['all', ...Object.keys(FEED_CAT)];
     const winFilterHtml = `
       <div class="feed-win-filters" style="display:flex;gap:4px;margin-left:auto">
-        <button class="feed-filter-btn" data-wf="all">Tous</button>
-        <button class="feed-filter-btn" data-wf="win" style="color:var(--green)">✓ Vic.</button>
-        <button class="feed-filter-btn" data-wf="loss" style="color:var(--red)">✗ Déf.</button>
+      <button class="feed-filter-btn" data-wf="all">${_t('pc_feed_all')}</button>
+      <button class="feed-filter-btn" data-wf="win" style="color:var(--green)">✓ ${_t('pc_feed_win_short')}</button>
+      <button class="feed-filter-btn" data-wf="loss" style="color:var(--red)">✗ ${_t('pc_feed_loss_short')}</button>
       </div>`;
     filtersEl.innerHTML = cats.map(c => {
-      const label = c === 'all' ? 'Tout' : (FEED_CAT[c].icon + ' ' + FEED_CAT[c].label);
+      const label = c === 'all' ? _t('pc_feed_all') : (FEED_CAT[c].icon + ' ' + _t(FEED_CAT[c].labelKey));
       return `<button class="feed-filter-btn" data-ff="${c}">${label}</button>`;
     }).join('') + winFilterHtml;
     filtersEl.querySelectorAll('[data-ff]').forEach(btn => {
@@ -465,7 +466,7 @@ function renderEventsTab() {
   if (feedWinFilter === 'loss') filtered = filtered.filter(e => e.win === false);
 
   if (filtered.length === 0) {
-    listEl.innerHTML = `<div style="color:var(--text-dim);text-align:center;padding:24px;font-size:9px">Aucun événement</div>`;
+    listEl.innerHTML = `<div style="color:var(--text-dim);text-align:center;padding:24px;font-size:9px">${_t('pc_feed_no_event')}</div>`;
     return;
   }
 
@@ -480,7 +481,7 @@ function renderEventsTab() {
       const stars = '★'.repeat(e.potential || 0) + '☆'.repeat(5 - (e.potential || 0));
       const shinyGlow   = e.shiny ? 'filter:drop-shadow(0 0 5px var(--gold))' : '';
       const shinyBorder = e.shiny ? 'border:1px solid var(--gold);border-radius:4px;' : '';
-      const levelTag    = e.level ? `Niv.${e.level} ` : '';
+      const levelTag    = e.level ? _t('pc_level_short', { level: e.level }) + ' ' : '';
       captureHtml = `<div class="feed-capture-preview" style="display:flex;align-items:center;gap:8px;margin-top:4px;padding:4px 6px;background:${e.shiny ? 'rgba(255,204,90,.08)' : 'rgba(255,255,255,.04)'};border-radius:6px;${shinyBorder}">
         <img src="${pokeSprite(e.species_en, e.shiny)}" style="width:36px;height:36px;image-rendering:pixelated;${shinyGlow}" alt="${e.species_en}">
         <div style="display:flex;flex-direction:column;gap:1px">
@@ -521,10 +522,10 @@ function addBattleLogEntry(entry) {
   const zoneName = entry.zoneName || '?';
   const result   = entry.win
     ? `+${entry.reward || 0}₽ +${entry.repGain || 0}rep`
-    : 'Défaite';
+    : _t('pc_defeat');
   pushFeedEvent({
     category: 'combat',
-    title: `${entry.win ? 'Victoire' : 'Défaite'} — ${zoneName} ${result}`,
+    title: _t('pc_feed_battle_result', { result: entry.win ? _t('pc_victory') : _t('pc_defeat'), zone: zoneName, detail: result }),
     detail: (entry.lines || []).join(' · '),
     win: !!entry.win,
   });
@@ -560,16 +561,16 @@ function openProtectedSpeciesModal() {
     const count = protected_.filter(s => owned.includes(s)).length;
     return `<div style="background:var(--bg-panel);border:2px solid var(--border);border-radius:var(--radius);padding:20px 22px;max-width:340px;width:92%;display:flex;flex-direction:column;gap:12px;font-family:var(--font-pixel)">
       <div style="display:flex;align-items:center;justify-content:space-between">
-        <div style="font-size:12px;color:var(--text)">🛡 Espèces protégées</div>
+      <div style="font-size:12px;color:var(--text)">🛡 ${_t('pc_protected_species')}</div>
         <div style="font-size:8px;color:var(--text-dim)">${count} / ${owned.length}</div>
       </div>
-      <div style="font-size:8px;color:var(--text-dim);line-height:1.5">Ces espèces ne seront <b>jamais</b> vendues automatiquement (agent, œufs, vente masse).</div>
+    <div style="font-size:8px;color:var(--text-dim);line-height:1.5">${_t('pc_protected_species_hint')}</div>
       <div style="max-height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:2px;padding-right:4px">
-        ${owned.length > 0 ? rows : '<div style="font-size:9px;color:var(--text-dim);text-align:center;padding:20px">Aucun Pokémon dans le PC.</div>'}
+      ${owned.length > 0 ? rows : `<div style="font-size:9px;color:var(--text-dim);text-align:center;padding:20px">${_t('pc_empty')}</div>`}
       </div>
       <div style="display:flex;gap:6px;justify-content:flex-end">
-        <button id="psmClearAll" style="font-size:9px;padding:6px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">Tout retirer</button>
-        <button id="psmClose" style="font-size:9px;padding:6px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);cursor:pointer">Fermer</button>
+      <button id="psmClearAll" style="font-size:9px;padding:6px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">${_t('pc_remove_all')}</button>
+      <button id="psmClose" style="font-size:9px;padding:6px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);cursor:pointer">${_t('pc_close')}</button>
       </div>
     </div>`;
   }
@@ -662,44 +663,44 @@ function openBulkSellModal() {
     ).join('');
 
     return `<div style="background:var(--bg-panel);border:2px solid var(--gold-dim);border-radius:var(--radius);padding:22px 24px;max-width:380px;width:92%;display:flex;flex-direction:column;gap:14px;font-family:var(--font-pixel)">
-      <div style="font-size:12px;color:var(--gold)">💸 Vente en masse</div>
+      <div style="font-size:12px;color:var(--gold)">💸 ${_t('pc_bulk_sell')}</div>
 
       <div>
-        <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">VENDRE LES POTENTIELS</div>
+      <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">${_t('pc_sell_potentials').toUpperCase()}</div>
         <div style="display:flex;gap:10px;flex-wrap:wrap">${potLabels}</div>
       </div>
 
       <div style="display:flex;flex-direction:column;gap:6px">
         <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:9px">
           <input type="checkbox" id="bsmKeepBest" ${keepBest ? 'checked' : ''} style="accent-color:var(--gold)">
-          Garder le meilleur de chaque espèce
+          ${_t('pc_keep_best_species')}
         </label>
         <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:9px">
           <input type="checkbox" id="bsmKeepFav" ${keepFav ? 'checked' : ''} style="accent-color:var(--gold)">
-          Garder les favoris
+          ${_t('pc_keep_favorites')}
         </label>
         <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:9px">
           <input type="checkbox" id="bsmKeepTeam" ${keepTeam ? 'checked' : ''} style="accent-color:var(--gold)">
-          Garder équipes / entraînement / pension
+          ${_t('pc_keep_assignments')}
         </label>
         <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:9px">
           <input type="checkbox" id="bsmKeepShiny" ${keepShiny ? 'checked' : ''} style="accent-color:var(--gold)">
-          ✨ Garder les chromatiques
+          ✨ ${_t('pc_keep_shinies')}
         </label>
         <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:9px">
           <input type="checkbox" id="bsmKeepLegendary" ${keepLegendary ? 'checked' : ''} style="accent-color:var(--gold)">
-          🌟 Garder les légendaires
+          🌟 ${_t('pc_keep_legendaries')}
         </label>
       </div>
 
       <div id="bsmPreview" style="padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);text-align:center">
-        <span style="font-size:11px;color:var(--gold)">${list.length} Pokémon — ${total.toLocaleString()}₽</span>
+        <span style="font-size:11px;color:var(--gold)">${_t('pc_pokemon_total_value', { n: list.length, total: total.toLocaleString() })}</span>
       </div>
 
       <div style="display:flex;gap:8px;justify-content:flex-end">
-        <button id="bsmCancel" style="font-size:9px;padding:8px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">Annuler</button>
+      <button id="bsmCancel" style="font-size:9px;padding:8px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">${_t('pc_cancel')}</button>
         <button id="bsmSell" style="font-size:9px;padding:8px 14px;background:var(--red-dark);border:1px solid var(--red);border-radius:var(--radius-sm);color:#fff;cursor:pointer" ${list.length === 0 ? 'disabled style="opacity:.4"' : ''}>
-          Vendre ${list.length}
+          ${_t('pc_sell_count', { n: list.length })}
         </button>
       </div>
     </div>`;
@@ -730,9 +731,9 @@ function openBulkSellModal() {
       const total = list.reduce((s, pk) => s + calculatePrice(pk), 0);
       modal.remove();
       showConfirm(
-        `Vendre <b>${list.length}</b> Pokémon pour <b style="color:var(--gold)">${total.toLocaleString()}₽</b> ?`,
+    _t('pc_bulk_sell_confirm', { n: list.length, total: total.toLocaleString() }),
         () => { sellPokemon(list.map(pk => pk.id)); _pcLastRenderKey = ''; updateTopBar(); renderPCTab(); },
-        null, { confirmLabel: 'Vendre', cancelLabel: 'Annuler', danger: true }
+        null, { confirmLabel: _t('pc_sell'), cancelLabel: _t('pc_cancel'), danger: true }
       );
     });
     modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
@@ -755,9 +756,9 @@ function renderPCTab() {
       switcher.innerHTML = `
         <button class="pc-view-btn" id="pcBtnGrid" data-pcview="grid">[PC]</button>
         <button class="pc-view-btn" id="pcBtnTop" data-pcview="top">[🏆 TOP]</button>
-        <button class="pc-view-btn" id="pcBtnPension" data-pcview="pension">[PENSION]</button>
-        <button class="pc-view-btn" id="pcBtnTraining" data-pcview="training">[FORMATION]</button>
-        <button class="pc-view-btn" id="pcBtnLab" data-pcview="lab">[LABO]</button>`;
+    <button class="pc-view-btn" id="pcBtnPension" data-pcview="pension">[${_t('pc_pension').toUpperCase()}]</button>
+    <button class="pc-view-btn" id="pcBtnTraining" data-pcview="training">[${_t('pc_training').toUpperCase()}]</button>
+    <button class="pc-view-btn" id="pcBtnLab" data-pcview="lab">[${_t('pc_lab').toUpperCase()}]</button>`;
       pcLayout.parentNode.insertBefore(switcher, pcLayout);
       switcher.querySelectorAll('.pc-view-btn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -863,27 +864,27 @@ function renderPCTab() {
 
     pcToolbar.style.cssText = 'display:flex;align-items:center;gap:8px;padding:4px 0 4px 2px;flex-wrap:wrap';
     pcToolbar.innerHTML = `
-      <span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">Grille:</span>
+        <span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">${_t('pc_grid')}:</span>
       <select id="pcColsSel" style="font-size:9px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:3px;padding:2px 4px">
-        <option value="4" ${pcGridCols===4?'selected':''}>4 col</option>
-        <option value="6" ${pcGridCols===6?'selected':''}>6 col</option>
-        <option value="8" ${pcGridCols===8?'selected':''}>8 col</option>
-        <option value="10" ${pcGridCols===10?'selected':''}>10 col</option>
+          <option value="4" ${pcGridCols===4?'selected':''}>${_t('pc_columns_short', { n: 4 })}</option>
+          <option value="6" ${pcGridCols===6?'selected':''}>${_t('pc_columns_short', { n: 6 })}</option>
+          <option value="8" ${pcGridCols===8?'selected':''}>${_t('pc_columns_short', { n: 8 })}</option>
+          <option value="10" ${pcGridCols===10?'selected':''}>${_t('pc_columns_short', { n: 10 })}</option>
       </select>
       <select id="pcRowsSel" style="font-size:9px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:3px;padding:2px 4px">
-        <option value="4" ${pcGridRows===4?'selected':''}>4 lg</option>
-        <option value="6" ${pcGridRows===6?'selected':''}>6 lg</option>
-        <option value="8" ${pcGridRows===8?'selected':''}>8 lg</option>
+          <option value="4" ${pcGridRows===4?'selected':''}>${_t('pc_rows_short', { n: 4 })}</option>
+          <option value="6" ${pcGridRows===6?'selected':''}>${_t('pc_rows_short', { n: 6 })}</option>
+          <option value="8" ${pcGridRows===8?'selected':''}>${_t('pc_rows_short', { n: 8 })}</option>
       </select>
       <label style="display:flex;align-items:center;gap:4px;font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);cursor:pointer;user-select:none">
         <input type="checkbox" id="pcGroupChk" ${pcGroupMode?'checked':''} style="accent-color:var(--gold)">
         Grouper
       </label>
       <div style="flex:1"></div>
-      ${_tbXpEvo.length > 0 ? `<button id="pcBtnEvoXP" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--green,#4caf50);border-radius:var(--radius-sm);color:var(--green,#4caf50);cursor:pointer" title="Évoluer tous les Pokémon prêts (niveau)">⬆ XP (${_tbXpEvo.length})</button>` : ''}
-      ${_tbStoneEvo.length > 0 ? `<button id="pcBtnEvoStone" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid ${_stoneHave > 0 ? 'var(--gold)' : 'var(--border)'};border-radius:var(--radius-sm);color:${_stoneHave > 0 ? 'var(--gold)' : 'var(--text-dim)'};cursor:pointer" title="Évoluer tous les Pokémon via Pierre (💎×${_stoneHave} dispo)">💎 Pierre (${_tbStoneEvo.length})</button>` : ''}
-      ${(() => { const n = (state.settings?.protectedSpecies||[]).length; return `<button id="pcBtnProtected" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid ${n>0?'var(--green)':'var(--border)'};border-radius:var(--radius-sm);color:${n>0?'var(--green)':'var(--text-dim)'};cursor:pointer" title="Espèces protégées des ventes auto">🛡 Protégés${n>0?` (${n})`:''}</button>`; })()}
-      <button id="pcBtnBulkSell" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">💸 Vendre max</button>`;
+        ${_tbXpEvo.length > 0 ? `<button id="pcBtnEvoXP" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--green,#4caf50);border-radius:var(--radius-sm);color:var(--green,#4caf50);cursor:pointer" title="${_t('pc_evolve_all_ready')}">⬆ XP (${_tbXpEvo.length})</button>` : ''}
+        ${_tbStoneEvo.length > 0 ? `<button id="pcBtnEvoStone" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid ${_stoneHave > 0 ? 'var(--gold)' : 'var(--border)'};border-radius:var(--radius-sm);color:${_stoneHave > 0 ? 'var(--gold)' : 'var(--text-dim)'};cursor:pointer" title="${_t('pc_evolve_all_stone', { n: _stoneHave })}">💎 ${_t('pc_stone')} (${_tbStoneEvo.length})</button>` : ''}
+        ${(() => { const n = (state.settings?.protectedSpecies||[]).length; return `<button id="pcBtnProtected" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid ${n>0?'var(--green)':'var(--border)'};border-radius:var(--radius-sm);color:${n>0?'var(--green)':'var(--text-dim)'};cursor:pointer" title="${_t('pc_protected_auto_sales')}">🛡 ${_t('pc_protected')}${n>0?` (${n})`:''}</button>`; })()}
+        <button id="pcBtnBulkSell" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">💸 ${_t('pc_sell_max')}</button>`;
     document.getElementById('pcColsSel')?.addEventListener('change', e => {
       pcGridCols = parseInt(e.target.value); pcPage = 0; renderPokemonGrid(true);
     });
@@ -927,7 +928,7 @@ function tryAutoIncubate() {
     egg.hatchAt = Date.now() + (egg.hatchMs || 2700000);
     changed = true;
   }
-  if (changed) { saveState(); notify('💉 Joëlle a mis un oeuf en incubation !', 'success'); }
+  if (changed) { saveState(); notify(_t('pc_nurse_incubated_egg'), 'success'); }
 }
 
 function hatchEgg(eggId) {
@@ -997,7 +998,7 @@ function hatchEgg(eggId) {
       #_hatchPk.visible { display:block; }
     </style>
     <div style="background:var(--bg-panel);border:2px solid var(--gold);border-radius:var(--radius);padding:32px 28px;max-width:300px;width:90%;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center">
-      <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold);letter-spacing:.1em">✦ ÉCLOSION ✦</div>
+      <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold);letter-spacing:.1em">✦ ${_t('pc_hatching').toUpperCase()} ✦</div>
       <div style="position:relative;width:88px;height:88px;display:flex;align-items:center;justify-content:center">
         <img id="_hatchEgg" src="${eggUrl}" style="width:64px;height:64px;object-fit:contain" onerror="if(!this._f){this._f=1;this.src='${eggFallback}'}">
         <img id="_hatchPk"  src="${pkUrl}"  style="width:88px;height:88px;position:absolute;inset:0;${egg.shiny ? 'filter:drop-shadow(0 0 8px gold)' : ''}">
@@ -1038,7 +1039,7 @@ function renderEggsView(container) {
   const freeIncubators = incubatorCount - incubatingCount;
 
   if (eggs.length === 0) {
-    container.innerHTML = `<div style="padding:24px;text-align:center;color:var(--text-dim);font-family:var(--font-pixel);font-size:10px">Aucun oeuf pour le moment.<br><br>Utilise la <b style="color:var(--text)">Pension</b> ou achète un <b style="color:var(--text)">Oeuf Mystère</b> au Marché.</div>`;
+    container.innerHTML = `<div style="padding:24px;text-align:center;color:var(--text-dim);font-family:var(--font-pixel);font-size:10px">${_t('pc_no_egg_hint')}</div>`;
     return;
   }
 
@@ -1075,14 +1076,14 @@ function renderEggsView(container) {
         } else if (egg.source) {
           parentHtml = `<div style="font-size:8px;color:var(--text-dim);margin-top:4px">${egg.source}</div>`;
         } else {
-          parentHtml = `<div style="font-size:8px;color:var(--text-dim);margin-top:4px">Mystère</div>`;
+          parentHtml = `<div style="font-size:8px;color:var(--text-dim);margin-top:4px">${_t('pc_mystery')}</div>`;
         }
 
         const statusColor = isReady ? 'var(--green)' : isIncubating ? 'var(--gold)' : 'var(--text-dim)';
         const statusText = isReady
-          ? '✅ Prêt à éclore !'
-          : isIncubating ? `🥚 ${timeLeft}min restantes`
-          : '⏳ En attente d\'incubateur';
+          ? _t('pc_egg_ready')
+          : isIncubating ? _t('pc_egg_minutes_left', { n: timeLeft })
+          : _t('pc_egg_waiting_incubator');
 
         return `<div style="background:var(--bg-card);border:1px solid ${isReady ? 'var(--green)' : 'var(--border)'};border-radius:var(--radius);padding:10px;min-width:130px;max-width:150px;display:flex;flex-direction:column;align-items:center;gap:6px;${isReady ? 'box-shadow:0 0 8px rgba(68,187,85,.3)' : ''}">
           ${eggImgTag(egg, isReady, `width:64px;height:64px;${isReady ? 'filter:drop-shadow(0 0 6px var(--green))' : ''}`)}
@@ -1093,18 +1094,18 @@ function renderEggsView(container) {
               <div style="height:100%;width:${progress}%;background:var(--gold);transition:width .5s"></div>
             </div>` : ''}
           <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:center">
-            ${isReady ? `<button class="egg-hatch-btn" data-egg-id="${egg.id}" style="font-family:var(--font-pixel);font-size:7px;padding:4px 8px;background:var(--green);border:none;border-radius:var(--radius-sm);color:#000;cursor:pointer">Éclore !</button>` : ''}
-            ${!isIncubating && freeIncubators > 0 ? `<button class="egg-incubate-btn" data-egg-id="${egg.id}" style="font-family:var(--font-pixel);font-size:7px;padding:4px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">Incuber</button>` : ''}
-            ${!isIncubating && incubatorCount > 0 && freeIncubators === 0 ? `<span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">Incubateurs pleins</span>` : ''}
-            ${!isIncubating && incubatorCount === 0 ? `<span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">Aucun incubateur</span>` : ''}
-            <button class="egg-sell-btn" data-egg-id="${egg.id}" style="font-family:var(--font-pixel);font-size:7px;padding:4px 8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">Vendre</button>
+            ${isReady ? `<button class="egg-hatch-btn" data-egg-id="${egg.id}" style="font-family:var(--font-pixel);font-size:7px;padding:4px 8px;background:var(--green);border:none;border-radius:var(--radius-sm);color:#000;cursor:pointer">${_t('pc_hatch')}</button>` : ''}
+            ${!isIncubating && freeIncubators > 0 ? `<button class="egg-incubate-btn" data-egg-id="${egg.id}" style="font-family:var(--font-pixel);font-size:7px;padding:4px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">${_t('pc_incubate')}</button>` : ''}
+            ${!isIncubating && incubatorCount > 0 && freeIncubators === 0 ? `<span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">${_t('pc_incubators_full')}</span>` : ''}
+            ${!isIncubating && incubatorCount === 0 ? `<span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">${_t('pc_no_incubator')}</span>` : ''}
+            <button class="egg-sell-btn" data-egg-id="${egg.id}" style="font-family:var(--font-pixel);font-size:7px;padding:4px 8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">${_t('pc_sell')}</button>
             ${!egg.scanned && (state.inventory?.egg_scanner || 0) > 0
-              ? `<button class="egg-scan-btn" data-egg-id="${egg.id}" style="font-family:var(--font-pixel);font-size:7px;padding:4px 8px;background:var(--bg);border:1px solid #c05be0;border-radius:var(--radius-sm);color:#c05be0;cursor:pointer">🔬 Scanner</button>`
+              ? `<button class="egg-scan-btn" data-egg-id="${egg.id}" style="font-family:var(--font-pixel);font-size:7px;padding:4px 8px;background:var(--bg);border:1px solid #c05be0;border-radius:var(--radius-sm);color:#c05be0;cursor:pointer">🔬 ${_t('pc_scan')}</button>`
               : ''}
             ${egg.scanned && egg.revealedSpecies
               ? `<div style="font-size:8px;color:#c05be0;text-align:center;font-family:var(--font-pixel)">🔬 ${speciesName(egg.revealedSpecies)}</div>`
               : egg.scanned && !egg.revealedSpecies
-              ? `<div style="font-size:8px;color:#666;text-align:center">🔬 Inconnu…</div>`
+              ? `<div style="font-size:8px;color:#666;text-align:center">🔬 ${_t('pc_unknown')}</div>`
               : ''}
           </div>
         </div>`;
@@ -1128,7 +1129,7 @@ function renderEggsView(container) {
       egg.hatchAt = Date.now() + (egg.hatchMs || 2700000); // 45min default
       saveState();
       renderPCTab();
-      notify('Oeuf mis en incubation !', 'success');
+      notify(_t('pc_egg_incubating_notice'), 'success');
     });
   });
   container.querySelectorAll('.egg-sell-btn').forEach(btn => {
@@ -1137,17 +1138,17 @@ function renderEggsView(container) {
       if (!egg) return;
       const price = egg.sellPrice || 500;
       showConfirm(
-        `Vendre cet oeuf pour <strong style="color:var(--gold)">${price.toLocaleString()}₽</strong> ?<br><span style="color:var(--text-dim);font-size:11px">Tu ne sauras jamais quel Pokémon était dedans.</span>`,
+        _t('pc_sell_egg_confirm', { price: price.toLocaleString() }),
         () => {
           state.eggs = state.eggs.filter(e => e.id !== egg.id);
           state.gang.money += price;
           EventBus.emit(EVENTS.MONEY_CHANGED, { delta: price, newTotal: state.gang.money });
           saveState();
           renderPCTab();
-          notify(`Oeuf vendu — ${price}₽`, 'gold');
+          notify(_t('pc_egg_sold_notice', { price }), 'gold');
         },
         null,
-        { confirmLabel: 'Vendre', cancelLabel: 'Garder', danger: true }
+        { confirmLabel: _t('pc_sell'), cancelLabel: _t('pc_keep'), danger: true }
       );
     });
   });
@@ -1155,23 +1156,23 @@ function renderEggsView(container) {
     btn.addEventListener('click', () => {
       const egg = state.eggs.find(e => e.id === btn.dataset.eggId);
       if (!egg || egg.scanned) return;
-      if ((state.inventory.egg_scanner || 0) < 1) { notify('Aucun Scanneur d\'Oeuf disponible.', 'error'); return; }
+      if ((state.inventory.egg_scanner || 0) < 1) { notify(_t('pc_no_egg_scanner'), 'error'); return; }
       // Roll d100: 1-89 = reveal (scanner survives), 90-99 = scanner détruit, 100 = oeuf détruit
       const roll = Math.random() * 100;
       if (roll < 89) {
         egg.revealedSpecies = egg.species_en;
         egg.scanned = true;
-        notify(`🔬 Scan réussi ! C'est un ${speciesName(egg.species_en)} !`, 'gold');
+        notify(_t('pc_scan_success', { pokemon: speciesName(egg.species_en) }), 'gold');
       } else if (roll < 99) {
         state.inventory.egg_scanner--;
         egg.scanned = true;
         egg.revealedSpecies = null;
-        notify('🔬 Scanneur détruit dans l\'opération… Espèce inconnue.', 'error');
+        notify(_t('pc_scanner_destroyed'), 'error');
       } else {
         state.inventory.egg_scanner--;
         const idx = state.eggs.indexOf(egg);
         if (idx !== -1) state.eggs.splice(idx, 1);
-        notify('💥 L\'oeuf a été détruit par le scan défectueux !', 'error');
+        notify(_t('pc_egg_destroyed'), 'error');
         saveState();
         const eggsEl = document.getElementById('eggsInPC');
         if (eggsEl) renderEggsView(eggsEl);
@@ -1247,32 +1248,32 @@ function _bindPCCardListeners(el) {
       && !state.gang.bossTeam.includes(p.id) && !state.agents.some(a => a.team.includes(p.id))
     );
     const items = [
-      { action:'sell', label:`Vendre (${price}₽)${pk.shiny ? ' ✨' : ''}`, fn: () => {
+      { action:'sell', label:_t('pc_sell_price', { price }) + (pk.shiny ? ' ✨' : ''), fn: () => {
         if (pk.shiny) {
-          showConfirm(`<span style="color:gold">✨ CHROMATIQUE !</span><br>Vendre <b>${speciesName(pk.species_en)}</b> pour <b>${price.toLocaleString()}₽</b> ?<br><span style="color:var(--text-dim);font-size:11px">Cette action est irréversible.</span>`,
+          showConfirm(_t('pc_sell_shiny_confirm', { pokemon: speciesName(pk.species_en), price: price.toLocaleString() }),
             () => { sellPokemon([pk.id]); renderPCTab(); updateTopBar(); },
-            null, { confirmLabel: 'Vendre', cancelLabel: 'Garder', danger: true });
+            null, { confirmLabel: _t('pc_sell'), cancelLabel: _t('pc_keep'), danger: true });
         } else { sellPokemon([pk.id]); renderPCTab(); updateTopBar(); }
       }},
-      sameSpecies.length > 0 ? { action:'sellSpecies', label:`Vendre tout (${speciesName(pk.species_en)}) ×${sameSpecies.length} — ${sameSpeciesTotal.toLocaleString()}₽`, fn: () => {
-        showConfirm(`Vendre <b>${sameSpecies.length}× ${speciesName(pk.species_en)}</b> pour <b>${sameSpeciesTotal.toLocaleString()}₽</b> ?<br><span style="color:var(--text-dim);font-size:11px">Shinies exclus.</span>`,
+      sameSpecies.length > 0 ? { action:'sellSpecies', label:_t('pc_sell_all_species', { pokemon: speciesName(pk.species_en), n: sameSpecies.length, total: sameSpeciesTotal.toLocaleString() }), fn: () => {
+        showConfirm(_t('pc_sell_species_confirm', { n: sameSpecies.length, pokemon: speciesName(pk.species_en), total: sameSpeciesTotal.toLocaleString() }),
           () => { sellPokemon(sameSpecies.map(p => p.id)); renderPCTab(); updateTopBar(); },
-          null, { confirmLabel: 'Vendre tout', cancelLabel: 'Annuler', danger: true });
+          null, { confirmLabel: _t('pc_sell_all'), cancelLabel: _t('pc_cancel'), danger: true });
       }} : null,
-      sameSpecies.filter(p => p.potential < 5).length > 0 ? { action:'sellSpeciesNon5', label:`Vendre ${speciesName(pk.species_en)} (sauf ★★★★★)`, fn: () => {
+      sameSpecies.filter(p => p.potential < 5).length > 0 ? { action:'sellSpeciesNon5', label:_t('pc_sell_except_five', { pokemon: speciesName(pk.species_en) }), fn: () => {
         const toSell = sameSpecies.filter(p => p.potential < 5);
         const total = toSell.reduce((s, p) => s + calculatePrice(p), 0);
-        showConfirm(`Vendre <b>${toSell.length}× ${speciesName(pk.species_en)}</b> (hors ★★★★★) pour <b>${total.toLocaleString()}₽</b> ?`,
+        showConfirm(_t('pc_sell_except_five_confirm', { n: toSell.length, pokemon: speciesName(pk.species_en), total: total.toLocaleString() }),
           () => { sellPokemon(toSell.map(p => p.id)); renderPCTab(); updateTopBar(); },
-          null, { confirmLabel: 'Vendre', cancelLabel: 'Annuler', danger: true });
+          null, { confirmLabel: _t('pc_sell'), cancelLabel: _t('pc_cancel'), danger: true });
       }} : null,
-      state.purchases.scientist && state.purchases.scientistEnabled !== false && pk.potential < 5 && has5StarDonor ? { action:'scientist', label:`🧬 Mutation (sacrifice 1× ★★★★★ ${speciesName(pk.species_en)})`, fn: () => {
+      state.purchases.scientist && state.purchases.scientistEnabled !== false && pk.potential < 5 && has5StarDonor ? { action:'scientist', label:_t('pc_mutation_sacrifice_label', { pokemon: speciesName(pk.species_en) }), fn: () => {
         const donor = state.pokemons.find(p =>
           p.species_en === pk.species_en && p.id !== pk.id && p.potential === 5 && !p.shiny
           && !state.gang.bossTeam.includes(p.id) && !state.agents.some(a => a.team.includes(p.id))
         );
-        if (!donor) { notify('Aucun donneur ★★★★★ disponible.', 'error'); return; }
-        showConfirm(`Sacrifier <b>${speciesName(donor.species_en)} ★★★★★</b> pour élever <b>${speciesName(pk.species_en)}</b> de ★${pk.potential} à ★${pk.potential + 1} ?<br><span style="color:var(--red);font-size:11px">Le donneur sera détruit.</span>`,
+        if (!donor) { notify(_t('pc_no_five_star_donor'), 'error'); return; }
+        showConfirm(_t('pc_mutation_confirm', { donor: speciesName(donor.species_en), pokemon: speciesName(pk.species_en), from: pk.potential, to: pk.potential + 1 }),
           () => {
             state.pokemons = state.pokemons.filter(p => p.id !== donor.id); _dirty();
             pk.potential = Math.min(5, pk.potential + 1);
@@ -1280,15 +1281,15 @@ function _bindPCCardListeners(el) {
             saveState(); notify(`🧬 ${speciesName(pk.species_en)} est maintenant ${'★'.repeat(pk.potential)} !`, 'gold');
             renderPCTab(); updateTopBar();
           },
-          null, { confirmLabel: 'Confirmer', cancelLabel: 'Annuler', danger: true });
+          null, { confirmLabel: _t('pc_confirm'), cancelLabel: _t('pc_cancel'), danger: true });
       }} : null,
       inTeam
-        ? { action:'unteam', label:'Retirer de l\'equipe', fn: () => { state.gang.bossTeam = state.gang.bossTeam.filter(id => id !== pk.id); state.agents.forEach(a => { a.team = a.team.filter(id => id !== pk.id); }); saveState(); renderPCTab(); } }
-        : { action:'team', label:'Attribuer a...', fn: () => { openAssignToPicker(pk.id); } },
+        ? { action:'unteam', label:_t('pc_remove_from_team_short'), fn: () => { state.gang.bossTeam = state.gang.bossTeam.filter(id => id !== pk.id); state.agents.forEach(a => { a.team = a.team.filter(id => id !== pk.id); }); saveState(); renderPCTab(); } }
+        : { action:'team', label:_t('pc_assign_to'), fn: () => { openAssignToPicker(pk.id); } },
       (state.purchases.scientist && state.purchases.scientistEnabled !== false && pk.level < 100)
         ? { action:'candy', label:`🍬 +1 niveau (${_superCandyCost(pk.level).toLocaleString()}₽)`, fn: () => {
             const cost = _superCandyCost(pk.level);
-            if ((state.gang.money || 0) < cost) { notify('Pokédollars insuffisants.', 'error'); return; }
+            if ((state.gang.money || 0) < cost) { notify(_t('pc_insufficient_pokedollars'), 'error'); return; }
             state.gang.money -= cost;
             EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -cost, newTotal: state.gang.money });
             state.stats.totalMoneySpent = (state.stats.totalMoneySpent || 0) + cost;
@@ -1297,7 +1298,7 @@ function _bindPCCardListeners(el) {
             globalThis.SFX?.play('levelUp'); renderPCTab(); updateTopBar();
           } }
         : null,
-      { action:'fav', label: pk.favorite ? 'Retirer favori' : 'Ajouter favori', fn: () => { pk.favorite = !pk.favorite; saveState(); renderPCTab(); } },
+      { action:'fav', label: pk.favorite ? _t('pc_remove_favorite') : _t('pc_add_favorite'), fn: () => { pk.favorite = !pk.favorite; saveState(); renderPCTab(); } },
     ].filter(Boolean);
     showContextMenu(e.clientX, e.clientY, items);
   });
@@ -1399,7 +1400,7 @@ function renderPokemonGrid(forceRebuild = false) {
           ${hasFav  ? '<div style="position:absolute;top:2px;right:2px;font-size:9px;line-height:1">⭐</div>' : ''}
           ${hasShiny ? '<div style="position:absolute;top:2px;left:2px;font-size:9px;line-height:1">✨</div>' : ''}
         </div>`;
-      }).join('') || '<div style="color:var(--text-dim);padding:16px;grid-column:1/-1;text-align:center">Aucun Pokémon</div>';
+      }).join('') || `<div style="color:var(--text-dim);padding:16px;grid-column:1/-1;text-align:center">${_t('pc_no_pokemon')}</div>`;
 
       grid.querySelectorAll('.pc-group-card').forEach(el => {
         el.addEventListener('click', (e) => {
@@ -1427,7 +1428,7 @@ function renderPokemonGrid(forceRebuild = false) {
     } else {
       // ── Mode normal : une carte par Pokémon ───────────────────
       grid.innerHTML = pageList.map(p => _buildPCCard(p, teamIds, trainingIds, pensionIds)).join('')
-        || '<div style="color:var(--text-dim);padding:16px;grid-column:1/-1;text-align:center">Aucun Pokémon</div>';
+        || `<div style="color:var(--text-dim);padding:16px;grid-column:1/-1;text-align:center">${_t('pc_no_pokemon')}</div>`;
       grid.querySelectorAll('.pc-pokemon').forEach(el => _bindPCCardListeners(el));
     }
 
@@ -1477,8 +1478,8 @@ function renderSuperCandyPanel(p) {
   if (!owned || !enabled) return '';
   if (p.level >= 100) {
     return `<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">
-      <div style="font-size:9px;color:var(--text-dim);margin-bottom:4px">🧬 SUPER BONBONS — Scientifique</div>
-      <div style="font-size:10px;color:var(--gold);text-align:center;padding:4px">Niveau maximum atteint (100)</div>
+      <div style="font-size:9px;color:var(--text-dim);margin-bottom:4px">🧬 ${_t('pc_super_candy_scientist').toUpperCase()}</div>
+      <div style="font-size:10px;color:var(--gold);text-align:center;padding:4px">${_t('pc_max_level_reached')}</div>
     </div>`;
   }
 
@@ -1507,7 +1508,7 @@ function renderSuperCandyPanel(p) {
   }).filter(Boolean).join('');
 
   return `<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">
-    <div style="font-size:9px;color:var(--text-dim);margin-bottom:6px">🧬 SUPER BONBONS — Scientifique</div>
+    <div style="font-size:9px;color:var(--text-dim);margin-bottom:6px">🧬 ${_t('pc_super_candy_scientist').toUpperCase()}</div>
     <div style="display:flex;gap:5px">${btns}</div>
   </div>`;
 }
@@ -1524,15 +1525,15 @@ function renderPotentialUpgradePanel(p) {
   );
   const canUpgrade = donors.length >= cost;
   return `<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">
-    <div style="font-size:9px;color:var(--text-dim);margin-bottom:6px">MUTATION DE POTENTIEL</div>
+    <div style="font-size:9px;color:var(--text-dim);margin-bottom:6px">${_t('pc_potential_mutation').toUpperCase()}</div>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
       <div style="font-size:10px;flex:1">
         ${'*'.repeat(p.potential)} <span style="color:var(--text-dim)">→</span> ${'*'.repeat(p.potential + 1)}
-        <span style="font-size:9px;color:${canUpgrade ? 'var(--green)' : 'var(--red)'}"> (${donors.length}/${cost} specimens)</span>
+        <span style="font-size:9px;color:${canUpgrade ? 'var(--green)' : 'var(--red)'}"> (${_t('pc_specimen_count', { have: donors.length, need: cost })})</span>
       </div>
     </div>
     <button id="btnPotUpgrade" style="width:100%;font-size:9px;padding:5px;background:var(--bg);border:1px solid ${canUpgrade ? 'var(--gold)' : 'var(--border)'};border-radius:var(--radius-sm);color:${canUpgrade ? 'var(--gold)' : 'var(--text-dim)'};cursor:${canUpgrade ? 'pointer' : 'default'}"${canUpgrade ? '' : ' disabled'}>
-      ${canUpgrade ? 'MUTER LE POTENTIEL' : 'Pas assez de specimens'}
+      ${canUpgrade ? _t('pc_mutate_potential').toUpperCase() : _t('pc_not_enough_specimens')}
     </button>
   </div>`;
 }
@@ -1549,7 +1550,7 @@ function renderEvolutionPanel(p) {
   const multiLevel    = readyLvlEvos.length > 1;
 
   let html = '<div style="margin-top:12px;padding-top:8px;border-top:1px solid var(--border)">';
-  html += '<div style="font-size:10px;color:var(--text-dim);margin-bottom:6px">' + (state.lang === 'fr' ? 'Évolution' : 'Evolution') + '</div>';
+  html += `<div style="font-size:10px;color:var(--text-dim);margin-bottom:6px">${_t('pc_evolution')}</div>`;
 
   for (const evo of evos) {
     const targetSp = SPECIES_BY_EN[evo.to];
@@ -1562,7 +1563,7 @@ function renderEvolutionPanel(p) {
         + '<div style="flex:1;font-size:10px">' + targetName + '</div>';
       if (!multiItem) {
         // Single item evo → direct button
-        html += '<button class="btn-evolve-item" data-evo-target="' + evo.to + '" style="font-size:9px;padding:4px 10px;background:' + (hasStone ? 'var(--gold-dim)' : 'var(--bg)') + ';border:1px solid ' + (hasStone ? 'var(--gold)' : 'var(--border)') + ';border-radius:var(--radius-sm);color:' + (hasStone ? 'var(--bg)' : 'var(--text-dim)') + ';cursor:' + (hasStone ? 'pointer' : 'default') + '"' + (hasStone ? '' : ' disabled') + '>💎 Évoluer</button>';
+        html += '<button class="btn-evolve-item" data-evo-target="' + evo.to + '" style="font-size:9px;padding:4px 10px;background:' + (hasStone ? 'var(--gold-dim)' : 'var(--bg)') + ';border:1px solid ' + (hasStone ? 'var(--gold)' : 'var(--border)') + ';border-radius:var(--radius-sm);color:' + (hasStone ? 'var(--bg)' : 'var(--text-dim)') + ';cursor:' + (hasStone ? 'pointer' : 'default') + '"' + (hasStone ? '' : ' disabled') + '>💎 ' + _t('pc_evolve') + '</button>';
       }
       html += '</div>';
     } else {
@@ -1572,7 +1573,7 @@ function renderEvolutionPanel(p) {
         + '<div style="flex:1;font-size:10px">' + targetName + ' (Lv.' + evo.req + ')</div>';
       if (ready && !multiLevel) {
         // Single ready level evo → direct button
-        html += '<button class="btn-evolve-level" data-evo-target="' + evo.to + '" style="font-size:9px;padding:4px 10px;background:var(--green);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--bg);cursor:pointer">Évoluer!</button>';
+        html += '<button class="btn-evolve-level" data-evo-target="' + evo.to + '" style="font-size:9px;padding:4px 10px;background:var(--green);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--bg);cursor:pointer">' + _t('pc_evolve_bang') + '</button>';
       } else if (!ready) {
         html += '<span style="font-size:9px;color:var(--text-dim)">Lv.' + p.level + '/' + evo.req + '</span>';
       }
@@ -1583,10 +1584,10 @@ function renderEvolutionPanel(p) {
 
   // Multi-choice group buttons (card popup)
   if (multiLevel) {
-    html += '<button class="btn-evolve-level-multi" style="margin-top:10px;width:100%;font-family:var(--font-pixel);font-size:8px;padding:6px;background:var(--green);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--bg);cursor:pointer">🎴 Choisir l\'évolution (' + readyLvlEvos.length + ' options)</button>';
+    html += '<button class="btn-evolve-level-multi" style="margin-top:10px;width:100%;font-family:var(--font-pixel);font-size:8px;padding:6px;background:var(--green);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--bg);cursor:pointer">🎴 ' + _t('pc_choose_evolution', { n: readyLvlEvos.length }) + '</button>';
   }
   if (multiItem) {
-    html += '<button class="btn-evolve-item-multi"' + (hasStone ? '' : ' disabled') + ' style="margin-top:6px;width:100%;font-family:var(--font-pixel);font-size:8px;padding:6px;background:' + (hasStone ? 'var(--gold-dim)' : 'var(--bg)') + ';border:1px solid ' + (hasStone ? 'var(--gold)' : 'var(--border)') + ';border-radius:var(--radius-sm);color:' + (hasStone ? 'var(--bg)' : 'var(--text-dim)') + ';cursor:' + (hasStone ? 'pointer' : 'default') + '">🎴 Choisir l\'évolution 💎 (' + itemEvos.length + ' options)</button>';
+    html += '<button class="btn-evolve-item-multi"' + (hasStone ? '' : ' disabled') + ' style="margin-top:6px;width:100%;font-family:var(--font-pixel);font-size:8px;padding:6px;background:' + (hasStone ? 'var(--gold-dim)' : 'var(--bg)') + ';border:1px solid ' + (hasStone ? 'var(--gold)' : 'var(--border)') + ';border-radius:var(--radius-sm);color:' + (hasStone ? 'var(--bg)' : 'var(--text-dim)') + ';cursor:' + (hasStone ? 'pointer' : 'default') + '">🎴 ' + _t('pc_choose_evolution_stone', { n: itemEvos.length }) + '</button>';
   }
 
   html += '</div>';
@@ -1644,7 +1645,7 @@ function _xpBulkEvolve(pks) {
   let count = 0;
   for (const pk of pks) { if (_xpEvolveToMax(pk)) count++; }
   saveState(); _pcLastRenderKey = ''; renderPCTab();
-  if (count) notify(`${count} évolution${count > 1 ? 's' : ''} effectuée${count > 1 ? 's' : ''} !`, 'gold');
+  if (count) notify(_t('pc_evolutions_done', { n: count }), 'gold');
 }
 
 // ── Bulk Stone evo: evolve list (level then item), save, refresh ──
@@ -1652,7 +1653,7 @@ function _stoneBulkEvolve(pks) {
   let count = 0;
   for (const pk of pks) { if (_evolveToMax(pk)) count++; }
   saveState(); _pcLastRenderKey = ''; renderPCTab();
-  if (count) notify(`${count} Pokémon évolué${count > 1 ? 's' : ''} !`, 'gold');
+  if (count) notify(_t('pc_pokemon_evolved_count', { n: count }), 'gold');
 }
 
 // ── Evo stats helper ──
@@ -1706,31 +1707,31 @@ function _showEvoPreviewPopup(evolvable, type, onConfirm) {
   const valueDiff = afterTotal - beforeTotal;
 
   const confirmLabel = type === 'stone' && shortage > 0 && canBuyMore
-    ? `Acheter ${shortage} 💎 (${(shortage * 5000).toLocaleString()}₽) + Évoluer`
-    : 'Évoluer !';
+    ? _t('pc_buy_stones_and_evolve', { n: shortage, price: (shortage * 5000).toLocaleString() })
+    : _t('pc_evolve_bang');
 
   const modal = document.createElement('div');
   modal.style.cssText = 'position:fixed;inset:0;z-index:9100;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center';
   modal.innerHTML = `
     <div style="background:var(--bg-panel);border:2px solid var(--gold-dim);border-radius:var(--radius);padding:20px;max-width:360px;width:90%;font-family:var(--font-pixel)">
-      <div style="font-size:10px;color:var(--gold);margin-bottom:12px">ÉVOLUTION GROUPÉE — ${type === 'xp' ? '⬆ XP' : '💎 PIERRE'}</div>
+      <div style="font-size:10px;color:var(--gold);margin-bottom:12px">${_t('pc_group_evolution').toUpperCase()} — ${type === 'xp' ? '⬆ XP' : `💎 ${_t('pc_stone').toUpperCase()}`}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;text-align:center">
         <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px">
           <div style="font-size:11px;color:var(--text)">${beforeTotal.toLocaleString()}₽</div>
-          <div style="font-size:7px;color:var(--text-dim);margin-top:3px">AVANT</div>
+            <div style="font-size:7px;color:var(--text-dim);margin-top:3px">${_t('pc_before').toUpperCase()}</div>
         </div>
         <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px">
           <div style="font-size:13px;color:${type === 'stone' ? (shortage > 0 ? 'var(--red)' : 'var(--gold)') : 'var(--green,#4caf50)'}">
             ${type === 'stone' ? `💎×${stoneNeeded}` : 'XP ✓'}</div>
-          <div style="font-size:7px;color:var(--text-dim)">${type === 'stone' ? `${stoneHave} dispo` : 'GRATUIT'}</div>
+          <div style="font-size:7px;color:var(--text-dim)">${type === 'stone' ? _t('pc_available_count', { n: stoneHave }) : _t('pc_free').toUpperCase()}</div>
         </div>
         <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px">
           <div style="font-size:11px;color:var(--green,#4caf50)">${afterTotal.toLocaleString()}₽</div>
           <div style="font-size:7px;color:${valueDiff >= 0 ? 'var(--green,#4caf50)' : 'var(--red)'};margin-top:3px">${valueDiff >= 0 ? '+' : ''}${valueDiff.toLocaleString()}₽</div>
         </div>
       </div>
-      ${shinyCount > 0 ? `<div style="font-size:8px;color:var(--gold);margin-bottom:8px;text-align:center">✨×${shinyCount} chromatique${shinyCount > 1 ? 's' : ''} inclus</div>` : ''}
-      <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">Évolutions prévues :</div>
+      ${shinyCount > 0 ? `<div style="font-size:8px;color:var(--gold);margin-bottom:8px;text-align:center">${_t('pc_shinies_included', { n: shinyCount })}</div>` : ''}
+      <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">${_t('pc_planned_evolutions')}</div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;max-height:100px;overflow-y:auto">
         ${Object.values(transitionMap).map(({ from, to, count }) =>
           `<div style="display:flex;align-items:center;gap:3px;background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:3px 6px;font-size:8px">
@@ -1745,7 +1746,7 @@ function _showEvoPreviewPopup(evolvable, type, onConfirm) {
         ${canBuyMore ? `Acheter ${shortage} pierre${shortage > 1 ? 's' : ''} pour ${(shortage * 5000).toLocaleString()}₽` : `Fonds insuffisants — manque ${shortage} pierre${shortage > 1 ? 's' : ''}`}
       </div>` : ''}
       <div style="display:flex;gap:8px">
-        <button id="evoPrevCancel" style="flex:1;font-size:8px;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">Annuler</button>
+      <button id="evoPrevCancel" style="flex:1;font-size:8px;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">${_t('pc_cancel')}</button>
         <button id="evoPrevConfirm" ${confirmDisabled ? 'disabled' : ''} style="flex:1;font-size:8px;padding:8px;background:var(--bg);border:1px solid ${confirmDisabled ? 'var(--border)' : 'var(--gold)'};border-radius:var(--radius-sm);color:${confirmDisabled ? 'var(--text-dim)' : 'var(--gold)'};cursor:${confirmDisabled ? 'default' : 'pointer'}">${confirmLabel}</button>
       </div>
     </div>`;
@@ -1790,7 +1791,7 @@ function _statsV2(p) {
   return `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:10px">
       <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px">
-        <div style="font-size:8px;color:var(--text-dim);font-family:var(--font-pixel);margin-bottom:4px">MAINTENANT</div>
+      <div style="font-size:8px;color:var(--text-dim);font-family:var(--font-pixel);margin-bottom:4px">${_t('pc_now').toUpperCase()}</div>
         <div style="font-size:12px;font-weight:bold;color:var(--text)">${getPokemonPower(p).toLocaleString()} <span style="font-size:8px;color:var(--text-dim)">PC</span></div>
         <div style="font-size:9px;color:var(--text-dim);margin-top:2px">ATK ${curr.atk} · DEF ${curr.def} · VIT ${curr.spd}</div>
         <div style="font-size:8px;color:var(--text-dim);margin-top:2px">Lv.${p.level}</div>
@@ -1835,31 +1836,31 @@ function renderPokemonDetail() {
 
     panel.innerHTML = `
       <div style="padding:10px;font-family:var(--font-pixel)">
-        <div style="font-size:11px;color:var(--gold);margin-bottom:4px">${_pcSelectedGroups.size} espèces sélectionnées</div>
-        <div style="font-size:8px;color:var(--text-dim);margin-bottom:8px">Ctrl+Clic pour ajouter/retirer des espèces</div>
+        <div style="font-size:11px;color:var(--gold);margin-bottom:4px">${_t('pc_selected_species_count', { n: _pcSelectedGroups.size })}</div>
+        <div style="font-size:8px;color:var(--text-dim);margin-bottom:8px">${_t('pc_ctrl_click_species')}</div>
         <div style="display:flex;flex-wrap:wrap;gap:3px;justify-content:center;margin-bottom:10px">
           ${[..._pcSelectedGroups].slice(0, 10).map(sp => `<img src="${pokeSprite(sp, false)}" style="width:32px;height:32px">`).join('')}
           ${_pcSelectedGroups.size > 10 ? `<div style="font-size:9px;color:var(--text-dim);align-self:center">+${_pcSelectedGroups.size - 10}</div>` : ''}
         </div>
         <div style="font-size:8px;color:var(--text-dim);margin-bottom:8px">
-          ${allPks.length} Pokémon au total — ${sellable.length} vendables
-          ${shinyCount > 0 ? `<br><span style="color:var(--gold)">✨×${shinyCount} chromatique${shinyCount > 1 ? 's' : ''} inclus dans évos</span>` : ''}
+          ${_t('pc_group_summary', { total: allPks.length, sellable: sellable.length })}
+          ${shinyCount > 0 ? `<br><span style="color:var(--gold)">${_t('pc_shinies_in_evos', { n: shinyCount })}</span>` : ''}
         </div>
         <div style="display:flex;flex-direction:column;gap:5px">
           ${gmXpEvo.length > 0 ? `
           <button id="btnEvoXPGroupMulti" style="width:100%;font-size:9px;padding:6px;background:var(--bg);border:1px solid var(--green,#4caf50);border-radius:var(--radius-sm);color:var(--green,#4caf50);cursor:pointer">
-            ⬆ Évoluer XP (${gmXpEvo.length})
+            ⬆ ${_t('pc_evolve_xp_count', { n: gmXpEvo.length })}
           </button>` : ''}
           ${gmStoneEvo.length > 0 ? `
           <button id="btnEvoStoneGroupMulti" style="width:100%;font-size:9px;padding:6px;background:var(--bg);border:1px solid ${gmStoneHave > 0 ? 'var(--gold)' : 'var(--border)'};border-radius:var(--radius-sm);color:${gmStoneHave > 0 ? 'var(--gold)' : 'var(--text-dim)'};cursor:pointer">
-            💎 Évoluer Pierre (${gmStoneEvo.length}) — ${gmStoneHave} dispo
+            💎 ${_t('pc_evolve_stone_count', { n: gmStoneEvo.length, available: gmStoneHave })}
           </button>` : ''}
           ${sellable.length > 0 ? `
           <button id="btnSellGroupMulti" style="width:100%;font-size:9px;padding:6px;background:var(--red-dark);border:1px solid var(--red);border-radius:var(--radius-sm);color:var(--text);cursor:pointer">
-            Vendre ${sellable.length} Pokémon (${totalValue.toLocaleString()}₽)
+            ${_t('pc_sell_pokemon_value', { n: sellable.length, total: totalValue.toLocaleString() })}
           </button>` : ''}
           <button id="btnClearGroupMulti" style="width:100%;font-size:9px;padding:5px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">
-            Annuler la sélection
+            ${_t('pc_cancel_selection')}
           </button>
         </div>
       </div>`;
@@ -1872,12 +1873,12 @@ function renderPokemonDetail() {
     });
     document.getElementById('btnSellGroupMulti')?.addEventListener('click', () => {
       const ids = sellable.map(pk => pk.id);
-      showConfirm(`Vendre <b>${ids.length}</b> Pokémon (${[..._pcSelectedGroups].map(sp => speciesName(sp)).join(', ')}) pour <b style="color:var(--gold)">${totalValue.toLocaleString()}₽</b> ?`, () => {
+      showConfirm(_t('pc_sell_selected_species_confirm', { n: ids.length, species: [..._pcSelectedGroups].map(sp => speciesName(sp)).join(', '), total: totalValue.toLocaleString() }), () => {
         sellPokemon(ids);
         _pcSelectedGroups.clear();
         _pcLastRenderKey = '';
         updateTopBar(); renderPCTab();
-      }, null, { confirmLabel: 'Vendre', cancelLabel: 'Annuler', danger: true });
+      }, null, { confirmLabel: _t('pc_sell'), cancelLabel: _t('pc_cancel'), danger: true });
     });
     document.getElementById('btnClearGroupMulti')?.addEventListener('click', () => {
       _pcSelectedGroups.clear();
@@ -1911,8 +1912,8 @@ function renderPokemonDetail() {
 
     panel.innerHTML = `
       <div style="padding:10px;font-family:var(--font-pixel)">
-        <div style="font-size:11px;color:var(--gold);margin-bottom:4px">${pks.length} sélectionnés</div>
-        <div style="font-size:8px;color:var(--text-dim);margin-bottom:8px">Ctrl+Clic pour ajouter/retirer</div>
+        <div style="font-size:11px;color:var(--gold);margin-bottom:4px">${_t('pc_selected_count', { n: pks.length })}</div>
+        <div style="font-size:8px;color:var(--text-dim);margin-bottom:8px">${_t('pc_ctrl_click')}</div>
         <div style="display:flex;flex-wrap:wrap;gap:3px;justify-content:center;margin-bottom:10px">
           ${pks.slice(0, 15).map(pk => `<img src="${pokeSprite(pk.species_en, pk.shiny)}" style="width:28px;height:28px;${pk.shiny ? 'filter:drop-shadow(0 0 3px gold)' : ''}">`).join('')}
           ${pks.length > 15 ? `<div style="font-size:9px;color:var(--text-dim);align-self:center">+${pks.length - 15}</div>` : ''}
@@ -1922,34 +1923,34 @@ function renderPokemonDetail() {
 
           <!-- Favoris -->
           <button id="btnMultiFav" style="width:100%;font-size:9px;padding:6px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">
-            ${allFav ? '☆ Retirer favori (tous)' : `⭐ Marquer favori (${pks.length - favCount} sans fav)`}
+            ${allFav ? _t('pc_remove_all_favorites') : _t('pc_mark_favorite_count', { n: pks.length - favCount })}
           </button>
 
           <!-- Évoluer XP -->
           ${msXpEvo.length > 0 ? `
           <button id="btnMultiEvoXP" style="width:100%;font-size:9px;padding:6px;background:var(--bg);border:1px solid var(--green,#4caf50);border-radius:var(--radius-sm);color:var(--green,#4caf50);cursor:pointer">
-            ⬆ Évoluer XP (${msXpEvo.length})
+            ⬆ ${_t('pc_evolve_xp_count', { n: msXpEvo.length })}
           </button>` : ''}
 
           <!-- Évoluer Pierre -->
           ${msStoneEvo.length > 0 ? `
           <button id="btnMultiEvoStone" style="width:100%;font-size:9px;padding:6px;background:var(--bg);border:1px solid ${msStoneHave > 0 ? 'var(--gold)' : 'var(--border)'};border-radius:var(--radius-sm);color:${msStoneHave > 0 ? 'var(--gold)' : 'var(--text-dim)'};cursor:pointer">
-            💎 Évoluer Pierre (${msStoneEvo.length}) — ${msStoneHave} dispo
+            💎 ${_t('pc_evolve_stone_count', { n: msStoneEvo.length, available: msStoneHave })}
           </button>` : ''}
 
           <!-- Vente groupée -->
           ${sellable.length > 0 ? `
           <div style="font-size:8px;color:var(--text-dim);margin-top:4px">
             ${sellable.length} vendables — <span style="color:var(--gold)">${totalValue.toLocaleString()}₽</span>
-            ${shinyCount > 0 ? `<br><span style="color:var(--gold)">✨×${shinyCount} exclu${shinyCount > 1 ? 's' : ''}</span>` : ''}
+            ${shinyCount > 0 ? `<br><span style="color:var(--gold)">${_t('pc_shinies_excluded', { n: shinyCount })}</span>` : ''}
           </div>
           <button id="btnSellMulti" style="width:100%;font-size:9px;padding:6px;background:var(--red-dark);border:1px solid var(--red);border-radius:var(--radius-sm);color:var(--text);cursor:pointer">
-            Vendre ${sellable.length} Pokémon (${totalValue.toLocaleString()}₽)
-          </button>` : (shinyCount > 0 ? `<div style="font-size:8px;color:var(--text-dim);margin-top:4px">✨ Chromatiques non vendables ici</div>` : '')}
+            ${_t('pc_sell_pokemon_value', { n: sellable.length, total: totalValue.toLocaleString() })}
+          </button>` : (shinyCount > 0 ? `<div style="font-size:8px;color:var(--text-dim);margin-top:4px">${_t('pc_shinies_not_sellable_here')}</div>` : '')}
 
           <!-- Annuler -->
           <button id="btnClearMulti" style="width:100%;font-size:9px;padding:5px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">
-            Annuler la sélection
+            ${_t('pc_cancel_selection')}
           </button>
         </div>
       </div>`;
@@ -1975,12 +1976,12 @@ function renderPokemonDetail() {
     // Sell
     document.getElementById('btnSellMulti')?.addEventListener('click', () => {
       const ids = sellable.map(pk => pk.id);
-      showConfirm(`Vendre <b>${ids.length}</b> Pokémon pour <b style="color:var(--gold)">${totalValue.toLocaleString()}₽</b> ?`, () => {
+      showConfirm(_t('pc_sell_selected_confirm', { n: ids.length, total: totalValue.toLocaleString() }), () => {
         sellPokemon(ids);
         pcSelectedIds.clear();
         _pcLastRenderKey = '';
         updateTopBar(); renderPCTab();
-      }, null, { confirmLabel: 'Vendre', cancelLabel: 'Annuler', danger: true });
+      }, null, { confirmLabel: _t('pc_sell'), cancelLabel: _t('pc_cancel'), danger: true });
     });
 
     document.getElementById('btnClearMulti')?.addEventListener('click', () => {
@@ -2017,7 +2018,7 @@ function renderPokemonDetail() {
       <img src="${pokeSprite(p.species_en, p.shiny)}" style="width:96px;height:96px;${p.shiny ? 'filter:drop-shadow(0 0 6px var(--gold))' : ''}">
       <div style="font-family:var(--font-pixel);font-size:12px;margin-top:4px">${speciesName(p.species_en)}${p.shiny ? ' ✨' : ''}</div>
       <div style="font-size:10px;color:var(--text-dim)">#${String(p.dex).padStart(3, '0')} — ${sp?.types.map(typeFr).join('/') || '?'}</div>
-      ${p.homesick ? '<div style="display:inline-block;margin-top:4px;padding:2px 8px;background:#1a100a;border:1px solid #8b4513;border-radius:3px;font-size:9px;color:#cd853f">🏠 Mal du pays (-25%)</div>' : ''}
+      ${p.homesick ? `<div style="display:inline-block;margin-top:4px;padding:2px 8px;background:#1a100a;border:1px solid #8b4513;border-radius:3px;font-size:9px;color:#cd853f">🏠 ${_t('pc_homesick')}</div>` : ''}
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;margin-bottom:12px">
       <div>${t('level')}: <b>${p.level}</b></div>
@@ -2028,7 +2029,7 @@ function renderPokemonDetail() {
     <div style="font-size:11px;margin-bottom:8px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
         <span style="color:var(--text-dim)">${t('moves')}:</span>
-        <button id="btnChangeMoves" style="font-size:8px;padding:2px 7px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer" title="${state.lang === 'fr' ? 'Changer les attaques (10 000₽)' : 'Change moves (10,000₽)'}">🔄 10k₽</button>
+        <button id="btnChangeMoves" style="font-size:8px;padding:2px 7px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer" title="${_t('pc_change_moves_cost')}">🔄 10k₽</button>
       </div>
       ${p.moves.map(m => `<div style="padding:2px 0">▸ ${state.lang === 'fr' ? m : (typeof MOVES_DATA_EN !== 'undefined' ? (MOVES_DATA_EN[m] || m) : m)}</div>`).join('')}
     </div>
@@ -2037,20 +2038,20 @@ function renderPokemonDetail() {
     </div>
     <div style="font-size:10px;color:var(--text-dim);margin-bottom:8px">${t('zone_caught')}: ${zoneName}</div>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-      <div style="font-size:10px;color:var(--gold);flex:1">Valeur: ${price}₽${getMarketSaturation(p.species_en) > 0 ? ` <span style="color:var(--red);font-size:9px">▼${getMarketSaturation(p.species_en)}% offre</span>` : ''}</div>
-      <button id="btnFavToggle" style="font-size:10px;padding:4px 10px;background:${p.favorite ? 'var(--gold-dim)' : 'var(--bg)'};border:1px solid ${p.favorite ? 'var(--gold)' : 'var(--border)'};border-radius:var(--radius-sm);color:${p.favorite ? 'var(--bg)' : 'var(--text-dim)'};cursor:pointer">${p.favorite ? '⭐ Favori' : '☆ Favori'}</button>
+      <div style="font-size:10px;color:var(--gold);flex:1">${_t('pc_value', { price })}${getMarketSaturation(p.species_en) > 0 ? ` <span style="color:var(--red);font-size:9px">${_t('pc_market_supply', { percent: getMarketSaturation(p.species_en) })}</span>` : ''}</div>
+      <button id="btnFavToggle" style="font-size:10px;padding:4px 10px;background:${p.favorite ? 'var(--gold-dim)' : 'var(--bg)'};border:1px solid ${p.favorite ? 'var(--gold)' : 'var(--border)'};border-radius:var(--radius-sm);color:${p.favorite ? 'var(--bg)' : 'var(--text-dim)'};cursor:pointer">${p.favorite ? '⭐' : '☆'} ${_t('pc_favorite')}</button>
     </div>
     ${(() => {
       // Check if in a team
       const inBossTeam = state.gang.bossTeam.includes(p.id);
       const inAgentTeam = state.agents.find(a => a.team.includes(p.id));
-      const teamLabel = inBossTeam ? (state.lang === 'fr' ? 'Équipe Boss' : 'Boss Team')
-        : inAgentTeam ? (state.lang === 'fr' ? 'Équipe ' + inAgentTeam.name : inAgentTeam.name + ' Team')
+      const teamLabel = inBossTeam ? _t('pc_boss_team')
+        : inAgentTeam ? _t('pc_agent_team', { agent: inAgentTeam.name })
         : null;
       if (teamLabel) {
-        return '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px"><button style="flex:1;font-size:10px;padding:6px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer" id="btnRemoveFromTeam">🔓 ' + (state.lang === 'fr' ? 'Retirer de ' : 'Remove from ') + teamLabel + '</button></div>';
+        return `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px"><button style="flex:1;font-size:10px;padding:6px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer" id="btnRemoveFromTeam">🔓 ${_t('pc_remove_from_team', { team: teamLabel })}</button></div>`;
       }
-      return '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px"><button style="flex:1;font-size:10px;padding:6px;background:var(--bg);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--green);cursor:pointer" id="btnAssignTo">📋 ' + (state.lang === 'fr' ? 'Attribuer à...' : 'Assign to...') + '</button></div>';
+      return `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px"><button style="flex:1;font-size:10px;padding:6px;background:var(--bg);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--green);cursor:pointer" id="btnAssignTo">📋 ${_t('pc_assign_to')}</button></div>`;
     })()}
     ${(() => {
       const pensionSlots = state.pension?.slots || [];
@@ -2063,12 +2064,12 @@ function renderPokemonDetail() {
       const trainingFull = (state.trainingRoom?.pokemon?.length || 0) >= 6 + (state.trainingRoom?.extraSlots || 0);
       let btns = '';
       if (!inPension && !inTraining) {
-        btns += `<button style="flex:1;font-size:10px;padding:6px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:${pensionFull ? 'var(--text-dim)' : 'var(--text)'};cursor:${pensionFull ? 'default' : 'pointer'}" id="btnSendPension"${pensionFull ? ' disabled' : ''}>Pension ${pensionFull ? '(pleine)' : ''}</button>`;
-        btns += `<button style="flex:1;font-size:10px;padding:6px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:${trainingFull ? 'var(--text-dim)' : 'var(--text)'};cursor:${trainingFull ? 'default' : 'pointer'}" id="btnSendTraining"${trainingFull ? ' disabled' : ''}>Formation ${trainingFull ? '(pleine)' : ''}</button>`;
+        btns += `<button style="flex:1;font-size:10px;padding:6px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:${pensionFull ? 'var(--text-dim)' : 'var(--text)'};cursor:${pensionFull ? 'default' : 'pointer'}" id="btnSendPension"${pensionFull ? ' disabled' : ''}>${_t('pc_pension')}${pensionFull ? ` ${_t('pc_full')}` : ''}</button>`;
+        btns += `<button style="flex:1;font-size:10px;padding:6px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:${trainingFull ? 'var(--text-dim)' : 'var(--text)'};cursor:${trainingFull ? 'default' : 'pointer'}" id="btnSendTraining"${trainingFull ? ' disabled' : ''}>${_t('pc_training')}${trainingFull ? ` ${_t('pc_full')}` : ''}</button>`;
       } else if (inPension) {
-        btns += `<button style="flex:1;font-size:10px;padding:6px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer" id="btnRemovePension">Retirer pension</button>`;
+        btns += `<button style="flex:1;font-size:10px;padding:6px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer" id="btnRemovePension">${_t('pc_remove_pension')}</button>`;
       } else if (inTraining) {
-        btns += `<button style="flex:1;font-size:10px;padding:6px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer" id="btnRemoveTraining">Retirer formation</button>`;
+        btns += `<button style="flex:1;font-size:10px;padding:6px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer" id="btnRemoveTraining">${_t('pc_remove_training')}</button>`;
       }
       return btns ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">${btns}</div>` : '';
     })()}
@@ -2077,11 +2078,11 @@ function renderPokemonDetail() {
       <button style="flex:1;font-size:10px;padding:6px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer" id="btnRelease">${t('release')}</button>
     </div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
-      <button id="btnRename" style="flex:1;font-size:10px;padding:6px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">✏ Renommer</button>
+      <button id="btnRename" style="flex:1;font-size:10px;padding:6px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">✏ ${_t('pc_rename')}</button>
     </div>
     <div style="margin-top:8px">
       <button id="btnFilterSpecies" style="width:100%;font-size:9px;padding:5px;background:var(--bg);border:1px solid var(--blue);border-radius:var(--radius-sm);color:var(--blue);cursor:pointer;font-family:var(--font-pixel)">
-        🔍 Voir tous les ${speciesName(p.species_en)} (×${state.pokemons.filter(x => x.species_en === p.species_en).length})
+        🔍 ${_t('pc_view_all_species', { pokemon: speciesName(p.species_en), n: state.pokemons.filter(x => x.species_en === p.species_en).length })}
       </button>
     </div>
     ${renderSuperCandyPanel(p)}
@@ -2101,17 +2102,15 @@ function renderPokemonDetail() {
   document.getElementById('btnChangeMoves')?.addEventListener('click', () => {
     const cost = 10000;
     if (state.gang.money < cost) {
-      notify(state.lang === 'fr' ? 'Fonds insuffisants (10 000₽).' : 'Not enough funds (10,000₽).', 'error');
+      notify(_t('pc_insufficient_funds_moves'), 'error');
       return;
     }
     const sp2 = SPECIES_BY_EN[p.species_en];
     if (!sp2 || !sp2.moves?.length) {
-      notify(state.lang === 'fr' ? 'Aucune attaque disponible pour cette espèce.' : 'No move available for this species.', 'error');
+      notify(_t('pc_no_moves_available'), 'error');
       return;
     }
-    const confirmMsg = state.lang === 'fr'
-      ? `Changer les attaques de <b>${speciesName(p.species_en)}</b> pour <b>10 000₽</b> ?<br><span style="color:var(--text-dim);font-size:10px">Les nouvelles attaques seront tirées aléatoirement dans le pool de l'espèce.</span>`
-      : `Change <b>${speciesName(p.species_en)}</b>'s moves for <b>10,000₽</b>?<br><span style="color:var(--text-dim);font-size:10px">New moves will be drawn at random from the species' pool.</span>`;
+    const confirmMsg = _t('pc_change_moves_confirm', { pokemon: speciesName(p.species_en) });
     showConfirm(confirmMsg,
       () => {
         state.gang.money -= cost;
@@ -2120,11 +2119,11 @@ function renderPokemonDetail() {
         p.moves = rollMoves(p.species_en);
         saveState();
         const movesDisplay = p.moves.map(m => state.lang === 'fr' ? m : (typeof MOVES_DATA_EN !== 'undefined' ? (MOVES_DATA_EN[m] || m) : m)).join(', ');
-        notify(state.lang === 'fr' ? `Attaques changées → ${movesDisplay}` : `Moves changed → ${movesDisplay}`, 'gold');
+        notify(_t('pc_moves_changed', { moves: movesDisplay }), 'gold');
         renderPCTab();
         updateTopBar();
       },
-      null, { confirmLabel: 'Changer', cancelLabel: 'Annuler' }
+      null, { confirmLabel: _t('pc_change'), cancelLabel: _t('pc_cancel') }
     );
   });
 
@@ -2135,7 +2134,7 @@ function renderPokemonDetail() {
       if (!n || p.level >= 100) return;
       const { cost, levels } = _superCandyQuote(p.level, n);
       if (levels === 0) return;
-      if ((state.gang.money || 0) < cost) { notify('Pokédollars insuffisants.', 'error'); return; }
+      if ((state.gang.money || 0) < cost) { notify(_t('pc_insufficient_pokedollars'), 'error'); return; }
       const fromLevel = p.level;
       // Monte niveau par niveau pour gérer correctement les évolutions par palier.
       // autoPick : résout les évolutions multi-branches sans popup (sinon un modal
@@ -2188,7 +2187,7 @@ function renderPokemonDetail() {
     }
     saveState();
     renderPCTab();
-    notify(state.lang === 'fr' ? 'Retiré de l\'équipe' : 'Removed from team', 'success');
+    notify(_t('pc_removed_from_team'), 'success');
   });
 
   document.getElementById('btnSendPension')?.addEventListener('click', () => {
@@ -2212,13 +2211,13 @@ function renderPokemonDetail() {
   document.getElementById('btnRemovePension')?.addEventListener('click', () => {
     state.pension.slots = (state.pension.slots || []).filter(id => id !== p.id);
     saveState();
-    notify(`${speciesName(p.species_en)} retiré de la pension`, 'success');
+    notify(_t('pc_removed_from_pension_notice', { pokemon: speciesName(p.species_en) }), 'success');
     renderPCTab();
   });
   document.getElementById('btnRemoveTraining')?.addEventListener('click', () => {
     state.trainingRoom.pokemon = state.trainingRoom.pokemon.filter(id => id !== p.id);
     saveState();
-    notify(`${speciesName(p.species_en)} retiré de la formation`, 'success');
+    notify(_t('pc_removed_from_training_notice', { pokemon: speciesName(p.species_en) }), 'success');
     renderPCTab();
   });
 
@@ -2308,8 +2307,8 @@ function showEvolutionChoicePopup(pokemon, evos, onChoose) {
   overlay.className = 'evo-choice-overlay';
   overlay.innerHTML = `
     <div class="evo-choice-box">
-      <div class="evo-choice-title">ÉVOLUTION — ${pkName.toUpperCase()}</div>
-      <div class="evo-choice-sub">${shuffled.length} possibilités • Choisissez une carte</div>
+      <div class="evo-choice-title">${_t('pc_evolution').toUpperCase()} — ${pkName.toUpperCase()}</div>
+      <div class="evo-choice-sub">${_t('pc_evolution_choices', { n: shuffled.length })}</div>
       <div class="evo-choice-cards">
         ${shuffled.map((evo, i) => `
           <div class="evo-card-wrap" data-evo-idx="${i}">
@@ -2322,7 +2321,7 @@ function showEvolutionChoicePopup(pokemon, evos, onChoose) {
             </div>
           </div>`).join('')}
       </div>
-      <div class="evo-choice-hint">Cliquez une carte pour révéler • Échap pour annuler</div>
+      <div class="evo-choice-hint">${_t('pc_evolution_choice_hint')}</div>
     </div>`;
   document.body.appendChild(overlay);
 
@@ -2348,19 +2347,19 @@ function openRenameModal(pokemonId) {
   modal.style.cssText = 'position:fixed;inset:0;z-index:9100;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center';
   modal.innerHTML = `
     <div style="background:var(--bg-panel);border:2px solid var(--gold-dim);border-radius:var(--radius);padding:20px;max-width:320px;width:90%;display:flex;flex-direction:column;gap:12px">
-      <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">RENOMMER</div>
+        <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">${_t('pc_rename').toUpperCase()}</div>
       <div style="display:flex;align-items:center;gap:10px">
         <img src="${pokeSprite(p.species_en, p.shiny)}" style="width:48px;height:48px;image-rendering:pixelated">
         <div>
           <div style="font-size:11px">${speciesName(p.species_en)}</div>
-          <div style="font-size:9px;color:var(--text-dim)">Nom actuel : ${p.nick || speciesName(p.species_en)}</div>
+        <div style="font-size:9px;color:var(--text-dim)">${_t('pc_current_name', { name: p.nick || speciesName(p.species_en) })}</div>
         </div>
       </div>
       <input id="renameInput" type="text" maxlength="16" placeholder="${p.nick || speciesName(p.species_en)}" value="${p.nick || ''}"
         style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);padding:8px 10px;font-size:12px;outline:none;width:100%;box-sizing:border-box">
       <div style="display:flex;gap:8px">
-        <button id="renameClear" style="flex:1;font-family:var(--font-pixel);font-size:8px;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">Effacer surnom</button>
-        <button id="renameConfirm" style="flex:1;font-family:var(--font-pixel);font-size:8px;padding:8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">Confirmer</button>
+        <button id="renameClear" style="flex:1;font-family:var(--font-pixel);font-size:8px;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">${_t('pc_clear_nickname')}</button>
+        <button id="renameConfirm" style="flex:1;font-family:var(--font-pixel);font-size:8px;padding:8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">${_t('pc_confirm')}</button>
       </div>
     </div>`;
   document.body.appendChild(modal);
@@ -2369,7 +2368,7 @@ function openRenameModal(pokemonId) {
     const val = modal.querySelector('#renameInput').value.trim();
     p.nick = val || null;
     saveState();
-    notify(val ? `${speciesName(p.species_en)} renommé "${val}"` : 'Surnom effacé', 'success');
+    notify(val ? _t('pc_renamed_notice', { pokemon: speciesName(p.species_en), name: val }) : _t('pc_nickname_cleared'), 'success');
     modal.remove();
     _pcLastRenderKey = '';
     renderPokemonGrid(true);
@@ -2377,7 +2376,7 @@ function openRenameModal(pokemonId) {
   modal.querySelector('#renameClear').addEventListener('click', () => {
     p.nick = null;
     saveState();
-    notify('Surnom effacé', 'success');
+    notify(_t('pc_nickname_cleared'), 'success');
     modal.remove();
     _pcLastRenderKey = '';
     renderPokemonGrid(true);
@@ -2421,7 +2420,7 @@ function renderPokemonDetailGroup(species) {
       <img src="${pokeSprite(species)}" style="width:64px;height:64px">
       <div style="font-family:var(--font-pixel);font-size:11px;margin-top:4px">${speciesName(species)}</div>
       <div style="font-size:9px;color:var(--text-dim)">#${String(sp?.dex||0).padStart(3,'0')} — ${(sp?.types||[]).join('/')}</div>
-      <div style="font-size:9px;margin-top:2px">×${allPks.length} · Max Lv.${maxLvl} · ${'★'.repeat(maxPot)}</div>
+      <div style="font-size:9px;margin-top:2px">${_t('pc_group_max_level_summary', { count: allPks.length, level: maxLvl, stars: '★'.repeat(maxPot) })}</div>
     </div>
 
     <!-- Filtre potentiel -->
@@ -2438,26 +2437,26 @@ function renderPokemonDetailGroup(species) {
     <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px">
       <!-- Favoris groupés -->
       <button id="btnGroupFav" style="width:100%;font-family:var(--font-pixel);font-size:8px;padding:5px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">
-        ${allFav ? `☆ Retirer favori (${pks.length})` : `⭐ Marquer favori (${pks.length - pks.filter(p=>p.favorite).length})`}
+        ${allFav ? _t('pc_remove_favorite_count', { n: pks.length }) : _t('pc_mark_favorite_simple_count', { n: pks.length - pks.filter(p=>p.favorite).length })}
       </button>
 
       <!-- Évoluer XP -->
       ${gdXpEvo.length > 0 ? `
       <button id="btnGroupEvoXP" style="width:100%;font-family:var(--font-pixel);font-size:8px;padding:5px;background:var(--bg);border:1px solid var(--green,#4caf50);border-radius:var(--radius-sm);color:var(--green,#4caf50);cursor:pointer">
-        ⬆ Évoluer XP (${gdXpEvo.length})
+        ⬆ ${_t('pc_evolve_xp_count', { n: gdXpEvo.length })}
       </button>` : ''}
 
       <!-- Évoluer Pierre -->
       ${gdStoneEvo.length > 0 ? `
       <button id="btnGroupEvoStone" style="width:100%;font-family:var(--font-pixel);font-size:8px;padding:5px;background:var(--bg);border:1px solid ${gdStoneHave > 0 ? 'var(--gold)' : 'var(--border)'};border-radius:var(--radius-sm);color:${gdStoneHave > 0 ? 'var(--gold)' : 'var(--text-dim)'};cursor:pointer">
-        💎 Évoluer Pierre (${gdStoneEvo.length}) — ${gdStoneHave} dispo
+        💎 ${_t('pc_evolve_stone_count', { n: gdStoneEvo.length, available: gdStoneHave })}
       </button>` : ''}
 
       <!-- Toggle chromatiques + vente groupée -->
       ${shinyCount > 0 ? `
       <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:8px;color:var(--gold);padding:3px 0">
         <input type="checkbox" id="grpIncludeShiny" ${_grpIncludeShiny ? 'checked' : ''} style="accent-color:var(--gold)">
-        ✨ Inclure chromatiques dans la vente (×${shinyCount})
+        ✨ ${_t('pc_include_shinies_sale', { n: shinyCount })}
       </label>` : ''}
       ${state.purchases?.autoSellAgent && shinyCount > 0 ? `
       <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:8px;color:var(--text-dim);padding:2px 0">
@@ -2467,8 +2466,8 @@ function renderPokemonDetailGroup(species) {
       ${sellable.length > 0 ? `
       <div style="font-size:8px;color:var(--text-dim);text-align:center">${sellable.length} vendables — <span style="color:var(--gold)">${totalValue.toLocaleString()}₽</span></div>
       <button id="btnGroupSellAll" style="width:100%;font-family:var(--font-pixel);font-size:8px;padding:5px;background:var(--red-dark);border:1px solid var(--red);border-radius:var(--radius-sm);color:var(--text);cursor:pointer">
-        Vendre ${sellable.length} (${totalValue.toLocaleString()}₽)
-      </button>` : (shinyCount > 0 && !_grpIncludeShiny ? `<div style="font-size:8px;color:var(--text-dim);text-align:center">✨ Cochez "Inclure chromatiques" pour vendre</div>` : '')}
+        ${_t('pc_sell_count_value', { n: sellable.length, total: totalValue.toLocaleString() })}
+      </button>` : (shinyCount > 0 && !_grpIncludeShiny ? `<div style="font-size:8px;color:var(--text-dim);text-align:center">${_t('pc_check_include_shinies')}</div>` : '')}
     </div>
 
     <div style="display:flex;flex-direction:column;gap:3px;max-height:280px;overflow-y:auto">
@@ -2520,8 +2519,8 @@ function renderPokemonDetailGroup(species) {
     state.pokedex[species].shinyUnprotected = e.target.checked;
     saveState();
     notify(e.target.checked
-      ? `⚠ Shinies de ${speciesName(species)} déprotégés.`
-      : `✅ Shinies de ${speciesName(species)} à nouveau protégés.`,
+      ? _t('pc_shinies_unprotected', { pokemon: speciesName(species) })
+      : _t('pc_shinies_reprotected', { pokemon: speciesName(species) }),
       e.target.checked ? '' : 'success');
   });
 
@@ -2529,12 +2528,12 @@ function renderPokemonDetailGroup(species) {
     const ids = sellable.map(p => p.id);
     const shinyInSell = sellable.filter(p => p.shiny).length;
     const label = shinyInSell > 0
-      ? `Vendre <b>${ids.length}</b> ${speciesName(species)} <span style="color:var(--gold)">(dont ✨×${shinyInSell})</span> pour <b style="color:var(--gold)">${totalValue.toLocaleString()}₽</b> ?`
-      : `Vendre <b>${ids.length}</b> ${speciesName(species)} pour <b style="color:var(--gold)">${totalValue.toLocaleString()}₽</b> ?`;
+      ? _t('pc_sell_group_with_shinies', { n: ids.length, pokemon: speciesName(species), shinies: shinyInSell, total: totalValue.toLocaleString() })
+      : _t('pc_sell_group_confirm', { n: ids.length, pokemon: speciesName(species), total: totalValue.toLocaleString() });
     showConfirm(label, () => {
       sellPokemon(ids); pcGroupSpecies = null; _grpPotFilter = 0; _grpIncludeShiny = false;
       _pcLastRenderKey = ''; updateTopBar(); renderPCTab();
-    }, null, { confirmLabel: 'Vendre', cancelLabel: 'Annuler', danger: true });
+    }, null, { confirmLabel: _t('pc_sell'), cancelLabel: _t('pc_cancel'), danger: true });
   });
 
   panel.querySelectorAll('.grp-detail-btn').forEach(btn => {
@@ -2559,12 +2558,12 @@ function renderPokemonHistory(pokemon) {
         const zDef = ZONE_BY_ID[h.zone];
         const zName = zDef ? (state.lang === 'fr' ? zDef.fr : zDef.en) : h.zone;
         const ballName = BALLS[h.ball] ? (state.lang === 'fr' ? BALLS[h.ball].fr : BALLS[h.ball].en) : h.ball;
-        return `<div class="history-entry">${timeStr} — ${state.lang === 'fr' ? 'Capturé' : 'Captured'} (${ballName}) @ ${zName}</div>`;
+        return `<div class="history-entry">${timeStr} — ${_t('pc_history_captured', { ball: ballName, zone: zName })}</div>`;
       }
       case 'combat':
-        return `<div class="history-entry">${timeStr} — ${h.won ? (state.lang === 'fr' ? 'Combat gagné' : 'Won battle') : (state.lang === 'fr' ? 'Combat perdu' : 'Lost battle')}</div>`;
+        return `<div class="history-entry">${timeStr} — ${h.won ? _t('pc_history_battle_won') : _t('pc_history_battle_lost')}</div>`;
       case 'levelup':
-        return `<div class="history-entry">${timeStr} — ${state.lang === 'fr' ? 'Niveau' : 'Level'} ${h.level}</div>`;
+        return `<div class="history-entry">${timeStr} — ${_t('pc_history_level', { level: h.level })}</div>`;
       case 'evolved':
         return `<div class="history-entry" style="color:var(--gold)">${timeStr} — ${h.from} → ${h.to} ✨</div>`;
       default:
@@ -2572,7 +2571,7 @@ function renderPokemonHistory(pokemon) {
     }
   }).join('');
   return `<div class="pokemon-history">
-    <div class="history-title">${state.lang === 'fr' ? '📜 Historique' : '📜 History'}</div>
+    <div class="history-title">${_t('pc_history_title')}</div>
     ${entries}
   </div>`;
 }
@@ -2603,29 +2602,29 @@ const DEX_ASSISTANT_PRICES = {
 
 const DEX_ASSISTANT_TIPS = {
   legendary: [
-    'Les légendaires sont extrêmement rares (≈1% par spawn). Installe plusieurs agents dans les zones concernées et sois patient.',
-    'Un légendaire peut aussi apparaître pendant un raid de zone. Concentre tes forces !',
-    'Active le mode "Rare Scope" depuis le marché pour forcer l\'apparition des espèces rares (légendaires exclus, mais ça libère de la place dans le pool).',
+    'pc_tip_legendary_agents',
+    'pc_tip_legendary_raid',
+    'pc_tip_legendary_scope',
   ],
   very_rare: [
-    'Cette espèce est très rare. Le "Rare Scope" du marché triple ses chances d\'apparition.',
-    'Assigne plusieurs agents dans les zones indiquées pour multiplier les chances de rencontre.',
-    'Un niveau de maîtrise élevé dans la zone augmente la fréquence des spawns globaux.',
+    'pc_tip_very_rare_scope',
+    'pc_tip_very_rare_agents',
+    'pc_tip_very_rare_mastery',
   ],
   rare: [
-    'Espèce rare — plusieurs sessions de farm seront nécessaires. Garde les Poké Balls prêtes !',
-    'Le "Rare Scope" peut aider à filtrer les espèces communes et augmenter le taux des rares.',
-    'En mode automatique, assigne un agent spécialisé en capture dans la zone la plus active.',
+    'pc_tip_rare_farm',
+    'pc_tip_rare_scope',
+    'pc_tip_rare_agent',
   ],
   uncommon: [
-    'Espèce peu commune. Quelques heures de farm avec un agent en capture suffisent généralement.',
-    'Privilégie la zone avec le meilleur spawnRate (affiché dans Zones de Spawn).',
-    'Les coffres de zone peuvent parfois contenir des Pokémon de rareté peu commune.',
+    'pc_tip_uncommon_farm',
+    'pc_tip_uncommon_zone',
+    'pc_tip_uncommon_chests',
   ],
   common: [
-    'Espèce commune — tu devrais en trouver rapidement, même sans agent assigné.',
-    'Lance une capture manuelle depuis la zone ou laisse un agent s\'en occuper.',
-    'Si tu en as besoin en shiny, active le Charme Chroma depuis le marché cosmétiques.',
+    'pc_tip_common_fast',
+    'pc_tip_common_capture',
+    'pc_tip_common_shiny',
   ],
 };
 
@@ -2639,7 +2638,7 @@ function _getDexAssistantCostHtml(sp) {
     cursor:${canAfford ? 'pointer' : 'default'};text-align:left;
     display:flex;align-items:center;justify-content:space-between;gap:6px
   ">
-    <span>🎓 Conseil du Professeur</span>
+      <span>🎓 ${_t('pc_professor_advice')}</span>
     <span style="font-family:sans-serif;font-size:9px;color:${canAfford ? 'var(--gold-dim)' : '#444'}">${price.toLocaleString()}₽</span>
   </button>`;
 }
@@ -2650,7 +2649,7 @@ function openDexAssistant(species_en) {
 
   const price = DEX_ASSISTANT_PRICES[sp.rarity] ?? 500;
   if (state.gang.money < price) {
-    notify(`Fonds insuffisants — ${price.toLocaleString()}₽ requis.`, 'error');
+    notify(_t('pc_funds_required', { price: price.toLocaleString() }), 'error');
     return;
   }
 
@@ -2672,12 +2671,12 @@ function openDexAssistant(species_en) {
           <span style="font-size:9px">${z.name}</span>
           <span style="font-size:8px;color:var(--text-dim)">${(z.rate * 100).toFixed(1)}% / tick</span>
         </div>`).join('')
-    : `<div style="font-size:9px;color:var(--text-dim)">Aucune zone connue pour cette espèce.</div>`;
+      : `<div style="font-size:9px;color:var(--text-dim)">${_t('pc_no_known_zone_species')}</div>`;
 
   const tipsHtml = tips.map(tip =>
     `<div style="display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--border)">
       <span style="color:var(--gold);font-size:12px;flex-shrink:0">💡</span>
-      <span style="font-size:9px;color:var(--text);line-height:1.5">${tip}</span>
+      <span style="font-size:9px;color:var(--text);line-height:1.5">${_t(tip)}</span>
     </div>`
   ).join('');
 
@@ -2687,7 +2686,7 @@ function openDexAssistant(species_en) {
     <div style="background:var(--bg-panel);border:2px solid var(--gold-dim);border-radius:var(--radius);padding:22px;max-width:440px;width:100%;max-height:88vh;overflow-y:auto;display:flex;flex-direction:column;gap:14px">
 
       <div style="display:flex;justify-content:space-between;align-items:center">
-        <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold)">🎓 Professeur Oak</div>
+      <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold)">🎓 ${_t('pc_professor_oak')}</div>
         <button id="btnDexAssistClose" style="background:none;border:none;color:var(--text-dim);font-size:18px;cursor:pointer">✕</button>
       </div>
 
@@ -2705,20 +2704,20 @@ function openDexAssistant(species_en) {
 
       <!-- Zones de spawn -->
       <div>
-        <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);margin-bottom:6px">📍 ZONES DE SPAWN</div>
+        <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);margin-bottom:6px">📍 ${_t('pc_spawn_zones').toUpperCase()}</div>
         ${zonesHtml}
-        ${bestZone ? `<div style="font-size:8px;color:var(--green);margin-top:6px">✓ Meilleure zone : <b>${bestZone.name}</b> (${(bestZone.rate * 100).toFixed(1)}% / tick)</div>` : ''}
+        ${bestZone ? `<div style="font-size:8px;color:var(--green);margin-top:6px">${_t('pc_best_zone', { zone: bestZone.name, rate: (bestZone.rate * 100).toFixed(1) })}</div>` : ''}
       </div>
 
       <!-- Conseils -->
       <div>
-        <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);margin-bottom:4px">📋 CONSEILS</div>
+        <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);margin-bottom:4px">📋 ${_t('pc_tips').toUpperCase()}</div>
         ${tipsHtml}
       </div>
 
       <!-- Coût déduit -->
       <div style="font-size:8px;color:var(--text-dim);border-top:1px solid var(--border);padding-top:8px;text-align:right">
-        −${price.toLocaleString()}₽ déduits · Solde : <span style="color:var(--gold)">${(state.gang.money - price).toLocaleString()}₽</span>
+        ${_t('pc_advice_cost_balance', { price: price.toLocaleString(), balance: (state.gang.money - price).toLocaleString() })}
       </div>
     </div>`;
 
@@ -2755,25 +2754,25 @@ function renderDexDetail(species_en) {
     </div>
 
     <div style="font-size:9px;margin-bottom:10px">
-      <div style="color:var(--text-dim);margin-bottom:4px;font-family:var(--font-pixel)">CAPTURES</div>
-      <div>Total capturés : <b style="color:var(--gold)">${entry.count || 0}</b></div>
-      <div>Dans le PC : <b>${ownedCount}</b></div>
-      ${entry.shiny ? '<div style="color:var(--gold)">✨ Chromatique obtenu !</div>' : ''}
+      <div style="color:var(--text-dim);margin-bottom:4px;font-family:var(--font-pixel)">${_t('pc_captures').toUpperCase()}</div>
+      <div>${_t('pc_total_caught', { n: entry.count || 0 })}</div>
+      <div>${_t('pc_owned_in_pc', { n: ownedCount })}</div>
+      ${entry.shiny ? `<div style="color:var(--gold)">${_t('pc_shiny_obtained')}</div>` : ''}
     </div>
 
     <div style="font-size:9px;margin-bottom:10px">
-      <div style="color:var(--text-dim);margin-bottom:4px;font-family:var(--font-pixel)">ZONES DE SPAWN</div>
+      <div style="color:var(--text-dim);margin-bottom:4px;font-family:var(--font-pixel)">${_t('pc_spawn_zones').toUpperCase()}</div>
       ${spawnZones.length ? spawnZones.map(z => {
         const interval = (1 / z.rate).toFixed(0);
         return `<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--border)">
           <span>${z.name}</span>
           <span style="color:var(--text-dim)">1/${interval}s</span>
         </div>`;
-      }).join('') : '<div style="color:var(--text-dim)">Aucune zone connue</div>'}
+      }).join('') : `<div style="color:var(--text-dim)">${_t('pc_no_known_zone')}</div>`}
     </div>
 
     <div style="font-size:9px">
-      <div style="color:var(--text-dim);margin-bottom:4px;font-family:var(--font-pixel)">BASE STATS</div>
+      <div style="color:var(--text-dim);margin-bottom:4px;font-family:var(--font-pixel)">${_t('pc_base_stats').toUpperCase()}</div>
       <div style="display:flex;flex-direction:column;gap:3px">
         ${[['ATK', sp.baseAtk], ['DEF', sp.baseDef], ['SPD', sp.baseSpd]].map(([label, val]) => `
           <div style="display:flex;align-items:center;gap:6px">
@@ -2788,12 +2787,12 @@ function renderDexDetail(species_en) {
     ${ownedCount > 0 ? `
     <div style="margin-top:10px">
       <button id="dexFilterPCBtn" style="width:100%;font-size:9px;padding:6px;background:var(--bg);border:1px solid var(--blue);border-radius:var(--radius-sm);color:var(--blue);cursor:pointer;font-family:var(--font-pixel)">
-        🔍 Voir dans le PC (×${ownedCount})
+        🔍 ${_t('pc_view_in_pc', { n: ownedCount })}
       </button>
     </div>` : ''}
     ${state.purchases.autoSellAgent && entry.shiny ? `
     <div style="margin-top:6px;font-size:8px;color:var(--text-dim)">
-      ⚠ Vente auto chroma : gérable depuis le PC (mode Grouper)
+      ⚠ ${_t('pc_shiny_auto_sell_hint')}
     </div>` : ''}
     <div style="margin-top:8px">
       ${_getDexAssistantCostHtml(sp)}
@@ -2831,7 +2830,7 @@ function renderDexDetail(species_en) {
     </div>
     ${dexDetailTab === 'stats' ? statsTabHtml : infoTabHtml}
     ` : `
-    <div style="color:var(--text-dim);font-size:10px;padding:20px;text-align:center">Pas encore rencontré</div>
+    <div style="color:var(--text-dim);font-size:10px;padding:20px;text-align:center">${_t('pc_not_encountered')}</div>
     <div style="margin-top:4px">
       ${_getDexAssistantCostHtml(sp)}
     </div>`}
@@ -2890,47 +2889,47 @@ function _renderDexStatsTabHtml(entry, spawnZones = []) {
   return `
     <div style="display:flex;gap:8px;margin-bottom:12px">
       <div style="flex:1;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px;text-align:center">
-        <div style="font-size:8px;color:var(--text-dim);font-family:var(--font-pixel);margin-bottom:4px">CAPTURES</div>
+        <div style="font-size:8px;color:var(--text-dim);font-family:var(--font-pixel);margin-bottom:4px">${_t('pc_captures').toUpperCase()}</div>
         <div style="font-size:16px;font-weight:700;color:var(--text)">${captureCount.toLocaleString()}</div>
       </div>
       <div style="flex:1;background:var(--bg-card);border:1px solid var(--gold-dim,#665522);border-radius:var(--radius-sm);padding:8px;text-align:center">
-        <div style="font-size:8px;color:var(--gold);font-family:var(--font-pixel);margin-bottom:4px">✨ CHROMA</div>
+        <div style="font-size:8px;color:var(--gold);font-family:var(--font-pixel);margin-bottom:4px">✨ ${_t('pc_chroma').toUpperCase()}</div>
         <div style="font-size:16px;font-weight:700;color:var(--gold)">${shinyCount.toLocaleString()}</div>
       </div>
     </div>
 
     <div style="font-size:9px;margin-bottom:10px">
-      <div style="color:var(--text-dim);margin-bottom:6px;font-family:var(--font-pixel)">PROBABILITÉ THÉORIQUE</div>
+      <div style="color:var(--text-dim);margin-bottom:6px;font-family:var(--font-pixel)">${_t('pc_theoretical_probability').toUpperCase()}</div>
       <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)">
-        <span>Taux initial (fixe)${hasCharm ? ' · ×2 Charme Chroma' : ''}</span>
+        <span>${_t('pc_initial_rate')}${hasCharm ? ` · ${_t('pc_chroma_charm_multiplier')}` : ''}</span>
         <span style="color:var(--text)">${fmtRate(fixedRate)}</span>
       </div>
       <div style="display:flex;justify-content:space-between;padding:4px 0">
-        <span>Taux actuel du joueur (dynamique)</span>
+        <span>${_t('pc_current_player_rate')}</span>
         <span style="color:${auraActive ? 'var(--gold)' : 'var(--text)'};font-weight:bold">${fmtRate(currentRate)}</span>
       </div>
-      ${auraActive ? `<div style="margin-top:4px;font-size:8px;color:var(--gold)">⏱ Aura Shiny active — encore ${auraLeftMin} min (composante dynamique du taux)</div>` : ''}
+      ${auraActive ? `<div style="margin-top:4px;font-size:8px;color:var(--gold)">${_t('pc_shiny_aura_active', { minutes: auraLeftMin })}</div>` : ''}
       ${bestZoneBonus > 0
-        ? `<div style="margin-top:4px;font-size:8px;color:var(--gold)">📍 +${(bestZoneBonus * 100).toFixed(1)}% en ${_esc(bestZoneName)} (niv.${bestZoneLevel}) — variable selon la zone de capture</div>`
+        ? `<div style="margin-top:4px;font-size:8px;color:var(--gold)">${_t('pc_zone_shiny_bonus', { bonus: (bestZoneBonus * 100).toFixed(1), zone: _esc(bestZoneName), level: bestZoneLevel })}</div>`
         : ''}
       ${!auraActive && bestZoneBonus === 0
-        ? `<div style="margin-top:4px;font-size:8px;color:var(--text-dim)">Aucun boost actif — le taux actuel équivaut au taux fixe</div>`
+        ? `<div style="margin-top:4px;font-size:8px;color:var(--text-dim)">${_t('pc_no_active_boost')}</div>`
         : ''}
     </div>
 
     <div style="font-size:9px;margin-bottom:10px">
-      <div style="color:var(--text-dim);margin-bottom:6px;font-family:var(--font-pixel)">TAUX RÉEL OBSERVÉ</div>
+      <div style="color:var(--text-dim);margin-bottom:6px;font-family:var(--font-pixel)">${_t('pc_observed_rate').toUpperCase()}</div>
       <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)">
-        <span>Cette espèce (${captureCount} capture${captureCount > 1 ? 's' : ''})</span>
+        <span>${_t('pc_species_capture_count', { n: captureCount })}</span>
         <span style="color:var(--gold);font-weight:bold">${fmtRate(speciesRate)}</span>
       </div>
       <div style="display:flex;justify-content:space-between;padding:4px 0">
-        <span>Moyenne du joueur (toutes espèces)</span>
+        <span>${_t('pc_player_average_all_species')}</span>
         <span style="color:var(--text-dim)">${fmtRate(globalRate)}</span>
       </div>
       ${captureCount < 20 ? `
       <div style="margin-top:6px;font-size:8px;color:var(--text-dim);font-style:italic">
-        Échantillon faible (&lt;20 captures) — le taux affiché peut fortement s'écarter du taux théorique.
+        ${_t('pc_small_sample_warning')}
       </div>` : ''}
     </div>
   `;
@@ -3002,11 +3001,11 @@ function rebuildPokedex() {
   const kanto    = getDexKantoCaught();
   const shinyEsp = getShinySpeciesCount();
   const parts = [];
-  if (fixedCaught) parts.push(`${fixedCaught} capturés corrigés`);
-  if (fixedShiny)  parts.push(`${fixedShiny} chromas corrigés`);
-  if (fixedCount)  parts.push(`${fixedCount} compteurs corrigés`);
-  const detail = parts.length ? ` (${parts.join(', ')})` : ' — tout était déjà cohérent';
-  notify(`✅ Pokédex recalibré${detail} · Kanto ${kanto}/${getKantoDexSize()} · ${shinyEsp} esp. chroma`, 'success');
+  if (fixedCaught) parts.push(_t('pc_rebuild_caught_fixed', { n: fixedCaught }));
+  if (fixedShiny)  parts.push(_t('pc_rebuild_shiny_fixed', { n: fixedShiny }));
+  if (fixedCount)  parts.push(_t('pc_rebuild_counts_fixed', { n: fixedCount }));
+  const detail = parts.length ? ` (${parts.join(', ')})` : _t('pc_rebuild_already_consistent');
+  notify(_t('pc_rebuild_complete', { detail, kanto, total: getKantoDexSize(), shinies: shinyEsp }), 'success');
 
   renderPokedexTab();
   renderGangTab();
@@ -3056,27 +3055,27 @@ function _renderTrainerEncountersView(grid) {
       <!-- Stats summary -->
       <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">
         <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:10px 16px;min-width:120px">
-          <div style="font-size:9px;color:var(--text-dim);font-family:var(--font-pixel);margin-bottom:4px">COMBATS</div>
+        <div style="font-size:9px;color:var(--text-dim);font-family:var(--font-pixel);margin-bottom:4px">${_t('pc_battles').toUpperCase()}</div>
           <div style="font-size:20px;font-weight:700;color:var(--text)">${totalTrainer.toLocaleString()}</div>
         </div>
         <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:10px 16px;min-width:120px">
-          <div style="font-size:9px;color:var(--text-dim);font-family:var(--font-pixel);margin-bottom:4px">RENCONTRES PKM</div>
+        <div style="font-size:9px;color:var(--text-dim);font-family:var(--font-pixel);margin-bottom:4px">${_t('pc_pokemon_encounters').toUpperCase()}</div>
           <div style="font-size:20px;font-weight:700;color:var(--text)">${totalPokemon.toLocaleString()}</div>
         </div>
         <div style="background:var(--bg-card);border:1px solid var(--red-dim,#661111);border-radius:var(--radius);padding:10px 16px;min-width:120px">
-          <div style="font-size:9px;color:var(--red);font-family:var(--font-pixel);margin-bottom:4px">🚀 ROCKETS</div>
+        <div style="font-size:9px;color:var(--red);font-family:var(--font-pixel);margin-bottom:4px">🚀 ${_t('pc_rockets').toUpperCase()}</div>
           <div style="font-size:20px;font-weight:700;color:var(--red)">${rocketTotal.toLocaleString()}</div>
-          <div style="font-size:9px;color:var(--text-dim);margin-top:2px">dont ${rocketJohto} Johto</div>
+        <div style="font-size:9px;color:var(--text-dim);margin-top:2px">${_t('pc_including_johto', { n: rocketJohto })}</div>
         </div>
       </div>
 
       <!-- Dresseurs rencontrés -->
       <div style="font-size:9px;font-family:var(--font-pixel);color:var(--text-dim);margin-bottom:8px;letter-spacing:.05em">
-        DRESSEURS RENCONTRÉS ${trainerEntries.length > 0 ? `(${trainerEntries.length} types)` : ''}
+        ${_t('pc_encountered_trainers').toUpperCase()} ${trainerEntries.length > 0 ? `(${_t('pc_type_count', { n: trainerEntries.length })})` : ''}
       </div>
       <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:20px">
         ${trainerEntries.length === 0
-          ? `<div style="color:var(--text-dim);font-size:10px;padding:8px">Aucun combat enregistré.</div>`
+      ? `<div style="color:var(--text-dim);font-size:10px;padding:8px">${_t('pc_no_recorded_battle')}</div>`
           : trainerEntries.map(([key, count]) => {
               const label = TRAINER_LABELS[key] || key;
               const pct = Math.round(count / maxCount * 100);
@@ -3092,10 +3091,10 @@ function _renderTrainerEncountersView(grid) {
       </div>
 
       <!-- Top pokémon rencontrés -->
-      <div style="font-size:9px;font-family:var(--font-pixel);color:var(--text-dim);margin-bottom:8px;letter-spacing:.05em">TOP 10 POKÉMON RENCONTRÉS</div>
+      <div style="font-size:9px;font-family:var(--font-pixel);color:var(--text-dim);margin-bottom:8px;letter-spacing:.05em">${_t('pc_top_encountered').toUpperCase()}</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         ${speciesEntries.length === 0
-          ? `<div style="color:var(--text-dim);font-size:10px;padding:8px">Aucune rencontre enregistrée.</div>`
+      ? `<div style="color:var(--text-dim);font-size:10px;padding:8px">${_t('pc_no_recorded_encounter')}</div>`
           : speciesEntries.map(([en, count]) => {
               const sp = POKEMON_GEN1.find(s => s.en === en);
               const label = sp ? sp.fr : en;
@@ -3149,25 +3148,25 @@ function renderPokedexTab() {
     grid.parentNode.insertBefore(dexCounter, grid);
   }
   dexCounter.innerHTML = `
-    <span title="Pokédex Kanto (151 espèces originales)">📖 Kanto&nbsp;<b style="color:var(--text)">${kantoCaught}/${getKantoDexSize()}</b></span>
-    ${johtoUnlocked  ? `<span title="Pokédex Johto (espèces #152–251)" style="opacity:.85">🗾 Johto&nbsp;<b style="color:var(--text)">${johtoCaught}/${getJohtoDexSize()}</b></span>` : ''}
-    ${hoennUnlocked  ? `<span title="Pokédex Hoenn (espèces #252–386)" style="opacity:.85">🌊 Hoenn&nbsp;<b style="color:var(--text)">${hoennCaught}/${hoennTotal}</b></span>` : ''}
-    ${sinnohUnlocked ? `<span title="Pokédex Sinnoh (espèces #387–493)" style="opacity:.85">❄️ Sinnoh&nbsp;<b style="color:var(--text)">${sinnohCaught}/${sinnohTotal}</b></span>` : ''}
-    <span title="Pokédex National (toutes espèces disponibles)" style="opacity:.7">🌐 National&nbsp;<b style="color:var(--text)">${nationalCaught}/${getNationalDexSize()}</b></span>
-    <span title="Espèces uniques dont au moins un exemplaire chromatique">✨&nbsp;<b style="color:var(--gold)">${shinySpecies}</b></span>
-    <button id="dexRebuildBtn" title="Reconstruire le Pokédex depuis tes Pokémon réels" style="margin-left:auto;font-family:var(--font-pixel);font-size:7px;padding:3px 7px;background:rgba(255,204,90,.08);border:1px solid rgba(255,204,90,.35);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer;white-space:nowrap">🔄 Recalibrer</button>
+      <span title="${_t('pc_dex_kanto_title')}">📖 Kanto&nbsp;<b style="color:var(--text)">${kantoCaught}/${getKantoDexSize()}</b></span>
+      ${johtoUnlocked  ? `<span title="${_t('pc_dex_johto_title')}" style="opacity:.85">🗾 Johto&nbsp;<b style="color:var(--text)">${johtoCaught}/${getJohtoDexSize()}</b></span>` : ''}
+      ${hoennUnlocked  ? `<span title="${_t('pc_dex_hoenn_title')}" style="opacity:.85">🌊 Hoenn&nbsp;<b style="color:var(--text)">${hoennCaught}/${hoennTotal}</b></span>` : ''}
+      ${sinnohUnlocked ? `<span title="${_t('pc_dex_sinnoh_title')}" style="opacity:.85">❄️ Sinnoh&nbsp;<b style="color:var(--text)">${sinnohCaught}/${sinnohTotal}</b></span>` : ''}
+      <span title="${_t('pc_dex_national_title')}" style="opacity:.7">🌐 National&nbsp;<b style="color:var(--text)">${nationalCaught}/${getNationalDexSize()}</b></span>
+      <span title="${_t('pc_dex_shiny_species_title')}">✨&nbsp;<b style="color:var(--gold)">${shinySpecies}</b></span>
+      <button id="dexRebuildBtn" title="${_t('pc_dex_rebuild_title')}" style="margin-left:auto;font-family:var(--font-pixel);font-size:7px;padding:3px 7px;background:rgba(255,204,90,.08);border:1px solid rgba(255,204,90,.35);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer;white-space:nowrap">🔄 ${_t('pc_recalibrate')}</button>
   `;
   document.getElementById('dexRebuildBtn')?.addEventListener('click', rebuildPokedex);
 
   // ── Filter tabs ────────────────────────────────────────────────
   const DEX_FILTERS = [
-    { id: 'kanto',    label: 'Kanto',        title: 'Pokémon #001–151' },
-    ...(johtoUnlocked  ? [{ id: 'johto',  label: 'Johto',  title: 'Pokémon #152–251' }] : []),
-    ...(hoennUnlocked  ? [{ id: 'hoenn',  label: 'Hoenn',  title: 'Pokémon #252–386' }] : []),
-    ...(sinnohUnlocked ? [{ id: 'sinnoh', label: 'Sinnoh', title: 'Pokémon #387–493' }] : []),
-    { id: 'national', label: 'National',     title: 'Toutes les espèces disponibles' },
-    { id: 'shiny',    label: '✨ Chromas',   title: 'Espèces dont tu possèdes un chromatique' },
-    { id: 'missing',  label: '❓ Manquants', title: 'Espèces non encore capturées' },
+    { id: 'kanto',    label: 'Kanto',        title: _t('pc_filter_kanto_title') },
+    ...(johtoUnlocked  ? [{ id: 'johto',  label: 'Johto',  title: _t('pc_filter_johto_title') }] : []),
+    ...(hoennUnlocked  ? [{ id: 'hoenn',  label: 'Hoenn',  title: _t('pc_filter_hoenn_title') }] : []),
+    ...(sinnohUnlocked ? [{ id: 'sinnoh', label: 'Sinnoh', title: _t('pc_filter_sinnoh_title') }] : []),
+    { id: 'national', label: _t('pc_national'), title: _t('pc_filter_national_title') },
+    { id: 'shiny',    label: _t('pc_shinies_filter'), title: _t('pc_filter_shiny_title') },
+    { id: 'missing',  label: _t('pc_missing_filter'), title: _t('pc_filter_missing_title') },
     { id: 'trainers', label: '⚔ Dresseurs',  title: 'Statistiques de rencontres par dresseur' },
   ];
   let dexFilterBar = document.getElementById('dexFilterBar');
@@ -3247,10 +3246,10 @@ function renderPokedexTab() {
         ? `<img src="${pokeSprite(sp.en, hasShiny)}" style="width:36px;height:36px;${!caught ? 'filter:brightness(0)' : ''}">`
         : `<div style="width:36px;height:36px;display:flex;align-items:center;justify-content:center;color:var(--text-dim);font-size:14px">?</div>`
       }
-      ${hasShiny ? `<span style="position:absolute;top:-3px;right:-3px;font-size:9px;line-height:1;pointer-events:none" title="Chromatique obtenu">✨</span>` : ''}
+      ${hasShiny ? `<span style="position:absolute;top:-3px;right:-3px;font-size:9px;line-height:1;pointer-events:none" title="${_t('pc_shiny_obtained_short')}">✨</span>` : ''}
       <div class="dex-number">#${String(sp.dex).padStart(3, '0')}</div>
     </div>`;
-  }).join('') : `<div style="color:var(--text-dim);font-size:9px;padding:16px;font-family:var(--font-pixel)">Aucun résultat.</div>`;
+  }).join('') : `<div style="color:var(--text-dim);font-size:9px;padding:16px;font-family:var(--font-pixel)">${_t('pc_no_result')}</div>`;
 
   grid.querySelectorAll('.dex-entry[data-dex-en]').forEach(el => {
     el.addEventListener('click', () => {
@@ -3289,7 +3288,7 @@ function renderPokedexTab() {
     }
     sinnohSection.innerHTML = `
       <div style="font-size:7px;color:#8866cc;letter-spacing:3px;margin-bottom:8px;">
-        ★ SINNOH — BIENTÔT DISPONIBLE ★
+        ★ ${_t('pc_sinnoh_coming_soon').toUpperCase()} ★
       </div>
       <div style="display:flex;align-items:center;gap:14px;margin-bottom:6px;">
         <img src="assets/pokemon_sprite/legendary_fight_by_muzyun/darkray.png"

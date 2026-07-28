@@ -21,6 +21,7 @@
 import { EventBus, EVENTS } from '../core/eventBus.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type });
+const _t = (fr, en) => (globalThis.state?.lang === 'en' ? en : fr);
 
 // ── Catégorisation d'importance pour le tri ──────────────────────
 const _RARITY_ORDER = {
@@ -128,7 +129,7 @@ export function pushLevelUp(data) {
 
 function _formatDuration(ms) {
   const totalMin = Math.floor(ms / 60000);
-  if (totalMin < 1)  return 'moins d\'1 min';
+  if (totalMin < 1)  return _t('moins d\'1 min', 'less than 1 min');
   if (totalMin < 60) return `${totalMin} min`;
   const h = Math.floor(totalMin / 60);
   const m = totalMin % 60;
@@ -260,10 +261,10 @@ function _headerHTML(durationStr) {
   return `
     <div style="padding:18px 20px;border-bottom:1px solid var(--border);text-align:center">
       <div style="font-family:var(--font-pixel);font-size:11px;color:var(--red);letter-spacing:2px;margin-bottom:6px">
-        ▶ RAPPORT DE MISSION ◀
+        ${_t('▶ RAPPORT DE MISSION ◀', '▶ MISSION REPORT ◀')}
       </div>
       <div style="font-size:10px;color:var(--text-dim)">
-        Absent · <span style="color:var(--gold);font-family:var(--font-pixel)">${durationStr}</span>
+        ${_t('Absent', 'Away')} · <span style="color:var(--gold);font-family:var(--font-pixel)">${durationStr}</span>
       </div>
     </div>
   `;
@@ -281,8 +282,8 @@ function _captureSectionHTML(captures) {
     const stars  = '★'.repeat(g.maxPotential || g.potential || 1);
     const tag    = g.shiny
       ? '<span style="color:var(--gold);font-family:var(--font-pixel);font-size:7px">✨ SHINY</span>'
-      : g.rarity === 'legendary' ? '<span style="color:var(--gold);font-family:var(--font-pixel);font-size:7px">🏆 LÉGEND.</span>'
-      : g.rarity === 'very_rare' ? '<span style="color:#a4d8ff;font-family:var(--font-pixel);font-size:7px">⭐ T.RARE</span>'
+      : g.rarity === 'legendary' ? `<span style="color:var(--gold);font-family:var(--font-pixel);font-size:7px">🏆 ${_t('LÉGEND.', 'LEGEND.')}</span>`
+      : g.rarity === 'very_rare' ? `<span style="color:#a4d8ff;font-family:var(--font-pixel);font-size:7px">⭐ ${_t('T.RARE', 'V.RARE')}</span>`
       : '';
     const countBadge = g.count > 1
       ? `<span style="color:var(--text);font-family:var(--font-pixel);font-size:9px;margin-left:auto">×${g.count}</span>`
@@ -303,14 +304,14 @@ function _captureSectionHTML(captures) {
   }).join('');
 
   const more = groups.length > 30
-    ? `<div style="text-align:center;font-size:8px;color:var(--text-dim);padding:4px">… +${groups.length - 30} entrées</div>`
+    ? `<div style="text-align:center;font-size:8px;color:var(--text-dim);padding:4px">… +${groups.length - 30} ${_t('entrées', 'entries')}</div>`
     : '';
 
   return `
     <div>
       <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px">
         <div style="font-family:var(--font-pixel);font-size:9px;color:var(--red);letter-spacing:1px">CAPTURES</div>
-        <div style="font-size:9px;color:var(--text-dim)">${totalCaps} pokémon${totalCaps > 1 ? 's' : ''}${shinies > 0 ? ` · <span style="color:var(--gold)">${shinies} ✨</span>` : ''}</div>
+        <div style="font-size:9px;color:var(--text-dim)">${totalCaps} Pokémon${shinies > 0 ? ` · <span style="color:var(--gold)">${shinies} ✨</span>` : ''}</div>
       </div>
       <div style="display:flex;flex-direction:column;gap:4px">${lines}${more}</div>
     </div>
@@ -324,8 +325,8 @@ function _combatSectionHTML(combats) {
     <div>
       <div style="font-family:var(--font-pixel);font-size:9px;color:var(--red);letter-spacing:1px;margin-bottom:6px">COMBATS</div>
       <div style="display:flex;gap:14px;font-size:10px;color:var(--text);background:rgba(0,0,0,.25);padding:8px 10px;border-radius:var(--radius-sm)">
-        <span>✅ <b style="color:#7ec87e">${combats.won}</b> victoires</span>
-        <span>❌ <b style="color:#cc6666">${combats.lost}</b> défaites</span>
+        <span>✅ <b style="color:#7ec87e">${combats.won}</b> ${_t('victoires', 'wins')}</span>
+        <span>❌ <b style="color:#cc6666">${combats.lost}</b> ${_t('défaites', 'losses')}</span>
         ${combats.totalReward > 0 ? `<span style="margin-left:auto;color:var(--gold)">+${combats.totalReward.toLocaleString()}₽</span>` : ''}
       </div>
     </div>
@@ -338,14 +339,15 @@ function _economySectionHTML(report) {
     const color = report.moneyDelta > 0 ? 'var(--gold)' : '#cc6666';
     lines.push(`<span style="color:${color}">${report.moneyDelta > 0 ? '+' : ''}${report.moneyDelta.toLocaleString()}₽</span>`);
   }
-  if (report.chests > 0) lines.push(`<span>📦 ${report.chests} coffre${report.chests > 1 ? 's' : ''}</span>`);
+  if (report.chests > 0) lines.push(`<span>📦 ${report.chests} ${_t(`coffre${report.chests > 1 ? 's' : ''}`, `chest${report.chests > 1 ? 's' : ''}`)}</span>`);
 
   const itemKeys = Object.keys(report.itemsDelta);
   if (itemKeys.length > 0) {
     for (const k of itemKeys) {
       const v = report.itemsDelta[k];
       if (!v) continue;
-      const label = globalThis.BALLS?.[k]?.fr ?? k;
+      const ball = globalThis.BALLS?.[k];
+      const label = (globalThis.state?.lang === 'en' ? ball?.en : ball?.fr) ?? k;
       lines.push(`<span>${v > 0 ? '+' : ''}${v} ${label}</span>`);
     }
   }
@@ -354,7 +356,7 @@ function _economySectionHTML(report) {
 
   return `
     <div>
-      <div style="font-family:var(--font-pixel);font-size:9px;color:var(--red);letter-spacing:1px;margin-bottom:6px">ÉCONOMIE</div>
+      <div style="font-family:var(--font-pixel);font-size:9px;color:var(--red);letter-spacing:1px;margin-bottom:6px">${_t('ÉCONOMIE', 'ECONOMY')}</div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;font-size:10px;color:var(--text);background:rgba(0,0,0,.25);padding:8px 10px;border-radius:var(--radius-sm)">
         ${lines.join('')}
       </div>
@@ -364,15 +366,21 @@ function _economySectionHTML(report) {
 
 function _pensionTrainingSectionHTML(report) {
   const parts = [];
-  if (report.eggsReady > 0)     parts.push(`🥚 <b>${report.eggsReady}</b> œuf${report.eggsReady > 1 ? 's' : ''} prêt${report.eggsReady > 1 ? 's' : ''}`);
-  if (report.trainingTicks > 0) parts.push(`🎯 <b>${report.trainingTicks}</b> entraînement${report.trainingTicks > 1 ? 's' : ''}`);
+  if (report.eggsReady > 0) parts.push(_t(
+    `🥚 <b>${report.eggsReady}</b> œuf${report.eggsReady > 1 ? 's' : ''} prêt${report.eggsReady > 1 ? 's' : ''}`,
+    `🥚 <b>${report.eggsReady}</b> egg${report.eggsReady > 1 ? 's' : ''} ready`,
+  ));
+  if (report.trainingTicks > 0) parts.push(_t(
+    `🎯 <b>${report.trainingTicks}</b> entraînement${report.trainingTicks > 1 ? 's' : ''}`,
+    `🎯 <b>${report.trainingTicks}</b> training session${report.trainingTicks > 1 ? 's' : ''}`,
+  ));
   if (report.xpTicks > 0)       parts.push(`📈 <b>${report.xpTicks}</b> ticks XP`);
   if (report.levelUps?.length > 0) parts.push(`⬆ <b>${report.levelUps.length}</b> level-up${report.levelUps.length > 1 ? 's' : ''}`);
 
   if (parts.length === 0) return '';
   return `
     <div>
-      <div style="font-family:var(--font-pixel);font-size:9px;color:var(--red);letter-spacing:1px;margin-bottom:6px">PENSION & FORMATION</div>
+      <div style="font-family:var(--font-pixel);font-size:9px;color:var(--red);letter-spacing:1px;margin-bottom:6px">${_t('PENSION & FORMATION', 'DAYCARE & TRAINING')}</div>
       <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:10px;color:var(--text);background:rgba(0,0,0,.25);padding:8px 10px;border-radius:var(--radius-sm)">
         ${parts.join('<span style="color:var(--text-dim)"> · </span>')}
       </div>
@@ -388,7 +396,7 @@ function _footerHTML() {
         padding:8px 20px;background:var(--bg);color:var(--red);
         border:1px solid var(--red);border-radius:var(--radius-sm);
         cursor:pointer">
-        FERMER
+        ${_t('FERMER', 'CLOSE')}
       </button>
     </div>
   `;
