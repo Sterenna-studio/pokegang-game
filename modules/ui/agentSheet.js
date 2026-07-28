@@ -1,4 +1,4 @@
-﻿// ════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════
 //  AGENT SHEET — Fiche détaillée d'un agent (alpha)
 //  Modal complet : stats, équipe, zone, historique, actions.
 // ════════════════════════════════════════════════════════════════
@@ -24,18 +24,19 @@ const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg
 const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
 const _topBar = ()               => EventBus.emit(EVENTS.UI_TOPBAR_UPDATE);
 const _save   = ()               => globalThis.saveState?.();
+const _t      = (...a)           => globalThis.t?.(...a) ?? a[0];
 
 
-// ── Helpers ───────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────
 
 function _state() { return globalThis.state; }
-function _lang()  { return _state()?.lang || 'fr'; }
 
 function _zoneName(zoneId) {
-  if (!zoneId) return _lang() === 'fr' ? 'Aucune zone' : 'No zone';
+  if (!zoneId) return _t('agent_sheet_no_zone');
   const z = (typeof ZONE_BY_ID !== 'undefined' ? ZONE_BY_ID[zoneId] : null)
          ?? (typeof ZONE_JOHTO_BY_ID !== 'undefined' ? ZONE_JOHTO_BY_ID[zoneId] : null);
-  return z ? (_lang() === 'fr' ? z.fr : z.en) : zoneId;
+  const lang = _state()?.lang || 'fr';
+  return z ? (lang === 'fr' ? z.fr : z.en) : zoneId;
 }
 
 function _rankColor(title) {
@@ -64,7 +65,8 @@ function _eventBadgeHtml(zoneId) {
   if (!event || event.resolved) return '';
   const def  = globalThis.ZONE_EVENT_DEFINITIONS?.[event.type];
   if (!def) return '';
-  const label = def[_lang()] || def.fr;
+  const lang = _state()?.lang || 'fr';
+  const label = def[lang] || def.fr;
   const remaining = event.endsAt
     ? Math.max(0, Math.ceil((event.endsAt - Date.now()) / 60000)) + ' min'
     : '';
@@ -73,7 +75,7 @@ function _eventBadgeHtml(zoneId) {
   </div>`;
 }
 
-// ── Zone level bar ────────────────────────────────────────────
+// ── Zone level bar ──────────────────────────────────────────
 function _zoneLevelHtml(zoneId) {
   if (!zoneId || !globalThis.getZoneXPProgress) return '';
   const prog    = globalThis.getZoneXPProgress(zoneId);
@@ -83,7 +85,7 @@ function _zoneLevelHtml(zoneId) {
     .map(([k, v]) => {
       const labels = {
         spawnRate: `+${Math.round(v * 100)}% spawn`,
-        moneyMult: `+${Math.round(v * 100)}% argent`,
+        moneyMult: _t('agent_sheet_money_bonus', { v: Math.round(v * 100) }),
         rareChance:`+${Math.round(v * 100)}% rare`,
         shinyBonus:`+${Math.round(v * 100)}% shiny`,
       };
@@ -103,17 +105,16 @@ function _zoneLevelHtml(zoneId) {
   </div>`;
 }
 
-// ── Team slots ────────────────────────────────────────────────
+// ── Team slots ────────────────────────────────────────────
 function _teamHtml(agent) {
   const state   = _state();
   const slots   = globalThis.getAgentTeamSlots?.(agent) || 1;
-  const rankUnlock = slots < 2 ? 'Sergent requis'
-                   : slots < 3 ? 'Lieutenant requis'
+  const rankUnlock = slots < 2 ? _t('agent_sheet_slot_req_sgt')
+                   : slots < 3 ? _t('agent_sheet_slot_req_lt')
                    : 'MAX';
 
   return Array.from({ length: 3 }, (_, i) => {
     if (i >= slots) {
-      // Slot verrouillé par le rang
       return `<div style="width:48px;height:48px;background:var(--bg);border:1px dashed var(--border);border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;opacity:.45" title="${rankUnlock}">
         <span style="font-size:16px">🔒</span>
         <span style="font-size:6px;color:var(--text-dim);text-align:center;padding:0 2px">${rankUnlock}</span>
@@ -130,7 +131,7 @@ function _teamHtml(agent) {
   }).join('');
 }
 
-// ── Stat row ─────────────────────────────────────────────────
+// ── Stat row ───────────────────────────────────────────────
 function _stat(label, value, color = 'var(--text)') {
   return `<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--border)">
     <span style="font-size:9px;color:var(--text-dim)">${label}</span>
@@ -138,10 +139,10 @@ function _stat(label, value, color = 'var(--text)') {
   </div>`;
 }
 
-// ── Main render ───────────────────────────────────────────────
+// ── Main render ─────────────────────────────────────────────
 function _buildSheetHtml(agent) {
   const state   = _state();
-  const lang    = _lang();
+  const lang    = state?.lang || 'fr';
   const xpPct   = Math.min(100, (agent.xp / _xpNeeded(agent.level)) * 100);
   const power   = _agentCombatPower(agent);
   const zone    = agent.assignedZone;
@@ -151,7 +152,6 @@ function _buildSheetHtml(agent) {
     ...(typeof ZONES_JOHTO !== 'undefined' ? ZONES_JOHTO : []),
   ].filter(z => globalThis.isZoneUnlocked?.(z.id) && z.id !== 'gang_park');
 
-  // Statut auto-comportements
   const bhIcons = [
     agent.autoCombat  !== false ? '⚔️' : '',
     agent.autoRaid    !== false ? '💣' : '',
@@ -180,7 +180,7 @@ function _buildSheetHtml(agent) {
         ${agent.name}
       </div>
       <div style="font-size:9px;color:var(--text-dim);margin-bottom:6px">
-        Niveau ${agent.level} · ${agent.xp}/${_xpNeeded(agent.level)} XP
+        ${_t('agent_sheet_level_xp', { lvl: agent.level, xp: agent.xp, next: _xpNeeded(agent.level) })}
       </div>
       <!-- Barre XP -->
       <div style="height:5px;background:var(--bg);border-radius:3px;overflow:hidden;margin-bottom:6px">
@@ -192,19 +192,19 @@ function _buildSheetHtml(agent) {
 
   <!-- STATS -->
   <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 10px;margin-bottom:12px">
-    <div style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);margin-bottom:6px">STATISTIQUES</div>
-    ${_stat('Puissance équipe', power.toLocaleString(), 'var(--red)')}
-    ${_stat('Combats gagnés', (agent.combatsWon || 0).toLocaleString(), 'var(--gold)')}
-    ${_stat('Captures totales', (agent.captureCount || 0).toLocaleString(), 'var(--gold)')}
-    ${_stat('Comportements auto', bhIcons || '—')}
-    ${_stat('Skin de ball', agent.ball || 'pokeball')}
+    <div style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);margin-bottom:6px">${_t('agent_sheet_stats')}</div>
+    ${_stat(_t('agent_sheet_power'),      power.toLocaleString(), 'var(--red)')}
+    ${_stat(_t('agent_sheet_fights_won'), (agent.combatsWon || 0).toLocaleString(), 'var(--gold)')}
+    ${_stat(_t('agent_sheet_captures'),   (agent.captureCount || 0).toLocaleString(), 'var(--gold)')}
+    ${_stat(_t('agent_sheet_behaviours'), bhIcons || '—')}
+    ${_stat(_t('agent_sheet_ball'),       agent.ball || 'pokeball')}
   </div>
 
   <!-- ZONE ASSIGNÉE -->
   <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 10px;margin-bottom:12px">
-    <div style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);margin-bottom:6px">ZONE ASSIGNÉE</div>
+    <div style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);margin-bottom:6px">${_t('agent_sheet_zone')}</div>
     <select id="agentSheetZoneSelect" style="width:100%;background:var(--bg-panel);color:var(--text);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:9px;padding:4px 6px;margin-bottom:4px">
-      <option value="">— Aucune zone —</option>
+      <option value="">${_t('agent_sheet_no_zone_opt')}</option>
       ${zoneOptions}
     </select>
     ${zone ? _zoneLevelHtml(zone) : ''}
@@ -213,7 +213,7 @@ function _buildSheetHtml(agent) {
   <!-- ÉQUIPE -->
   <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 10px;margin-bottom:12px">
     <div style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);margin-bottom:8px">
-      ÉQUIPE (${(agent.team || []).filter(Boolean).length}/${globalThis.getAgentTeamSlots?.(agent) || 1} slots · rang ${agent.title || 'grunt'})
+      ${_t('agent_sheet_team')} (${(agent.team || []).filter(Boolean).length}/${globalThis.getAgentTeamSlots?.(agent) || 1} slots · rang ${agent.title || 'grunt'})
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:6px" id="agentSheetTeam">
       ${_teamHtml(agent)}
@@ -224,14 +224,14 @@ function _buildSheetHtml(agent) {
   <div style="display:flex;flex-direction:column;gap:6px">
     ${globalThis.state?.purchases?.cosmeticsPanel ? `
     <div style="display:flex;gap:6px">
-      <button id="agentSheetRename" style="flex:1;font-family:var(--font-pixel);font-size:8px;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">✏ Renommer <span style="color:var(--gold)">(2 000₽)</span></button>
-      <button id="agentSheetSprite" style="flex:1;font-family:var(--font-pixel);font-size:8px;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">🎨 Sprite <span style="color:var(--gold)">(5 000₽)</span></button>
+      <button id="agentSheetRename" style="flex:1;font-family:var(--font-pixel);font-size:8px;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">${_t('agent_sheet_rename_btn')} <span style="color:var(--gold)">(2 000₽)</span></button>
+      <button id="agentSheetSprite" style="flex:1;font-family:var(--font-pixel);font-size:8px;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">${_t('agent_sheet_sprite_btn')} <span style="color:var(--gold)">(5 000₽)</span></button>
     </div>` : ''}
-    <button id="agentSheetClose" style="font-family:var(--font-pixel);font-size:8px;padding:8px;background:var(--bg-panel);border:1px solid var(--red);border-radius:var(--radius-sm);color:var(--red);cursor:pointer">✕ Fermer</button>
+    <button id="agentSheetClose" style="font-family:var(--font-pixel);font-size:8px;padding:8px;background:var(--bg-panel);border:1px solid var(--red);border-radius:var(--radius-sm);color:var(--red);cursor:pointer">${_t('close')}</button>
   </div>`;
 }
 
-// ── Ouverture du modal ────────────────────────────────────────
+// ── Ouverture du modal ─────────────────────────────────────────
 
 /**
  * Ouvre la fiche détaillée d'un agent.
@@ -252,14 +252,13 @@ function openAgentSheet(agentId, onClose) {
     <div style="background:var(--bg-panel);border:2px solid var(--border-light);border-radius:var(--radius);
       padding:18px 16px;max-width:380px;width:100%;max-height:90vh;overflow-y:auto;position:relative">
       <div style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);letter-spacing:2px;margin-bottom:12px">
-        FICHE AGENT
+        ${_t('agent_sheet_title')}
       </div>
       ${_buildSheetHtml(agent)}
     </div>`;
 
   document.body.appendChild(modal);
 
-  // Close
   const close = () => {
     modal.remove();
     onClose?.();
@@ -269,15 +268,12 @@ function openAgentSheet(agentId, onClose) {
   modal.querySelector('#agentSheetClose')?.addEventListener('click', close);
   modal.addEventListener('click', e => { if (e.target === modal) close(); });
 
-  // Zone selector
   modal.querySelector('#agentSheetZoneSelect')?.addEventListener('change', e => {
     globalThis.assignAgentToZone?.(agentId, e.target.value || null);
-    // Rafraîchir la section zone sans fermer
     _refreshZoneSection(modal, agent);
     _save();
   });
 
-  // Team slots
   modal.querySelector('#agentSheetTeam')?.addEventListener('click', e => {
     const slot = e.target.closest('[data-sheet-team-slot]');
     if (!slot) return;
@@ -292,7 +288,6 @@ function openAgentSheet(agentId, onClose) {
     }
   });
 
-  // Rename
   modal.querySelector('#agentSheetRename')?.addEventListener('click', () => {
     _handleRename(agent, () => {
       modal.remove();
@@ -300,7 +295,6 @@ function openAgentSheet(agentId, onClose) {
     });
   });
 
-  // Sprite
   modal.querySelector('#agentSheetSprite')?.addEventListener('click', () => {
     _handleSpriteChange(agent, () => {
       modal.remove();
@@ -317,12 +311,10 @@ function _refreshTeamSection(modal, agent) {
 }
 
 function _refreshZoneSection(modal, agent) {
-  // Trouver et remplacer le bloc zone
   const sel = modal.querySelector('#agentSheetZoneSelect');
   if (!sel) return;
   const parent = sel.closest('div[style*="ZONE ASSIGNÉE"]') ?? sel.parentElement;
   if (!parent) return;
-  // Recréer les infos de zone sous le select
   const existing = parent.querySelector('#agentSheetZoneInfo');
   if (existing) existing.remove();
   if (agent.assignedZone) {
@@ -338,31 +330,30 @@ function _refreshZoneSection(modal, agent) {
 function _handleRename(agent, onDone) {
   const state = _state();
   if (state.gang.money < 2000) {
-    _notify('Fonds insuffisants (2 000₽)', 'error'); return;
+    _notify(_t('agent_sheet_funds_error', { cost: '2 000' }), 'error'); return;
   }
-  const newName = window.prompt('Nouveau nom de l\'agent :', agent.name);
+  const newName = window.prompt(_t('agent_sheet_rename_prompt'), agent.name);
   if (!newName || !newName.trim()) return;
   state.gang.money -= 2000;
   EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -2000, newTotal: state.gang.money });
   agent.name = newName.trim().slice(0, 20);
   _save();
-  _notify(`Agent renommé → ${agent.name}`, 'success');
+  _notify(_t('agent_sheet_renamed', { name: agent.name }), 'success');
   onDone?.();
 }
 
 function _handleSpriteChange(agent, onDone) {
   const state = _state();
   if (state.gang.money < 5000) {
-    _notify('Fonds insuffisants (5 000₽)', 'error'); return;
+    _notify(_t('agent_sheet_funds_error', { cost: '5 000' }), 'error'); return;
   }
-  // Réutilise le sprite picker existant (openSpritePicker de pickers.js)
   globalThis.openSpritePicker?.(agent.spriteKey, (newSprite) => {
     state.gang.money -= 5000;
     EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -5000, newTotal: state.gang.money });
     agent.spriteKey = newSprite;
     agent.sprite    = globalThis.trainerSprite?.(newSprite) || agent.sprite;
     _save();
-    _notify('Sprite de l\'agent mis à jour', 'success');
+    _notify(_t('agent_sheet_sprite_done'), 'success');
     onDone?.();
   });
 }
