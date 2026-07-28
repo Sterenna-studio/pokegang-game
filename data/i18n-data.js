@@ -78,6 +78,7 @@ const I18N = {
   // Common UI
   confirm:       { fr:'Confirmer',   en:'Confirm'     },
   cancel:        { fr:'Annuler',     en:'Cancel'      },
+  close:         { fr:'✕ Fermer',    en:'✕ Close'     },
   // Hub modals
   hub_slot_repair_title:   { fr:'🔧 Réparer un slot',    en:'🔧 Repair a slot'   },
   hub_slot_empty:          { fr:'Slot vide — rien à réparer.', en:'Empty slot — nothing to repair.' },
@@ -141,6 +142,28 @@ const I18N = {
   lab_scientist_fired:     { fr:'🚫 Scientifique renvoyé.', en:'🚫 Scientist dismissed.' },
   lab_hire:                { fr:'Engager', en:'Hire' },
   lab_upgrade_success:     { fr:'{name} est maintenant {stars} !', en:'{name} is now {stars}!' },
+  // Agent sheet
+  agent_sheet_title:       { fr:'FICHE AGENT',           en:'AGENT SHEET'        },
+  agent_sheet_no_zone:     { fr:'Aucune zone',           en:'No zone'            },
+  agent_sheet_money_bonus: { fr:'+{v}% argent',          en:'+{v}% money'        },
+  agent_sheet_slot_req_sgt:{ fr:'Sergent requis',        en:'Sergeant required'  },
+  agent_sheet_slot_req_lt: { fr:'Lieutenant requis',     en:'Lieutenant required' },
+  agent_sheet_level_xp:    { fr:'Niveau {lvl} · {xp}/{next} XP', en:'Level {lvl} · {xp}/{next} XP' },
+  agent_sheet_stats:       { fr:'STATISTIQUES',          en:'STATISTICS'         },
+  agent_sheet_power:       { fr:'Puissance équipe',      en:'Team power'         },
+  agent_sheet_fights_won:  { fr:'Combats gagnés',        en:'Fights won'         },
+  agent_sheet_captures:    { fr:'Captures totales',      en:'Total captures'     },
+  agent_sheet_behaviours:  { fr:'Comportements auto',    en:'Auto behaviours'    },
+  agent_sheet_ball:        { fr:'Skin de ball',          en:'Ball skin'          },
+  agent_sheet_zone:        { fr:'ZONE ASSIGNÉE',         en:'ASSIGNED ZONE'      },
+  agent_sheet_no_zone_opt: { fr:'— Aucune zone —',      en:'— No zone —'       },
+  agent_sheet_team:        { fr:'ÉQUIPE',                en:'TEAM'               },
+  agent_sheet_rename_btn:  { fr:'✏ Renommer',           en:'✏ Rename'           },
+  agent_sheet_sprite_btn:  { fr:'🎨 Sprite',            en:'🎨 Sprite'           },
+  agent_sheet_funds_error: { fr:'Fonds insuffisants ({cost}₽)', en:'Insufficient funds ({cost}₽)' },
+  agent_sheet_rename_prompt:{ fr:'Nouveau nom de l\'agent :', en:'New agent name:' },
+  agent_sheet_renamed:     { fr:'Agent renommé → {name}', en:'Agent renamed → {name}' },
+  agent_sheet_sprite_done: { fr:'Sprite de l\'agent mis à jour', en:'Agent sprite updated' },
 };
 
 export { I18N };
