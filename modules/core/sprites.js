@@ -157,6 +157,8 @@ const SPRITE_FIX = {
   rocketexecutive: 'rocketexecutive-gen2',
   pokemonrangerf:  'pokemonrangerf-gen3',
   policeman:       'policeman-gen8',
+  // Player-avatar pool (INTRO_BOSS_SPRITES) — bare name 404s
+  leaf:            'leaf-gen3',
 };
 
 // ── Trainer sprite resolution ────────────────────────────────────────────────
