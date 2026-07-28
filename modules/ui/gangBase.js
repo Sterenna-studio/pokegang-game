@@ -1435,8 +1435,8 @@ function openCodexModal() {
         <table style="border-collapse:collapse;font-family:'Courier New',monospace;font-size:11px;width:100%">
           <thead>
             <tr style="border-bottom:1px solid #333">
-              <th style="padding:6px 10px;text-align:left;color:#888">Rareté</th>
-              <th style="padding:6px 10px;color:#888">Base</th>
+              <th style="padding:6px 10px;text-align:left;color:#888">${_t('gang_base_codex_rarity')}</th>
+              <th style="padding:6px 10px;color:#888">${_t('gang_base_codex_base')}</th>
               ${headCells}
             </tr>
           </thead>
@@ -1444,7 +1444,7 @@ function openCodexModal() {
         </table>
       </div>
       <div style="margin-top:10px;font-size:9px;color:#555;font-family:'Courier New',monospace">
-        Nature : toutes les natures ont un multiplicateur moyen de ×1.0 — aucun impact sur le prix final.
+        ${_t('gang_base_codex_nature_note')}
       </div>`;
   }
 
@@ -1465,7 +1465,7 @@ function openCodexModal() {
       if (!zones.length) continue;
       html += `<div style="margin-bottom:20px">
         <div style="font-family:var(--font-pixel);font-size:9px;color:${TYPE_COLOR[type]};margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,.08)">
-          ${TYPE_LABEL[type]} — ${zones.length} zones
+          ${TYPE_LABEL[type]} — ${_t('gang_base_codex_zone_count', { n: zones.length })}
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px">`;
 
@@ -1484,7 +1484,7 @@ function openCodexModal() {
 
         const rareHtml = zone.rarePool ? `
           <div style="margin-top:6px;padding-top:5px;border-top:1px solid rgba(255,255,255,.06)">
-            <span style="font-size:7px;font-family:var(--font-pixel);color:#888">✨ Rare (10%) : </span>
+            <span style="font-size:7px;font-family:var(--font-pixel);color:#888">✨ ${_t('gang_base_codex_rare')} (10%) : </span>
             ${zone.rarePool.slice(0,6).map(e => {
               const sp = SPECIES_BY_EN[e.en];
               return `<img src="${pokeSprite(e.en)}" style="width:20px;height:20px;image-rendering:pixelated;opacity:.7" title="${sp?.fr || e.en} (w:${e.w})">`;
@@ -1508,10 +1508,10 @@ function openCodexModal() {
             <div style="position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;padding:4px 8px;height:100%">
               <div>
                 <div style="font-family:var(--font-pixel);font-size:8px;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.9)">${zone.fr}</div>
-                <div style="font-size:7px;color:rgba(255,255,255,.5)">Rep ≥ ${zone.rep}${zone.unlockItem ? ' · 🔑' : ''}</div>
+                <div style="font-size:7px;color:rgba(255,255,255,.5)">${_t('gang_base_codex_reputation_short')} ≥ ${zone.rep}${zone.unlockItem ? ' · 🔑' : ''}</div>
               </div>
               <div style="text-align:right;font-size:7px;color:rgba(255,255,255,.5)">
-                ${zone.spawnRate ? `Spawn ×${zone.spawnRate}` : ''}
+                ${zone.spawnRate ? `${_t('gang_base_codex_spawn')} ×${zone.spawnRate}` : ''}
               </div>
             </div>
           </div>
@@ -1537,12 +1537,12 @@ function openCodexModal() {
   modal.innerHTML = `
     <div style="background:var(--bg-panel);border:2px solid var(--border);border-radius:var(--radius);width:100%;max-width:800px;display:flex;flex-direction:column;gap:0">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border)">
-        <span style="font-family:var(--font-pixel);font-size:11px;color:var(--gold)">📖 Codex — Référence</span>
+        <span style="font-family:var(--font-pixel);font-size:11px;color:var(--gold)">📖 ${_t('gang_base_codex_title')}</span>
         <button id="codexClose" style="background:transparent;border:none;color:#aaa;font-size:18px;cursor:pointer;line-height:1">×</button>
       </div>
       <div style="display:flex;gap:0;border-bottom:1px solid var(--border)">
-        <button class="codex-tab active" data-ct="prix" style="font-family:var(--font-pixel);font-size:9px;padding:10px 18px;background:transparent;border:none;border-bottom:2px solid var(--gold);color:var(--gold);cursor:pointer">💰 Prix</button>
-        <button class="codex-tab" data-ct="spawns" style="font-family:var(--font-pixel);font-size:9px;padding:10px 18px;background:transparent;border:none;border-bottom:2px solid transparent;color:#888;cursor:pointer">🗺 Spawns</button>
+        <button class="codex-tab active" data-ct="prix" style="font-family:var(--font-pixel);font-size:9px;padding:10px 18px;background:transparent;border:none;border-bottom:2px solid var(--gold);color:var(--gold);cursor:pointer">💰 ${_t('gang_base_codex_prices')}</button>
+        <button class="codex-tab" data-ct="spawns" style="font-family:var(--font-pixel);font-size:9px;padding:10px 18px;background:transparent;border:none;border-bottom:2px solid transparent;color:#888;cursor:pointer">🗺 ${_t('gang_base_codex_spawns')}</button>
       </div>
       <div id="codexBody" style="padding:18px;overflow-y:auto;max-height:calc(100vh - 160px)">
         ${buildPrixTab()}
