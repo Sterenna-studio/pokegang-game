@@ -1372,7 +1372,12 @@ function _openZoneContextMenu(zoneId, clientX, clientY) {
 
   // ── Type badge ────────────────────────────────────────────────
   const typeColors = { route:'#2a6', city:'#26a', special:'#96a', gang_park:'#a62' };
-  const typeLabels = { route:'ROUTE', city:'VILLE', special:'SPÉCIALE', gang_park:'QG' };
+  const typeLabels = {
+    route: _t('zone_type_route'),
+    city: _t('zone_type_city'),
+    special: _t('zone_type_special'),
+    gang_park: _t('zone_type_hq'),
+  };
   const typeBg  = typeColors[zone.type] ?? '#444';
   const typeLabel = typeLabels[zone.type] ?? (zone.type ?? '?').toUpperCase();
 
