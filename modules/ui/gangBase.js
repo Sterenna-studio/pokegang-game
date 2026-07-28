@@ -26,6 +26,7 @@
 
 import { FALLBACK_TRAINER_SVG } from '../../data/assets-data.js';
 import { BOSS_TEAM_SLOTS, SHOWCASE_SLOTS } from '../../data/game-config-data.js';
+import { TRAINER_TYPES } from '../../data/trainers-data.js';
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
 
@@ -1492,9 +1493,10 @@ function openCodexModal() {
           </div>` : '';
 
         const gymHtml = zone.gymLeader ? (() => {
-          const lFr = GYM_LEADER_FR[zone.gymLeader] || zone.gymLeader;
+          const lFr = GYM_LEADER_FR[zone.gymLeader] || TRAINER_TYPES[zone.gymLeader]?.fr || zone.gymLeader;
+          const gymSprite = TRAINER_TYPES[zone.gymLeader]?.sprite || zone.gymLeader;
           return `<div style="display:flex;align-items:center;gap:6px;margin-top:6px;padding-top:5px;border-top:1px solid rgba(255,255,255,.06)">
-            <img src="${trainerSprite(zone.gymLeader)}" style="width:28px;height:28px;image-rendering:pixelated">
+            <img src="${trainerSprite(gymSprite)}" style="width:28px;height:28px;image-rendering:pixelated">
             <div>
               <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold)">${lFr}</div>
               <div style="font-size:8px;color:var(--text-dim)">XP ×${zone.xpBonus}</div>
