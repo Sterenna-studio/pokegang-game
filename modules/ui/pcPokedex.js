@@ -1707,7 +1707,7 @@ function _showEvoPreviewPopup(evolvable, type, onConfirm) {
   const valueDiff = afterTotal - beforeTotal;
 
   const confirmLabel = type === 'stone' && shortage > 0 && canBuyMore
-    ? `Acheter ${shortage} 💎 (${(shortage * 5000).toLocaleString()}₽) + Évoluer`
+    ? _t('pc_buy_stones_and_evolve', { n: shortage, price: (shortage * 5000).toLocaleString() })
     : _t('pc_evolve_bang');
 
   const modal = document.createElement('div');
@@ -2420,7 +2420,7 @@ function renderPokemonDetailGroup(species) {
       <img src="${pokeSprite(species)}" style="width:64px;height:64px">
       <div style="font-family:var(--font-pixel);font-size:11px;margin-top:4px">${speciesName(species)}</div>
       <div style="font-size:9px;color:var(--text-dim)">#${String(sp?.dex||0).padStart(3,'0')} — ${(sp?.types||[]).join('/')}</div>
-      <div style="font-size:9px;margin-top:2px">×${allPks.length} · Max Lv.${maxLvl} · ${'★'.repeat(maxPot)}</div>
+      <div style="font-size:9px;margin-top:2px">${_t('pc_group_max_level_summary', { count: allPks.length, level: maxLvl, stars: '★'.repeat(maxPot) })}</div>
     </div>
 
     <!-- Filtre potentiel -->
