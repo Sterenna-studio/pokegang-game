@@ -19,6 +19,7 @@ import { EventBus, EVENTS } from '../core/eventBus.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
 const _save   = ()               => globalThis.saveState?.();
+const _t      = (fr, en)         => (globalThis.state?.lang === 'en' ? en : fr);
 
 // Cap maximum de rattrapage offline (12 heures)
 const OFFLINE_CAP_MS = 12 * 60 * 60 * 1000;
@@ -178,12 +179,23 @@ function applyOfflineCatchup({ silent = false } = {}) {
   } else if (!silent && rawElapsed >= 60000) {
     // Fallback notif classique (boot initial, pas de collector actif)
     const parts = [];
-    if (trainingTicks > 0) parts.push(`${trainingTicks} combats d'entraînement`);
-    if (eggsReady > 0) parts.push(`${eggsReady} œuf${eggsReady > 1 ? 's' : ''} éclosable${eggsReady > 1 ? 's' : ''}`);
+    if (trainingTicks > 0) parts.push(_t(
+      `${trainingTicks} combat(s) d'entraînement`,
+      `${trainingTicks} training battle(s)`,
+    ));
+    if (eggsReady > 0) parts.push(_t(
+      `${eggsReady} œuf(s) prêt(s) à éclore`,
+      `${eggsReady} Egg(s) ready to hatch`,
+    ));
     const extra = parts.length > 0 ? ` — ${parts.join(', ')}` : '';
-    const cappedStr = rawElapsed > OFFLINE_CAP_MS ? ` (plafonné à ${_formatDuration(OFFLINE_CAP_MS)})` : '';
+    const cappedStr = rawElapsed > OFFLINE_CAP_MS
+      ? _t(` (plafonné à ${_formatDuration(OFFLINE_CAP_MS)})`, ` (capped at ${_formatDuration(OFFLINE_CAP_MS)})`)
+      : '';
     _notify(
-      `⏰ Absent ${_formatDuration(rawElapsed)}${cappedStr}${extra}. Gains appliqués !`,
+      _t(
+        `⏰ Absent ${_formatDuration(rawElapsed)}${cappedStr}${extra}. Gains appliqués !`,
+        `⏰ Away for ${_formatDuration(rawElapsed)}${cappedStr}${extra}. Rewards applied!`,
+      ),
       'gold',
     );
   }
