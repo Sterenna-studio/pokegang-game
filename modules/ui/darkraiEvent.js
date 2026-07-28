@@ -574,9 +574,17 @@ function _startCutscene() {
 
 export function checkDarkraiCutscene() {
   const s = _state();
-  if (s.gang?.darkraiCutsceneSeen)   return;
-  if (!s.gang?.initialized)          return;
-  if ((s.pokemons?.length ?? 0) < 3) return;
+  if (s.gang?.darkraiCutsceneSeen)          return;
+  if (!s.gang?.initialized)                 return;
+  // Rattrapage boot-time uniquement pour les joueurs ayant déjà vaincu le
+  // Champion (indigo_plateau) sans avoir vu la cinématique (ex: sauvegarde
+  // antérieure à l'ajout de la feature) — le vrai déclencheur pour les
+  // nouveaux joueurs est triggerDarkraiOnLeagueVictory() juste après la
+  // victoire. Sans cette garde, un nouveau joueur avec 3 Pokémon capturés
+  // (atteignable en quelques minutes) recevait cette cinématique post-ligue
+  // (teasing Sinnoh, "constituer une équipe de 6") bien avant d'avoir
+  // affronté le premier Arène.
+  if (!s.zones?.indigo_plateau?.gymDefeated) return;
   _startCutscene();
 }
 
