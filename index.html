@@ -24,7 +24,7 @@
   <div id="rarePopup">
     <img class="rare-sprite" id="rarePopupSprite" src="" alt="">
     <div>
-      <div class="rare-label" id="rarePopupLabel">Pokémon rare aperçu !</div>
+      <div class="rare-label" id="rarePopupLabel" data-i18n="static_rare_sighting">Pokémon rare aperçu !</div>
       <div class="rare-hint" id="rarePopupHint"></div>
     </div>
   </div>
@@ -35,7 +35,7 @@
       <img class="mcp-sprite mcp-enemy" id="miniCombatPopupEnemy" src="" alt="">
     </div>
     <div>
-      <div class="mcp-label" id="miniCombatPopupLabel">Combat résolu</div>
+      <div class="mcp-label" id="miniCombatPopupLabel" data-i18n="static_combat_resolved">Combat résolu</div>
       <div class="mcp-detail" id="miniCombatPopupDetail"></div>
     </div>
   </div>
@@ -43,12 +43,12 @@
   <!-- Zone unlock popup -->
   <div id="zoneUnlockPopup">
     <div class="unlock-box">
-      <div class="unlock-title">🗺 ZONE DÉBLOQUÉE !</div>
+      <div class="unlock-title" data-i18n="static_zone_unlocked">🗺 ZONE DÉBLOQUÉE !</div>
       <div class="unlock-zone" id="zoneUnlockName">—</div>
       <div class="unlock-rep"  id="zoneUnlockRep"></div>
       <div class="unlock-btns">
-        <button class="unlock-btn-go"    id="zoneUnlockGo">→ Aller à la zone</button>
-        <button class="unlock-btn-later" id="zoneUnlockClose">Plus tard</button>
+        <button class="unlock-btn-go"    id="zoneUnlockGo" data-i18n="static_go_to_zone">→ Aller à la zone</button>
+        <button class="unlock-btn-later" id="zoneUnlockClose" data-i18n="static_later">Plus tard</button>
       </div>
     </div>
   </div>
@@ -57,15 +57,15 @@
 
     <!-- ═══ Top Bar ═══ -->
     <header id="topBar">
-      <button id="btnBackToIntro" title="Retour à l'accueil" style="font-family:var(--font-pixel);font-size:16px;padding:4px 8px;background:transparent;border:1px solid rgba(255,255,255,.2);border-radius:4px;color:var(--text-dim);cursor:pointer;transition:all .2s;line-height:1">🏠</button>
+      <button id="btnBackToIntro" title="Retour à l'accueil" data-i18n-title="static_back_home" style="font-family:var(--font-pixel);font-size:16px;padding:4px 8px;background:transparent;border:1px solid rgba(255,255,255,.2);border-radius:4px;color:var(--text-dim);cursor:pointer;transition:all .2s;line-height:1">🏠</button>
       <div id="gangNameDisplay">Team ???</div>
       <div id="moneyDisplay"><span>₽</span> 0</div>
       <div id="repDisplay">⭐ 0</div>
-      <div id="pokemonCountDisplay" title="Pokémon possédés" style="cursor:default;display:flex;align-items:center;gap:4px"><img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png" style="width:20px;height:20px;image-rendering:pixelated" onerror="this.style.display='none'"> 0</div>
-      <button id="btnCodex" title="Codex — Prix & Spawns" style="padding:2px 5px;background:transparent;border:1px solid rgba(255,255,255,.2);border-radius:4px;cursor:pointer;transition:all .2s;display:flex;align-items:center"><img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/town-map.png" style="width:22px;height:22px;image-rendering:pixelated" onerror="this.style.display='none'"></button>
-      <span id="supaIndicator" title="Compte cloud"></span>
-      <button id="notifBell" class="notif-bell-btn" title="Notifications" aria-label="Notifications">🔔<span id="notifBadge" class="notif-badge" style="display:none">0</span></button>
-      <button id="btnSettings" aria-label="Settings">⚙</button>
+      <div id="pokemonCountDisplay" title="Pokémon possédés" data-i18n-title="static_owned_pokemon" style="cursor:default;display:flex;align-items:center;gap:4px"><img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png" style="width:20px;height:20px;image-rendering:pixelated" onerror="this.style.display='none'"> 0</div>
+      <button id="btnCodex" title="Codex — Prix & Spawns" data-i18n-title="static_codex_hint" style="padding:2px 5px;background:transparent;border:1px solid rgba(255,255,255,.2);border-radius:4px;cursor:pointer;transition:all .2s;display:flex;align-items:center"><img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/town-map.png" style="width:22px;height:22px;image-rendering:pixelated" onerror="this.style.display='none'"></button>
+      <span id="supaIndicator" title="Compte cloud" data-i18n-title="static_cloud_account"></span>
+      <button id="notifBell" class="notif-bell-btn" title="Notifications" aria-label="Notifications" data-i18n-title="notif_title" data-i18n-aria-label="notif_title">🔔<span id="notifBadge" class="notif-badge" style="display:none">0</span></button>
+      <button id="btnSettings" aria-label="Settings" data-i18n-aria-label="static_settings">⚙</button>
     </header>
 
     <!-- ── Session delta + Objective ── -->
@@ -74,18 +74,18 @@
 
     <!-- ═══ Tab Navigation ═══ -->
     <nav id="tabNav">
-      <button class="tab-btn active" data-tab="tabZones">Zones <span class="tab-info-btn" data-info-tab="tabZones">ℹ</span></button>
-      <button class="tab-btn" data-tab="tabPC">Pokémon <span class="tab-info-btn" data-info-tab="tabPC">ℹ</span></button>
-      <button class="tab-btn" data-tab="tabAgents">Agents <span class="tab-info-btn" data-info-tab="tabAgents">ℹ</span></button>
-      <button class="tab-btn" data-tab="tabMarket">Marché <span class="tab-info-btn" data-info-tab="tabMarket">ℹ</span></button>
-      <button class="tab-btn" data-tab="tabGang">Gang <span class="tab-info-btn" data-info-tab="tabGang">ℹ</span></button>
-      <button class="tab-btn" data-tab="tabPokedex">Pokédex <span class="tab-info-btn" data-info-tab="tabPokedex">ℹ</span></button>
-      <button class="tab-btn" data-tab="tabBattleLog">📋 Évts</button>
-      <button class="tab-btn" data-tab="tabMissions" id="tabBtnMissions">Missions</button>
-      <button class="tab-btn" data-tab="tabCompetition" id="tabBtnCompetition" style="margin-left:auto">⚔️ Raids</button>
+      <button class="tab-btn active" data-tab="tabZones"><span data-i18n="static_tab_zones">Zones</span> <span class="tab-info-btn" data-info-tab="tabZones">ℹ</span></button>
+      <button class="tab-btn" data-tab="tabPC"><span data-i18n="static_tab_pokemon">Pokémon</span> <span class="tab-info-btn" data-info-tab="tabPC">ℹ</span></button>
+      <button class="tab-btn" data-tab="tabAgents"><span data-i18n="static_tab_agents">Agents</span> <span class="tab-info-btn" data-info-tab="tabAgents">ℹ</span></button>
+      <button class="tab-btn" data-tab="tabMarket"><span data-i18n="static_tab_market">Marché</span> <span class="tab-info-btn" data-info-tab="tabMarket">ℹ</span></button>
+      <button class="tab-btn" data-tab="tabGang"><span data-i18n="static_tab_gang">Gang</span> <span class="tab-info-btn" data-info-tab="tabGang">ℹ</span></button>
+      <button class="tab-btn" data-tab="tabPokedex"><span data-i18n="static_tab_pokedex">Pokédex</span> <span class="tab-info-btn" data-info-tab="tabPokedex">ℹ</span></button>
+      <button class="tab-btn" data-tab="tabBattleLog" data-i18n="static_tab_events">📋 Évts</button>
+      <button class="tab-btn" data-tab="tabMissions" id="tabBtnMissions" data-i18n="static_tab_missions">Missions</button>
+      <button class="tab-btn" data-tab="tabCompetition" id="tabBtnCompetition" data-i18n="static_tab_raids" style="margin-left:auto">⚔️ Raids</button>
       <button class="tab-btn" data-tab="tabLeaderboard" id="tabBtnLeaderboard">🏆</button>
-      <button class="tab-btn" data-tab="tabCompte" id="tabBtnCompte">☁ Compte</button>
-      <button class="tab-btn" id="btnSaveSlots" style="border-color:var(--gold-dim);color:var(--gold-dim)">Saves</button>
+      <button class="tab-btn" data-tab="tabCompte" id="tabBtnCompte" data-i18n="static_tab_account">☁ Compte</button>
+      <button class="tab-btn" id="btnSaveSlots" data-i18n="static_tab_saves" style="border-color:var(--gold-dim);color:var(--gold-dim)">Saves</button>
     </nav>
 
     <!-- ═══ Tab Content ═══ -->
@@ -99,9 +99,9 @@
       <section id="tabBattleLog" class="tab-pane">
         <div style="display:flex;flex-direction:column;height:100%;overflow:hidden">
           <div id="feedHeader" style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-bottom:1px solid var(--border);flex-shrink:0">
-            <span style="font-family:var(--font-pixel);font-size:8px;color:var(--gold)">ÉVÉNEMENTS</span>
+            <span style="font-family:var(--font-pixel);font-size:8px;color:var(--gold)" data-i18n="static_events_title">ÉVÉNEMENTS</span>
             <div id="feedFilters" style="display:flex;gap:4px;flex-wrap:wrap;margin-left:auto"></div>
-            <button id="feedExportBtn" title="Exporter les logs" style="flex-shrink:0;background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:3px;padding:2px 6px;cursor:pointer;font-size:10px;line-height:1.4">📥</button>
+            <button id="feedExportBtn" title="Exporter les logs" data-i18n-title="static_export_logs" style="flex-shrink:0;background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:3px;padding:2px 6px;cursor:pointer;font-size:10px;line-height:1.4">📥</button>
           </div>
           <div id="feedList" style="flex:1;overflow-y:auto;padding:4px 8px;display:flex;flex-direction:column;gap:2px;"></div>
         </div>
@@ -110,9 +110,9 @@
       <!-- ── Agents ── -->
       <section id="tabAgents" class="tab-pane">
         <div style="padding:6px 12px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center">
-          <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim)">ORGANIGRAMME</div>
-          <button id="btnToggleAgentTree" style="font-size:9px;padding:3px 9px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">🌳 Afficher l'arbre</button>
-          <button id="btnUnequipAll" style="font-size:9px;padding:4px 10px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer;margin-left:auto">Tout déséquiper</button>
+          <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim)" data-i18n="static_org_chart">ORGANIGRAMME</div>
+          <button id="btnToggleAgentTree" data-i18n="static_show_tree" style="font-size:9px;padding:3px 9px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">🌳 Afficher l'arbre</button>
+          <button id="btnUnequipAll" data-i18n="static_unequip_all" style="font-size:9px;padding:4px 10px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer;margin-left:auto">Tout déséquiper</button>
         </div>
         <div id="agentTreeContainer" style="display:none;padding:12px;border-bottom:1px solid var(--border);overflow-x:auto"></div>
         <div class="agents-grid" id="agentsGrid"></div>
@@ -132,19 +132,19 @@
         <!-- Filter bar -->
         <div id="zoneFilterBar">
           <div id="zoneFilterTabs">
-            <button class="zone-ftab active" data-filter="all">Tout</button>
-            <button class="zone-ftab" data-filter="fav">★ Favoris</button>
-            <button class="zone-ftab" data-filter="route">🗺 Routes</button>
-            <button class="zone-ftab" data-filter="city">🏙 Villes</button>
-            <button class="zone-ftab" data-filter="special">⭐ Spéciaux</button>
-            <button class="zone-ftab" data-filter="dex" title="Zones avec des Pokémon non encore capturés">📖 Pokédex</button>
-            <button class="zone-ftab" data-filter="dex_shiny" title="Zones avec des espèces sans chromatique">✨ Chromas</button>
+            <button class="zone-ftab active" data-filter="all" data-i18n="static_filter_all">Tout</button>
+            <button class="zone-ftab" data-filter="fav" data-i18n="static_filter_favorites">★ Favoris</button>
+            <button class="zone-ftab" data-filter="route" data-i18n="static_filter_routes">🗺 Routes</button>
+            <button class="zone-ftab" data-filter="city" data-i18n="static_filter_cities">🏙 Villes</button>
+            <button class="zone-ftab" data-filter="special" data-i18n="static_filter_special">⭐ Spéciaux</button>
+            <button class="zone-ftab" data-filter="dex" title="Zones avec des Pokémon non encore capturés" data-i18n="static_filter_pokedex" data-i18n-title="static_filter_pokedex_hint">📖 Pokédex</button>
+            <button class="zone-ftab" data-filter="dex_shiny" title="Zones avec des espèces sans chromatique" data-i18n="static_filter_shiny" data-i18n-title="static_filter_shiny_hint">✨ Chromas</button>
           </div>
           <div style="display:flex;gap:6px;margin-left:auto;align-items:center;flex-wrap:wrap;justify-content:flex-end">
-            <span id="zoneOpenCount" class="zone-open-count">0 zone ouverte</span>
-            <button id="btnCollectAllZones" class="zones-close-all-btn" style="background:var(--gold-dark,#7a6000);border-color:var(--gold-dim);color:var(--gold);display:none">₽ Tout récolter</button>
-            <button id="btnCloseAllZones" class="zones-close-all-btn" style="display:none">✕ Fermer tout</button>
-            <button id="btnToggleZoneStats" class="zones-close-all-btn" title="Basculer vue statistiques / carte" style="display:block">📊</button>
+            <span id="zoneOpenCount" class="zone-open-count" data-i18n="static_no_open_zone">0 zone ouverte</span>
+            <button id="btnCollectAllZones" class="zones-close-all-btn" data-i18n="static_collect_all" style="background:var(--gold-dark,#7a6000);border-color:var(--gold-dim);color:var(--gold);display:none">₽ Tout récolter</button>
+            <button id="btnCloseAllZones" class="zones-close-all-btn" data-i18n="static_close_all" style="display:none">✕ Fermer tout</button>
+            <button id="btnToggleZoneStats" class="zones-close-all-btn" title="Basculer vue statistiques / carte" data-i18n-title="static_toggle_zone_view" style="display:block">📊</button>
           </div>
         </div>
 
@@ -152,7 +152,7 @@
         <div class="fog-map-layout">
           <div id="zoneSelector"></div>
           <div class="fog-fav-sidebar">
-            <button id="btnFavFilter" class="fog-fav-pill" title="Voir uniquement les favoris">★</button>
+            <button id="btnFavFilter" class="fog-fav-pill" title="Voir uniquement les favoris" data-i18n-title="zone_selector_show_favorites">★</button>
           </div>
         </div>
 
@@ -167,19 +167,19 @@
       <section id="tabMarket" class="tab-pane">
         <div class="market-layout">
           <div id="specialItemPanel" class="market-panel special-item-panel">
-            <h3>ACCÈS ZONES</h3>
+            <h3 data-i18n="static_zone_access">ACCÈS ZONES</h3>
             <div class="special-list"></div>
           </div>
           <div id="shopPanel" class="market-panel">
-            <h3>BOUTIQUE</h3>
+            <h3 data-i18n="static_shop">BOUTIQUE</h3>
             <div class="shop-list"></div>
           </div>
           <div id="barterPanel" class="market-panel">
-            <h3>TROC</h3>
+            <h3 data-i18n="static_barter">TROC</h3>
             <div class="barter-list"></div>
           </div>
           <div id="blackMarketPanel" class="market-panel black-market-panel">
-            <h3>🌑 MARCHÉ NOIR</h3>
+            <h3 data-i18n="static_black_market">🌑 MARCHÉ NOIR</h3>
             <div class="bm-bulletin"></div>
           </div>
         </div>
@@ -190,29 +190,29 @@
         <div class="pc-layout">
           <div class="pc-main">
             <div id="filterBar">
-              <input type="text" id="pcSearch" placeholder="Rechercher...">
+              <input type="text" id="pcSearch" placeholder="Rechercher..." data-i18n-placeholder="static_search">
               <select id="pcSort">
-                <option value="recent">Recent</option>
-                <option value="potential">Potentiel</option>
+                <option value="recent" data-i18n="static_sort_recent">Recent</option>
+                <option value="potential" data-i18n="static_sort_potential">Potentiel</option>
                 <option value="cp">PC</option>
-                <option value="level">Niveau</option>
-                <option value="species">Espece</option>
-                <option value="id">No. Pokedex</option>
-                <option value="name">Nom A-Z</option>
-                <option value="price">Prix ₽</option>
+                <option value="level" data-i18n="static_sort_level">Niveau</option>
+                <option value="species" data-i18n="static_sort_species">Espece</option>
+                <option value="id" data-i18n="static_sort_dex_number">No. Pokedex</option>
+                <option value="name" data-i18n="static_sort_name">Nom A-Z</option>
+                <option value="price" data-i18n="static_sort_price">Prix ₽</option>
               </select>
               <select id="pcFilter">
-                <option value="all">Tous</option>
-                <option value="fav">[FAV] Favoris</option>
-                <option value="team">[EQ] En equipe</option>
+                <option value="all" data-i18n="static_filter_all_pc">Tous</option>
+                <option value="fav" data-i18n="static_filter_favorites_pc">[FAV] Favoris</option>
+                <option value="team" data-i18n="static_filter_team">[EQ] En equipe</option>
                 <option value="shiny">[S] Shiny</option>
                 <option value="pot5">***** (5)</option>
                 <option value="pot4">**** (4)</option>
                 <option value="pot3">*** (3)</option>
                 <option value="pot2">** (2)</option>
                 <option value="pot1">* (1)</option>
-                <option value="pension">[PS] Pension</option>
-                <option value="training">[TR] Formation</option>
+                <option value="pension" data-i18n="static_filter_daycare">[PS] Pension</option>
+                <option value="training" data-i18n="static_filter_training">[TR] Formation</option>
               </select>
             </div>
             <div id="pokemonGrid"></div>
@@ -244,7 +244,7 @@
       <section id="tabPokedex" class="tab-pane">
         <div class="dex-layout">
           <div class="dex-left">
-            <div id="dexSearch" style="margin-bottom:8px"><input id="dexSearchInput" type="text" placeholder="Rechercher..." style="width:100%;background:var(--bg-card);color:var(--text);border:1px solid var(--border);border-radius:var(--radius-sm);padding:4px 8px;font-family:var(--font-pixel);font-size:9px"></div>
+            <div id="dexSearch" style="margin-bottom:8px"><input id="dexSearchInput" type="text" placeholder="Rechercher..." data-i18n-placeholder="static_search" style="width:100%;background:var(--bg-card);color:var(--text);border:1px solid var(--border);border-radius:var(--radius-sm);padding:4px 8px;font-family:var(--font-pixel);font-size:9px"></div>
             <div id="pokedexGrid"></div>
           </div>
           <aside id="dexDetail" class="dex-detail hidden"></aside>
@@ -261,7 +261,7 @@
 
   <!-- ═══ Intro Overlay ═══ -->
   <div id="introOverlay">
-    <button id="introSettingsBtn" title="Paramètres">⚙</button>
+    <button id="introSettingsBtn" title="Paramètres" data-i18n-title="static_settings">⚙</button>
 
     <!-- Atmospheric background -->
     <div class="intro-bg" aria-hidden="true">
@@ -276,7 +276,7 @@
         alt="PokéGang"
         class="intro-logo-img"
       >
-      <p class="intro-tagline">Prends le contrôle de Kanto.</p>
+      <p class="intro-tagline" data-i18n="static_intro_tagline">Prends le contrôle de Kanto.</p>
 
       <div class="intro-scene-card">
         <div id="introSceneContainer" class="intro-scene">
@@ -289,22 +289,22 @@
         </div>
       </div>
 
-      <button id="introStartGameBtn" class="intro-start-btn">▶ Commencer une partie</button>
+      <button id="introStartGameBtn" class="intro-start-btn" data-i18n="static_start_game">▶ Commencer une partie</button>
     </div>
 
     <!-- Saves panel anchored at bottom -->
     <div class="intro-saves-panel">
       <div class="intro-saves-header">
         <img src="assets/pokegang_logo/pokegang_logo_little.png" alt="" class="intro-saves-icon">
-        <span class="intro-saves-label">SAUVEGARDES</span>
-        <span class="intro-saves-hint">Choisis ou crée une partie</span>
+        <span class="intro-saves-label" data-i18n="static_saves">SAUVEGARDES</span>
+        <span class="intro-saves-hint" data-i18n="static_choose_save">Choisis ou crée une partie</span>
       </div>
       <div class="intro-slots" id="introSlots">
         <!-- filled by JS -->
       </div>
       <div class="intro-slot-tools">
-        <button id="btnHubImportSave" class="intro-slot-tool intro-slot-tool-import">📥 Importer une save</button>
-        <button id="btnHubRepairSlot" class="intro-slot-tool intro-slot-tool-repair">🔧 Réparer une save</button>
+        <button id="btnHubImportSave" class="intro-slot-tool intro-slot-tool-import" data-i18n="static_import_save">📥 Importer une save</button>
+        <button id="btnHubRepairSlot" class="intro-slot-tool intro-slot-tool-repair" data-i18n="static_repair_save">🔧 Réparer une save</button>
       </div>
     </div>
 
@@ -313,8 +313,8 @@
   <div id="settingsModal">
     <div class="settings-box">
       <div class="settings-header">
-        <h2>⚙ Paramètres</h2>
-        <button class="btn-close" id="btnCloseSettings" title="Fermer">&times;</button>
+        <h2 data-i18n="static_settings_title">⚙ Paramètres</h2>
+        <button class="btn-close" id="btnCloseSettings" title="Fermer" data-i18n-title="static_close">&times;</button>
       </div>
       <div class="settings-content" id="settingsContent">
         <!-- rendered by renderSettingsPanel() -->
@@ -323,7 +323,7 @@
         <div style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);opacity:.6;letter-spacing:1px">
           PokéGang <span id="settingsVersion"></span>
         </div>
-        <button class="btn-save-settings" id="btnSaveSettings">✓ Valider</button>
+        <button class="btn-save-settings" id="btnSaveSettings" data-i18n="static_validate">✓ Valider</button>
       </div>
     </div>
   </div>
@@ -333,7 +333,7 @@
     <div class="info-box">
       <div class="info-title" id="infoModalTitle"></div>
       <div class="info-section" id="infoModalBody"></div>
-      <button class="info-close" id="infoModalClose">✕ Fermer</button>
+      <button class="info-close" id="infoModalClose" data-i18n="static_close_with_icon">✕ Fermer</button>
     </div>
   </div>
 
@@ -364,7 +364,7 @@
   <script defer src="./data/zones-sinnoh-data.js?v=5fc631a9"></script>
   <script defer src="./data/regions-config.js?v=22ab8f2c"></script>
   <script defer src="./data/moves-data.js?v=d2daccb1"></script>
-  <script type="module" src="./app.js?v=1f61f5b4"></script>
+  <script type="module" src="./app.js?v=0fcdcb37"></script>
   <!-- Offline / background idle catchup system -->
   <script type="module" src="./modules/systems/offlineCatchup.js?v=0f577733"></script>
   <!-- Offline mission report (modal de rapport au retour de tab) -->
