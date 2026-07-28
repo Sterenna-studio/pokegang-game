@@ -5,6 +5,7 @@ import { getBossTeamPower } from './bossPower.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type });
 const _save   = ()               => globalThis.saveState?.();
+const _t      = (fr, en)         => (globalThis.state?.lang === 'en' ? en : fr);
 
 // ── Hoenn region unlock system ───────────────────────────────────────────────
 // Conditions de déblocage basées sur la puissance du gang (pas d'item requis).
@@ -75,7 +76,7 @@ function showHoennUnlockModal() {
   const stevenSprite = globalThis.trainerSprite?.('steven') ?? '';
   const bossName = state.gang?.bossName || 'Parrain';
 
-  const MESSAGE =
+  const MESSAGE = _t(
     `« ${bossName}. J'ai peu de temps, alors je serai direct.\n\n` +
     `Hoenn est une région à part. La mer y règne, la terre y gronde. ` +
     `Deux organisations se disputent le continent — la Team Magma, la Team Aqua. ` +
@@ -83,7 +84,16 @@ function showHoennUnlockModal() {
     `La Ligue d'Hoenn a besoin d'un équilibre. Et vous avez la réputation pour le maintenir.\n\n` +
     `Je vous offre un accès : les routes de Bourg Natal sont ouvertes. ` +
     `Ne laissez pas Maxie ou Archie faire une erreur que le monde entier paierait.\n\n` +
-    `Bonne chance. »`;
+    `Bonne chance. »`,
+    `“${bossName}. I don't have much time, so I'll be direct.\n\n` +
+    `Hoenn is unlike any other region. The sea rules there, and the land rumbles. ` +
+    `Two organizations are fighting over the continent — Team Magma and Team Aqua. ` +
+    `Their madness could awaken forces that have slept for millennia.\n\n` +
+    `The Hoenn League needs balance. You have the reputation to maintain it.\n\n` +
+    `I'm granting you access: the roads from Littleroot Town are open. ` +
+    `Don't let Maxie or Archie make a mistake the whole world would pay for.\n\n` +
+    `Good luck.”`,
+  );
 
   const overlay = document.createElement('div');
   overlay.id = 'hoenn-intro-overlay';
@@ -140,7 +150,7 @@ function showHoennUnlockModal() {
   dialog.innerHTML = `
     <div style="font-family:var(--font-pixel,monospace);font-size:7px;
       color:rgba(80,180,255,.85);letter-spacing:.8px;text-transform:uppercase;
-      margin-bottom:8px">Pierre — Champion Hoenn</div>
+      margin-bottom:8px">${_t('Pierre — Champion Hoenn', 'Steven — Hoenn Champion')}</div>
     <div id="hi-text" style="font-size:14px;color:#ddeeff;line-height:1.7;min-height:46px;
       white-space:pre-wrap"></div>
     <div id="hi-actions" style="margin-top:16px;display:none;
@@ -209,8 +219,8 @@ function showHoennUnlockModal() {
     cursor.style.display = 'none';
     actionsEl.style.display = 'flex';
     actionsEl.innerHTML = `
-      <button class="hi-btn-dismiss" id="hi-dismiss">Pas encore...</button>
-      <button class="hi-btn-accept"  id="hi-accept">→ Traverser vers Hoenn</button>`;
+      <button class="hi-btn-dismiss" id="hi-dismiss">${_t('Pas encore...', 'Not yet...')}</button>
+      <button class="hi-btn-accept"  id="hi-accept">${_t('→ Traverser vers Hoenn', '→ Travel to Hoenn')}</button>`;
 
     actionsEl.querySelector('#hi-accept').addEventListener('click', () => {
       _close();
@@ -220,12 +230,12 @@ function showHoennUnlockModal() {
         b.classList.toggle('active', b.dataset.region === 'hoenn');
       });
       globalThis.switchTab?.('tabZones');
-      _notify('🌊 Hoenn débloqué ! Bienvenue à Bourg Natal, Parrain...', 'gold');
+      _notify(_t('🌊 Hoenn débloqué ! Bienvenue à Bourg Natal, Parrain...', '🌊 Hoenn unlocked! Welcome to Littleroot Town, Boss...'), 'gold');
     });
 
     actionsEl.querySelector('#hi-dismiss').addEventListener('click', () => {
       _close();
-      _notify("📡 L'offre reste disponible — bouton Hoenn ✉ dans les zones.", '');
+      _notify(_t("📡 L'offre reste disponible — bouton Hoenn ✉ dans les zones.", '📡 The offer remains available — use the Hoenn ✉ button in Zones.'), '');
     });
   }
 
