@@ -389,6 +389,13 @@ function _injectStyles() {
       font-size:9px; letter-spacing:2px; text-transform:uppercase;
       color:var(--jhm-accent,#4a9); margin-bottom:10px;
     }
+    .jhm-trainer-wrap {
+      display:flex; align-items:center; gap:12px; margin-bottom:12px;
+    }
+    .jhm-trainer-img {
+      width:64px; height:64px; image-rendering:pixelated;
+      filter:drop-shadow(0 4px 10px rgba(0,0,0,.5));
+    }
     .jhm-fight-text {
       font-family:var(--font-pixel,monospace);
       font-size:8px; line-height:2; color:#c0d8c0;
@@ -696,7 +703,7 @@ async function _launchBoss(key) {
     petrel: {
       name: 'Petrel', role: _t('Admin Rocket', 'Rocket Admin'),
       team: 'Raticate, Arbok, Arbok', power: 2000,
-      accent: '#e8a030', icon: '🚀',
+      accent: '#e8a030', icon: '🚀', spriteKey: 'petrel',
       winMsg: _t(
         'Petrel est vaincu. Il révèle l\'emplacement du QG. Ariana est votre prochain obstacle.',
         'Petrel is defeated. He reveals the HQ location. Ariana is your next obstacle.',
@@ -706,7 +713,7 @@ async function _launchBoss(key) {
     ariana: {
       name: 'Ariana', role: _t('Admin Rocket', 'Rocket Admin'),
       team: 'Arbok, Murkrow, Victreebel', power: 2800,
-      accent: '#e8a030', icon: '🚀',
+      accent: '#e8a030', icon: '🚀', spriteKey: 'ariana',
       winMsg: _t(
         'Ariana est vaincue. L\'opération Rocket s\'effondre. Choisissez maintenant votre Bête Sacrée.',
         'Ariana is defeated. The Rocket operation collapses. Now choose your Sacred Beast.',
@@ -716,7 +723,7 @@ async function _launchBoss(key) {
     eusine: {
       name: 'Eusine', role: _t('Chasseur de Suicune', 'Suicune Hunter'),
       team: 'Drowzee, Haunter, Electrode', power: 2500,
-      accent: '#5599cc', icon: '🔭',
+      accent: '#5599cc', icon: '🔭', spriteKey: 'eusine',
       winMsg: _t(
         'Eusine est vaincu. Il vous confie le chemin secret vers les Îles Tourbillon. Lugia vous attend.',
         'Eusine is defeated. He entrusts you with the secret path to the Whirl Islands. Lugia awaits.',
@@ -726,7 +733,7 @@ async function _launchBoss(key) {
     kimono: {
       name: _t('Filles Kimono', 'Kimono Girls'), role: _t('Gardiennes de Ho-Oh', 'Guardians of Ho-Oh'),
       team: 'Espeon, Umbreon, Vaporeon, Flareon, Jolteon', power: 2500,
-      accent: '#cc9944', icon: '🎎',
+      accent: '#cc9944', icon: '🎎', spriteKey: 'kimonogirl-gen2',
       winMsg: _t(
         'Les Filles Kimono vous reconnaissent comme l\'Élu. Elles vous ouvrent les portes de la Tour Carillon.',
         'The Kimono Girls recognize you as the Chosen One. They open the gates of the Tin Tower for you.',
@@ -741,6 +748,7 @@ async function _launchBoss(key) {
   const power    = globalThis.getBossTeamPower?.() ?? 0;
   const needed   = boss.power;
   const enough   = power >= needed;
+  const trainerImg = boss.spriteKey ? globalThis.trainerSprite?.(boss.spriteKey) : null;
 
   const ol = document.getElementById('jhm-overlay');
   if (!ol) return;
@@ -750,7 +758,10 @@ async function _launchBoss(key) {
   div.style.cssText = 'position:absolute;inset:0;z-index:10;background:rgba(1,4,1,.96);display:flex;align-items:center;justify-content:center;padding:20px;animation:jhm-appear .3s ease both';
   div.innerHTML = `
     <div class="jhm-fight-box" style="--jhm-accent:${boss.accent}">
-      <div class="jhm-fight-title">${boss.icon} ${boss.name} — ${boss.role}</div>
+      ${trainerImg ? `<div class="jhm-trainer-wrap">
+        <img class="jhm-trainer-img" src="${trainerImg}" alt="${boss.name}" onerror="this.style.display='none'">
+        <div class="jhm-fight-title" style="margin-bottom:0">${boss.icon} ${boss.name} — ${boss.role}</div>
+      </div>` : `<div class="jhm-fight-title">${boss.icon} ${boss.name} — ${boss.role}</div>`}
       <div class="jhm-fight-text">${boss.team}</div>
       <div class="jhm-power-row">
         <div class="jhm-power-chip">👊 ${_t('Votre puissance', 'Your power')} : ${power.toLocaleString()}</div>
