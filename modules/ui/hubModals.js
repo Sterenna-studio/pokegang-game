@@ -1,4 +1,4 @@
-﻿'use strict';
+'use strict';
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
 
@@ -7,6 +7,15 @@ const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
 const _topBar = ()               => EventBus.emit(EVENTS.UI_TOPBAR_UPDATE);
 const _save   = ()               => globalThis.saveState?.();
 
+function _t(key, vars = {}) {
+  const lang = globalThis.state?.lang || 'fr';
+  const I18N  = globalThis.I18N ?? {};
+  const entry = I18N[key];
+  if (!entry) return key;
+  let str = entry[lang] || entry.fr || key;
+  for (const [k, v] of Object.entries(vars)) str = str.replace(`{${k}}`, v);
+  return str;
+}
 
 // ── Modales du hub : réparation de slot + validateur de sprite boss ──────────
 //
@@ -33,7 +42,7 @@ function openHubSlotRepairModal() {
     const prev = globalThis.getSlotPreview?.(i);
     const label = prev
       ? `<b style="color:var(--text)">${prev.name}</b> <span style="color:var(--text-dim);font-size:9px">(${prev.pokemon} pkm · ⭐${prev.rep})</span>`
-      : `<span style="color:#555;font-style:italic">Vide</span>`;
+      : `<span style="color:#555;font-style:italic">${_t('hub_slot_empty_label')}</span>`;
     return `<label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;background:var(--bg);${!prev ? 'opacity:.4;pointer-events:none' : ''}">
       <input type="radio" name="repairTargetSlot" value="${i}" ${i === activeSaveSlot ? 'checked' : ''} ${!prev ? 'disabled' : ''} style="accent-color:#ffa000">
       <span style="font-family:var(--font-pixel);font-size:8px;color:#ffa000">SLOT ${i+1}</span>
@@ -44,20 +53,20 @@ function openHubSlotRepairModal() {
   overlay.innerHTML = `
     <div style="background:var(--bg-panel);border:2px solid #ffa000;border-radius:var(--radius);padding:24px;max-width:480px;width:100%;display:flex;flex-direction:column;gap:14px">
       <div style="display:flex;justify-content:space-between;align-items:center">
-        <div style="font-family:var(--font-pixel);font-size:11px;color:#ffa000">🔧 Réparer un slot</div>
+        <div style="font-family:var(--font-pixel);font-size:11px;color:#ffa000">${_t('hub_slot_repair_title')}</div>
         <button id="btnRepairSlotClose" style="background:none;border:none;color:var(--text-dim);font-size:18px;cursor:pointer">✕</button>
       </div>
       <div style="font-size:9px;color:var(--text-dim);line-height:1.5">
-        Réapplique toutes les migrations, corrige les champs manquants et nettoie les incohérences.
-        <b style="color:var(--text)">Tes données ne seront pas effacées.</b>
+        ${_t('hub_repair_desc')}
+        <b style="color:var(--text)">${_t('hub_repair_data_safe')}</b>
       </div>
       <div style="display:flex;flex-direction:column;gap:6px">${slotHtml}</div>
       <div style="display:flex;gap:8px;margin-top:4px">
         <button id="btnRepairSlotConfirm" style="flex:1;font-family:var(--font-pixel);font-size:9px;padding:10px;background:var(--bg);border:2px solid #ffa000;border-radius:var(--radius-sm);color:#ffa000;cursor:pointer">
-          🔧 Réparer ce slot
+          ${_t('hub_slot_repair_btn')}
         </button>
         <button id="btnRepairSlotCancel" style="font-family:var(--font-pixel);font-size:8px;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">
-          Annuler
+          ${_t('hub_cancel')}
         </button>
       </div>
     </div>`;
@@ -70,10 +79,10 @@ function openHubSlotRepairModal() {
   overlay.querySelector('#btnRepairSlotConfirm')?.addEventListener('click', () => {
     const targetSlot = parseInt(overlay.querySelector('input[name="repairTargetSlot"]:checked')?.value ?? activeSaveSlot);
     const raw = localStorage.getItem(SAVE_KEYS[targetSlot]);
-    if (!raw) { _notify('Slot vide — rien à réparer.', 'error'); overlay.remove(); return; }
+    if (!raw) { _notify(_t('hub_slot_empty'), 'error'); overlay.remove(); return; }
 
     globalThis.showConfirm?.(
-      `Réparer le Slot ${targetSlot + 1} ?<br><span style="color:var(--text-dim);font-size:10px">Toutes les migrations seront réappliquées. Données intactes.</span>`,
+      `${_t('hub_slot_repair_confirm', { slot: targetSlot + 1 })}<br><span style="color:var(--text-dim);font-size:10px">${_t('hub_slot_repair_body')}</span>`,
       () => {
         try {
           const parsed = JSON.parse(raw);
@@ -110,7 +119,9 @@ function openHubSlotRepairModal() {
 
           overlay.remove();
           _notify(
-            `✅ Slot ${targetSlot + 1} réparé.${histTrimmed > 0 ? ` ${histTrimmed} entrées d'historique nettoyées.` : ''}`,
+            histTrimmed > 0
+              ? _t('hub_slot_repaired_hist', { slot: targetSlot + 1, n: histTrimmed })
+              : _t('hub_slot_repaired',      { slot: targetSlot + 1 }),
             'success'
           );
 
@@ -121,12 +132,12 @@ function openHubSlotRepairModal() {
             globalThis.showIntro?.();
           }
         } catch (err) {
-          _notify('Erreur lors de la réparation — slot non modifié.', 'error');
+          _notify(_t('hub_repair_error'), 'error');
           console.error(err);
         }
       },
       null,
-      { confirmLabel: 'Réparer', cancelLabel: 'Annuler' }
+      { confirmLabel: _t('hub_slot_repair_btn'), cancelLabel: _t('hub_cancel') }
     );
   });
 }
@@ -170,21 +181,18 @@ function showBossSpriteRepairModal() {
 
   modal.innerHTML = `
     <div style="background:var(--bg-panel);border:2px solid var(--red);border-radius:var(--radius);padding:24px;max-width:600px;width:90%;max-height:80vh;display:flex;flex-direction:column;gap:16px">
-      <div style="font-family:var(--font-pixel);font-size:12px;color:var(--gold)">⚠ Sprite invalide</div>
+      <div style="font-family:var(--font-pixel);font-size:12px;color:var(--gold)">${_t('hub_sprite_invalid_title')}</div>
       <div style="font-size:13px;color:var(--text-dim)">
-        ${state.lang === 'fr'
-          ? `Le sprite "<b style="color:var(--text)">${state.gang.bossSprite}</b>" est introuvable. Choisis un nouveau sprite pour ton Boss :`
-          : `The sprite "<b style="color:var(--text)">${state.gang.bossSprite}</b>" could not be found. Pick a new sprite for your Boss:`
-        }
+        ${_t('hub_sprite_invalid_body', { sprite: state.gang.bossSprite })}
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;overflow-y:auto;max-height:320px;padding:4px">
         ${spriteOptionsHtml}
       </div>
       <button id="spriteRepairConfirm" style="
         font-family:var(--font-pixel);font-size:10px;padding:10px 20px;
-        background:var(--red-dark);border:1px solid var(--red);border-radius:var(--radius);
+        background:var(--red-dark);border:1px solid var(--red);border-radius:var(--radius));
         color:var(--text);cursor:pointer;align-self:center
-      ">${state.lang === 'fr' ? 'Confirmer' : 'Confirm'}</button>
+      ">${_t('hub_sprite_confirm')}</button>
     </div>
   `;
 
@@ -211,7 +219,7 @@ function showBossSpriteRepairModal() {
       img.src = globalThis.trainerSprite?.(selected) ?? '';
     });
     globalThis.renderAll?.();
-    _notify(state.lang === 'fr' ? 'Sprite mis à jour !' : 'Sprite updated!', 'success');
+    _notify(_t('hub_sprite_updated'), 'success');
   });
 }
 

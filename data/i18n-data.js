@@ -75,6 +75,23 @@ const I18N = {
   llm_off:       { fr:'LLM hors-ligne', en:'LLM offline' },
   // Misc
   pokedex_progress:{ fr:'{caught}/{total} capturés', en:'{caught}/{total} caught' },
+  // Hub modals
+  hub_slot_repair_title:   { fr:'🔧 Réparer un slot',    en:'🔧 Repair a slot'   },
+  hub_slot_empty:          { fr:'Slot vide — rien à réparer.', en:'Empty slot — nothing to repair.' },
+  hub_slot_repair_confirm: { fr:'Réparer le Slot {slot} ?', en:'Repair Slot {slot}?' },
+  hub_slot_repair_body:    { fr:'Toutes les migrations seront réappliquées. Données intactes.', en:'All migrations will be re-applied. Data untouched.' },
+  hub_slot_repair_btn:     { fr:'🔧 Réparer ce slot',    en:'🔧 Repair this slot' },
+  hub_slot_repaired:       { fr:'✅ Slot {slot} réparé.', en:'✅ Slot {slot} repaired.' },
+  hub_slot_repaired_hist:  { fr:'✅ Slot {slot} réparé. {n} entrées d\'historique nettoyées.', en:'✅ Slot {slot} repaired. {n} history entries cleaned.' },
+  hub_repair_error:        { fr:'Erreur lors de la réparation — slot non modifié.', en:'Repair error — slot unchanged.' },
+  hub_slot_empty_label:    { fr:'Vide',                  en:'Empty'              },
+  hub_repair_data_safe:    { fr:'Tes données ne seront pas effacées.', en:'Your data will not be deleted.' },
+  hub_repair_desc:         { fr:'Réapplique toutes les migrations, corrige les champs manquants et nettoie les incohérences.', en:'Re-applies all migrations, fixes missing fields and cleans up inconsistencies.' },
+  hub_cancel:              { fr:'Annuler',               en:'Cancel'             },
+  hub_sprite_invalid_title:{ fr:'⚠ Sprite invalide',    en:'⚠ Invalid sprite'   },
+  hub_sprite_invalid_body: { fr:'Le sprite "{sprite}" est introuvable. Choisis un nouveau sprite pour ton Boss :', en:'The sprite "{sprite}" could not be found. Pick a new sprite for your Boss:' },
+  hub_sprite_confirm:      { fr:'Confirmer',             en:'Confirm'            },
+  hub_sprite_updated:      { fr:'Sprite mis à jour !',   en:'Sprite updated!'    },
 };
 
 export { I18N };
