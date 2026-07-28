@@ -541,7 +541,7 @@ function _openZoneSourcesPicker(rootContainer) {
     return `<label class="gang-source-row${on ? ' active' : ''}">
       <input type="checkbox" data-source-key="${src.key}" ${on ? 'checked' : ''}>
       <span class="gang-source-icon">${src.icon}</span>
-      <span class="gang-source-label">${src.label}</span>
+      <span class="gang-source-label">${state.lang === 'en' ? (src.label_en || src.label) : src.label}</span>
       <span class="gang-source-count">${count}</span>
     </label>`;
   }).join('');
