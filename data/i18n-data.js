@@ -92,6 +92,14 @@ const I18N = {
   hub_sprite_invalid_body: { fr:'Le sprite "{sprite}" est introuvable. Choisis un nouveau sprite pour ton Boss :', en:'The sprite "{sprite}" could not be found. Pick a new sprite for your Boss:' },
   hub_sprite_confirm:      { fr:'Confirmer',             en:'Confirm'            },
   hub_sprite_updated:      { fr:'Sprite mis à jour !',   en:'Sprite updated!'    },
+  // Missions tab
+  missions_hourly:         { fr:'Quêtes Horaires',       en:'Hourly Quests'      },
+  missions_daily:          { fr:'Missions Quotidiennes', en:'Daily Missions'     },
+  missions_weekly:         { fr:'Missions Hebdomadaires',en:'Weekly Missions'    },
+  missions_story:          { fr:'Histoire & Objectifs',  en:'Story & Objectives' },
+  missions_completed:      { fr:'Terminés',              en:'Completed'          },
+  missions_claim:          { fr:'Récupérer',             en:'Claim'              },
+  missions_claim_all:      { fr:'✓ Tout réclamer ({n})', en:'✓ Claim all ({n})'  },
 };
 
 export { I18N };
