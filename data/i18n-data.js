@@ -523,6 +523,23 @@ const I18N = {
   pc_sell_count_value:     { fr:'Vendre {n} ({total}₽)', en:'Sell {n} ({total}₽)' },
   pc_funds_required:       { fr:'Fonds insuffisants — {price}₽ requis.', en:'Insufficient funds — {price}₽ required.' },
   pc_shiny_obtained_short: { fr:'Chromatique obtenu', en:'Shiny obtained' },
+  // Notification panel
+  notif_category_important: { fr:'Importants', en:'Important' },
+  notif_category_success:   { fr:'Succès', en:'Success' },
+  notif_category_errors:    { fr:'Erreurs', en:'Errors' },
+  notif_category_levels:    { fr:'Niveaux', en:'Levels' },
+  notif_category_captures:  { fr:'Captures', en:'Captures' },
+  notif_category_combats:   { fr:'Combats', en:'Battles' },
+  notif_category_system:    { fr:'Système', en:'System' },
+  notif_filter_all:         { fr:'Tout', en:'All' },
+  notif_empty:              { fr:'Aucune notification', en:'No notifications' },
+  notif_time_seconds:       { fr:'{n}s', en:'{n}s' },
+  notif_time_minutes:       { fr:'{n}m', en:'{n}m' },
+  notif_time_hours:         { fr:'{n}h', en:'{n}h' },
+  notif_title:              { fr:'Notifications', en:'Notifications' },
+  notif_clear_all:          { fr:'Effacer tout', en:'Clear all' },
+  notif_close:              { fr:'Fermer', en:'Close' },
+
   // Zone selector
   zone_selector_added_favorite:     { fr:'{name} ajoutée aux favoris', en:'{name} added to favorites' },
   zone_selector_removed_favorite:   { fr:'{name} retirée des favoris', en:'{name} removed from favorites' },
