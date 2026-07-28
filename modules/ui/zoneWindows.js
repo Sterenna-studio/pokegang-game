@@ -111,20 +111,24 @@ const SPECIAL_WING_EVENTS = {
     {
       item:            'silver_wing',
       itemName:        "Argent'Aile",
+      itemNameEn:      'Silver Wing',
       minDrop:         1,
       maxDrop:         5,
       legendaryShadow: 'lugia',       // espèce dont le sprite est utilisé en ombre
       shadowLabel:     'Ombre de Lugia',
+      shadowLabelEn:   "Lugia's Shadow",
       spawnChance:     0.06,          // 6% par tick de spawn (mastery >= 2)
       despawnMs:       20_000,        // l'ombre disparaît après 20 s si non cliquée
     },
     {
       item:            'plume_sacree',
       itemName:        'Plume Sacrée',
+      itemNameEn:      'Sacred Feather',
       minDrop:         1,
       maxDrop:         1,             // ticket de rejeu rare — pas de variance comme les ailes
       legendaryShadow: 'articuno',
       shadowLabel:     "Ombre d'Artikodin",
+      shadowLabelEn:   "Articuno's Shadow",
       spawnChance:     0.05,
       despawnMs:       20_000,
       requiresOwned:   'articuno',
@@ -134,10 +138,12 @@ const SPECIAL_WING_EVENTS = {
     {
       item:            'plume_sacree',
       itemName:        'Plume Sacrée',
+      itemNameEn:      'Sacred Feather',
       minDrop:         1,
       maxDrop:         1,
       legendaryShadow: 'zapdos',
       shadowLabel:     'Ombre de Zapdos',
+      shadowLabelEn:   "Zapdos's Shadow",
       spawnChance:     0.05,
       despawnMs:       20_000,
       requiresOwned:   'zapdos',
@@ -147,20 +153,24 @@ const SPECIAL_WING_EVENTS = {
     {
       item:            'rainbow_wing',
       itemName:        "Arcenci'Aile",
+      itemNameEn:      'Rainbow Wing',
       minDrop:         1,
       maxDrop:         5,
       legendaryShadow: 'ho-oh',
       shadowLabel:     'Ombre de Ho-Oh',
+      shadowLabelEn:   "Ho-Oh's Shadow",
       spawnChance:     0.06,
       despawnMs:       20_000,
     },
     {
       item:            'plume_sacree',
       itemName:        'Plume Sacrée',
+      itemNameEn:      'Sacred Feather',
       minDrop:         1,
       maxDrop:         1,
       legendaryShadow: 'moltres',
       shadowLabel:     'Ombre de Sulfura',
+      shadowLabelEn:   "Moltres's Shadow",
       spawnChance:     0.05,
       despawnMs:       20_000,
       requiresOwned:   'moltres',
@@ -982,10 +992,10 @@ function renderZonesTab() {
 function _applyZoneViewMode() {
   const btn = document.getElementById('btnToggleZoneStats');
   if (_zonesViewMode === 'stats') {
-    if (btn) { btn.textContent = '🗺'; btn.title = 'Vue carte'; btn.style.background = 'rgba(255,204,90,.2)'; btn.style.borderColor = 'var(--gold-dim)'; }
+    if (btn) { btn.textContent = '🗺'; btn.title = _t('zone_view_map'); btn.style.background = 'rgba(255,204,90,.2)'; btn.style.borderColor = 'var(--gold-dim)'; }
     _renderZoneStatsView();
   } else {
-    if (btn) { btn.textContent = '📊'; btn.title = 'Vue statistiques'; btn.style.background = ''; btn.style.borderColor = ''; }
+    if (btn) { btn.textContent = '📊'; btn.title = _t('zone_view_stats'); btn.style.background = ''; btn.style.borderColor = ''; }
     // Restore normal fogmap — hide stats overlay if present
     const overlay = document.getElementById('zoneStatsOverlay');
     if (overlay) overlay.remove();
@@ -1029,7 +1039,7 @@ function _renderZoneStatsView() {
       : `<span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">${_t('zone_inactive').toUpperCase()}</span>`;
     const fenetreBadge = isRunning
       ? `<span style="font-family:var(--font-pixel);font-size:6px;color:${isVisible ? 'var(--gold)' : 'var(--text-dim)'}">
-           ${isVisible ? '👁 Visible' : '⚙ Fond'}
+           ${isVisible ? _t('zone_stats_visible') : _t('zone_stats_background')}
          </span>`
       : '';
     const statusCell = `<div style="display:flex;flex-direction:column;align-items:center;gap:1px">${actifBadge}${fenetreBadge}</div>`;
@@ -2030,6 +2040,9 @@ function renderSpawnInWindow(zoneId, spawnObj) {
   } else if (spawnObj.type === 'wing_shadow') {
     // ── Ombre légendaire cliquable (Lugia / Ho-Oh) ─────────────
     const cfg = spawnObj.wingCfg;
+    const isEn = globalThis.state?.lang === 'en';
+    const shadowLabel = isEn ? (cfg.shadowLabelEn || cfg.shadowLabel) : cfg.shadowLabel;
+    const itemLabel   = isEn ? (cfg.itemNameEn   || cfg.itemName)   : cfg.itemName;
     const spriteUrl = globalThis.pokeSprite(cfg.legendaryShadow);
     el.innerHTML = `
       <div style="position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer">
@@ -2038,10 +2051,10 @@ function renderSpawnInWindow(zoneId, spawnObj) {
                  filter:brightness(0) saturate(0) opacity(.75) drop-shadow(0 0 10px rgba(150,120,255,.9));
                  animation:float 2.5s ease-in-out infinite">
         <div style="font-family:var(--font-pixel);font-size:6px;color:rgba(200,180,255,.9);
-                    text-shadow:0 0 6px rgba(150,120,255,.8);letter-spacing:.5px">${cfg.shadowLabel}</div>
-        <div style="font-size:7px;color:var(--gold);animation:glow 1.5s ease-in-out infinite">✦ ${cfg.itemName}</div>
+                    text-shadow:0 0 6px rgba(150,120,255,.8);letter-spacing:.5px">${shadowLabel}</div>
+        <div style="font-size:7px;color:var(--gold);animation:glow 1.5s ease-in-out infinite">✦ ${itemLabel}</div>
       </div>`;
-    el.title = `${cfg.shadowLabel} — cliquer pour obtenir des ${cfg.itemName}`;
+    el.title = _t('zone_shadow_click_hint', { shadow: shadowLabel, item: itemLabel });
     el.style.animation = 'none'; // override default — sprite se charge de l'animation
 
     el.addEventListener('click', () => {
@@ -2061,7 +2074,7 @@ function renderSpawnInWindow(zoneId, spawnObj) {
         state.inventory[cfg.item] = (state.inventory[cfg.item] || 0) + qty;
 
         // Feedback + log
-        const msg = _t('zone_shadow_item_obtained', { qty, item: cfg.itemName, shadow: cfg.shadowLabel });
+        const msg = _t('zone_shadow_item_obtained', { qty, item: itemLabel, shadow: shadowLabel });
         _notify(msg, 'gold');
         globalThis.addLog(msg);
 
