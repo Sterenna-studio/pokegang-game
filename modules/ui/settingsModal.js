@@ -93,34 +93,36 @@ function resetTransientSelections() {
     settingsContext.resetTransientSelections();
   }
 }
+
+const _t = (fr, en) => (globalThis.state?.lang === 'en' ? en : fr);
+
 // ════════════════════════════════════════════════════════════════
-// 20.  UI — SETTINGS MODAL
+// UI — SETTINGS MODAL
 // ════════════════════════════════════════════════════════════════
 
 // ── SFX individual sound labels ────────────────────────────────
-const SFX_LABELS = {
-  levelUp:   'Montée de niveau',
-  capture:   'Capture',
-  evolve:    'Évolution',
-  ballThrow: 'Lancer de Ball',
-  notify:    'Notification',
-  coin:      'Argent / Récolte',
-  buy:       'Achat',
-  unlock:    'Déverrouillage',
-  chest:     'Coffre',
-  sell:      'Vente',
-  error:     'Erreur',
-  click:     'Clic UI',
-  tabSwitch: 'Changement onglet',
-  menuOpen:  'Ouverture menu',
-  menuClose: 'Fermeture menu',
-};
+const SFX_LABELS = () => ({
+  levelUp:   _t('Montée de niveau', 'Level Up'),
+  capture:   _t('Capture', 'Capture'),
+  evolve:    _t('Évolution', 'Evolution'),
+  ballThrow: _t('Lancer de Ball', 'Ball Throw'),
+  notify:    _t('Notification', 'Notification'),
+  coin:      _t('Argent / Récolte', 'Money / Collect'),
+  buy:       _t('Achat', 'Purchase'),
+  unlock:    _t('Déverrouillage', 'Unlock'),
+  chest:     _t('Coffre', 'Chest'),
+  sell:      _t('Vente', 'Sale'),
+  error:     _t('Erreur', 'Error'),
+  click:     _t('Clic UI', 'UI Click'),
+  tabSwitch: _t('Changement onglet', 'Tab Switch'),
+  menuOpen:  _t('Ouverture menu', 'Menu Open'),
+  menuClose: _t('Fermeture menu', 'Menu Close'),
+});
 
 // ── Snapshot pour live-preview + revert ─────────────────────────────────────
-let _settingsSnap     = null;   // structuredClone(state.settings) au moment d'ouvrir
-let _settingsLangSnap = 'fr';   // state.lang au moment d'ouvrir
+let _settingsSnap     = null;
+let _settingsLangSnap = 'fr';
 
-// Ouvre la fenêtre de paramètres : snapshot + render + bind live
 export function openSettingsModal() {
   const modal = document.getElementById('settingsModal');
   if (!modal) return;
@@ -131,7 +133,6 @@ export function openSettingsModal() {
   modal.classList.add('active');
 }
 
-// Applique immédiatement les effets visuels/audio depuis l'UI (working copy)
 function _applySettingsLive() {
   const el = document.getElementById('settingsContent');
   if (!el) return;
@@ -149,13 +150,11 @@ function _applySettingsLive() {
   const uiScale     = parseInt(document.getElementById('sUIScale')?.value)    || 100;
   const zoneScale   = parseInt(document.getElementById('sZoneScale')?.value)  || 100;
 
-  // DOM / CSS (effets immédiats)
   document.body.classList.toggle('theme-light', lightTheme);
   document.body.classList.toggle('low-spec',    lowSpec);
   document.documentElement.style.setProperty('--ui-scale',   (uiScale   / 100).toFixed(2));
   document.documentElement.style.setProperty('--zone-scale', (zoneScale / 100).toFixed(2));
 
-  // Musique
   if (musicOn) {
     MusicPlayer.setVolume(musicVol / 1000);
     MusicPlayer.updateFromContext?.();
@@ -163,15 +162,12 @@ function _applySettingsLive() {
     MusicPlayer.stop();
   }
 
-  // Écriture dans state (working copy — pas encore sauvegardé)
-  // spriteMode est écrit directement au clic de la carte (pas besoin de le lire ici)
   Object.assign(state.settings, {
     lightTheme, lowSpec, sfxEnabled: sfxOn, sfxVol,
     musicEnabled: musicOn, musicVol, uiScale, zoneScale,
   });
 }
 
-// Restaure l'état d'avant ouverture (bouton ×)
 function _revertSettings() {
   if (!_settingsSnap) return;
   state.settings = structuredClone(_settingsSnap);
@@ -190,44 +186,38 @@ function _revertSettings() {
   }
 }
 
-// Bind tous les listeners live sur les contrôles (appelé après renderSettingsPanel)
 function _bindSettingsLive() {
   const el = document.getElementById('settingsContent');
   if (!el) return;
 
-  // Toggles principaux → live apply
   el.querySelectorAll('.s-toggle[data-toggle-id]').forEach(btn => {
     btn.addEventListener('click', () => {
       const on = btn.dataset.on !== 'true';
       btn.dataset.on  = String(on);
-      btn.textContent = on ? 'Activé' : 'Désactivé';
+      btn.textContent = on ? _t('Activé', 'Enabled') : _t('Désactivé', 'Disabled');
       _applySettingsLive();
     });
   });
 
-  // SFX individuels → mise à jour working copy immédiate
   el.querySelectorAll('.s-toggle[data-sfx-key]').forEach(btn => {
     btn.addEventListener('click', () => {
       const on = btn.dataset.on !== 'true';
       btn.dataset.on  = String(on);
-      btn.textContent = on ? 'Activé' : 'Désactivé';
+      btn.textContent = on ? _t('Activé', 'Enabled') : _t('Désactivé', 'Disabled');
       if (!state.settings.sfxIndividual) state.settings.sfxIndividual = {};
       state.settings.sfxIndividual[btn.dataset.sfxKey] = on;
     });
   });
 
-  // Boutons preview ▶ — joue le son directement (ignore le mute individuel)
   el.querySelectorAll('.sfx-preview-btn[data-sfx-preview]').forEach(btn => {
     btn.addEventListener('click', () => {
       const key = btn.dataset.sfxPreview;
       try { SFX[key]?.(); } catch {}
-      // Flash visuel bref
       btn.textContent = '♪';
       setTimeout(() => { btn.textContent = '▶'; }, 400);
     });
   });
 
-  // Sliders → mise à jour du label + apply live
   const bindSlider = (id, labelId, suffix, applyFn) => {
     const slider = document.getElementById(id);
     const label  = document.getElementById(labelId);
@@ -243,18 +233,16 @@ function _bindSettingsLive() {
   bindSlider('sUIScale',   'sUIScaleVal',   '%');
   bindSlider('sZoneScale', 'sZoneScaleVal', '%');
 
-  // Accordéon sons individuels
   document.getElementById('btnSfxSubToggle')?.addEventListener('click', () => {
     const inner = document.getElementById('sfxSubList');
     if (inner) {
       inner.classList.toggle('open');
       const arrow = inner.classList.contains('open') ? '▾' : '▸';
       const b = document.getElementById('btnSfxSubToggle');
-      if (b) b.textContent = `${arrow} Sons individuels`;
+      if (b) b.textContent = `${arrow} ${_t('Sons individuels', 'Individual sounds')}`;
     }
   });
 
-  // Sélecteur sprite mode
   document.getElementById('spriteModeGrid')?.querySelectorAll('.sprite-mode-card').forEach(card => {
     card.addEventListener('click', () => {
       document.querySelectorAll('.sprite-mode-card').forEach(c => c.classList.remove('active'));
@@ -263,31 +251,29 @@ function _bindSettingsLive() {
     });
   });
 
-  // Boutons d'action (export / import / purge / reset / code)
   _bindSettingsActionButtons();
 
-  // Version
   const vEl = document.getElementById('settingsVersion');
   if (vEl) vEl.textContent = getGameVersion();
 }
 
-// Rendu HTML uniquement (pas de listeners — séparation claire)
 function renderSettingsPanel() {
   const el = document.getElementById('settingsContent');
   if (!el) return;
 
   const S = state.settings;
+  const labels = SFX_LABELS();
 
   const tog = (id, on) =>
-    `<button class="s-toggle" data-toggle-id="${id}" data-on="${!!on}">${on ? 'Activé' : 'Désactivé'}</button>`;
+    `<button class="s-toggle" data-toggle-id="${id}" data-on="${!!on}">${on ? _t('Activé','Enabled') : _t('Désactivé','Disabled')}</button>`;
 
-  const sfxRows = Object.entries(SFX_LABELS).map(([key, label]) => {
+  const sfxRows = Object.entries(labels).map(([key, label]) => {
     const on = S.sfxIndividual?.[key] !== false;
     return `<div class="sfx-sub-row">
       <label>${label}</label>
       <div style="display:flex;align-items:center;gap:6px">
-        <button class="sfx-preview-btn" data-sfx-preview="${key}" title="Écouter" style="font-family:var(--font-pixel);font-size:9px;padding:2px 7px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer;line-height:1">▶</button>
-        <button class="s-toggle" data-sfx-key="${key}" data-on="${on}">${on ? 'Activé' : 'Désactivé'}</button>
+        <button class="sfx-preview-btn" data-sfx-preview="${key}" title="${_t('Ecouter','Listen')}" style="font-family:var(--font-pixel);font-size:9px;padding:2px 7px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer;line-height:1">▶</button>
+        <button class="s-toggle" data-sfx-key="${key}" data-on="${on}">${on ? _t('Activé','Enabled') : _t('Désactivé','Disabled')}</button>
       </div>
     </div>`;
   }).join('');
@@ -295,9 +281,9 @@ function renderSettingsPanel() {
   el.innerHTML = `
     <!-- Langue -->
     <div class="settings-section">
-      <h4>🌐 Langue</h4>
+      <h4>🌐 ${_t('Langue','Language')}</h4>
       <div class="settings-row">
-        <label>Langue du jeu</label>
+        <label>${_t('Langue du jeu','Game language')}</label>
         <select id="settingLang">
           <option value="fr" ${S.lang === 'fr' || state.lang === 'fr' ? 'selected' : ''}>Français</option>
           <option value="en" ${state.lang === 'en' ? 'selected' : ''}>English</option>
@@ -307,49 +293,49 @@ function renderSettingsPanel() {
 
     <!-- Gameplay -->
     <div class="settings-section">
-      <h4>🎮 Gameplay</h4>
+      <h4>🎮 ${_t('Gameplay','Gameplay')}</h4>
       <div class="settings-row">
-        <label>Auto-combat agents</label>
+        <label>${_t('Auto-combat agents','Agent auto-battle')}</label>
         ${tog('autoCombat', S.autoCombat !== false)}
       </div>
       <div class="settings-row">
-        <label>Popup combat — zones fermées (arrière-plan)</label>
+        <label>${_t('Popup combat — zones fermées (arrière-plan)','Battle popup — closed zones (background)')}</label>
         ${tog('miniCombatNotifyBackground', S.miniCombatNotifyBackground !== false)}
       </div>
       <div class="settings-row">
-        <label>Popup combat — zones ouvertes hors onglet Zones</label>
+        <label>${_t('Popup combat — zones ouvertes hors onglet Zones','Battle popup — open zones outside Zones tab')}</label>
         ${tog('miniCombatNotifyUnfocused', S.miniCombatNotifyUnfocused !== false)}
       </div>
       <div class="settings-row">
-        <label>Rapport de mission au retour</label>
+        <label>${_t('Rapport de mission au retour','Mission report on return')}</label>
         <select id="settingOfflineReport">
           ${(() => {
             const cur = typeof S.offlineReportThreshold === 'number' ? S.offlineReportThreshold : 300;
             const opts = [
-              { v: 0,    l: 'Jamais' },
-              { v: 60,   l: '≥ 1 min' },
-              { v: 300,  l: '≥ 5 min' },
-              { v: 900,  l: '≥ 15 min' },
-              { v: 1800, l: '≥ 30 min' },
-              { v: 3600, l: '≥ 1 h' },
+              { v: 0,    lFr: 'Jamais',   lEn: 'Never' },
+              { v: 60,   lFr: '≥ 1 min',   lEn: '≥ 1 min' },
+              { v: 300,  lFr: '≥ 5 min',   lEn: '≥ 5 min' },
+              { v: 900,  lFr: '≥ 15 min',  lEn: '≥ 15 min' },
+              { v: 1800, lFr: '≥ 30 min',  lEn: '≥ 30 min' },
+              { v: 3600, lFr: '≥ 1 h',     lEn: '≥ 1 h' },
             ];
-            return opts.map(o => `<option value="${o.v}" ${cur === o.v ? 'selected' : ''}>${o.l}</option>`).join('');
+            return opts.map(o => `<option value="${o.v}" ${cur === o.v ? 'selected' : ''}>${_t(o.lFr, o.lEn)}</option>`).join('');
           })()}
         </select>
       </div>
       <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:8px">
-        <label style="margin-bottom:2px">🖼 Mode sprites Pokémon</label>
+        <label style="margin-bottom:2px">🖼 ${_t('Mode sprites Pokémon','Pokémon sprite mode')}</label>
         ${(() => {
           const SPRITE_MODES = [
-            { id:'local', label:'FireRed', sub:'Local HD', img: (() => { const sp = SPECIES_BY_EN['pikachu']; const id = sp?.dex; return (id && typeof getPokemonSprite==='function') ? getPokemonSprite(id,'main') : null; })() },
-            { id:'gen1',  label:'Gen 1',  sub:'Rogue/Bleu',     img:`https://play.pokemonshowdown.com/sprites/gen1/pikachu.png` },
-            { id:'gen2',  label:'Gen 2',  sub:'Or/Argent',      img:`https://play.pokemonshowdown.com/sprites/gen2/pikachu.png` },
-            { id:'gen3',  label:'Gen 3',  sub:'RS/FRLG',        img:`https://play.pokemonshowdown.com/sprites/gen3/pikachu.png` },
-            { id:'gen4',  label:'Gen 4',  sub:'DP/Platine',     img:`https://play.pokemonshowdown.com/sprites/gen4/pikachu.png` },
-            { id:'gen5',  label:'Gen 5',  sub:'Noir/Blanc',     img:`https://play.pokemonshowdown.com/sprites/gen5/pikachu.png` },
-            { id:'ani',   label:'Animé',  sub:'GIF Gen 6+',     img:`https://play.pokemonshowdown.com/sprites/ani/pikachu.gif` },
-            { id:'dex',   label:'Dex',    sub:'XY/ORAS HD',     img:`https://play.pokemonshowdown.com/sprites/dex/pikachu.png` },
-            { id:'home',  label:'HOME',   sub:'Switch HD',      img:`https://play.pokemonshowdown.com/sprites/home-centered/pikachu.png` },
+            { id:'local', label:'FireRed', sub:_t('Local HD','Local HD'), img: (() => { const sp = SPECIES_BY_EN['pikachu']; const id = sp?.dex; return (id && typeof getPokemonSprite==='function') ? getPokemonSprite(id,'main') : null; })() },
+            { id:'gen1',  label:'Gen 1',  sub:_t('Rogue/Bleu','Red/Blue'),    img:`https://play.pokemonshowdown.com/sprites/gen1/pikachu.png` },
+            { id:'gen2',  label:'Gen 2',  sub:_t('Or/Argent','Gold/Silver'),  img:`https://play.pokemonshowdown.com/sprites/gen2/pikachu.png` },
+            { id:'gen3',  label:'Gen 3',  sub:_t('RS/FRLG','RS/FRLG'),        img:`https://play.pokemonshowdown.com/sprites/gen3/pikachu.png` },
+            { id:'gen4',  label:'Gen 4',  sub:_t('DP/Platine','DP/Platinum'), img:`https://play.pokemonshowdown.com/sprites/gen4/pikachu.png` },
+            { id:'gen5',  label:'Gen 5',  sub:_t('Noir/Blanc','Black/White'), img:`https://play.pokemonshowdown.com/sprites/gen5/pikachu.png` },
+            { id:'ani',   label:_t('Animé','Anim'),  sub:_t('GIF Gen 6+','GIF Gen 6+'), img:`https://play.pokemonshowdown.com/sprites/ani/pikachu.gif` },
+            { id:'dex',   label:'Dex',    sub:_t('XY/ORAS HD','XY/ORAS HD'),  img:`https://play.pokemonshowdown.com/sprites/dex/pikachu.png` },
+            { id:'home',  label:'HOME',   sub:_t('Switch HD','Switch HD'),    img:`https://play.pokemonshowdown.com/sprites/home-centered/pikachu.png` },
           ];
           const cur = S.spriteMode || 'local';
           return `<div class="sprite-mode-grid" id="spriteModeGrid">${
@@ -363,33 +349,33 @@ function renderSettingsPanel() {
         })()}
       </div>
       <div class="settings-row">
-        <label>Évolution auto <span style="font-size:.75em;opacity:.6">(choix aléatoire, sans cartes)</span></label>
+        <label>${_t('Évolution auto','Auto evolution')} <span style="font-size:.75em;opacity:.6">${_t('(choix aléatoire, sans cartes)','(random choice, no cards)')}</span></label>
         ${tog('autoEvoChoice', S.autoEvoChoice === true)}
       </div>
     </div>
 
     <!-- Audio -->
     <div class="settings-section">
-      <h4>🔊 Audio</h4>
+      <h4>🔊 ${_t('Audio','Audio')}</h4>
       <div class="settings-row">
-        <label>Musique de fond</label>
+        <label>${_t('Musique de fond','Background music')}</label>
         ${tog('music', S.musicEnabled === true)}
       </div>
       <div class="settings-row">
-        <label>Volume musique <span id="sVolMusicVal" style="color:var(--gold);margin-left:4px">${S.musicVol ?? 80}%</span></label>
+        <label>${_t('Volume musique','Music volume')} <span id="sVolMusicVal" style="color:var(--gold);margin-left:4px">${S.musicVol ?? 80}%</span></label>
         <input type="range" id="sVolMusic" min="0" max="100" step="5" value="${S.musicVol ?? 80}" style="width:110px">
       </div>
       <div class="settings-row">
-        <label>Effets sonores (SFX)</label>
+        <label>${_t('Effets sonores (SFX)','Sound effects (SFX)')}</label>
         ${tog('sfx', S.sfxEnabled !== false)}
       </div>
       <div class="settings-row">
-        <label>Volume SFX <span id="sVolSFXVal" style="color:var(--gold);margin-left:4px">${S.sfxVol ?? 80}%</span></label>
+        <label>${_t('Volume SFX','SFX volume')} <span id="sVolSFXVal" style="color:var(--gold);margin-left:4px">${S.sfxVol ?? 80}%</span></label>
         <input type="range" id="sVolSFX" min="0" max="100" step="5" value="${S.sfxVol ?? 80}" style="width:110px">
       </div>
       <div class="sfx-sublist">
         <button id="btnSfxSubToggle" style="font-family:var(--font-pixel);font-size:8px;padding:4px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer;width:100%;text-align:left">
-          ▸ Sons individuels
+          ▸ ${_t('Sons individuels','Individual sounds')}
         </button>
         <div class="sfx-sublist-inner" id="sfxSubList">
           ${sfxRows}
@@ -399,68 +385,68 @@ function renderSettingsPanel() {
 
     <!-- Affichage -->
     <div class="settings-section">
-      <h4>🖥 Affichage</h4>
+      <h4>🖥 ${_t('Affichage','Display')}</h4>
       <div class="settings-row">
-        <label>Thème clair</label>
+        <label>${_t('Thème clair','Light theme')}</label>
         ${tog('lightTheme', S.lightTheme === true)}
       </div>
       <div class="settings-row">
-        <label>Mode légère <span style="font-size:.75em;opacity:.6">(réduit animations)</span></label>
+        <label>${_t('Mode légère','Low-spec mode')} <span style="font-size:.75em;opacity:.6">${_t('(réduit animations)','(reduces animations)')}</span></label>
         ${tog('lowSpec', S.lowSpec === true)}
       </div>
       <div class="settings-row">
-        <label>Taille interface <span id="sUIScaleVal" style="color:var(--gold);margin-left:4px">${S.uiScale ?? 100}%</span></label>
+        <label>${_t('Taille interface','Interface size')} <span id="sUIScaleVal" style="color:var(--gold);margin-left:4px">${S.uiScale ?? 100}%</span></label>
         <input type="range" id="sUIScale" min="70" max="130" step="5" value="${S.uiScale ?? 100}" style="width:110px">
       </div>
       <div class="settings-row">
-        <label>Sprites zones <span id="sZoneScaleVal" style="color:var(--gold);margin-left:4px">${S.zoneScale ?? 100}%</span></label>
+        <label>${_t('Sprites zones','Zone sprites')} <span id="sZoneScaleVal" style="color:var(--gold);margin-left:4px">${S.zoneScale ?? 100}%</span></label>
         <input type="range" id="sZoneScale" min="50" max="200" step="10" value="${S.zoneScale ?? 100}" style="width:110px">
       </div>
     </div>
 
     <!-- Sauvegarde -->
     <div class="settings-section">
-      <h4>💾 Sauvegarde</h4>
+      <h4>💾 ${_t('Sauvegarde','Save')}</h4>
       <div class="settings-actions">
-        <button id="btnExportSave">📤 Exporter</button>
-        <button id="btnImportSave">📥 Importer</button>
+        <button id="btnExportSave">📤 ${_t('Exporter','Export')}</button>
+        <button id="btnImportSave">📥 ${_t('Importer','Import')}</button>
       </div>
     </div>
 
     <!-- Cache -->
     <div class="settings-section">
-      <h4>🗑 Cache</h4>
+      <h4>🗑 ${_t('Cache','Cache')}</h4>
       <div class="settings-actions">
-        <button id="btnPurgeSprites" class="danger">Purger sprites</button>
-        <button id="btnResetAll" class="danger">Reset complet</button>
+        <button id="btnPurgeSprites" class="danger">${_t('Purger sprites','Purge sprites')}</button>
+        <button id="btnResetAll" class="danger">${_t('Reset complet','Full reset')}</button>
       </div>
     </div>
 
     <!-- Code récompense -->
     <div class="settings-section">
-      <h4>🎁 Code récompense</h4>
+      <h4>🎁 ${_t('Code récompense','Reward code')}</h4>
       <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:6px">
         <div style="display:flex;gap:6px">
-          <input type="text" id="rewardCodeInput" placeholder="Entre un code..." style="flex:1;text-transform:uppercase;letter-spacing:1px">
-          <button id="btnRedeemCode" style="font-family:var(--font-pixel);font-size:8px;padding:6px 10px;background:var(--red-dark);border:1px solid var(--red);border-radius:var(--radius-sm);color:var(--text);cursor:pointer;white-space:nowrap">Valider</button>
+          <input type="text" id="rewardCodeInput" placeholder="${_t('Entre un code...','Enter a code...')}" style="flex:1;text-transform:uppercase;letter-spacing:1px">
+          <button id="btnRedeemCode" style="font-family:var(--font-pixel);font-size:8px;padding:6px 10px;background:var(--red-dark);border:1px solid var(--red);border-radius:var(--radius-sm);color:var(--text);cursor:pointer;white-space:nowrap">${_t('Valider','Redeem')}</button>
         </div>
-        <div style="font-size:9px;color:var(--text-dim)">Les codes sont distribués sur le Discord.</div>
+        <div style="font-size:9px;color:var(--text-dim)">${_t('Les codes sont distribués sur le Discord.','Codes are distributed on Discord.')}</div>
       </div>
     </div>
 
     <!-- Aide -->
     <div class="settings-section">
-      <h4>ℹ Aide &amp; Contact</h4>
+      <h4>ℹ ${_t('Aide &amp; Contact','Help &amp; Contact')}</h4>
       <div style="font-size:10px;color:var(--text-dim);line-height:1.6;margin-bottom:10px">
         <b style="color:var(--gold)">PokéForge — Gang Wars</b><br>
-        Capturez des Pokémon, recrutez des agents, combattez des dresseurs et élargissez votre gang.<br><br>
-        <b style="color:var(--text)">Progression :</b> Gagnez de la réputation via les <b>combats spéciaux</b> et les <b>raids</b>.<br>
-        <b style="color:var(--text)">Oeufs :</b> Élevez des Pokémon à la Pension — achetez un <b>incubateur</b> au Marché.<br>
-        <b style="color:var(--text)">Agents :</b> Recrutez des agents et assignez-les à des zones pour automatiser captures et combats.<br>
-        <b style="color:var(--text)">Labo :</b> Sacrifiez des doublons pour améliorer le potentiel de vos meilleurs Pokémon.
+        ${_t('Capturez des Pokémon, recrutez des agents, combattez des dresseurs et élargissez votre gang.','Catch Pokémon, recruit agents, battle trainers and grow your gang.')}<br><br>
+        <b style="color:var(--text)">${_t('Progression :','Progression:')}</b> ${_t('Gagnez de la réputation via les <b>combats spéciaux</b> et les <b>raids</b>.','Earn reputation through <b>special battles</b> and <b>raids</b>.')}<br>
+        <b style="color:var(--text)">${_t('Oeufs :','Eggs:')}</b> ${_t('Élevez des Pokémon à la Pension — achetez un <b>incubateur</b> au Marché.','Raise Pokémon at the Daycare — buy an <b>incubator</b> at the Market.')}<br>
+        <b style="color:var(--text)">${_t('Agents :','Agents:')}</b> ${_t('Recrutez des agents et assignez-les à des zones pour automatiser captures et combats.','Recruit agents and assign them to zones to automate catches and battles.')}<br>
+        <b style="color:var(--text)">${_t('Labo :','Lab:')}</b> ${_t('Sacrifiez des doublons pour améliorer le potentiel de vos meilleurs Pokémon.','Sacrifice duplicates to boost the potential of your best Pokémon.')}
       </div>
       <div style="padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:10px;text-align:center">
-        Contact &amp; Support — Discord : <b style="color:var(--gold)">mutenrock</b>
+        ${_t('Contact &amp; Support — Discord :','Contact &amp; Support — Discord:')} <b style="color:var(--gold)">mutenrock</b>
       </div>
     </div>
   `;
@@ -478,7 +464,6 @@ function _bindSettingsActionButtons() {
     input.click();
   });
   document.getElementById('btnPurgeSprites')?.addEventListener('click', () => {
-    // Tente de vider le cache navigateur via Cache API, puis recharge
     const doReload = () => { saveState(); location.reload(true); };
     if ('caches' in window) {
       caches.keys().then(names => {
@@ -487,17 +472,16 @@ function _bindSettingsActionButtons() {
     } else {
       doReload();
     }
-    notify('🗑 Cache purgé — rechargement en cours…', 'success');
+    notify(_t('🗑 Cache purgé — rechargement en cours…', '🗑 Cache purged — reloading…'), 'success');
   });
   document.getElementById('btnResetAll')?.addEventListener('click', () => {
     showConfirm(t('reset_confirm'), () => {
       localStorage.removeItem(getSaveKey());
       setState(createDefaultState());
-      // Close all zone windows
       for (const zid of [...getOpenZones()]) closeZoneWindow(zid);
       resetTransientSelections();
       showIntro();
-    }, null, { danger: true, confirmLabel: 'Réinitialiser', cancelLabel: 'Annuler' });
+    }, null, { danger: true, confirmLabel: _t('Réinitialiser', 'Reset'), cancelLabel: _t('Annuler', 'Cancel') });
   });
   document.getElementById('btnRedeemCode')?.addEventListener('click', () => tryCheatCode('rewardCodeInput'));
   document.getElementById('rewardCodeInput')?.addEventListener('keydown', e => {
@@ -506,20 +490,17 @@ function _bindSettingsActionButtons() {
 }
 
 export function initSettings() {
-  // Ouvre depuis la barre principale
   document.getElementById('btnSettings')?.addEventListener('click', () => {
     SFX.play('menuOpen');
     openSettingsModal();
   });
 
-  // × Ferme sans sauvegarder → revert vers le snapshot
   document.getElementById('btnCloseSettings')?.addEventListener('click', () => {
     _revertSettings();
     SFX.play('menuClose');
     document.getElementById('settingsModal')?.classList.remove('active');
   });
 
-  // ✓ Valider → finalise la lecture UI → save → ferme
   document.getElementById('btnSaveSettings')?.addEventListener('click', () => {
     const el = document.getElementById('settingsContent');
     const readToggle = (id, def = true) => {
@@ -527,40 +508,33 @@ export function initSettings() {
       return btn ? btn.dataset.on === 'true' : def;
     };
 
-    // Langue
     const langSel = document.getElementById('settingLang');
     if (langSel) state.lang = langSel.value;
 
-    // Toggles (lecture complète — _applySettingsLive a déjà écrit la plupart, mais on consolide)
     state.settings.autoCombat     = readToggle('autoCombat',    true);
     state.settings.miniCombatNotifyBackground = readToggle('miniCombatNotifyBackground', true);
     state.settings.miniCombatNotifyUnfocused  = readToggle('miniCombatNotifyUnfocused',  true);
-    // Rapport de mission au retour de tab (Chantier 4)
     const offlineReportSel = document.getElementById('settingOfflineReport');
     if (offlineReportSel) {
       const v = parseInt(offlineReportSel.value, 10);
       state.settings.offlineReportThreshold = Number.isFinite(v) ? v : 300;
     }
-    // spriteMode est écrit directement au clic — pas de toggle à relire ici
     state.settings.autoEvoChoice  = readToggle('autoEvoChoice', false);
     state.settings.musicEnabled   = readToggle('music',         false);
     state.settings.sfxEnabled     = readToggle('sfx',           true);
     state.settings.lightTheme     = readToggle('lightTheme',    false);
     state.settings.lowSpec        = readToggle('lowSpec',        false);
 
-    // Sliders
     state.settings.musicVol  = parseInt(document.getElementById('sVolMusic')?.value)   || 80;
     state.settings.sfxVol    = parseInt(document.getElementById('sVolSFX')?.value)     || 80;
     state.settings.uiScale   = parseInt(document.getElementById('sUIScale')?.value)    || 100;
     state.settings.zoneScale = parseInt(document.getElementById('sZoneScale')?.value)  || 100;
 
-    // SFX individuels
     if (!state.settings.sfxIndividual) state.settings.sfxIndividual = {};
     el?.querySelectorAll('.s-toggle[data-sfx-key]').forEach(btn => {
       state.settings.sfxIndividual[btn.dataset.sfxKey] = btn.dataset.on === 'true';
     });
 
-    // Applique les effets définitifs
     document.body.classList.toggle('theme-light', state.settings.lightTheme === true);
     document.body.classList.toggle('low-spec',    state.settings.lowSpec    === true);
     document.documentElement.style.setProperty('--ui-scale',   (state.settings.uiScale   / 100).toFixed(2));
@@ -573,7 +547,6 @@ export function initSettings() {
     SFX.play('menuClose');
     document.getElementById('settingsModal')?.classList.remove('active');
 
-    // Rechargement auto si mode sprite ou thème/langue changé (modifications visuelles globales)
     const needsReload = (_settingsSnap?.spriteMode !== state.settings.spriteMode)
                      || (_settingsLangSnap         !== state.lang);
     if (needsReload) {
