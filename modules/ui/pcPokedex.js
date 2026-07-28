@@ -9,6 +9,7 @@
 
 import { getDexDesc } from '../../data/dex-helpers.js';
 import { BASE_SHINY_RATE, AURA_SHINY_RATE, CHROMA_CHARM_MULT } from '../../data/gameplay-config-data.js';
+import { TRAINER_TYPES } from '../../data/trainers-data.js';
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
 import { esc as _esc } from '../core/escape.js';
@@ -2655,7 +2656,6 @@ function openDexAssistant(species_en) {
 
   const spawnZones = getSpawnZones(sp.en);
   const rarity     = sp.rarity ?? 'common';
-  const rarityFR   = { common:'Commun', uncommon:'Peu commun', rare:'Rare', very_rare:'Très rare', legendary:'Légendaire' };
   const rarityCol  = { common:'#aaa', uncommon:'#5be06c', rare:'#5b9be0', very_rare:'#c05be0', legendary:'#ffcc5a' };
 
   // Pick 2 random tips for this rarity
@@ -2697,7 +2697,7 @@ function openDexAssistant(species_en) {
           <div style="font-family:var(--font-pixel);font-size:11px">${sp.fr}</div>
           <div style="font-size:8px;color:var(--text-dim)">#${String(sp.dex).padStart(3,'0')} — ${sp.types.map(typeFr).join('/')}</div>
           <div style="margin-top:4px">
-            <span style="font-size:8px;padding:2px 8px;border-radius:8px;background:rgba(255,204,90,.12);border:1px solid ${rarityCol[rarity]};color:${rarityCol[rarity]}">${rarityFR[rarity]}</span>
+            <span style="font-size:8px;padding:2px 8px;border-radius:8px;background:rgba(255,204,90,.12);border:1px solid ${rarityCol[rarity]};color:${rarityCol[rarity]}">${_t('rarity_' + rarity)}</span>
           </div>
         </div>
       </div>
@@ -3031,22 +3031,10 @@ function _renderTrainerEncountersView(grid) {
   const rocketTotal  = (state.stats?.rocketDefeated || 0);
   const rocketJohto  = (state.stats?.rocketDefeatedJohto || 0);
 
-  const TRAINER_LABELS = {
-    rocketgrunt:'Sbire Rocket', rocketgruntf:'Sbire Rocket (F)',
-    giovanni:'Giovanni', archer:'Archer', ariana:'Ariana', proton:'Lambda',
-    scientist:'Scientifique Rocket',
-    brock:'Pierre', misty:'Ondine', ltsurge:'Maj. Bob', erika:'Érika',
-    koga:'Koga', sabrina:'Morgane', blaine:'Auguste',
-    lorelei:'Olga', bruno:'Aldo', agatha:'Agatha', lance:'Peter', blue:'Blue', red:'Red',
-    falkner:'Amos', bugsy:'Hector', whitney:'Blanche', morty:'Mortimer',
-    chuck:'Joël', jasmine:'Jasmine', pryce:'Norman', clair:'Sandra',
-    will:'Xavier', karen:'Karen', silver:'Silver', gold:'Gold',
-    hiker:'Randonneur', youngster:'Gamin', lass:'Fillette',
-    camper:'Campeur', swimmer:'Nageur', sailor:'Marin',
-    acetrainer:'Dresseur As', blackbelt:'Ceinture Noire',
-    channeler:'Mystimana', psychic:'Télépathe', supernerd:'Intello',
-    gentleman:'Gentleman',
-  };
+  // Noms bilingues corrects tirés de TRAINER_TYPES (source d'autorité) — l'ancienne
+  // map locale dupliquait des noms FR obsolètes/désynchronisés (ex: pryce→'Norman',
+  // clair→'Sandra' — des noms d'AUTRES dresseurs) et n'avait aucune variante EN.
+  const isEnLang = state.lang === 'en';
 
   const maxCount = trainerEntries[0]?.[1] || 1;
 
@@ -3077,7 +3065,8 @@ function _renderTrainerEncountersView(grid) {
         ${trainerEntries.length === 0
       ? `<div style="color:var(--text-dim);font-size:10px;padding:8px">${_t('pc_no_recorded_battle')}</div>`
           : trainerEntries.map(([key, count]) => {
-              const label = TRAINER_LABELS[key] || key;
+              const tType = TRAINER_TYPES[key];
+              const label = tType ? (isEnLang ? tType.en : tType.fr) : key;
               const pct = Math.round(count / maxCount * 100);
               return `<div style="display:flex;align-items:center;gap:8px">
                 <div style="font-size:10px;color:var(--text);width:130px;flex-shrink:0">${label}</div>
@@ -3096,8 +3085,7 @@ function _renderTrainerEncountersView(grid) {
         ${speciesEntries.length === 0
       ? `<div style="color:var(--text-dim);font-size:10px;padding:8px">${_t('pc_no_recorded_encounter')}</div>`
           : speciesEntries.map(([en, count]) => {
-              const sp = POKEMON_GEN1.find(s => s.en === en);
-              const label = sp ? sp.fr : en;
+              const label = speciesName(en);
               return `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px;text-align:center;min-width:64px">
                 <img src="${pokeSprite(en, false)}" style="width:32px;height:32px;display:block;margin:0 auto 4px">
                 <div style="font-size:9px;color:var(--text)">${label}</div>
@@ -3167,7 +3155,7 @@ function renderPokedexTab() {
     { id: 'national', label: _t('pc_national'), title: _t('pc_filter_national_title') },
     { id: 'shiny',    label: _t('pc_shinies_filter'), title: _t('pc_filter_shiny_title') },
     { id: 'missing',  label: _t('pc_missing_filter'), title: _t('pc_filter_missing_title') },
-    { id: 'trainers', label: '⚔ Dresseurs',  title: 'Statistiques de rencontres par dresseur' },
+    { id: 'trainers', label: _t('pc_trainers_filter'),  title: _t('pc_filter_trainers_title') },
   ];
   let dexFilterBar = document.getElementById('dexFilterBar');
   if (!dexFilterBar) {

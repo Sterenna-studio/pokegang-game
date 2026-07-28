@@ -56,19 +56,6 @@ let _boostMult = 1; // multiplicateur actif pour les boosts (x1/x5/x10)
 let _gangBaseViewMode = 'v1'; // 'v1' | 'v2' — persisté dans state.settings.gangBaseView
 
 const BASE_RARITY_ORDER = ['common', 'uncommon', 'rare', 'very_rare', 'legendary'];
-const BASE_RARITY_FR = {
-  common: 'Commun',
-  uncommon: 'Peu commun',
-  rare: 'Rare',
-  very_rare: 'Tres rare',
-  legendary: 'Legendaire',
-};
-const BASE_ZONE_TYPE_FR = {
-  route: 'Front sauvage',
-  city: 'Ville',
-  special: 'Lieu special',
-  gang_park: 'QG',
-};
 const BASE_RANK_FR = {
   grunt: 'Grunt',
   sergent: 'Sergent',
@@ -121,7 +108,7 @@ function _baseZoneRarity(zone) {
     const rarity = SPECIES_BY_EN?.[species]?.rarity || 'common';
     best = Math.max(best, BASE_RARITY_ORDER.indexOf(rarity));
   }
-  const label = BASE_RARITY_FR[BASE_RARITY_ORDER[Math.max(0, best)]] || 'Commun';
+  const label = _t('rarity_' + BASE_RARITY_ORDER[Math.max(0, best)]);
   if (zone.rarePool?.length) return `${label} +`;
   return label;
 }
@@ -534,7 +521,7 @@ function renderGangBaseWindow() {
   })();
 
   // Encart localisation boss
-  const focusTypeLabel = BASE_ZONE_TYPE_FR[focusZone?.type] || focusZone?.type || '—';
+  const focusTypeLabel = focusZone?.type ? _t('gang_base_zone_type_' + focusZone.type) : '—';
   const locStatusClass = isFocusOpen ? 'open' : focusAgents.length ? 'held' : 'idle';
   const locAgentLine   = focusAgents.length
     ? `${focusAgents.length} agent${focusAgents.length > 1 ? 's' : ''}`
@@ -664,7 +651,7 @@ function renderGangBaseWindowV2() {
   const focusAgents = focusZone ? (state.agents || []).filter(a => a.assignedZone === focusZone.id) : [];
   const focusName   = _baseZoneName(focusZone, state);
   const focusType   = focusZone?.type || 'route';
-  const focusTypeFR = BASE_ZONE_TYPE_FR[focusType] || focusType;
+  const focusTypeFR = _t('gang_base_zone_type_' + focusType);
   const focusMeta   = _baseZoneStatus(focusZone, state, focusState, focusAgents.length);
   const isFocusOpen = !!(focusZone && globalThis.openZones?.has(focusZone.id));
   const bossTitle   = globalThis.getBossFullTitle?.() || globalThis.getTitleLabel?.(state.gang.title) || 'Boss';
@@ -1395,7 +1382,6 @@ function openCodexModal() {
   const POTENTIAL_MULT= globalThis.POTENTIAL_MULT;
   const ZONE_BGS      = globalThis.ZONE_BGS;
   const RARITY_ORDER = ['common','uncommon','rare','very_rare','legendary'];
-  const RARITY_FR = { common:'Commun', uncommon:'Peu commun', rare:'Rare', very_rare:'Très rare', legendary:'Légendaire' };
   const RARITY_COLOR = { common:'#aaa', uncommon:'#5be06c', rare:'#5b9be0', very_rare:'#c05be0', legendary:'#ffcc5a' };
   const POTENTIALS = [1,2,3,4,5];
   const POT_MULT   = POTENTIAL_MULT;
@@ -1420,7 +1406,7 @@ function openCodexModal() {
       }).join('');
       return `
         <tr>
-          <td style="padding:5px 10px;font-weight:bold;color:${RARITY_COLOR[r]};white-space:nowrap">${RARITY_FR[r]}</td>
+          <td style="padding:5px 10px;font-weight:bold;color:${RARITY_COLOR[r]};white-space:nowrap">${_t('rarity_' + r)}</td>
           <td style="padding:5px 10px;text-align:right;color:#888">${base.toLocaleString()}₽</td>
           ${cells}
         </tr>
@@ -1450,13 +1436,9 @@ function openCodexModal() {
   }
 
   function buildSpawnsTab() {
-    const TYPE_LABEL = { route:'🌿 Routes & Grottes', city:'⚔ Arènes', special:'⭐ Lieux Spéciaux' };
+    const TYPE_LABEL_KEY = { route:'gang_base_codex_type_route', city:'gang_base_codex_type_city', special:'gang_base_codex_type_special' };
     const TYPE_COLOR = { route:'#5be06c', city:'#e05b5b', special:'#e0c05b' };
     const RARITY_C   = { common:'#aaa', uncommon:'#5be06c', rare:'#5b9be0', very_rare:'#c05be0', legendary:'#ffcc5a' };
-    const GYM_LEADER_FR = {
-      brock:'Pierre', misty:'Ondine', ltsurge:'Maj. Bob', erika:'Érika',
-      koga:'Koga', sabrina:'Morgane', blaine:'Auguste', blue:'Blue',
-    };
 
     const sections = { route:[], city:[], special:[] };
     for (const zone of ZONES) sections[zone.type || 'route']?.push(zone);
@@ -1466,7 +1448,7 @@ function openCodexModal() {
       if (!zones.length) continue;
       html += `<div style="margin-bottom:20px">
         <div style="font-family:var(--font-pixel);font-size:9px;color:${TYPE_COLOR[type]};margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,.08)">
-          ${TYPE_LABEL[type]} — ${_t('gang_base_codex_zone_count', { n: zones.length })}
+          ${_t(TYPE_LABEL_KEY[type])} — ${_t('gang_base_codex_zone_count', { n: zones.length })}
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px">`;
 
@@ -1477,7 +1459,7 @@ function openCodexModal() {
         const poolHtml = (zone.pool || []).map(en => {
           const sp  = SPECIES_BY_EN[en];
           const col = RARITY_C[sp?.rarity] || '#aaa';
-          return `<div style="display:flex;flex-direction:column;align-items:center;gap:1px" title="${sp?.fr || en}">
+          return `<div style="display:flex;flex-direction:column;align-items:center;gap:1px" title="${speciesName(en)}">
             <img src="${pokeSprite(en)}" style="width:26px;height:26px;image-rendering:pixelated;filter:drop-shadow(0 1px 3px rgba(0,0,0,.9))">
             <div style="width:4px;height:4px;border-radius:50%;background:${col};opacity:.8"></div>
           </div>`;
@@ -1487,18 +1469,18 @@ function openCodexModal() {
           <div style="margin-top:6px;padding-top:5px;border-top:1px solid rgba(255,255,255,.06)">
             <span style="font-size:7px;font-family:var(--font-pixel);color:#888">✨ ${_t('gang_base_codex_rare')} (10%) : </span>
             ${zone.rarePool.slice(0,6).map(e => {
-              const sp = SPECIES_BY_EN[e.en];
-              return `<img src="${pokeSprite(e.en)}" style="width:20px;height:20px;image-rendering:pixelated;opacity:.7" title="${sp?.fr || e.en} (w:${e.w})">`;
+              return `<img src="${pokeSprite(e.en)}" style="width:20px;height:20px;image-rendering:pixelated;opacity:.7" title="${speciesName(e.en)} (w:${e.w})">`;
             }).join('')}
           </div>` : '';
 
         const gymHtml = zone.gymLeader ? (() => {
-          const lFr = GYM_LEADER_FR[zone.gymLeader] || TRAINER_TYPES[zone.gymLeader]?.fr || zone.gymLeader;
-          const gymSprite = TRAINER_TYPES[zone.gymLeader]?.sprite || zone.gymLeader;
+          const gymType = TRAINER_TYPES[zone.gymLeader];
+          const gymLabel = gymType ? (state.lang === 'en' ? gymType.en : gymType.fr) : zone.gymLeader;
+          const gymSprite = gymType?.sprite || zone.gymLeader;
           return `<div style="display:flex;align-items:center;gap:6px;margin-top:6px;padding-top:5px;border-top:1px solid rgba(255,255,255,.06)">
             <img src="${trainerSprite(gymSprite)}" style="width:28px;height:28px;image-rendering:pixelated">
             <div>
-              <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold)">${lFr}</div>
+              <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold)">${gymLabel}</div>
               <div style="font-size:8px;color:var(--text-dim)">XP ×${zone.xpBonus}</div>
             </div>
           </div>`;
@@ -1509,7 +1491,7 @@ function openCodexModal() {
             <div style="position:absolute;inset:0;background:rgba(0,0,0,.55)"></div>
             <div style="position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;padding:4px 8px;height:100%">
               <div>
-                <div style="font-family:var(--font-pixel);font-size:8px;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.9)">${zone.fr}</div>
+                <div style="font-family:var(--font-pixel);font-size:8px;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.9)">${_baseZoneName(zone, state)}</div>
                 <div style="font-size:7px;color:rgba(255,255,255,.5)">${_t('gang_base_codex_reputation_short')} ≥ ${zone.rep}${zone.unlockItem ? ' · 🔑' : ''}</div>
               </div>
               <div style="text-align:right;font-size:7px;color:rgba(255,255,255,.5)">
