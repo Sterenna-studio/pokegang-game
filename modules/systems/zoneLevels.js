@@ -27,6 +27,7 @@ import { EventBus, EVENTS } from '../core/eventBus.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
 const _save   = ()               => globalThis.saveState?.();
+const _t      = (fr, en)         => (globalThis.state?.lang === 'en' ? en : fr);
 
 // ── Feature flag — Événements de zone V2 ──────────────────────────────────────
 // Le système d'événements de zone (Contrôle Renforcé, Chasse à la Prime,
@@ -125,9 +126,9 @@ function addZoneXP(zoneId, source) {
   const newLevel  = _xpToLevel(z.zoneXp);
 
   if (newLevel > prevLevel) {
-    _notify(`📍 ${_zoneName(zoneId)} → Niveau ${newLevel} !`, 'gold');
+    _notify(_t(`📍 ${_zoneName(zoneId)} → Niveau ${newLevel} !`, `📍 ${_zoneName(zoneId)} → Level ${newLevel}!`), 'gold');
     globalThis.SFX?.play('unlock');
-    globalThis.addBattleLogEntry?.(`📍 Zone ${_zoneName(zoneId)} montée au niveau ${newLevel} !`);
+    globalThis.addBattleLogEntry?.(_t(`📍 Zone ${_zoneName(zoneId)} montée au niveau ${newLevel} !`, `📍 Zone ${_zoneName(zoneId)} reached level ${newLevel}!`));
     return true;
   }
   return false;
@@ -200,14 +201,16 @@ function triggerZoneEvent(zoneId) {
 
   scheduleNextZoneEvent(zoneId);
 
-  const lang  = state.lang === 'fr' ? 'fr' : 'en';
-  const label = def[lang] || def.fr;
+  const label = state.lang === 'en' ? (def.en || def.fr) : def.fr;
   _notify(`📍 ${_zoneName(zoneId)} — ${label} !`, 'gold');
   globalThis.SFX?.play('notify');
   globalThis.pushFeedEvent?.({
     category: 'zone',
     title:    `${_zoneName(zoneId)} — ${label}`,
-    detail:   `Type : ${eventType}${z.activeEvent.endsAt ? ` · expire dans ${Math.round((z.activeEvent.endsAt - Date.now()) / 60000)} min` : ''}`,
+    detail:   _t(
+      `Type : ${eventType}${z.activeEvent.endsAt ? ` · expire dans ${Math.round((z.activeEvent.endsAt - Date.now()) / 60000)} min` : ''}`,
+      `Type: ${eventType}${z.activeEvent.endsAt ? ` · expires in ${Math.round((z.activeEvent.endsAt - Date.now()) / 60000)} min` : ''}`,
+    ),
     win:      null,
   });
   _save();
