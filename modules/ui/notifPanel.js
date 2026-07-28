@@ -1,4 +1,5 @@
 'use strict';
+const _t = (...a) => globalThis.t?.(...a) ?? a[0];
 // ════════════════════════════════════════════════════════════════
 //  Notification Panel
 //  Remplace le système de toasts flottants (#notifications) par :
@@ -34,13 +35,13 @@ const _tickerQueue  = [];   // file d'attente ticker
 
 // ── Catégories ──────────────────────────────────────────────────
 const CATS = {
-  gold:    { icon: '⭐', label: 'Importants'  },
-  success: { icon: '✓',  label: 'Succès'     },
-  error:   { icon: '⚠',  label: 'Erreurs'    },
-  levelup: { icon: '📈', label: 'Niveaux'    },
-  capture: { icon: '🔴', label: 'Captures'   },
-  combat:  { icon: '⚔',  label: 'Combats'    },
-  system:  { icon: '🔔', label: 'Système'    },
+  gold:    { icon: '⭐', labelKey: 'notif_category_important' },
+  success: { icon: '✓',  labelKey: 'notif_category_success'   },
+  error:   { icon: '⚠',  labelKey: 'notif_category_errors'    },
+  levelup: { icon: '📈', labelKey: 'notif_category_levels'    },
+  capture: { icon: '🔴', labelKey: 'notif_category_captures'  },
+  combat:  { icon: '⚔',  labelKey: 'notif_category_combats'   },
+  system:  { icon: '🔔', labelKey: 'notif_category_system'    },
 };
 
 // Catégories éligibles au regroupement en digest — uniquement le "routinier" (type success) ;
@@ -51,7 +52,7 @@ function _isDigestible(category, type) {
 }
 
 const FILTER_TABS = [
-  { key: 'all',     label: 'Tout'   },
+  { key: 'all',     labelKey: 'notif_filter_all' },
   { key: 'capture', label: '🔴'     },
   { key: 'combat',  label: '⚔'     },
   { key: 'gold',    label: '⭐'     },
@@ -135,7 +136,7 @@ function _pushDigest(effectiveCat, cat) {
     ts:       now,
     category: effectiveCat,
     icon:     cat.icon,
-    title:    cat.label,
+    title:    _t(cat.labelKey),
     detail:   '',
     type:     '',
     count:    1,
@@ -200,7 +201,7 @@ function _renderList() {
   if (!list) return;
   const filtered = _filter === 'all' ? _queue : _queue.filter(e => e.category === _filter);
   if (filtered.length === 0) {
-    list.innerHTML = `<div class="notif-empty">Aucune notification</div>`;
+    list.innerHTML = `<div class="notif-empty">${_t('notif_empty')}</div>`;
     return;
   }
   list.innerHTML = filtered.map(e => {
@@ -220,7 +221,7 @@ function _renderFilters() {
   const el = document.getElementById('notifFilters');
   if (!el) return;
   el.innerHTML = FILTER_TABS.map(f =>
-    `<button class="notif-filter-btn${_filter === f.key ? ' active' : ''}" data-notif-filter="${f.key}">${f.label}</button>`
+    `<button class="notif-filter-btn${_filter === f.key ? ' active' : ''}" data-notif-filter="${f.key}">${f.labelKey ? _t(f.labelKey) : f.label}</button>`
   ).join('');
   el.querySelectorAll('[data-notif-filter]').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -233,10 +234,10 @@ function _renderFilters() {
 
 function _timeAgo(ts) {
   const s = Math.floor((Date.now() - ts) / 1000);
-  if (s < 60)  return s + 's';
+  if (s < 60)  return _t('notif_time_seconds', { n: s });
   const m = Math.floor(s / 60);
-  if (m < 60)  return m + 'm';
-  return Math.floor(m / 60) + 'h';
+  if (m < 60)  return _t('notif_time_minutes', { n: m });
+  return _t('notif_time_hours', { n: Math.floor(m / 60) });
 }
 
 function _esc(str) {
@@ -281,10 +282,10 @@ function _injectDOM() {
   panel.className = 'notif-panel';
   panel.innerHTML = `
     <div class="notif-panel-header">
-      <span class="notif-panel-title">🔔 Notifications</span>
+      <span class="notif-panel-title">🔔 ${_t('notif_title')}</span>
       <div style="display:flex;gap:6px;align-items:center">
-        <button id="notifPanelClear" class="notif-panel-btn" title="Effacer tout">🗑</button>
-        <button id="notifPanelClose" class="notif-panel-btn" title="Fermer">✕</button>
+        <button id="notifPanelClear" class="notif-panel-btn" title="${_t('notif_clear_all')}">🗑</button>
+        <button id="notifPanelClose" class="notif-panel-btn" title="${_t('notif_close')}">✕</button>
       </div>
     </div>
     <div id="notifFilters" class="notif-filters"></div>
