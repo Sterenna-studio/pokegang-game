@@ -5,6 +5,7 @@
 // ════════════════════════════════════════════════════════════════
 
 const HOUR_MS = 3600000;
+const _t = (...a) => globalThis.t?.(...a) ?? a[0];
 
 function renderMissionsTab() {
   const el = document.getElementById('tabMissions');
@@ -36,7 +37,7 @@ function renderMissionsTab() {
           <div style="font-size:9px;color:var(--text-dim);margin-top:2px">${progress}/${m.target} — ${rewardStr.join(', ')}</div>
         </div>
         ${complete && !claimed
-          ? `<button class="btn-claim-mission" data-mission-id="${m.id}" style="font-family:var(--font-pixel);font-size:9px;padding:6px 12px;background:var(--green);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--bg);cursor:pointer;white-space:nowrap;animation:glow 1.5s ease-in-out infinite">${state.lang === 'fr' ? 'Récupérer' : 'Claim'}</button>`
+          ? `<button class="btn-claim-mission" data-mission-id="${m.id}" style="font-family:var(--font-pixel);font-size:9px;padding:6px 12px;background:var(--green);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--bg);cursor:pointer;white-space:nowrap;animation:glow 1.5s ease-in-out infinite">${_t('missions_claim')}</button>`
           : claimed ? '<span style="font-size:9px;color:var(--green)">✓</span>' : ''}
       </div>`;
     }
@@ -50,7 +51,7 @@ function renderMissionsTab() {
   const hSec = Math.floor((hourlyRem % 60000) / 1000);
   let hourlyHtml = `<div style="margin-bottom:20px">
     <h3 style="font-family:var(--font-pixel);font-size:11px;color:var(--gold);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">
-      ${state.lang === 'fr' ? 'Quêtes Horaires' : 'Hourly Quests'} <span style="font-size:9px;color:var(--text-dim)">${hMin}m${String(hSec).padStart(2,'0')}s</span>
+      ${_t('missions_hourly')} <span style="font-size:9px;color:var(--text-dim)">${hMin}m${String(hSec).padStart(2,'0')}s</span>
     </h3>`;
   for (let i = 0; i < 5; i++) {
     const q = getHourlyQuest(i);
@@ -75,7 +76,7 @@ function renderMissionsTab() {
       </div>
       <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
         ${complete && !claimed
-          ? `<button class="btn-claim-hourly" data-slot="${i}" style="font-family:var(--font-pixel);font-size:9px;padding:6px 12px;background:var(--green);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--bg);cursor:pointer;white-space:nowrap;animation:glow 1.5s ease-in-out infinite">${state.lang === 'fr' ? 'Récupérer' : 'Claim'}</button>`
+          ? `<button class="btn-claim-hourly" data-slot="${i}" style="font-family:var(--font-pixel);font-size:9px;padding:6px 12px;background:var(--green);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--bg);cursor:pointer;white-space:nowrap;animation:glow 1.5s ease-in-out infinite">${_t('missions_claim')}</button>`
           : claimed ? '<span style="font-size:9px;color:var(--green)">✓</span>' : ''}
         ${!claimed ? `<button class="btn-reroll-hourly" data-slot="${i}" style="font-size:7px;padding:3px 6px;background:var(--bg);border:1px solid var(--border);border-radius:3px;color:var(--text-dim);cursor:pointer;font-family:var(--font-pixel)">↻ ${HOURLY_QUEST_REROLL_COST}₽</button>` : ''}
       </div>
@@ -105,30 +106,24 @@ function renderMissionsTab() {
 
   let content = hourlyHtml;
   content += renderSection(
-    `${state.lang === 'fr' ? 'Missions Quotidiennes' : 'Daily Missions'} (${dailyH}h${String(dailyM).padStart(2,'0')})`,
+    `${_t('missions_daily')} (${dailyH}h${String(dailyM).padStart(2,'00')})`,
     dailyMissions
   );
   content += renderSection(
-    `${state.lang === 'fr' ? 'Missions Hebdomadaires' : 'Weekly Missions'} (${weeklyD}j ${weeklyH}h)`,
+    `${_t('missions_weekly')} (${weeklyD}j ${weeklyH}h)`,
     weeklyMissions
   );
   if (unclaimedStory.length > 0) {
-    content += renderSection(
-      state.lang === 'fr' ? 'Histoire & Objectifs' : 'Story & Objectives',
-      unclaimedStory
-    );
+    content += renderSection(_t('missions_story'), unclaimedStory);
   }
   if (claimedStory.length > 0) {
-    content += renderSection(
-      state.lang === 'fr' ? 'Terminés' : 'Completed',
-      claimedStory
-    );
+    content += renderSection(_t('missions_completed'), claimedStory);
   }
 
   // ── Bouton "Tout réclamer" ──
   const claimableMissions = MISSIONS.filter(m => isMissionComplete(m) && !isMissionClaimed(m));
   const claimAllBtn = claimableMissions.length > 0
-    ? `<button id="btnClaimAllMissions" style="font-family:var(--font-pixel);font-size:9px;padding:7px 16px;background:var(--green);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--bg);cursor:pointer;margin-bottom:14px;animation:glow 1.5s ease-in-out infinite">✓ Tout réclamer (${claimableMissions.length})</button>`
+    ? `<button id="btnClaimAllMissions" style="font-family:var(--font-pixel);font-size:9px;padding:7px 16px;background:var(--green);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--bg);cursor:pointer;margin-bottom:14px;animation:glow 1.5s ease-in-out infinite">${_t('missions_claim_all', { n: claimableMissions.length })}</button>`
     : '';
   el.innerHTML = `<div style="padding:12px">${claimAllBtn}${content}</div>`;
 
