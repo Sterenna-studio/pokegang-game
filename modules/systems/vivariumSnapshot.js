@@ -27,37 +27,59 @@
 // cosmétique déjà couverte par saveState()) choisit lesquelles alimentent le
 // vivarium. Lecture seule : aucune de ces sources n'est jamais mutée d'ici.
 export const VIVARIUM_SOURCES = [
-  { key: 'showcase', icon: '🏠', label: 'Vitrine',        ids: state => (state.gang.showcase || []).filter(Boolean) },
-  { key: 'team',     icon: '⚔️', label: 'Équipe active',  ids: state => state.gang.bossTeamSlots?.[state.gang.activeBossTeamSlot || 0] || [] },
-  { key: 'pension',  icon: '🏥', label: 'Pension',         ids: state => state.pension?.slots || [] },
-  { key: 'training', icon: '💪', label: 'Formation',       ids: state => state.trainingRoom?.pokemon || [] },
+  { key: 'showcase', icon: '🏠', label: 'Vitrine',       label_en: 'Showcase',    ids: state => (state.gang.showcase || []).filter(Boolean) },
+  { key: 'team',     icon: '⚔️', label: 'Équipe active', label_en: 'Active team', ids: state => state.gang.bossTeamSlots?.[state.gang.activeBossTeamSlot || 0] || [] },
+  { key: 'pension',  icon: '🏥', label: 'Pension',       label_en: 'Daycare',     ids: state => state.pension?.slots || [] },
+  { key: 'training', icon: '💪', label: 'Formation',     label_en: 'Training',    ids: state => state.trainingRoom?.pokemon || [] },
 ];
 
 // Petits événements narratifs — un agent en patrouille (ou tout juste sorti
 // de prison), l'infirmière qui passe pour la pension, un chercheur qui
 // observe — chaque passage porte une bulle de dialogue contextuelle.
 const AGENT_RELEASED_WINDOW_MS = 2 * 60 * 60_000; // "tout juste sorti" si restUntil < 2h
-const AGENT_LINES = [
+const AGENT_LINES_FR = [
   'En patrouille, boss !',
   "Tout est calme dans le secteur.",
   'On tient la position !',
   'Prêt pour la prochaine mission.',
   "Content de faire partie du gang, boss.",
 ];
-const AGENT_RELEASED_LINES = [
+const AGENT_LINES_EN = [
+  'On patrol, boss!',
+  'Everything is quiet in the area.',
+  'We are holding the position!',
+  'Ready for the next mission.',
+  'Glad to be part of the gang, boss.',
+];
+const AGENT_RELEASED_LINES_FR = [
   "Merci boss de m'avoir sorti de là !",
   'Je vous revaudrai ça, boss.',
   "La prison, plus jamais... merci boss.",
 ];
-const NURSE_LINES = [
+const AGENT_RELEASED_LINES_EN = [
+  'Thanks for getting me out of there, boss!',
+  'I will repay you, boss.',
+  'Never going back to prison... thanks, boss.',
+];
+const NURSE_LINES_FR = [
   'Un œuf tout frais pour la pension !',
   'Je passais vérifier vos œufs, tout va bien.',
   'Prenez soin d’eux, ils grandissent vite !',
 ];
-const SCIENTIST_LINES = [
+const NURSE_LINES_EN = [
+  'A fresh egg for the Daycare!',
+  'I was checking on your eggs. Everything is fine.',
+  'Take care of them, they grow up fast!',
+];
+const SCIENTIST_LINES_FR = [
   'Fascinant... ces données vont enrichir le Pokédex.',
   'Vos Pokémon montrent des statistiques intéressantes.',
   'Je termine juste quelques relevés, ne faites pas attention à moi.',
+];
+const SCIENTIST_LINES_EN = [
+  'Fascinating... this data will improve the Pokédex.',
+  'Your Pokémon show some interesting stats.',
+  'I am just finishing a few readings. Do not mind me.',
 ];
 
 // Rival de gang — la Team Rocket est déjà la faction antagoniste établie
@@ -65,24 +87,43 @@ const SCIENTIST_LINES = [
 // gang a assez de réputation pour attirer ce genre d'attention.
 const RIVAL_REP_THRESHOLD = 300;
 const RIVAL_SPRITES = ['rocketgrunt', 'rocketgruntf'];
-const RIVAL_LINES = [
+const RIVAL_LINES_FR = [
   'Votre territoire ne durera pas.',
   'La Team Rocket a l’œil sur vous.',
   'On se reverra, boss.',
   'Ne baissez pas votre garde.',
 ];
+const RIVAL_LINES_EN = [
+  'Your territory will not last.',
+  'Team Rocket is watching you.',
+  'We will meet again, boss.',
+  'Do not let your guard down.',
+];
 
-const FAN_LINES = [
+const FAN_LINES_FR = [
   'Votre équipe est incroyable, j’aimerais tant vous ressembler !',
   'Je peux avoir un autographe, boss ?',
   'On parle de vous dans tout le quartier !',
 ];
+const FAN_LINES_EN = [
+  'Your team is incredible. I wish I could be like you!',
+  'Can I have your autograph, boss?',
+  'Everyone in the neighborhood is talking about you!',
+];
 
-const BOSS_LINES = [
+const BOSS_LINES_FR = [
   'Je viens juste vérifier que tout va bien.',
   'Belle équipe que j’ai là, si je puis dire.',
   'Le quartier est calme aujourd’hui.',
 ];
+const BOSS_LINES_EN = [
+  'I am just checking that everything is fine.',
+  'What a fine team I have, if I may say so.',
+  'The neighborhood is quiet today.',
+];
+
+const _isEn = state => state?.lang === 'en';
+const _t = (state, fr, en) => (_isEn(state) ? en : fr);
 
 // Même logique que gang/panels.js:_getBossFullTitle() (copie volontaire —
 // même duplication déjà présente dans modules/systems/titles.js ; TITLES
@@ -115,14 +156,16 @@ function _buildAgentLines(agent, state) {
   const recentlyFreed = !agent.resting && agent.restUntil
     && (now - agent.restUntil) >= 0 && (now - agent.restUntil) < AGENT_RELEASED_WINDOW_MS;
 
-  const lines = [...(recentlyFreed ? AGENT_RELEASED_LINES : AGENT_LINES)];
+  const lines = [...(recentlyFreed
+    ? (_isEn(state) ? AGENT_RELEASED_LINES_EN : AGENT_RELEASED_LINES_FR)
+    : (_isEn(state) ? AGENT_LINES_EN : AGENT_LINES_FR))];
 
   if (agent.team?.length > 0) {
     const pkId = agent.team[Math.floor(Math.random() * agent.team.length)];
     const pk = state.pokemons.find(p => p.id === pkId);
     if (pk) {
       const name = globalThis.pokemonDisplayName?.(pk) || pk.species_en;
-      lines.push(`Merci de m'avoir confié ${name}, boss.`);
+      lines.push(_t(state, `Merci de m'avoir confié ${name}, boss.`, `Thanks for trusting me with ${name}, boss.`));
     }
   }
 
@@ -131,31 +174,41 @@ function _buildAgentLines(agent, state) {
     const combats = state.zones?.[agent.assignedZone]?.combatsWon || 0;
     if (zone?.trainers?.length > 0 && combats > 0) {
       const trainerKey = zone.trainers[Math.floor(Math.random() * zone.trainers.length)];
-      const label = globalThis.TRAINER_TYPES?.[trainerKey]?.fr;
-      if (label) lines.push(`J'ai battu ${combats} ${label}${combats > 1 ? 's' : ''} sur ${zone.fr}.`);
+      const trainer = globalThis.TRAINER_TYPES?.[trainerKey];
+      const label = _isEn(state) ? trainer?.en : trainer?.fr;
+      const zoneName = _isEn(state) ? zone.en : zone.fr;
+      if (label) lines.push(_t(
+        state,
+        `J'ai battu ${combats} ${label}${combats > 1 ? 's' : ''} sur ${zoneName}.`,
+        `I defeated ${combats} ${label}${combats > 1 ? 's' : ''} in ${zoneName}.`,
+      ));
     }
   }
 
-  lines.push(`Fier de servir sous ${_getBossFullTitle(state)}, boss !`);
+  lines.push(_t(state, `Fier de servir sous ${_getBossFullTitle(state)}, boss !`, `Proud to serve under ${_getBossFullTitle(state)}, boss!`));
 
   return lines;
 }
 
 function _buildNurseLines(state) {
-  const lines = [...NURSE_LINES];
+  const lines = [...(_isEn(state) ? NURSE_LINES_EN : NURSE_LINES_FR)];
   const pensionCount = state.pension?.slots?.filter(Boolean).length || 0;
   if (pensionCount > 0) {
     const max = 2 + (state.pension?.extraSlotsPurchased || 0);
-    lines.push(`La pension compte ${pensionCount}/${max} pokémon en ce moment.`);
+    lines.push(_t(state, `La pension compte ${pensionCount}/${max} Pokémon en ce moment.`, `The Daycare currently has ${pensionCount}/${max} Pokémon.`));
   }
   return lines;
 }
 
 function _buildScientistLines(state) {
-  const lines = [...SCIENTIST_LINES];
+  const lines = [...(_isEn(state) ? SCIENTIST_LINES_EN : SCIENTIST_LINES_FR)];
   const shinyCount = state.stats?.shinyCaught || 0;
   if (shinyCount > 0) {
-    lines.push(`Vous avez déjà repéré ${shinyCount} chromatique${shinyCount > 1 ? 's' : ''}, un vrai record !`);
+    lines.push(_t(
+      state,
+      `Vous avez déjà repéré ${shinyCount} chromatique${shinyCount > 1 ? 's' : ''}, un vrai record !`,
+      `You have already spotted ${shinyCount} Shiny Pokémon. A true record!`,
+    ));
   }
   return lines;
 }
@@ -182,7 +235,9 @@ export function buildVivariumResidents(state) {
         spriteUrl:   globalThis.pokeSprite(pk.species_en, pk.shiny),
         label:       globalThis.pokemonDisplayName?.(pk) || pk.species_en,
         level:       pk.level,
-        natureLabel: pk.nature && NATURES?.[pk.nature] ? NATURES[pk.nature].fr : null,
+        natureLabel: pk.nature && NATURES?.[pk.nature]
+          ? (_isEn(state) ? NATURES[pk.nature].en : NATURES[pk.nature].fr)
+          : null,
       });
     }
   }
@@ -226,24 +281,28 @@ export function buildVivariumCameoPool(state) {
     pool.push({
       type: 'nurse',
       spriteUrl: globalThis.trainerSprite('nurse'),
-      label: 'Infirmière Joy',
+      label: _t(state, 'Infirmière Joy', 'Nurse Joy'),
       followIconUrl: globalThis.EGG_SPRITES?.default,
       lines: _buildNurseLines(state),
     });
   }
 
-  pool.push({ type: 'scientist', spriteUrl: globalThis.trainerSprite('scientist'), label: 'Chercheur', lines: _buildScientistLines(state) });
-  pool.push({ type: 'fan', spriteUrl: globalThis.trainerSprite('pokefan'), label: 'Fan Pokémon', lines: [...FAN_LINES] });
+  pool.push({ type: 'scientist', spriteUrl: globalThis.trainerSprite('scientist'), label: _t(state, 'Chercheur', 'Researcher'), lines: _buildScientistLines(state) });
+  pool.push({ type: 'fan', spriteUrl: globalThis.trainerSprite('pokefan'), label: 'Fan Pokémon', lines: [...(_isEn(state) ? FAN_LINES_EN : FAN_LINES_FR)] });
 
   if ((state.gang.reputation || 0) >= RIVAL_REP_THRESHOLD) {
     const sprite = RIVAL_SPRITES[Math.floor(Math.random() * RIVAL_SPRITES.length)];
-    pool.push({ type: 'rival', spriteUrl: globalThis.trainerSprite(sprite), label: 'Rival', lines: [...RIVAL_LINES], hostile: true });
+    pool.push({ type: 'rival', spriteUrl: globalThis.trainerSprite(sprite), label: 'Rival', lines: [...(_isEn(state) ? RIVAL_LINES_EN : RIVAL_LINES_FR)], hostile: true });
   }
 
   if (state.gang.bossSprite) {
     const power = globalThis.getBossTeamPower?.() ?? null;
-    const lines = [...BOSS_LINES];
-    if (power !== null) lines.push(`Puissance de l'équipe : ${power.toLocaleString()}. On progresse.`);
+    const lines = [...(_isEn(state) ? BOSS_LINES_EN : BOSS_LINES_FR)];
+    if (power !== null) lines.push(_t(
+      state,
+      `Puissance de l'équipe : ${power.toLocaleString()}. On progresse.`,
+      `Team power: ${power.toLocaleString()}. We are making progress.`,
+    ));
     pool.push({ type: 'boss', spriteUrl: globalThis.trainerSprite(state.gang.bossSprite), label: state.gang.bossName || 'Boss', lines });
   }
 
