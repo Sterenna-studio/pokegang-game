@@ -137,6 +137,7 @@ import {
   refreshZoneWindowsTick,
 } from './modules/ui/zoneWindows.js';
 import './modules/ui/gangBase.js';
+import './modules/ui/vivariumZone.js';
 import './modules/ui/gangTab.js';
 import './modules/systems/johto.js';
 import './modules/systems/hoenn.js';
@@ -1588,6 +1589,7 @@ function restoreOpenZones() {
     if (restoredOrder.includes(zId))            continue;
     if (!ZONE_BY_ID[zId])                       continue;
     if (ZONE_BY_ID[zId].type === 'gang_park')   continue;
+    if (ZONE_BY_ID[zId].type === 'vivarium')    continue;
     if (!isZoneUnlocked(zId))                   continue;
     openZones.add(zId);
     initZone(zId);

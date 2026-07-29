@@ -286,9 +286,12 @@ const _visitedTabs = new Set(JSON.parse(sessionStorage.getItem('pg_visited_tabs'
 
 function switchTab(tabId) {
   const state = getState();
+  const prevTab = globalThis.activeTab;
   if (tabId !== 'tabPC') globalThis.resetPcRenderCache?.();
   SFX.play('tabSwitch');
   globalThis.activeTab = tabId;
+  if (prevTab === 'tabZones' && tabId !== 'tabZones') globalThis.pauseVivariumWindow?.();
+  if (tabId === 'tabZones' && prevTab !== 'tabZones') globalThis.resumeVivariumWindow?.();
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.tab === tabId);
   });

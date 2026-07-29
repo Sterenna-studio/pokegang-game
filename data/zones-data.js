@@ -9,12 +9,17 @@ const POT_UPGRADE_COSTS = [3, 6, 12, 24]; // index = current potential-1 (1->2, 
 // Zone categories for UI grouping
 // type: 'route' (captures + investissement) | 'city' (ville avec arène) | 'special' (hybride)
 // type: 'gang_park' — zone exclusive du joueur (toujours accessible, non comptée dans la limite)
+// type: 'vivarium' — zone d'affichage cosmétique (Pokémon vitrine/équipe boss qui se baladent)
 const ZONES = [
   // ══ QUARTIER GÉNÉRAL (zone joueur — toujours ouverte) ══
   { id:'gang_park', fr:'Quartier Général', en:'Gang HQ', rep:0, spawnRate:0, type:'gang_park',
     pool:[], trainers:[], investCost:0,
     desc_fr:'Votre base. Vos agents, vos équipes, votre pension — tout ici.',
     desc_en:'Your base. Your agents, their teams, your pension — everything here.' },
+  { id:'vivarium', fr:'Vivarium', en:'Vivarium', rep:0, spawnRate:0, type:'vivarium',
+    pool:[], trainers:[], investCost:0,
+    desc_fr:'Vos Pokémon de la vitrine et de l\'équipe boss se baladent ici.',
+    desc_en:'Your showcase and boss team Pokémon roam here.' },
 
   // ══ ROUTES & NATURE (captures + investissement) ══
   { id:'route1',        fr:'Route 1',           en:'Route 1',           rep:0,   spawnRate:0.07, type:'route',
