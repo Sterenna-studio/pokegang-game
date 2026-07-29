@@ -579,12 +579,6 @@ function rollChestLoot(zoneId, passive = false) {
       state.inventory[loot.itemId] = (state.inventory[loot.itemId] || 0) + loot.qty;
       return { msg: `📦 ${loot.qty}x ${name}`, type: 'gold' };
     }
-    case 'masterball': {
-      // Legacy loot type — converti en pokeballs (masterball n'existe plus en inventaire)
-      const pbBonus = 20;
-      state.inventory.pokeball = (state.inventory.pokeball || 0) + pbBonus;
-      return { msg: `📦 ${pbBonus}× Poké Balls !`, type: 'gold' };
-    }
     case 'event': {
       // Trigger a random event
       const eligible = getEligibleSpecialEvents(zoneId);
@@ -757,22 +751,10 @@ function investInZone(zoneId) {
   return true;
 }
 
-let _noBallNotifyAt = 0; // throttle : 1 notif "plus de balls" toutes les 10 s max
-
 function tryCapture(zoneId, speciesEN, bonusPotential = 0, spawnCtx = {}) {
   const state = globalThis.state;
   const BALLS = globalThis.BALLS;
-  // pokeball = ressource unique de capture ; activeBall = skin cosmétique uniquement
-  if ((state.inventory.pokeball || 0) <= 0) {
-    const now = Date.now();
-    if (now - _noBallNotifyAt > 10_000) {
-      _noBallNotifyAt = now;
-      _notify(globalThis.t('no_balls', { ball: 'Poké Ball' }));
-      globalThis.SFX.play('error');
-    }
-    return null;
-  }
-  state.inventory.pokeball--;
+  // Capture toujours possible — activeBall n'est qu'un skin cosmétique.
   const visualBall = state.activeBall || 'pokeball'; // skin affiché dans l'historique
   const pokemon = globalThis.makePokemon(speciesEN, zoneId, visualBall, spawnCtx);
   if (!pokemon) return null;
@@ -929,12 +911,6 @@ function applyCombatResult(result, playerTeamIds, trainerData) {
       state.gang.reputation += result.repGain;
       EventBus.emit(EVENTS.REP_CHANGED, { delta: result.repGain, newTotal: state.gang.reputation });
       checkForNewlyUnlockedZones(prevRep);
-    }
-    // Ball drops for regular trainer battles — toujours des Poké Balls (ressource unique)
-    if (!trainerData.isSpecial && !trainerData.isRaid) {
-      if (Math.random() < 0.5) { // 50% de chance
-        state.inventory.pokeball = (state.inventory.pokeball || 0) + 1;
-      }
     }
     if (ROCKET_TRAINER_KEYS.has(trainerData.trainerKey)) {
       state.stats.rocketDefeated = (state.stats.rocketDefeated || 0) + 1;

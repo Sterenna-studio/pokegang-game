@@ -433,17 +433,17 @@ function renderGangBaseWindow() {
   const KEY_IDS   = ['incubator','map_pallet','casino_ticket','silph_keycard','boat_ticket'];
 
   function makeItemTile(id) {
-    const qty      = state.inventory?.[id] || 0;
     const isBall   = BALL_IDS.includes(id);
+    const qty      = id === 'pokeball' ? Infinity : (state.inventory?.[id] || 0);
     const isBoost  = BOOST_IDS.includes(id);
     const isActive = isBall && state.activeBall === id;
     const isBoosted= isBoost && isBoostActive(id);
     const owned    = qty > 0;
     const remStr   = isBoosted ? `<span class="base-item-rem">${Math.ceil(boostRemaining(id))}s</span>` : '';
     const qtyBadge = owned
-      ? `<span class="base-item-qty">${qty > 99 ? '99+' : '×'+qty}</span>`
+      ? `<span class="base-item-qty">${id === 'pokeball' ? '∞' : qty > 99 ? '99+' : '×'+qty}</span>`
       : `<span class="base-item-qty zero">0</span>`;
-    return `<div class="base-item-tile${isActive ? ' active' : ''}${isBoosted ? ' boosted' : ''}" data-bag-item="${id}" title="${id} ×${qty}">
+    return `<div class="base-item-tile${isActive ? ' active' : ''}${isBoosted ? ' boosted' : ''}" data-bag-item="${id}" title="${id} ${id === 'pokeball' ? '∞' : '×'+qty}">
       <div class="base-item-sprite${owned ? '' : ' locked'}">${itemSprite(id)}</div>
       ${qtyBadge}${remStr}
     </div>`;
@@ -713,8 +713,8 @@ function renderGangBaseWindowV2() {
   const KEY_IDS   = ['incubator','map_pallet','casino_ticket','silph_keycard','boat_ticket'];
 
   function _v2tile(id, isKey = false) {
-    const qty      = state.inventory?.[id] || 0;
     const isBall   = BALL_IDS.includes(id);
+    const qty      = id === 'pokeball' ? Infinity : (state.inventory?.[id] || 0);
     const isBoost  = BOOST_IDS.includes(id);
     const isActive = isBall && state.activeBall === id;
     const isBoosted= isBoost && isBoostActive?.(id);
@@ -722,7 +722,7 @@ function renderGangBaseWindowV2() {
     const remStr   = isBoosted ? `<span class="gb2-item-rem">${Math.ceil(boostRemaining?.(id) || 0)}s</span>` : '';
     const qtyBadge = isKey
       ? `<span class="gb2-item-qty ${owned ? 'on' : 'off'}">${owned ? '✓' : '✗'}</span>`
-      : `<span class="gb2-item-qty">${qty > 99 ? '99+' : qty > 0 ? '×'+qty : '0'}</span>`;
+      : `<span class="gb2-item-qty">${id === 'pokeball' ? '∞' : qty > 99 ? '99+' : qty > 0 ? '×'+qty : '0'}</span>`;
     const lockCls  = isKey && !owned ? ' locked-key' : '';
     const spriteCls = !owned && !isKey ? ' locked' : '';
     return `<div class="gb2-item-tile${isActive ? ' active' : ''}${isBoosted ? ' boosted' : ''}${lockCls}" data-bag-item="${id}" title="${id}">

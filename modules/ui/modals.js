@@ -51,7 +51,7 @@ const MODAL_EN = {
   info_market_session_label:'Session objectives',
   info_market_session_desc:'Short quests active during your session. Immediate rewards.',
   info_market_balls_label:'Balls',
-  info_market_balls_desc:'Poké Ball — the single capture resource, bought in the shop. The other types (Great, Ultra, Dusk, Master) are one-time cosmetic skins: they change how captures look but have no effect on potential.',
+  info_market_balls_desc:'Poké Ball — unlimited, catching never runs out. The other types (Great, Ultra, Dusk, Master) are one-time cosmetic skins bought here: they change how captures look but have no effect on potential.',
   info_market_boosts_label:'Temporary boosts',
   info_market_boosts_desc:'Activated from the Bag in a zone window. Duration 60–120s. Double XP, double loot, shiny radar…',
   info_market_special_label:'Special purchases',
@@ -265,7 +265,7 @@ function showInfoModal(tabId) {
       body: `
         <strong>${_t('info_market_quests_label', 'Quêtes horaires')}</strong> — ${_t('info_market_quests_desc', '3 Moyennes + 2 Difficiles, réinitialisées chaque heure. Reroll possible contre 10 REP.')}<br><br>
         <strong>${_t('info_market_session_label', 'Objectifs de session')}</strong> — ${_t('info_market_session_desc', 'Quêtes courtes actives pendant ta session. Récompenses immédiates.')}<br><br>
-        <strong>${_t('info_market_balls_label', 'Balls')}</strong> — ${_t('info_market_balls_desc', 'Poké Ball — ressource de capture unique, achetable au marché. Les autres types (Super, Hyper, Sombre, Master) sont des skins cosmétiques achetables une fois : ils changent l\'apparence de la capture mais n\'ont aucun effet sur le potentiel.')}<br><br>
+        <strong>${_t('info_market_balls_label', 'Balls')}</strong> — ${_t('info_market_balls_desc', 'Poké Ball — illimitée, la capture ne tombe jamais à court. Les autres types (Super, Hyper, Sombre, Master) sont des skins cosmétiques achetables ici une fois : ils changent l\'apparence de la capture mais n\'ont aucun effet sur le potentiel.')}<br><br>
         <strong>${_t('info_market_boosts_label', 'Boosts temporaires')}</strong> — ${_t('info_market_boosts_desc', 'Activés depuis le Sac dans la fenêtre de zone. Durée 60–120s. Double XP, double loot, radar shiny…')}<br><br>
         <strong>${_t('info_market_special_label', 'Achats spéciaux')}</strong> — ${_t('info_market_special_desc', 'Déblocables à la réputation : auto-vente, cosmétiques, slots supplémentaires.')}<br><br>
         <span class="dim">${_t('info_market_tip', 'Vends des Pokémon depuis le PC pour financer tes achats. Les rares et ★5 valent beaucoup plus.')}</span>

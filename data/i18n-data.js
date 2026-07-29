@@ -26,7 +26,6 @@ const I18N = {
   // Capture
   catch_success: { fr:'{name} capturé !', en:'{name} caught!' },
   catch_shiny:   { fr:'✨ {name} SHINY capturé !', en:'✨ SHINY {name} caught!' },
-  no_balls:      { fr:'Plus de {ball} !', en:'No {ball} left!' },
   // Combat
   combat_win:    { fr:'Victoire ! +{money}₽ +{rep} rep', en:'Victory! +{money}₽ +{rep} rep' },
   combat_lose:   { fr:'Défaite...', en:'Defeat...' },
