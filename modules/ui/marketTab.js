@@ -69,6 +69,7 @@ function renderBlackMarketPanel() {
         rewardParts.push(`<span class="bm-reward-item">${qty}× ${ITEM_LABELS[iid] || iid}</span>`);
       }
     }
+    if (r.ballSkin) rewardParts.push(`<span class="bm-reward-item">🎨 ${ITEM_LABELS[r.ballSkin] || r.ballSkin}</span>`);
     if (r.rareBoost) rewardParts.push(`<span class="bm-reward-boost">×3 rares ${Math.round(r.rareBoost / 3600000)}h</span>`);
     let progressBar = '';
     if (listing.type === 'trainer_bounty' && !isDone) {
