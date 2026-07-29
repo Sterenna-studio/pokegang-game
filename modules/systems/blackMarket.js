@@ -54,7 +54,7 @@ const LISTING_TYPES = {
       const minLevel = 20 + Math.floor(Math.random() * 40);
       const speciesName = globalThis.speciesName?.(speciesEN) ?? speciesEN;
       const baseReward = (globalThis.BASE_PRICE?.[sp?.rarity] || 200) * qty * 18; // ×3 vs avant
-      const items = isLegend ? { masterball: 1 } : (Math.random() < 0.5 ? { ultraball: 5 } : null);
+      const ballSkin = isLegend ? 'masterball' : (Math.random() < 0.5 ? 'ultraball' : null);
       return {
         type: 'species_bulk', target: speciesEN, qty, minLevel,
         emoji: '🎯',
@@ -62,7 +62,7 @@ const LISTING_TYPES = {
         detail: `${speciesName} en bonne condition pour un collectionneur fortuné.`,
         label_en: `Delivery: ${qty}× ${speciesName} Lv.${minLevel}+`,
         detail_en: `${speciesName} in good condition for a wealthy collector.`,
-        reward: { money: baseReward, rep: Math.round(baseReward / 1000) * 4, items },
+        reward: { money: baseReward, rep: Math.round(baseReward / 1000) * 4, ballSkin },
       };
     },
   },
@@ -180,7 +180,7 @@ const LISTING_TYPES = {
         detail: `Livrez ${qty} Pokémon différents de tier "${tier}" — niveau libre.`,
         label_en: `${tier === 'very_rare' ? 'Very rare' : 'Rare'} collection: ${qty} different species`,
         detail_en: `Deliver ${qty} different "${tier}" Pokémon — any level.`,
-        reward: { money, rep: tier === 'very_rare' ? 250 : 120, items: { ultraball: 3, evostone: 1 } },
+        reward: { money, rep: tier === 'very_rare' ? 250 : 120, items: { evostone: 1 }, ballSkin: 'ultraball' },
       };
     },
   },
@@ -217,7 +217,7 @@ const LISTING_TYPES = {
         detail: `Livrez 6 Pokémon libres de niveau ${minLevel}+ pour une mission black-ops.`,
         label_en: `Elite squad: 6 Pokémon Lv.${minLevel}+`,
         detail_en: `Deliver 6 unassigned Pokémon at level ${minLevel}+ for a black-ops mission.`,
-        reward: { money: 2500000, rep: 350, items: { masterball: 1, evostone: 3 } },
+        reward: { money: 2500000, rep: 350, items: { evostone: 3 }, ballSkin: 'masterball' },
       };
     },
   },
@@ -226,19 +226,18 @@ const LISTING_TYPES = {
   item_smuggle: {
     weight: 8,
     generate() {
+      // Uniquement des consommables réellement stockables (ultraball/masterball
+      // ne sont plus des items d'inventaire — juste des skins cosmétiques
+      // débloqués une fois via state.purchases, aucune quantité à livrer).
       const POOLS = [
         { id: 'evostone',   qty: [2, 4],  reward: 120000 },
         { id: 'aura',       qty: [1, 2],  reward: 200000 },
-        { id: 'ultraball',  qty: [5, 10], reward: 60000  },
-        { id: 'masterball', qty: [1, 1],  reward: 800000 },
       ];
       const pool = POOLS[Math.floor(Math.random() * POOLS.length)];
       const qty = pool.qty[0] + Math.floor(Math.random() * (pool.qty[1] - pool.qty[0] + 1));
       const ITEM_LABELS = {
         evostone:{ fr:'Pierre Évolution', en:'Evolution Stone' },
         aura:{ fr:'Aura Shiny', en:'Shiny Aura' },
-        ultraball:{ fr:'Hyper Ball', en:'Ultra Ball' },
-        masterball:{ fr:'Master Ball', en:'Master Ball' },
       };
       const itemLabel = ITEM_LABELS[pool.id] || { fr:pool.id, en:pool.id };
       return {
@@ -271,7 +270,7 @@ const LISTING_TYPES = {
         detail: `Gagnez ${t.count} combats contre un dresseur Élite ou Champion (tier ≥ Difficile) pour valider ce contrat.`,
         label_en: `Contract: ${t.label_en}`,
         detail_en: `Win ${t.count} battles against an Elite or Champion trainer (Hard tier or above) to complete this contract.`,
-        reward: { money: t.reward, rep: t.rep, items: { masterball: t.count >= 10 ? 1 : 0 } },
+        reward: { money: t.reward, rep: t.rep, ballSkin: t.count >= 10 ? 'masterball' : null },
       };
     },
   },
@@ -593,6 +592,23 @@ function _applyListingReward(listing) {
     // il n'existe pas de mécanisme de rareté "par zone" dans le jeu.
     state.activeBoosts = state.activeBoosts || {};
     state.activeBoosts.rarescope = Math.max(state.activeBoosts.rarescope || 0, Date.now() + r.rareBoost);
+  }
+  if (r.ballSkin) {
+    // Skin de ball cosmétique — pas une ressource d'inventaire (voir buyItem()
+    // dans market.js). Si déjà possédé, rembourse au prix boutique plutôt que
+    // de perdre la récompense.
+    state.purchases = state.purchases || {};
+    const skinKey = `skin_${r.ballSkin}`;
+    if (state.purchases[skinKey]) {
+      const price = (globalThis.SHOP_ITEMS || []).find(i => i.ballSkin === r.ballSkin)?.cost || 0;
+      if (price > 0) {
+        state.gang.money += price;
+        state.stats.totalMoneyEarned += price;
+        EventBus.emit(EVENTS.MONEY_CHANGED, { delta: price, newTotal: state.gang.money });
+      }
+    } else {
+      state.purchases[skinKey] = true;
+    }
   }
 }
 
