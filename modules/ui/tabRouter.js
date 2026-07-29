@@ -107,12 +107,9 @@ function getTabHint(tabId) {
       if (money < 500) return _t(
         `Tu n'as presque plus d'argent. Bats des dresseurs ou vends des Pokémon en double depuis le ${hintLink('PC', 'tabPC')}.`,
         `You're almost out of money. Beat trainers or sell duplicate Pokémon from the ${hintLink('PC', 'tabPC')}.`);
-      if (!state.inventory.pokeball) return _t(
-        `Achète des Pokéballs (100₽) dans la boutique pour pouvoir capturer des Pokémon.`,
-        `Buy Pokéballs (100₽) in the shop to catch Pokémon.`);
       return _t(
-        `Boutique : Pokéballs, objets de boost, incubateurs. Quêtes : missions journalières pour des récompenses.`,
-        `Shop: Pokéballs, boost items, incubators. Quests: daily missions for rewards.`);
+        `Boutique : objets de boost, incubateurs. Quêtes : missions journalières pour des récompenses.`,
+        `Shop: boost items, incubators. Quests: daily missions for rewards.`);
     case 'tabPC':
       if (pc === 0) return _t(
         `Ton PC est vide. Capture des Pokémon en ${hintLink('Zones', 'tabZones')} pour les voir ici.`,

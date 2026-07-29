@@ -45,16 +45,20 @@ export function migrateSave(saved, deps) {
   // ── Merge objets de premier niveau ─────────────────────────────────────────
   merged.gang         = { ...structuredClone(DEFAULT_STATE.gang),         ...ensureObject(saved.gang) };
   merged.inventory    = { ...structuredClone(DEFAULT_STATE.inventory),    ...ensureObject(saved.inventory) };
-  // ── Migration balls → pokeball unique ─────────────────────────────────────
-  // Convertir les vieilles balls fonctionnelles en pokeballs équivalentes.
+  // ── Poké Balls retirées → remboursement au prix shop (20₽/unité) ───────────
+  // pokeball n'est plus une ressource limitée : la capture fonctionne toujours,
+  // sans stock à gérer. Le stock existant (ainsi que les anciens types de balls,
+  // déjà convertis en équivalent pokeball) est remboursé en argent avant suppression.
   if (saved.inventory) {
+    const pb = saved.inventory.pokeball   || 0;
     const gb = saved.inventory.greatball  || 0;
     const ub = saved.inventory.ultraball  || 0;
     const db = saved.inventory.duskball   || 0;
     const mb = saved.inventory.masterball || 0;
-    const bonus = gb * 3 + ub * 10 + db * 7 + mb * 20;
-    if (bonus > 0) merged.inventory.pokeball = (merged.inventory.pokeball || 0) + bonus;
+    const totalPokeballEquiv = pb + gb * 3 + ub * 10 + db * 7 + mb * 20;
+    if (totalPokeballEquiv > 0) merged.gang.money = (merged.gang.money || 0) + totalPokeballEquiv * 20;
   }
+  delete merged.inventory.pokeball;
   delete merged.inventory.greatball;
   delete merged.inventory.ultraball;
   delete merged.inventory.duskball;
@@ -608,6 +612,7 @@ export function getMigrationSummary(saved, deps) {
   if (!saved.purchases?.autoSellAgent) fields.push('Vente auto agents');
   if (!saved.gang?.bossTeamSlots) fields.push('Slots d\'\u00e9quipe boss (×3)');
   if (!saved.purchases?.mysteryEggCount) fields.push('Compteur œufs mystère');
+  if (saved.inventory?.pokeball !== undefined) fields.push('Poké Balls illimitées (stock remboursé en ₽)');
 
   return { from: `schéma v${fromVersion}`, fields };
 }

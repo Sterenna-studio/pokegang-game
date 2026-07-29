@@ -582,17 +582,7 @@ function resolveBackgroundSpawnForZone(zoneId) {
     const capAgents = agents.filter(a => a.autoCapture !== false);
     // Pas d'agent en mode capture sur cette zone → skip silencieux
     if (capAgents.length === 0) return false;
-    // pokeball = ressource unique de capture
-    if ((state.inventory.pokeball || 0) <= 0) {
-      const _now = Date.now();
-      if (!resolveBackgroundSpawnForZone._noBallWarnAt || _now - resolveBackgroundSpawnForZone._noBallWarnAt > 120_000) {
-        resolveBackgroundSpawnForZone._noBallWarnAt = _now;
-        _notify(_t('⚠️ Plus de Poké Balls — les agents ne capturent plus !', '⚠️ No Poké Balls left — agents can no longer catch Pokémon!'), 'error');
-      }
-      return false;
-    }
     const capturer = capAgents[0];
-    const ball = 'pokeball';
 
     const visualBall = capturer.ball || 'pokeball'; // skin cosmétique de l'agent
     const pokemon = globalThis.makePokemon(entry.species_en, zoneId, visualBall, entry.spawnCtx || {});
@@ -604,7 +594,6 @@ function resolveBackgroundSpawnForZone(zoneId) {
       pokemon.potential = Math.min(5, (pokemon.potential || 1) + 1);
     }
 
-    state.inventory.pokeball--;
     state.pokemons.push(pokemon); _dirty();
     EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon, zoneId: state.zoneFocus, agentId: capturer?.id });
     state.stats.totalCaught++;

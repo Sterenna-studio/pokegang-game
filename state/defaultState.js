@@ -5,7 +5,7 @@ export const APP_VERSION = '2.4.0';
 export const GAME_VERSION = 'v0.5 — open beta';
 
 // Incrémenter à chaque ajout de champ majeur pour déclencher le banner migration.
-export const SAVE_SCHEMA_VERSION = 12;
+export const SAVE_SCHEMA_VERSION = 13;
 
 export const SAVE_KEYS = ['pokeforge.v6', 'pokeforge.v6.s2', 'pokeforge.v6.s3'];
 
@@ -58,7 +58,7 @@ export const DEFAULT_STATE = {
     },
   },
   inventory: {
-    pokeball: 50,   // ressource unique de capture
+    // pokeball retiré : capture toujours possible, plus de stock à gérer.
     lure: 0,
     superlure: 0,
     potion: 0,
