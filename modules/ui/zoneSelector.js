@@ -109,20 +109,23 @@ function _getFilteredZones() {
   const state = globalThis.state;
   const activeZones = _getActiveZones();
   const gangPark = activeZones.find(z => z.type === 'gang_park');
+  const vivarium = activeZones.find(z => z.type === 'vivarium');
+  const isPinned = z => z.type === 'gang_park' || z.type === 'vivarium';
   // Les données de zones sont des const de scripts classiques accessibles par nom nu.
   let filtered;
   switch (_zoneFilter) {
-    case 'fav':      filtered = activeZones.filter(z => z.type !== 'gang_park' && (state.favoriteZones || []).includes(z.id)); break;
+    case 'fav':      filtered = activeZones.filter(z => !isPinned(z) && (state.favoriteZones || []).includes(z.id)); break;
     case 'route':    filtered = activeZones.filter(z => z.type === 'route'); break;
     case 'city':     filtered = activeZones.filter(z => z.type === 'city'); break;
     case 'special':  filtered = activeZones.filter(z => z.type === 'special'); break;
-    case 'dex':      filtered = activeZones.filter(z => z.type !== 'gang_park' && globalThis.isZoneUnlocked?.(z.id) && _getZoneDexPct(z).pct < 100); break;
-    case 'dex_shiny':filtered = activeZones.filter(z => z.type !== 'gang_park' && globalThis.isZoneUnlocked?.(z.id) && _getZoneShinyPct(z).pct < 100); break;
-    default:         filtered = activeZones.filter(z => z.type !== 'gang_park'); break;
+    case 'dex':      filtered = activeZones.filter(z => !isPinned(z) && globalThis.isZoneUnlocked?.(z.id) && _getZoneDexPct(z).pct < 100); break;
+    case 'dex_shiny':filtered = activeZones.filter(z => !isPinned(z) && globalThis.isZoneUnlocked?.(z.id) && _getZoneShinyPct(z).pct < 100); break;
+    default:         filtered = activeZones.filter(z => !isPinned(z)); break;
   }
-  // Gang Park toujours en tête (sauf filtre strict par type)
+  // Gang Park + Vivarium toujours en tête (sauf filtre strict par type)
   const showPark = !['route','city','special','dex','dex_shiny'].includes(_zoneFilter);
-  return showPark && gangPark ? [gangPark, ...filtered] : filtered;
+  const pinned = [gangPark, vivarium].filter(Boolean);
+  return showPark && pinned.length ? [...pinned, ...filtered] : filtered;
 }
 
 // ── Favorite helpers ──────────────────────────────────────────
@@ -354,10 +357,26 @@ function _buildGangParkTile(zone) {
   </div>`;
 }
 
+// ── Vivarium tile (special — cosmetic showcase/boss team roaming display) ──
+function _buildVivariumTile(zone) {
+  const openZones = globalThis.openZones;
+  const isOpen = openZones?.has('vivarium');
+  const name = _localized(zone);
+  return `<div class="fog-tile unlocked vivarium-tile${isOpen ? ' zone-open' : ''}" data-zone="vivarium"
+    style="background:linear-gradient(135deg,#0a1a12,#0d2418);border:2px solid ${isOpen ? 'var(--gold)' : 'var(--border-light)'};position:relative;cursor:pointer">
+    <div class="fog-tile-content" style="gap:3px">
+      <div style="font-size:18px">🌳</div>
+      <div class="fog-tile-name" style="color:${isOpen ? 'var(--gold)' : 'var(--text)'};font-size:8px">${name}</div>
+      ${isOpen ? `<div style="font-size:7px;color:var(--gold);margin-top:2px">${_t('zone_selector_open').toUpperCase()}</div>` : ''}
+    </div>
+  </div>`;
+}
+
 // ── Tile builder ──────────────────────────────────────────────
 function _buildTile(zone) {
   // Special tile for Gang Park
   if (zone.type === 'gang_park') return _buildGangParkTile(zone);
+  if (zone.type === 'vivarium') return _buildVivariumTile(zone);
 
   const state     = globalThis.state;
   const openZones = globalThis.openZones;
@@ -513,16 +532,20 @@ export function renderZoneSelector() {
   el.querySelectorAll('.fog-tile.unlocked').forEach(tile => {
     tile.addEventListener('click', () => {
       const zid = tile.dataset.zone;
-      // Gang Park has its own toggle
+      // Gang Park / Vivarium have their own toggle
       if (zid === 'gang_park') {
         globalThis.toggleGangParkWindow?.();
+        return;
+      }
+      if (zid === 'vivarium') {
+        globalThis.toggleVivariumWindow?.();
         return;
       }
       if (globalThis.openZones?.has(zid)) globalThis.closeZoneWindow?.(zid);
       else globalThis.openZoneWindow?.(zid);
     });
-    // ── Right-click: context menu (not for gang park) ─────
-    if (tile.dataset.zone !== 'gang_park') {
+    // ── Right-click: context menu (not for gang park / vivarium) ─────
+    if (tile.dataset.zone !== 'gang_park' && tile.dataset.zone !== 'vivarium') {
       tile.addEventListener('contextmenu', e => {
         e.preventDefault();
         showZoneContextMenu(tile.dataset.zone, e.clientX, e.clientY);
@@ -695,7 +718,11 @@ export function bindZoneActionButtons() {
   if (btnCloseAll && !btnCloseAll._bound) {
     btnCloseAll._bound = true;
     btnCloseAll.addEventListener('click', () => {
-      [...(globalThis.openZones || [])].forEach(zid => globalThis.closeZoneWindow?.(zid));
+      // gang_park/vivarium ont leur propre toggle (DOM + timers) — la fermeture
+      // générique ne les gère pas et laisserait leur fenêtre affichée.
+      [...(globalThis.openZones || [])]
+        .filter(zid => zid !== 'gang_park' && zid !== 'vivarium')
+        .forEach(zid => globalThis.closeZoneWindow?.(zid));
     });
   }
   const btnCollectAll = document.getElementById('btnCollectAllZones');

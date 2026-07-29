@@ -1017,7 +1017,7 @@ function _renderZoneStatsView() {
   if (!fogLayout) return;
 
   // Only include zones that are either unlocked or have activity
-  const allZones = _zwActiveZones().filter(z => z.type !== 'gang_park' && (
+  const allZones = _zwActiveZones().filter(z => z.type !== 'gang_park' && z.type !== 'vivarium' && (
     globalThis.isZoneUnlocked?.(z.id) ||
     (state.zones?.[z.id]?.combatsWon || 0) > 0
   ));
@@ -1216,7 +1216,7 @@ function renderZoneWindows() {
   // Filtrer par région active — seules les zones de la région sélectionnée sont affichées
   const activeRegion = _zwActiveRegion();
   const zoneIds = [...openZones].filter(id => {
-    if (!ZONE_BY_ID[id] || ZONE_BY_ID[id].type === 'gang_park') return false;
+    if (!ZONE_BY_ID[id] || ZONE_BY_ID[id].type === 'gang_park' || ZONE_BY_ID[id].type === 'vivarium') return false;
     const isJohto  = _zwIsJohtoZone(id);
     const isHoenn  = _zwIsHoennZone(id);
     const isSinnoh = _zwIsSinnohZone(id);
@@ -1227,9 +1227,11 @@ function renderZoneWindows() {
     return !isJohto && !isHoenn && !isSinnoh;
   });
 
-  // "No zones" placeholder
+  // "No zones" placeholder — pas si gang_park/vivarium (gérées à part) sont ouvertes,
+  // sinon le hint "sélectionnez une zone" s'affiche par-dessus une fenêtre déjà ouverte.
+  const hasSpecialWindow = openZones?.has('gang_park') || openZones?.has('vivarium');
   let placeholder = container.querySelector('.zone-placeholder');
-  if (zoneIds.length === 0) {
+  if (zoneIds.length === 0 && !hasSpecialWindow) {
     if (!placeholder) {
       placeholder = document.createElement('div');
       placeholder.className = 'zone-placeholder';
@@ -1243,9 +1245,14 @@ function renderZoneWindows() {
   placeholder?.remove();
 
   // ── Remove zone windows that are no longer open ───────────────
+  // gang_park/vivarium are deliberately absent from zoneIds (filtered at the
+  // top of this function) — they're managed by their own toggle functions,
+  // not this generic open/close loop, so they must be excluded here too.
   const activeIdSet = new Set(zoneIds);
   container.querySelectorAll('.zone-window').forEach(el => {
-    if (!activeIdSet.has(el.id.replace('zw-', ''))) el.remove();
+    const id = el.id.replace('zw-', '');
+    if (id === 'gang_park' || id === 'vivarium') return;
+    if (!activeIdSet.has(id)) el.remove();
   });
 
   // ── Sort open zones by saved order ───────────────────────────
@@ -1258,7 +1265,7 @@ function renderZoneWindows() {
 
   // ── Update or create each open zone window ────────────────────
   const _appendZoneWindow = (zoneId, targetContainer) => {
-    if (zoneId === 'gang_park' || ZONE_BY_ID[zoneId]?.type === 'gang_park') return;
+    if (zoneId === 'gang_park' || zoneId === 'vivarium' || ZONE_BY_ID[zoneId]?.type === 'gang_park' || ZONE_BY_ID[zoneId]?.type === 'vivarium') return;
     const existing = document.getElementById(`zw-${zoneId}`);
     if (existing) {
       patchZoneWindow(zoneId, existing);

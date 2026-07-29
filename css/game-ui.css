@@ -98,6 +98,14 @@
     }
     .zone-window:hover { border-color: var(--border-light); }
 
+    /* Vivarium — réutilise .gang-environment-zone de gang/gang.css (page
+       cosmétique séparée) mais dans une fenêtre de zone standard (380px),
+       pas la large colonne de panneau de /gang/. Override localisé au
+       contexte .zone-window pour ne pas affecter la page cosmétique. */
+    .zone-window .gang-environment-zone {
+      min-height: 260px;
+    }
+
     /* Marqueur d'état "combat en cours" — volontairement sans effet de taille :
        les fenêtres de zone gardent une taille fixe en toutes circonstances,
        le HUD de combat est un overlay absolu qui tient dans le viewport normal. */
