@@ -2102,7 +2102,7 @@ function toggleGangParkWindow() {
   const state = globalThis.state;
   _gangParkOpen = !_gangParkOpen;
   globalThis.openZones?.[_gangParkOpen ? 'add' : 'delete']('gang_park');
-  const container = document.getElementById('zoneWindowsContainer');
+  const container = document.getElementById('zoneWindows');
   if (!container) return;
   const existing = document.getElementById('zw-gang_park');
   if (_gangParkOpen) {
