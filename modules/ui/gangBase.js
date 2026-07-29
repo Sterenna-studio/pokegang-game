@@ -8,12 +8,12 @@
 //    speciesName, pokeSprite, trainerSprite, itemSprite, safeTrainerImg, pokemonDisplayName
 //    getPokemonPower, calculateStats, calculatePrice
 //    isBoostActive, boostRemaining, activateBoost
-//    openTeamPicker, switchTab
+//    openTeamPicker, switchTab, showConfirm, buyItem
 //    getBossFullTitle, getTitleLabel
 //    getDexKantoCaught, getDexNationalCaught, getShinySpeciesCount
 //    sanitizeSpriteName
 //    openZones, pokemonById, renderZoneSelector, refreshZoneTile (Gang Park Window)
-//    BASE_PRICE, POTENTIAL_MULT, COSMETIC_BGS, ZONE_BGS
+//    BASE_PRICE, POTENTIAL_MULT, COSMETIC_BGS, ZONE_BGS, SHOP_ITEMS
 //    KANTO_DEX_SIZE, NATIONAL_DEX_SIZE
 //
 //  Classic-script globals accessed by bare name:
@@ -64,6 +64,39 @@ const BASE_RANK_FR = {
   elite: 'Elite',
   general: 'General',
 };
+
+// ── Ball skins — cosmétique uniquement, débloqué via state.purchases.skin_X
+// (jamais via state.inventory, contrairement aux boosts/objets empilables).
+function _ballSkinPrice(id) {
+  return (globalThis.SHOP_ITEMS || []).find(i => i.ballSkin === id)?.cost || 0;
+}
+
+function _fmtCompactPrice(n) {
+  if (n >= 1000000) return (n / 1000000).toLocaleString(undefined, { maximumFractionDigits: 1 }) + 'M₽';
+  if (n >= 1000)     return (n / 1000).toLocaleString(undefined, { maximumFractionDigits: 1 }) + 'k₽';
+  return n + '₽';
+}
+
+// Clic sur une tuile de ball dans le sac : si c'est un skin non débloqué,
+// propose l'achat (même flux que buyItem() côté marché) au lieu d'équiper
+// silencieusement un skin jamais acheté.
+function _handleBallTileClick(id) {
+  const state = globalThis.state;
+  if (id !== 'pokeball' && !state.purchases?.[`skin_${id}`]) {
+    const item = (globalThis.SHOP_ITEMS || []).find(i => i.ballSkin === id);
+    if (!item) return;
+    const name = state.lang === 'en' ? (item.en || item.id) : (item.fr || item.id);
+    globalThis.showConfirm?.(
+      _t('gang_base_buy_skin_confirm', { name, cost: item.cost.toLocaleString() }),
+      () => { globalThis.buyItem?.(item); renderGangBasePanel(); },
+    );
+    return;
+  }
+  state.activeBall = id;
+  _save();
+  globalThis.renderZoneWindows?.();
+  renderGangBasePanel();
+}
 
 function _baseZoneById(zoneId) {
   if (!zoneId) return null;
@@ -251,12 +284,13 @@ function _patchGangBaseV1(win, state) {
     for (const id of allItems) {
       const tile = win.querySelector(`[data-bag-item="${id}"]`);
       if (!tile) continue;
-      const qty   = state.inventory?.[id] || 0;
-      const owned = qty > 0;
-      const isBall    = _BALL_IDS.includes(id);
-      const isBoost   = _BOOST_IDS.includes(id);
-      const isActive  = isBall && state.activeBall === id;
-      const isBoosted = isBoost && isBoostActive?.(id);
+      const isBall     = _BALL_IDS.includes(id);
+      const isBallSkin = isBall && id !== 'pokeball';
+      const qty        = id === 'pokeball' ? Infinity : (state.inventory?.[id] || 0);
+      const owned      = isBallSkin ? !!state.purchases?.[`skin_${id}`] : qty > 0;
+      const isBoost    = _BOOST_IDS.includes(id);
+      const isActive   = isBall && state.activeBall === id;
+      const isBoosted  = isBoost && isBoostActive?.(id);
 
       // Active/boosted classes
       tile.classList.toggle('active', isActive);
@@ -267,7 +301,9 @@ function _patchGangBaseV1(win, state) {
       // Quantity badge
       const qtyEl = tile.querySelector('.base-item-qty');
       if (qtyEl) {
-        qtyEl.textContent = owned ? (qty > 99 ? '99+' : '×' + qty) : '0';
+        qtyEl.textContent = isBallSkin
+          ? (owned ? '✓' : _fmtCompactPrice(_ballSkinPrice(id)))
+          : owned ? (id === 'pokeball' ? '∞' : qty > 99 ? '99+' : '×' + qty) : '0';
         qtyEl.style.color   = owned ? '' : 'var(--text-dim)';
         qtyEl.style.opacity = owned ? '' : '0.4';
       }
@@ -283,7 +319,9 @@ function _patchGangBaseV1(win, state) {
       }
 
       // Title attr
-      tile.title = `${id} ×${qty}`;
+      tile.title = isBallSkin
+        ? `${id}${owned ? '' : ' — ' + _fmtCompactPrice(_ballSkinPrice(id))}`
+        : `${id} ${id === 'pokeball' ? '∞' : '×'+qty}`;
     }
 
     // Clés (KEY_IDS) — juste maj du badge ✓/✗
@@ -433,17 +471,23 @@ function renderGangBaseWindow() {
   const KEY_IDS   = ['incubator','map_pallet','casino_ticket','silph_keycard','boat_ticket'];
 
   function makeItemTile(id) {
-    const isBall   = BALL_IDS.includes(id);
-    const qty      = id === 'pokeball' ? Infinity : (state.inventory?.[id] || 0);
-    const isBoost  = BOOST_IDS.includes(id);
-    const isActive = isBall && state.activeBall === id;
-    const isBoosted= isBoost && isBoostActive(id);
-    const owned    = qty > 0;
-    const remStr   = isBoosted ? `<span class="base-item-rem">${Math.ceil(boostRemaining(id))}s</span>` : '';
-    const qtyBadge = owned
-      ? `<span class="base-item-qty">${id === 'pokeball' ? '∞' : qty > 99 ? '99+' : '×'+qty}</span>`
-      : `<span class="base-item-qty zero">0</span>`;
-    return `<div class="base-item-tile${isActive ? ' active' : ''}${isBoosted ? ' boosted' : ''}" data-bag-item="${id}" title="${id} ${id === 'pokeball' ? '∞' : '×'+qty}">
+    const isBall     = BALL_IDS.includes(id);
+    const isBallSkin = isBall && id !== 'pokeball';
+    const qty        = id === 'pokeball' ? Infinity : (state.inventory?.[id] || 0);
+    const isBoost    = BOOST_IDS.includes(id);
+    const isActive   = isBall && state.activeBall === id;
+    const isBoosted  = isBoost && isBoostActive(id);
+    const owned      = isBallSkin ? !!state.purchases?.[`skin_${id}`] : qty > 0;
+    const remStr     = isBoosted ? `<span class="base-item-rem">${Math.ceil(boostRemaining(id))}s</span>` : '';
+    const qtyBadge = isBallSkin
+      ? (owned ? `<span class="base-item-qty on">✓</span>` : `<span class="base-item-qty zero">${_fmtCompactPrice(_ballSkinPrice(id))}</span>`)
+      : owned
+        ? `<span class="base-item-qty">${id === 'pokeball' ? '∞' : qty > 99 ? '99+' : '×'+qty}</span>`
+        : `<span class="base-item-qty zero">0</span>`;
+    const titleAttr = isBallSkin
+      ? `${id}${owned ? '' : ' — ' + _fmtCompactPrice(_ballSkinPrice(id))}`
+      : `${id} ${id === 'pokeball' ? '∞' : '×'+qty}`;
+    return `<div class="base-item-tile${isActive ? ' active' : ''}${isBoosted ? ' boosted' : ''}" data-bag-item="${id}" title="${titleAttr}">
       <div class="base-item-sprite${owned ? '' : ' locked'}">${itemSprite(id)}</div>
       ${qtyBadge}${remStr}
     </div>`;
@@ -713,19 +757,23 @@ function renderGangBaseWindowV2() {
   const KEY_IDS   = ['incubator','map_pallet','casino_ticket','silph_keycard','boat_ticket'];
 
   function _v2tile(id, isKey = false) {
-    const isBall   = BALL_IDS.includes(id);
-    const qty      = id === 'pokeball' ? Infinity : (state.inventory?.[id] || 0);
-    const isBoost  = BOOST_IDS.includes(id);
-    const isActive = isBall && state.activeBall === id;
-    const isBoosted= isBoost && isBoostActive?.(id);
-    const owned    = qty > 0;
-    const remStr   = isBoosted ? `<span class="gb2-item-rem">${Math.ceil(boostRemaining?.(id) || 0)}s</span>` : '';
+    const isBall     = BALL_IDS.includes(id);
+    const isBallSkin = isBall && id !== 'pokeball';
+    const qty        = id === 'pokeball' ? Infinity : (state.inventory?.[id] || 0);
+    const isBoost    = BOOST_IDS.includes(id);
+    const isActive   = isBall && state.activeBall === id;
+    const isBoosted  = isBoost && isBoostActive?.(id);
+    const owned      = isBallSkin ? !!state.purchases?.[`skin_${id}`] : qty > 0;
+    const remStr     = isBoosted ? `<span class="gb2-item-rem">${Math.ceil(boostRemaining?.(id) || 0)}s</span>` : '';
     const qtyBadge = isKey
       ? `<span class="gb2-item-qty ${owned ? 'on' : 'off'}">${owned ? '✓' : '✗'}</span>`
-      : `<span class="gb2-item-qty">${id === 'pokeball' ? '∞' : qty > 99 ? '99+' : qty > 0 ? '×'+qty : '0'}</span>`;
+      : isBallSkin
+        ? `<span class="gb2-item-qty">${owned ? '✓' : _fmtCompactPrice(_ballSkinPrice(id))}</span>`
+        : `<span class="gb2-item-qty">${id === 'pokeball' ? '∞' : qty > 99 ? '99+' : qty > 0 ? '×'+qty : '0'}</span>`;
     const lockCls  = isKey && !owned ? ' locked-key' : '';
     const spriteCls = !owned && !isKey ? ' locked' : '';
-    return `<div class="gb2-item-tile${isActive ? ' active' : ''}${isBoosted ? ' boosted' : ''}${lockCls}" data-bag-item="${id}" title="${id}">
+    const titleAttr = isBallSkin ? `${id}${owned ? '' : ' — ' + _fmtCompactPrice(_ballSkinPrice(id))}` : id;
+    return `<div class="gb2-item-tile${isActive ? ' active' : ''}${isBoosted ? ' boosted' : ''}${lockCls}" data-bag-item="${id}" title="${titleAttr}">
       <div class="${spriteCls}">${itemSprite?.(id) || ''}</div>
       ${qtyBadge}${remStr}
     </div>`;
@@ -1100,10 +1148,7 @@ function bindGangBaseV2(container) {
       const id  = el.dataset.bagItem;
       const qty = state.inventory?.[id] || 0;
       if (BALL_IDS.includes(id)) {
-        state.activeBall = id;
-        _save();
-        globalThis.renderZoneWindows?.();
-        renderGangBasePanel();
+        _handleBallTileClick(id);
         return;
       }
       if (BOOST_IDS.includes(id)) {
@@ -1340,10 +1385,7 @@ function bindGangBase(container) {
       const qty = state.inventory?.[id] || 0;
 
       if (BALL_IDS.includes(id)) {
-        state.activeBall = id;
-        _save();
-        globalThis.renderZoneWindows();
-        renderGangBasePanel();
+        _handleBallTileClick(id);
         return;
       }
       if (BOOST_IDS.includes(id)) {
