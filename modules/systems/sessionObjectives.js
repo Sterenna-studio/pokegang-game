@@ -147,7 +147,7 @@ function boostRemaining(boostId) {
 }
 // Boost durations moved to data/gameplay-config-data.js
 
-function activateBoost(boostId) {
+function activateBoost(boostId, { save = true } = {}) {
   const state = globalThis.state;
   if ((state.inventory[boostId] || 0) <= 0) return false;
   state.inventory[boostId]--;
@@ -155,7 +155,7 @@ function activateBoost(boostId) {
   // Cumulate: extend from current expiry if already active, else from now
   const base = Math.max(Date.now(), state.activeBoosts[boostId] || 0);
   state.activeBoosts[boostId] = base + duration;
-  _save();
+  if (save) _save();
   return true;
 }
 
