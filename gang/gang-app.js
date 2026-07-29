@@ -212,5 +212,6 @@ function switchPanel(panelId) {
 //  Boot
 // ════════════════════════════════════════════════════════════════
 updateTopbar();
+globalThis.applyCosmetics();
 renderNav();
 switchPanel(activePanel);
