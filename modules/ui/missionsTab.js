@@ -120,16 +120,22 @@ function renderMissionsTab() {
     content += renderSection(_t('missions_completed'), claimedStory);
   }
 
-  // ── Bouton "Tout réclamer" ──
+  // ── Bouton "Tout réclamer" — couvre missions ET quêtes horaires ──
   const claimableMissions = MISSIONS.filter(m => isMissionComplete(m) && !isMissionClaimed(m));
-  const claimAllBtn = claimableMissions.length > 0
-    ? `<button id="btnClaimAllMissions" style="font-family:var(--font-pixel);font-size:9px;padding:7px 16px;background:var(--green);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--bg);cursor:pointer;margin-bottom:14px;animation:glow 1.5s ease-in-out infinite">${_t('missions_claim_all', { n: claimableMissions.length })}</button>`
+  const claimableHourlySlots = [0, 1, 2, 3, 4].filter(i => {
+    const q = getHourlyQuest(i);
+    return q && isHourlyComplete(q) && !isHourlyClaimed(i);
+  });
+  const totalClaimable = claimableMissions.length + claimableHourlySlots.length;
+  const claimAllBtn = totalClaimable > 0
+    ? `<button id="btnClaimAllMissions" style="font-family:var(--font-pixel);font-size:9px;padding:7px 16px;background:var(--green);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--bg);cursor:pointer;margin-bottom:14px;animation:glow 1.5s ease-in-out infinite">${_t('missions_claim_all', { n: totalClaimable })}</button>`
     : '';
   el.innerHTML = `<div style="padding:12px">${claimAllBtn}${content}</div>`;
 
-  if (claimableMissions.length > 0) {
+  if (totalClaimable > 0) {
     document.getElementById('btnClaimAllMissions')?.addEventListener('click', () => {
       claimableMissions.forEach(m => claimMission(m));
+      claimableHourlySlots.forEach(i => claimHourlyQuest(i));
       saveState(); updateTopBar();
       renderMissionsTab();
     });
