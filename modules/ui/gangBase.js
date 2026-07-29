@@ -1109,7 +1109,8 @@ function bindGangBaseV2(container) {
       if (BOOST_IDS.includes(id)) {
         const uses = Math.min(_boostMult, qty);
         if (uses > 0) {
-          for (let i = 0; i < uses; i++) globalThis.activateBoost?.(id);
+          for (let i = 0; i < uses; i++) globalThis.activateBoost?.(id, { save: false });
+          _save();
           _notify(_t('gang_base_boost_enabled', { n: uses, seconds: Math.ceil(globalThis.boostRemaining?.(id) || 0) }), 'success');
         }
         globalThis.renderZoneWindows?.();
@@ -1348,7 +1349,8 @@ function bindGangBase(container) {
       if (BOOST_IDS.includes(id)) {
         const uses = Math.min(_boostMult, qty);
         if (uses > 0) {
-          for (let i = 0; i < uses; i++) globalThis.activateBoost(id);
+          for (let i = 0; i < uses; i++) globalThis.activateBoost(id, { save: false });
+          _save();
           const rem = Math.ceil(globalThis.boostRemaining(id));
           _notify(_t('gang_base_boost_enabled', { n: uses, seconds: rem }), 'success');
         }

@@ -51,7 +51,7 @@ const MODAL_EN = {
   info_market_session_label:'Session objectives',
   info_market_session_desc:'Short quests active during your session. Immediate rewards.',
   info_market_balls_label:'Balls',
-  info_market_balls_desc:'Each type improves the maximum catch potential. Poké Ball → Great → Ultra → Master Ball (probabilistic for legendaries).',
+  info_market_balls_desc:'Poké Ball — the single capture resource, bought in the shop. The other types (Great, Ultra, Dusk, Master) are one-time cosmetic skins: they change how captures look but have no effect on potential.',
   info_market_boosts_label:'Temporary boosts',
   info_market_boosts_desc:'Activated from the Bag in a zone window. Duration 60–120s. Double XP, double loot, shiny radar…',
   info_market_special_label:'Special purchases',
@@ -66,7 +66,7 @@ const MODAL_EN = {
   info_pc_nature_label:'Nature',
   info_pc_nature_desc:'Multiplies 2 stats and penalizes 1, directly affecting CP through the weighted formula.',
   info_pc_potential_label:'Potential ★',
-  info_pc_potential_desc:'Permanent. Determines the Pokémon’s power ceiling. ★5 = S tier. Depends on the Ball used to catch it.',
+  info_pc_potential_desc:'Permanent. Determines the Pokémon’s power ceiling. ★5 = S tier. Rolled randomly on capture, temporarily boostable with the Lucky Incense.',
   info_pc_evo_label:'Evolution',
   info_pc_evo_desc:'Through the Lab. Some evolutions require a minimum level, others a stone. Stats increase significantly.',
   info_pc_daycare_label:'Daycare',
@@ -265,7 +265,7 @@ function showInfoModal(tabId) {
       body: `
         <strong>${_t('info_market_quests_label', 'Quêtes horaires')}</strong> — ${_t('info_market_quests_desc', '3 Moyennes + 2 Difficiles, réinitialisées chaque heure. Reroll possible contre 10 REP.')}<br><br>
         <strong>${_t('info_market_session_label', 'Objectifs de session')}</strong> — ${_t('info_market_session_desc', 'Quêtes courtes actives pendant ta session. Récompenses immédiates.')}<br><br>
-        <strong>${_t('info_market_balls_label', 'Balls')}</strong> — ${_t('info_market_balls_desc', 'Chaque type améliore le potentiel max des captures. Poké Ball → Super → Hyper → Master Ball (probabiliste pour les légendaires).')}<br><br>
+        <strong>${_t('info_market_balls_label', 'Balls')}</strong> — ${_t('info_market_balls_desc', 'Poké Ball — ressource de capture unique, achetable au marché. Les autres types (Super, Hyper, Sombre, Master) sont des skins cosmétiques achetables une fois : ils changent l\'apparence de la capture mais n\'ont aucun effet sur le potentiel.')}<br><br>
         <strong>${_t('info_market_boosts_label', 'Boosts temporaires')}</strong> — ${_t('info_market_boosts_desc', 'Activés depuis le Sac dans la fenêtre de zone. Durée 60–120s. Double XP, double loot, radar shiny…')}<br><br>
         <strong>${_t('info_market_special_label', 'Achats spéciaux')}</strong> — ${_t('info_market_special_desc', 'Déblocables à la réputation : auto-vente, cosmétiques, slots supplémentaires.')}<br><br>
         <span class="dim">${_t('info_market_tip', 'Vends des Pokémon depuis le PC pour financer tes achats. Les rares et ★5 valent beaucoup plus.')}</span>
@@ -278,7 +278,7 @@ function showInfoModal(tabId) {
         <strong>${_t('info_pc_shiny_label', 'Shiny')}</strong> — ${_t('info_pc_shiny_desc', 'Les chromatiques ont un bonus de puissance permanent de <strong>+10%</strong> sur leur PC de base.')}<br><br>
         <strong>${_t('info_pc_variance_label', 'Variance individuelle')}</strong> — ${_t('info_pc_variance_desc', 'Chaque Pokémon reçoit un multiplicateur unique [×0.90–×1.10] assigné à la capture et stocké définitivement. Deux Pokémon identiques peuvent donc différer légèrement de PC.')}<br><br>
         <strong>${_t('info_pc_nature_label', 'Nature')}</strong> — ${_t('info_pc_nature_desc', 'Multiplie 2 stats et en pénalise 1, impactant directement le PC via la formule pondérée.')}<br><br>
-        <strong>${_t('info_pc_potential_label', 'Potentiel ★')}</strong> — ${_t('info_pc_potential_desc', 'Permanent. Détermine le plafond de puissance du Pokémon. ★5 = tier S. Dépend de la Ball utilisée à la capture.')}<br><br>
+        <strong>${_t('info_pc_potential_label', 'Potentiel ★')}</strong> — ${_t('info_pc_potential_desc', 'Permanent. Détermine le plafond de puissance du Pokémon. ★5 = tier S. Tiré aléatoirement à la capture, améliorable temporairement avec l\'Encens Chance.')}<br><br>
         <strong>${_t('info_pc_evo_label', 'Évolution')}</strong> — ${_t('info_pc_evo_desc', 'Via le Labo. Certaines évolutions nécessitent un niveau minimum, d\'autres une pierre. Les stats augmentent significativement.')}<br><br>
         <strong>${_t('info_pc_daycare_label', 'Pension')}</strong> — ${_t('info_pc_daycare_desc', '2 Pokémon compatibles produisent un œuf (incubateur requis). L\'œuf hérite du potentiel des parents.')}<br><br>
         <strong>${_t('info_pc_training_label', 'Salle d\'entraînement')}</strong> — ${_t('info_pc_training_desc', 'Monte en niveau des Pokémon passifs. Coût en ₽ croissant avec le niveau.')}<br><br>
