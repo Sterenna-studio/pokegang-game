@@ -9,7 +9,7 @@
 // classic-script data globals used by hints: POKEMON_GEN1
 //
 // Dépendances globalThis (switchTab/updateTopBar/renderAll/initKeyboardShortcuts) :
-//   state, resetPcRenderCache, notify, checkBallAssist, checkTitleUnlocks, addMoney,
+//   state, resetPcRenderCache, notify, checkTitleUnlocks, addMoney,
 //   _saveSessionActivity, getSessionDelta, getNextObjective, closeZoneWindow
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
@@ -338,7 +338,6 @@ function _updateTopBarImpl() {
   const pkCountEl = document.getElementById('pokemonCountDisplay');
   if (pkCountEl) pkCountEl.innerHTML = `<img src="${ITEM_SPRITE_URLS.pokeball}" style="width:20px;height:20px;image-rendering:pixelated" onerror="this.style.display='none'"> ${state.pokemons.length.toLocaleString()}`;
 
-  globalThis.checkBallAssist?.();
   globalThis.checkTitleUnlocks?.();
 
   // Session delta bar

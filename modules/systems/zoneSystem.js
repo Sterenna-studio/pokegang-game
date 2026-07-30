@@ -6,7 +6,7 @@
 //  Globals read from app.js via globalThis:
 //    state, pick, randInt, uid, clamp, weightedPick
 //    calculateStats, makePokemon, speciesName, notify, saveState
-//    isBoostActive, isBallAssistActive, grantAgentXP, levelUpPokemon
+//    isBoostActive, grantAgentXP, levelUpPokemon
 //    tryAutoIncubate, updateTopBar, openCombatPopup
 //    addBattleLogEntry, pushFeedEvent, addLog
 //    resolveBackgroundSpawnForZone, backgroundZoneTimers, openZones
@@ -523,18 +523,6 @@ function rollChestLoot(zoneId, passive = false) {
   globalThis.addZoneXP?.(zoneId, 'chest'); // XP de zone v2
 
   switch (loot.type) {
-    case 'balls': {
-      let qty = globalThis.randInt(loot.qty[0], loot.qty[1]);
-      if (globalThis.isBallAssistActive()) qty *= 2; // early-game assist silencieux
-      if (passive) {
-        const zs = initZone(zoneId);
-        zs.pendingItems = zs.pendingItems || {};
-        zs.pendingItems[loot.ballType] = (zs.pendingItems[loot.ballType] || 0) + qty;
-      } else {
-        state.inventory[loot.ballType] = (state.inventory[loot.ballType] || 0) + qty;
-      }
-      return { msg: `📦 ${qty}x ${name}`, type: 'success' };
-    }
     case 'money': {
       const amount = globalThis.randInt(loot.qty[0], loot.qty[1]);
       if (passive) {
