@@ -20,16 +20,9 @@ const _t = (fr, en) => (globalThis.state?.lang === 'en' ? en : fr);
 const _gangCollapsed = { services: false, stats: false };
 let _statsViewMode = 'session';
 
-let _gangTabLocked        = false;
 let _gangTabTimer         = null;
 let _gangTabPendingRender = false;
 let _gangFocusOutWired    = false;
-
-export function lockGangTab()   { _gangTabLocked = true; }
-export function unlockGangTab() {
-  _gangTabLocked = false;
-  if (_gangTabPendingRender) { _gangTabPendingRender = false; renderGangTab(); }
-}
 
 function _ensureGangFocusOutHandler(tab) {
   if (_gangFocusOutWired) return;
@@ -165,7 +158,6 @@ function _buildServicesHtml(state) {
 
 // ── Main Gang tab ─────────────────────────────────────────────────────────────
 function renderGangTab() {
-  if (_gangTabLocked) { _gangTabPendingRender = true; return; }
   if (_gangTabTimer) { clearTimeout(_gangTabTimer); _gangTabTimer = null; }
   _gangTabTimer = setTimeout(() => {
     _gangTabTimer = null;
@@ -550,6 +542,4 @@ _registerGangTabEvents();
 
 Object.assign(globalThis, {
   _gtab_renderGangTab: renderGangTab,
-  lockGangTab,
-  unlockGangTab,
 });
