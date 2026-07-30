@@ -15,7 +15,6 @@
 import { EventBus, EVENTS } from '../core/eventBus.js';
 import { SFX, MusicPlayer } from './audio.js';
 import { ITEM_SPRITE_URLS } from '../../data/assets-data.js';
-import { BALLS } from '../../data/economy-data.js';
 import { KANTO_DEX_MIN, KANTO_DEX_MAX } from '../../data/game-config-data.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type });
@@ -341,19 +340,6 @@ function _updateTopBarImpl() {
 
   globalThis.checkBallAssist?.();
   globalThis.checkTitleUnlocks?.();
-
-  // Auto-buy ball
-  if (state.settings.autoBuyBall) {
-    const ballId = state.settings.autoBuyBall;
-    if ((state.inventory[ballId] || 0) === 0) {
-      const ballDef = BALLS[ballId];
-      if (ballDef && state.gang.money >= ballDef.cost) {
-        state.inventory[ballId] = (state.inventory[ballId] || 0) + 1;
-        globalThis.addMoney?.(-ballDef.cost);
-        _notify(_t(`🔄 Achat auto : 1× ${ballDef.fr}`, `🔄 Auto-buy: 1× ${ballDef.en ?? ballDef.fr}`), 'success');
-      }
-    }
-  }
 
   // Session delta bar
   globalThis._saveSessionActivity?.();

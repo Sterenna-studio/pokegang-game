@@ -109,7 +109,8 @@ export function migrateSave(saved, deps) {
   if (!merged.behaviourLogs.tabViewCounts) merged.behaviourLogs.tabViewCounts = {};
 
   // ── Settings guards ──────────────────────────────────────────────────────────
-  if (merged.settings.autoBuyBall   === undefined) merged.settings.autoBuyBall   = null;
+  // autoBuyBall retiré : plus de stock de balls à racheter automatiquement.
+  delete merged.settings.autoBuyBall;
   if (merged.settings.uiScale       === undefined) merged.settings.uiScale       = 100;
   if (merged.settings.musicVol      === undefined) merged.settings.musicVol      = 50;
   if (merged.settings.sfxVol        === undefined) merged.settings.sfxVol        = 80;

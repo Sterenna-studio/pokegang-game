@@ -1403,17 +1403,6 @@ function bindGangBase(container) {
     });
   });
 
-  // Auto-buy ball toggle
-  container.querySelectorAll('[data-auto-ball]').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      const ballId = btn.dataset.autoBall;
-      state.settings.autoBuyBall = (state.settings.autoBuyBall === ballId) ? null : ballId;
-      _save();
-      renderGangBasePanel();
-    });
-  });
-
   // Export button
   container.querySelector('.base-export-btn')?.addEventListener('click', openExportModal);
 }
