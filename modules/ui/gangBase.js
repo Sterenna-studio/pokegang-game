@@ -5,7 +5,7 @@
 //
 //  Globals read from app.js via globalThis:
 //    state, notify, saveState, renderZoneWindows
-//    speciesName, pokeSprite, trainerSprite, itemSprite, safeTrainerImg, pokemonDisplayName
+//    speciesName, pokeSprite, trainerSprite, itemSprite, pokemonDisplayName
 //    getPokemonPower, calculateStats, calculatePrice
 //    isBoostActive, boostRemaining, activateBoost
 //    openTeamPicker, switchTab, showConfirm, buyItem
@@ -45,7 +45,6 @@ const pokeSprite    = (...a) => globalThis.pokeSprite?.(...a)    ?? '';
 const trainerSprite = (...a) => globalThis.trainerSprite?.(...a) ?? '';
 const speciesName   = (...a) => globalThis.speciesName?.(...a)   ?? a[0] ?? '';
 const itemSprite    = (...a) => globalThis.itemSprite?.(...a)     ?? '';
-const safeTrainerImg = (...a) => globalThis.safeTrainerImg?.(...a) ?? '';
 
 
 /* globals ZONES, ZONE_BY_ID, SPECIES_BY_EN */
@@ -207,6 +206,7 @@ function _buildRenderSig(state) {
     state.gang.bossSprite || '',
     state.inventory?.incubator || 0,
     (state.eggs || []).length,
+    _boostMult,
   ].join('|');
 }
 
@@ -2110,7 +2110,14 @@ function toggleGangParkWindow() {
       const el = document.createElement('div');
       el.id = 'zw-gang_park';
       el.className = 'zone-window gang-park-window';
-      el.style.cssText = 'min-width:340px;max-width:420px;flex-shrink:0;border:2px solid var(--gold-dim);border-radius:var(--radius);background:linear-gradient(160deg,#1a1a2e,#16213e);overflow:hidden;display:flex;flex-direction:column';
+      // Plafonné à la hauteur du panneau Gang Base voisin (#gangBaseContainer) —
+      // sinon la liste d'agents grandit sans limite avec le recrutement et casse
+      // l'alignement côte à côte des deux panneaux. La section agents/formation/
+      // pension a déjà son propre overflow-y:auto ci-dessous ; il lui faut juste
+      // un parent borné pour que ça serve à quelque chose.
+      const baseHeight = document.getElementById('gangBaseContainer')?.offsetHeight;
+      const maxHeight  = baseHeight > 200 ? `${baseHeight}px` : '520px';
+      el.style.cssText = `min-width:340px;max-width:420px;max-height:${maxHeight};flex-shrink:0;border:2px solid var(--gold-dim);border-radius:var(--radius);background:linear-gradient(160deg,#1a1a2e,#16213e);overflow:hidden;display:flex;flex-direction:column`;
       container.prepend(el);
       renderGangParkWindow(el);
     }
@@ -2130,7 +2137,7 @@ function renderGangParkWindow(el) {
     }).join('');
     const zoneName = agent.assignedZone ? (ZONE_BY_ID[agent.assignedZone]?.fr || agent.assignedZone) : '—';
     return `<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.07)">
-      ${safeTrainerImg(agent.sprite || 'acetrainer', { style: 'width:32px;height:32px;image-rendering:pixelated' })}
+      <img src="${agent.sprite || trainerSprite('acetrainer')}" style="width:32px;height:32px;image-rendering:pixelated" alt="" onerror="this.src='${trainerSprite('acetrainer')}'">
       <div style="flex:1;min-width:0">
         <div style="font-size:9px;color:var(--text)">${agent.name}</div>
         <div style="font-size:7px;color:var(--text-dim)">${zoneName}</div>
