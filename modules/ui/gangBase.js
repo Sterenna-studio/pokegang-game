@@ -1601,12 +1601,12 @@ function openExportModal() {
   modal.style.cssText = 'position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center';
 
   const toggleDefs = [
-    ['showVitrine',  '🎭', 'Vitrine'],
-    ['showTitres',   '🏆', 'Titres'],
-    ['showBossTeam', '⚔',  'Équipe Boss'],
-    ['showStats',    '📊', 'Statistiques'],
-    ['showBadges',   '🎖',  'Badges Pokédex'],
-    ['showAgents',   '👥', 'Agents'],
+    ['showVitrine',  '🎭', _t('gang_base_export_toggle_vitrine')],
+    ['showTitres',   '🏆', _t('gang_base_export_toggle_titles')],
+    ['showBossTeam', '⚔',  _t('gang_base_export_toggle_boss_team')],
+    ['showStats',    '📊', _t('gang_base_export_toggle_stats')],
+    ['showBadges',   '🎖',  _t('gang_base_export_toggle_badges')],
+    ['showAgents',   '👥', _t('gang_base_agents')],
   ];
 
   const chkStyle   = 'display:flex;align-items:center;gap:8px;cursor:pointer;font-size:9px;color:var(--text);user-select:none';
@@ -1616,9 +1616,9 @@ function openExportModal() {
   modal.innerHTML = `
     <div style="background:var(--bg-panel);border:2px solid var(--red);border-radius:var(--radius);
       padding:24px;max-width:480px;width:95%;display:flex;flex-direction:column;gap:16px;max-height:90vh;overflow-y:auto">
-      <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold)">📋 EXPORTER MON GANG</div>
+      <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold)">${_t('gang_base_export_modal_title')}</div>
       <div style="display:flex;flex-direction:column;gap:8px">
-        <div style="font-size:8px;color:var(--text-dim);font-family:var(--font-pixel);border-bottom:1px solid var(--border);padding-bottom:4px">SECTIONS À INCLURE</div>
+        <div style="font-size:8px;color:var(--text-dim);font-family:var(--font-pixel);border-bottom:1px solid var(--border);padding-bottom:4px">${_t('gang_base_export_sections_label')}</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px">
           ${toggleDefs.map(([key, icon, label]) => `
             <label style="${chkStyle}">
@@ -1628,18 +1628,18 @@ function openExportModal() {
         </div>
       </div>
       <div style="display:flex;flex-direction:column;gap:8px">
-        <div style="font-size:8px;color:var(--text-dim);font-family:var(--font-pixel);border-bottom:1px solid var(--border);padding-bottom:4px">STYLE DE SPRITES</div>
+        <div style="font-size:8px;color:var(--text-dim);font-family:var(--font-pixel);border-bottom:1px solid var(--border);padding-bottom:4px">${_t('gang_base_export_sprite_style_label')}</div>
         <div style="display:flex;flex-direction:column;gap:6px">
-          <label style="${radioStyle}"><input type="radio" name="xpSprite" value="game" checked class="gb-radio-gold"> 🎮 Sprites du jeu</label>
-          <label style="${radioStyle}"><input type="radio" name="xpSprite" value="gen5" class="gb-radio-gold"> 🖼 Showdown Gen 5 (BW)</label>
-          <label style="${radioStyle}"><input type="radio" name="xpSprite" value="gen1" class="gb-radio-gold"> 👾 Rétro Gen 1</label>
+          <label style="${radioStyle}"><input type="radio" name="xpSprite" value="game" checked class="gb-radio-gold"> ${_t('gang_base_export_sprite_game')}</label>
+          <label style="${radioStyle}"><input type="radio" name="xpSprite" value="gen5" class="gb-radio-gold"> ${_t('gang_base_export_sprite_gen5')}</label>
+          <label style="${radioStyle}"><input type="radio" name="xpSprite" value="gen1" class="gb-radio-gold"> ${_t('gang_base_export_sprite_gen1')}</label>
         </div>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
-        <button id="xpOpen" style="flex:1;font-family:var(--font-pixel);font-size:8px;padding:12px;background:var(--red);border:2px solid var(--red);border-radius:var(--radius-sm);color:#fff;cursor:pointer;min-width:140px">↗ Ouvrir la fiche</button>
-        <button id="xpCancel" style="font-family:var(--font-pixel);font-size:8px;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">✕ Annuler</button>
+        <button id="xpOpen" style="flex:1;font-family:var(--font-pixel);font-size:8px;padding:12px;background:var(--red);border:2px solid var(--red);border-radius:var(--radius-sm);color:#fff;cursor:pointer;min-width:140px">${_t('gang_base_export_open_sheet')}</button>
+        <button id="xpCancel" style="font-family:var(--font-pixel);font-size:8px;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">${_t('gang_base_export_cancel')}</button>
       </div>
-      <div style="font-size:8px;color:var(--text-dim);line-height:1.6">💡 Ctrl+P → PDF · Clic droit → Enregistrer pour PNG</div>
+      <div style="font-size:8px;color:var(--text-dim);line-height:1.6">${_t('gang_base_export_help_hint')}</div>
     </div>`;
 
   document.body.appendChild(modal);
@@ -1658,14 +1658,19 @@ function _exportAsPDF(opts) {
   const state       = globalThis.state;
   const g           = state.gang;
   const card        = buildExportCard(opts);
-  const spriteLabel = { game: 'Jeu', gen5: 'Gen 5', gen1: 'Gen 1' }[opts.spriteGen] || 'Jeu';
+  const spriteLabel = {
+    game: _t('gang_base_export_sprite_label_game'),
+    gen5: _t('gang_base_export_sprite_label_gen5'),
+    gen1: _t('gang_base_export_sprite_label_gen1'),
+  }[opts.spriteGen] || _t('gang_base_export_sprite_label_game');
   const initials    = (g.name || 'PG').split(' ').map(w => (w[0] || '').toUpperCase()).join('').slice(0, 4) || 'PG';
+  const htmlLang    = state.lang === 'en' ? 'en' : 'fr';
 
   const html = `<!DOCTYPE html>
-<html lang="fr">
+<html lang="${htmlLang}">
 <head>
   <meta charset="UTF-8">
-  <title>PokéGang — Dossier ${_esc(g.name)}</title>
+  <title>${_esc(_t('gang_base_export_doc_title', { name: g.name }))}</title>
   <link rel="icon" href="assets/pokegang_logo/pokegang_logo_little.png">
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Special+Elite&family=Stardos+Stencil:wght@400;700&display=swap" rel="stylesheet">
   <style>
@@ -1684,11 +1689,11 @@ function _exportAsPDF(opts) {
 </head>
 <body>
   <div class="toolbar">
-    <span class="toolbar-title">&#9646; DOSSIER &#8212; ${_esc(g.name)}</span>
-    <span class="toolbar-hint">CLASSIFICATION&nbsp;: RESTREINTE &middot; Sprites&nbsp;: ${spriteLabel}</span>
+    <span class="toolbar-title">${_esc(_t('gang_base_export_toolbar_title', { name: g.name }))}</span>
+    <span class="toolbar-hint">${_esc(_t('gang_base_export_toolbar_hint', { label: spriteLabel }))}</span>
     <div class="btns">
-      <button class="btn btn-pdf" onclick="window.print()">&#9113; IMPRIMER / PDF</button>
-      <button class="btn btn-png" onclick="const el=document.querySelector('#export-card-root');if(el){el.style.outline='3px solid #4fc3f7';setTimeout(()=>el.style.outline='',2000);}alert('Clic droit sur la carte → Enregistrer l\\'image')">&#8862; AIDE PNG</button>
+      <button class="btn btn-pdf" onclick="window.print()">${_esc(_t('gang_base_export_print_btn'))}</button>
+      <button class="btn btn-png" onclick="const el=document.querySelector('#export-card-root');if(el){el.style.outline='3px solid #4fc3f7';setTimeout(()=>el.style.outline='',2000);}alert('${_esc(_t('gang_base_export_png_help_alert')).replace(/'/g, "\\'")}')">${_esc(_t('gang_base_export_png_btn'))}</button>
     </div>
   </div>
   ${card.outerHTML}
@@ -1696,11 +1701,11 @@ function _exportAsPDF(opts) {
 </html>`;
 
   const win = window.open('', '_blank');
-  if (!win) { _notify('Autorise les popups pour l\'export PDF', 'error'); return; }
+  if (!win) { _notify(_t('gang_base_export_popup_blocked'), 'error'); return; }
   win.document.open();
   win.document.write(html);
   win.document.close();
-  _notify('📄 Dossier prêt dans un nouvel onglet', 'success');
+  _notify(_t('gang_base_export_ready_notice'), 'success');
 }
 
 // ── EXPORT CARD ───────────────────────────────────────────────────────────
@@ -1737,7 +1742,7 @@ function buildExportCard(opts = {}) {
   const repK      = String(Math.floor((g.reputation || 0) / 100)).padStart(3, '0');
   const fileRef   = initials + '-' + yr + '-' + repK;
   const bookingNr = initials + '—' + String(g.money || 0).replace(/(\d)(?=(\d{3})+$)/g, '$1 ');
-  const dateStr   = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+  const dateStr   = new Date().toLocaleDateString(state.lang === 'en' ? 'en-US' : 'fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' });
   const purchases = state.purchases || {};
   const regionStr = ['KANTO',
     purchases.johtoUnlocked  ? 'JOHTO'  : null,
@@ -1763,11 +1768,11 @@ function buildExportCard(opts = {}) {
   const agents      = state.agents.slice(0, 16);
 
   const badges = [];
-  if (kantoCaught >= kantoTotal)     badges.push({ label:'KANTO COMPLET',   color:'#ffcc5a', icon:'🏅' });
-  if (natCaught   >= natTotal)       badges.push({ label:'NATIONAL COMPLET', color:'#4fc3f7', icon:'🌐' });
-  if (shinySpecies >= 30)            badges.push({ label:'CHASSEUR SHINY',   color:'#e879f9', icon:'✦' });
-  if ((s.totalFightsWon||0) >= 100)  badges.push({ label:'VÉTÉRAN',          color:'#f97316', icon:'⚔' });
-  if ((s.totalCaught||0)   >= 500)   badges.push({ label:'GRAND CHASSEUR',   color:'#22c55e', icon:'◎' });
+  if (kantoCaught >= kantoTotal)     badges.push({ label:_t('gang_base_export_badge_kanto_complete'),   color:'#ffcc5a', icon:'🏅' });
+  if (natCaught   >= natTotal)       badges.push({ label:_t('gang_base_export_badge_national_complete'), color:'#4fc3f7', icon:'🌐' });
+  if (shinySpecies >= 30)            badges.push({ label:_t('gang_base_export_badge_shiny_hunter'),   color:'#e879f9', icon:'✦' });
+  if ((s.totalFightsWon||0) >= 100)  badges.push({ label:_t('gang_base_export_badge_veteran'),          color:'#f97316', icon:'⚔' });
+  if ((s.totalCaught||0)   >= 500)   badges.push({ label:_t('gang_base_export_badge_master_hunter'),   color:'#22c55e', icon:'◎' });
 
   // ── Layout helpers ───────────────────────────────────────────────────────
   const hazardBand = (h, op, extra='') =>
@@ -1785,10 +1790,10 @@ function buildExportCard(opts = {}) {
     'repeating-linear-gradient(90deg,rgba(204,51,51,.4) 0 8px,transparent 8px 12px) center/100% 1px no-repeat"></div>';
 
   const threatOf = pot => {
-    if ((pot || 0) >= 5) return ['ÉLEVÉE',  '#a81c1c'];
-    if ((pot || 0) >= 4) return ['HAUTE',    '#f97316'];
-    if ((pot || 0) >= 3) return ['MODÉRÉE',  '#ffcc5a'];
-    return                     ['FAIBLE',   '#888888'];
+    if ((pot || 0) >= 5) return [_t('gang_base_export_threat_critical'), '#a81c1c'];
+    if ((pot || 0) >= 4) return [_t('gang_base_export_threat_high'),     '#f97316'];
+    if ((pot || 0) >= 3) return [_t('gang_base_export_threat_moderate'), '#ffcc5a'];
+    return                     [_t('gang_base_export_threat_low'),      '#888888'];
   };
 
   // ── Build sections ───────────────────────────────────────────────────────
@@ -1801,14 +1806,14 @@ function buildExportCard(opts = {}) {
     '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 22px 10px;gap:14px">' +
     '<div style="display:flex;align-items:center;gap:14px">' +
     '<div style="display:inline-block;background:#cc3333;color:#070202;font-family:\'Stardos Stencil\',monospace;font-weight:700;font-size:11px;letter-spacing:.16em;padding:5px 10px;clip-path:polygon(0 0,100% 0,calc(100% - 8px) 100%,0 100%)">' +
-      'DOSSIER № ' + fileRef +
+      _esc(_t('gang_base_export_file_no', { ref: fileRef })) +
     '</div>' +
-    '<div style="font-family:\'Stardos Stencil\',monospace;font-size:10px;letter-spacing:.22em;color:#888">SECTION : CRIME ORGANISÉ • ' + regionStr + '</div>' +
+    '<div style="font-family:\'Stardos Stencil\',monospace;font-size:10px;letter-spacing:.22em;color:#888">' + _esc(_t('gang_base_export_division', { region: regionStr })) + '</div>' +
     '</div>' +
-    '<div style="font-family:\'Special Elite\',monospace;font-size:10px;color:#666;letter-spacing:.06em">OUVERT : ' + dateStr + '</div>' +
+    '<div style="font-family:\'Special Elite\',monospace;font-size:10px;color:#666;letter-spacing:.06em">' + _esc(_t('gang_base_export_opened', { date: dateStr })) + '</div>' +
     '</div>' +
     '<div style="border-top:1px solid rgba(204,51,51,.4);border-bottom:1px dashed rgba(204,51,51,.35);padding:6px 22px;font-family:\'Stardos Stencil\',monospace;font-size:10px;letter-spacing:.32em;color:#cc3333">' +
-    '▮▮ CLASSIFICATION : NOIR-ROUGE — DIFFUSION RESTREINTE ▮▮</div>' +
+    _esc(_t('gang_base_export_classification_band')) + '</div>' +
     '</div>';
 
   // ─ Suspect card (manila) ─────────────────────────────────────────────────
@@ -1829,7 +1834,7 @@ function buildExportCard(opts = {}) {
     // coffee stain
     '<div style="position:absolute;top:-22px;right:38px;width:64px;height:64px;border-radius:50%;background:radial-gradient(circle,rgba(94,42,18,.32) 0,rgba(94,42,18,.18) 50%,transparent 70%);pointer-events:none"></div>' +
     // CLASSIFIÉ stamp
-    '<div style="position:absolute;top:8px;right:14px;transform:rotate(-9deg);font-family:\'Stardos Stencil\',monospace;font-weight:700;font-size:24px;letter-spacing:.18em;color:rgba(168,28,28,.55);border:3px solid rgba(168,28,28,.55);padding:4px 12px;border-radius:2px;pointer-events:none;mix-blend-mode:multiply">CLASSIFIÉ</div>' +
+    '<div style="position:absolute;top:8px;right:14px;transform:rotate(-9deg);font-family:\'Stardos Stencil\',monospace;font-weight:700;font-size:24px;letter-spacing:.18em;color:rgba(168,28,28,.55);border:3px solid rgba(168,28,28,.55);padding:4px 12px;border-radius:2px;pointer-events:none;mix-blend-mode:multiply">' + _esc(_t('gang_base_export_classified_stamp')) + '</div>' +
     '<div style="position:relative;display:flex;align-items:flex-start;gap:18px;z-index:1">' +
     // mugshot frame
     '<div style="flex-shrink:0;width:112px">' +
@@ -1844,15 +1849,15 @@ function buildExportCard(opts = {}) {
     '</div>' +
     // dossier form
     '<div style="flex:1;color:#2a1a0e;min-width:0">' +
-    '<div style="font-family:\'Stardos Stencil\',monospace;font-size:10px;letter-spacing:.22em;color:#5a3a1a;border-bottom:1px solid #6b5630;padding-bottom:3px;margin-bottom:8px">▮ FICHE D\'IDENTIFICATION SUSPECT Nº1</div>' +
+    '<div style="font-family:\'Stardos Stencil\',monospace;font-size:10px;letter-spacing:.22em;color:#5a3a1a;border-bottom:1px solid #6b5630;padding-bottom:3px;margin-bottom:8px">' + _esc(_t('gang_base_export_suspect_form')) + '</div>' +
     '<div style="font-family:\'Press Start 2P\',monospace;font-size:24px;color:#a81c1c;line-height:1.1;text-shadow:1px 1px 0 rgba(74,58,31,.35);margin-bottom:6px">' + _esc(g.name) + '</div>' +
     '<div style="display:flex;flex-direction:column;gap:3px;font-family:\'Special Elite\',monospace;font-size:11px;line-height:1.35">' +
-    '<div style="display:flex;gap:6px"><span style="color:#6b5630;min-width:74px">ALIAS :</span><span style="flex:1;border-bottom:1px dotted #6b5630;color:#1a0a04;font-weight:700">' + _esc(g.bossName) + '</span></div>' +
+    '<div style="display:flex;gap:6px"><span style="color:#6b5630;min-width:74px">' + _esc(_t('gang_base_export_alias')) + '</span><span style="flex:1;border-bottom:1px dotted #6b5630;color:#1a0a04;font-weight:700">' + _esc(g.bossName) + '</span></div>' +
     (opts.showTitres && mainTitle
-      ? '<div style="display:flex;gap:6px"><span style="color:#6b5630;min-width:74px">TITRE :</span><span style="flex:1;border-bottom:1px dotted #6b5630;color:#7a4a14">' + _esc(mainTitle) + '</span></div>'
+      ? '<div style="display:flex;gap:6px"><span style="color:#6b5630;min-width:74px">' + _esc(_t('gang_base_export_title_field')) + '</span><span style="flex:1;border-bottom:1px dotted #6b5630;color:#7a4a14">' + _esc(mainTitle) + '</span></div>'
       : '') +
     ((tC || tD) && opts.showTitres
-      ? '<div style="display:flex;gap:6px"><span style="color:#6b5630;min-width:74px">ÉTIQUETTES :</span><span style="display:inline-flex;gap:4px;flex-wrap:wrap">' +
+      ? '<div style="display:flex;gap:6px"><span style="color:#6b5630;min-width:74px">' + _esc(_t('gang_base_export_labels_field')) + '</span><span style="display:inline-flex;gap:4px;flex-wrap:wrap">' +
         (tC ? '<span style="font-size:9px;padding:1px 7px;border:1px solid #2a6b8a;color:#1a4a6b;background:rgba(79,195,247,.18);border-radius:1px">' + _esc(tC) + '</span>' : '') +
         (tD ? '<span style="font-size:9px;padding:1px 7px;border:1px solid #6b2a8a;color:#4a1a6b;background:rgba(206,147,216,.18);border-radius:1px">' + _esc(tD) + '</span>' : '') +
         '</span></div>'
@@ -1860,12 +1865,12 @@ function buildExportCard(opts = {}) {
     '</div>' +
     // key figures
     '<div style="display:flex;gap:16px;margin-top:10px;padding:8px 10px;background:rgba(74,58,31,.12);border:1px dashed #6b5630;border-radius:1px">' +
-    '<div style="flex:1"><div style="font-family:\'Stardos Stencil\',monospace;font-size:8px;letter-spacing:.18em;color:#6b5630">RÉPUTATION</div><div style="font-family:\'Press Start 2P\',monospace;font-size:11px;color:#1a0a04;margin-top:3px">' + (g.reputation || 0).toLocaleString() + '<span style="font-size:8px;color:#7a4a14"> rep</span></div></div>' +
-    '<div style="flex:1;border-left:1px dashed #6b5630;padding-left:14px"><div style="font-family:\'Stardos Stencil\',monospace;font-size:8px;letter-spacing:.18em;color:#6b5630">CAPITAL CIRC.</div><div style="font-family:\'Press Start 2P\',monospace;font-size:11px;color:#1a0a04;margin-top:3px">' + (g.money || 0).toLocaleString() + '<span style="font-size:8px;color:#7a4a14"> ₽</span></div></div>' +
-    '<div style="flex:1;border-left:1px dashed #6b5630;padding-left:14px"><div style="font-family:\'Stardos Stencil\',monospace;font-size:8px;letter-spacing:.18em;color:#6b5630">EFFECTIF</div><div style="font-family:\'Press Start 2P\',monospace;font-size:11px;color:#1a0a04;margin-top:3px">' + state.pokemons.length + '<span style="font-size:8px;color:#7a4a14"> pkmn</span></div></div>' +
+    '<div style="flex:1"><div style="font-family:\'Stardos Stencil\',monospace;font-size:8px;letter-spacing:.18em;color:#6b5630">' + _esc(_t('gang_base_export_reputation')) + '</div><div style="font-family:\'Press Start 2P\',monospace;font-size:11px;color:#1a0a04;margin-top:3px">' + (g.reputation || 0).toLocaleString() + '<span style="font-size:8px;color:#7a4a14"> ' + _esc(_t('gang_base_export_rep_suffix')) + '</span></div></div>' +
+    '<div style="flex:1;border-left:1px dashed #6b5630;padding-left:14px"><div style="font-family:\'Stardos Stencil\',monospace;font-size:8px;letter-spacing:.18em;color:#6b5630">' + _esc(_t('gang_base_export_funds')) + '</div><div style="font-family:\'Press Start 2P\',monospace;font-size:11px;color:#1a0a04;margin-top:3px">' + (g.money || 0).toLocaleString() + '<span style="font-size:8px;color:#7a4a14"> ₽</span></div></div>' +
+    '<div style="flex:1;border-left:1px dashed #6b5630;padding-left:14px"><div style="font-family:\'Stardos Stencil\',monospace;font-size:8px;letter-spacing:.18em;color:#6b5630">' + _esc(_t('gang_base_export_headcount')) + '</div><div style="font-family:\'Press Start 2P\',monospace;font-size:11px;color:#1a0a04;margin-top:3px">' + state.pokemons.length + '<span style="font-size:8px;color:#7a4a14"> pkmn</span></div></div>' +
     '</div>' +
     // signature line
-    '<div style="display:flex;justify-content:space-between;font-family:\'Special Elite\',monospace;font-size:9px;color:#6b5630;margin-top:10px"><span>SIGNATURE AGENT : ____________________</span><span>DATE : __ / __ / __</span></div>' +
+    '<div style="display:flex;justify-content:space-between;font-family:\'Special Elite\',monospace;font-size:9px;color:#6b5630;margin-top:10px"><span>' + _esc(_t('gang_base_export_signature')) + '</span><span>' + _esc(_t('gang_base_export_date_field')) + '</span></div>' +
     '</div>' + // end dossier form
     '</div>' + // end flex row
     '</div>' + // end manila
@@ -1880,8 +1885,8 @@ function buildExportCard(opts = {}) {
       const tape = tapeRots[i % 4];
       if (!pk) {
         return '<div style="position:relative;width:158px;background:rgba(216,199,154,.08);padding:10px 10px 32px;border:1px dashed #6b5630;transform:rotate(' + rot + ');opacity:.5">' +
-          '<div style="background:rgba(0,0,0,.5);height:118px;display:flex;align-items:center;justify-content:center;border:1px dashed #6b5630;font-family:\'Stardos Stencil\',monospace;font-size:11px;letter-spacing:.18em;color:#6b5630">VACANT</div>' +
-          '<div style="font-family:\'Special Elite\',monospace;font-size:10px;color:#6b5630;margin-top:8px">— en attente —</div>' +
+          '<div style="background:rgba(0,0,0,.5);height:118px;display:flex;align-items:center;justify-content:center;border:1px dashed #6b5630;font-family:\'Stardos Stencil\',monospace;font-size:11px;letter-spacing:.18em;color:#6b5630">' + _esc(_t('gang_base_export_vacant')) + '</div>' +
+          '<div style="font-family:\'Special Elite\',monospace;font-size:10px;color:#6b5630;margin-top:8px">' + _esc(_t('gang_base_export_pending')) + '</div>' +
           '<div style="position:absolute;bottom:-10px;left:-8px;transform:rotate(-3deg);background:#3a2410;color:#d8c79a;font-family:\'Stardos Stencil\',monospace;font-size:9px;letter-spacing:.14em;padding:3px 8px;border:1px solid #1a0a04">Nº A-00' + (i + 1) + '</div>' +
           '</div>';
       }
@@ -1894,14 +1899,14 @@ function buildExportCard(opts = {}) {
         '<span style="font-family:\'Special Elite\',monospace;font-size:11px;font-weight:700">' + _esc(pokemonDisplayName(pk)) + (pk.shiny ? ' ✦' : '') + '</span>' +
         '<span style="font-family:\'Special Elite\',monospace;font-size:8px;color:#7a4a14">Lv.' + (pk.level || 1) + '</span>' +
         '</div>' +
-        '<div style="font-family:\'Special Elite\',monospace;font-size:8px;color:#7a4a14">POTENTIEL ' + '★'.repeat(pk.potential || 0) + '</div>' +
+        '<div style="font-family:\'Special Elite\',monospace;font-size:8px;color:#7a4a14">' + _esc(_t('gang_base_export_potential')) + ' ' + '★'.repeat(pk.potential || 0) + '</div>' +
         '<div style="position:absolute;bottom:-10px;left:-8px;transform:rotate(-' + (3 + i) + 'deg);background:#cc3333;color:#fff;font-family:\'Stardos Stencil\',monospace;font-size:9px;letter-spacing:.14em;padding:3px 8px;border:1px solid #4a0c0c;box-shadow:0 1px 3px rgba(0,0,0,.6)">Nº A-00' + (i + 1) + ' · ' + calculatePrice(pk).toLocaleString() + '₽</div>' +
         '</div>';
     }).join('');
 
     sections +=
       '<div style="position:relative;z-index:2;padding:4px 22px 24px">' +
-      sectionHdr('PIÈCES À CONVICTION', 'VITRINE / EXHIBITS') +
+      sectionHdr(_t('gang_base_export_evidence_hdr'), _t('gang_base_export_evidence_sub')) +
       '<div style="display:flex;justify-content:center;gap:18px;flex-wrap:wrap">' + polHtml + '</div>' +
       '</div>';
     sections += perfDivider();
@@ -1919,7 +1924,7 @@ function buildExportCard(opts = {}) {
         '</div>' +
         '<div style="font-family:\'Special Elite\',monospace;font-size:10px;color:#e0e0e0;font-weight:700;margin-top:6px">' + _esc(speciesName(pk.species_en)) + (pk.shiny ? ' ✦' : '') + '</div>' +
         '<div style="display:flex;justify-content:space-between;font-family:\'Special Elite\',monospace;font-size:8px;color:#888;margin-top:1px"><span>' + '★'.repeat(pk.potential || 0) + '</span><span>Lv.' + (pk.level || 1) + '</span></div>' +
-        '<div style="font-family:\'Special Elite\',monospace;font-size:7px;color:' + tColor + ';letter-spacing:.1em;margin-top:3px">MENACE : ' + threat + '</div>' +
+        '<div style="font-family:\'Special Elite\',monospace;font-size:7px;color:' + tColor + ';letter-spacing:.1em;margin-top:3px">' + _esc(_t('gang_base_export_threat')) + ' ' + threat + '</div>' +
         '</div>';
     }).join('');
 
@@ -1929,24 +1934,24 @@ function buildExportCard(opts = {}) {
         '<div style="position:absolute;top:-2px;right:-2px;width:14px;height:14px;border-top:3px solid #cc3333;border-right:3px solid #cc3333"></div>' +
         '<div style="position:absolute;bottom:-2px;left:-2px;width:14px;height:14px;border-bottom:3px solid #cc3333;border-left:3px solid #cc3333"></div>' +
         '<div style="position:absolute;bottom:-2px;right:-2px;width:14px;height:14px;border-bottom:3px solid #cc3333;border-right:3px solid #cc3333"></div>' +
-        '<div style="text-align:center;font-family:\'Stardos Stencil\',monospace;font-weight:700;font-size:10px;letter-spacing:.2em;color:#ffcc5a;border-bottom:1px dashed rgba(255,204,90,.4);padding-bottom:6px;margin-bottom:8px">⚠ PRIORITÉ MAXIMALE</div>' +
+        '<div style="text-align:center;font-family:\'Stardos Stencil\',monospace;font-weight:700;font-size:10px;letter-spacing:.2em;color:#ffcc5a;border-bottom:1px dashed rgba(255,204,90,.4);padding-bottom:6px;margin-bottom:8px">' + _esc(_t('gang_base_export_top_priority')) + '</div>' +
         '<div style="background:#070202;height:108px;display:flex;align-items:center;justify-content:center;border:1px solid #4a3a1f;position:relative">' +
         '<div style="position:absolute;inset:0;background:linear-gradient(90deg,transparent 49%,rgba(204,51,51,.35) 49%,rgba(204,51,51,.35) 51%,transparent 51%),linear-gradient(0deg,transparent 49%,rgba(204,51,51,.35) 49%,rgba(204,51,51,.35) 51%,transparent 51%);mix-blend-mode:screen"></div>' +
         '<div style="position:absolute;inset:14px;border:1px dashed rgba(255,204,90,.35);border-radius:50%"></div>' +
         '<img src="' + _pkSprite(mvp.species_en, mvp.shiny) + '" width="92" height="92" style="image-rendering:pixelated;position:relative" onerror="this.style.visibility=\'hidden\'">' +
         '</div>' +
         '<div style="text-align:center;font-family:\'Special Elite\',monospace;font-size:12px;color:#fff;margin-top:8px;font-weight:700">' + _esc(speciesName(mvp.species_en)) + (mvp.shiny ? ' ✦' : '') + '</div>' +
-        '<div style="text-align:center;font-family:\'Stardos Stencil\',monospace;font-size:9px;letter-spacing:.18em;color:#ffcc5a;margin-top:2px">PRIME : ' + calculatePrice(mvp).toLocaleString() + ' ₽</div>' +
+        '<div style="text-align:center;font-family:\'Stardos Stencil\',monospace;font-size:9px;letter-spacing:.18em;color:#ffcc5a;margin-top:2px">' + _esc(_t('gang_base_export_bounty')) + ' ' + calculatePrice(mvp).toLocaleString() + ' ₽</div>' +
         '</div>'
       : '';
 
     sections +=
       '<div style="position:relative;z-index:2;padding:6px 22px 14px">' +
-      sectionHdr('COMPLICES IDENTIFIÉS', 'ÉQUIPE BOSS / KNOWN ASSOCIATES') +
+      sectionHdr(_t('gang_base_export_accomplices_hdr'), _t('gang_base_export_accomplices_sub')) +
       '<div style="display:flex;align-items:flex-start;gap:14px">' +
       (teamPks.length
         ? '<div style="flex:1;display:grid;grid-template-columns:repeat(' + tcols + ',1fr);gap:10px">' + mugshotsHtml + '</div>'
-        : '<div style="flex:1;font-family:\'Special Elite\',monospace;font-size:11px;color:#555;padding:10px 0">— Aucun complice répertorié —</div>') +
+        : '<div style="flex:1;font-family:\'Special Elite\',monospace;font-size:11px;color:#555;padding:10px 0">' + _esc(_t('gang_base_export_no_accomplice')) + '</div>') +
       mvpHtml +
       '</div>' +
       '</div>';
@@ -1956,16 +1961,16 @@ function buildExportCard(opts = {}) {
   // ─ Stats + Badges (Casier judiciaire) ────────────────────────────────────
   if (opts.showStats || opts.showBadges) {
     const statEntries = [
-      ['⚔ Victoires',     (s.totalFightsWon || 0).toLocaleString(),         '#fff'],
-      ['◎ Captures',      (s.totalCaught    || 0).toLocaleString(),         '#fff'],
-      ['✦ Chromas cap.',  (s.shinyCaught    || 0).toLocaleString(),         '#ffcc5a'],
-      ['◇ Espèces shiny', String(shinySpecies),                        '#ffcc5a'],
-      ['◰ Coffres',       (s.chestsOpened   || 0).toLocaleString(),         '#fff'],
-      ['⌖ Agents',        String(state.agents.length),                      '#fff'],
-      ['₽ Actuels',       (g.money           || 0).toLocaleString() + '₽','#fff'],
-      ['₽ Cumulé',   (s.totalMoneyEarned||0).toLocaleString() + '₽','#fff'],
-      ['▤ Kanto',         kantoCaught + ' / ' + kantoTotal,       '#4fc3f7'],
-      ['⊕ National',      natCaught   + ' / ' + natTotal,         '#fff'],
+      [_t('gang_base_export_stat_wins'),     (s.totalFightsWon || 0).toLocaleString(),         '#fff'],
+      [_t('gang_base_export_stat_catches'),      (s.totalCaught    || 0).toLocaleString(),         '#fff'],
+      [_t('gang_base_export_stat_shinies'),  (s.shinyCaught    || 0).toLocaleString(),         '#ffcc5a'],
+      [_t('gang_base_export_stat_shiny_species'), String(shinySpecies),                        '#ffcc5a'],
+      [_t('gang_base_export_stat_chests'),       (s.chestsOpened   || 0).toLocaleString(),         '#fff'],
+      [_t('gang_base_export_stat_agents'),        String(state.agents.length),                      '#fff'],
+      [_t('gang_base_export_stat_money_now'),       (g.money           || 0).toLocaleString() + '₽','#fff'],
+      [_t('gang_base_export_stat_money_total'),   (s.totalMoneyEarned||0).toLocaleString() + '₽','#fff'],
+      [_t('gang_base_export_stat_kanto'),         kantoCaught + ' / ' + kantoTotal,       '#4fc3f7'],
+      [_t('gang_base_export_stat_national'),      natCaught   + ' / ' + natTotal,         '#fff'],
     ];
     const statRowsHtml = opts.showStats
       ? statEntries.map(([label, value, color]) =>
@@ -1989,17 +1994,17 @@ function buildExportCard(opts = {}) {
 
     sections +=
       '<div style="position:relative;z-index:2;padding:6px 22px 14px">' +
-      sectionHdr('CASIER JUDICIAIRE', 'STATISTIQUES OFFICIELLES') +
+      sectionHdr(_t('gang_base_export_record_hdr'), _t('gang_base_export_record_sub')) +
       '<div style="display:flex;gap:16px;align-items:flex-start">' +
       (opts.showStats
         ? '<div style="flex:1;background:linear-gradient(180deg,rgba(216,199,154,.04),rgba(216,199,154,.02));border:1px solid rgba(107,86,48,.45);padding:12px 14px;position:relative">' +
-          '<div style="position:absolute;top:-7px;left:10px;background:#0a0404;padding:0 6px;font-family:\'Stardos Stencil\',monospace;font-size:9px;letter-spacing:.18em;color:#cc3333">FORMULAIRE F-04 / B</div>' +
+          '<div style="position:absolute;top:-7px;left:10px;background:#0a0404;padding:0 6px;font-family:\'Stardos Stencil\',monospace;font-size:9px;letter-spacing:.18em;color:#cc3333">' + _esc(_t('gang_base_export_form_ref')) + '</div>' +
           '<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 22px">' + statRowsHtml + '</div>' +
           '</div>'
         : '') +
       (opts.showBadges && badges.length
         ? '<div style="flex:0 0 210px;display:flex;flex-direction:column;gap:8px">' +
-          '<div style="font-family:\'Stardos Stencil\',monospace;font-size:9px;letter-spacing:.2em;color:#888;text-align:right">— DISTINCTIONS —</div>' +
+          '<div style="font-family:\'Stardos Stencil\',monospace;font-size:9px;letter-spacing:.2em;color:#888;text-align:right">' + _esc(_t('gang_base_export_distinctions')) + '</div>' +
           badgesHtml +
           '</div>'
         : '') +
@@ -2012,7 +2017,7 @@ function buildExportCard(opts = {}) {
   if (opts.showAgents && agents.length > 0) {
     const agRowsHtml = agents.map((ag, idx) => {
       const agPks    = ag.team.map(id => state.pokemons.find(p => p.id === id)).filter(Boolean);
-      const zoneName = ag.assignedZone ? (ZONE_BY_ID[ag.assignedZone]?.fr || ag.assignedZone) : 'Sans zone';
+      const zoneName = ag.assignedZone ? _baseZoneName(ZONE_BY_ID[ag.assignedZone], state) : _t('gang_base_reserve');
       const miniPks  = agPks.slice(0, 3).map(pk =>
         '<div style="display:flex;flex-direction:column;align-items:center">' +
         '<img src="' + _pkSprite(pk.species_en, pk.shiny) + '" width="30" height="30" style="image-rendering:pixelated" onerror="this.style.visibility=\'hidden\'">' +
@@ -2033,7 +2038,7 @@ function buildExportCard(opts = {}) {
 
     sections +=
       '<div style="position:relative;z-index:2;padding:6px 22px 18px">' +
-      sectionHdr('INFORMANTS / SUBORDONNÉS', 'ROSTER') +
+      sectionHdr(_t('gang_base_export_informants_hdr'), _t('gang_base_export_informants_sub')) +
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 10px">' + agRowsHtml + '</div>' +
       '</div>';
   }
@@ -2042,12 +2047,12 @@ function buildExportCard(opts = {}) {
   sections +=
     '<div style="position:relative;z-index:2;background:#070202;border-top:1px solid #2a0a0a;margin-top:6px">' +
     '<div style="display:flex;align-items:center;gap:14px;padding:14px 22px">' +
-    '<div style="flex:0 0 auto;transform:rotate(-4deg);font-family:\'Stardos Stencil\',monospace;font-weight:700;font-size:14px;letter-spacing:.18em;color:rgba(204,51,51,.6);border:2px solid rgba(204,51,51,.6);padding:3px 10px">FIN DU DOSSIER</div>' +
+    '<div style="flex:0 0 auto;transform:rotate(-4deg);font-family:\'Stardos Stencil\',monospace;font-weight:700;font-size:14px;letter-spacing:.18em;color:rgba(204,51,51,.6);border:2px solid rgba(204,51,51,.6);padding:3px 10px">' + _esc(_t('gang_base_export_end_of_file')) + '</div>' +
     '<div style="flex:1;font-family:\'Special Elite\',monospace;font-size:9px;color:#666;text-align:center;line-height:1.5">' +
-    '<div>« Reproduction interdite — usage interne uniquement »</div>' +
-    '<div style="color:#444;margin-top:2px">PokéGang Bureau Central · Section Crime Organisé · ' + regionStr + '-' + yr + '</div>' +
+    '<div>' + _esc(_t('gang_base_export_footer_quote')) + '</div>' +
+    '<div style="color:#444;margin-top:2px">' + _esc(_t('gang_base_export_footer_bureau', { region: regionStr, yr: String(yr) })) + '</div>' +
     '</div>' +
-    '<div style="font-family:\'Stardos Stencil\',monospace;font-size:10px;letter-spacing:.16em;color:#cc3333;text-align:right">PAGE 1 / 1</div>' +
+    '<div style="font-family:\'Stardos Stencil\',monospace;font-size:10px;letter-spacing:.16em;color:#cc3333;text-align:right">' + _esc(_t('gang_base_export_page')) + '</div>' +
     '</div>' +
     hazardBand(14, '.85', 'border-top:1px solid rgba(0,0,0,.6)') +
     '</div>';
