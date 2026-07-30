@@ -313,8 +313,6 @@ const SPECIAL_EVENTS = [
 
 // ── Treasure Chest Loot Table ──────────────────────────────────
 const CHEST_LOOT = [
-  // Poké Balls — ressource unique de capture (anciens types consolidés)
-  { weight:55, type:'balls',   qty:[5,20],  ballType:'pokeball',  fr:'Poké Balls',      en:'Poké Balls'     },
   { weight:20, type:'money',   qty:[500,2000],                    fr:'PokéDollars',      en:'PokéDollars'    },
   { weight:5,  type:'money',   qty:[3000,8000],                   fr:'Jackpot !',        en:'Jackpot!'       },
   { weight:10, type:'rare_pokemon',                               fr:'Pokémon Rare !',   en:'Rare Pokémon!'  },

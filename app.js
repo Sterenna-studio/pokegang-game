@@ -182,7 +182,7 @@ import { BALLS, SHOP_ITEMS, MYSTERY_EGG_BASE_COST, MYSTERY_EGG_POOL, MYSTERY_EGG
 import { NATURES, NATURE_KEYS, BOSS_SPRITES, AGENT_NAMES_M, AGENT_NAMES_F, AGENT_SPRITES, AGENT_PERSONALITIES, TITLE_REQUIREMENTS, TITLE_BONUSES, AGENT_RANK_LABELS, RANK_CHAIN, KANTO_DEX_MIN, KANTO_DEX_MAX, JOHTO_DEX_MIN, JOHTO_DEX_MAX, CHROMA_CHARM_COST } from './data/game-config-data.js';
 import { I18N } from './data/i18n-data.js';
 import { ZONE_BG_URL, GYM_ORDER, JOHTO_GYM_ORDER, HOENN_GYM_ORDER, SINNOH_GYM_ORDER } from './data/zones-config-data.js';
-import { HOURLY_QUEST_REROLL_COST, BOOST_DURATIONS, BALL_ASSIST_MIN_BALLS, BALL_ASSIST_DURATION_MS, PASSIVE_XP_PER_TICK, MAX_LOG_ENTRIES, DEFAULT_MUSIC_VOL, DEFAULT_UI_SCALE, DEFAULT_ZONE_SCALE, TICK_AGENT_MS, TICK_PASSIVE_AGENT_MS, TICK_MISSIONS_UI_MS, TICK_HOURLY_CHECK_MS, TICK_MARKET_DECAY_MS, TICK_VERSION_POLL_MS, TICK_VERSION_FIRST_MS, TICK_AUTO_SAVE_MS, TICK_CLOUD_SAVE_MS, TICK_SNAPSHOT_MS, TICK_LEADERBOARD_MS, TICK_VIVARIUM_SYNC_MS, TICK_TRAINING_MS, TICK_PENSION_MS, TICK_PASSIVE_XP_MS, TICK_ZONE_REFRESH_MS, TICK_DAILY_CHECK_MS, UPDATE_COUNTDOWN_S, DAILY_COUNTDOWN_S, JOHTO_UNLOCK_DELAY_MS } from './data/gameplay-config-data.js';
+import { HOURLY_QUEST_REROLL_COST, BOOST_DURATIONS, PASSIVE_XP_PER_TICK, MAX_LOG_ENTRIES, DEFAULT_MUSIC_VOL, DEFAULT_UI_SCALE, DEFAULT_ZONE_SCALE, TICK_AGENT_MS, TICK_PASSIVE_AGENT_MS, TICK_MISSIONS_UI_MS, TICK_HOURLY_CHECK_MS, TICK_MARKET_DECAY_MS, TICK_VERSION_POLL_MS, TICK_VERSION_FIRST_MS, TICK_AUTO_SAVE_MS, TICK_CLOUD_SAVE_MS, TICK_SNAPSHOT_MS, TICK_LEADERBOARD_MS, TICK_VIVARIUM_SYNC_MS, TICK_TRAINING_MS, TICK_PENSION_MS, TICK_PASSIVE_XP_MS, TICK_ZONE_REFRESH_MS, TICK_DAILY_CHECK_MS, UPDATE_COUNTDOWN_S, DAILY_COUNTDOWN_S, JOHTO_UNLOCK_DELAY_MS } from './data/gameplay-config-data.js';
 import { SPECIAL_TRAINER_KEYS, MAX_COMBAT_REWARD } from './data/combat-config-data.js';
 import { FALLBACK_TRAINER_SVG, BALL_SPRITES, ITEM_SPRITE_URLS, CHEST_SPRITE_URL, LOGO_URL, LOGO_SMALL_URL, EGG_SPRITES } from './data/assets-data.js';
 import { TRANSLATOR_PHRASES_FR } from './data/flavor-data.js';
@@ -665,27 +665,6 @@ Object.defineProperty(globalThis, 'activeTab', {
 });
 // zoneFilter state is now managed inside modules/ui/zoneSelector.js
 
-// ── "Ball assist" early-game helper (silencieux, jamais affiché au joueur) ──
-let _ballAssistUntil = 0; // timestamp de fin de l'assist en cours
-
-function getTotalBalls() {
-  const inv = state.inventory;
-  return Object.keys(BALLS).reduce((sum, key) => sum + (inv[key] || 0), 0);
-}
-
-function checkBallAssist() {
-  if (Date.now() < _ballAssistUntil) return; // déjà actif
-  if (getTotalBalls() < BALL_ASSIST_MIN_BALLS) {
-    _ballAssistUntil = Date.now() + BALL_ASSIST_DURATION_MS;
-  }
-}
-
-Object.assign(globalThis, { checkBallAssist });
-
-function isBallAssistActive() {
-  return Date.now() < _ballAssistUntil;
-}
-
 function hintLink(label, tabId) {
   return hintLinkImpl(label, tabId);
 }
@@ -1086,7 +1065,7 @@ Object.assign(globalThis, {
   checkForNewlyUnlockedZones, showZoneUnlockPopup, _processZoneUnlockQueue,
   startActiveZone, stopActiveZone, pauseZoneIfIdle, syncActiveZones,
   startBackgroundZone, stopBackgroundZone, syncBackgroundZones, // aliases
-  activateEvent, isBallAssistActive, getTeamPower,
+  activateEvent, getTeamPower,
   SPECIAL_TRAINER_KEYS,
   // Zone UI — fenêtres (zoneWindows.js)
   openZoneWindow, closeZoneWindow,
@@ -1142,7 +1121,7 @@ Object.assign(globalThis, {
   MusicPlayer, MUSIC_TRACKS, GAME_VERSION,
   // hubModals module — needs these from app.js scope
   BOSS_SPRITES, SAVE_KEYS, MAX_HISTORY,
-  formatPlaytime, getTotalBalls, getSlotPreview,
+  formatPlaytime, getSlotPreview,
   setActiveSaveSlotValue,
   showIntro,
   // Core infrastructure

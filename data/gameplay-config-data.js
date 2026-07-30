@@ -23,10 +23,6 @@ const AUTO_COMBAT_VISUAL_MS = 1350;
 // proportionnel au niveau de l'agent.
 const AGENT_PRISON_MS = 60 * 60 * 1000; // 1h
 
-// ── Ball assist (early-game helper) ──────────────────────────
-const BALL_ASSIST_MIN_BALLS    = 10;            // seuil : déclenche l'assist sous ce nombre
-const BALL_ASSIST_DURATION_MS  = 2 * 60 * 1000; // 2 minutes
-
 // ── XP passif ────────────────────────────────────────────────
 const PASSIVE_XP_PER_TICK = 3; // XP accordé toutes les 30 s aux Pokémon d'équipe
 
@@ -83,7 +79,6 @@ const PENSION_SHINY_RATE_BOTH   = BASE_SHINY_RATE * 30; // 15% — pension.js, d
 
 export {
   HOURLY_QUEST_REROLL_COST, BOOST_DURATIONS,
-  BALL_ASSIST_MIN_BALLS, BALL_ASSIST_DURATION_MS,
   PASSIVE_XP_PER_TICK, MAX_LOG_ENTRIES,
   DEFAULT_MUSIC_VOL, DEFAULT_UI_SCALE, DEFAULT_ZONE_SCALE,
   TICK_AGENT_MS, TICK_PASSIVE_AGENT_MS, TICK_MISSIONS_UI_MS,
