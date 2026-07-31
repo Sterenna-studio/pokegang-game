@@ -136,6 +136,7 @@ import {
   configureZoneWindowTicks,
   refreshZoneWindowsTick,
 } from './modules/ui/zoneWindows.js';
+import './modules/ui/questEncounterPopup.js';
 import './modules/ui/gangBase.js';
 import './modules/ui/vivariumZone.js';
 import './modules/ui/gangTab.js';

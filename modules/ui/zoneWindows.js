@@ -19,6 +19,10 @@
 //    openZones, zoneSpawns, zoneTimers
 //    ZONE_BGS, ITEM_SPRITE_URLS, BALL_SPRITES, MAX_COMBAT_REWARD
 //    SPECIAL_TRAINER_KEYS
+//    getKantoQuestEncounterForZone (+ getJohtoQuestEncounterForZone /
+//    getHoennQuestEncounterForZone / getSinnohQuestEncounterForZone /
+//    getDeoxysQuestEncounterForZone once migrated) — sprite persistant de
+//    quête dans une fenêtre de zone, voir _getActiveQuestEncounterForZone
 //
 //  Injected via configureZoneWindowTicks(ctx):
 //    getOpenZones, getActiveTab, refreshAllFogTiles
@@ -1510,6 +1514,38 @@ function _openZoneContextMenu(zoneId, clientX, clientY) {
 }
 
 // Build a fresh zone window element (used on first open)
+// ── Quest encounters (dresseur/légendaire de quête) ────────────────
+// Agrège les getters exposés par chaque fichier de mission — chacun renvoie
+// { id, name, icon, spriteUrl?, onClick } si un adversaire de quête doit
+// apparaître comme sprite persistant dans cette zone à l'étape courante,
+// sinon null. Défensif (?.()) : les régions pas encore migrées vers ce
+// système n'exposent simplement pas leur getter.
+function _getActiveQuestEncounterForZone(zoneId) {
+  return globalThis.getKantoQuestEncounterForZone?.(zoneId)
+    ?? globalThis.getJohtoQuestEncounterForZone?.(zoneId)
+    ?? globalThis.getHoennQuestEncounterForZone?.(zoneId)
+    ?? globalThis.getSinnohQuestEncounterForZone?.(zoneId)
+    ?? globalThis.getDeoxysQuestEncounterForZone?.(zoneId)
+    ?? null;
+}
+
+function _questEncounterHtml(enc) {
+  if (!enc) return '';
+  return `<div class="zone-quest-encounter" data-quest-encounter-id="${enc.id}" title="${enc.name}">
+    ${enc.spriteUrl ? `<img src="${enc.spriteUrl}" alt="${enc.name}" onerror="this.style.visibility='hidden'">` : ''}
+    <span class="quest-encounter-badge">!</span>
+    <span class="quest-encounter-name">${enc.icon ? enc.icon + ' ' : ''}${enc.name}</span>
+  </div>`;
+}
+
+function _bindQuestEncounter(win, enc) {
+  if (!enc) return;
+  win.querySelector('[data-quest-encounter-id]')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    enc.onClick?.();
+  });
+}
+
 function buildZoneWindowEl(zoneId) {
   const state = globalThis.state;
   const openZones = globalThis.openZones;
@@ -1520,6 +1556,7 @@ function buildZoneWindowEl(zoneId) {
   const degraded = globalThis.isZoneDegraded(zoneId);
   const ZONE_BGS = globalThis.ZONE_BGS;
   const trainerSprite = globalThis.trainerSprite;
+  const questEncounter = _getActiveQuestEncounterForZone(zoneId);
 
   const activeEvt = globalThis.zoneActivity[zoneId];
   const eventActive = globalThis.getZoneActivityMode(zoneId) === 'event';
@@ -1582,6 +1619,7 @@ function buildZoneWindowEl(zoneId) {
         <img src="${trainerSprite(state.gang.bossSprite)}" alt="Boss" onerror="this.src='${trainerSprite('acetrainer')}'">
         <span class="boss-cd-label" style="display:none;font-family:var(--font-pixel);font-size:7px;color:var(--red);background:rgba(0,0,0,.8);border-radius:2px;padding:1px 3px;white-space:nowrap;position:absolute;top:-14px;left:50%;transform:translateX(-50%)"></span>
       </div>` : ''}
+      ${_questEncounterHtml(questEncounter)}
     </div>
     <div class="zone-slots-bar">
       ${assignedAgents.map(a => `
@@ -1631,6 +1669,8 @@ function buildZoneWindowEl(zoneId) {
     e.stopPropagation();
     _openZoneContextMenu(zoneId, e.clientX, e.clientY);
   });
+
+  _bindQuestEncounter(win, questEncounter);
 
   return win;
 }
@@ -1734,6 +1774,19 @@ function patchZoneWindow(zoneId, win) {
         if (footerRight && _bossSlotInfo) footerRight.insertBefore(bossEl, _bossSlotInfo);
         else footerRight?.appendChild(bossEl);
       }
+    }
+
+    // Quest encounter sprite — dresseur/légendaire de quête, réévalué à
+    // chaque patch pour apparaître/disparaître avec la progression de la
+    // quête sans nécessiter de fermer/rouvrir la fenêtre de zone.
+    viewport.querySelectorAll('.zone-quest-encounter').forEach(el => el.remove());
+    const questEncounter = _getActiveQuestEncounterForZone(zoneId);
+    if (questEncounter) {
+      const tmp = document.createElement('div');
+      tmp.innerHTML = _questEncounterHtml(questEncounter);
+      const encEl = tmp.firstElementChild;
+      viewport.appendChild(encEl);
+      _bindQuestEncounter(win, questEncounter);
     }
   }
 

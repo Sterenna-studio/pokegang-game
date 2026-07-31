@@ -4,34 +4,49 @@
 //  KANTO MISSIONS — Trio des Oiseaux · Mewtwo
 //  Quatre quêtes parallèles inspirées de Pokémon Rouge/Bleu/Jaune.
 //
+//  Le suivi de progression (grind de combats de zone, collecte d'objets)
+//  reste géré ici via l'overlay tracker (_buildTracker/openKantoMissions).
+//  Les affrontements de quête (dresseur intermédiaire + légendaire final)
+//  ne se déclenchent plus depuis cet overlay : une fois l'étape atteinte,
+//  getKantoQuestEncounterForZone(zoneId) fait apparaître le dresseur/
+//  légendaire comme sprite persistant dans sa zone de lore (agrégé par
+//  modules/ui/zoneWindows.js) ; un clic ouvre un vrai combat tour-par-tour
+//  (modules/ui/questEncounterPopup.js + modules/systems/questCombat.js),
+//  avec possibilité d'envoyer des agents affaiblir l'adversaire avant de
+//  l'affronter directement avec l'équipe du boss.
+//
 //  Trio des Oiseaux (3 étapes chacun, parallèles) :
-//    Articuno — seafoam_islands (10 combats) → Lorelei (pwr ≥ 3 000) → Articuno (pwr ≥ 3 500)
-//    Zapdos   — power_plant      (10 combats) → Lt. Surge (pwr ≥ 2 800) → Zapdos  (pwr ≥ 3 500)
-//    Moltres  — victory_road     (10 combats) → Blaine     (pwr ≥ 2 800) → Moltres  (pwr ≥ 3 500)
+//    Articuno — seafoam_islands (10 combats) → Lorelei → Articuno
+//    Zapdos   — power_plant      (10 combats) → Lt. Surge → Zapdos
+//    Moltres  — victory_road     (10 combats) → Blaine     → Moltres
 //
 //  Quête Mewtwo (5 étapes) :
 //    1. Vaincre 20 membres Rocket dans les zones Kanto
 //    2. Collecter 3 Rapports Sylphe (drop auto depuis silph_co)
 //    3. Vaincre 15 combats dans le Manoir Pokémon
-//    4. Vaincre Giovanni (puissance ≥ 4 500)
-//    5. Affronter Mewtwo dans la Grotte Cerulean (puissance ≥ 6 000)
+//    4. Vaincre Giovanni — pokemon_mansion
+//    5. Affronter Mewtwo — unknown_cave (Grotte Cerulean)
 //
 //  Rejouable :
 //    1 Plume Sacrée   → relance le combat contre l'un des Oiseaux (déjà capturé)
 //    1 Rapport Sylphe → relance le combat contre Mewtwo
 //
 //  Déclenchement :
-//    checkKantoMissionsUnlock()  — au boot
-//    openKantoMissions()         — ouvre le tracker
+//    checkKantoMissionsUnlock()        — au boot
+//    openKantoMissions()               — ouvre le tracker (progression)
+//    getKantoQuestEncounterForZone(id) — sprite de combat pour une zone
 //
 //  Dépendances globalThis :
-//    state, saveState, makePokemon, calculateStats, getBossTeamPower, switchTab
+//    state, saveState, makePokemon, calculateStats, registerPokedexCapture,
+//    trainerSprite, openQuestEncounterPopup, getAgentCombatPower
+//  Dépendances import :
+//    defaultEncounterState (modules/systems/questCombat.js)
 //  Dépendances bare-name (classic scripts) :
 //    (aucune — zones Kanto dans ZONE_BY_ID global)
 // ════════════════════════════════════════════════════════════════
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
-import { resolveSpecialCombat } from './specialCombat.js';
+import { defaultEncounterState } from './questCombat.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type });
 const _save   = ()               => globalThis.saveState?.();
@@ -63,31 +78,73 @@ const _ROCKET_KANTO = new Set([
 const _ROCKET_TRAINER_KEYS = new Set(['rocketgrunt', 'rocketgruntf', 'archer', 'ariana', 'proton', 'giovanni']);
 
 // ── Config oiseaux ────────────────────────────────────────────────
+// `boss.team`/`team` : équipes structurées pour le vrai combat (questCombat.js)
+// — remplace les descriptions en texte libre d'avant la refonte "sprite sur
+// zone". `statMult` buffe l'oiseau pour le combat spécial (pas ses stats une
+// fois capturé, qui restent définies par level/pot ci-dessous).
 const BIRDS = {
   articuno: {
     name: 'Artikodin', name_en: 'Articuno', species: 'articuno',
     sprite: ARTICUNO_SPRITE, static: ARTICUNO_STATIC,
     accent: '#70b8ff', icon: '❄️',
     zone: 'seafoam_islands', zoneLabel: 'Grottes Ecume', zoneLabel_en: 'Seafoam Islands',
-    boss: { name: 'Lorelei', role: 'Conseil des 4 — Glace', role_en: 'Elite Four — Ice', team: 'Dewgong, Cloyster, Slowbro, Jynx, Lapras', power: 3000, key: 'lorelei' },
+    boss: {
+      name: 'Lorelei', role: 'Conseil des 4 — Glace', role_en: 'Elite Four — Ice', key: 'lorelei',
+      team: [
+        { species_en: 'dewgong', level: 52 }, { species_en: 'cloyster', level: 53 },
+        { species_en: 'slowbro', level: 52 }, { species_en: 'jynx', level: 54 },
+        { species_en: 'lapras', level: 56 },
+      ],
+    },
     power: 3500, catchBase: 0.50, level: 54, pot: 3,
+    team: [{ species_en: 'articuno', level: 54, potential: 3 }], statMult: 1.6,
   },
   zapdos: {
     name: 'Électhor', name_en: 'Zapdos', species: 'zapdos',
     sprite: ZAPDOS_SPRITE, static: ZAPDOS_STATIC,
     accent: '#f0d040', icon: '⚡',
     zone: 'power_plant', zoneLabel: 'Centrale Électrique', zoneLabel_en: 'Power Plant',
-    boss: { name: 'Lt. Surge', role: 'Champion Vermilion', role_en: 'Vermilion Gym Leader', team: 'Raichu, Electrode, Electrode, Magneton', power: 2800, key: 'ltsurge' },
+    boss: {
+      name: 'Lt. Surge', role: 'Champion Vermilion', role_en: 'Vermilion Gym Leader', key: 'ltsurge',
+      team: [
+        { species_en: 'raichu', level: 51 }, { species_en: 'electrode', level: 52 },
+        { species_en: 'electrode', level: 52 }, { species_en: 'magneton', level: 53 },
+      ],
+    },
     power: 3500, catchBase: 0.50, level: 50, pot: 3,
+    team: [{ species_en: 'zapdos', level: 50, potential: 3 }], statMult: 1.6,
   },
   moltres: {
     name: 'Sulfura', name_en: 'Moltres', species: 'moltres',
     sprite: MOLTRES_SPRITE, static: MOLTRES_STATIC,
     accent: '#ff7030', icon: '🔥',
     zone: 'victory_road', zoneLabel: 'Route Victoire', zoneLabel_en: 'Victory Road',
-    boss: { name: 'Blaine', role: 'Champion Cramois\'île', role_en: 'Cinnabar Gym Leader', team: 'Growlithe, Ponyta, Rapidash, Arcanine', power: 2800, key: 'blaine' },
+    boss: {
+      name: 'Blaine', role: 'Champion Cramois\'île', role_en: 'Cinnabar Gym Leader', key: 'blaine',
+      team: [
+        { species_en: 'growlithe', level: 51 }, { species_en: 'ponyta', level: 51 },
+        { species_en: 'rapidash', level: 52 }, { species_en: 'arcanine', level: 54 },
+      ],
+    },
     power: 3500, catchBase: 0.50, level: 50, pot: 3,
+    team: [{ species_en: 'moltres', level: 50, potential: 3 }], statMult: 1.6,
   },
+};
+
+// ── Config dresseur/légendaire hors trio (Giovanni, Mewtwo) ───────
+const GIOVANNI_CFG = {
+  name: 'Giovanni', role: 'Chef de la Team Rocket', role_en: 'Team Rocket Boss',
+  zone: 'pokemon_mansion', accent: '#cc2222', icon: '💼',
+  team: [
+    { species_en: 'nidoqueen', level: 58 }, { species_en: 'nidoking', level: 58 },
+    { species_en: 'rhyhorn', level: 56 }, { species_en: 'kangaskhan', level: 57 },
+  ],
+};
+const MEWTWO_CFG = {
+  name: 'Mewtwo', species: 'mewtwo', zone: 'unknown_cave',
+  sprite: MEWTWO_STATIC, accent: '#cc2222', icon: '🧬',
+  power: 6000, catchBase: 0.30, level: 70, pot: 5,
+  team: [{ species_en: 'mewtwo', level: 70, potential: 5 }], statMult: 1.9,
 };
 
 // Accesseurs bilingues — le nom du dresseur/boss (proper noun officiel) ne
@@ -101,7 +158,6 @@ const _bossRole  = boss => _t(boss.role, boss.role_en || boss.role);
 const _state = () => globalThis.state ?? null;
 function _qBirds()  { return _state()?.birdsMission  ?? null; }
 function _qMewtwo() { return _state()?.mewtwoMission ?? null; }
-function _wait(ms)  { return new Promise(r => setTimeout(r, ms)); }
 
 // ── EventBus ──────────────────────────────────────────────────────
 let _registered = false;
@@ -408,9 +464,9 @@ function _buildTracker() {
     let actions = '';
     if (active) {
       if (step === 2 && !b.bossDefeated) {
-        actions = `<button class="ktm-btn primary" data-ktm="boss-${key}" style="--ktm-accent:${bird.accent}">${bird.icon} ${_t('Affronter', 'Face')} ${bird.boss.name.split(' ')[0]}</button>`;
+        actions = `<span class="ktm-rerun-note">→ ${_t(`Rendez-vous à ${_zoneLabel(bird)} pour affronter ${bird.boss.name.split(' ')[0]}`, `Head to ${_zoneLabel(bird)} to face ${bird.boss.name.split(' ')[0]}`)}</span>`;
       } else if (step === 3) {
-        actions = `<button class="ktm-btn primary" data-ktm="bird-${key}" style="--ktm-accent:${bird.accent}">${bird.icon} ${_t('Affronter', 'Face')} ${_birdName(bird)}</button>`;
+        actions = `<span class="ktm-rerun-note">→ ${_t(`Rendez-vous à ${_zoneLabel(bird)} pour affronter ${_birdName(bird)}`, `Head to ${_zoneLabel(bird)} to face ${_birdName(bird)}`)}</span>`;
       } else if (step === 6 || owned) {
         if (canRerun) {
           actions = `<button class="ktm-btn gold" data-ktm="rerun-${key}">🪶 ${_t('Relancer', 'Retry')} (${inv.plume_sacree}× ${_t('Plume', 'Feather')})</button>`;
@@ -449,9 +505,9 @@ function _buildTracker() {
   let mewtwoActions = '';
   if (mm?.active) {
     if (mstep === 4 && !mm.giovanniDefeated) {
-      mewtwoActions = `<button class="ktm-btn primary" data-ktm="giovanni" style="--ktm-accent:#cc2222">⚔️ ${_t('Affronter Giovanni', 'Face Giovanni')}</button>`;
+      mewtwoActions = `<span class="ktm-rerun-note">→ ${_t('Rendez-vous au Manoir Pokémon pour affronter Giovanni', 'Head to Pokémon Mansion to face Giovanni')}</span>`;
     } else if (mstep === 5) {
-      mewtwoActions = `<button class="ktm-btn primary" data-ktm="mewtwo" style="--ktm-accent:#cc2222">🧬 ${_t('Affronter Mewtwo', 'Face Mewtwo')}</button>`;
+      mewtwoActions = `<span class="ktm-rerun-note">→ ${_t('Rendez-vous à la Caverne Azurée pour affronter Mewtwo', 'Head to Cerulean Cave to face Mewtwo')}</span>`;
     } else if (mstep === 6 || mOwned) {
       if (canRerunM) {
         mewtwoActions = `<button class="ktm-btn gold" data-ktm="rerun-mewtwo">📂 ${_t('Relancer', 'Retry')} (${inv.rapport_sylphe}× ${_t('Rapport', 'Report')})</button>`;
@@ -485,212 +541,151 @@ function _buildTracker() {
     </div>`;
 }
 
-// ── Combat Boss (Lorelei / Lt. Surge / Blaine / Giovanni) ─────────
-async function _launchBoss(key, birdKey) {
-  const s = _state();
-  if (!s) return;
-  const power = globalThis.getBossTeamPower?.() ?? 0;
+// ── Rencontres de quête (sprite sur zone → popup de combat réel) ──
+// Remplace l'ancien overlay "Combattre" par un vrai combat tour-par-tour
+// (questCombat.js) déclenché en cliquant le sprite du dresseur/légendaire
+// dans sa zone de lore (voir getKantoQuestEncounterForZone, appelé par
+// l'agrégateur de modules/ui/zoneWindows.js).
 
-  let cfg;
-  if (birdKey) {
-    const bird = BIRDS[birdKey];
-    if (!bird) return;
-    cfg = { ...bird.boss, role: _bossRole(bird.boss), accent: bird.accent, icon: bird.icon, birdKey };
-  } else if (key === 'giovanni') {
-    cfg = {
-      name: 'Giovanni', role: _t('Chef de la Team Rocket', 'Team Rocket Boss'),
-      team: 'Bagon, Nidoqueen, Nidoking, Rhyhorn, Dugtrio',
-      power: 4500, accent: '#cc2222', icon: '💼', key: 'giovanni',
-      winMsg: _t(
-        'Giovanni est vaincu et s\'enfuit. Les coordonnées de la Grotte Cerulean sont maintenant connues.',
-        'Giovanni is defeated and flees. The Cerulean Cave coordinates are now known.',
-      ),
-      winFn: () => { const mm = _qMewtwo(); if(mm){ mm.giovanniDefeated = true; mm.step = 5; } },
-    };
-  } else return;
-
-  if (birdKey && !cfg.winMsg) {
-    const bird = BIRDS[birdKey];
-    cfg.winMsg = _t(
-      `${bird.boss.name} est vaincu. La route vers ${_birdName(bird)} est ouverte.`,
-      `${bird.boss.name} is defeated. The way to ${_birdName(bird)} is now open.`,
-    );
-    cfg.winFn  = () => {
-      const b = _qBirds()?.[birdKey];
-      if (b) { b.bossDefeated = true; b.step = 3; }
-    };
-  }
-
-  const enough = power >= cfg.power;
-
-  const ol = document.getElementById('ktm-overlay');
-  if (!ol) return;
-
-  const div = document.createElement('div');
-  div.className = 'ktm-fight-modal';
-  div.innerHTML = `
-    <div class="ktm-fight-box" style="--ktm-accent:${cfg.accent}">
-      <div class="ktm-fight-title">${cfg.icon} ${cfg.name} — ${cfg.role}</div>
-      <div class="ktm-fight-text">${cfg.team}</div>
-      <div class="ktm-power-row">
-        <div class="ktm-power-chip">👊 ${_t('Votre puissance', 'Your power')} : ${power.toLocaleString()}</div>
-        <div class="ktm-power-chip" style="${enough?'color:#90ee90':'color:#ff8080'}">🎯 ${_t('Requis', 'Required')} : ${cfg.power.toLocaleString()}</div>
-      </div>
-      <div id="ktm-boss-result"></div>
-      <div class="ktm-actions">
-        ${enough
-          ? `<button class="ktm-btn primary" id="ktm-boss-go">⚔️ ${_t('Combattre', 'Fight')}</button>`
-          : `<span style="font-family:var(--font-pixel,monospace);font-size:7.5px;color:#ff8080">${_t(`Puissance insuffisante (${cfg.power - power} manquants)`, `Not enough power (${cfg.power - power} short)`)}</span>`
-        }
-        <button class="ktm-btn" id="ktm-boss-cancel">${_t('Annuler', 'Cancel')}</button>
-      </div>
-    </div>`;
-
-  ol.style.position = 'relative';
-  ol.appendChild(div);
-  div.querySelector('#ktm-boss-cancel')?.addEventListener('click', () => div.remove());
-
-  const goBtn = div.querySelector('#ktm-boss-go');
-  if (goBtn) {
-    goBtn.addEventListener('click', async () => {
-      goBtn.disabled = true;
-      const resEl = div.querySelector('#ktm-boss-result');
-      resEl.innerHTML = `<div class="ktm-result-banner" style="color:${cfg.accent}">⚔️ ${_t('Combat en cours…', 'Battle in progress…')}</div>`;
-      await _wait(900);
-      const { win } = resolveSpecialCombat({ power, requiredPower: cfg.power });
-      if (!win) {
-        resEl.innerHTML = `<div class="ktm-result-banner" style="color:#ff8080">✗ ${_t('Défaite…', 'Defeat…')}</div>
-          <div style="font-family:var(--font-pixel,monospace);font-size:7.5px;color:#b0c0e0;line-height:2;margin-top:6px">${_t(`${cfg.name} vous a repoussé. Renforcez votre équipe et retentez votre chance.`, `${cfg.name} pushed you back. Strengthen your team and try again.`)}</div>`;
-        await _wait(2000);
-        div.remove();
-        return;
-      }
-      cfg.winFn();
+function _openBirdBoss(key) {
+  const bird = BIRDS[key];
+  const b = _qBirds()?.[key];
+  if (!bird || !b) return;
+  if (!b.bossEncounter) b.bossEncounter = defaultEncounterState();
+  globalThis.openQuestEncounterPopup?.({
+    id: `ktm-boss-${key}`, kind: 'trainer',
+    name: bird.boss.name, icon: bird.icon,
+    spriteUrl: globalThis.trainerSprite?.(bird.boss.key) ?? '',
+    lore: _bossRole(bird.boss),
+    team: bird.boss.team,
+    encounterState: b.bossEncounter,
+    onResolved: (result) => {
+      if (!result.won) return;
+      b.bossDefeated = true; b.step = 3;
+      _notify(_t(
+        `${bird.boss.name} est vaincu. La route vers ${_birdName(bird)} est ouverte.`,
+        `${bird.boss.name} is defeated. The way to ${_birdName(bird)} is now open.`,
+      ), 'gold');
       _save();
-      resEl.innerHTML = `<div class="ktm-result-banner" style="color:#90ee90">✓ ${_t('Victoire !', 'Victory!')}</div>
-        <div style="font-family:var(--font-pixel,monospace);font-size:7.5px;color:#b0c0e0;line-height:2;margin-top:6px">${cfg.winMsg}</div>`;
-      await _wait(2000);
-      div.remove();
-      openKantoMissions();
-    });
-  }
+    },
+  });
 }
 
-// ── Combat Légendaire ─────────────────────────────────────────────
-async function _launchLegendary(key) {
-  const s = _state();
-  if (!s) return;
-  const power = globalThis.getBossTeamPower?.() ?? 0;
-
-  let cfg;
-  if (key in BIRDS) {
-    const bird = BIRDS[key];
-    cfg = {
-      name: _birdName(bird), species: bird.species,
-      sprite: bird.static, accent: bird.accent, icon: bird.icon,
-      power: bird.power, catchBase: bird.catchBase,
-      level: bird.level, pot: bird.pot,
-      winFn: () => {
-        const b = _qBirds()?.[key];
-        if (b) { b.owned = true; b.step = 6; }
-      },
-      captureKey: key,   // for totalCaptures increment
-    };
-  } else if (key === 'mewtwo') {
-    cfg = {
-      name: 'Mewtwo', species: 'mewtwo',
-      sprite: MEWTWO_STATIC, accent: '#cc2222', icon: '🧬',
-      power: 6000, catchBase: 0.30, level: 70, pot: 5,
-      winFn: () => {
-        const mm = _qMewtwo();
-        if (mm) { mm.mewtwoOwned = true; mm.step = 6; }
-      },
-      captureKey: 'mewtwo',
-    };
-  } else return;
-
-  const enough = power >= cfg.power;
-  const ol = document.getElementById('ktm-overlay');
-  if (!ol) return;
-
-  const div = document.createElement('div');
-  div.className = 'ktm-fight-modal';
-  div.innerHTML = `
-    <div class="ktm-fight-box" style="--ktm-accent:${cfg.accent}">
-      <div class="ktm-fight-title">${cfg.icon} ${cfg.name} — Lv.${cfg.level}</div>
-      <div class="ktm-sprite-row" style="margin-bottom:10px">
-        <img src="${cfg.sprite}" style="height:64px;image-rendering:pixelated" alt="${cfg.name}">
-      </div>
-      <div class="ktm-power-row">
-        <div class="ktm-power-chip">👊 ${_t('Votre puissance', 'Your power')} : ${power.toLocaleString()}</div>
-        <div class="ktm-power-chip" style="${enough?'color:#90ee90':'color:#ff8080'}">🎯 ${_t('Requis', 'Required')} : ${cfg.power.toLocaleString()}</div>
-      </div>
-      <div id="ktm-leg-result"></div>
-      <div class="ktm-actions">
-        ${enough
-          ? `<button class="ktm-btn primary" id="ktm-leg-go">⚔️ ${_t('Affronter', 'Face')} ${cfg.name}</button>`
-          : `<span style="font-family:var(--font-pixel,monospace);font-size:7.5px;color:#ff8080">${_t(`Puissance insuffisante (${cfg.power - power} manquants)`, `Not enough power (${cfg.power - power} short)`)}</span>`
-        }
-        <button class="ktm-btn" id="ktm-leg-cancel">${_t('Annuler', 'Cancel')}</button>
-      </div>
-    </div>`;
-
-  ol.style.position = 'relative';
-  ol.appendChild(div);
-  div.querySelector('#ktm-leg-cancel')?.addEventListener('click', () => div.remove());
-
-  const goBtn = div.querySelector('#ktm-leg-go');
-  if (goBtn) {
-    goBtn.addEventListener('click', async () => {
-      goBtn.disabled = true;
-      const resEl = div.querySelector('#ktm-leg-result');
-      resEl.innerHTML = `<div class="ktm-result-banner" style="color:${cfg.accent}">⚔️ ${_t('Combat légendaire…', 'Legendary battle…')}</div>`;
-      await _wait(1200);
-
-      const powerRatio = power / cfg.power;
-      const catchRate  = Math.min(cfg.catchBase + Math.max(0, powerRatio - 1) * 0.25, 0.92);
-      const caught     = Math.random() < catchRate;
-
-      if (caught) {
-        const pk = globalThis.makePokemon?.(cfg.species, null, 'pokeball');
-        if (pk) {
-          pk.level     = cfg.level;
-          pk.shiny     = false;
-          pk.potential = cfg.pot;
-          if (globalThis.calculateStats) pk.stats = globalThis.calculateStats(pk);
-          // La quête ne se valide qu'une fois la capture réellement effective.
-          cfg.winFn();
-          s.pokemons.push(pk);
-          EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: pk, zoneId: BIRDS[key]?.zone ?? null });
-          globalThis.registerPokedexCapture?.(s, pk);
-          // totalCaptures
-          const mKey = cfg.captureKey === 'mewtwo' ? 'mewtwoMission' : null;
-          const bKey = cfg.captureKey !== 'mewtwo' ? cfg.captureKey : null;
-          if (mKey && s[mKey]) s[mKey].totalCaptures = (s[mKey].totalCaptures || 0) + 1;
-          if (bKey && s.birdsMission?.[bKey]) s.birdsMission[bKey].captures = (s.birdsMission[bKey].captures || 0) + 1;
-          resEl.innerHTML = `<div class="ktm-result-banner" style="color:#90ee90">✨ ${_t(`${cfg.name} capturé !`, `${cfg.name} caught!`)}</div>
-            <div style="font-family:var(--font-pixel,monospace);font-size:7.5px;color:#b0c0e0;line-height:2;margin-top:6px">
-              ${_t(`${cfg.name} Lv.${cfg.level} ajouté au PC — Pot.${cfg.pot} ★`, `${cfg.name} Lv.${cfg.level} added to PC — Pot.${cfg.pot} ★`)}
-            </div>`;
-        } else {
-          resEl.innerHTML = `<div class="ktm-result-banner" style="color:#e8d040">⚡ ${_t(`${cfg.name} s'échappe !`, `${cfg.name} escapes!`)}</div>
-            <div style="font-family:var(--font-pixel,monospace);font-size:7.5px;color:#888;line-height:2;margin-top:6px">
-              ${_t('Une erreur est survenue — réessayez.', 'An error occurred — try again.')}
-            </div>`;
-        }
-      } else {
-        resEl.innerHTML = `<div class="ktm-result-banner" style="color:#e8d040">⚡ ${_t(`${cfg.name} s'échappe !`, `${cfg.name} escapes!`)}</div>
-          <div style="font-family:var(--font-pixel,monospace);font-size:7.5px;color:#888;line-height:2;margin-top:6px">
-            ${_t(`Taux de capture : ${Math.round(catchRate * 100)}%. Utilisez une Plume Sacrée pour réessayer.`, `Catch rate: ${Math.round(catchRate * 100)}%. Use a Sacred Feather to try again.`)}
-          </div>`;
+function _openBirdLegendary(key) {
+  const bird = BIRDS[key];
+  const b = _qBirds()?.[key];
+  if (!bird || !b) return;
+  if (!b.legendEncounter) b.legendEncounter = defaultEncounterState();
+  globalThis.openQuestEncounterPopup?.({
+    id: `ktm-leg-${key}`, kind: 'legendary',
+    name: _birdName(bird), icon: bird.icon, spriteUrl: bird.static,
+    team: bird.team, statMult: bird.statMult ?? 1, catchBase: bird.catchBase,
+    encounterState: b.legendEncounter,
+    onResolved: (result) => {
+      if (!result.won) return;
+      if (!result.captured) {
+        _notify(_t(`⚡ ${_birdName(bird)} s'échappe !`, `⚡ ${_birdName(bird)} escapes!`), '');
+        return;
       }
-
+      const s = _state();
+      const pk = globalThis.makePokemon?.(bird.species, null, 'pokeball');
+      if (!pk) return;
+      pk.level = bird.level;
+      pk.shiny = false;
+      pk.potential = bird.pot;
+      if (globalThis.calculateStats) pk.stats = globalThis.calculateStats(pk);
+      b.owned = true; b.step = 6; b.captures = (b.captures || 0) + 1;
+      s.pokemons.push(pk);
+      EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: pk, zoneId: bird.zone });
+      globalThis.registerPokedexCapture?.(s, pk);
+      _notify(_t(`✨ ${_birdName(bird)} capturé !`, `✨ ${_birdName(bird)} caught!`), 'gold');
       _save();
-      await _wait(2500);
-      div.remove();
-      openKantoMissions();
-    });
+    },
+  });
+}
+
+function _openGiovanni() {
+  const mm = _qMewtwo();
+  if (!mm) return;
+  if (!mm.giovanniEncounter) mm.giovanniEncounter = defaultEncounterState();
+  globalThis.openQuestEncounterPopup?.({
+    id: 'ktm-giovanni', kind: 'trainer',
+    name: GIOVANNI_CFG.name, icon: GIOVANNI_CFG.icon,
+    spriteUrl: globalThis.trainerSprite?.('giovanni') ?? '',
+    lore: _t(GIOVANNI_CFG.role, GIOVANNI_CFG.role_en),
+    team: GIOVANNI_CFG.team,
+    encounterState: mm.giovanniEncounter,
+    onResolved: (result) => {
+      if (!result.won) return;
+      mm.giovanniDefeated = true; mm.step = 5;
+      _notify(_t(
+        'Giovanni est vaincu et s\'enfuit. Les coordonnées de la Grotte Cerulean sont maintenant connues.',
+        'Giovanni is defeated and flees. The Cerulean Cave coordinates are now known.',
+      ), 'gold');
+      _save();
+    },
+  });
+}
+
+function _openMewtwo() {
+  const mm = _qMewtwo();
+  if (!mm) return;
+  if (!mm.mewtwoEncounter) mm.mewtwoEncounter = defaultEncounterState();
+  globalThis.openQuestEncounterPopup?.({
+    id: 'ktm-mewtwo', kind: 'legendary',
+    name: MEWTWO_CFG.name, icon: MEWTWO_CFG.icon, spriteUrl: MEWTWO_CFG.sprite,
+    team: MEWTWO_CFG.team, statMult: MEWTWO_CFG.statMult, catchBase: MEWTWO_CFG.catchBase,
+    encounterState: mm.mewtwoEncounter,
+    onResolved: (result) => {
+      if (!result.won) return;
+      if (!result.captured) {
+        _notify(_t('⚡ Mewtwo s\'échappe !', '⚡ Mewtwo escapes!'), '');
+        return;
+      }
+      const s = _state();
+      const pk = globalThis.makePokemon?.(MEWTWO_CFG.species, null, 'pokeball');
+      if (!pk) return;
+      pk.level = MEWTWO_CFG.level;
+      pk.shiny = false;
+      pk.potential = MEWTWO_CFG.pot;
+      if (globalThis.calculateStats) pk.stats = globalThis.calculateStats(pk);
+      mm.mewtwoOwned = true; mm.step = 6; mm.totalCaptures = (mm.totalCaptures || 0) + 1;
+      s.pokemons.push(pk);
+      EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: pk, zoneId: MEWTWO_CFG.zone });
+      globalThis.registerPokedexCapture?.(s, pk);
+      _notify(_t('✨ Mewtwo capturé !', '✨ Mewtwo caught!'), 'gold');
+      _save();
+    },
+  });
+}
+
+/** Agrégateur appelé par modules/ui/zoneWindows.js pour savoir si un
+ *  dresseur/légendaire de quête doit apparaître comme sprite persistant
+ *  dans la fenêtre de zone zoneId à l'étape courante. */
+export function getKantoQuestEncounterForZone(zoneId) {
+  const birds = _qBirds();
+  if (birds) {
+    for (const [key, bird] of Object.entries(BIRDS)) {
+      const b = birds[key];
+      if (!b?.active || zoneId !== bird.zone) continue;
+      if (b.step === 2 && !b.bossDefeated) {
+        return { id: `ktm-boss-${key}`, name: bird.boss.name, icon: bird.icon, spriteUrl: globalThis.trainerSprite?.(bird.boss.key) ?? '', onClick: () => _openBirdBoss(key) };
+      }
+      if (b.step === 3) {
+        return { id: `ktm-leg-${key}`, name: _birdName(bird), icon: bird.icon, spriteUrl: bird.static, onClick: () => _openBirdLegendary(key) };
+      }
+    }
   }
+  const mm = _qMewtwo();
+  if (mm?.active) {
+    if (mm.step === 4 && !mm.giovanniDefeated && zoneId === GIOVANNI_CFG.zone) {
+      return { id: 'ktm-giovanni', name: GIOVANNI_CFG.name, icon: GIOVANNI_CFG.icon, spriteUrl: globalThis.trainerSprite?.('giovanni') ?? '', onClick: _openGiovanni };
+    }
+    if (mm.step === 5 && zoneId === MEWTWO_CFG.zone) {
+      return { id: 'ktm-mewtwo', name: 'Mewtwo', icon: MEWTWO_CFG.icon, spriteUrl: MEWTWO_CFG.sprite, onClick: _openMewtwo };
+    }
+  }
+  return null;
 }
 
 // ── Relances ──────────────────────────────────────────────────────
@@ -701,11 +696,11 @@ function _doRerun(key) {
   if (key === 'mewtwo') {
     if ((s.inventory.rapport_sylphe || 0) < 1) return;
     s.inventory.rapport_sylphe--;
-    if (s.mewtwoMission) s.mewtwoMission.step = 5;
+    if (s.mewtwoMission) { s.mewtwoMission.step = 5; s.mewtwoMission.mewtwoEncounter = defaultEncounterState(); }
   } else if (key in BIRDS) {
     if ((s.inventory.plume_sacree || 0) < 1) return;
     s.inventory.plume_sacree--;
-    if (s.birdsMission?.[key]) s.birdsMission[key].step = 3;
+    if (s.birdsMission?.[key]) { s.birdsMission[key].step = 3; s.birdsMission[key].legendEncounter = defaultEncounterState(); }
   } else return;
 
   _save();
@@ -743,15 +738,9 @@ export function openKantoMissions() {
     if (!btn) return;
     const action = btn.dataset.ktm;
 
-    // Boss fights for birds
     for (const bk of ['articuno','zapdos','moltres']) {
-      if (action === `boss-${bk}`) { _launchBoss(null, bk); return; }
-      if (action === `bird-${bk}`) { _launchLegendary(bk); return; }
       if (action === `rerun-${bk}`) { _doRerun(bk); return; }
     }
-    // Mewtwo
-    if (action === 'giovanni')     { _launchBoss('giovanni', null); return; }
-    if (action === 'mewtwo')       { _launchLegendary('mewtwo'); return; }
     if (action === 'rerun-mewtwo') { _doRerun('mewtwo'); return; }
   });
 }
@@ -809,5 +798,6 @@ export function checkKantoMissionsUnlock() {
 // ── Boot ──────────────────────────────────────────────────────────
 _register();
 
-globalThis.openKantoMissions        = openKantoMissions;
-globalThis.checkKantoMissionsUnlock = checkKantoMissionsUnlock;
+globalThis.openKantoMissions               = openKantoMissions;
+globalThis.checkKantoMissionsUnlock        = checkKantoMissionsUnlock;
+globalThis.getKantoQuestEncounterForZone   = getKantoQuestEncounterForZone;
