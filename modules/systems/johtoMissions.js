@@ -4,26 +4,37 @@
 //  JOHTO MISSIONS — Bêtes Sacrées · Lugia · Ho-Oh
 //  Trois quêtes parallèles inspirées de Pokémon Or/Argent.
 //
+//  Le suivi de progression (grind de combats de zone, collecte d'objets)
+//  reste géré via l'overlay tracker (_buildTracker/openJohtoMissions). Les
+//  affrontements de quête (dresseur intermédiaire + légendaire final) ne se
+//  déclenchent plus depuis cet overlay : une fois l'étape atteinte,
+//  getJohtoQuestEncounterForZone(zoneId) fait apparaître le dresseur/
+//  légendaire comme sprite persistant dans sa zone (agrégé par
+//  modules/ui/zoneWindows.js) ; un clic ouvre un vrai combat tour-par-tour
+//  (modules/ui/questEncounterPopup.js + modules/systems/questCombat.js),
+//  avec possibilité d'envoyer des agents affaiblir l'adversaire avant de
+//  l'affronter directement — même patron que kantoMissions.js.
+//
 //  Quête Bêtes Sacrées (5 étapes) :
 //    1. Vaincre 30 membres Rocket dans les zones Johto
 //    2. Infiltrer le QG Rocket (15 combats dans team_rocket_hq)
-//    3. Vaincre Petrel — Admin Rocket (puissance ≥ 2 000)
-//    4. Vaincre Ariana  — Admin Rocket (puissance ≥ 2 800)
-//    5. Choisir et affronter une Bête Sacrée (puissance ≥ 4 000)
+//    3. Vaincre Petrel — Admin Rocket — team_rocket_hq
+//    4. Vaincre Ariana  — Admin Rocket — team_rocket_hq
+//    5. Choisir puis affronter une Bête Sacrée — route36_37
 //
 //  Quête Lugia (5 étapes) :
 //    1. Vaincre 20 combats dans les zones marines Johto
 //    2. Collecter 5 Argent'Ailes (drop auto dans zones Johto)
-//    3. Vaincre Eusine (puissance ≥ 2 500)
+//    3. Vaincre Eusine — cianwood_gym
 //    4. Vaincre 15 combats dans les Îles Tourbillon
-//    5. Affronter Lugia (puissance ≥ 5 000)
+//    5. Affronter Lugia — whirl_islands
 //
 //  Quête Ho-Oh (5 étapes) :
 //    1. Vaincre 20 combats dans les zones rurales Johto
 //    2. Collecter 5 Arcenci'Ailes (drop auto dans zones Johto)
-//    3. Vaincre les Filles Kimono (puissance ≥ 2 500)
+//    3. Vaincre les Filles Kimono — national_park
 //    4. Vaincre 15 combats dans la Tour Carillon
-//    5. Affronter Ho-Oh (puissance ≥ 5 500)
+//    5. Affronter Ho-Oh — tin_tower
 //
 //  Rejouable :
 //    1 Cristal Bête   → relance combat Bête Sacrée choisie
@@ -31,31 +42,32 @@
 //    1 Arcenci'Aile   → relance combat Ho-Oh
 //
 //  Déclenchement :
-//    checkJohtoMissionsUnlock()  — au boot + après déblocage Johto
-//    openJohtoMissions()         — ouvre le tracker triple
+//    checkJohtoMissionsUnlock()        — au boot + après déblocage Johto
+//    openJohtoMissions()               — ouvre le tracker (progression)
+//    getJohtoQuestEncounterForZone(id) — sprite de combat pour une zone
 //
 //  Dépendances globalThis :
-//    state, saveState, makePokemon, calculateStats, getBossTeamPower,
-//    trainerSprite, switchTab
+//    state, saveState, makePokemon, calculateStats, registerPokedexCapture,
+//    trainerSprite, openQuestEncounterPopup, patchZoneWindow
+//  Dépendances import :
+//    defaultEncounterState (modules/systems/questCombat.js)
 //  Dépendances bare-name (classic scripts) :
 //    ZONE_BY_ID (Johto zones are merged into ZONES global)
 // ════════════════════════════════════════════════════════════════
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
-import { resolveSpecialCombat } from './specialCombat.js';
+import { defaultEncounterState } from './questCombat.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type });
 const _save   = ()               => globalThis.saveState?.();
 const _t = (fr, en) => (globalThis.state?.lang === 'en' ? en : fr);
 
 // ── Sprites ──────────────────────────────────────────────────────
-const LUGIA_SPRITE    = 'https://play.pokemonshowdown.com/sprites/gen5ani/lugia.gif';
+// Seuls les sprites statiques sont utilisés (sprite affiché dans le popup
+// de combat de quête) — pas de variante animée conservée ici (cf. suppression
+// équivalente de MEWTWO_SPRITE côté kantoMissions.js).
 const LUGIA_STATIC    = 'https://play.pokemonshowdown.com/sprites/gen2/lugia.png';
-const HOOH_SPRITE     = 'https://play.pokemonshowdown.com/sprites/gen5ani/ho-oh.gif';
 const HOOH_STATIC     = 'https://play.pokemonshowdown.com/sprites/gen2/ho-oh.png';
-const RAIKOU_SPRITE   = 'https://play.pokemonshowdown.com/sprites/gen5ani/raikou.gif';
-const ENTEI_SPRITE    = 'https://play.pokemonshowdown.com/sprites/gen5ani/entei.gif';
-const SUICUNE_SPRITE  = 'https://play.pokemonshowdown.com/sprites/gen5ani/suicune.gif';
 const RAIKOU_STATIC   = 'https://play.pokemonshowdown.com/sprites/gen2/raikou.png';
 const ENTEI_STATIC    = 'https://play.pokemonshowdown.com/sprites/gen2/entei.png';
 const SUICUNE_STATIC  = 'https://play.pokemonshowdown.com/sprites/gen2/suicune.png';
@@ -72,6 +84,14 @@ const _RURAL_JOHTO = new Set([
 ]);
 const _WHIRL_ZONE  = 'whirl_islands';
 const _TIN_ZONE    = 'tin_tower';
+// Ancrages sans grind de zone dédié dans le state machine (leur étape
+// précédente est une collecte d'objets, pas du combat) — zone choisie par
+// cohérence thématique, réutilisant des zones Johto déjà existantes.
+const _PETREL_ZONE = 'team_rocket_hq';
+const _ARIANA_ZONE = 'team_rocket_hq';
+const _EUSINE_ZONE = 'cianwood_gym';
+const _KIMONO_ZONE = 'national_park';
+const _BEAST_ZONE  = 'route36_37';
 
 // ── Helpers ───────────────────────────────────────────────────────
 const _state = () => globalThis.state ?? null;
@@ -80,26 +100,75 @@ function _qBetes()  { return _state()?.betesMission  ?? null; }
 function _qLugia()  { return _state()?.lugiaMission  ?? null; }
 function _qHooh()   { return _state()?.hoohMission   ?? null; }
 
-function _isJohtoZone(zoneId) {
-  if (!zoneId) return false;
-  // ZONE_BY_ID is the merged kanto+johto global; Johto zones have ids we can identify by prefix or set
-  if (typeof ZONE_BY_ID !== 'undefined') return !!ZONE_BY_ID[zoneId];
-  return false;
-}
+// ── Config dresseurs de quête (Petrel/Ariana/Eusine/Filles Kimono) ────────
+// Équipes structurées pour le vrai combat (questCombat.js) — remplace les
+// descriptions en texte libre d'avant la refonte "sprite sur zone".
+const BOSSES = {
+  petrel: {
+    name: 'Petrel', name_en: 'Petrel', role: 'Admin Rocket', role_en: 'Rocket Admin',
+    zone: _PETREL_ZONE, icon: '🚀', spriteKey: 'petrel',
+    team: [
+      { species_en: 'raticate', level: 52 }, { species_en: 'arbok', level: 53 }, { species_en: 'arbok', level: 54 },
+    ],
+    winMsg: 'Petrel est vaincu. Il révèle l\'emplacement du QG. Ariana est votre prochain obstacle.',
+    winMsg_en: 'Petrel is defeated. He reveals the HQ location. Ariana is your next obstacle.',
+    onWin: bm => { bm.petrelDefeated = true; bm.step = 4; },
+    getMission: _qBetes,
+  },
+  ariana: {
+    name: 'Ariana', name_en: 'Ariana', role: 'Admin Rocket', role_en: 'Rocket Admin',
+    zone: _ARIANA_ZONE, icon: '🚀', spriteKey: 'ariana',
+    team: [
+      { species_en: 'arbok', level: 56 }, { species_en: 'murkrow', level: 55 }, { species_en: 'victreebel', level: 57 },
+    ],
+    winMsg: 'Ariana est vaincue. L\'opération Rocket s\'effondre. Choisissez maintenant votre Bête Sacrée.',
+    winMsg_en: 'Ariana is defeated. The Rocket operation collapses. Now choose your Sacred Beast.',
+    onWin: bm => { bm.arianaDefeated = true; bm.step = 5; },
+    getMission: _qBetes,
+  },
+  eusine: {
+    name: 'Eusine', name_en: 'Eusine', role: 'Chasseur de Suicune', role_en: 'Suicune Hunter',
+    zone: _EUSINE_ZONE, icon: '🔭', spriteKey: 'eusine',
+    team: [
+      { species_en: 'drowzee', level: 58 }, { species_en: 'haunter', level: 59 }, { species_en: 'electrode', level: 60 },
+    ],
+    winMsg: 'Eusine est vaincu. Il vous confie le chemin secret vers les Îles Tourbillon. Lugia vous attend.',
+    winMsg_en: 'Eusine is defeated. He entrusts you with the secret path to the Whirl Islands. Lugia awaits.',
+    onWin: lm => { lm.eusineDefeated = true; lm.step = 4; },
+    getMission: _qLugia,
+  },
+  kimono: {
+    name: 'Filles Kimono', name_en: 'Kimono Girls', role: 'Gardiennes de Ho-Oh', role_en: 'Guardians of Ho-Oh',
+    zone: _KIMONO_ZONE, icon: '🎎', spriteKey: 'kimonogirl-gen2',
+    team: [
+      { species_en: 'espeon', level: 60 }, { species_en: 'umbreon', level: 60 }, { species_en: 'vaporeon', level: 61 },
+      { species_en: 'flareon', level: 61 }, { species_en: 'jolteon', level: 62 },
+    ],
+    winMsg: 'Les Filles Kimono vous reconnaissent comme l\'Élu. Elles vous ouvrent les portes de la Tour Carillon.',
+    winMsg_en: 'The Kimono Girls recognize you as the Chosen One. They open the gates of the Tin Tower for you.',
+    onWin: hm => { hm.kimonoDefeated = true; hm.step = 4; },
+    getMission: _qHooh,
+  },
+};
 
-function _wait(ms) { return new Promise(r => setTimeout(r, ms)); }
-
-function _typewrite(el, text, speed = 26) {
-  return new Promise(resolve => {
-    el.textContent = '';
-    let i = 0;
-    const tick = () => {
-      if (i < text.length) { el.textContent += text[i++]; setTimeout(tick, speed); }
-      else resolve();
-    };
-    tick();
-  });
-}
+// ── Config légendaires (Lugia/Ho-Oh — la Bête choisie est gérée à part,
+// son espèce n'étant connue qu'à l'exécution via state.betesMission.chosenBeast)
+const LEGENDARIES = {
+  lugia: {
+    name: 'Lugia', species: 'lugia', static: LUGIA_STATIC,
+    zone: _WHIRL_ZONE, icon: '🌊', catchBase: 0.35, level: 70, pot: 4, statMult: 1.7,
+    team: [{ species_en: 'lugia', level: 70, potential: 4 }],
+    onWin: lm => { lm.lugiaOwned = true; lm.step = 6; },
+    getMission: _qLugia,
+  },
+  hooh: {
+    name: 'Ho-Oh', species: 'ho-oh', static: HOOH_STATIC,
+    zone: _TIN_ZONE, icon: '🌈', catchBase: 0.30, level: 70, pot: 5, statMult: 1.8,
+    team: [{ species_en: 'ho-oh', level: 70, potential: 5 }],
+    onWin: hm => { hm.hoohOwned = true; hm.step = 6; },
+    getMission: _qHooh,
+  },
+};
 
 // ── Enregistrement EventBus ───────────────────────────────────────
 let _registered = false;
@@ -487,14 +556,14 @@ function _buildTracker() {
   const betesActions = () => {
     if (!bm?.active) return '';
     if (bm.step === 3 && !bm.petrelDefeated) {
-      return `<button class="jhm-btn primary" data-jhm="petrel">⚔️ ${_t('Affronter', 'Face')} Petrel</button>`;
+      return `<span class="jhm-rerun-note">→ ${_t('Rendez-vous au QG Rocket pour affronter Petrel', 'Head to the Rocket HQ to face Petrel')}</span>`;
     }
     if (bm.step === 4 && !bm.arianaDefeated) {
-      return `<button class="jhm-btn primary" data-jhm="ariana">⚔️ ${_t('Affronter', 'Face')} Ariana</button>`;
+      return `<span class="jhm-rerun-note">→ ${_t('Rendez-vous au QG Rocket pour affronter Ariana', 'Head to the Rocket HQ to face Ariana')}</span>`;
     }
     if (bm.step === 5) {
       if (!bm.chosenBeast) return `<button class="jhm-btn primary" data-jhm="choose-beast">🐅 ${_t('Choisir une Bête', 'Choose a Beast')}</button>`;
-      return `<button class="jhm-btn primary" data-jhm="beast-fight">⚔️ ${_t('Affronter', 'Face')} ${_beastName(bm.chosenBeast)}</button>`;
+      return `<span class="jhm-rerun-note">→ ${_t(`Rendez-vous Route 36-37 pour affronter ${_beastName(bm.chosenBeast)}`, `Head to Route 36-37 to face ${_beastName(bm.chosenBeast)}`)}</span>`;
     }
     if (bm.step === 6) {
       if (canRerunBetes) return `<button class="jhm-btn gold" data-jhm="rerun-betes">💎 ${_t('Relancer', 'Retry')} (${inv.cristal_bete}× ${_t('Cristal', 'Crystal')})</button>`;
@@ -532,10 +601,10 @@ function _buildTracker() {
   const lugiaActions = () => {
     if (!lm?.active) return '';
     if (lm.step === 3 && !lm.eusineDefeated) {
-      return `<button class="jhm-btn primary" data-jhm="eusine" style="--jhm-accent:#5599cc">⚔️ ${_t('Affronter', 'Face')} Eusine</button>`;
+      return `<span class="jhm-rerun-note">→ ${_t('Rendez-vous à Doublonville pour affronter Eusine', 'Head to Cianwood City to face Eusine')}</span>`;
     }
     if (lm.step === 5) {
-      return `<button class="jhm-btn primary" data-jhm="lugia" style="--jhm-accent:#5599cc">⚔️ ${_t('Affronter', 'Face')} Lugia</button>`;
+      return `<span class="jhm-rerun-note">→ ${_t('Rendez-vous aux Îles Tourbillon pour affronter Lugia', 'Head to the Whirl Islands to face Lugia')}</span>`;
     }
     if (lm.step === 6) {
       if (canRerunLugia) return `<button class="jhm-btn gold" data-jhm="rerun-lugia">🪶 ${_t('Relancer', 'Retry')} (${inv.silver_wing}× ${_t("Argent'Aile", 'Silver Wing')})</button>`;
@@ -573,10 +642,10 @@ function _buildTracker() {
   const hoohActions = () => {
     if (!hm?.active) return '';
     if (hm.step === 3 && !hm.kimonoDefeated) {
-      return `<button class="jhm-btn primary" data-jhm="kimono" style="--jhm-accent:#cc9944">⚔️ ${_t('Affronter les Kimono', 'Face the Kimono Girls')}</button>`;
+      return `<span class="jhm-rerun-note">→ ${_t('Rendez-vous au Parc National pour affronter les Filles Kimono', 'Head to the National Park to face the Kimono Girls')}</span>`;
     }
     if (hm.step === 5) {
-      return `<button class="jhm-btn primary" data-jhm="hooh" style="--jhm-accent:#cc9944">⚔️ ${_t('Affronter', 'Face')} Ho-Oh</button>`;
+      return `<span class="jhm-rerun-note">→ ${_t('Rendez-vous à la Tour Carillon pour affronter Ho-Oh', 'Head to Tin Tower to face Ho-Oh')}</span>`;
     }
     if (hm.step === 6) {
       if (canRerunHooh) return `<button class="jhm-btn gold" data-jhm="rerun-hooh">🌈 ${_t('Relancer', 'Retry')} (${inv.rainbow_wing}× ${_t("Arcenci'Aile", 'Rainbow Wing')})</button>`;
@@ -633,7 +702,6 @@ function _buildTracker() {
 }
 
 function _beastName(k) { return { raikou:'Raikou', entei:'Entei', suicune:'Suicune' }[k] ?? k; }
-function _beastSprite(k) { return { raikou:RAIKOU_SPRITE, entei:ENTEI_SPRITE, suicune:SUICUNE_SPRITE }[k] ?? RAIKOU_SPRITE; }
 function _beastStatic(k) { return { raikou:RAIKOU_STATIC, entei:ENTEI_STATIC, suicune:SUICUNE_STATIC }[k] ?? RAIKOU_STATIC; }
 
 // ── Sélecteur de Bête ─────────────────────────────────────────────
@@ -696,250 +764,154 @@ async function _openBeastChooser() {
   });
 }
 
-// ── Combat Boss (Petrel / Ariana / Eusine / Kimono) ──────────────
-async function _launchBoss(key) {
-  const cfg = {
-    petrel: {
-      name: 'Petrel', role: _t('Admin Rocket', 'Rocket Admin'),
-      team: 'Raticate, Arbok, Arbok', power: 2000,
-      accent: '#e8a030', icon: '🚀', spriteKey: 'petrel',
-      winMsg: _t(
-        'Petrel est vaincu. Il révèle l\'emplacement du QG. Ariana est votre prochain obstacle.',
-        'Petrel is defeated. He reveals the HQ location. Ariana is your next obstacle.',
-      ),
-      winFn: () => { const bm = _qBetes(); if(bm){ bm.petrelDefeated = true; bm.step = 4; } },
+// ── Rencontres de quête (sprite sur zone → popup de combat réel) ──
+// Remplace l'ancien overlay "Combattre" par un vrai combat tour-par-tour
+// (questCombat.js) déclenché en cliquant le sprite du dresseur/légendaire
+// dans sa zone (voir getJohtoQuestEncounterForZone, appelé par l'agrégateur
+// de modules/ui/zoneWindows.js).
+
+function _repatchZone(zoneId) {
+  const win = document.getElementById(`zw-${zoneId}`);
+  if (win) globalThis.patchZoneWindow?.(zoneId, win);
+}
+
+function _openBoss(key) {
+  const cfg = BOSSES[key];
+  if (!cfg) return;
+  const mission = cfg.getMission();
+  if (!mission) return;
+  const encKey = `${key}Encounter`;
+  if (!mission[encKey]) mission[encKey] = defaultEncounterState();
+  globalThis.openQuestEncounterPopup?.({
+    id: `jhm-boss-${key}`, kind: 'trainer',
+    name: _t(cfg.name, cfg.name_en), icon: cfg.icon,
+    spriteUrl: globalThis.trainerSprite?.(cfg.spriteKey) ?? '',
+    lore: _t(cfg.role, cfg.role_en),
+    team: cfg.team,
+    encounterState: mission[encKey],
+    onResolved: (result) => {
+      if (!result.won) return;
+      cfg.onWin(mission);
+      _notify(_t(cfg.winMsg, cfg.winMsg_en), 'gold');
+      _save();
+      _repatchZone(cfg.zone);
     },
-    ariana: {
-      name: 'Ariana', role: _t('Admin Rocket', 'Rocket Admin'),
-      team: 'Arbok, Murkrow, Victreebel', power: 2800,
-      accent: '#e8a030', icon: '🚀', spriteKey: 'ariana',
-      winMsg: _t(
-        'Ariana est vaincue. L\'opération Rocket s\'effondre. Choisissez maintenant votre Bête Sacrée.',
-        'Ariana is defeated. The Rocket operation collapses. Now choose your Sacred Beast.',
-      ),
-      winFn: () => { const bm = _qBetes(); if(bm){ bm.arianaDefeated = true; bm.step = 5; } },
-    },
-    eusine: {
-      name: 'Eusine', role: _t('Chasseur de Suicune', 'Suicune Hunter'),
-      team: 'Drowzee, Haunter, Electrode', power: 2500,
-      accent: '#5599cc', icon: '🔭', spriteKey: 'eusine',
-      winMsg: _t(
-        'Eusine est vaincu. Il vous confie le chemin secret vers les Îles Tourbillon. Lugia vous attend.',
-        'Eusine is defeated. He entrusts you with the secret path to the Whirl Islands. Lugia awaits.',
-      ),
-      winFn: () => { const lm = _qLugia(); if(lm){ lm.eusineDefeated = true; lm.step = 4; } },
-    },
-    kimono: {
-      name: _t('Filles Kimono', 'Kimono Girls'), role: _t('Gardiennes de Ho-Oh', 'Guardians of Ho-Oh'),
-      team: 'Espeon, Umbreon, Vaporeon, Flareon, Jolteon', power: 2500,
-      accent: '#cc9944', icon: '🎎', spriteKey: 'kimonogirl-gen2',
-      winMsg: _t(
-        'Les Filles Kimono vous reconnaissent comme l\'Élu. Elles vous ouvrent les portes de la Tour Carillon.',
-        'The Kimono Girls recognize you as the Chosen One. They open the gates of the Tin Tower for you.',
-      ),
-      winFn: () => { const hm = _qHooh(); if(hm){ hm.kimonoDefeated = true; hm.step = 4; } },
-    },
-  };
+  });
+}
 
-  const boss = cfg[key];
-  if (!boss) return;
-
-  const power    = globalThis.getBossTeamPower?.() ?? 0;
-  const needed   = boss.power;
-  const enough   = power >= needed;
-  const trainerImg = boss.spriteKey ? globalThis.trainerSprite?.(boss.spriteKey) : null;
-
-  const ol = document.getElementById('jhm-overlay');
-  if (!ol) return;
-
-  const div = document.createElement('div');
-  div.id = 'jhm-fight-modal';
-  div.style.cssText = 'position:absolute;inset:0;z-index:10;background:rgba(1,4,1,.96);display:flex;align-items:center;justify-content:center;padding:20px;animation:jhm-appear .3s ease both';
-  div.innerHTML = `
-    <div class="jhm-fight-box" style="--jhm-accent:${boss.accent}">
-      ${trainerImg ? `<div class="jhm-trainer-wrap">
-        <img class="jhm-trainer-img" src="${trainerImg}" alt="${boss.name}" onerror="this.style.display='none'">
-        <div class="jhm-fight-title" style="margin-bottom:0">${boss.icon} ${boss.name} — ${boss.role}</div>
-      </div>` : `<div class="jhm-fight-title">${boss.icon} ${boss.name} — ${boss.role}</div>`}
-      <div class="jhm-fight-text">${boss.team}</div>
-      <div class="jhm-power-row">
-        <div class="jhm-power-chip">👊 ${_t('Votre puissance', 'Your power')} : ${power.toLocaleString()}</div>
-        <div class="jhm-power-chip" style="${enough?'color:#90ee90':'color:#ff8080'}">🎯 ${_t('Requis', 'Required')} : ${needed.toLocaleString()}</div>
-      </div>
-      <div id="jhm-fight-result"></div>
-      <div class="jhm-actions">
-        ${enough
-          ? `<button class="jhm-btn primary" id="jhm-fight-go">⚔️ ${_t('Combattre', 'Fight')}</button>`
-          : `<span style="font-family:var(--font-pixel,monospace);font-size:7.5px;color:#ff8080">${_t(`Puissance insuffisante (${needed - power} manquants)`, `Not enough power (${needed - power} short)`)}</span>`
-        }
-        <button class="jhm-btn" id="jhm-fight-cancel">${_t('Annuler', 'Cancel')}</button>
-      </div>
-    </div>`;
-
-  ol.style.position = 'relative';
-  ol.appendChild(div);
-
-  div.querySelector('#jhm-fight-cancel')?.addEventListener('click', () => { div.remove(); });
-
-  const goBtn = div.querySelector('#jhm-fight-go');
-  if (goBtn) {
-    goBtn.addEventListener('click', async () => {
-      goBtn.disabled = true;
-      const resEl = div.querySelector('#jhm-fight-result');
-      resEl.innerHTML = `<div class="jhm-result-banner" style="color:${boss.accent}">⚔️ ${_t('Combat en cours…', 'Battle in progress…')}</div>`;
-      await _wait(900);
-      const { win } = resolveSpecialCombat({ power, requiredPower: needed });
-      if (!win) {
-        resEl.innerHTML = `<div class="jhm-result-banner" style="color:#ff8080">✗ ${_t('Défaite…', 'Defeat…')}</div>
-          <div style="font-family:var(--font-pixel,monospace);font-size:7.5px;color:#c0d8c0;line-height:2;margin-top:6px">${_t(`${boss.name} vous a repoussé. Renforcez votre équipe et retentez votre chance.`, `${boss.name} pushed you back. Strengthen your team and try again.`)}</div>`;
-        await _wait(2200);
-        div.remove();
+function _openLegendary(key) {
+  const cfg = LEGENDARIES[key];
+  if (!cfg) return;
+  const mission = cfg.getMission();
+  if (!mission) return;
+  if (!mission.legendEncounter) mission.legendEncounter = defaultEncounterState();
+  globalThis.openQuestEncounterPopup?.({
+    id: `jhm-leg-${key}`, kind: 'legendary',
+    name: cfg.name, icon: cfg.icon, spriteUrl: cfg.static,
+    team: cfg.team, statMult: cfg.statMult, catchBase: cfg.catchBase,
+    potential: cfg.pot, zoneId: cfg.zone,
+    encounterState: mission.legendEncounter,
+    onResolved: (result) => {
+      if (!result.won) return;
+      if (!result.captured) {
+        _notify(_t(`⚡ ${cfg.name} s'échappe !`, `⚡ ${cfg.name} escapes!`), '');
         return;
       }
-      boss.winFn();
+      const s = _state();
+      const pk = globalThis.makePokemon?.(cfg.species, null, 'pokeball');
+      if (!pk) return;
+      pk.level = cfg.level;
+      pk.shiny = false;
+      pk.potential = cfg.pot;
+      if (globalThis.calculateStats) pk.stats = globalThis.calculateStats(pk);
+      cfg.onWin(mission);
+      mission.totalCaptures = (mission.totalCaptures || 0) + 1;
+      s.pokemons.push(pk);
+      EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: pk, zoneId: cfg.zone });
+      globalThis.registerPokedexCapture?.(s, pk);
+      _notify(_t(`✨ ${cfg.name} capturé !`, `✨ ${cfg.name} caught!`), 'gold');
       _save();
-      resEl.innerHTML = `<div class="jhm-result-banner" style="color:#90ee90">✓ ${_t('Victoire !', 'Victory!')}</div>
-        <div style="font-family:var(--font-pixel,monospace);font-size:7.5px;color:#c0d8c0;line-height:2;margin-top:6px">${boss.winMsg}</div>`;
-      await _wait(2200);
-      div.remove();
-      openJohtoMissions();
-    });
-  }
-}
-
-// ── Combat Légendaire ─────────────────────────────────────────────
-async function _launchLegendary(key) {
-  const s = _state();
-  if (!s) return;
-
-  const cfgMap = {
-    beast: () => {
-      const bm = _qBetes();
-      const beast = bm?.chosenBeast ?? 'raikou';
-      const names = { raikou:'Raikou', entei:'Entei', suicune:'Suicune' };
-      const lvl   = { raikou:60, entei:60, suicune:60 };
-      const pot   = 3;
-      return {
-        name: names[beast], species: beast,
-        sprite: _beastSprite(beast), static: _beastStatic(beast),
-        power: 4000, catchBase: 0.50,
-        level: lvl[beast], pot,
-        accent: { raikou:'#e8d040', entei:'#e86020', suicune:'#40a0e8' }[beast],
-        icon: { raikou:'⚡', entei:'🔥', suicune:'💧' }[beast],
-        winFn: () => {
-          if(bm){ bm.beastOwned = true; bm.step = 6; }
-        },
-      };
+      _repatchZone(cfg.zone);
     },
-    lugia: () => ({
-      name:'Lugia', species:'lugia',
-      sprite:LUGIA_SPRITE, static:LUGIA_STATIC,
-      power:5000, catchBase:0.35,
-      level:70, pot:4,
-      accent:'#5599cc', icon:'🌊',
-      winFn: () => { const lm = _qLugia(); if(lm){ lm.lugiaOwned = true; lm.step = 6; } },
-    }),
-    hooh: () => ({
-      name:'Ho-Oh', species:'ho-oh',
-      sprite:HOOH_SPRITE, static:HOOH_STATIC,
-      power:5500, catchBase:0.30,
-      level:70, pot:5,
-      accent:'#cc9944', icon:'🌈',
-      winFn: () => { const hm = _qHooh(); if(hm){ hm.hoohOwned = true; hm.step = 6; } },
-    }),
-  };
-
-  const getCfg = cfgMap[key];
-  if (!getCfg) return;
-  const cfg = getCfg();
-
-  const power  = globalThis.getBossTeamPower?.() ?? 0;
-  const enough = power >= cfg.power;
-
-  const ol = document.getElementById('jhm-overlay');
-  if (!ol) return;
-
-  const div = document.createElement('div');
-  div.id = 'jhm-legendary-modal';
-  div.style.cssText = 'position:absolute;inset:0;z-index:10;background:rgba(1,4,1,.98);display:flex;align-items:center;justify-content:center;padding:20px;animation:jhm-appear .35s ease both';
-  div.innerHTML = `
-    <div class="jhm-fight-box" style="--jhm-accent:${cfg.accent}">
-      <div class="jhm-fight-title">${cfg.icon} ${cfg.name} — Lv.${cfg.level}</div>
-      <div class="jhm-sprite-row" style="margin-bottom:10px">
-        <img src="${cfg.static}" style="height:72px;image-rendering:pixelated" alt="${cfg.name}">
-      </div>
-      <div class="jhm-power-row">
-        <div class="jhm-power-chip">👊 ${_t('Votre puissance', 'Your power')} : ${power.toLocaleString()}</div>
-        <div class="jhm-power-chip" style="${enough?'color:#90ee90':'color:#ff8080'}">🎯 ${_t('Requis', 'Required')} : ${cfg.power.toLocaleString()}</div>
-      </div>
-      <div id="jhm-leg-result"></div>
-      <div class="jhm-actions">
-        ${enough
-          ? `<button class="jhm-btn primary" id="jhm-leg-go" style="--jhm-accent:${cfg.accent}">⚔️ ${_t('Affronter', 'Face')} ${cfg.name}</button>`
-          : `<span style="font-family:var(--font-pixel,monospace);font-size:7.5px;color:#ff8080">${_t(`Puissance insuffisante (${cfg.power - power} manquants)`, `Not enough power (${cfg.power - power} short)`)}</span>`
-        }
-        <button class="jhm-btn" id="jhm-leg-cancel">${_t('Annuler', 'Cancel')}</button>
-      </div>
-    </div>`;
-
-  ol.style.position = 'relative';
-  ol.appendChild(div);
-  div.querySelector('#jhm-leg-cancel')?.addEventListener('click', () => div.remove());
-
-  const goBtn = div.querySelector('#jhm-leg-go');
-  if (goBtn) {
-    goBtn.addEventListener('click', async () => {
-      goBtn.disabled = true;
-      const resEl = div.querySelector('#jhm-leg-result');
-      resEl.innerHTML = `<div class="jhm-result-banner" style="color:${cfg.accent}">⚔️ ${_t('Combat légendaire…', 'Legendary battle…')}</div>`;
-      await _wait(1200);
-
-      // Capture roll
-      const powerRatio = power / cfg.power;
-      const catchRate  = Math.min(cfg.catchBase + Math.max(0, powerRatio - 1) * 0.25, 0.92);
-      const caught     = Math.random() < catchRate;
-
-      if (caught) {
-        // Add Pokémon to PC
-        const pk = globalThis.makePokemon?.(cfg.species, null, 'pokeball');
-        if (pk) {
-          pk.level     = cfg.level;
-          pk.shiny     = false;
-          pk.potential = cfg.pot;
-          if (globalThis.calculateStats) pk.stats = globalThis.calculateStats(pk);
-          s.pokemons.push(pk);
-          const _legendZoneMap = { lugia: _WHIRL_ZONE, hooh: _TIN_ZONE };
-          EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: pk, zoneId: _legendZoneMap[key] ?? null });
-          globalThis.registerPokedexCapture?.(s, pk);
-          // Marquer la quête comme complète seulement si la capture a réellement
-          // abouti (le pokémon a bien été créé) — pas juste sur un jet de capture
-          // réussi mais un makePokemon() en échec.
-          cfg.winFn();
-          // Increment totalCaptures on the right mission state
-          const mMap = { beast:'betesMission', lugia:'lugiaMission', hooh:'hoohMission' };
-          const mKey = mMap[key];
-          if (mKey && s[mKey]) s[mKey].totalCaptures = (s[mKey].totalCaptures || 0) + 1;
-          resEl.innerHTML = `<div class="jhm-result-banner" style="color:#90ee90">✨ ${_t(`${cfg.name} capturé !`, `${cfg.name} caught!`)}</div>
-            <div style="font-family:var(--font-pixel,monospace);font-size:7.5px;color:#c0d8c0;line-height:2;margin-top:6px">
-              ${_t(`${cfg.name} Lv.${cfg.level} ajouté à votre PC — Pot.${cfg.pot} ★`, `${cfg.name} Lv.${cfg.level} added to your PC — Pot.${cfg.pot} ★`)}
-            </div>`;
-        } else {
-          resEl.innerHTML = `<div class="jhm-result-banner" style="color:#90ee90">✓ ${_t(`${cfg.name} neutralisé !`, `${cfg.name} neutralized!`)}</div>`;
-        }
-      } else {
-        resEl.innerHTML = `<div class="jhm-result-banner" style="color:#e8d040">⚡ ${_t(`${cfg.name} s'échappe !`, `${cfg.name} escapes!`)}</div>
-          <div style="font-family:var(--font-pixel,monospace);font-size:7.5px;color:#aaa;line-height:2;margin-top:6px">
-            ${_t(`Taux de capture : ${Math.round(catchRate * 100)}%. Utilisez un item de relance pour réessayer.`, `Catch rate: ${Math.round(catchRate * 100)}%. Use a retry item to try again.`)}
-          </div>`;
-      }
-
-      _save();
-      await _wait(2500);
-      div.remove();
-      openJohtoMissions();
-    });
-  }
+  });
 }
+
+function _openBeast() {
+  const bm = _qBetes();
+  if (!bm?.chosenBeast) return;
+  const beast = bm.chosenBeast;
+  const names = { raikou: 'Raikou', entei: 'Entei', suicune: 'Suicune' };
+  const icons = { raikou: '⚡', entei: '🔥', suicune: '💧' };
+  if (!bm.beastEncounter) bm.beastEncounter = defaultEncounterState();
+  globalThis.openQuestEncounterPopup?.({
+    id: 'jhm-beast', kind: 'legendary',
+    name: names[beast], icon: icons[beast], spriteUrl: _beastStatic(beast),
+    team: [{ species_en: beast, level: 60, potential: 3 }], statMult: 1.5, catchBase: 0.50,
+    potential: 3, zoneId: _BEAST_ZONE,
+    encounterState: bm.beastEncounter,
+    onResolved: (result) => {
+      if (!result.won) return;
+      if (!result.captured) {
+        _notify(_t(`⚡ ${names[beast]} s'échappe !`, `⚡ ${names[beast]} escapes!`), '');
+        return;
+      }
+      const s = _state();
+      const pk = globalThis.makePokemon?.(beast, null, 'pokeball');
+      if (!pk) return;
+      pk.level = 60;
+      pk.shiny = false;
+      pk.potential = 3;
+      if (globalThis.calculateStats) pk.stats = globalThis.calculateStats(pk);
+      bm.beastOwned = true; bm.step = 6; bm.totalCaptures = (bm.totalCaptures || 0) + 1;
+      s.pokemons.push(pk);
+      EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: pk, zoneId: _BEAST_ZONE });
+      globalThis.registerPokedexCapture?.(s, pk);
+      _notify(_t(`✨ ${names[beast]} capturé !`, `✨ ${names[beast]} caught!`), 'gold');
+      _save();
+      _repatchZone(_BEAST_ZONE);
+    },
+  });
+}
+
+function _bossEntry(key) {
+  const cfg = BOSSES[key];
+  return { id: `jhm-boss-${key}`, name: _t(cfg.name, cfg.name_en), icon: cfg.icon, spriteUrl: globalThis.trainerSprite?.(cfg.spriteKey) ?? '', onClick: () => _openBoss(key) };
+}
+
+function _legendEntry(key) {
+  const cfg = LEGENDARIES[key];
+  return { id: `jhm-leg-${key}`, name: cfg.name, icon: cfg.icon, spriteUrl: cfg.static, onClick: () => _openLegendary(key) };
+}
+
+function _beastEntry(beast) {
+  const names = { raikou: 'Raikou', entei: 'Entei', suicune: 'Suicune' };
+  const icons = { raikou: '⚡', entei: '🔥', suicune: '💧' };
+  return { id: 'jhm-beast', name: names[beast], icon: icons[beast], spriteUrl: _beastStatic(beast), onClick: _openBeast };
+}
+
+/** Agrégateur appelé par modules/ui/zoneWindows.js pour savoir si un
+ *  dresseur/légendaire de quête doit apparaître comme sprite persistant
+ *  dans la fenêtre de zone zoneId à l'étape courante. */
+export function getJohtoQuestEncounterForZone(zoneId) {
+  const bm = _qBetes();
+  if (bm?.active) {
+    if (bm.step === 3 && !bm.petrelDefeated && zoneId === BOSSES.petrel.zone) return _bossEntry('petrel');
+    if (bm.step === 4 && !bm.arianaDefeated && zoneId === BOSSES.ariana.zone) return _bossEntry('ariana');
+    if (bm.step === 5 && bm.chosenBeast && zoneId === _BEAST_ZONE) return _beastEntry(bm.chosenBeast);
+  }
+  const lm = _qLugia();
+  if (lm?.active) {
+    if (lm.step === 3 && !lm.eusineDefeated && zoneId === BOSSES.eusine.zone) return _bossEntry('eusine');
+    if (lm.step === 5 && zoneId === LEGENDARIES.lugia.zone) return _legendEntry('lugia');
+  }
+  const hm = _qHooh();
+  if (hm?.active) {
+    if (hm.step === 3 && !hm.kimonoDefeated && zoneId === BOSSES.kimono.zone) return _bossEntry('kimono');
+    if (hm.step === 5 && zoneId === LEGENDARIES.hooh.zone) return _legendEntry('hooh');
+  }
+  return null;
+}
+
 
 // ── Relances ──────────────────────────────────────────────────────
 function _doRerun(key) {
@@ -952,7 +924,11 @@ function _doRerun(key) {
   if (!item || !mKey) return;
   if ((s.inventory[item] || 0) < 1) return;
   s.inventory[item]--;
-  if (s[mKey]) s[mKey].step = 5;
+  if (s[mKey]) {
+    s[mKey].step = 5;
+    if (key === 'betes') s[mKey].beastEncounter = defaultEncounterState();
+    else s[mKey].legendEncounter = defaultEncounterState();
+  }
   _save();
   openJohtoMissions();
 }
@@ -987,14 +963,7 @@ export function openJohtoMissions() {
     if (!btn) return;
     const action = btn.dataset.jhm;
     switch (action) {
-      case 'petrel':       _launchBoss('petrel'); break;
-      case 'ariana':       _launchBoss('ariana'); break;
-      case 'eusine':       _launchBoss('eusine'); break;
-      case 'kimono':       _launchBoss('kimono'); break;
       case 'choose-beast': _openBeastChooser(); break;
-      case 'beast-fight':  _launchLegendary('beast'); break;
-      case 'lugia':        _launchLegendary('lugia'); break;
-      case 'hooh':         _launchLegendary('hooh'); break;
       case 'rerun-betes':  _doRerun('betes'); break;
       case 'rerun-lugia':  _doRerun('lugia'); break;
       case 'rerun-hooh':   _doRerun('hooh'); break;
@@ -1037,5 +1006,6 @@ export function checkJohtoMissionsUnlock() {
 // ── Boot ──────────────────────────────────────────────────────────
 _register();
 
-globalThis.openJohtoMissions        = openJohtoMissions;
-globalThis.checkJohtoMissionsUnlock = checkJohtoMissionsUnlock;
+globalThis.openJohtoMissions               = openJohtoMissions;
+globalThis.checkJohtoMissionsUnlock        = checkJohtoMissionsUnlock;
+globalThis.getJohtoQuestEncounterForZone   = getJohtoQuestEncounterForZone;

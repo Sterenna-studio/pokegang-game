@@ -2323,6 +2323,99 @@ function showCaptureBurst(container, x, y, potential, shiny) {
   setTimeout(() => burst.remove(), 800);
 }
 
+// ── Quest-encounter capture animation ──────────────────────────
+// Variante d'animateCapture pour une cible fixe (.zone-quest-encounter,
+// positionnée par CSS de classe, pas par style inline) et une issue déjà
+// décidée en amont (rollQuestCapture) — pas d'appel à tryCapture ici, cette
+// fonction est purement visuelle. Appelée par questEncounterPopup.js après
+// fermeture du popup de combat, une fois la capture d'un légendaire de
+// quête tranchée.
+function animateQuestCapture({ zoneId, encounterId, caught, potential = 3, onDone } = {}) {
+  const state = globalThis.state;
+  const BALL_SPRITES = globalThis.BALL_SPRITES;
+  const win = document.getElementById(`zw-${zoneId}`);
+  const viewport = win?.querySelector('.zone-viewport');
+  const encounterEl = viewport?.querySelector(`[data-quest-encounter-id="${encounterId}"]`);
+  if (!win || !viewport || !encounterEl) { onDone?.(); return; }
+
+  const bossEl = win.querySelector('.zone-boss');
+  const agentEl = win.querySelector('.zone-agent');
+  const thrower = bossEl || agentEl;
+  const wr = viewport.getBoundingClientRect();
+  let startX, startY;
+  if (thrower) {
+    const r = thrower.getBoundingClientRect();
+    startX = r.left - wr.left + r.width / 2;
+    startY = Math.min(viewport.clientHeight - 8, r.top - wr.top);
+  } else {
+    startX = viewport.clientWidth / 2;
+    startY = viewport.clientHeight - 8;
+  }
+  // Cible lue via getBoundingClientRect (contrairement à animateCapture qui lit
+  // spawnEl.style.left/top — .zone-quest-encounter n'a pas de style inline).
+  const er = encounterEl.getBoundingClientRect();
+  const targetX = er.left - wr.left + er.width / 2;
+  const targetY = er.top - wr.top + er.height / 2;
+
+  const ball = document.createElement('div');
+  ball.className = 'ball-projectile';
+  ball.innerHTML = `<img src="${BALL_SPRITES[state.activeBall] || BALL_SPRITES.pokeball}">`;
+  ball.style.left = startX + 'px';
+  ball.style.top = startY + 'px';
+  viewport.appendChild(ball);
+
+  globalThis.SFX.play('ballThrow');
+  requestAnimationFrame(() => {
+    ball.style.transition = 'left .35s ease-out, top .35s ease-in';
+    ball.style.left = targetX + 'px';
+    ball.style.top = targetY + 'px';
+  });
+
+  setTimeout(() => {
+    const wobbles = Math.floor(Math.random() * 4); // 0-3, cosmétique — n'affecte pas l'issue
+    ball.style.transition = 'none';
+    ball.style.left = (targetX - 10) + 'px';
+    ball.style.top  = (targetY - 10) + 'px';
+    if (wobbles === 0 && caught) ball.style.filter = 'drop-shadow(0 0 6px gold)';
+
+    function resolveOutcome() {
+      ball.remove();
+      if (caught) {
+        globalThis.SFX.play('capture', potential, false);
+        showCaptureBurst(viewport, targetX, targetY, potential, false);
+        encounterEl.style.transition = 'opacity .3s, transform .3s';
+        encounterEl.style.opacity = '0';
+        encounterEl.style.transform = 'scale(.6)';
+        setTimeout(() => { encounterEl.remove(); onDone?.(); }, 300);
+      } else {
+        encounterEl.style.transition = 'opacity .15s, transform .15s';
+        encounterEl.style.opacity = '.3';
+        encounterEl.style.transform = 'scale(.85)';
+        setTimeout(() => {
+          encounterEl.style.opacity = '1';
+          encounterEl.style.transform = '';
+        }, 350);
+        onDone?.();
+      }
+    }
+
+    if (wobbles === 0) {
+      setTimeout(resolveOutcome, 150);
+    } else {
+      let w = 0;
+      function nextWobble() {
+        w++;
+        ball.classList.remove('ball-wobble');
+        void ball.offsetWidth; // force reflow pour redémarrer l'animation
+        ball.classList.add('ball-wobble');
+        if (w < wobbles) setTimeout(nextWobble, 480);
+        else setTimeout(resolveOutcome, 520);
+      }
+      setTimeout(nextWobble, 100);
+    }
+  }, 380);
+}
+
 // ── Player team builder ───────────────────────────────────────
 
 function buildPlayerTeamForZone(zoneId) {
@@ -3285,6 +3378,7 @@ Object.assign(globalThis, {
   _zwin_removeSpawn:              removeSpawn,
   _zwin_animateCapture:           animateCapture,
   _zwin_showCaptureBurst:         showCaptureBurst,
+  _zwin_animateQuestCapture:      animateQuestCapture,
   _zwin_buildPlayerTeamForZone:   buildPlayerTeamForZone,
   _zwin_openCombatPopup:          openCombatPopup,
   _zwin_executeCombat:            executeCombat,
