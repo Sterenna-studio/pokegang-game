@@ -27,7 +27,8 @@ const _t      = (fr, en)         => (globalThis.state?.lang === 'en' ? en : fr);
 
 /**
  * @param {object} cfg
- * @param {string}   cfg.id            clé unique (dédup DOM)
+ * @param {string}   cfg.id            clé unique (dédup DOM ET data-quest-encounter-id
+ *                                     du sprite dans la zone — doit correspondre)
  * @param {'legendary'|'trainer'} cfg.kind
  * @param {string}   cfg.name          nom affiché
  * @param {string}   [cfg.icon]        emoji
@@ -36,6 +37,8 @@ const _t      = (fr, en)         => (globalThis.state?.lang === 'en' ? en : fr);
  * @param {Array}    cfg.team          [{species_en, level, potential?}]
  * @param {number}   [cfg.statMult=1]  buff de difficulté (combat spécial)
  * @param {number}   [cfg.catchBase]   requis si kind==='legendary'
+ * @param {number}   [cfg.potential]   requis si kind==='legendary' — pour l'effet visuel de capture
+ * @param {string}   [cfg.zoneId]      requis si kind==='legendary' — pour animer la capture dans la zone
  * @param {object}   [cfg.encounterState] état d'affaiblissement persistant, muté en place
  * @param {(result: object) => void} cfg.onResolved
  */
@@ -134,10 +137,12 @@ export function openQuestEncounterPopup(cfg) {
     let title, color;
     if (outcome.isFinal) {
       if (cfg.kind === 'legendary') {
+        // L'issue de la capture (attrapé/échappé) n'est pas révélée ici — elle
+        // se joue via l'animation de balle dans la zone une fois le popup fermé
+        // (voir bind()'s #qepDone et animateQuestCapture dans zoneWindows.js).
         title = !won ? _t('Combat perdu — renforcez votre équipe.', 'Battle lost — strengthen your team.')
-          : outcome.captured ? _t(`${cfg.name} capturé !`, `${cfg.name} caught!`)
-          : _t(`${cfg.name} s'échappe... (${Math.round(outcome.chance * 100)}% de chances)`, `${cfg.name} escapes... (${Math.round(outcome.chance * 100)}% chance)`);
-        color = !won ? 'var(--red)' : outcome.captured ? 'var(--gold)' : 'var(--text-dim)';
+          : _t(`Combat gagné ! Lancez la Poké Ball vers ${cfg.name}...`, `Battle won! Throwing the Poké Ball at ${cfg.name}...`);
+        color = !won ? 'var(--red)' : 'var(--gold)';
       } else {
         title = won ? _t(`${cfg.name} est vaincu !`, `${cfg.name} is defeated!`) : _t('Combat perdu — renforcez votre équipe.', 'Battle lost — strengthen your team.');
         color = won ? 'var(--gold)' : 'var(--red)';
@@ -163,7 +168,20 @@ export function openQuestEncounterPopup(cfg) {
   function bind() {
     modal.querySelector('#qepClose')?.addEventListener('click', () => modal.remove());
     modal.querySelector('#qepDone')?.addEventListener('click', () => {
-      if (lastOutcome?.isFinal && lastOutcome.won) { modal.remove(); return; }
+      if (lastOutcome?.isFinal && lastOutcome.won) {
+        modal.remove();
+        if (lastOutcome.pendingCapture) {
+          globalThis.animateQuestCapture?.({
+            zoneId: cfg.zoneId, encounterId: cfg.id,
+            caught: lastOutcome.captured, potential: cfg.potential ?? 3,
+            onDone: () => {
+              cfg.onResolved?.({ won: true, isFinal: true, captured: lastOutcome.captured, weakenPctAtStart: lastOutcome.weakenPctAtStart });
+              _dirty(); _save();
+            },
+          });
+        }
+        return;
+      }
       phase = 'overview';
       render();
     });
@@ -207,15 +225,19 @@ export function openQuestEncounterPopup(cfg) {
     if (!result.win) {
       lastOutcome = { won: false, isFinal: true };
       cfg.onResolved?.({ won: false, isFinal: true });
+      _dirty(); _save();
     } else if (cfg.kind === 'legendary') {
+      // Jet de capture tranché immédiatement (issue verrouillée), mais sa
+      // révélation (texte + onResolved) est différée à la fermeture du popup
+      // — voir bind()'s #qepDone — pour laisser place à l'animation de balle
+      // dans la zone au lieu d'un texte "capturé !"/"s'échappe" ici.
       const cap = rollQuestCapture({ catchBase: cfg.catchBase ?? 0.5, weakenPctAtStart: result.weakenPctAtStart });
-      lastOutcome = { won: true, isFinal: true, captured: cap.caught, chance: cap.chance, weakenPctAtStart: result.weakenPctAtStart };
-      cfg.onResolved?.({ won: true, isFinal: true, captured: cap.caught, weakenPctAtStart: result.weakenPctAtStart });
+      lastOutcome = { won: true, isFinal: true, pendingCapture: true, captured: cap.caught, chance: cap.chance, weakenPctAtStart: result.weakenPctAtStart };
     } else {
       lastOutcome = { won: true, isFinal: true };
       cfg.onResolved?.({ won: true, isFinal: true });
+      _dirty(); _save();
     }
-    _dirty(); _save();
     phase = 'result';
     render();
   }

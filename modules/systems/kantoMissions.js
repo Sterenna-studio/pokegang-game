@@ -547,6 +547,14 @@ function _buildTracker() {
 // dans sa zone de lore (voir getKantoQuestEncounterForZone, appelé par
 // l'agrégateur de modules/ui/zoneWindows.js).
 
+/** Force un rafraîchissement immédiat de la fenêtre de zone (si ouverte) après
+ *  résolution d'un combat de quête — sinon le sprite vaincu/mis à jour
+ *  n'apparaît qu'au prochain tick périodique (jusqu'à 5s). */
+function _repatchZone(zoneId) {
+  const win = document.getElementById(`zw-${zoneId}`);
+  if (win) globalThis.patchZoneWindow?.(zoneId, win);
+}
+
 function _openBirdBoss(key) {
   const bird = BIRDS[key];
   const b = _qBirds()?.[key];
@@ -567,6 +575,7 @@ function _openBirdBoss(key) {
         `${bird.boss.name} is defeated. The way to ${_birdName(bird)} is now open.`,
       ), 'gold');
       _save();
+      _repatchZone(bird.zone);
     },
   });
 }
@@ -580,6 +589,7 @@ function _openBirdLegendary(key) {
     id: `ktm-leg-${key}`, kind: 'legendary',
     name: _birdName(bird), icon: bird.icon, spriteUrl: bird.static,
     team: bird.team, statMult: bird.statMult ?? 1, catchBase: bird.catchBase,
+    potential: bird.pot, zoneId: bird.zone,
     encounterState: b.legendEncounter,
     onResolved: (result) => {
       if (!result.won) return;
@@ -600,6 +610,7 @@ function _openBirdLegendary(key) {
       globalThis.registerPokedexCapture?.(s, pk);
       _notify(_t(`✨ ${_birdName(bird)} capturé !`, `✨ ${_birdName(bird)} caught!`), 'gold');
       _save();
+      _repatchZone(bird.zone);
     },
   });
 }
@@ -623,6 +634,7 @@ function _openGiovanni() {
         'Giovanni is defeated and flees. The Cerulean Cave coordinates are now known.',
       ), 'gold');
       _save();
+      _repatchZone(GIOVANNI_CFG.zone);
     },
   });
 }
@@ -635,6 +647,7 @@ function _openMewtwo() {
     id: 'ktm-mewtwo', kind: 'legendary',
     name: MEWTWO_CFG.name, icon: MEWTWO_CFG.icon, spriteUrl: MEWTWO_CFG.sprite,
     team: MEWTWO_CFG.team, statMult: MEWTWO_CFG.statMult, catchBase: MEWTWO_CFG.catchBase,
+    potential: MEWTWO_CFG.pot, zoneId: MEWTWO_CFG.zone,
     encounterState: mm.mewtwoEncounter,
     onResolved: (result) => {
       if (!result.won) return;
@@ -655,6 +668,7 @@ function _openMewtwo() {
       globalThis.registerPokedexCapture?.(s, pk);
       _notify(_t('✨ Mewtwo capturé !', '✨ Mewtwo caught!'), 'gold');
       _save();
+      _repatchZone(MEWTWO_CFG.zone);
     },
   });
 }
