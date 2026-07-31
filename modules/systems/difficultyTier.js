@@ -76,18 +76,3 @@ export function getDifficultyBadgeHtml(tier) {
   </div>`;
 }
 
-/**
- * Helper inverse : à partir d'un trainerSpawn et des agents/boss en zone,
- * renvoie directement le tier (utilise getTrainerCombatPreview en interne).
- *
- * @param {object} trainerSpawn — spawn objet { trainerKey, team, zoneId, ... }
- * @param {string[]} [agentIds] — null pour tous les agents en zone
- * @returns {object|null} tier ou null si preview impossible
- */
-export function tierForTrainerSpawn(trainerSpawn, agentIds = null) {
-  const preview = globalThis.getTrainerCombatPreview?.(trainerSpawn, agentIds);
-  if (!preview) return null;
-  return getDifficultyTier(preview.attackerPower, preview.defenderPower);
-}
-
-export { TIERS };

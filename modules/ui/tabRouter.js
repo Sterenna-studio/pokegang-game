@@ -307,9 +307,6 @@ function switchTab(tabId) {
     sessionStorage.setItem('pg_visited_tabs', JSON.stringify([..._visitedTabs]));
     showFirstVisitHint(tabId);
   }
-  if (!state.behaviourLogs) state.behaviourLogs = {};
-  if (!state.behaviourLogs.tabViewCounts) state.behaviourLogs.tabViewCounts = {};
-  state.behaviourLogs.tabViewCounts[tabId] = (state.behaviourLogs.tabViewCounts[tabId] || 0) + 1;
 }
 
 // ── updateTopBar debounce + dex badge cache ───────────────────────────────────

@@ -203,9 +203,6 @@ function buyItem(itemDef) {
   state.gang.money -= actualCost;
   EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -actualCost, newTotal: state.gang.money });
   state.stats.totalMoneySpent += actualCost;
-  // Behavioural log — premier achat
-  if (!state.behaviourLogs) state.behaviourLogs = {};
-  if (!state.behaviourLogs.firstPurchaseAt) state.behaviourLogs.firstPurchaseAt = Date.now();
 
   // ── One-time gang upgrades ────────────────────────────────────
   const GANG_UPGRADES = new Set(['translator', 'autoSellAgent']);
@@ -390,8 +387,6 @@ function buyItemBulk(itemDef, count = 1) {
   state.gang.money -= _bulkCost;
   EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -_bulkCost, newTotal: state.gang.money });
   state.stats.totalMoneySpent += _bulkCost;
-  if (!state.behaviourLogs) state.behaviourLogs = {};
-  if (!state.behaviourLogs.firstPurchaseAt) state.behaviourLogs.firstPurchaseAt = Date.now();
   state.inventory[itemDef.id] = (state.inventory[itemDef.id] || 0) + itemDef.qty * affordable;
   const name = state.lang === 'fr'
     ? (itemDef.fr || globalThis.BALLS[itemDef.id]?.fr || itemDef.id)

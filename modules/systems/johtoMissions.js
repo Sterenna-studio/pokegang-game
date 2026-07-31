@@ -635,7 +635,6 @@ function _buildTracker() {
 function _beastName(k) { return { raikou:'Raikou', entei:'Entei', suicune:'Suicune' }[k] ?? k; }
 function _beastSprite(k) { return { raikou:RAIKOU_SPRITE, entei:ENTEI_SPRITE, suicune:SUICUNE_SPRITE }[k] ?? RAIKOU_SPRITE; }
 function _beastStatic(k) { return { raikou:RAIKOU_STATIC, entei:ENTEI_STATIC, suicune:SUICUNE_STATIC }[k] ?? RAIKOU_STATIC; }
-function _beastType(k)  { return { raikou:_t('Électrik · Légendaire', 'Electric · Legendary'), entei:_t('Feu · Légendaire', 'Fire · Legendary'), suicune:_t('Eau · Légendaire', 'Water · Legendary') }[k] ?? ''; }
 
 // ── Sélecteur de Bête ─────────────────────────────────────────────
 async function _openBeastChooser() {
