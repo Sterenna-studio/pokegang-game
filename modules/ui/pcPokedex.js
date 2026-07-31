@@ -284,7 +284,6 @@ let pcSelectedIds = new Set(); // Ctrl/Shift+click multi-selection
 let _pcLastClickedIdx = -1;   // ancre pour la sélection par plage (Shift+click)
 let _pcSelectedGroups = new Set(); // multi-sélection en mode groupé
 let pcPage = 0;
-const PC_PAGE_SIZE = 36;
 let pcGridCols = 6;   // colonnes de la grille (configurable)
 let pcGridRows = 6;   // lignes par page (configurable)
 let pcGroupMode = false; // regroupement par espèce

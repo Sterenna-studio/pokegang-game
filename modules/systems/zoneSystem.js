@@ -750,9 +750,6 @@ function tryCapture(zoneId, speciesEN, bonusPotential = 0, spawnCtx = {}) {
   state.pokemons.push(pokemon); _dirty();
   EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon, zoneId });
   state.stats.totalCaught++;
-  // Behavioural log — première capture
-  if (!state.behaviourLogs) state.behaviourLogs = {};
-  if (!state.behaviourLogs.firstCaptureAt) state.behaviourLogs.firstCaptureAt = Date.now();
   // Zone captures counter
   if (zoneId && state.zones[zoneId]) state.zones[zoneId].captures = (state.zones[zoneId].captures || 0) + 1;
   // Pokedex
@@ -859,9 +856,6 @@ function resolveCombat(playerTeamIds, trainerData) {
 function applyCombatResult(result, playerTeamIds, trainerData) {
   const state = globalThis.state;
   state.stats.totalFights++;
-  // Behavioural log — premier combat
-  if (!state.behaviourLogs) state.behaviourLogs = {};
-  if (!state.behaviourLogs.firstCombatAt) state.behaviourLogs.firstCombatAt = Date.now();
   // Mark zone as permanently unlocked (persists even if rep drops later)
   if (trainerData.zoneId && state.zones[trainerData.zoneId]) {
     state.zones[trainerData.zoneId].unlocked = true;

@@ -95,8 +95,6 @@ function recruitAgent(agentData) {
   const state = globalThis.state;
   state.agents.push(agentData); _dirty();
   globalThis.addLog(globalThis.t('recruit_agent') + ': ' + agentData.name);
-  if (!state.behaviourLogs) state.behaviourLogs = {};
-  if (!state.behaviourLogs.firstAgentAt) state.behaviourLogs.firstAgentAt = Date.now();
   _save();
 }
 

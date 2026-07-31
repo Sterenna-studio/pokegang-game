@@ -170,7 +170,6 @@ function getInitialSaveSlot(localStorageRef) {
 
 function getMigrationFields(saved) {
   const fields = [];
-  if (!saved.behaviourLogs) fields.push('Logs comportementaux');
   if (saved.settings?.classicSprites === undefined) fields.push('Option sprites');
   if (!saved.eggs) fields.push('Système d’œufs');
   if (!saved.pension) fields.push('Pension');
@@ -245,7 +244,6 @@ export function loadState() {
 
     if (needsMigration) {
       const addedFields = [];
-      if (!saved.behaviourLogs)       addedFields.push('Logs comportementaux');
       if (saved.settings?.spriteMode === undefined && saved.settings?.classicSprites === undefined) addedFields.push('Option sprites');
       if (!saved.eggs)                addedFields.push('Système d\'œufs');
       if (!saved.pension)             addedFields.push('Pension');

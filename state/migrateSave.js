@@ -104,13 +104,11 @@ export function migrateSave(saved, deps) {
     byTrainer: ensureObject(saved.encounterStats?.byTrainer),
   };
 
-  // ── behaviourLogs ──────────────────────────────────────────────────────────
-  if (!merged.behaviourLogs) merged.behaviourLogs = structuredClone(DEFAULT_STATE.behaviourLogs);
-  if (!merged.behaviourLogs.tabViewCounts) merged.behaviourLogs.tabViewCounts = {};
-
   // ── Settings guards ──────────────────────────────────────────────────────────
   // autoBuyBall retiré : plus de stock de balls à racheter automatiquement.
   delete merged.settings.autoBuyBall;
+  // behaviourLogs retiré : jamais consommé, uniquement écrit.
+  delete merged.behaviourLogs;
   if (merged.settings.uiScale       === undefined) merged.settings.uiScale       = 100;
   if (merged.settings.musicVol      === undefined) merged.settings.musicVol      = 50;
   if (merged.settings.sfxVol        === undefined) merged.settings.sfxVol        = 80;
@@ -602,7 +600,6 @@ export function getMigrationSummary(saved, deps) {
 
   const fromVersion = saved._schemaVersion ?? saved.version ?? 'inconnue';
   const fields = [];
-  if (!saved.behaviourLogs)       fields.push('Logs comportementaux');
   if (saved.settings?.spriteMode === undefined && saved.settings?.classicSprites === undefined) fields.push('Option sprites');
   if (!saved.eggs)                fields.push('Système d\'\u0153ufs');
   if (!saved.pension)             fields.push('Pension');

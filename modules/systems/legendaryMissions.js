@@ -125,17 +125,6 @@ function _defaultQS(questId) {
   return { ...d, aquaFightsWon: 0, hideoutFightsWon: 0, archieDefeated: false, kyogreOwned: false };
 }
 
-function _fights1(questId, q) {
-  return questId === 'groudon' ? (q.magmaFightsWon || 0) : (q.aquaFightsWon || 0);
-}
-function _setFights1(questId, q, v) {
-  if (questId === 'groudon') q.magmaFightsWon = v;
-  else q.aquaFightsWon = v;
-}
-function _legendaryOwned(questId, q) {
-  return questId === 'groudon' ? q.groudonOwned : q.kyogreOwned;
-}
-
 function _wait(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 function _typewrite(el, text, speed = 24) {

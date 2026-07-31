@@ -325,14 +325,6 @@ export const DEFAULT_STATE = {
     mesprit: { active: false, step: 0, fightsWon: 0, owned: false, captures: 0 },
     azelf:   { active: false, step: 0, fightsWon: 0, owned: false, captures: 0 },
   },
-  behaviourLogs: {
-    firstCombatAt: 0,
-    firstCaptureAt: 0,
-    firstPurchaseAt: 0,
-    firstAgentAt: 0,
-    firstMissionAt: 0,
-    tabViewCounts: {},
-  },
 };
 
 export function createDefaultState() {

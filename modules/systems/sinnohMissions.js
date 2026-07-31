@@ -93,12 +93,6 @@ const _state = () => globalThis.state ?? null;
 // ── Helpers ───────────────────────────────────────────────────────
 function _power() { return globalThis.getBossTeamPower?.() ?? 0; }
 
-function _ownedCount(species) {
-  const s = _state();
-  if (!s) return 0;
-  return (s.pokemons || []).filter(p => p.species_en === species).length;
-}
-
 // ── Capture légendaire ───────────────────────────────────────────────────────
 function _captureLegend(species, level, catchBase, pot, missionKey, ownedField) {
   const s = _state();

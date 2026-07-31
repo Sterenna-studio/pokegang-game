@@ -90,7 +90,7 @@ const MODAL_EN = {
   mini_combat_lost_fight:'battle lost',
   mig_eggs:'Egg system', mig_pension:'Daycare', mig_training:'Training room',
   mig_missions:'Missions', mig_cosmetics:'Cosmetics', mig_titles:'Unlocked titles',
-  mig_title_slots:'Title slots (×4)', mig_logs:'Behavior logs', mig_lab:'Laboratory',
+  mig_title_slots:'Title slots (×4)', mig_lab:'Laboratory',
   mig_purchases:'Special purchases', mig_incubator:'Incubator inventory',
   mig_ui_settings:'Advanced UI settings', mig_none:'No migration required — save is up to date',
   badge_legacy:'Old version', badge_compatible:'Compatible format',
@@ -479,7 +479,6 @@ function openImportPreviewModal(raw) {
   if (!raw.cosmetics)        migrations.push(_t('mig_cosmetics',      'Cosmétiques'));
   if (!raw.unlockedTitles)   migrations.push(_t('mig_titles',         'Titres débloqués'));
   if (raw.gang?.titleC === undefined) migrations.push(_t('mig_title_slots', 'Slots de titres (×4)'));
-  if (!raw.behaviourLogs)    migrations.push(_t('mig_logs',           'Logs comportementaux'));
   if (!raw.lab)              migrations.push(_t('mig_lab',            'Laboratoire'));
   if (!raw.purchases)        migrations.push(_t('mig_purchases',      'Achats spéciaux'));
   if (!raw.eggs && !raw.inventory?.incubator) migrations.push(_t('mig_incubator', 'Inventaire incubateurs'));
@@ -864,8 +863,6 @@ function openHubImportModal(raw) {
 
           // Add cleaned-zone log if relevant
           if (doClean && cleaned > 0) {
-            if (!migrated.behaviourLogs) migrated.behaviourLogs = {};
-            migrated.behaviourLogs._importCleanedZones = cleaned;
             if (!migrated._importNotes) migrated._importNotes = [];
             migrated._importNotes.push(`${_t('import_note_lost_data', 'information perdue avec le temps')} (${cleaned} ${_t('import_note_zones_removed', 'zone(s) obsolète(s) supprimée(s)')})`);
           }

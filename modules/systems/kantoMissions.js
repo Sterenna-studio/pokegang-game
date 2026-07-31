@@ -44,7 +44,6 @@ const _t = (fr, en) => (globalThis.state?.lang === 'en' ? en : fr);
 const ARTICUNO_SPRITE = 'https://play.pokemonshowdown.com/sprites/gen5ani/articuno.gif';
 const ZAPDOS_SPRITE   = 'https://play.pokemonshowdown.com/sprites/gen5ani/zapdos.gif';
 const MOLTRES_SPRITE  = 'https://play.pokemonshowdown.com/sprites/gen5ani/moltres.gif';
-const MEWTWO_SPRITE   = 'https://play.pokemonshowdown.com/sprites/gen5ani/mewtwo.gif';
 const ARTICUNO_STATIC = 'https://play.pokemonshowdown.com/sprites/gen1/articuno.png';
 const ZAPDOS_STATIC   = 'https://play.pokemonshowdown.com/sprites/gen1/zapdos.png';
 const MOLTRES_STATIC  = 'https://play.pokemonshowdown.com/sprites/gen1/moltres.png';
@@ -55,12 +54,6 @@ const _ROCKET_KANTO = new Set([
   'silph_co', 'pokemon_tower', 'celadon_casino', 'saffron_gym', 'mt_moon',
   'viridian_forest', 'pokemon_mansion', 'ss_anne',
 ]);
-const _BIRD_ZONES = {
-  articuno: 'seafoam_islands',
-  zapdos:   'power_plant',
-  moltres:  'victory_road',
-};
-
 // Sous-ensemble strict de TRAINER_TYPES pour le drop combat de Rapport
 // Sylphe ci-dessous — contrairement à _ROCKET_KANTO (qui ne teste que la
 // zone), on veut ici une victoire contre un membre Rocket identifié.

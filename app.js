@@ -734,7 +734,6 @@ function renderZonesTab() { return globalThis._zwin_renderZonesTab(); }
 
 // ── Zone selector UI — delegated to modules/ui/zoneSelector.js ──
 function renderZoneSelector()           { _zsRenderSelector(); }
-function _refreshZoneTile(zoneId)       { _zsRefreshTile(zoneId); }
 function _refreshZoneIncomeTile(zoneId) { _zsRefreshIncome(zoneId); }
 function _updateZoneButtons()           { _zsUpdateButtons(); }
 

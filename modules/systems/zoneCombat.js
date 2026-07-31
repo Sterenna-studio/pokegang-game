@@ -10,7 +10,6 @@
 //  is accessed by bare name to match the rest of this codebase.
 // ════════════════════════════════════════════════════════════════
 
-import { BOSS_TEAM_SLOTS } from '../../data/game-config-data.js';
 import { getBossTeamPower } from './bossPower.js';
 import {
   POWER_W_ATK, POWER_W_DEF, POWER_W_SPD,
@@ -18,7 +17,6 @@ import {
 } from '../../data/power-config-data.js';
 
 const ZONE_AGENT_SLOTS     = 3;
-const ZONE_BOSS_TEAM_SLOTS = BOSS_TEAM_SLOTS; // boss peut aligner toute son équipe
 
 const TRAINER_TYPE_MULTIPLIERS = {
   normal: 1,
@@ -126,15 +124,6 @@ function trainerName(trainer, key = 'trainer') {
   return trainer?.fr ?? trainer?.en ?? key ?? 'Dresseur';
 }
 
-function trainerPokemonSummary(pokemon, multiplier = 1) {
-  return {
-    species_en: pokemon?.species_en ?? null,
-    level: pokemon?.level ?? 1,
-    shiny: pokemon?.shiny ?? false,
-    power: Math.round(trainerPokemonPower(pokemon) * multiplier),
-  };
-}
-
 function trainerTeamPower(team = [], multiplier = 1) {
   return Math.round(
     team.filter(Boolean).reduce((sum, pokemon) => sum + trainerPokemonPower(pokemon), 0) * multiplier,
@@ -159,11 +148,6 @@ function trainerPokemonEntries(spawn) {
     trainerName: trainerName(spawn?.trainer, spawn?.trainerKey),
     index,
   }));
-}
-
-function defenderPokemonName(pokemon) {
-  if (!pokemon?.species_en) return 'Pokémon';
-  return globalThis.speciesName?.(pokemon.species_en) ?? pokemon.species_en;
 }
 
 function allTrainerPokemon(spawn) {
