@@ -339,7 +339,7 @@ function _patchGangBaseV1(win, state) {
         badge.style.color   = owned ? 'var(--green)' : 'var(--text-dim)';
         badge.style.opacity = owned ? '' : '0.35';
       }
-      tile.title = `${id}${owned ? ' — Obtenu' : ' — Non obtenu'}`;
+      tile.title = `${id} — ${owned ? _t('gang_base_key_obtained') : _t('gang_base_key_not_obtained')}`;
     }
 
     // 3. Incubator slots — progress fill + time
