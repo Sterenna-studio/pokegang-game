@@ -108,7 +108,7 @@ export function createStore(options = {}) {
     try {
       const saved = JSON.parse(raw);
       migrationResult = legacyKey
-        ? { from: `clé ${legacyKey}`, toLegacyKey: legacyKey, fields: getMigrationFields(saved) }
+        ? { from: `${saved.lang === 'en' ? 'key' : 'clé'} ${legacyKey}`, toLegacyKey: legacyKey, fields: getMigrationFields(saved) }
         : getMigrationSummary(saved, { SAVE_SCHEMA_VERSION });
       const migrated = migrateSave(saved, {
         DEFAULT_STATE,
@@ -169,13 +169,15 @@ function getInitialSaveSlot(localStorageRef) {
 }
 
 function getMigrationFields(saved) {
+  const en = saved.lang === 'en';
+  const _f = (fr, enTxt) => (en ? enTxt : fr);
   const fields = [];
-  if (saved.settings?.classicSprites === undefined) fields.push('Option sprites');
-  if (!saved.eggs) fields.push('Système d’œufs');
-  if (!saved.pension) fields.push('Pension');
-  if (!saved.trainingRoom) fields.push('Salle d’entraînement');
-  if (!saved.missions) fields.push('Missions');
-  if (!saved.cosmetics) fields.push('Cosmétiques');
+  if (saved.settings?.classicSprites === undefined) fields.push(_f('Option sprites', 'Sprite option'));
+  if (!saved.eggs) fields.push(_f('Système d’œufs', 'Egg system'));
+  if (!saved.pension) fields.push(_f('Pension', 'Daycare'));
+  if (!saved.trainingRoom) fields.push(_f('Salle d’entraînement', 'Training room'));
+  if (!saved.missions) fields.push(_f('Missions', 'Quests'));
+  if (!saved.cosmetics) fields.push(_f('Cosmétiques', 'Cosmetics'));
   return fields;
 }
 

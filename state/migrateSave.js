@@ -598,19 +598,21 @@ export function getMigrationSummary(saved, deps) {
   const { SAVE_SCHEMA_VERSION } = deps;
   if (!saved || saved._schemaVersion === SAVE_SCHEMA_VERSION) return null;
 
-  const fromVersion = saved._schemaVersion ?? saved.version ?? 'inconnue';
+  const en = saved.lang === 'en';
+  const _f = (fr, enTxt) => (en ? enTxt : fr);
+  const fromVersion = saved._schemaVersion ?? saved.version ?? _f('inconnue', 'unknown');
   const fields = [];
-  if (saved.settings?.spriteMode === undefined && saved.settings?.classicSprites === undefined) fields.push('Option sprites');
-  if (!saved.eggs)                fields.push('Système d\'\u0153ufs');
-  if (!saved.pension)             fields.push('Pension');
-  if (!saved.trainingRoom)        fields.push('Salle d\'entraînement');
-  if (!saved.missions)            fields.push('Missions');
-  if (!saved.cosmetics)           fields.push('Cosmétiques');
-  if (!saved.purchases?.scientist) fields.push('Scientifique peu scrupuleux');
-  if (!saved.purchases?.autoSellAgent) fields.push('Vente auto agents');
-  if (!saved.gang?.bossTeamSlots) fields.push('Slots d\'\u00e9quipe boss (×3)');
-  if (!saved.purchases?.mysteryEggCount) fields.push('Compteur œufs mystère');
-  if (saved.inventory?.pokeball !== undefined) fields.push('Poké Balls illimitées (stock remboursé en ₽)');
+  if (saved.settings?.spriteMode === undefined && saved.settings?.classicSprites === undefined) fields.push(_f('Option sprites', 'Sprite option'));
+  if (!saved.eggs)                fields.push(_f("Système d'œufs", 'Egg system'));
+  if (!saved.pension)             fields.push(_f('Pension', 'Daycare'));
+  if (!saved.trainingRoom)        fields.push(_f("Salle d'entraînement", 'Training room'));
+  if (!saved.missions)            fields.push(_f('Missions', 'Quests'));
+  if (!saved.cosmetics)           fields.push(_f('Cosmétiques', 'Cosmetics'));
+  if (!saved.purchases?.scientist) fields.push(_f('Scientifique peu scrupuleux', 'Unscrupulous Scientist'));
+  if (!saved.purchases?.autoSellAgent) fields.push(_f('Vente auto agents', 'Agent auto-sell'));
+  if (!saved.gang?.bossTeamSlots) fields.push(_f("Slots d'équipe boss (×3)", 'Boss team slots (×3)'));
+  if (!saved.purchases?.mysteryEggCount) fields.push(_f('Compteur œufs mystère', 'Mystery egg counter'));
+  if (saved.inventory?.pokeball !== undefined) fields.push(_f('Poké Balls illimitées (stock remboursé en ₽)', 'Unlimited Poké Balls (stock refunded in ₽)'));
 
-  return { from: `schéma v${fromVersion}`, fields };
+  return { from: `${_f('schéma', 'schema')} v${fromVersion}`, fields };
 }
