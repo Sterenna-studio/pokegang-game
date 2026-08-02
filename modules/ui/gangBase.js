@@ -2129,7 +2129,8 @@ function renderGangParkWindow(el) {
       const pk = globalThis.pokemonById?.(id);
       return pk ? `<img src="${pokeSprite(pk.species_en, pk.shiny)}" title="${speciesName(pk.species_en)} Lv.${pk.level}" style="width:28px;height:28px;image-rendering:pixelated${pk.shiny ? ';filter:drop-shadow(0 0 3px gold)' : ''}">` : '';
     }).join('');
-    const zoneName = agent.assignedZone ? (ZONE_BY_ID[agent.assignedZone]?.fr || agent.assignedZone) : '—';
+    const _azdef = agent.assignedZone ? ZONE_BY_ID[agent.assignedZone] : null;
+    const zoneName = agent.assignedZone ? ((_azdef ? (state.lang === 'en' ? (_azdef.en || _azdef.fr) : _azdef.fr) : null) || agent.assignedZone) : '—';
     return `<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.07)">
       <img src="${agent.sprite || trainerSprite('acetrainer')}" style="width:32px;height:32px;image-rendering:pixelated" alt="" onerror="this.src='${trainerSprite('acetrainer')}'">
       <div style="flex:1;min-width:0">

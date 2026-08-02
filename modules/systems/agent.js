@@ -14,6 +14,21 @@ const _topBar     = ()               => EventBus.emit(EVENTS.UI_TOPBAR_UPDATE);
 const _save       = ()               => globalThis.saveState?.();
 const _t          = (fr, en)         => (globalThis.state?.lang === 'en' ? en : fr);
 
+// Background/silent agent flows (captures, raids, boss fights) build their
+// own log/feed text and never went through zoneWindows.js's lang-aware
+// zone-name ternary — they read ZONE_BY_ID[...].fr unconditionally, which
+// silently showed French zone names to EN players.
+function _localizedZoneName(zoneId) {
+  const zone = ZONE_BY_ID?.[zoneId];
+  if (!zone) return zoneId;
+  return (globalThis.state?.lang === 'en' ? (zone.en || zone.fr) : zone.fr) || zoneId;
+}
+function _localizedBallName(ballKey) {
+  const ball = globalThis.BALLS?.[ballKey];
+  if (!ball) return ballKey;
+  return (globalThis.state?.lang === 'en' ? (ball.en || ball.fr) : ball.fr) || ballKey;
+}
+
 // ── Slots d'équipe par rang ─────────────────────────────────────────
 // grunt=1, sergent=2, lieutenant et au-delà=3.
 // Commandant/Général/Élite ont le même nombre de slots (3) ;
@@ -489,7 +504,7 @@ function _applyResolvedAgentCombat(zoneId, spawnObj, combatAgents, result) {
 
   globalThis.addBattleLogEntry?.({
     ts: Date.now(),
-    zoneName: `[BG] ${mainAgent?.name || 'Agent'} — ${ZONE_BY_ID[zoneId]?.fr || zoneId}`,
+    zoneName: `[BG] ${mainAgent?.name || 'Agent'} — ${_localizedZoneName(zoneId)}`,
     win: result.attackerWin,
     reward,
     repGain,
@@ -610,8 +625,8 @@ function resolveBackgroundSpawnForZone(zoneId) {
     const name    = globalThis.speciesName(pokemon.species_en);
     const stars   = '★'.repeat(pokemon.potential) + '☆'.repeat(5 - pokemon.potential);
     const rarity  = SPECIES_BY_EN[pokemon.species_en]?.rarity;
-    const zoneName = ZONE_BY_ID[zoneId]?.fr || zoneId;
-    const ballName = globalThis.BALLS?.[visualBall]?.fr || visualBall;
+    const zoneName = _localizedZoneName(zoneId);
+    const ballName = _localizedBallName(visualBall);
 
     // Pendant le catchup offline : accumuler dans le rapport, pas de notif individuelle
     const _collecting = globalThis.OfflineReport?.isCollecting?.();
@@ -732,7 +747,7 @@ function _resolveOccupiedZoneRaid(zoneId, agents) {
   const defensePower = agents.reduce((acc, a) => acc + getAgentCombatPower(a), 0);
   const zoneDiff     = globalThis.getZoneDifficulty?.(zoneId) ?? 1;
   const attackPower  = Math.round(zoneDiff * 10 * (0.7 + Math.random() * 0.7));
-  const zoneName     = zone.fr || zoneId;
+  const zoneName     = _localizedZoneName(zoneId);
   const won          = defensePower >= attackPower;
 
   if (won) {
@@ -940,8 +955,8 @@ function agentCaptureVisibleSpawn(agent, zoneId, spawnObj) {
       const cName   = globalThis.speciesName(caught.species_en);
       const cStars  = '★'.repeat(caught.potential || 0) + '☆'.repeat(5 - (caught.potential || 0));
       const cRarity = SPECIES_BY_EN[caught.species_en]?.rarity;
-      const zoneName = ZONE_BY_ID?.[zoneId]?.fr || zoneId;
-      const ballName = globalThis.BALLS?.[usedBall]?.fr || usedBall;
+      const zoneName = _localizedZoneName(zoneId);
+      const ballName = _localizedBallName(usedBall);
       if (caught.shiny) {
         _notify(`✨ ${agent.name} — SHINY ! ${cName} ${cStars} ✨`, 'gold', 'capture');
       } else if (cRarity === 'legendary') {
@@ -1029,7 +1044,7 @@ function _bossAutoCombat(zoneId, spawnObj) {
 
     globalThis.addBattleLogEntry?.({
       ts: Date.now(),
-      zoneName: `[Boss] ${bossName} — ${(typeof ZONE_BY_ID !== 'undefined' ? ZONE_BY_ID[zoneId]?.fr : null) || zoneId}`,
+      zoneName: `[Boss] ${bossName} — ${typeof ZONE_BY_ID !== 'undefined' ? _localizedZoneName(zoneId) : zoneId}`,
       win:      result.attackerWin,
       reward,
       repGain,
