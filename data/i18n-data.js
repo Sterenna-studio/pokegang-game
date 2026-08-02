@@ -814,6 +814,7 @@ const I18N = {
   gang_base_zone_type_city:    { fr:'Ville',                  en:'City'                },
   gang_base_zone_type_special: { fr:'Lieu spécial',           en:'Special place'       },
   gang_base_zone_type_gang_park:{ fr:'QG',                    en:'HQ'                  },
+  gang_base_zone_type_vivarium: { fr:'Vivarium',               en:'Vivarium'            },
   gang_base_codex_type_route:   { fr:'🌿 Routes & Grottes',   en:'🌿 Routes & Caves'   },
   gang_base_codex_type_city:    { fr:'⚔ Arènes',              en:'⚔ Gyms'              },
   gang_base_codex_type_special: { fr:'⭐ Lieux Spéciaux',     en:'⭐ Special Places'   },
