@@ -63,6 +63,16 @@ const FALLBACK_DIALOGUES = {
     'You have no chance against us!',
     'Your gang is a joke!',
     'I\'ll show you real power!',
+    'What? You want to fight? Fine by me!',
+    'I\'m a trainer! I battle anyone I meet!',
+    'Hey! Don\'t you dare underestimate me!',
+    'Bug types are the best Pokémon there are!',
+    'I\'ve trained hard for this moment!',
+    'You look strong... interesting!',
+    'My Pokémon is the strongest on this route!',
+    'You\'ll regret ever coming here!',
+    'I got lost on my way... but I\'m still gonna beat you!',
+    'I\'m unbeatable! Well, I think so...',
   ],
 };
 
