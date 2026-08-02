@@ -1589,7 +1589,7 @@ function buildZoneWindowEl(zoneId) {
       <span class="headbar-name">${name}${gymDefeated ? ' [V]' : ''}${degraded ? ' ⚠' : ''}</span>
       <span class="headbar-stats">${_zoneLevelHtml(zoneId)}</span>
       <button class="headbar-collect-btn" data-headbar-collect="${zoneId}" style="display:${(zState.pendingIncome||0) > 0 ? 'flex' : 'none'};font-family:var(--font-pixel);font-size:7px;padding:1px 6px;background:rgba(200,160,40,.25);border:1px solid var(--gold-dim);border-radius:2px;color:var(--gold);cursor:pointer;align-items:center;gap:2px">₽</button>
-      <button class="headbar-close" data-close-zone="${zoneId}" title="Fermer">✕</button>
+      <button class="headbar-close" data-close-zone="${zoneId}" title="${_t('close_zone')}">✕</button>
     </div>
     <div class="zone-viewport">
       ${degraded ? `<div class="zone-degraded-banner">⚠ ${_t('zone_degraded_banner')}</div>` : ''}
@@ -3026,7 +3026,7 @@ function executeCombat() {
       const item = script[index++];
       if (item.type === 'log') {
         const text = item.text;
-        const kind = text.startsWith('— ') ? 'result' : (text.startsWith('+') || text.includes('Aucun loot')) ? 'loot' : '';
+        const kind = text.startsWith('— ') ? 'result' : (text.startsWith('+') || text.includes(_t('zone_no_loot'))) ? 'loot' : '';
         logLine(text, kind);
       } else if (item.type === 'switch') {
         playSwitch(item);
