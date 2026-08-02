@@ -1278,7 +1278,7 @@ function _bindPCCardListeners(el) {
             state.pokemons = state.pokemons.filter(p => p.id !== donor.id); _dirty();
             pk.potential = Math.min(5, pk.potential + 1);
             pk.stats = calculateStats(pk);
-            saveState(); notify(`🧬 ${speciesName(pk.species_en)} est maintenant ${'★'.repeat(pk.potential)} !`, 'gold');
+            saveState(); notify(`🧬 ${_t('pc_mutation_success', { pokemon: speciesName(pk.species_en), stars: '★'.repeat(pk.potential) })}`, 'gold');
             renderPCTab(); updateTopBar();
           },
           null, { confirmLabel: _t('pc_confirm'), cancelLabel: _t('pc_cancel'), danger: true });
@@ -1743,7 +1743,7 @@ function _showEvoPreviewPopup(evolvable, type, onConfirm) {
         ).join('')}
       </div>
       ${type === 'stone' && shortage > 0 ? `<div style="font-size:8px;margin-bottom:8px;color:${canBuyMore ? 'var(--gold)' : 'var(--red)'}">
-        ${canBuyMore ? `Acheter ${shortage} pierre${shortage > 1 ? 's' : ''} pour ${(shortage * 5000).toLocaleString()}₽` : `Fonds insuffisants — manque ${shortage} pierre${shortage > 1 ? 's' : ''}`}
+        ${canBuyMore ? _t('pc_buy_stones', { n: shortage, price: (shortage * 5000).toLocaleString() }) : _t('pc_buy_stones_insufficient', { n: shortage })}
       </div>` : ''}
       <div style="display:flex;gap:8px">
       <button id="evoPrevCancel" style="flex:1;font-size:8px;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">${_t('pc_cancel')}</button>
@@ -1941,7 +1941,7 @@ function renderPokemonDetail() {
           <!-- Vente groupée -->
           ${sellable.length > 0 ? `
           <div style="font-size:8px;color:var(--text-dim);margin-top:4px">
-            ${sellable.length} vendables — <span style="color:var(--gold)">${totalValue.toLocaleString()}₽</span>
+            ${_t('pc_sellable_count', { n: sellable.length })} — <span style="color:var(--gold)">${totalValue.toLocaleString()}₽</span>
             ${shinyCount > 0 ? `<br><span style="color:var(--gold)">${_t('pc_shinies_excluded', { n: shinyCount })}</span>` : ''}
           </div>
           <button id="btnSellMulti" style="width:100%;font-size:9px;padding:6px;background:var(--red-dark);border:1px solid var(--red);border-radius:var(--radius-sm);color:var(--text);cursor:pointer">
@@ -2461,10 +2461,10 @@ function renderPokemonDetailGroup(species) {
       ${state.purchases?.autoSellAgent && shinyCount > 0 ? `
       <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:8px;color:var(--text-dim);padding:2px 0">
         <input type="checkbox" id="grpShinyUnprotect" ${state.pokedex[species]?.shinyUnprotected ? 'checked' : ''} style="accent-color:var(--red)">
-        ⚠ Autoriser vente auto (agents)
+        ⚠ ${_t('pc_allow_auto_sell')}
       </label>` : ''}
       ${sellable.length > 0 ? `
-      <div style="font-size:8px;color:var(--text-dim);text-align:center">${sellable.length} vendables — <span style="color:var(--gold)">${totalValue.toLocaleString()}₽</span></div>
+      <div style="font-size:8px;color:var(--text-dim);text-align:center">${_t('pc_sellable_count', { n: sellable.length })} — <span style="color:var(--gold)">${totalValue.toLocaleString()}₽</span></div>
       <button id="btnGroupSellAll" style="width:100%;font-family:var(--font-pixel);font-size:8px;padding:5px;background:var(--red-dark);border:1px solid var(--red);border-radius:var(--radius-sm);color:var(--text);cursor:pointer">
         ${_t('pc_sell_count_value', { n: sellable.length, total: totalValue.toLocaleString() })}
       </button>` : (shinyCount > 0 && !_grpIncludeShiny ? `<div style="font-size:8px;color:var(--text-dim);text-align:center">${_t('pc_check_include_shinies')}</div>` : '')}
