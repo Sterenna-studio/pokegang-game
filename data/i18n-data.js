@@ -848,6 +848,8 @@ const I18N = {
   gang_base_logistics:     { fr:'logistique',             en:'logistics'           },
   gang_base_incubators:    { fr:'Incubateurs',            en:'Incubators'          },
   gang_base_no_incubators: { fr:'Aucun incubateur',       en:'No incubators'       },
+  gang_base_key_obtained:  { fr:'Obtenu',                 en:'Obtained'            },
+  gang_base_key_not_obtained:{ fr:'Non obtenu',           en:'Not obtained'        },
   gang_base_agent_count:   { fr:'{n} agent(s)',           en:'{n} agent(s)'        },
   gang_base_no_unlocked_front:{ fr:'Aucun front débloqué', en:'No unlocked front' },
   gang_base_start_operations_hint:{ fr:'Ouvrez une zone pour démarrer les opérations.', en:'Open a zone to start operations.' },
