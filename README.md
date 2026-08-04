@@ -15,6 +15,14 @@ py -m http.server 8080
 
 Ouvre ensuite `http://localhost:8080/` dans Chrome ou Firefox. Toute modification de fichier est visible à la prochaine actualisation.
 
+### Build itch.io
+
+```bash
+node tools/build-itch.js
+```
+
+Génère `dist-itch.zip`, prêt à uploader sur [itch.io](https://sterenna.itch.io) (langue par défaut : anglais, uniquement dans le build — le site reste en français). Voir **[`docs/itch-build.md`](docs/itch-build.md)** pour les réglages d'upload et les particularités de cette version.
+
 ---
 
 ## Mécaniques principales

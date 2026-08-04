@@ -1,3 +1,5 @@
 .claude/settings.local.json
 config.js
 supabase/.temp/
+dist-itch/
+dist-itch.zip
