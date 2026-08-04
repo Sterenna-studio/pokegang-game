@@ -8,13 +8,26 @@ PokéGang est publié en parallèle sur [itch.io](https://sterenna.itch.io) (pag
 node tools/build-itch.js
 ```
 
-Produit `dist-itch/` (dossier stagé, pour inspection manuelle) et `dist-itch.zip` (à uploader tel quel) à la racine du repo — les deux sont dans `.gitignore`, régénérés à chaque run. Rien à installer, aucune dépendance ajoutée : le script est pur Node (`fs.cpSync` pour la copie récursive) + `Compress-Archive` (PowerShell, Windows) ou `zip` (autres OS) pour la compression.
+Produit `dist-itch/` (dossier stagé, pour inspection manuelle) et `dist-itch.zip` (à uploader tel quel) à la racine du repo — les deux sont dans `.gitignore`, régénérés à chaque run. Rien à installer, aucune dépendance ajoutée : le script est pur Node (`fs.cpSync` pour la copie récursive) + `Compress-Archive` (**pwsh 7+** sur Windows) ou `zip` (autres OS) pour la compression.
 
 ## Ce que le script fait
 
 1. **Copie uniquement ce qui est nécessaire au runtime** : `index.html`, `app.js`, `css/`, `data/`, `modules/`, `state/`, `assets/`, `gang/`. Exclut tout le reste (`.git`, `.claude`, `.github`, `.githooks`, `docs`, `info`, `test`, `tools`, `supabase`, `README.md`, `CLAUDE.md`, `_headers`, `deploy.yml`, `deploy-trigger.txt`, `config.js`).
 2. **Patch la langue par défaut** — `state/defaultState.js` : `lang: 'fr'` → `lang: 'en'`, **uniquement dans la copie stagée**, jamais dans le repo commité (`pokegang.sterenna.fr` reste en français).
 3. **Zippe** avec `index.html` à la racine de l'archive (obligatoire pour qu'itch serve le jeu correctement).
+4. **Valide l'archive** et fait échouer le build si quoi que ce soit clochait (voir ci-dessous).
+
+## ⚠ Piège : séparateurs de chemin du zip (bug réellement livré une fois)
+
+`Compress-Archive` de **Windows PowerShell 5.1** (`powershell.exe`) écrit les entrées du zip avec des séparateurs `\`, ce que la spec ZIP interdit ([APPNOTE 4.4.17.1](https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT) impose `/`). Conséquence sur itch.io : `css\base.css` est interprété comme un **nom de fichier littéral** et non comme un chemin — donc aucun dossier `css/` n'existe côté serveur, et **tous les assets renvoient 404** alors que `index.html` (à la racine) se charge normalement. Le symptôme est très reconnaissable : une centaine de 404 d'un coup dans la console, sur absolument tous les `.css`/`.js`/`.png`.
+
+Le script utilise donc **`pwsh` (PowerShell 7+) en priorité**, dont le `Compress-Archive` est corrigé, et retombe sur `powershell` seulement s'il est absent (avec un avertissement). Surtout, l'étape de validation lit le *central directory* du zip produit et **fait échouer le build** si :
+
+- une seule entrée contient un `\` ;
+- `index.html` n'est pas à la racine ;
+- un des dossiers runtime (`css`, `data`, `modules`, `state`, `assets`, `gang`) est absent.
+
+Un build qui affiche `Validation OK : N entrées, séparateurs '/', index.html à la racine.` est sain. Si la validation échoue en fallback `powershell`, installer PowerShell 7+ et relancer.
 
 ## Uploader
 
