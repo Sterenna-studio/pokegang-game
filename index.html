@@ -17,16 +17,17 @@
   <!-- ── Google Analytics (GA4) ──────────────────────────────────────
        Public measurement ID, not a secret — same snippet ships on the
        main site AND the itch.io build (no config.js dependency), so
-       both populations land in the same GA4 property. See
-       modules/systems/analytics.js for the custom gameplay events
-       layered on top of GA's automatic page_view.
-       ⚠ REPLACE G-XXXXXXXXXX WITH THE REAL MEASUREMENT ID BEFORE SHIP. -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+       both populations land in the same GA4 property and stay
+       comparable via the `platform` param. A single web data stream
+       covers both origins on purpose: two streams would fragment
+       users/sessions for no benefit. See modules/systems/analytics.js
+       for the custom gameplay events layered on top of page_view. -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-NP6C2KZ16G"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
     function gtag(){ dataLayer.push(arguments); }
     gtag('js', new Date());
-    gtag('config', 'G-XXXXXXXXXX');
+    gtag('config', 'G-NP6C2KZ16G');
   </script>
 </head>
 <body>

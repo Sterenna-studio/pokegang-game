@@ -43,7 +43,9 @@ et confirmer que toute cible pointe bien dans un des dossiers copiés.
 
 `index.html` embarque le snippet `gtag.js` avec un **ID de mesure public** (pas un secret comme la clé Supabase) — donc le même snippet fonctionne identiquement sur le site et sur itch, sans dépendance à `config.js`. Voir `modules/systems/analytics.js` pour les événements trackés ; chaque event porte un paramètre `platform` (`web`/`itch`/`dev`, détecté via `location.hostname`) pour distinguer les deux populations dans une seule propriété GA4.
 
-⚠️ **Si `index.html` contient encore `G-XXXXXXXXXX`**, l'ID réel n'a pas été renseigné — le tracking est un no-op silencieux (aucune erreur, mais rien n'est envoyé à GA). Remplacer aux deux endroits (`<script async src="...?id=...">` et `gtag('config', '...')`) avant publication.
+Measurement ID actuel : **`G-NP6C2KZ16G`** (renseigné aux deux endroits dans `index.html` — la balise `<script async src="...?id=...">` et l'appel `gtag('config', ...)`). Un **seul flux de données web** couvre les deux origines volontairement : deux flux séparés fragmenteraient utilisateurs et sessions sans rien apporter, alors que le paramètre `platform` permet déjà de les distinguer dans les rapports.
+
+⚠️ Si l'ID venait à être remplacé par un placeholder ou un ID invalide, le tracking devient un **no-op silencieux** : aucune erreur console, mais plus rien n'arrive dans GA. Vérifier dans l'onglet Réseau qu'une requête part bien vers `google-analytics.com/g/collect` après un chargement de page.
 
 ## Bruit console à ignorer après upload sur itch (déjà vérifié, pas un bug du repo)
 
