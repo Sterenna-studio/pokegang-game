@@ -137,6 +137,7 @@ import {
   refreshZoneWindowsTick,
 } from './modules/ui/zoneWindows.js';
 import './modules/ui/questEncounterPopup.js';
+import './modules/systems/analytics.js';
 import './modules/ui/gangBase.js';
 import './modules/ui/vivariumZone.js';
 import './modules/ui/gangTab.js';
@@ -1721,6 +1722,7 @@ function boot() {
   if (checkVersionOnBoot()) return;
 
   initializeRuntimeState();
+  globalThis.trackEvent?.('game_loaded', { save_state: state.gang?.initialized ? 'existing' : 'new' });
   localizeStaticUi();
   bindGlobalUi();
   initializeSystems();

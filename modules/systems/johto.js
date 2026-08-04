@@ -34,6 +34,7 @@ function activateJohtoRegion() {
     Object.assign(ZONE_MUSIC_MAP, ZONE_MUSIC_MAP_JOHTO);
   }
   registerJohtoSpecialEvents();
+  if (!globalThis.state.purchases.johtoUnlocked) globalThis.trackEvent?.('region_unlocked', { region: 'johto' });
   globalThis.state.purchases.johtoUnlocked = true;
   globalThis._zsel_setActiveRegion?.('kanto');
   if (globalThis.activeTab === 'tabZones') globalThis.renderZonesTab?.();

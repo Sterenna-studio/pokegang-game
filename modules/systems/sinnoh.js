@@ -34,6 +34,7 @@ function activateSinnohRegion() {
     Object.assign(ZONE_MUSIC_MAP, ZONE_MUSIC_MAP_SINNOH);
   }
   registerSinnohSpecialEvents();
+  if (!globalThis.state.purchases.sinnohUnlocked) globalThis.trackEvent?.('region_unlocked', { region: 'sinnoh' });
   globalThis.state.purchases.sinnohUnlocked = true;
   globalThis._zsel_setActiveRegion?.('kanto');
   if (globalThis.activeTab === 'tabZones') globalThis.renderZonesTab?.();

@@ -60,6 +60,7 @@ function activateHoennRegion() {
     Object.assign(ZONE_MUSIC_MAP, ZONE_MUSIC_MAP_HOENN);
   }
   registerHoennSpecialEvents();
+  if (!globalThis.state.purchases.hoennUnlocked) globalThis.trackEvent?.('region_unlocked', { region: 'hoenn' });
   globalThis.state.purchases.hoennUnlocked = true;
   globalThis._zsel_setActiveRegion?.('kanto');
   if (globalThis.activeTab === 'tabZones') globalThis.renderZonesTab?.();

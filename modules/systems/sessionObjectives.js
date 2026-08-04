@@ -26,9 +26,10 @@ function initSession() {
       const saved = JSON.parse(raw);
       if (now - saved.ts < SESSION_IDLE_MS) {
         _sessionBaseline = saved;
-        // Migration : anciens saves de session sans caught/sold
+        // Migration : anciens saves de session sans caught/sold/startTs
         if (_sessionBaseline.caughtAtStart === undefined) _sessionBaseline.caughtAtStart = state.stats.totalCaught || 0;
         if (_sessionBaseline.soldAtStart   === undefined) _sessionBaseline.soldAtStart   = state.stats.totalSold   || 0;
+        if (_sessionBaseline.startTs       === undefined) _sessionBaseline.startTs       = _sessionBaseline.ts;
         return; // session en cours — on la continue
       }
     } catch {}
@@ -36,6 +37,7 @@ function initSession() {
   // Nouvelle session
   _sessionBaseline = {
     ts:           now,
+    startTs:      now, // immuable — contrairement à `ts`, jamais réécrit par _saveSessionActivity()
     money:        state.gang.money,
     rep:          state.gang.reputation,
     pokemon:      state.pokemons.length,
@@ -85,6 +87,31 @@ function getSessionDelta() {
   if (dFights  > 0)  parts.push(fmtPos(dFights, '⚔'));
   return parts.filter(Boolean).join(' · ');
 }
+
+// ── session_completed analytics event ─────────────────────────────
+// Fired once when the tab is hidden/closed — visibilitychange fires
+// reliably on mobile (tab switch, app backgrounded) where pagehide/
+// beforeunload sometimes don't; pagehide catches the desktop close-tab
+// case. _sent guards against both firing for the same hide.
+let _sessionEndSent = false;
+function _sendSessionCompleted() {
+  const state = globalThis.state;
+  if (_sessionEndSent || !_sessionBaseline || !state) return;
+  _sessionEndSent = true;
+  globalThis.trackEvent?.('session_completed', {
+    duration_s:  Math.round((Date.now() - _sessionBaseline.startTs) / 1000),
+    money_delta: state.gang.money - _sessionBaseline.money,
+    rep_delta:   state.gang.reputation - _sessionBaseline.rep,
+    captured:    (state.stats.totalCaught    || 0) - (_sessionBaseline.caughtAtStart || 0),
+    shinies:     (state.stats.shinyCaught    || 0) - (_sessionBaseline.shinies       || 0),
+    battles_won: (state.stats.totalFightsWon || 0) - (_sessionBaseline.fights        || 0),
+  });
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') _sendSessionCompleted();
+  else _sessionEndSent = false; // revenu sur l'onglet — une nouvelle fin de session pourra être envoyée
+});
+window.addEventListener('pagehide', _sendSessionCompleted);
 
 // ════════════════════════════════════════════════════════════════
 // NEXT OBJECTIVE

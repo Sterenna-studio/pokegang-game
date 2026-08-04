@@ -13,6 +13,21 @@
   <link rel="stylesheet" href="./css/intro.css?v=89b54717">
   <link rel="stylesheet" href="./css/game-ui.css?v=05a09dc9">
   <link rel="stylesheet" href="./gang/gang.css?v=3e0588ac">
+
+  <!-- ── Google Analytics (GA4) ──────────────────────────────────────
+       Public measurement ID, not a secret — same snippet ships on the
+       main site AND the itch.io build (no config.js dependency), so
+       both populations land in the same GA4 property. See
+       modules/systems/analytics.js for the custom gameplay events
+       layered on top of GA's automatic page_view.
+       ⚠ REPLACE G-XXXXXXXXXX WITH THE REAL MEASUREMENT ID BEFORE SHIP. -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){ dataLayer.push(arguments); }
+    gtag('js', new Date());
+    gtag('config', 'G-XXXXXXXXXX');
+  </script>
 </head>
 <body>
 
@@ -365,7 +380,7 @@
   <script defer src="./data/zones-sinnoh-data.js?v=5fc631a9"></script>
   <script defer src="./data/regions-config.js?v=22ab8f2c"></script>
   <script defer src="./data/moves-data.js?v=d2daccb1"></script>
-  <script type="module" src="./app.js?v=097af20f"></script>
+  <script type="module" src="./app.js?v=632bf49b"></script>
   <!-- Offline / background idle catchup system -->
   <script type="module" src="./modules/systems/offlineCatchup.js?v=60ccc721"></script>
   <!-- Offline mission report (modal de rapport au retour de tab) -->
