@@ -1154,6 +1154,7 @@ function openZoneWindow(zoneId) {
   if (openZones.has(zoneId)) { _zsRefreshTile(zoneId); return; }
 
   openZones.add(zoneId);
+  globalThis.trackEvent?.('zone_entered', { zone: zoneId });
   maybeWarnManyOpenZones(openZones);
   // Le timer unifié existe peut-être déjà (zone avait des agents) → startActiveZone est idempotent.
   // Le callback branché sur openZones.has(zoneId) basculera automatiquement en mode visuel.

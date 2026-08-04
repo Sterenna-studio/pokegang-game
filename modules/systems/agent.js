@@ -978,6 +978,7 @@ function agentCaptureVisibleSpawn(agent, zoneId, spawnObj) {
         zone:       zoneName,
         ball:       ballName,
       });
+      EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: caught, zoneId, agentId: agent.id });
       globalThis.removeSpawn(zoneId, spawnObj.id);
       _topBar();
       globalThis.updateZoneTimers(zoneId);

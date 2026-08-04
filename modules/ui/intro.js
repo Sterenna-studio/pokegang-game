@@ -124,6 +124,7 @@ function _fadeTransition(el, fn) {
 // ── Main entry point ──────────────────────────────────────────────
 export function openGiovanniIntro({ slotIdx = 0, onComplete } = {}) {
   if (document.getElementById('giovanni-intro-overlay')) return;
+  globalThis.trackEvent?.('intro_started', { slot: slotIdx });
 
   const state       = _ctx.getState?.();
   const BOSS_SPRITES = _ctx.BOSS_SPRITES || INTRO_BOSS_SPRITES;
@@ -583,6 +584,9 @@ export function openGiovanniIntro({ slotIdx = 0, onComplete } = {}) {
       _ctx.setActiveSaveSlot?.(slotIdx);
       _ctx.saveState?.();
       _ctx.notify?.(_t(`🎉 Bienvenue ${bossName} ! Ta ${gangName} est fondée.`, `🎉 Welcome ${bossName}! Your ${gangName} is founded.`), 'gold');
+      globalThis.trackEvent?.('new_game_started', { slot: slotIdx });
+      globalThis.trackEvent?.('starter_chosen', { species: sp });
+      globalThis.trackEvent?.('intro_completed', { slot: slotIdx });
     } catch (err) {
       console.error('[intro] Giovanni intro failed to persist:', err);
     } finally {
@@ -822,6 +826,7 @@ export function openStarterGiftPopup({ onComplete } = {}) {
 
       const starterName = _starterName(INTRO_STARTERS.find(s => s.en === sp)) || sp;
       _ctx.notify?.(_t(`🎁 Giovanni t'a offert ${starterName} niv. 15 !`, `🎁 Giovanni gave you ${starterName} lvl. 15!`), 'gold');
+      globalThis.trackEvent?.('starter_gift_claimed', { species: sp });
     } catch (err) {
       console.error('[intro] Starter gift failed to persist:', err);
     } finally {
