@@ -1,6 +1,17 @@
-# Vivarium en direct sur OBS
+# Overlays PokéGang sur OBS
 
-Ce guide explique comment afficher le vivarium (Pokémon de la vitrine/équipe/pension/formation qui se baladent, cameos avec bulles de dialogue) en incrustation sur un stream OBS, via `gang/live.html`.
+Deux incrustations sont disponibles, toutes deux alimentées par l'API publique Supabase et identifiées par le même `?token=` :
+
+| Overlay | Page | Contenu |
+|---|---|---|
+| **Vivarium** | `gang/live.html` | Pokémon qui se baladent, caméos avec bulles de dialogue — fond transparent |
+| **Carte du gang** | `gang/card.html` | Nom, boss, titre, réputation, stats, Pokédex, badges, régions — panneau opaque |
+
+Ce guide détaille d'abord le Vivarium ; la Carte du gang est décrite [en fin de page](#carte-du-gang-gangcardhtml).
+
+## Vivarium
+
+Affiche le vivarium (Pokémon de la vitrine/équipe/pension/formation qui se baladent, cameos avec bulles de dialogue) en incrustation sur un stream OBS, via `gang/live.html`.
 
 Prérequis côté backend (à faire une seule fois) : voir [supabase-setup.md § 6](./supabase-setup.md#6-vivarium-live-overlay-obs) — déploiement de l'Edge Function `pokegang-api` et mise à jour du schéma SQL (`vivarium_data`).
 
@@ -56,3 +67,40 @@ La zone est redimensionnable/déplaçable ensuite comme n'importe quelle source 
 - **Les résidents « sautent » de position toutes les 30-40s** : normal, c'est le rafraîchissement périodique du snapshot (léger, ne touche pas à la météo/ambiance en cours). Rien de cassé.
 - **Le fond n'est pas transparent** : vérifie si un fond de zone a été équipé dans `/gang/` (panneau Vitrine, bouton 🎨) — dans ce cas c'est voulu, c'est le fond choisi qui s'affiche aussi côté OBS. Sans fond équipé, la zone doit rester transparente.
 - Pour un diagnostic plus fin, l'API peut être interrogée directement (voir supabase-setup.md) pour vérifier si le backend renvoie bien des données avant de blâmer OBS.
+
+---
+
+## Carte du gang (`gang/card.html`)
+
+Panneau d'identité : nom du gang, sprite et nom du boss, titre, réputation, stats clés (captures, chromatiques, victoires, agents), progression Pokédex, badges obtenus et régions débloquées. Pensé pour un écran de pause / « démarrage imminent », mais utilisable en coin d'écran.
+
+### URL
+
+Même token que le Vivarium, seul le nom de page change :
+
+```
+https://pokegang.sterenna.fr/gang/card.html?token=team-xxxx-a1b2c3
+```
+
+Ajouter `&lang=en` pour afficher les libellés en anglais.
+
+### Source OBS
+
+Mêmes réglages que le Vivarium (**Sources → + → Navigateur**, et décocher *Arrêter la source quand elle n'est pas visible* / *Actualiser le navigateur quand la scène devient active*), avec ces dimensions :
+
+| Champ | Valeur |
+|---|---|
+| Largeur | **520** (la carte fait 460 px de large, ça laisse une marge) |
+| Hauteur | **380** |
+
+La carte est centrée dans la source et le reste de la page est transparent — donc redimensionner la source plus grand ne fait qu'ajouter du vide autour, ça ne déforme rien.
+
+### Différence importante avec le Vivarium
+
+Le fond de la **page** est transparent, mais la **carte** est volontairement opaque (dégradé sombre bordé d'or) : contrairement aux sprites du vivarium, un panneau de texte est illisible posé directement sur une vidéo. Ce n'est pas un bug de transparence.
+
+### Fraîcheur des données
+
+La carte lit la route `/gang` de l'API (et non `/vivarium`), rafraîchie toutes les 35 s côté overlay, elle-même alimentée par le tick de synchro du jeu principal toutes les 60 s. Comme pour le Vivarium, **le jeu principal doit rester ouvert** ; sinon la carte se fige sur le dernier état reçu au lieu de se vider.
+
+C'est de l'**état**, pas de l'événement : une alerte instantanée (« SHINY ! » au moment de la capture) ne peut pas passer par ce mécanisme, il faudrait un canal temps réel (Supabase Realtime).

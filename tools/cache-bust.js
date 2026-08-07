@@ -13,7 +13,7 @@ const path = require('path');
 const crypto = require('crypto');
 
 const ROOT = path.resolve(__dirname, '..');
-const HTML_FILES = ['index.html', 'gang/index.html', 'gang/live.html'].map(f => path.join(ROOT, f));
+const HTML_FILES = ['index.html', 'gang/index.html', 'gang/live.html', 'gang/card.html'].map(f => path.join(ROOT, f));
 
 // Matches src="./foo.js" / href="../foo.css", with an optional existing
 // `?v=...` — scoped to local .js/.css assets only (never bare paths,
