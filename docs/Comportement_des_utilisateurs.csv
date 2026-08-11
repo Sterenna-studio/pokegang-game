@@ -1,0 +1,134 @@
+# ----------------------------------------
+# Comportement des utilisateurs
+# Compte : Default Account for Firebase
+# Propriété : Pokégang
+# ----------------------------------------
+#  
+# Date de début : 20260707
+# Date de fin : 20260803
+Utilisateurs actifs,Nouveaux utilisateurs,Durée d'engagement moyenne par utilisateur actif,Nombre d'événements
+56,58,12.821428571428571,307
+
+#  
+# Date de début : 20260707
+# Date de fin : 20260803
+Titre de la page et classe de l'écran,Vues,Utilisateurs actifs,Nombre d'événements,Taux de rebond
+Pokégang by Muten Rock,80,55,284,0.5526315789473685
+Pokégang by Muten Rock - itch.io,4,1,9,0
+PokéGang is now fully playable in English! / PokéGang est maintenant disponible en anglais ! - Pokégang by Muten Rock,3,1,9,1
+Comments - Pokégang by Muten Rock,1,1,4,1
+Pokégang de Muten Rock,0,1,1,1
+
+#  
+# Date de début : 20260707
+# Date de fin : 20260803
+Première combinaison source/support de l'utilisateur,Utilisateurs actifs
+(direct) / (none),55
+duckduckgo / organic,1
+
+#  
+# Date de début : 20260707
+# Date de fin : 20260803
+Source/Support de la session,Sessions
+(direct) / (none),77
+duckduckgo / organic,1
+
+#  
+# Date de début : 20260707
+# Date de fin : 20260803
+Nième jour,new,returning
+0000,0,0
+0001,0,0
+0002,0,0
+0003,0,0
+0004,0,0
+0005,0,0
+0006,0,0
+0007,0,0
+0008,0,0
+0009,0,0
+0010,0,0
+0011,0,0
+0012,0,0
+0013,0,0
+0014,0,0
+0015,0,0
+0016,0,0
+0017,0,0
+0018,0,0
+0019,0,0
+0020,0,0
+0021,0,0
+0022,9,2
+0023,11,3
+0024,13,2
+0025,9,3
+0026,8,1
+0027,6,1
+
+# Quelle est l'activité des utilisateurs sur les différentes plates-formes ?
+# Date de début : 20260707
+# Date de fin : 20260803
+Plate-forme,Événements clés
+
+
+#  
+# Date de début : 20260707
+# Date de fin : 20260803
+Ville,Utilisateurs actifs
+Limoges,3
+Aloha,2
+Canberra,2
+Istanbul,2
+Alhambra,1
+Anna,1
+Arcadia,1
+Barcelona,1
+Barrie,1
+Basingstoke,1
+Brisbane,1
+Burton,1
+Cedar Park,1
+Clinton,1
+Dansville,1
+Darmstadt,1
+Dessau-Rosslau,1
+Ezpeleta,1
+Folsom,1
+Gerpinnes,1
+Gresham,1
+Helsinki,1
+Jelenia Gora,1
+Khabarovsk,1
+Kuala Lumpur,1
+Kuurne,1
+Las Vegas Valley,1
+Lenoir City,1
+Makassar,1
+Melbourne,1
+Moncton,1
+Nashville,1
+Nuremberg,1
+Olive Hill,1
+Ottobeuren,1
+Perris,1
+Portland,1
+Rennes,1
+Rio de Janeiro,1
+San Felipe,1
+San Francisco,1
+San Juan de Marcona,1
+Santiago,1
+Silver Springs,1
+Skarzysko-Kamienna,1
+Sofia,1
+St. Catharines,1
+Sydney,1
+Toledo,1
+Vancouver,1
+
+#  
+# Date de début : 20260707
+# Date de fin : 20260803
+Nom de l'audience,Utilisateurs actifs
+All Users,56
