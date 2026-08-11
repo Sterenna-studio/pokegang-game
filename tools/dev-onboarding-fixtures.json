@@ -3,28 +3,28 @@
   "team_setup": {
     "version": "6.0.0",
     "_schemaVersion": 15,
-    "onboarding": { "version": 2, "status": "active", "step": "team_setup", "startedAt": 1000, "starterSpecies": "zubat", "firstBattleAt": null, "firstAgentId": null },
+    "onboarding": { "version": 2, "status": "active", "step": "team_setup", "startedAt": 1000, "starterSpecies": "zubat", "firstBattleStartedAt": null, "firstBattleAt": null, "firstAgentId": null },
     "gang": { "name": "Fixture Gang", "bossName": "Fixture Boss", "bossSprite": "red", "initialized": true, "introSeen": true, "bossTeam": [], "bossTeamSlots": [[], [], []] },
     "pokemons": [{ "id": "onboarding-pk", "species_en": "zubat", "level": 2, "nature": "jolly", "potential": 1, "shiny": false }]
   },
   "first_battle": {
     "version": "6.0.0",
     "_schemaVersion": 15,
-    "onboarding": { "version": 2, "status": "active", "step": "first_battle", "startedAt": 1000, "starterSpecies": "zubat", "firstBattleAt": null, "firstAgentId": null },
+    "onboarding": { "version": 2, "status": "active", "step": "first_battle", "startedAt": 1000, "starterSpecies": "zubat", "firstBattleStartedAt": null, "firstBattleAt": null, "firstAgentId": null },
     "gang": { "name": "Fixture Gang", "bossName": "Fixture Boss", "bossSprite": "red", "initialized": true, "introSeen": true, "bossTeam": ["onboarding-pk"], "bossTeamSlots": [["onboarding-pk"], [], []] },
     "pokemons": [{ "id": "onboarding-pk", "species_en": "zubat", "level": 8, "nature": "jolly", "potential": 2, "shiny": false }]
   },
   "first_agent_recruit": {
     "version": "6.0.0",
     "_schemaVersion": 15,
-    "onboarding": { "version": 2, "status": "active", "step": "first_agent", "startedAt": 1000, "starterSpecies": "zubat", "firstBattleAt": 2000, "firstAgentId": null },
+    "onboarding": { "version": 2, "status": "active", "step": "first_agent", "startedAt": 1000, "starterSpecies": "zubat", "firstBattleStartedAt": 1500, "firstBattleAt": 2000, "firstAgentId": null },
     "gang": { "name": "Fixture Gang", "bossName": "Fixture Boss", "bossSprite": "red", "initialized": true, "introSeen": true, "bossTeam": ["onboarding-pk"], "bossTeamSlots": [["onboarding-pk"], [], []] },
     "pokemons": [{ "id": "onboarding-pk", "species_en": "zubat", "level": 8, "nature": "jolly", "potential": 2, "shiny": false }]
   },
   "first_agent_assign": {
     "version": "6.0.0",
     "_schemaVersion": 15,
-    "onboarding": { "version": 2, "status": "active", "step": "first_agent", "startedAt": 1000, "starterSpecies": "zubat", "firstBattleAt": 2000, "firstAgentId": "onboarding-agent" },
+    "onboarding": { "version": 2, "status": "active", "step": "first_agent", "startedAt": 1000, "starterSpecies": "zubat", "firstBattleStartedAt": 1500, "firstBattleAt": 2000, "firstAgentId": "onboarding-agent" },
     "gang": { "name": "Fixture Gang", "bossName": "Fixture Boss", "bossSprite": "red", "initialized": true, "introSeen": true, "bossTeam": ["onboarding-pk"], "bossTeamSlots": [["onboarding-pk"], [], []] },
     "pokemons": [{ "id": "onboarding-pk", "species_en": "zubat", "level": 8, "nature": "jolly", "potential": 2, "shiny": false }],
     "agents": [{ "id": "onboarding-agent", "name": "Jessie", "spriteKey": "rocket", "title": "grunt", "level": 1, "xp": 0, "combatsWon": 0, "ball": "pokeball", "behavior": "all", "personality": [], "team": [], "assignedZone": null, "notifyCaptures": true, "legacyLocked": false, "energy": 10, "maxEnergy": 10, "resting": false, "restUntil": null, "lastEnergyReset": 0 }]
@@ -32,7 +32,7 @@
   "completed": {
     "version": "6.0.0",
     "_schemaVersion": 15,
-    "onboarding": { "version": 2, "status": "completed", "step": "completed", "startedAt": 1000, "completedAt": 3000, "starterSpecies": "zubat", "firstBattleAt": 2000, "firstAgentId": "onboarding-agent" },
+    "onboarding": { "version": 2, "status": "completed", "step": "completed", "startedAt": 1000, "completedAt": 3000, "starterSpecies": "zubat", "firstBattleStartedAt": 1500, "firstBattleAt": 2000, "firstAgentId": "onboarding-agent" },
     "gang": { "name": "Fixture Gang", "bossName": "Fixture Boss", "bossSprite": "red", "initialized": true, "introSeen": true, "bossTeam": ["onboarding-pk"], "bossTeamSlots": [["onboarding-pk"], [], []] },
     "pokemons": [{ "id": "onboarding-pk", "species_en": "zubat", "level": 8, "nature": "jolly", "potential": 2, "shiny": false }],
     "agents": [{ "id": "onboarding-agent", "name": "Jessie", "spriteKey": "rocket", "title": "grunt", "level": 1, "xp": 0, "combatsWon": 0, "ball": "pokeball", "behavior": "all", "personality": [], "team": [], "assignedZone": "route1", "notifyCaptures": true, "legacyLocked": false, "energy": 10, "maxEnergy": 10, "resting": false, "restUntil": null, "lastEnergyReset": 0 }],

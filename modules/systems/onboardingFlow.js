@@ -29,6 +29,7 @@ export function defaultOnboardingState() {
     startedAt: null,
     completedAt: null,
     starterSpecies: null,
+    firstBattleStartedAt: null,
     firstBattleAt: null,
     firstAgentId: null,
   };

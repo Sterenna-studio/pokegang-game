@@ -55,7 +55,7 @@ function _saveOrRestore(previous) {
   }
 }
 
-function _commitStep(expectedStep, nextStep, details = {}) {
+function _commitStep(expectedStep, nextStep, details = {}, onCommitted = null) {
   const state = _state();
   if (!state) return false;
   const current = normalizeOnboardingState(state.onboarding);
@@ -65,6 +65,7 @@ function _commitStep(expectedStep, nextStep, details = {}) {
   const next = advanceOnboarding(current, nextStep, details);
   state.onboarding = next;
   _saveOrRestore(previous);
+  onCommitted?.(next);
 
   const secondsSinceNewGame = getOnboardingElapsedSeconds(next);
   EventBus.emit(EVENTS.ONBOARDING_STEP_COMPLETED, {
@@ -87,13 +88,13 @@ function _commitStep(expectedStep, nextStep, details = {}) {
   return true;
 }
 
-function _updateOnboardingDetails(details) {
+function _updateOnboardingDetails(details, { render = true } = {}) {
   const state = _state();
   if (!state) return false;
   const previous = state.onboarding;
   state.onboarding = { ...normalizeOnboardingState(previous), ...details };
   _saveOrRestore(previous);
-  _ctx.renderAll?.();
+  if (render) _ctx.renderAll?.();
   return true;
 }
 
@@ -111,15 +112,26 @@ function _bindOnboardingEvents() {
   if (_eventsBound) return;
   _eventsBound = true;
 
-  EventBus.on(EVENTS.TEAM_MEMBER_SET, ({ team } = {}) => {
+  EventBus.on(EVENTS.TEAM_MEMBER_SET, ({ team, slot, source } = {}) => {
     if (team !== 'boss') return;
-    _commitStep(ONBOARDING_STEPS.TEAM_SETUP, ONBOARDING_STEPS.FIRST_BATTLE);
+    _commitStep(
+      ONBOARDING_STEPS.TEAM_SETUP,
+      ONBOARDING_STEPS.FIRST_BATTLE,
+      {},
+      () => _track('first_team_member_set', {
+        slot: slot ?? null,
+        source: source ?? null,
+      }),
+    );
   });
 
   EventBus.on(EVENTS.COMBAT_STARTED, event => {
     const onboarding = normalizeOnboardingState(_state()?.onboarding);
-    if (onboarding.step !== ONBOARDING_STEPS.FIRST_BATTLE || !isManualPlayerCombatWin(event)) return;
-    _track('onboarding_first_battle_started', {
+    if (onboarding.step !== ONBOARDING_STEPS.FIRST_BATTLE
+      || onboarding.firstBattleStartedAt
+      || !isManualPlayerCombatWin(event)) return;
+    _updateOnboardingDetails({ firstBattleStartedAt: Date.now() }, { render: false });
+    _track('first_battle_started', {
       zone: event?.zoneId ?? null,
       trainer: event?.trainerKey ?? null,
     });
@@ -140,13 +152,28 @@ function _bindOnboardingEvents() {
     const onboarding = normalizeOnboardingState(state?.onboarding);
     if (source !== 'onboarding' || onboarding.step !== ONBOARDING_STEPS.FIRST_AGENT) return;
     if (onboarding.firstAgentId) return;
-    _updateOnboardingDetails({ firstAgentId: agentId });
+    if (_updateOnboardingDetails({ firstAgentId: agentId })) {
+      _track('first_agent_recruited', { source });
+    }
   });
 
   EventBus.on(EVENTS.AGENT_ASSIGNED, ({ agentId, zoneId } = {}) => {
-    const onboarding = normalizeOnboardingState(_state()?.onboarding);
+    const state = _state();
+    const onboarding = normalizeOnboardingState(state?.onboarding);
     if (!zoneId || !onboarding.firstAgentId || agentId !== onboarding.firstAgentId) return;
-    _commitStep(ONBOARDING_STEPS.FIRST_AGENT, ONBOARDING_STEPS.COMPLETED);
+    if (_commitStep(
+      ONBOARDING_STEPS.FIRST_AGENT,
+      ONBOARDING_STEPS.COMPLETED,
+      {},
+      () => _track('first_agent_assigned', { zone: zoneId }),
+    )) {
+      _ctx.showOnboardingIdlePayoff?.({
+        agent: state.agents?.find(item => item.id === agentId),
+        zone: _ctx.getZoneById?.(zoneId),
+        lang: state.lang,
+        nextUnlock: 'market',
+      });
+    }
   });
 
   EventBus.on(EVENTS.UI_TAB_CHANGED, ({ tabId } = {}) => {

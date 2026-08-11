@@ -281,6 +281,7 @@ node tools/test-update-manager.mjs
 node tools/check-events.js
 node tools/test-onboarding-flow.mjs
 node tools/test-onboarding-controller.mjs
+node tools/test-onboarding-payoff.mjs
 ```
 
 For ES module syntax checks in this no-`package.json` repo, use the established pattern:

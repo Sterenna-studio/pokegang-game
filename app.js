@@ -152,6 +152,7 @@ import {
   resumeOnboardingV2,
   startOnboardingV2,
 } from './modules/ui/onboarding.js';
+import { showOnboardingIdlePayoff } from './modules/ui/onboardingPayoff.js';
 import { isOnboardingActive } from './modules/systems/onboardingFlow.js';
 import { checkDarkraiCutscene, triggerDarkraiOnLeagueVictory } from './modules/ui/darkraiEvent.js';
 import './modules/ui/hoennEvent.js';
@@ -1657,6 +1658,8 @@ function configureEntryFlows() {
     getBallSprite: () => BALL_SPRITES[state.activeBall] || BALL_SPRITES.pokeball,
     openGiovanniIntro,
     openAgentRecruitModal: (...args) => globalThis.openAgentRecruitModal?.(...args),
+    getZoneById: zoneId => ZONE_BY_ID[zoneId] ?? null,
+    showOnboardingIdlePayoff,
     switchTab,
     renderAll,
   });

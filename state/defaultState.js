@@ -29,6 +29,7 @@ export const DEFAULT_STATE = {
     startedAt: null,
     completedAt: null,
     starterSpecies: null,
+    firstBattleStartedAt: null,
     firstBattleAt: null,
     firstAgentId: null,
   },
