@@ -28,6 +28,14 @@ Every local `<script src="...">`/`<link href="...">` in `index.html` carries a `
 
 To regenerate manually: `node tools/cache-bust.js`. Safe to run anytime; it's a no-op if nothing changed.
 
+### Remote previews
+
+Publish the current branch to the isolated OVH QA URLs with
+`tools/deploy-ovh-previews.ps1`. The web preview keeps the repository's French
+default; the itch preview rebuilds the English, cloud-free artifact first. See
+`docs/preview-testing.md` for URLs, browser-profile isolation and the final
+private itch.io iframe check.
+
 ### Testing with a prefilled save (dev-only)
 
 `tools/dev-seed-save.json` is a deliberately partial test fixture — `migrateSave()` (`state/migrateSave.js`) backfills anything omitted from `DEFAULT_STATE` at load time, so this file only lists what makes the vivarium/PC/agents interesting to test: a few Pokémon spread across every vivarium source (showcase, active team, pension, training room), an agent with contextual dialogue, reputation ≥700 (unlocks the rival cameo + boss dialogue lines), 2 shinies, a favorite, a nicknamed Pokémon.
