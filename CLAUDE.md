@@ -153,9 +153,9 @@ Tabs: `tabZones`, `tabPC`, `tabAgents`, `tabMarket`, `tabGang`, `tabPokedex`, `t
 2. `initializeRuntimeState()`;
 3. global UI bindings;
 4. system initialization;
-5. intro/cosmetics/session restore;
-6. initial render and async asset loading;
-7. intro module configuration;
+5. entry-flow configuration (hub, onboarding, Giovanni), then intro/cosmetics/session restore;
+6. initial render;
+7. async runtime asset loading;
 8. Scheduler startup;
 9. EventBus bridges;
 10. scripted boot checks.

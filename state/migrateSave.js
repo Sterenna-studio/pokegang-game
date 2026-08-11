@@ -73,6 +73,13 @@ export function migrateSave(saved, deps) {
   merged.stats        = { ...structuredClone(DEFAULT_STATE.stats),        ...ensureObject(saved.stats) };
   merged.settings     = { ...structuredClone(DEFAULT_STATE.settings),     ...ensureObject(saved.settings) };
   merged.activeBoosts = { ...structuredClone(DEFAULT_STATE.activeBoosts), ...ensureObject(saved.activeBoosts) };
+  merged.onboarding   = { ...structuredClone(DEFAULT_STATE.onboarding),   ...ensureObject(saved.onboarding) };
+  // Existing initialized saves must never be routed into onboarding V2.
+  if (saved.onboarding === undefined && merged.gang.initialized) {
+    merged.onboarding.status = 'completed';
+    merged.onboarding.step = 'completed';
+    merged.onboarding.completedAt = saved._savedAt || now();
+  }
   const savedDiscoveryProgress = ensureObject(saved.discoveryProgress);
   merged.discoveryProgress = {
     ...structuredClone(DEFAULT_STATE.discoveryProgress),

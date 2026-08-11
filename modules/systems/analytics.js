@@ -21,6 +21,7 @@
 // ════════════════════════════════════════════════════════════════
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
+import { GAME_VERSION } from '../../state/defaultState.js';
 
 function _detectPlatform() {
   const h = location.hostname;
@@ -33,7 +34,7 @@ const _platform = _detectPlatform();
 function trackEvent(name, params = {}) {
   if (typeof globalThis.gtag !== 'function') return;
   try {
-    globalThis.gtag('event', name, { platform: _platform, ...params });
+    globalThis.gtag('event', name, { platform: _platform, game_version: GAME_VERSION, ...params });
   } catch (err) {
     console.warn('[Analytics] trackEvent failed:', name, err);
   }
@@ -58,6 +59,19 @@ EventBus.on(EVENTS.COMBAT_WON, ({ zoneId, trainerKey, elite } = {}) => {
   if (state?.stats?.totalFightsWon === 1) {
     trackEvent('first_battle_won', { zone: zoneId ?? null, trainer: trainerKey ?? null, elite: !!elite });
   }
+});
+
+// ── Onboarding V2 ────────────────────────────────────────────────
+EventBus.on(EVENTS.ONBOARDING_STARTED, ({ version, slotIdx } = {}) => {
+  trackEvent('onboarding_started', { onboarding_version: version, slot: slotIdx });
+});
+
+EventBus.on(EVENTS.ONBOARDING_STEP_COMPLETED, ({ step, nextStep, secondsSinceNewGame } = {}) => {
+  trackEvent('onboarding_step_completed', {
+    step,
+    next_step: nextStep,
+    seconds_since_new_game: secondsSinceNewGame,
+  });
 });
 
 Object.assign(globalThis, { trackEvent });

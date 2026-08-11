@@ -23,6 +23,9 @@
 // ════════════════════════════════════════════════════════════════
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
+import { acquireStoryLock, releaseStoryLock } from '../core/storyLock.js';
+
+const STORY_OWNER = 'johto-cinematic';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type });
 const _save   = ()               => globalThis.saveState?.();
@@ -615,14 +618,16 @@ function _close() {
   setTimeout(() => {
     _overlay?.remove();
     _overlay = null;
+    releaseStoryLock(STORY_OWNER);
   }, 520);
 }
 
 // ── Déclenchement ─────────────────────────────────────────────────
 function _startCinematic() {
-  if (_overlay) return;
+  if (_overlay || !acquireStoryLock(STORY_OWNER)) return false;
   _overlay = _buildOverlay();
   _step0();
+  return true;
 }
 
 /**
@@ -633,7 +638,7 @@ export function showJohtoCinematic() {
   const s = _state();
   if (s.gang?.johtoCinematicSeen) return;
   if (s.purchases?.johtoUnlocked) return;
-  _startCinematic();
+  return _startCinematic();
 }
 
 Object.assign(globalThis, { showJohtoCinematic });

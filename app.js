@@ -145,7 +145,9 @@ import './modules/systems/johto.js';
 import './modules/systems/hoenn.js';
 import './modules/systems/sinnoh.js';
 import './modules/ui/pickers.js';
-import { configureIntro, openGiovanniIntro, openStarterGiftPopup, showIntro } from './modules/ui/intro.js';
+import { configureIntro, openGiovanniIntro, openStarterGiftPopup } from './modules/ui/intro.js';
+import { configureHub, showIntro } from './modules/ui/hub.js';
+import { configureOnboarding, startOnboardingV2 } from './modules/ui/onboarding.js';
 import { checkDarkraiCutscene, triggerDarkraiOnLeagueVictory } from './modules/ui/darkraiEvent.js';
 import './modules/ui/hoennEvent.js';
 import './modules/ui/johtoEvent.js';
@@ -848,7 +850,7 @@ function openHubImportModal(raw) {
   return openHubImportModalImpl(raw);
 }
 
-// ── showIntro() (extracted → modules/ui/intro.js) ───────────────────────────
+// ── showIntro() (extracted → modules/ui/hub.js) ─────────────────────────────
 
 // ════════════════════════════════════════════════════════════════
 // 19b. BOSS SPRITE VALIDATOR  (extracted → modules/ui/hubModals.js)
@@ -1618,7 +1620,7 @@ function loadRuntimeAssets() {
   });
 }
 
-function configureIntroFlow() {
+function configureEntryFlows() {
   configureIntro({
     getState: () => state,
     makePokemon,
@@ -1629,16 +1631,42 @@ function configureIntroFlow() {
     setActiveSaveSlot: slotIdx => setActiveSaveSlotValue(slotIdx, { persist: true }),
     saveState,
     notify,
+  });
+
+  configureOnboarding({
+    getState: () => state,
+    resetStateForNewGame: () => {
+      const previousLang = state.lang;
+      setState(createDefaultState());
+      state.lang = previousLang;
+    },
+    setActiveSaveSlot: slotIdx => setActiveSaveSlotValue(slotIdx, { persist: true }),
+    saveState,
+    notify,
+    tryCapture,
+    pokeSprite,
+    getBallSprite: () => BALL_SPRITES[state.activeBall] || BALL_SPRITES.pokeball,
+    openGiovanniIntro,
+    renderAll,
+  });
+
+  configureHub({
+    getState: () => state,
+    pokeSprite,
+    trainerSprite,
     openSettingsModal,
     getSlotPreview,
     formatPlaytime,
     showConfirm,
     getSaveKeys: () => SAVE_KEYS,
     getActiveSaveSlot,
+    setActiveSaveSlot: slotIdx => setActiveSaveSlotValue(slotIdx, { persist: true }),
     renderAll,
     loadSlot,
     openHubSlotRepairModal,
     openHubImportModal,
+    removeSlot: slotIdx => localStorage.removeItem(SAVE_KEYS[slotIdx]),
+    startOnboarding: startOnboardingV2,
   });
 }
 
@@ -1726,13 +1754,13 @@ function boot() {
   localizeStaticUi();
   bindGlobalUi();
   initializeSystems();
+  configureEntryFlows();
   showIntroIfNeeded();
   applyCosmetics();
   initSession();
   restoreSessionState();
   renderInitialUi();
   loadRuntimeAssets();
-  configureIntroFlow();
   startGameLoop();
   bindEventBusBridges();
   scheduleBootChecks();

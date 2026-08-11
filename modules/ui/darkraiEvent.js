@@ -23,6 +23,9 @@
 
 import { invalidateBossTeamPower } from '../systems/bossPower.js';
 import { EventBus, EVENTS } from '../core/eventBus.js';
+import { acquireStoryLock, releaseStoryLock } from '../core/storyLock.js';
+
+const STORY_OWNER = 'darkrai-cutscene';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type });
 const _save   = ()               => globalThis.saveState?.();
@@ -559,6 +562,7 @@ function _finish() {
   setTimeout(() => {
     _overlay?.remove();
     _overlay = null;
+    releaseStoryLock(STORY_OWNER);
     globalThis.switchTab?.('tabGang');
     globalThis.renderAll?.();
   }, 580);
@@ -566,10 +570,11 @@ function _finish() {
 
 // ── Déclenchement ─────────────────────────────────────────────────
 function _startCutscene() {
-  if (_overlay) return;
+  if (_overlay || !acquireStoryLock(STORY_OWNER)) return false;
   _overlay      = _buildOverlay();
   _torchChoice  = null;
   _step0();
+  return true;
 }
 
 export function checkDarkraiCutscene() {

@@ -5,7 +5,7 @@ export const APP_VERSION = '2.4.0';
 export const GAME_VERSION = 'v0.5 — open beta';
 
 // Incrémenter à chaque ajout de champ majeur pour déclencher le banner migration.
-export const SAVE_SCHEMA_VERSION = 13;
+export const SAVE_SCHEMA_VERSION = 14;
 
 export const SAVE_KEYS = ['pokeforge.v6', 'pokeforge.v6.s2', 'pokeforge.v6.s3'];
 
@@ -22,6 +22,14 @@ export const DEFAULT_STATE = {
   version: '6.0.0',
   _schemaVersion: SAVE_SCHEMA_VERSION,
   lang: 'fr',
+  onboarding: {
+    version: 2,
+    status: 'not_started',
+    step: 'not_started',
+    startedAt: null,
+    completedAt: null,
+    starterSpecies: null,
+  },
   gang: {
     name: 'Team ???',
     bossName: 'Boss',

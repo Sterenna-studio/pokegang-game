@@ -2,67 +2,24 @@
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
 import { esc as _esc } from '../core/escape.js';
-import { FALLBACK_TRAINER_SVG, LOGO_SMALL_URL } from '../../data/assets-data.js';
+import { acquireStoryLock, getStoryLockOwner, releaseStoryLock } from '../core/storyLock.js';
+import { ONBOARDING_STARTERS as INTRO_STARTERS } from '../../data/onboarding-data.js';
 
-const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
 const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
-const _topBar = ()               => EventBus.emit(EVENTS.UI_TOPBAR_UPDATE);
-const _save   = ()               => globalThis.saveState?.();
 const _t      = (fr, en)         => (globalThis.state?.lang === 'en' ? en : fr);
 const _lvl    = (n)              => _t(`Niv. ${n}`, `Lvl ${n}`);
 
 
 // ════════════════════════════════════════════════════════════════
 //  GIOVANNI INTRO — narrative character creation sequence
-//  Triggered when a new game slot is chosen on the hub.
-//  HUB SLOT-SELECT SCREEN (showIntro) partage le même contexte.
+//  Legacy full sequence or identity-only screen for onboarding V2.
 //  deps (injected via configureIntro):
 //    getState, makePokemon, calculateStats, pokeSprite, trainerSprite,
-//    BOSS_SPRITES, saveState, notify, openSettingsModal, getSlotPreview,
-//    formatPlaytime, showConfirm, getSaveKeys, getActiveSaveSlot,
-//    setActiveSaveSlot, renderAll, loadSlot, openHubSlotRepairModal,
-//    openHubImportModal
+//    BOSS_SPRITES, saveState, notify, setActiveSaveSlot
 // ════════════════════════════════════════════════════════════════
 
 let _ctx = {};
 export function configureIntro(ctx) { _ctx = { ..._ctx, ...ctx }; }
-
-// ── Starters offered by Giovanni ─────────────────────────────────
-const INTRO_STARTERS = [
-  {
-    en: 'meowth',
-    fr: 'Miaous',
-    nameEn: 'Meowth',
-    dex: 52,
-    types: ['Normal'],
-    typesEn: ['Normal'],
-    desc: 'Agile et opportuniste.\nMaître des combines.',
-    descEn: 'Agile and opportunistic.\nMaster of the hustle.',
-    icon: '🪙',
-  },
-  {
-    en: 'zubat',
-    fr: 'Nosferapti',
-    nameEn: 'Zubat',
-    dex: 41,
-    types: ['Poison', 'Vol'],
-    typesEn: ['Poison', 'Flying'],
-    desc: 'Discret et tenace.\nIl voit dans l\'ombre.',
-    descEn: 'Stealthy and relentless.\nHe sees in the dark.',
-    icon: '🦇',
-  },
-  {
-    en: 'gastly',
-    fr: 'Fantominus',
-    nameEn: 'Gastly',
-    dex: 92,
-    types: ['Spectre', 'Poison'],
-    typesEn: ['Ghost', 'Poison'],
-    desc: 'Insaisissable.\nSème la panique.',
-    descEn: 'Elusive.\nSpreads panic.',
-    icon: '👻',
-  },
-];
 
 const _starterName  = (s) => _t(s.fr, s.nameEn);
 const _starterTypes = (s) => (_t(s.types, s.typesEn) || []).join(' · ');
@@ -76,9 +33,9 @@ const INTRO_BOSS_SPRITES = [
 
 // ── Giovanni's dialog lines ───────────────────────────────────────
 const LINES = {
-  name:    () => _t(
-    `P'tit gars... c'est quoi ton nom déjà ?`,
-    `Kid... what was your name again?`
+  name:    (identityOnly = false) => _t(
+    identityOnly ? `Pas mal. Mais je ne sais même pas encore à qui j'ai affaire...` : `P'tit gars... c'est quoi ton nom déjà ?`,
+    identityOnly ? `Not bad. But I don't even know who I'm dealing with yet...` : `Kid... what was your name again?`
   ),
   starter: (name) => _t(
     `${name}. J'ai vu en toi quelque chose — un potentiel. Je vais te confier l'un de mes Pokémon. Choisis celui qui te ressemble.`,
@@ -122,9 +79,19 @@ function _fadeTransition(el, fn) {
 }
 
 // ── Main entry point ──────────────────────────────────────────────
-export function openGiovanniIntro({ slotIdx = 0, onComplete } = {}) {
-  if (document.getElementById('giovanni-intro-overlay')) return;
-  globalThis.trackEvent?.('intro_started', { slot: slotIdx });
+export function openGiovanniIntro({
+  slotIdx = 0,
+  onComplete,
+  starterEn: capturedStarter = '',
+  identityOnly = false,
+  lockOwner = null,
+} = {}) {
+  if (document.getElementById('giovanni-intro-overlay')) return false;
+  const storyOwner = lockOwner || 'giovanni-intro';
+  const ownsStoryLock = !lockOwner;
+  if (ownsStoryLock && !acquireStoryLock(storyOwner)) return false;
+  if (!ownsStoryLock && getStoryLockOwner() !== storyOwner) return false;
+  if (!identityOnly) globalThis.trackEvent?.('intro_started', { slot: slotIdx });
 
   const state       = _ctx.getState?.();
   const BOSS_SPRITES = _ctx.BOSS_SPRITES || INTRO_BOSS_SPRITES;
@@ -133,7 +100,7 @@ export function openGiovanniIntro({ slotIdx = 0, onComplete } = {}) {
   let bossName   = '';
   let gangName   = '';
   let bossSprite = INTRO_BOSS_SPRITES[0];
-  let starterEn  = '';
+  let starterEn  = capturedStarter;
   let _typeTimer = null;
   let _isClosing = false;
 
@@ -317,6 +284,7 @@ export function openGiovanniIntro({ slotIdx = 0, onComplete } = {}) {
     setTimeout(() => {
       overlay.remove();
       style.remove();
+      if (ownsStoryLock) releaseStoryLock(storyOwner);
       if (shouldComplete) onComplete?.(payload);
     }, 400);
   }
@@ -342,7 +310,7 @@ export function openGiovanniIntro({ slotIdx = 0, onComplete } = {}) {
   function stepName() {
     _updateDots(0);
     _clearContent();
-    _say(LINES.name(), () => {
+    _say(LINES.name(identityOnly), () => {
       _fadeTransition(inputArea, () => {
         inputArea.innerHTML = `
           <div style="display:flex;gap:8px;align-items:center">
@@ -357,7 +325,12 @@ export function openGiovanniIntro({ slotIdx = 0, onComplete } = {}) {
           const val = input.value.trim();
           if (!val) { input.style.borderColor = 'rgba(255,80,80,.9)'; input.focus(); return; }
           bossName = val;
-          stepStarter();
+          if (identityOnly) {
+            const starter = INTRO_STARTERS.find(item => item.en === starterEn) || INTRO_STARTERS[0];
+            stepGang(_starterName(starter));
+          } else {
+            stepStarter();
+          }
         };
         btn.addEventListener('click', next);
         input.addEventListener('keydown', e => { if (e.key === 'Enter') next(); });
@@ -524,7 +497,7 @@ export function openGiovanniIntro({ slotIdx = 0, onComplete } = {}) {
               <img src="${_ctx.pokeSprite?.(starterData.en, false) || ''}"
                 style="width:56px;height:56px;image-rendering:pixelated;display:block;margin:0 auto"
                 onerror="this.style.opacity='.2'">
-              <div style="font-size:9px;color:rgba(255,255,255,.45);margin-top:2px">${_starterName(starterData)} ${_lvl(15)}</div>
+              <div style="font-size:9px;color:rgba(255,255,255,.45);margin-top:2px">${_starterName(starterData)}${identityOnly ? '' : ` ${_lvl(15)}`}</div>
             </div>
           </div>
         </div>`;
@@ -567,26 +540,29 @@ export function openGiovanniIntro({ slotIdx = 0, onComplete } = {}) {
       state.gang.initialized = true;
       state.gang.introSeen   = true;
 
-      // Create starter Pokémon (level 15, potential 3)
-      const starter = _ctx.makePokemon?.(sp, 'intro', 'pokeball');
-      if (starter) {
-        starter.level     = 15;
-        starter.potential = 3;
-        if (_ctx.calculateStats) starter.stats = _ctx.calculateStats(starter);
-        starter.capturedIn = 'intro';
-        starter.history = [{ type: 'starter', ts: Date.now(), zone: 'intro', ball: 'giovanni' }];
-        if (!Array.isArray(state.pokemons)) state.pokemons = [];
-        state.pokemons.push(starter); _dirty();
-        EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: starter, zoneId: null });
-        globalThis.registerPokedexCapture?.(state, starter);
+      // Legacy path creates the gift here. Onboarding V2 has already captured
+      // the starter through zoneSystem.tryCapture(), so it must not be added twice.
+      if (!identityOnly) {
+        const starter = _ctx.makePokemon?.(sp, 'intro', 'pokeball');
+        if (starter) {
+          starter.level     = 15;
+          starter.potential = 3;
+          if (_ctx.calculateStats) starter.stats = _ctx.calculateStats(starter);
+          starter.capturedIn = 'intro';
+          starter.history = [{ type: 'starter', ts: Date.now(), zone: 'intro', ball: 'giovanni' }];
+          if (!Array.isArray(state.pokemons)) state.pokemons = [];
+          state.pokemons.push(starter); _dirty();
+          EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: starter, zoneId: null });
+          globalThis.registerPokedexCapture?.(state, starter);
+        }
       }
 
       _ctx.setActiveSaveSlot?.(slotIdx);
       _ctx.saveState?.();
       _ctx.notify?.(_t(`🎉 Bienvenue ${bossName} ! Ta ${gangName} est fondée.`, `🎉 Welcome ${bossName}! Your ${gangName} is founded.`), 'gold');
       globalThis.trackEvent?.('new_game_started', { slot: slotIdx });
-      globalThis.trackEvent?.('starter_chosen', { species: sp });
-      globalThis.trackEvent?.('intro_completed', { slot: slotIdx });
+      if (!identityOnly) globalThis.trackEvent?.('starter_chosen', { species: sp });
+      if (!identityOnly) globalThis.trackEvent?.('intro_completed', { slot: slotIdx });
     } catch (err) {
       console.error('[intro] Giovanni intro failed to persist:', err);
     } finally {
@@ -596,8 +572,8 @@ export function openGiovanniIntro({ slotIdx = 0, onComplete } = {}) {
 
   // ── Start ─────────────────────────────────────────────────────
   stepName();
+  return true;
 }
-
 // ── Private helper — trainer sprite URL ──────────────────────────
 function _trainerSprite(name) {
   if (_ctx.trainerSprite) return _ctx.trainerSprite(name);
@@ -611,10 +587,12 @@ function _trainerSprite(name) {
 //  need to pick a starter.
 // ════════════════════════════════════════════════════════════════
 export function openStarterGiftPopup({ onComplete } = {}) {
-  if (document.getElementById('starter-gift-overlay')) return;
+  if (document.getElementById('starter-gift-overlay')) return false;
 
   const state = _ctx.getState?.();
-  if (!state || !state.gang?.initialized || state.gang?.introSeen) return;
+  if (!state || !state.gang?.initialized || state.gang?.introSeen) return false;
+  const storyOwner = 'starter-gift';
+  if (!acquireStoryLock(storyOwner)) return false;
 
   const bossName = state.gang?.bossName || 'Boss';
   const gangName = state.gang?.name     || 'Team Fury';
@@ -733,6 +711,7 @@ export function openStarterGiftPopup({ onComplete } = {}) {
     setTimeout(() => {
       overlay.remove();
       style.remove();
+      releaseStoryLock(storyOwner);
       onComplete?.();
     }, 400);
   }
@@ -833,271 +812,6 @@ export function openStarterGiftPopup({ onComplete } = {}) {
       _closeGift();
     }
   }
-}
 
-// ════════════════════════════════════════════════════════════════
-//  HUB — SAVE SLOT SELECTION SCREEN
-//  Écran affiché au chargement : showcase animé + liste des slots
-//  de sauvegarde. Point d'entrée vers openGiovanniIntro (nouvelle
-//  partie) ou loadSlot (partie existante).
-// ════════════════════════════════════════════════════════════════
-export function showIntro() {
-  const overlay = document.getElementById('introOverlay');
-  if (!overlay) return;
-  overlay.classList.add('active');
-
-  // ── Static markup (index.html) — patched here since it renders
-  // before state.lang is known ────────────────────────────────────
-  const introSettingsBtn = document.getElementById('introSettingsBtn');
-  if (introSettingsBtn) introSettingsBtn.title = _t('Paramètres', 'Settings');
-  const introTagline = overlay.querySelector('.intro-tagline');
-  if (introTagline) introTagline.textContent = _t('Prends le contrôle de Kanto.', 'Take control of Kanto.');
-  const introStartBtn = document.getElementById('introStartGameBtn');
-  if (introStartBtn) introStartBtn.textContent = _t('▶ Commencer une partie', '▶ Start a game');
-  const introSavesLabel = overlay.querySelector('.intro-saves-label');
-  if (introSavesLabel) introSavesLabel.textContent = _t('SAUVEGARDES', 'SAVES');
-  const introSavesHint = overlay.querySelector('.intro-saves-hint');
-  if (introSavesHint) introSavesHint.textContent = _t('Choisis ou crée une partie', 'Choose or create a game');
-  const btnHubImportSave = document.getElementById('btnHubImportSave');
-  if (btnHubImportSave) btnHubImportSave.textContent = _t('📥 Importer une save', '📥 Import a save');
-  const btnHubRepairSlot = document.getElementById('btnHubRepairSlot');
-  if (btnHubRepairSlot) btnHubRepairSlot.textContent = _t('🔧 Réparer une save', '🔧 Repair a save');
-
-  // ── Settings gear button ──────────────────────────────────────
-  document.getElementById('introSettingsBtn')?.addEventListener('click', () => {
-    _ctx.openSettingsModal?.();
-  });
-
-  // ── Animated showcase ─────────────────────────────────────────
-  const SHOWCASE_SCENES = [
-    {
-      key: 'capture',
-      render: () => {
-        const poke = 'pikachu';
-        return `
-          <div class="intro-scene-title">${_t('Capturez des Pokémon rares', 'Catch rare Pokémon')}</div>
-          <div class="intro-scene-sprites" style="flex-direction:column;gap:8px">
-            <img src="${_ctx.pokeSprite?.(poke) || ''}" style="animation:pokeBounce 1s ease-in-out infinite;image-rendering:pixelated;width:64px;height:64px">
-            <div style="font-size:18px;animation:pokeballFall 1.2s ease forwards">⚪</div>
-          </div>
-          <div class="intro-scene-desc">${_t("Des centaines d'espèces à attraper", 'Hundreds of species to catch')}</div>`;
-      }
-    },
-    {
-      key: 'combat',
-      render: () => {
-        return `
-          <div class="intro-scene-title">${_t('Combattez des Dresseurs', 'Battle Trainers')}</div>
-          <div class="intro-scene-sprites" style="gap:12px;align-items:flex-end">
-            <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
-              <img src="${_trainerSprite('red')}" style="animation:trainerLeft 1.2s ease-in-out infinite;image-rendering:pixelated;width:56px;height:56px">
-              <div class="intro-hp-bar"><div class="intro-hp-fill" id="introHpLeft" style="width:70%;background:#4c4"></div></div>
-            </div>
-            <div style="font-family:var(--font-pixel);font-size:10px;color:var(--red);align-self:center">VS</div>
-            <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
-              <img src="${_trainerSprite('lance')}" style="animation:trainerRight 1.2s ease-in-out infinite 0.3s;image-rendering:pixelated;width:56px;height:56px">
-              <div class="intro-hp-bar"><div class="intro-hp-fill" id="introHpRight" style="width:40%;background:#c44"></div></div>
-            </div>
-          </div>
-          <div class="intro-scene-desc">${_t('Montez en puissance et dominez', 'Grow stronger and dominate')}</div>`;
-      }
-    },
-    {
-      key: 'gang',
-      render: () => {
-        return `
-          <div class="intro-scene-title">${_t('Développez votre Gang', 'Grow your Gang')}</div>
-          <div class="intro-scene-sprites" style="gap:16px">
-            <img src="${_trainerSprite('giovanni')}" style="image-rendering:pixelated;width:56px;height:56px">
-            <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start">
-              <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">${_t('RÉPUTATION', 'REPUTATION')}</div>
-              <div style="font-size:22px;font-family:var(--font-pixel);color:var(--gold);animation:repTick .5s ease-in-out infinite alternate" id="introRepCounter">1 337</div>
-              <div style="font-size:10px;color:var(--text-dim)">${_t('Agents: 5 &nbsp;|&nbsp; Zones: 4', 'Agents: 5 &nbsp;|&nbsp; Zones: 4')}</div>
-            </div>
-          </div>
-          <div class="intro-scene-desc">${_t('Conquiers Kanto, un territoire à la fois', 'Conquer Kanto, one territory at a time')}</div>`;
-      }
-    }
-  ];
-
-  let sceneIdx = 0;
-  let showcaseInterval = null;
-
-  const renderScene = (idx) => {
-    const container = document.getElementById('introSceneContainer');
-    if (!container) return;
-    container.innerHTML = SHOWCASE_SCENES[idx].render();
-    container.style.animation = 'none';
-    container.offsetHeight; // reflow
-    container.style.animation = 'sceneIn .4s ease';
-    // Update dots
-    const dots = document.querySelectorAll('#introSceneDots .intro-dot');
-    dots.forEach((d, i) => d.classList.toggle('active', i === idx));
-  };
-
-  renderScene(0);
-  showcaseInterval = setInterval(() => {
-    sceneIdx = (sceneIdx + 1) % SHOWCASE_SCENES.length;
-    renderScene(sceneIdx);
-  }, 3000);
-
-  // Stop interval when overlay closes
-  const stopShowcase = () => {
-    if (showcaseInterval) { clearInterval(showcaseInterval); showcaseInterval = null; }
-  };
-
-  // ── Save slots ────────────────────────────────────────────────
-  let selectedSlotIdx = 0; // default new game slot
-  const slotsContainer = document.getElementById('introSlots');
-  const renderSlots = () => {
-    if (!slotsContainer) return;
-    slotsContainer.innerHTML = [0, 1, 2].map(i => {
-      const preview = _ctx.getSlotPreview?.(i);
-      if (preview) {
-        const d = new Date(preview.ts);
-        const dateStr = preview.ts ? d.toLocaleDateString(_t('fr-FR', 'en-US'), { day:'2-digit', month:'2-digit', year:'2-digit' }) : '—';
-        const teamSpritesHtml = (preview.teamSprites || []).map(sp =>
-          `<img class="isc-mini" src="${_ctx.pokeSprite?.(sp) || ''}" alt="${sp}" onerror="this.style.display='none'">`
-        ).join('');
-        const agentSpritesHtml = (preview.agentSprites || []).map(url =>
-          `<img class="isc-mini" src="${url}" alt="" onerror="this.style.display='none'">`
-        ).join('');
-        return `<div class="intro-slot-card has-data" data-slot="${i}">
-          <div class="isc-left">
-            <div class="isc-slot-label">SLOT ${i+1}</div>
-            <div class="isc-boss-wrap">
-              ${preview.bossSprite
-                ? `<img src="${_trainerSprite(preview.bossSprite)}" class="isc-boss-img" alt="${_esc(preview.bossSprite)}" data-boss-key="${_esc(preview.bossSprite)}" style="width:52px;height:52px;image-rendering:pixelated" onerror="this.src='${FALLBACK_TRAINER_SVG}';this.onerror=null">`
-                : '<div style="width:52px;height:52px;background:var(--bg);border-radius:4px;opacity:.3"></div>'}
-              <span class="isc-boss-badge"><img src="${LOGO_SMALL_URL}" alt=""></span>
-            </div>
-          </div>
-          <div class="isc-info">
-            <div class="isc-gang-name">${preview.name}</div>
-            <div class="isc-boss-name">${_t('Boss :', 'Boss:')} ${preview.bossName || '—'} · ${preview.agentCount || 0} ${_t('agent' + ((preview.agentCount || 0) > 1 ? 's' : ''), 'agent' + ((preview.agentCount || 0) > 1 ? 's' : ''))}</div>
-            <div class="isc-meta">${preview.pokemon} Pkm · ₽${(preview.money||0).toLocaleString()} · ⭐${preview.rep}</div>
-            <div class="isc-date">${dateStr}${preview.playtime ? ' · ' + (_ctx.formatPlaytime?.(preview.playtime) || '') : ''}</div>
-            <div class="isc-sprites-row">
-              <div class="isc-sprites-group">
-                <span class="isc-sprites-label">${_t('Équipe', 'Team')}</span>
-                ${teamSpritesHtml || '<span style="font-size:8px;color:#555">—</span>'}
-              </div>
-              ${agentSpritesHtml ? `<div class="isc-sprites-group" style="opacity:.72">
-                <span class="isc-sprites-label">${_t('Agents', 'Agents')}</span>
-                ${agentSpritesHtml}
-              </div>` : ''}
-            </div>
-          </div>
-          <div class="isc-actions">
-            <button class="isc-btn isc-play" data-slot="${i}" title="${_t('Jouer', 'Play')}">▶</button>
-            <button class="isc-btn isc-del" data-slot="${i}" title="${_t('Supprimer', 'Delete')}">🗑</button>
-          </div>
-        </div>`;
-      } else {
-        const isSelected = selectedSlotIdx === i;
-        return `<div class="intro-slot-card empty${isSelected ? ' selected-new' : ''}" data-slot="${i}" data-empty="1">
-          <div class="isc-left">
-            <div class="isc-slot-label">SLOT ${i+1}</div>
-            <div style="font-size:22px;opacity:.2">💾</div>
-          </div>
-          <div class="isc-info">
-            <div style="font-size:10px;color:#555">${_t('Vide — cliquer pour nouvelle partie', 'Empty — click to start a new game')}</div>
-          </div>
-          <div class="isc-actions">
-            <button class="isc-btn isc-new" data-slot="${i}" title="${_t('Sélectionner', 'Select')}">✓</button>
-          </div>
-        </div>`;
-      }
-    }).join('');
-
-    // Handlers
-    slotsContainer.querySelectorAll('.isc-play').forEach(btn => {
-      btn.addEventListener('click', e => {
-        e.stopPropagation();
-        const idx = parseInt(btn.dataset.slot);
-        stopShowcase();
-        _ctx.loadSlot?.(idx);
-        overlay.classList.remove('active');
-        _ctx.renderAll?.();
-      });
-    });
-    slotsContainer.querySelectorAll('.isc-del').forEach(btn => {
-      btn.addEventListener('click', e => {
-        e.stopPropagation();
-        const idx = parseInt(btn.dataset.slot);
-        _ctx.showConfirm?.(_t(
-          `Supprimer la sauvegarde Slot ${idx+1} ?<br><span style="color:var(--text-dim);font-size:11px">Cette action est irréversible.</span>`,
-          `Delete the save in Slot ${idx+1}?<br><span style="color:var(--text-dim);font-size:11px">This action is irreversible.</span>`
-        ), () => {
-          localStorage.removeItem((_ctx.getSaveKeys?.() || [])[idx]);
-          if (idx === _ctx.getActiveSaveSlot?.()) {
-            _ctx.setActiveSaveSlot?.(0);
-          }
-          renderSlots();
-        }, null, { danger: true, confirmLabel: _t('Supprimer', 'Delete'), cancelLabel: _t('Annuler', 'Cancel') });
-      });
-    });
-    slotsContainer.querySelectorAll('.isc-new, .intro-slot-card.empty').forEach(btn => {
-      btn.addEventListener('click', e => {
-        const el = btn.closest ? btn.closest('[data-slot]') : btn;
-        const idx = parseInt((el || btn).dataset.slot);
-        if (idx !== undefined && !isNaN(idx)) startNewGameAtSlot(idx);
-      });
-    });
-  };
-
-  // ── Start a new game at a given empty slot (shared by slot clicks + hero CTA)
-  function startNewGameAtSlot(idx) {
-    selectedSlotIdx = idx;
-    renderSlots();
-    openGiovanniIntro({
-      slotIdx: idx,
-      onComplete: () => {
-        // slot switch + saveState already done inside _confirm()
-        document.getElementById('introOverlay')?.classList.remove('active');
-        stopShowcase?.();
-        _ctx.renderAll?.();
-      },
-    });
-  }
-
-  renderSlots();
-
-  // ── Hero "Commencer une partie" CTA ───────────────────────────
-  document.getElementById('introStartGameBtn')?.addEventListener('click', () => {
-    const freeIdx = [0, 1, 2].find(i => !_ctx.getSlotPreview?.(i));
-    if (freeIdx === undefined) {
-      _ctx.notify?.(_t(
-        'Tous les emplacements sont pleins — supprime une sauvegarde pour en commencer une nouvelle.',
-        'All save slots are full — delete a save to start a new one.'
-      ), 'error');
-      return;
-    }
-    startNewGameAtSlot(freeIdx);
-  });
-
-  // ── Hub repair button ─────────────────────────────────────────
-  document.getElementById('btnHubRepairSlot')?.addEventListener('click', () => _ctx.openHubSlotRepairModal?.());
-
-  // ── Hub import button ─────────────────────────────────────────
-  document.getElementById('btnHubImportSave')?.addEventListener('click', () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json';
-    input.addEventListener('change', () => {
-      const file = input.files?.[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = e => {
-        try {
-          const parsed = JSON.parse(e.target.result);
-          _ctx.openHubImportModal?.(parsed);
-        } catch {
-          _ctx.notify?.(_t('Fichier invalide — impossible de lire la save.', 'Invalid file — could not read the save.'), 'error');
-        }
-      };
-      reader.readAsText(file);
-    });
-    input.click();
-  });
+  return true;
 }

@@ -52,6 +52,10 @@ export const EVENTS = {
 
   // Inventory
   ITEM_RECEIVED:     'inventory:item',    // { itemId, qty } — fired when itemGift is applied
+
+  // Onboarding / story
+  ONBOARDING_STARTED:        'onboarding:started',        // { version, slotIdx, startedAt }
+  ONBOARDING_STEP_COMPLETED: 'onboarding:step-completed', // { step, nextStep, secondsSinceNewGame }
 };
 
 // ── Internal store ────────────────────────────────────────────
