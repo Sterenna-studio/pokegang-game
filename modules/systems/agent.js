@@ -106,17 +106,26 @@ function rollNewAgent() {
   };
 }
 
-function recruitAgent(agentData) {
+function recruitAgent(agentData, { source = 'paid', cost = 0 } = {}) {
   const state = globalThis.state;
+  if (!agentData?.id || state.agents.some(agent => agent.id === agentData.id)) return false;
   state.agents.push(agentData); _dirty();
   globalThis.addLog(globalThis.t('recruit_agent') + ': ' + agentData.name);
   _save();
+  EventBus.emit(EVENTS.AGENT_RECRUITED, { agentId: agentData.id, source, cost });
+  return true;
 }
 
-function openAgentRecruitModal(onAfterRecruit) {
+function openAgentRecruitModal(onAfterRecruit, options = {}) {
   const state = globalThis.state;
   const SFX   = globalThis.SFX;
-  const cost  = getAgentRecruitCost();
+  const onboardingRecruit = state.onboarding?.step === 'first_agent' && !state.onboarding?.firstAgentId;
+  const source = options.source || (onboardingRecruit ? 'onboarding' : 'paid');
+  const cost  = Number.isFinite(options.cost)
+    ? Math.max(0, options.cost)
+    : (onboardingRecruit ? 0 : getAgentRecruitCost());
+
+  if (document.getElementById('agentRecruitModal')) return false;
 
   if ((state.gang?.money || 0) < cost) {
     _notify(_t(`Fonds insuffisants (${cost.toLocaleString()}₽ requis)`, `Insufficient funds (${cost.toLocaleString()}₽ required)`), 'error');
@@ -146,6 +155,7 @@ function openAgentRecruitModal(onAfterRecruit) {
     </div>`).join('');
 
   const modal = document.createElement('div');
+  modal.id = 'agentRecruitModal';
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.82);display:flex;align-items:center;justify-content:center;z-index:9999';
   modal.innerHTML = `
     <div style="background:var(--bg-panel);border:2px solid var(--gold-dim);border-radius:var(--radius);padding:20px;max-width:640px;width:96%;display:flex;flex-direction:column;gap:14px">
@@ -178,9 +188,11 @@ function openAgentRecruitModal(onAfterRecruit) {
         modal.remove();
         return;
       }
-      state.gang.money -= cost;
-      EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -cost, newTotal: state.gang.money });
-      recruitAgent(candidates[idx]);
+      if (cost > 0) {
+        state.gang.money -= cost;
+        EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -cost, newTotal: state.gang.money });
+      }
+      recruitAgent(candidates[idx], { source, cost });
       _notify(_t(`${candidates[idx].name} rejoint votre organisation !`, `${candidates[idx].name} joined your organization!`), 'gold');
       _topBar();
       modal.remove();
@@ -190,9 +202,10 @@ function openAgentRecruitModal(onAfterRecruit) {
 
   modal.querySelector('#recruitCancelBtn').addEventListener('click', () => modal.remove());
   modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  return true;
 }
 
-function assignAgentToZone(agentId, zoneId) {
+function assignAgentToZone(agentId, zoneId, { source = 'ui' } = {}) {
   const state = globalThis.state;
   const agent = state.agents.find(a => a.id === agentId);
   if (!agent) return false;
@@ -205,6 +218,9 @@ function assignAgentToZone(agentId, zoneId) {
       return false;
     }
   }
+
+  const previousZoneId = agent.assignedZone || null;
+  if (previousZoneId === (zoneId || null)) return true;
 
   // Retirer l'agent de son ancienne zone
   if (agent.assignedZone) {
@@ -222,6 +238,9 @@ function assignAgentToZone(agentId, zoneId) {
     }
   }
   _save();
+  EventBus.emit(EVENTS.AGENT_ASSIGNED, {
+    agentId, zoneId: zoneId || null, previousZoneId, source,
+  });
   globalThis.syncActiveZones?.();
   return true;
 }
@@ -440,7 +459,7 @@ function _applyResolvedAgentCombat(zoneId, spawnObj, combatAgents, result) {
   const state = globalThis.state;
   const agentIds   = combatAgents.map(agent => agent.id);
   const teamIds    = _combatTeamIdsForAgents(agentIds, zoneId);
-  const trainerData = { ...spawnObj, zoneId };
+  const trainerData = { ...spawnObj, zoneId, combatMode: 'agent', initiatedBy: 'agent' };
   const trainer    = trainerData.trainer || {};
   const rewardRange = trainer.reward || [10, 50];
   const reward     = result.attackerWin
@@ -1029,7 +1048,7 @@ function _bossAutoCombat(zoneId, spawnObj) {
     globalThis.applyCombatResult(
       { win: result.attackerWin, reward, repGain, tier: _bgTier },
       bossTeam,
-      { ...spawnObj, zoneId },
+      { ...spawnObj, zoneId, combatMode: 'agent', initiatedBy: 'boss-auto' },
     );
 
     if (result.attackerWin) {

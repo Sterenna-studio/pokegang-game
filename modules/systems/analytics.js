@@ -54,10 +54,16 @@ EventBus.on(EVENTS.POKEMON_CAPTURED, ({ pokemon, zoneId } = {}) => {
 });
 
 // ── Combat ─────────────────────────────────────────────────────────
-EventBus.on(EVENTS.COMBAT_WON, ({ zoneId, trainerKey, elite } = {}) => {
+EventBus.on(EVENTS.COMBAT_WON, ({ zoneId, trainerKey, elite, mode, initiatedBy } = {}) => {
   const state = globalThis.state;
   if (state?.stats?.totalFightsWon === 1) {
-    trackEvent('first_battle_won', { zone: zoneId ?? null, trainer: trainerKey ?? null, elite: !!elite });
+    trackEvent('first_battle_won', {
+      zone: zoneId ?? null,
+      trainer: trainerKey ?? null,
+      elite: !!elite,
+      mode: mode ?? 'unknown',
+      initiated_by: initiatedBy ?? 'unknown',
+    });
   }
 });
 
@@ -71,6 +77,29 @@ EventBus.on(EVENTS.ONBOARDING_STEP_COMPLETED, ({ step, nextStep, secondsSinceNew
     step,
     next_step: nextStep,
     seconds_since_new_game: secondsSinceNewGame,
+  });
+});
+
+EventBus.on(EVENTS.ONBOARDING_RESUMED, ({ version, step, secondsSinceNewGame } = {}) => {
+  trackEvent('onboarding_resumed', {
+    onboarding_version: version,
+    step,
+    seconds_since_new_game: secondsSinceNewGame,
+  });
+});
+
+EventBus.on(EVENTS.ONBOARDING_COMPLETED, ({ version, secondsSinceNewGame } = {}) => {
+  trackEvent('onboarding_completed', {
+    onboarding_version: version,
+    seconds_since_new_game: secondsSinceNewGame,
+  });
+});
+
+EventBus.on(EVENTS.ONBOARDING_FAILED, ({ version, step, reason } = {}) => {
+  trackEvent('onboarding_failed', {
+    onboarding_version: version,
+    step,
+    reason,
   });
 });
 

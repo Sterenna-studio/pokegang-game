@@ -29,6 +29,8 @@ export function defaultOnboardingState() {
     startedAt: null,
     completedAt: null,
     starterSpecies: null,
+    firstBattleAt: null,
+    firstAgentId: null,
   };
 }
 
@@ -82,5 +84,76 @@ export function getOnboardingElapsedSeconds(value, now = Date.now()) {
 }
 
 export function shouldRunOnboardingV2(state) {
-  return !!state && !state.gang?.initialized;
+  if (!state) return false;
+  const onboarding = normalizeOnboardingState(state.onboarding);
+  const active = onboarding.step !== ONBOARDING_STEPS.NOT_STARTED
+    && onboarding.step !== ONBOARDING_STEPS.COMPLETED;
+  return active || !state.gang?.initialized;
+}
+
+export function isOnboardingActive(state) {
+  if (!state) return false;
+  const step = normalizeOnboardingState(state.onboarding).step;
+  return step !== ONBOARDING_STEPS.NOT_STARTED && step !== ONBOARDING_STEPS.COMPLETED;
+}
+
+export function isManualPlayerCombatWin(event = {}) {
+  return event.mode === 'manual' && event.initiatedBy === 'player';
+}
+
+export function getOnboardingTabAccess(state, tabId) {
+  if (!isOnboardingActive(state)) return { status: 'available', reason: null };
+  const step = normalizeOnboardingState(state.onboarding).step;
+  const lang = state?.lang === 'en' ? 'en' : 'fr';
+  const reason = lang === 'en' ? 'Keep following the current objective.' : "Continue l'objectif en cours.";
+  const available = new Set();
+  let lockedTab = null;
+
+  if (step === ONBOARDING_STEPS.TEAM_SETUP || step === ONBOARDING_STEPS.FIRST_BATTLE) {
+    ['tabZones', 'tabPC', 'tabGang'].forEach(id => available.add(id));
+    lockedTab = 'tabAgents';
+  } else if (step === ONBOARDING_STEPS.FIRST_AGENT) {
+    ['tabZones', 'tabPC', 'tabGang', 'tabAgents'].forEach(id => available.add(id));
+    lockedTab = 'tabMarket';
+  }
+
+  if (available.has(tabId)) return { status: 'available', reason: null };
+  if (tabId === lockedTab) return { status: 'locked', reason };
+  return { status: 'hidden', reason };
+}
+
+export function getOnboardingObjective(state) {
+  if (!isOnboardingActive(state)) return null;
+  const onboarding = normalizeOnboardingState(state.onboarding);
+  const en = state?.lang === 'en';
+  switch (onboarding.step) {
+    case ONBOARDING_STEPS.TEAM_SETUP:
+      return {
+        text: en ? '⚔ Add your captured Pokémon to the Boss team' : "⚔ Ajoute ton Pokémon capturé à l'équipe Boss",
+        detail: en ? '→ Pokémon' : '→ Pokémon',
+        tab: 'tabPC',
+      };
+    case ONBOARDING_STEPS.FIRST_BATTLE:
+      return {
+        text: en ? '🥊 Win a manual battle in a zone' : '🥊 Remporte un combat manuel dans une zone',
+        detail: en ? '→ Zones' : '→ Zones',
+        tab: 'tabZones',
+      };
+    case ONBOARDING_STEPS.FIRST_AGENT: {
+      const agent = state.agents?.find(item => item.id === onboarding.firstAgentId);
+      return agent
+        ? {
+            text: en ? `👤 Assign ${agent.name} to a zone` : `👤 Assigne ${agent.name} à une zone`,
+            detail: en ? '→ Agents' : '→ Agents',
+            tab: 'tabAgents',
+          }
+        : {
+            text: en ? '👤 Choose your first free agent' : '👤 Choisis ton premier agent offert',
+            detail: en ? '→ Agents' : '→ Agents',
+            tab: 'tabAgents',
+          };
+    }
+    default:
+      return null;
+  }
 }

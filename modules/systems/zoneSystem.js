@@ -983,9 +983,20 @@ function applyCombatResult(result, playerTeamIds, trainerData) {
     }
   }
   if (result.win) {
-    EventBus.emit(EVENTS.COMBAT_WON, { zoneId: trainerData.zoneId, trainerKey: trainerData.trainerKey, elite: !!trainerData.elite });
+    EventBus.emit(EVENTS.COMBAT_WON, {
+      zoneId: trainerData.zoneId,
+      trainerKey: trainerData.trainerKey,
+      elite: !!trainerData.elite,
+      mode: trainerData.combatMode || 'system',
+      initiatedBy: trainerData.initiatedBy || 'system',
+    });
   } else {
-    EventBus.emit(EVENTS.COMBAT_LOST, { zoneId: trainerData.zoneId, trainerKey: trainerData.trainerKey });
+    EventBus.emit(EVENTS.COMBAT_LOST, {
+      zoneId: trainerData.zoneId,
+      trainerKey: trainerData.trainerKey,
+      mode: trainerData.combatMode || 'system',
+      initiatedBy: trainerData.initiatedBy || 'system',
+    });
   }
   _save();
 }

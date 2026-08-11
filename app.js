@@ -147,7 +147,12 @@ import './modules/systems/sinnoh.js';
 import './modules/ui/pickers.js';
 import { configureIntro, openGiovanniIntro, openStarterGiftPopup } from './modules/ui/intro.js';
 import { configureHub, showIntro } from './modules/ui/hub.js';
-import { configureOnboarding, startOnboardingV2 } from './modules/ui/onboarding.js';
+import {
+  configureOnboarding,
+  resumeOnboardingV2,
+  startOnboardingV2,
+} from './modules/ui/onboarding.js';
+import { isOnboardingActive } from './modules/systems/onboardingFlow.js';
 import { checkDarkraiCutscene, triggerDarkraiOnLeagueVictory } from './modules/ui/darkraiEvent.js';
 import './modules/ui/hoennEvent.js';
 import './modules/ui/johtoEvent.js';
@@ -809,7 +814,7 @@ function animateCapture(zoneId, spawnObj, spawnEl)                 { return glob
 function showCaptureBurst(container, x, y, potential, shiny)      { return globalThis._zwin_showCaptureBurst(container, x, y, potential, shiny); }
 function animateQuestCapture(opts)                                 { return globalThis._zwin_animateQuestCapture(opts); }
 function buildPlayerTeamForZone(zoneId)                            { return globalThis._zwin_buildPlayerTeamForZone(zoneId); }
-function openCombatPopup(zoneId, spawnObj)                        { return globalThis._zwin_openCombatPopup(zoneId, spawnObj); }
+function openCombatPopup(zoneId, spawnObj, options)               { return globalThis._zwin_openCombatPopup(zoneId, spawnObj, options); }
 function executeCombat()                                           { return globalThis._zwin_executeCombat(); }
 function closeCombatPopup()                                        { return globalThis._zwin_closeCombatPopup(); }
 function openEventBattlePopup(zoneId)                              { return globalThis._zwin_openEventBattlePopup(zoneId); }
@@ -1557,7 +1562,11 @@ function initializeSystems() {
 }
 
 function showIntroIfNeeded() {
-  if (!state.gang.initialized) showIntro();
+  if (isOnboardingActive(state)) {
+    resumeOnboardingV2({ slotIdx: getActiveSaveSlot() });
+  } else if (!state.gang.initialized) {
+    showIntro();
+  }
 }
 
 function restoreUnlockedRegions() {
@@ -1647,6 +1656,8 @@ function configureEntryFlows() {
     pokeSprite,
     getBallSprite: () => BALL_SPRITES[state.activeBall] || BALL_SPRITES.pokeball,
     openGiovanniIntro,
+    openAgentRecruitModal: (...args) => globalThis.openAgentRecruitModal?.(...args),
+    switchTab,
     renderAll,
   });
 

@@ -2715,7 +2715,7 @@ function playAutoCombatVisual(zoneId, spawnObj, combatAgents, win) {
 // Combat Popup
 // ════════════════════════════════════════════════════════════════
 
-function openCombatPopup(zoneId, spawnObj) {
+function openCombatPopup(zoneId, spawnObj, { mode = 'manual', initiatedBy = 'player' } = {}) {
   const state = globalThis.state;
   // currentCombat est un verrou global (un seul combat joueur interactif à
   // la fois, où qu'il soit) ; isZoneCombatBusy couvre en plus l'auto-combat
@@ -2744,7 +2744,7 @@ function openCombatPopup(zoneId, spawnObj) {
   const trainerName = state.lang === 'fr'
     ? (spawnObj.trainer?.fr ?? spawnObj.trainerKey ?? '???')
     : (spawnObj.trainer?.en ?? spawnObj.trainerKey ?? '???');
-  const spawnWithZone = { ...spawnObj, zoneId };
+  const spawnWithZone = { ...spawnObj, zoneId, combatMode: mode, initiatedBy };
   const teamIds = buildTrainerCombatTeamIds(agentIds, zoneId);
   const battlePlayerTeam = teamIds
     .map(id => state.pokemons.find(pokemon => pokemon.id === id))
@@ -2875,6 +2875,12 @@ function executeCombat() {
   currentCombat.combatStarted = true;
 
   const { zoneId, spawnObj, spawnWithZone, spawnEl, playerAnchorEl, playerTeam, enemyTeam, teamIds, enemyPool, summary } = currentCombat;
+  EventBus.emit(EVENTS.COMBAT_STARTED, {
+    zoneId,
+    trainerKey: spawnWithZone.trainerKey ?? null,
+    mode: spawnWithZone.combatMode || 'manual',
+    initiatedBy: spawnWithZone.initiatedBy || 'player',
+  });
   const logEl = document.getElementById(`zchud-log-${zoneId}`);
   const combatLogLines = [];
   const trainerReward = spawnWithZone.trainer?.reward || [10, 50];
@@ -3167,6 +3173,9 @@ function executeEventBattle() {
   currentCombat.combatStarted = true;
 
   const { zoneId, npcEl, anchorPlayerEl, playerPokemon, enemyTeam, eventDef, trainerData, trainerName, zoneName, teamIds } = currentCombat;
+  EventBus.emit(EVENTS.COMBAT_STARTED, {
+    zoneId, trainerKey: eventDef.trainerKey, mode: 'event', initiatedBy: 'player',
+  });
   const logEl = document.getElementById(`zchud-log-${zoneId}`);
   const battle = resolveEventBattle({ playerTeam: playerPokemon, enemyTeam });
   currentCombat.battle = battle;
@@ -3251,7 +3260,10 @@ function executeEventBattle() {
     const boostedReward = [trainerData.reward[0] * 4, trainerData.reward[1] * 4];
     const reward = win ? Math.min(globalThis.MAX_COMBAT_REWARD, globalThis.randInt(boostedReward[0], boostedReward[1])) : 0;
     const repGain = globalThis.getCombatRepGain(eventDef.trainerKey, win);
-    const spawnData = { zoneId, isSpecial: true, trainerKey: eventDef.trainerKey, trainer: trainerData, event: eventDef };
+    const spawnData = {
+      zoneId, isSpecial: true, trainerKey: eventDef.trainerKey, trainer: trainerData,
+      event: eventDef, combatMode: 'event', initiatedBy: 'player',
+    };
     globalThis.applyCombatResult({ win, reward, repGain }, teamIds, spawnData);
 
     if (win) {

@@ -23,7 +23,7 @@
 
 import { invalidateBossTeamPower } from '../systems/bossPower.js';
 import { EventBus, EVENTS } from '../core/eventBus.js';
-import { acquireStoryLock, releaseStoryLock } from '../core/storyLock.js';
+import { releaseStoryLock, requestStory, STORY_PRIORITIES } from '../core/storyLock.js';
 
 const STORY_OWNER = 'darkrai-cutscene';
 
@@ -569,12 +569,20 @@ function _finish() {
 }
 
 // ── Déclenchement ─────────────────────────────────────────────────
-function _startCutscene() {
-  if (_overlay || !acquireStoryLock(STORY_OWNER)) return false;
-  _overlay      = _buildOverlay();
-  _torchChoice  = null;
-  _step0();
-  return true;
+function _startCutscene(priority = STORY_PRIORITIES.BOOT) {
+  return requestStory(STORY_OWNER, () => {
+    if (_overlay) return false;
+    _overlay      = _buildOverlay();
+    _torchChoice  = null;
+    _step0();
+    return true;
+  }, {
+    priority,
+    isEligible: () => {
+      const s = _state();
+      return !!s?.gang?.initialized && !s.gang.darkraiCutsceneSeen;
+    },
+  });
 }
 
 export function checkDarkraiCutscene() {
@@ -596,7 +604,7 @@ export function checkDarkraiCutscene() {
 export function triggerDarkraiOnLeagueVictory() {
   const s = _state();
   if (s.gang?.darkraiCutsceneSeen) return;
-  _startCutscene();
+  _startCutscene(STORY_PRIORITIES.GAMEPLAY);
 }
 
 Object.assign(globalThis, { checkDarkraiCutscene, triggerDarkraiOnLeagueVictory });

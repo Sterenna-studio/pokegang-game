@@ -23,7 +23,7 @@
 // ════════════════════════════════════════════════════════════════
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
-import { acquireStoryLock, releaseStoryLock } from '../core/storyLock.js';
+import { releaseStoryLock, requestStory, STORY_PRIORITIES } from '../core/storyLock.js';
 
 const STORY_OWNER = 'johto-cinematic';
 
@@ -624,10 +624,18 @@ function _close() {
 
 // ── Déclenchement ─────────────────────────────────────────────────
 function _startCinematic() {
-  if (_overlay || !acquireStoryLock(STORY_OWNER)) return false;
-  _overlay = _buildOverlay();
-  _step0();
-  return true;
+  return requestStory(STORY_OWNER, () => {
+    if (_overlay) return false;
+    _overlay = _buildOverlay();
+    _step0();
+    return true;
+  }, {
+    priority: STORY_PRIORITIES.GAMEPLAY,
+    isEligible: () => {
+      const s = _state();
+      return !!s?.gang?.initialized && !s.gang.johtoCinematicSeen && !s.purchases?.johtoUnlocked;
+    },
+  });
 }
 
 /**

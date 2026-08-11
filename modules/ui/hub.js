@@ -52,7 +52,7 @@ function _startShowcase() {
 }
 
 function _isOnboardingPreview(preview) {
-  if (!preview || preview.initialized) return false;
+  if (!preview) return false;
   const onboarding = normalizeOnboardingState(preview.onboarding);
   return onboarding.step !== ONBOARDING_STEPS.NOT_STARTED && onboarding.step !== ONBOARDING_STEPS.COMPLETED;
 }

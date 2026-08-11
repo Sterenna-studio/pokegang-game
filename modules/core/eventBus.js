@@ -42,8 +42,14 @@ export const EVENTS = {
   POKEMON_CAPTURED:  'pokemon:captured',  // { pokemon, zoneId, agentId? }
   POKEMON_SOLD:      'pokemon:sold',      // { pokemonIds, totalPrice }
 
+  // Team / agents
+  TEAM_MEMBER_SET:   'team:member-set',   // { team, pokemonId, slot, source }
+  AGENT_RECRUITED:   'agent:recruited',   // { agentId, source, cost }
+  AGENT_ASSIGNED:    'agent:assigned',    // { agentId, zoneId, previousZoneId, source }
+
   // Combat
-  COMBAT_WON:        'combat:won',        // { zoneId, trainerKey, elite }
+  COMBAT_STARTED:    'combat:started',    // { zoneId, trainerKey, mode, initiatedBy }
+  COMBAT_WON:        'combat:won',        // { zoneId, trainerKey, elite, mode, initiatedBy }
   COMBAT_LOST:       'combat:lost',       // { zoneId, trainerKey } — consommé par le patch ciblé agentsTab (énergie)
 
   // Economy
@@ -55,7 +61,10 @@ export const EVENTS = {
 
   // Onboarding / story
   ONBOARDING_STARTED:        'onboarding:started',        // { version, slotIdx, startedAt }
+  ONBOARDING_RESUMED:        'onboarding:resumed',        // { version, step, secondsSinceNewGame }
   ONBOARDING_STEP_COMPLETED: 'onboarding:step-completed', // { step, nextStep, secondsSinceNewGame }
+  ONBOARDING_COMPLETED:      'onboarding:completed',      // { version, secondsSinceNewGame }
+  ONBOARDING_FAILED:         'onboarding:failed',         // { version, step, reason }
 };
 
 // ── Internal store ────────────────────────────────────────────

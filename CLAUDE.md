@@ -43,6 +43,16 @@ fetch('/tools/dev-seed-save.json').then(r => r.text()).then(json => {
 
 This overwrites whatever is in the `pokeforge.v6` save slot — never run it against a browser profile holding a real save.
 
+Onboarding V2 has step-specific partial saves in `tools/dev-onboarding-fixtures.json`.
+Load one from DevTools with:
+
+```js
+fetch('/tools/dev-onboarding-fixtures.json').then(r => r.json()).then(fixtures => {
+  localStorage.setItem('pokeforge.v6', JSON.stringify(fixtures.first_battle));
+  location.reload();
+});
+```
+
 ---
 
 ## Architecture overview
@@ -269,6 +279,8 @@ When touching a system that has both an `app.js` implementation and a `modules/`
 node tools/test-runtime-store.mjs
 node tools/test-update-manager.mjs
 node tools/check-events.js
+node tools/test-onboarding-flow.mjs
+node tools/test-onboarding-controller.mjs
 ```
 
 For ES module syntax checks in this no-`package.json` repo, use the established pattern:

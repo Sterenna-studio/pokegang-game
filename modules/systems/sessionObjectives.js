@@ -1,5 +1,7 @@
 ﻿import { EventBus, EVENTS } from '../core/eventBus.js';
 
+import { getOnboardingObjective } from './onboardingFlow.js';
+
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
 const _save   = ()               => globalThis.saveState?.();
 const _t      = (fr, en)         => (globalThis.state?.lang === 'en' ? en : fr);
@@ -118,6 +120,8 @@ window.addEventListener('pagehide', _sendSessionCompleted);
 // ════════════════════════════════════════════════════════════════
 function getNextObjective() {
   const state = globalThis.state;
+  const onboardingObjective = getOnboardingObjective(state);
+  if (onboardingObjective) return onboardingObjective;
   const pc     = state.pokemons.length;
   const team   = state.gang.bossTeam.length;
   const agents = state.agents.length;

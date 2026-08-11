@@ -2,7 +2,12 @@
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
 import { esc as _esc } from '../core/escape.js';
-import { acquireStoryLock, getStoryLockOwner, releaseStoryLock } from '../core/storyLock.js';
+import {
+  getStoryLockOwner,
+  releaseStoryLock,
+  requestStory,
+  STORY_PRIORITIES,
+} from '../core/storyLock.js';
 import { ONBOARDING_STARTERS as INTRO_STARTERS } from '../../data/onboarding-data.js';
 
 const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
@@ -85,11 +90,24 @@ export function openGiovanniIntro({
   starterEn: capturedStarter = '',
   identityOnly = false,
   lockOwner = null,
+  _queued = false,
 } = {}) {
-  if (document.getElementById('giovanni-intro-overlay')) return false;
   const storyOwner = lockOwner || 'giovanni-intro';
   const ownsStoryLock = !lockOwner;
-  if (ownsStoryLock && !acquireStoryLock(storyOwner)) return false;
+  if (ownsStoryLock && !_queued) {
+    return requestStory(storyOwner, () => openGiovanniIntro({
+      slotIdx,
+      onComplete,
+      starterEn: capturedStarter,
+      identityOnly,
+      _queued: true,
+    }), {
+      priority: STORY_PRIORITIES.GAMEPLAY,
+      isEligible: () => !document.getElementById('giovanni-intro-overlay'),
+    });
+  }
+  if (document.getElementById('giovanni-intro-overlay')) return false;
+  if (ownsStoryLock && getStoryLockOwner() !== storyOwner) return false;
   if (!ownsStoryLock && getStoryLockOwner() !== storyOwner) return false;
   if (!identityOnly) globalThis.trackEvent?.('intro_started', { slot: slotIdx });
 
@@ -586,13 +604,12 @@ function _trainerSprite(name) {
 //  Giovanni intro. Auto-fills their existing save info; they only
 //  need to pick a starter.
 // ════════════════════════════════════════════════════════════════
-export function openStarterGiftPopup({ onComplete } = {}) {
+function _openStarterGiftPopupNow({ onComplete } = {}) {
   if (document.getElementById('starter-gift-overlay')) return false;
 
   const state = _ctx.getState?.();
   if (!state || !state.gang?.initialized || state.gang?.introSeen) return false;
   const storyOwner = 'starter-gift';
-  if (!acquireStoryLock(storyOwner)) return false;
 
   const bossName = state.gang?.bossName || 'Boss';
   const gangName = state.gang?.name     || 'Team Fury';
@@ -814,4 +831,17 @@ export function openStarterGiftPopup({ onComplete } = {}) {
   }
 
   return true;
+}
+
+export function openStarterGiftPopup(options = {}) {
+  const storyOwner = 'starter-gift';
+  const eligible = () => {
+    const state = _ctx.getState?.();
+    return !!state?.gang?.initialized && !state.gang.introSeen;
+  };
+  if (!eligible()) return false;
+  return requestStory(storyOwner, () => _openStarterGiftPopupNow(options), {
+    priority: STORY_PRIORITIES.BOOT,
+    isEligible: eligible,
+  });
 }

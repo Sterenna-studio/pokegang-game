@@ -16,9 +16,57 @@ import { EventBus, EVENTS } from '../core/eventBus.js';
 import { SFX, MusicPlayer } from './audio.js';
 import { ITEM_SPRITE_URLS } from '../../data/assets-data.js';
 import { KANTO_DEX_MIN, KANTO_DEX_MAX } from '../../data/game-config-data.js';
+import { getOnboardingTabAccess, isOnboardingActive } from '../systems/onboardingFlow.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type });
 const _t = (fr, en) => (globalThis.state?.lang === 'en' ? en : fr);
+
+function applyOnboardingTabAccess() {
+  const state = getState();
+  const active = isOnboardingActive(state);
+  document.querySelectorAll('.tab-btn[data-tab]').forEach(btn => {
+    if (active && !btn.dataset.onboardingPreviousDisplay) {
+      btn.dataset.onboardingPreviousDisplay = btn.style.display || '__empty__';
+      btn.dataset.onboardingPreviousTitle = btn.hasAttribute('title') ? btn.title : '__none__';
+    }
+    btn.querySelector('.onboarding-lock-indicator')?.remove();
+    btn.classList.remove('onboarding-locked');
+    btn.removeAttribute('aria-disabled');
+    delete btn.dataset.onboardingAccess;
+    if (btn.dataset.onboardingPreviousTitle) {
+      if (btn.dataset.onboardingPreviousTitle === '__none__') btn.removeAttribute('title');
+      else btn.title = btn.dataset.onboardingPreviousTitle;
+    }
+
+    if (!active) {
+      if (btn.dataset.onboardingPreviousDisplay) {
+        const previous = btn.dataset.onboardingPreviousDisplay;
+        btn.style.display = previous === '__empty__' ? '' : previous;
+        delete btn.dataset.onboardingPreviousDisplay;
+        delete btn.dataset.onboardingPreviousTitle;
+      }
+      return;
+    }
+
+    const access = getOnboardingTabAccess(state, btn.dataset.tab);
+    btn.dataset.onboardingAccess = access.status;
+    if (access.status === 'hidden') {
+      btn.style.display = 'none';
+      return;
+    }
+
+    btn.style.display = '';
+    if (access.status === 'locked') {
+      btn.classList.add('onboarding-locked');
+      btn.setAttribute('aria-disabled', 'true');
+      btn.title = access.reason;
+      const lock = document.createElement('span');
+      lock.className = 'onboarding-lock-indicator';
+      lock.textContent = ' 🔒';
+      btn.appendChild(lock);
+    }
+  });
+}
 
 let tabRouterCtx = {};
 
@@ -285,6 +333,12 @@ const _visitedTabs = new Set(JSON.parse(sessionStorage.getItem('pg_visited_tabs'
 
 function switchTab(tabId) {
   const state = getState();
+  applyOnboardingTabAccess();
+  const access = getOnboardingTabAccess(state, tabId);
+  if (access.status !== 'available') {
+    _notify(access.reason || _t('Cet onglet est encore verrouillé.', 'This tab is still locked.'), 'error');
+    return false;
+  }
   const prevTab = globalThis.activeTab;
   if (tabId !== 'tabPC') globalThis.resetPcRenderCache?.();
   SFX.play('tabSwitch');
@@ -307,6 +361,7 @@ function switchTab(tabId) {
     sessionStorage.setItem('pg_visited_tabs', JSON.stringify([..._visitedTabs]));
     showFirstVisitHint(tabId);
   }
+  return true;
 }
 
 // ── updateTopBar debounce + dex badge cache ───────────────────────────────────
@@ -317,6 +372,7 @@ let _dexBadgeCaughtCount = -1;
 
 function _updateTopBarImpl() {
   const state = getState();
+  applyOnboardingTabAccess();
   const gangEl = document.getElementById('gangNameDisplay');
   const moneyEl = document.getElementById('moneyDisplay');
   if (gangEl) {
@@ -431,4 +487,5 @@ export {
   updateTopBar,
   renderAll,
   initKeyboardShortcuts,
+  applyOnboardingTabAccess,
 };
