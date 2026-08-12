@@ -101,6 +101,11 @@ export function isOnboardingActive(state) {
   return step !== ONBOARDING_STEPS.NOT_STARTED && step !== ONBOARDING_STEPS.COMPLETED;
 }
 
+export function isOnboardingFirstEncounter(state, zoneId = null) {
+  if (zoneId !== null && zoneId !== 'route1') return false;
+  return normalizeOnboardingState(state?.onboarding).step === ONBOARDING_STEPS.FIRST_ENCOUNTER;
+}
+
 export function isManualPlayerCombatWin(event = {}) {
   return event.mode === 'manual' && event.initiatedBy === 'player';
 }
@@ -113,7 +118,9 @@ export function getOnboardingTabAccess(state, tabId) {
   const available = new Set();
   let lockedTab = null;
 
-  if (step === ONBOARDING_STEPS.TEAM_SETUP || step === ONBOARDING_STEPS.FIRST_BATTLE) {
+  if (step === ONBOARDING_STEPS.FIRST_ENCOUNTER) {
+    available.add('tabZones');
+  } else if (step === ONBOARDING_STEPS.TEAM_SETUP || step === ONBOARDING_STEPS.FIRST_BATTLE) {
     ['tabZones', 'tabPC', 'tabGang'].forEach(id => available.add(id));
     lockedTab = 'tabAgents';
   } else if (step === ONBOARDING_STEPS.FIRST_AGENT) {
@@ -131,6 +138,13 @@ export function getOnboardingObjective(state) {
   const onboarding = normalizeOnboardingState(state.onboarding);
   const en = state?.lang === 'en';
   switch (onboarding.step) {
+    case ONBOARDING_STEPS.FIRST_ENCOUNTER:
+      return {
+        text: en ? '● Catch one of the three wild Pokémon on Route 1' : '● Capture l’un des trois Pokémon sauvages de la Route 1',
+        detail: '→ Route 1',
+        tab: 'tabZones',
+        progress: getOnboardingArcProgress(state),
+      };
     case ONBOARDING_STEPS.TEAM_SETUP:
       return {
         text: en ? '⚔ Add your captured Pokémon to the Boss team' : "⚔ Ajoute ton Pokémon capturé à l'équipe Boss",

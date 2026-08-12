@@ -268,22 +268,27 @@ async function _runOnboardingV2({ slotIdx = 0, resume = false, onComplete } = {}
         slotIdx,
         startedAt: state.onboarding.startedAt,
       });
-      _track('first_encounter_started', { slot: slotIdx });
+      _track('first_encounter_started', { zone: 'route1', slot: slotIdx });
     }
 
     if (state.onboarding.step === ONBOARDING_STEPS.FIRST_ENCOUNTER) {
       const result = await openFirstEncounter({
-        pokeSprite: _ctx.pokeSprite,
-        ballSprite: _ctx.getBallSprite?.(),
-        onCapture: species => {
-          const pokemon = _ctx.tryCapture?.('onboarding', species, 2, { onboarding: true });
-          if (pokemon) {
-            _commitStep(ONBOARDING_STEPS.FIRST_ENCOUNTER, ONBOARDING_STEPS.IDENTITY, {
-              starterSpecies: species,
-            });
-            _track('first_wild_capture', { species, slot: slotIdx });
-          }
-          return pokemon;
+        switchTab: _ctx.switchTab,
+        openZoneWindow: _ctx.openZoneWindow,
+        getZoneSpawns: _ctx.getZoneSpawns,
+        renderSpawn: _ctx.renderSpawn,
+        removeSpawn: _ctx.removeSpawn,
+        uid: _ctx.uid,
+        hideHub: () => document.getElementById('introOverlay')?.classList.remove('active'),
+        notify: _ctx.notify,
+        onCaptured: pokemon => {
+          const species = pokemon?.species_en;
+          if (!species) return false;
+          const committed = _commitStep(ONBOARDING_STEPS.FIRST_ENCOUNTER, ONBOARDING_STEPS.IDENTITY, {
+            starterSpecies: species,
+          });
+          if (committed) _track('first_wild_capture', { species, zone: 'route1', slot: slotIdx });
+          return committed;
         },
       });
       if (state.onboarding.starterSpecies !== result.species) {
@@ -331,7 +336,7 @@ async function _runOnboardingV2({ slotIdx = 0, resume = false, onComplete } = {}
   }
 }
 
-/** Queue the overlay-driven part of onboarding with the highest story priority. */
+/** Queue the guided first encounter and overlay narrative with the highest story priority. */
 export function startOnboardingV2(options = {}) {
   const resume = options.resume === true;
   return requestStory(

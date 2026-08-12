@@ -39,7 +39,7 @@ export const EVENTS = {
   UI_TAB_CHANGED:    'ui:tab',            // { tabId }
 
   // Pokémon
-  POKEMON_CAPTURED:  'pokemon:captured',  // { pokemon, zoneId, agentId? }
+  POKEMON_CAPTURED:  'pokemon:captured',  // { pokemon, zoneId, agentId?, spawnCtx? }
   POKEMON_SOLD:      'pokemon:sold',      // { pokemonIds, totalPrice }
 
   // Team / agents

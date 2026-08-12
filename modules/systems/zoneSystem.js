@@ -748,7 +748,7 @@ function tryCapture(zoneId, speciesEN, bonusPotential = 0, spawnCtx = {}) {
   if (!pokemon) return null;
   if (bonusPotential > 0) pokemon.potential = Math.min(5, pokemon.potential + bonusPotential);
   state.pokemons.push(pokemon); _dirty();
-  EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon, zoneId });
+  EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon, zoneId, spawnCtx });
   state.stats.totalCaught++;
   // Zone captures counter
   if (zoneId && state.zones[zoneId]) state.zones[zoneId].captures = (state.zones[zoneId].captures || 0) + 1;

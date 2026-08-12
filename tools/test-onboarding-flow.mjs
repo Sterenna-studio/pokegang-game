@@ -8,6 +8,7 @@ import {
   getOnboardingArcProgress,
   getOnboardingObjective,
   getOnboardingTabAccess,
+  isOnboardingFirstEncounter,
   isManualPlayerCombatWin,
   normalizeOnboardingState,
   shouldRunOnboardingV2,
@@ -59,6 +60,16 @@ const firstBattleState = {
   agents: [],
   onboarding: { step: ONBOARDING_STEPS.FIRST_BATTLE },
 };
+const firstEncounterState = {
+  ...firstBattleState,
+  onboarding: { step: ONBOARDING_STEPS.FIRST_ENCOUNTER },
+};
+assert.equal(getOnboardingTabAccess(firstEncounterState, 'tabZones').status, 'available');
+assert.equal(getOnboardingTabAccess(firstEncounterState, 'tabPC').status, 'hidden');
+assert.equal(getOnboardingObjective(firstEncounterState).tab, 'tabZones');
+assert.equal(getOnboardingObjective(firstEncounterState).progress.completed, 0);
+assert.equal(isOnboardingFirstEncounter(firstEncounterState, 'route1'), true);
+assert.equal(isOnboardingFirstEncounter(firstEncounterState, 'mt_moon'), false);
 assert.equal(getOnboardingTabAccess(firstBattleState, 'tabZones').status, 'available');
 assert.equal(getOnboardingTabAccess(firstBattleState, 'tabAgents').status, 'locked');
 assert.equal(getOnboardingTabAccess(firstBattleState, 'tabMarket').status, 'hidden');

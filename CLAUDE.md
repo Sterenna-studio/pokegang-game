@@ -287,6 +287,7 @@ When touching a system that has both an `app.js` implementation and a `modules/`
 node tools/test-runtime-store.mjs
 node tools/test-update-manager.mjs
 node tools/check-events.js
+node tools/test-first-encounter.mjs
 node tools/test-onboarding-flow.mjs
 node tools/test-onboarding-controller.mjs
 node tools/test-onboarding-payoff.mjs

@@ -51,6 +51,7 @@ import { AUTO_COMBAT_VISUAL_MS } from '../../data/gameplay-config-data.js';
 import { EventBus, EVENTS } from '../core/eventBus.js';
 import { esc as _esc } from '../core/escape.js';
 import { getDifficultyTier, getDifficultyBadgeHtml } from '../systems/difficultyTier.js';
+import { isOnboardingFirstEncounter } from '../systems/onboardingFlow.js';
 
 const _notify = (msg, type = '', category = null) => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type, category });
 const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
@@ -1923,6 +1924,13 @@ function tickZoneSpawn(zoneId) {
   if (!openZones.has(zoneId)) return;
   const spawns = zoneSpawns[zoneId];
   if (!spawns) return;
+  // The first playable onboarding beat seeds exactly three real Route 1
+  // Pokémon. Keep the regular timer quiet until one is captured so a fourth
+  // random encounter cannot obscure that choice.
+  if (isOnboardingFirstEncounter(globalThis.state, zoneId)) {
+    updateZoneTimers(zoneId);
+    return;
+  }
   // Max 5 spawns at once
   if (spawns.length >= 5) { updateZoneTimers(zoneId); return; }
 
@@ -2027,8 +2035,8 @@ function renderSpawnInWindow(zoneId, spawnObj) {
   el.dataset.spawnId = spawnObj.id;
 
   // Random position (relative to viewport size)
-  const x = globalThis.randInt(10, 310);
-  const y = globalThis.randInt(10, 160);
+  const x = Number.isFinite(spawnObj.position?.x) ? spawnObj.position.x : globalThis.randInt(10, 310);
+  const y = Number.isFinite(spawnObj.position?.y) ? spawnObj.position.y : globalThis.randInt(10, 160);
   el.style.left = x + 'px';
   el.style.top = y + 'px';
 
