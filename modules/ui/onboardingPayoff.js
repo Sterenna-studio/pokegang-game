@@ -21,7 +21,7 @@ export function formatOperationCountdown(seconds) {
   return `${String(minutes).padStart(2, '0')}:${String(remainder).padStart(2, '0')}`;
 }
 
-export function getOnboardingIdlePayoffCopy(lang = 'fr', nextUnlock = 'market') {
+export function getOnboardingIdlePayoffCopy(lang = 'fr', nextUnlock = 'market', rewardMoney = 0) {
   const en = lang === 'en';
   return {
     kicker: en ? 'FIRST OPERATION' : 'PREMIÈRE OPÉRATION',
@@ -36,16 +36,20 @@ export function getOnboardingIdlePayoffCopy(lang = 'fr', nextUnlock = 'market') 
       ? 'Come back after the next operation to collect the results and grow your gang.'
       : 'Reviens après la prochaine opération pour récupérer les résultats et développer ton gang.',
     fallbackAgent: en ? 'Your agent' : 'Ton agent',
+    arcComplete: en ? 'NEW BOSS 5/5 COMPLETE' : 'NOUVEAU BOSS 5/5 TERMINÉ',
+    reward: rewardMoney > 0
+      ? (en ? `Completion reward: +${rewardMoney.toLocaleString('en-US')} ₽` : `Récompense finale : +${rewardMoney.toLocaleString('fr-FR')} ₽`)
+      : '',
     close: en ? 'GOT IT — CONTINUE' : 'COMPRIS — CONTINUER',
   };
 }
 
-function _openPayoff({ agent, zone, lang = 'fr', nextUnlock = 'market' } = {}) {
+function _openPayoff({ agent, zone, lang = 'fr', nextUnlock = 'market', rewardMoney = 0 } = {}) {
   if (typeof document === 'undefined' || !agent || !zone) return false;
 
   document.getElementById('onboardingIdlePayoff')?.remove();
   const en = lang === 'en';
-  const copy = getOnboardingIdlePayoffCopy(lang, nextUnlock);
+  const copy = getOnboardingIdlePayoffCopy(lang, nextUnlock, rewardMoney);
   const intervalSeconds = getOperationEstimateSeconds(zone);
   const zoneName = (en ? zone.en : zone.fr) || zone.en || zone.fr || zone.id;
 
@@ -70,6 +74,7 @@ function _openPayoff({ agent, zone, lang = 'fr', nextUnlock = 'market' } = {}) {
         <span>${copy.unlockLabel}</span>
         <strong data-payoff-unlock></strong>
       </div>
+      <div class="onboarding-payoff-reward">✓ ${copy.arcComplete}${copy.reward ? `<br>${copy.reward}` : ''}</div>
       <p class="onboarding-payoff-return">${copy.returnReason}</p>
       <button type="button" class="onboarding-payoff-close">${copy.close}</button>
     </section>`;

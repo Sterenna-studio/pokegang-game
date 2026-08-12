@@ -1,6 +1,7 @@
 'use strict';
 
 export const ONBOARDING_VERSION = 2;
+export const ONBOARDING_COMPLETION_REWARD = 500;
 
 export const ONBOARDING_STEPS = Object.freeze({
   NOT_STARTED: 'not_started',
@@ -32,6 +33,8 @@ export function defaultOnboardingState() {
     firstBattleStartedAt: null,
     firstBattleAt: null,
     firstAgentId: null,
+    completionRewardGrantedAt: null,
+    completionRewardMoney: 0,
   };
 }
 
@@ -133,12 +136,14 @@ export function getOnboardingObjective(state) {
         text: en ? '⚔ Add your captured Pokémon to the Boss team' : "⚔ Ajoute ton Pokémon capturé à l'équipe Boss",
         detail: en ? '→ Pokémon' : '→ Pokémon',
         tab: 'tabPC',
+        progress: getOnboardingArcProgress(state),
       };
     case ONBOARDING_STEPS.FIRST_BATTLE:
       return {
         text: en ? '🥊 Win a manual battle in a zone' : '🥊 Remporte un combat manuel dans une zone',
         detail: en ? '→ Zones' : '→ Zones',
         tab: 'tabZones',
+        progress: getOnboardingArcProgress(state),
       };
     case ONBOARDING_STEPS.FIRST_AGENT: {
       const agent = state.agents?.find(item => item.id === onboarding.firstAgentId);
@@ -147,14 +152,64 @@ export function getOnboardingObjective(state) {
             text: en ? `👤 Assign ${agent.name} to a zone` : `👤 Assigne ${agent.name} à une zone`,
             detail: en ? '→ Agents' : '→ Agents',
             tab: 'tabAgents',
+            progress: getOnboardingArcProgress(state),
           }
         : {
             text: en ? '👤 Choose your first free agent' : '👤 Choisis ton premier agent offert',
             detail: en ? '→ Agents' : '→ Agents',
             tab: 'tabAgents',
+            progress: getOnboardingArcProgress(state),
           };
     }
     default:
       return null;
   }
+}
+
+export function getOnboardingArcProgress(state) {
+  const onboarding = normalizeOnboardingState(state?.onboarding);
+  const en = state?.lang === 'en';
+  const stepOrder = [
+    ONBOARDING_STEPS.NOT_STARTED,
+    ONBOARDING_STEPS.FIRST_ENCOUNTER,
+    ONBOARDING_STEPS.IDENTITY,
+    ONBOARDING_STEPS.TEAM_SETUP,
+    ONBOARDING_STEPS.FIRST_BATTLE,
+    ONBOARDING_STEPS.FIRST_AGENT,
+    ONBOARDING_STEPS.COMPLETED,
+  ];
+  const stepIndex = stepOrder.indexOf(onboarding.step);
+  const milestones = [
+    {
+      id: 'capture',
+      label: en ? 'Catch your first Pokémon' : 'Capturer ton premier Pokémon',
+      completed: stepIndex >= stepOrder.indexOf(ONBOARDING_STEPS.IDENTITY),
+    },
+    {
+      id: 'team',
+      label: en ? 'Build your Boss team' : 'Constituer ton équipe Boss',
+      completed: stepIndex >= stepOrder.indexOf(ONBOARDING_STEPS.FIRST_BATTLE),
+    },
+    {
+      id: 'battle',
+      label: en ? 'Win your first battle' : 'Gagner ton premier combat',
+      completed: stepIndex >= stepOrder.indexOf(ONBOARDING_STEPS.FIRST_AGENT),
+    },
+    {
+      id: 'recruit',
+      label: en ? 'Recruit your first agent' : 'Recruter ton premier agent',
+      completed: !!onboarding.firstAgentId || onboarding.step === ONBOARDING_STEPS.COMPLETED,
+    },
+    {
+      id: 'assign',
+      label: en ? 'Assign your first agent' : 'Assigner ton premier agent',
+      completed: onboarding.step === ONBOARDING_STEPS.COMPLETED,
+    },
+  ];
+  return {
+    label: en ? 'NEW BOSS' : 'NOUVEAU BOSS',
+    completed: milestones.filter(item => item.completed).length,
+    total: milestones.length,
+    milestones,
+  };
 }

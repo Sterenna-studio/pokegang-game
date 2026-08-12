@@ -11,11 +11,9 @@
 //  `platform` (web/itch/dev) so both populations land in one GA4
 //  property and can be compared/filtered.
 //
-//  Milestone events (first_capture, first_battle_won) are gated on
-//  persisted lifetime stats (state.stats.totalCaught/totalFightsWon
-//  === 1 right after increment), not an in-memory flag — an in-memory
-//  flag would be reset on every reload and misfire "first_x" again
-//  for returning players on their very next capture/win.
+//  The generic first_capture milestone is gated on persisted lifetime stats.
+//  Onboarding-specific funnel events (including first_battle_won) are emitted
+//  by the V2 controller, which persists each transition before tracking it.
 //
 //  Dépendances globalThis : state, gtag (posé par index.html)
 // ════════════════════════════════════════════════════════════════
@@ -50,20 +48,6 @@ EventBus.on(EVENTS.POKEMON_CAPTURED, ({ pokemon, zoneId } = {}) => {
   });
   if (state?.stats?.totalCaught === 1) {
     trackEvent('first_capture', { species: pokemon?.species_en ?? null });
-  }
-});
-
-// ── Combat ─────────────────────────────────────────────────────────
-EventBus.on(EVENTS.COMBAT_WON, ({ zoneId, trainerKey, elite, mode, initiatedBy } = {}) => {
-  const state = globalThis.state;
-  if (state?.stats?.totalFightsWon === 1) {
-    trackEvent('first_battle_won', {
-      zone: zoneId ?? null,
-      trainer: trainerKey ?? null,
-      elite: !!elite,
-      mode: mode ?? 'unknown',
-      initiated_by: initiatedBy ?? 'unknown',
-    });
   }
 });
 

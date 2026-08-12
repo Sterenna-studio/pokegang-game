@@ -5,6 +5,7 @@ import {
   advanceOnboarding,
   defaultOnboardingState,
   getOnboardingElapsedSeconds,
+  getOnboardingArcProgress,
   getOnboardingObjective,
   getOnboardingTabAccess,
   isManualPlayerCombatWin,
@@ -62,6 +63,16 @@ assert.equal(getOnboardingTabAccess(firstBattleState, 'tabZones').status, 'avail
 assert.equal(getOnboardingTabAccess(firstBattleState, 'tabAgents').status, 'locked');
 assert.equal(getOnboardingTabAccess(firstBattleState, 'tabMarket').status, 'hidden');
 assert.equal(getOnboardingObjective(firstBattleState).tab, 'tabZones');
+assert.equal(getOnboardingObjective(firstBattleState).progress.completed, 2);
+assert.equal(getOnboardingArcProgress(firstBattleState).total, 5);
+assert.equal(getOnboardingArcProgress({
+  ...firstBattleState,
+  onboarding: { step: ONBOARDING_STEPS.FIRST_AGENT, firstAgentId: 'agent-1' },
+}).completed, 4);
+assert.equal(getOnboardingArcProgress({
+  ...firstBattleState,
+  onboarding: { step: ONBOARDING_STEPS.COMPLETED, firstAgentId: 'agent-1' },
+}).completed, 5);
 assert.equal(isManualPlayerCombatWin({ mode: 'manual', initiatedBy: 'player' }), true);
 assert.equal(isManualPlayerCombatWin({ mode: 'agent', initiatedBy: 'agent' }), false);
 assert.equal(getOnboardingObjective({

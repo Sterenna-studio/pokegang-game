@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 
 import { EventBus, EVENTS } from '../modules/core/eventBus.js';
 import { ONBOARDING_STEPS } from '../modules/systems/onboardingFlow.js';
-import { configureOnboarding } from '../modules/ui/onboarding.js';
+import { configureOnboarding, reconcileOnboardingProgress } from '../modules/ui/onboarding.js';
 
 const state = {
   lang: 'fr',
@@ -17,7 +17,8 @@ const state = {
     firstBattleAt: null,
     firstAgentId: null,
   },
-  gang: { initialized: true, bossTeam: [] },
+  gang: { initialized: true, bossTeam: [], money: 5_000 },
+  stats: { totalMoneyEarned: 0 },
   agents: [],
 };
 
@@ -26,6 +27,7 @@ let recruitPrompt = null;
 let switchedTab = null;
 let payoff = null;
 const completedSteps = [];
+const completedOnboardings = [];
 const analyticsEvents = [];
 
 globalThis.trackEvent = (name, params) => analyticsEvents.push({ name, params });
@@ -41,6 +43,7 @@ configureOnboarding({
   showOnboardingIdlePayoff: options => { payoff = options; return true; },
 });
 EventBus.on(EVENTS.ONBOARDING_STEP_COMPLETED, payload => completedSteps.push(payload));
+EventBus.on(EVENTS.ONBOARDING_COMPLETED, payload => completedOnboardings.push(payload));
 
 state.gang.bossTeam.push('starter-pk');
 EventBus.emit(EVENTS.TEAM_MEMBER_SET, {
@@ -72,6 +75,8 @@ EventBus.emit(EVENTS.COMBAT_WON, {
   mode: 'manual', initiatedBy: 'player', zoneId: 'route1', trainerKey: 'youngster',
 });
 assert.equal(state.onboarding.step, ONBOARDING_STEPS.FIRST_AGENT);
+assert.equal(analyticsEvents.at(-1).name, 'first_battle_won');
+assert.ok(Number.isInteger(analyticsEvents.at(-1).params.seconds_since_new_game));
 assert.equal(switchedTab, 'tabAgents');
 await new Promise(resolve => setTimeout(resolve, 0));
 assert.deepEqual(recruitPrompt, { cost: 0, source: 'onboarding' });
@@ -91,15 +96,67 @@ assert.equal(state.onboarding.step, ONBOARDING_STEPS.COMPLETED);
 assert.equal(completedSteps.length, 3);
 assert.equal(saveCount, 5);
 assert.equal(analyticsEvents.at(-1).name, 'first_agent_assigned');
+assert.equal(state.gang.money, 5_500);
+assert.equal(state.stats.totalMoneyEarned, 500);
+assert.ok(Number.isFinite(state.onboarding.completionRewardGrantedAt));
+assert.equal(state.onboarding.completionRewardMoney, 500);
+assert.equal(completedOnboardings.length, 1);
+assert.equal(completedOnboardings[0].version, 2);
+assert.ok(Number.isInteger(completedOnboardings[0].secondsSinceNewGame));
 assert.equal(payoff.agent.name, 'Jessie');
 assert.equal(payoff.zone.id, 'route1');
 assert.equal(payoff.lang, 'fr');
 assert.equal(payoff.nextUnlock, 'market');
+assert.equal(payoff.rewardMoney, 500);
+assert.equal(payoff.progress.completed, 5);
 
 EventBus.emit(EVENTS.AGENT_ASSIGNED, {
   agentId: 'first-agent', zoneId: 'route1', previousZoneId: null, source: 'duplicate',
 });
 assert.equal(completedSteps.length, 3);
 assert.equal(analyticsEvents.filter(event => event.name === 'first_agent_assigned').length, 1);
+assert.equal(state.gang.money, 5_500);
+
+for (const name of [
+  'first_team_member_set',
+  'first_battle_started',
+  'first_battle_won',
+  'first_agent_recruited',
+  'first_agent_assigned',
+]) {
+  const event = analyticsEvents.find(candidate => candidate.name === name);
+  assert.ok(event, `${name} should be tracked`);
+  assert.equal(event.params.onboarding_version, 2);
+  assert.ok(Number.isInteger(event.params.seconds_since_new_game));
+}
+
+state.onboarding = {
+  version: 2,
+  status: 'active',
+  step: ONBOARDING_STEPS.FIRST_AGENT,
+  startedAt: 2_000,
+  completedAt: null,
+  starterSpecies: 'zubat',
+  firstBattleStartedAt: 3_000,
+  firstBattleAt: 4_000,
+  firstAgentId: 'resume-agent',
+  completionRewardGrantedAt: null,
+  completionRewardMoney: 0,
+};
+state.gang.money = 7_000;
+state.stats.totalMoneyEarned = 0;
+state.agents = [{ id: 'resume-agent', name: 'James', assignedZone: 'route1' }];
+payoff = null;
+
+reconcileOnboardingProgress();
+assert.equal(state.onboarding.step, ONBOARDING_STEPS.COMPLETED);
+assert.equal(state.gang.money, 7_500);
+assert.equal(state.stats.totalMoneyEarned, 500);
+assert.equal(payoff.agent.name, 'James');
+assert.equal(payoff.rewardMoney, 500);
+
+reconcileOnboardingProgress();
+assert.equal(state.gang.money, 7_500);
+assert.equal(state.stats.totalMoneyEarned, 500);
 
 console.log('onboarding controller tests: ok');

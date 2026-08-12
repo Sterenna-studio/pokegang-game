@@ -32,6 +32,8 @@ export const DEFAULT_STATE = {
     firstBattleStartedAt: null,
     firstBattleAt: null,
     firstAgentId: null,
+    completionRewardGrantedAt: null,
+    completionRewardMoney: 0,
   },
   gang: {
     name: 'Team ???',

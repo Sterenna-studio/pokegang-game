@@ -3689,6 +3689,24 @@
       font-size: 11px;
       color: var(--gold);
     }
+    .onboarding-objective-progress {
+      flex-shrink: 0;
+      margin-right: 8px;
+      padding: 3px 5px;
+      border: 1px solid rgba(255, 204, 90, .35);
+      border-radius: 3px;
+      color: var(--gold);
+      background: rgba(255, 204, 90, .06);
+      font-family: var(--font-pixel);
+      font-size: 6px;
+      letter-spacing: .04em;
+    }
+    .onboarding-payoff-reward {
+      margin: 12px 0 0;
+      font-family: var(--font-pixel);
+      font-size: 9px;
+      color: var(--gold);
+    }
     .onboarding-payoff-return { font-size: 10px !important; }
     .onboarding-payoff-close {
       min-height: 42px;
@@ -3712,6 +3730,7 @@
       .onboarding-payoff-card { padding: 22px 16px; }
       .onboarding-payoff-assignment { flex-wrap: wrap; font-size: 8px; }
       .onboarding-payoff-timer { flex-direction: column; align-items: center; }
+      .onboarding-objective-progress { display: none; }
     }
 
     /* ── Touch : disable hover effects on touch devices ─────────── */

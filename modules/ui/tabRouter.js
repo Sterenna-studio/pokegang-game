@@ -411,10 +411,13 @@ function _updateTopBarImpl() {
   if (objBar) {
     const obj = globalThis.getNextObjective?.();
     if (obj) {
+      const progress = obj.progress
+        ? `<span class="onboarding-objective-progress">${obj.progress.label} ${obj.progress.completed}/${obj.progress.total}</span>`
+        : '';
       const tabBtn = obj.tab
         ? `<button onclick="switchTab('${obj.tab}')" style="font-family:var(--font-pixel);font-size:7px;color:var(--red);background:none;border:none;border-bottom:1px solid var(--red);cursor:pointer;padding:0;margin-left:6px">${obj.detail || obj.tab}</button>`
         : (obj.detail ? `<span style="color:var(--text-dim);font-size:9px;margin-left:6px">${obj.detail}</span>` : '');
-      objBar.innerHTML = `<span style="font-family:var(--font-pixel);font-size:7px;color:var(--gold-dim,#999);margin-right:6px">▶</span><span style="font-size:9px;color:var(--text)">${obj.text}</span>${tabBtn}`;
+      objBar.innerHTML = `<span style="font-family:var(--font-pixel);font-size:7px;color:var(--gold-dim,#999);margin-right:6px">▶</span>${progress}<span style="font-size:9px;color:var(--text)">${obj.text}</span>${tabBtn}`;
       objBar.style.display = 'flex';
     } else {
       objBar.style.display = 'none';

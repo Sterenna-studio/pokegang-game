@@ -16,16 +16,19 @@ assert.equal(formatOperationCountdown(14), '00:14');
 assert.equal(formatOperationCountdown(102), '01:42');
 assert.equal(formatOperationCountdown(-5), '00:00');
 
-const fr = getOnboardingIdlePayoffCopy('fr');
+const fr = getOnboardingIdlePayoffCopy('fr', 'market', 500);
 assert.equal(fr.title, 'AGENT EN MISSION');
 assert.equal(fr.timerLabel, 'Prochaine opération ~');
 assert.equal(fr.unlockName, 'Marché');
 assert.match(fr.offline, /pendant ton absence/);
+assert.match(fr.reward, /500/);
+assert.match(fr.arcComplete, /5\/5/);
 
-const en = getOnboardingIdlePayoffCopy('en');
+const en = getOnboardingIdlePayoffCopy('en', 'market', 500);
 assert.equal(en.title, 'AGENT ON MISSION');
 assert.equal(en.timerLabel, 'Next operation ~');
 assert.equal(en.unlockName, 'Market');
 assert.match(en.offline, /while you are away/);
+assert.match(en.reward, /500/);
 
 console.log('onboarding payoff tests: ok');

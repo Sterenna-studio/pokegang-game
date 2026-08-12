@@ -9,7 +9,9 @@ import {
 import {
   ONBOARDING_STEPS,
   ONBOARDING_VERSION,
+  ONBOARDING_COMPLETION_REWARD,
   advanceOnboarding,
+  getOnboardingArcProgress,
   getOnboardingElapsedSeconds,
   isOnboardingActive,
   isManualPlayerCombatWin,
@@ -108,6 +110,61 @@ function _openFirstAgentRecruitment() {
   ) ?? false;
 }
 
+function _completeOnboarding(agentId, zoneId, source = 'assignment') {
+  const state = _state();
+  const onboarding = normalizeOnboardingState(state?.onboarding);
+  if (!state || onboarding.step !== ONBOARDING_STEPS.FIRST_AGENT
+    || !zoneId || !onboarding.firstAgentId || agentId !== onboarding.firstAgentId) return false;
+
+  const previousMoney = state.gang?.money ?? 0;
+  const previousTotalMoneyEarned = state.stats?.totalMoneyEarned ?? 0;
+  const rewardMoney = onboarding.completionRewardGrantedAt ? 0 : ONBOARDING_COMPLETION_REWARD;
+  const grantedAt = rewardMoney > 0 ? Date.now() : onboarding.completionRewardGrantedAt;
+  if (rewardMoney > 0) {
+    state.gang.money = previousMoney + rewardMoney;
+    if (state.stats) state.stats.totalMoneyEarned = previousTotalMoneyEarned + rewardMoney;
+  }
+
+  let committed = false;
+  try {
+    committed = _commitStep(
+      ONBOARDING_STEPS.FIRST_AGENT,
+      ONBOARDING_STEPS.COMPLETED,
+      {
+        completionRewardGrantedAt: grantedAt,
+        completionRewardMoney: rewardMoney || onboarding.completionRewardMoney || 0,
+      },
+      () => _track('first_agent_assigned', { zone: zoneId, source }),
+    );
+  } catch (error) {
+    if (rewardMoney > 0) {
+      state.gang.money = previousMoney;
+      if (state.stats) state.stats.totalMoneyEarned = previousTotalMoneyEarned;
+    }
+    throw error;
+  }
+  if (!committed) {
+    if (rewardMoney > 0) {
+      state.gang.money = previousMoney;
+      if (state.stats) state.stats.totalMoneyEarned = previousTotalMoneyEarned;
+    }
+    return false;
+  }
+
+  if (rewardMoney > 0) {
+    EventBus.emit(EVENTS.MONEY_CHANGED, { delta: rewardMoney, newTotal: state.gang.money });
+  }
+  _ctx.showOnboardingIdlePayoff?.({
+    agent: state.agents?.find(item => item.id === agentId),
+    zone: _ctx.getZoneById?.(zoneId),
+    lang: state.lang,
+    nextUnlock: 'market',
+    rewardMoney,
+    progress: getOnboardingArcProgress(state),
+  });
+  return true;
+}
+
 function _bindOnboardingEvents() {
   if (_eventsBound) return;
   _eventsBound = true;
@@ -141,7 +198,10 @@ function _bindOnboardingEvents() {
     if (!isManualPlayerCombatWin(event)) return;
     if (_commitStep(ONBOARDING_STEPS.FIRST_BATTLE, ONBOARDING_STEPS.FIRST_AGENT, {
       firstBattleAt: Date.now(),
-    })) {
+    }, () => _track('first_battle_won', {
+      zone: event?.zoneId ?? null,
+      trainer: event?.trainerKey ?? null,
+    }))) {
       _ctx.switchTab?.('tabAgents');
       setTimeout(_openFirstAgentRecruitment, 0);
     }
@@ -158,22 +218,7 @@ function _bindOnboardingEvents() {
   });
 
   EventBus.on(EVENTS.AGENT_ASSIGNED, ({ agentId, zoneId } = {}) => {
-    const state = _state();
-    const onboarding = normalizeOnboardingState(state?.onboarding);
-    if (!zoneId || !onboarding.firstAgentId || agentId !== onboarding.firstAgentId) return;
-    if (_commitStep(
-      ONBOARDING_STEPS.FIRST_AGENT,
-      ONBOARDING_STEPS.COMPLETED,
-      {},
-      () => _track('first_agent_assigned', { zone: zoneId }),
-    )) {
-      _ctx.showOnboardingIdlePayoff?.({
-        agent: state.agents?.find(item => item.id === agentId),
-        zone: _ctx.getZoneById?.(zoneId),
-        lang: state.lang,
-        nextUnlock: 'market',
-      });
-    }
+    _completeOnboarding(agentId, zoneId);
   });
 
   EventBus.on(EVENTS.UI_TAB_CHANGED, ({ tabId } = {}) => {
@@ -317,7 +362,7 @@ export function reconcileOnboardingProgress() {
   if (state.onboarding.step === ONBOARDING_STEPS.FIRST_AGENT && state.onboarding.firstAgentId) {
     const agent = state.agents?.find(item => item.id === state.onboarding.firstAgentId);
     if (!agent) _updateOnboardingDetails({ firstAgentId: null });
-    else if (agent.assignedZone) _commitStep(ONBOARDING_STEPS.FIRST_AGENT, ONBOARDING_STEPS.COMPLETED);
+    else if (agent.assignedZone) _completeOnboarding(agent.id, agent.assignedZone, 'reconcile');
   }
   return state.onboarding;
 }
