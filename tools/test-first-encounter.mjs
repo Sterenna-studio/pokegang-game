@@ -5,6 +5,7 @@ import {
   FIRST_ENCOUNTER_ZONE_ID,
   createFirstEncounterSpawns,
   openFirstEncounter,
+  reseedFirstEncounterSpawns,
 } from '../modules/ui/firstEncounter.js';
 
 let id = 0;
@@ -13,7 +14,27 @@ assert.deepEqual(built.map(spawn => spawn.species_en), ['meowth', 'zubat', 'gast
 assert.equal(new Set(built.map(spawn => spawn.id)).size, 3);
 assert.ok(built.every(spawn => spawn.type === 'pokemon'));
 assert.ok(built.every(spawn => spawn.spawnCtx.onboarding));
-assert.ok(built.every(spawn => spawn.spawnCtx.guaranteedCapture));
+assert.ok(built.every(spawn => spawn.spawnCtx.firstEncounter));
+
+// ── Re-seed guard ────────────────────────────────────────────────
+// Closing the Route 1 window deletes its spawn list while tickZoneSpawn is
+// muted for this step, which used to strand the player on an empty zone with
+// every other tab locked.
+const emptied = [];
+const reseedRendered = [];
+assert.equal(
+  reseedFirstEncounterSpawns(emptied, { uid: () => `re-${++id}`, renderSpawn: (zoneId, spawn) => reseedRendered.push({ zoneId, spawn }) }),
+  true,
+);
+assert.deepEqual(emptied.map(spawn => spawn.species_en), ['meowth', 'zubat', 'gastly']);
+assert.equal(reseedRendered.length, 3);
+assert.ok(reseedRendered.every(entry => entry.zoneId === FIRST_ENCOUNTER_ZONE_ID));
+
+// Never duplicates onto a zone that still holds its starters, and tolerates a
+// missing spawn list (zone closed between the check and the call).
+assert.equal(reseedFirstEncounterSpawns(emptied, { uid: () => 'dup' }), false);
+assert.equal(emptied.length, 3);
+assert.equal(reseedFirstEncounterSpawns(undefined, { uid: () => 'nope' }), false);
 
 const zoneSpawns = [{ id: 'stale-spawn', type: 'pokemon', species_en: 'rattata' }];
 const rendered = [];
@@ -55,10 +76,14 @@ EventBus.emit(EVENTS.POKEMON_CAPTURED, {
 });
 assert.equal(captured, null);
 
+// Simulate the re-seed that a close/reopen triggers: the ids the encounter
+// closed over are gone, so cleanup has to work off the live spawn list.
+const staleSpawnIds = zoneSpawns.map(spawn => spawn.id);
+zoneSpawns.length = 0;
+zoneSpawns.push(...createFirstEncounterSpawns(() => `reseeded-${++id}`));
+
 const selectedSpawn = zoneSpawns.find(spawn => spawn.species_en === 'zubat');
-const rejectedSpawnIds = zoneSpawns
-  .filter(spawn => spawn.species_en !== 'zubat')
-  .map(spawn => spawn.id);
+const liveSpawnIds = zoneSpawns.map(spawn => spawn.id);
 const selectedPokemon = { id: 'pk-zubat', species_en: 'zubat', capturedIn: 'route1' };
 EventBus.emit(EVENTS.POKEMON_CAPTURED, {
   pokemon: selectedPokemon,
@@ -70,7 +95,9 @@ const result = await encounter;
 assert.equal(result.species, 'zubat');
 assert.equal(result.pokemon, selectedPokemon);
 assert.equal(captured, selectedPokemon);
-assert.deepEqual(zoneSpawns.map(spawn => spawn.species_en), ['zubat']);
-assert.ok(rejectedSpawnIds.every(spawnId => removed.includes(spawnId)));
+// Every starter still on the zone is cleared, whatever its id generation.
+assert.deepEqual(zoneSpawns, []);
+assert.ok(liveSpawnIds.every(spawnId => removed.includes(spawnId)));
+assert.ok(staleSpawnIds.every(spawnId => !removed.includes(spawnId)));
 
 console.log('first encounter tests: ok');

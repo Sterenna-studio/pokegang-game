@@ -1584,10 +1584,16 @@ function restoreOpenZones() {
     if (ZONE_BY_ID[zId].type === 'gang_park')   continue;
     if (ZONE_BY_ID[zId].type === 'vivarium')    continue;
     if (!isZoneUnlocked(zId))                   continue;
-    openZones.add(zId);
-    initZone(zId);
-    zoneSpawns[zId] = [];
-    startActiveZone(zId);
+    // A zone can already be open before this runs — showIntroIfNeeded() fires
+    // earlier in boot() and the onboarding first encounter opens Route 1 and
+    // seeds it there. Resetting zoneSpawns unconditionally would drop those
+    // spawns from the model while their DOM elements survive.
+    if (!openZones.has(zId)) {
+      openZones.add(zId);
+      initZone(zId);
+      zoneSpawns[zId] = [];
+      startActiveZone(zId);
+    }
     restoredOrder.push(zId);
   }
   state.openZoneOrder = restoredOrder;
@@ -1682,7 +1688,13 @@ function configureEntryFlows() {
     openHubSlotRepairModal,
     openHubImportModal,
     removeSlot: slotIdx => localStorage.removeItem(SAVE_KEYS[slotIdx]),
-    startOnboarding: startOnboardingV2,
+    // Resuming must go through resumeOnboardingV2, which reconciles milestones
+    // already reached in the save (a full boss team at step team_setup, an
+    // agent already assigned…) before showing an objective the player can no
+    // longer satisfy. startOnboardingV2 alone skips that reconciliation.
+    startOnboarding: options => (options?.resume
+      ? resumeOnboardingV2(options)
+      : startOnboardingV2(options)),
   });
 }
 

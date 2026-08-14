@@ -390,6 +390,13 @@ export function resumeOnboardingV2({ slotIdx = 0 } = {}) {
   if (onboarding.step === ONBOARDING_STEPS.FIRST_ENCOUNTER || onboarding.step === ONBOARDING_STEPS.IDENTITY) {
     return startOnboardingV2({ slotIdx, resume: true });
   }
+  // Later steps have no overlay of their own to show: hand the player straight
+  // back to the game. Closing the hub here matters when this is reached from
+  // the hub's play button, not just from boot.
+  document.getElementById('introOverlay')?.classList.remove('active');
+  if (onboarding.step === ONBOARDING_STEPS.FIRST_AGENT && !onboarding.firstAgentId) {
+    setTimeout(_openFirstAgentRecruitment, 0);
+  }
   _ctx.renderAll?.();
   return true;
 }

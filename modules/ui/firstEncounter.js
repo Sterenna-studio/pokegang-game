@@ -23,12 +23,28 @@ export function createFirstEncounterSpawns(uid = null) {
     type: 'pokemon',
     species_en: starter.en,
     position: FIRST_ENCOUNTER_POSITIONS[index],
+    // Only `onboarding`/`firstEncounter` are read (by the capture listener below
+    // and by tickZoneSpawn). Capture itself is unconditional for every spawn in
+    // the game — tryCapture() never rolls — so no "guaranteed" flag is needed.
     spawnCtx: {
       onboarding: true,
-      guaranteedCapture: true,
       firstEncounter: true,
     },
   }));
+}
+
+/**
+ * Restore the three starters when the zone lost them — closing the zone window
+ * deletes its spawn list, and tickZoneSpawn is deliberately muted during this
+ * step, so without this Route 1 would stay empty forever while every other tab
+ * is still locked. No-op unless the list is actually empty.
+ */
+export function reseedFirstEncounterSpawns(spawns, { uid, renderSpawn } = {}) {
+  if (!Array.isArray(spawns) || spawns.length > 0) return false;
+  const seeded = createFirstEncounterSpawns(uid);
+  spawns.push(...seeded);
+  for (const spawn of seeded) renderSpawn?.(FIRST_ENCOUNTER_ZONE_ID, spawn);
+  return true;
 }
 
 /**
@@ -62,8 +78,12 @@ export function openFirstEncounter({
       // Pokédex/stat counters. Continue the narrative on the next microtask.
       queueMicrotask(async () => {
         try {
-          for (const spawn of seededSpawns) {
-            if (spawn.species_en !== pokemon.species_en) {
+          // Read the live spawn list rather than the seeded closure: if the
+          // player closed and reopened Route 1, the zone was re-seeded with a
+          // fresh set of ids and the original ones no longer exist.
+          const liveSpawns = getZoneSpawns?.(FIRST_ENCOUNTER_ZONE_ID) || seededSpawns;
+          for (const spawn of [...liveSpawns]) {
+            if (spawn.spawnCtx?.firstEncounter) {
               removeSpawn?.(FIRST_ENCOUNTER_ZONE_ID, spawn.id);
             }
           }

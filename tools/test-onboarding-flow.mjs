@@ -73,6 +73,17 @@ assert.equal(isOnboardingFirstEncounter(firstEncounterState, 'mt_moon'), false);
 assert.equal(getOnboardingTabAccess(firstBattleState, 'tabZones').status, 'available');
 assert.equal(getOnboardingTabAccess(firstBattleState, 'tabAgents').status, 'locked');
 assert.equal(getOnboardingTabAccess(firstBattleState, 'tabMarket').status, 'hidden');
+
+// Giovanni owns the screen during `identity`: nothing is reachable behind it.
+const identityState = { ...firstBattleState, onboarding: { step: ONBOARDING_STEPS.IDENTITY } };
+assert.equal(getOnboardingTabAccess(identityState, 'tabZones').status, 'hidden');
+assert.equal(getOnboardingTabAccess(identityState, 'tabPC').status, 'hidden');
+assert.ok(getOnboardingTabAccess(identityState, 'tabZones').reason);
+
+// Tab-like buttons carrying no data-tab (#btnSaveSlots) resolve to `hidden`,
+// which is what lets applyOnboardingTabAccess sweep them with one selector.
+assert.equal(getOnboardingTabAccess(firstEncounterState, undefined).status, 'hidden');
+assert.equal(getOnboardingTabAccess(firstBattleState, undefined).status, 'hidden');
 assert.equal(getOnboardingObjective(firstBattleState).tab, 'tabZones');
 assert.equal(getOnboardingObjective(firstBattleState).progress.completed, 2);
 assert.equal(getOnboardingArcProgress(firstBattleState).total, 5);

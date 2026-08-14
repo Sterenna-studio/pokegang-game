@@ -24,7 +24,12 @@ const _t = (fr, en) => (globalThis.state?.lang === 'en' ? en : fr);
 function applyOnboardingTabAccess() {
   const state = getState();
   const active = isOnboardingActive(state);
-  document.querySelectorAll('.tab-btn[data-tab]').forEach(btn => {
+  // `.tab-btn` and not `.tab-btn[data-tab]`: #btnSaveSlots is styled as a tab
+  // but carries no data-tab, so the narrower selector left it on screen during
+  // the whole onboarding — both a progressive-disclosure leak and a way into
+  // the save-slot modal from a half-configured state. An unknown tab id is
+  // reported as `hidden` by getOnboardingTabAccess, which is what we want.
+  document.querySelectorAll('.tab-btn').forEach(btn => {
     if (active && !btn.dataset.onboardingPreviousDisplay) {
       btn.dataset.onboardingPreviousDisplay = btn.style.display || '__empty__';
       btn.dataset.onboardingPreviousTitle = btn.hasAttribute('title') ? btn.title : '__none__';

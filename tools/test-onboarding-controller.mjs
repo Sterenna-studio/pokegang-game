@@ -2,7 +2,11 @@ import assert from 'node:assert/strict';
 
 import { EventBus, EVENTS } from '../modules/core/eventBus.js';
 import { ONBOARDING_STEPS } from '../modules/systems/onboardingFlow.js';
-import { configureOnboarding, reconcileOnboardingProgress } from '../modules/ui/onboarding.js';
+import {
+  configureOnboarding,
+  reconcileOnboardingProgress,
+  resumeOnboardingV2,
+} from '../modules/ui/onboarding.js';
 
 const state = {
   lang: 'fr',
@@ -158,5 +162,49 @@ assert.equal(payoff.rewardMoney, 500);
 reconcileOnboardingProgress();
 assert.equal(state.gang.money, 7_500);
 assert.equal(state.stats.totalMoneyEarned, 500);
+
+// ── Resuming reconciles milestones already reached in the save ────
+// The hub's play button routes here rather than to startOnboardingV2, which
+// skipped reconciliation and left the player staring at an objective they had
+// already fulfilled (a full boss team while still on step team_setup).
+const overlayClasses = new Set(['active']);
+globalThis.document = {
+  getElementById: id => (id === 'introOverlay'
+    ? { classList: { remove: cls => overlayClasses.delete(cls) } }
+    : null),
+};
+
+const resumeEvents = [];
+EventBus.on(EVENTS.ONBOARDING_RESUMED, payload => resumeEvents.push(payload));
+
+state.onboarding = {
+  version: 2,
+  status: 'active',
+  step: ONBOARDING_STEPS.TEAM_SETUP,
+  startedAt: 5_000,
+  completedAt: null,
+  starterSpecies: 'zubat',
+  firstBattleStartedAt: null,
+  firstBattleAt: null,
+  firstAgentId: null,
+  completionRewardGrantedAt: null,
+  completionRewardMoney: 0,
+};
+state.gang.bossTeam = ['already-placed-pk'];
+state.agents = [];
+
+assert.equal(resumeOnboardingV2({ slotIdx: 1 }), true);
+assert.equal(state.onboarding.step, ONBOARDING_STEPS.FIRST_BATTLE);
+assert.equal(resumeEvents.length, 1);
+// Reconciliation runs first, so the tracked step is where the player actually
+// re-enters the funnel — not the stale one the save was written with.
+assert.equal(resumeEvents[0].step, ONBOARDING_STEPS.FIRST_BATTLE);
+// The hub overlay must come down: no later step opens an overlay of its own.
+assert.equal(overlayClasses.has('active'), false);
+
+// A completed save is not an onboarding to resume.
+state.onboarding = { ...state.onboarding, step: ONBOARDING_STEPS.COMPLETED, status: 'completed' };
+assert.equal(resumeOnboardingV2({ slotIdx: 1 }), false);
+assert.equal(resumeEvents.length, 1);
 
 console.log('onboarding controller tests: ok');

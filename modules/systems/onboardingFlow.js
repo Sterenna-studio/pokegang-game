@@ -118,6 +118,12 @@ export function getOnboardingTabAccess(state, tabId) {
   const available = new Set();
   let lockedTab = null;
 
+  if (step === ONBOARDING_STEPS.IDENTITY) {
+    // Giovanni owns the whole screen here and cannot be dismissed, so nothing
+    // is reachable behind it. Spelled out rather than left to fall through the
+    // chain, so it stays deliberate if that screen ever becomes closable.
+    return { status: 'hidden', reason };
+  }
   if (step === ONBOARDING_STEPS.FIRST_ENCOUNTER) {
     available.add('tabZones');
   } else if (step === ONBOARDING_STEPS.TEAM_SETUP || step === ONBOARDING_STEPS.FIRST_BATTLE) {

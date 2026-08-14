@@ -52,6 +52,7 @@ import { EventBus, EVENTS } from '../core/eventBus.js';
 import { esc as _esc } from '../core/escape.js';
 import { getDifficultyTier, getDifficultyBadgeHtml } from '../systems/difficultyTier.js';
 import { isOnboardingFirstEncounter } from '../systems/onboardingFlow.js';
+import { reseedFirstEncounterSpawns } from './firstEncounter.js';
 
 const _notify = (msg, type = '', category = null) => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type, category });
 const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
@@ -1174,6 +1175,11 @@ function openZoneWindow(zoneId) {
   _zsRefreshTile(zoneId);
   _dirty();
   renderZoneWindows();
+  // Reopening Route 1 during the first encounter must restore the three
+  // starters right away rather than waiting for the next (muted) spawn tick.
+  if (isOnboardingFirstEncounter(globalThis.state, zoneId)) {
+    _ensureFirstEncounterSpawns(zoneId, zoneSpawns[zoneId]);
+  }
   _zsUpdateButtons();
 }
 
@@ -1918,6 +1924,18 @@ function renderEventTrainerInWindow(zoneId) {
   viewport.appendChild(el);
 }
 
+// Onboarding step `first_encounter` only: put the three starters back if the
+// zone lost them. closeZoneWindow() deletes zoneSpawns[zoneId] wholesale, and
+// tickZoneSpawn is muted at this step, so a player who closes the Route 1
+// window would otherwise be left with an empty zone, no other tab unlocked and
+// nothing at all to click — recoverable only by reloading the page.
+function _ensureFirstEncounterSpawns(zoneId, spawns) {
+  return reseedFirstEncounterSpawns(spawns, {
+    uid: globalThis.uid,
+    renderSpawn: renderSpawnInWindow,
+  });
+}
+
 function tickZoneSpawn(zoneId) {
   const openZones = globalThis.openZones;
   const zoneSpawns = globalThis.zoneSpawns;
@@ -1926,8 +1944,10 @@ function tickZoneSpawn(zoneId) {
   if (!spawns) return;
   // The first playable onboarding beat seeds exactly three real Route 1
   // Pokémon. Keep the regular timer quiet until one is captured so a fourth
-  // random encounter cannot obscure that choice.
+  // random encounter cannot obscure that choice — but never leave the zone
+  // empty, or muting the timer turns into a softlock (see openZoneWindow).
   if (isOnboardingFirstEncounter(globalThis.state, zoneId)) {
+    _ensureFirstEncounterSpawns(zoneId, spawns);
     updateZoneTimers(zoneId);
     return;
   }
