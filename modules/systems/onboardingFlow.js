@@ -110,6 +110,16 @@ export function isManualPlayerCombatWin(event = {}) {
   return event.mode === 'manual' && event.initiatedBy === 'player';
 }
 
+/**
+ * The onboarding hands out the first agent for free. Both the recruit modal
+ * (which sets the price) and the Agents tab card (which advertises it) must
+ * agree, so the rule lives here rather than being restated at each call site.
+ */
+export function isOnboardingFreeAgentPending(state) {
+  const onboarding = normalizeOnboardingState(state?.onboarding);
+  return onboarding.step === ONBOARDING_STEPS.FIRST_AGENT && !onboarding.firstAgentId;
+}
+
 export function getOnboardingTabAccess(state, tabId) {
   if (!isOnboardingActive(state)) return { status: 'available', reason: null };
   const step = normalizeOnboardingState(state.onboarding).step;

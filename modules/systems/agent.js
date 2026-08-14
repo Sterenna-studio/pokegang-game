@@ -6,6 +6,7 @@
 import { resolveTrainerCombat } from './zoneCombat.js';
 import { AUTO_COMBAT_VISUAL_MS, AGENT_PRISON_MS } from '../../data/gameplay-config-data.js';
 import { EventBus, EVENTS } from '../core/eventBus.js';
+import { isOnboardingFreeAgentPending } from './onboardingFlow.js';
 
 // ── Convenience shims (progressive migration from globalThis.*) ─
 const _notify     = (msg, type = '', category = null) => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type, category });
@@ -119,7 +120,7 @@ function recruitAgent(agentData, { source = 'paid', cost = 0 } = {}) {
 function openAgentRecruitModal(onAfterRecruit, options = {}) {
   const state = globalThis.state;
   const SFX   = globalThis.SFX;
-  const onboardingRecruit = state.onboarding?.step === 'first_agent' && !state.onboarding?.firstAgentId;
+  const onboardingRecruit = isOnboardingFreeAgentPending(state);
   const source = options.source || (onboardingRecruit ? 'onboarding' : 'paid');
   const cost  = Number.isFinite(options.cost)
     ? Math.max(0, options.cost)
@@ -130,7 +131,7 @@ function openAgentRecruitModal(onAfterRecruit, options = {}) {
   if ((state.gang?.money || 0) < cost) {
     _notify(_t(`Fonds insuffisants (${cost.toLocaleString()}₽ requis)`, `Insufficient funds (${cost.toLocaleString()}₽ required)`), 'error');
     SFX?.play('error');
-    return;
+    return false;
   }
 
   const candidates = [rollNewAgent(), rollNewAgent(), rollNewAgent()];

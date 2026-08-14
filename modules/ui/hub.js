@@ -106,7 +106,10 @@ function _renderSlots() {
   slotsContainer.querySelectorAll('.isc-del').forEach(button => button.addEventListener('click', event => {
     event.stopPropagation();
     const slotIdx = Number(button.dataset.slot);
-    _ctx.showConfirm?.(_t(`Supprimer la sauvegarde Slot ${slotIdx + 1} ?`, `Delete save Slot ${slotIdx + 1}?`), () => {
+    _ctx.showConfirm?.(_t(
+      `Supprimer la sauvegarde Slot ${slotIdx + 1} ?<br><span style="color:var(--text-dim);font-size:11px">Cette action est irréversible.</span>`,
+      `Delete the save in Slot ${slotIdx + 1}?<br><span style="color:var(--text-dim);font-size:11px">This action cannot be undone.</span>`,
+    ), () => {
       _ctx.removeSlot?.(slotIdx);
       if (slotIdx === _ctx.getActiveSaveSlot?.()) _ctx.setActiveSaveSlot?.(0);
       _renderSlots();

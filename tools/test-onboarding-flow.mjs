@@ -10,6 +10,7 @@ import {
   getOnboardingTabAccess,
   isOnboardingFirstEncounter,
   isManualPlayerCombatWin,
+  isOnboardingFreeAgentPending,
   normalizeOnboardingState,
   shouldRunOnboardingV2,
   startOnboarding,
@@ -97,6 +98,21 @@ assert.equal(getOnboardingArcProgress({
 }).completed, 5);
 assert.equal(isManualPlayerCombatWin({ mode: 'manual', initiatedBy: 'player' }), true);
 assert.equal(isManualPlayerCombatWin({ mode: 'agent', initiatedBy: 'agent' }), false);
+
+// The free first agent: the recruit modal sets the price from this and the
+// Agents tab card advertises it, so both have to read the same rule.
+assert.equal(isOnboardingFreeAgentPending({
+  onboarding: { step: ONBOARDING_STEPS.FIRST_AGENT, firstAgentId: null },
+}), true);
+assert.equal(isOnboardingFreeAgentPending({
+  onboarding: { step: ONBOARDING_STEPS.FIRST_AGENT, firstAgentId: 'agent-1' },
+}), false);
+assert.equal(isOnboardingFreeAgentPending({
+  onboarding: { step: ONBOARDING_STEPS.FIRST_BATTLE, firstAgentId: null },
+}), false);
+assert.equal(isOnboardingFreeAgentPending({ onboarding: { step: ONBOARDING_STEPS.COMPLETED } }), false);
+assert.equal(isOnboardingFreeAgentPending({}), false);
+assert.equal(isOnboardingFreeAgentPending(null), false);
 assert.equal(getOnboardingObjective({
   ...firstBattleState,
   onboarding: { step: ONBOARDING_STEPS.COMPLETED },

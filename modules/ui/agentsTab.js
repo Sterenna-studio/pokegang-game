@@ -2,6 +2,7 @@
 
 import { BALL_SPRITES, FALLBACK_TRAINER_SVG } from '../../data/assets-data.js';
 import { EventBus, EVENTS } from '../core/eventBus.js';
+import { isOnboardingFreeAgentPending } from '../systems/onboardingFlow.js';
 
 const _esc = s => String(s ?? '').replace(/[&<>"']/g, ch => (
   ch === '&' ? '&amp;' : ch === '<' ? '&lt;' : ch === '>' ? '&gt;' : ch === '"' ? '&quot;' : '&#39;'));
@@ -85,7 +86,11 @@ function _doRenderAgentsTab() {
   if (!grid) return;
 
   const unlockedZones = ZONES.filter(z => isZoneUnlocked(z.id));
-  const RECRUIT_COST  = getAgentRecruitCost();
+  // The onboarding gives this one away; openAgentRecruitModal() already charges
+  // 0₽, so advertising the normal price here contradicted both the modal and
+  // the "premier agent offert" objective.
+  const RECRUIT_FREE  = isOnboardingFreeAgentPending(state);
+  const RECRUIT_COST  = RECRUIT_FREE ? 0 : getAgentRecruitCost();
   const ballLabels    = AGENT_BALL_LABELS();
 
   // ── Boss card ───────────────────────────────────────────────────────────
@@ -241,7 +246,9 @@ const bossRep   = state.gang.reputation || 0;
         ${_t('RECRUTER UN AGENT', 'RECRUIT AN AGENT')}
       </div>
       <div style="font-size:9px;color:var(--gold);margin-top:3px">
-        ${_t('Agent', 'Agent')} ${state.agents.length + 1} — ${RECRUIT_COST.toLocaleString()}₽
+        ${_t('Agent', 'Agent')} ${state.agents.length + 1} — ${RECRUIT_FREE
+          ? _t('offert', 'free')
+          : `${RECRUIT_COST.toLocaleString()}₽`}
       </div>
     </div>
   </div>`;

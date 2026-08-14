@@ -546,7 +546,12 @@ export function openGiovanniIntro({
     const payload = { bossName, gangName, bossSprite, starterEn: sp, slotIdx };
 
     if (!state) {
-      _closeIntro(payload, false);
+      // Nothing to persist, but the caller must still be released: onboarding
+      // V2 awaits onComplete here, and skipping it left that promise pending
+      // forever with the story lock still held — a worse failure than the
+      // missing state itself. Callers detect the no-op from the unchanged step.
+      console.error('[intro] No state available — identity was not persisted.');
+      _closeIntro(payload, true);
       return;
     }
 
