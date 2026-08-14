@@ -43,9 +43,10 @@ export const EVENTS = {
   POKEMON_SOLD:      'pokemon:sold',      // { pokemonIds, totalPrice }
 
   // Team / agents
-  TEAM_MEMBER_SET:   'team:member-set',   // { team, pokemonId, slot, source }
+  TEAM_MEMBER_SET:   'team:member-set',   // { team: 'boss'|'agent', agentId?, pokemonId, slot, source }
   AGENT_RECRUITED:   'agent:recruited',   // { agentId, source, cost }
   AGENT_ASSIGNED:    'agent:assigned',    // { agentId, zoneId, previousZoneId, source }
+  AGENT_FLAG_CHANGED:'agent:flag',        // { agentId, flag, value, source } — autoCombat/autoRaid/autoCapture
 
   // Combat
   COMBAT_STARTED:    'combat:started',    // { zoneId, trainerKey, mode, initiatedBy }

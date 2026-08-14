@@ -1,41 +1,63 @@
 {
-  "_comment": "Partial saves for onboarding V2. Pick one entry, JSON.stringify it into the active pokeforge.v6 slot, then reload; migrateSave fills omitted defaults.",
-  "team_setup": {
+  "_comment": "Saves partielles pour l'onboarding V2 (funnel terrain inconnu -> embuscade Rocket -> Giovanni -> transfuge guide). Choisir une entree, la JSON.stringify dans le slot pokeforge.v6 actif, puis recharger ; migrateSave complete les defauts omis.",
+  "free_capture": {
     "version": "6.0.0",
-    "_schemaVersion": 15,
-    "onboarding": { "version": 2, "status": "active", "step": "team_setup", "startedAt": 1000, "starterSpecies": "zubat", "firstBattleStartedAt": null, "firstBattleAt": null, "firstAgentId": null },
-    "gang": { "name": "Fixture Gang", "bossName": "Fixture Boss", "bossSprite": "red", "initialized": true, "introSeen": true, "bossTeam": [], "bossTeamSlots": [[], [], []] },
-    "pokemons": [{ "id": "onboarding-pk", "species_en": "zubat", "level": 2, "nature": "jolly", "potential": 1, "shiny": false }]
+    "_schemaVersion": 16,
+    "onboarding": { "version": 3, "status": "active", "step": "free_capture", "startedAt": 1000, "fieldCaptures": 8, "starterSpecies": "meowth" },
+    "gang": { "name": "Team ???", "bossName": "Boss", "initialized": false, "introSeen": false, "bossTeam": [], "bossTeamSlots": [[], [], []] },
+    "pokemons": [{ "id": "ob-pk-1", "species_en": "meowth", "level": 4, "nature": "jolly", "potential": 3, "shiny": false }]
   },
-  "first_battle": {
+  "rocket_ambush": {
     "version": "6.0.0",
-    "_schemaVersion": 15,
-    "onboarding": { "version": 2, "status": "active", "step": "first_battle", "startedAt": 1000, "starterSpecies": "zubat", "firstBattleStartedAt": null, "firstBattleAt": null, "firstAgentId": null },
-    "gang": { "name": "Fixture Gang", "bossName": "Fixture Boss", "bossSprite": "red", "initialized": true, "introSeen": true, "bossTeam": ["onboarding-pk"], "bossTeamSlots": [["onboarding-pk"], [], []] },
-    "pokemons": [{ "id": "onboarding-pk", "species_en": "zubat", "level": 8, "nature": "jolly", "potential": 2, "shiny": false }]
+    "_schemaVersion": 16,
+    "onboarding": { "version": 3, "status": "active", "step": "rocket_ambush", "startedAt": 1000, "fieldCaptures": 10, "starterSpecies": "meowth" },
+    "gang": { "name": "Team ???", "bossName": "Boss", "initialized": false, "introSeen": false, "bossTeam": ["ob-pk-1"], "bossTeamSlots": [["ob-pk-1"], [], []] },
+    "pokemons": [{ "id": "ob-pk-1", "species_en": "meowth", "level": 5, "nature": "jolly", "potential": 3, "shiny": false }]
   },
-  "first_agent_recruit": {
+  "identity": {
     "version": "6.0.0",
-    "_schemaVersion": 15,
-    "onboarding": { "version": 2, "status": "active", "step": "first_agent", "startedAt": 1000, "starterSpecies": "zubat", "firstBattleStartedAt": 1500, "firstBattleAt": 2000, "firstAgentId": null },
-    "gang": { "name": "Fixture Gang", "bossName": "Fixture Boss", "bossSprite": "red", "initialized": true, "introSeen": true, "bossTeam": ["onboarding-pk"], "bossTeamSlots": [["onboarding-pk"], [], []] },
-    "pokemons": [{ "id": "onboarding-pk", "species_en": "zubat", "level": 8, "nature": "jolly", "potential": 2, "shiny": false }]
+    "_schemaVersion": 16,
+    "onboarding": { "version": 3, "status": "active", "step": "identity", "startedAt": 1000, "fieldCaptures": 10, "starterSpecies": "meowth", "ambushAt": 2000, "ambushWon": false },
+    "gang": { "name": "Team ???", "bossName": "Boss", "initialized": false, "introSeen": false, "bossTeam": ["ob-pk-1"], "bossTeamSlots": [["ob-pk-1"], [], []] },
+    "pokemons": [{ "id": "ob-pk-1", "species_en": "meowth", "level": 5, "nature": "jolly", "potential": 3, "shiny": false }]
   },
-  "first_agent_assign": {
+  "guide_met": {
     "version": "6.0.0",
-    "_schemaVersion": 15,
-    "onboarding": { "version": 2, "status": "active", "step": "first_agent", "startedAt": 1000, "starterSpecies": "zubat", "firstBattleStartedAt": 1500, "firstBattleAt": 2000, "firstAgentId": "onboarding-agent" },
-    "gang": { "name": "Fixture Gang", "bossName": "Fixture Boss", "bossSprite": "red", "initialized": true, "introSeen": true, "bossTeam": ["onboarding-pk"], "bossTeamSlots": [["onboarding-pk"], [], []] },
-    "pokemons": [{ "id": "onboarding-pk", "species_en": "zubat", "level": 8, "nature": "jolly", "potential": 2, "shiny": false }],
-    "agents": [{ "id": "onboarding-agent", "name": "Jessie", "spriteKey": "rocket", "title": "grunt", "level": 1, "xp": 0, "combatsWon": 0, "ball": "pokeball", "behavior": "all", "personality": [], "team": [], "assignedZone": null, "notifyCaptures": true, "legacyLocked": false, "energy": 10, "maxEnergy": 10, "resting": false, "restUntil": null, "lastEnergyReset": 0 }]
+    "_schemaVersion": 16,
+    "onboarding": { "version": 3, "status": "active", "step": "guide_met", "startedAt": 1000, "fieldCaptures": 10, "starterSpecies": "meowth", "ambushAt": 2000, "ambushWon": false, "guideAgentId": null },
+    "gang": { "name": "Team Audit", "bossName": "AuditBoss", "bossSprite": "red", "initialized": true, "introSeen": true, "bossTeam": ["ob-pk-1"], "bossTeamSlots": [["ob-pk-1"], [], []] },
+    "pokemons": [{ "id": "ob-pk-1", "species_en": "meowth", "level": 5, "nature": "jolly", "potential": 3, "shiny": false }]
+  },
+  "guide_team": {
+    "version": "6.0.0",
+    "_schemaVersion": 16,
+    "onboarding": { "version": 3, "status": "active", "step": "guide_team", "startedAt": 1000, "fieldCaptures": 10, "starterSpecies": "meowth", "ambushAt": 2000, "ambushWon": false, "guideAgentId": "ob-guide", "guideSprite": "rocketgrunt" },
+    "gang": { "name": "Team Audit", "bossName": "AuditBoss", "bossSprite": "red", "initialized": true, "introSeen": true, "bossTeam": ["ob-pk-1"], "bossTeamSlots": [["ob-pk-1"], [], []] },
+    "pokemons": [{ "id": "ob-pk-1", "species_en": "meowth", "level": 5, "nature": "jolly", "potential": 3, "shiny": false }],
+    "agents": [{ "id": "ob-guide", "name": "Zane", "sprite": "rocketgrunt", "title": "grunt", "level": 1, "xp": 0, "combatsWon": 0, "ball": "pokeball", "behavior": "all", "personality": [], "team": [], "assignedZone": null, "autoCombat": false, "autoCapture": true, "notifyCaptures": true, "legacyLocked": false, "energy": 10, "maxEnergy": 10, "resting": false, "restUntil": null, "lastEnergyReset": 0 }]
+  },
+  "guide_combat": {
+    "version": "6.0.0",
+    "_schemaVersion": 16,
+    "onboarding": { "version": 3, "status": "active", "step": "guide_combat", "startedAt": 1000, "fieldCaptures": 10, "starterSpecies": "meowth", "ambushAt": 2000, "ambushWon": false, "guideAgentId": "ob-guide", "guideSprite": "rocketgrunt" },
+    "gang": { "name": "Team Audit", "bossName": "AuditBoss", "bossSprite": "red", "initialized": true, "introSeen": true, "bossTeam": ["ob-pk-1"], "bossTeamSlots": [["ob-pk-1"], [], []] },
+    "pokemons": [
+      { "id": "ob-pk-1", "species_en": "meowth", "level": 5, "nature": "jolly", "potential": 3, "shiny": false },
+      { "id": "ob-pk-2", "species_en": "ekans", "level": 4, "nature": "brave", "potential": 2, "shiny": false }
+    ],
+    "agents": [{ "id": "ob-guide", "name": "Zane", "sprite": "rocketgrunt", "title": "grunt", "level": 1, "xp": 0, "combatsWon": 0, "ball": "pokeball", "behavior": "all", "personality": [], "team": ["ob-pk-2"], "assignedZone": "route1", "autoCombat": false, "autoCapture": true, "notifyCaptures": true, "legacyLocked": false, "energy": 10, "maxEnergy": 10, "resting": false, "restUntil": null, "lastEnergyReset": 0 }],
+    "zones": { "route1": { "unlocked": true, "assignedAgents": ["ob-guide"] } }
   },
   "completed": {
     "version": "6.0.0",
-    "_schemaVersion": 15,
-    "onboarding": { "version": 2, "status": "completed", "step": "completed", "startedAt": 1000, "completedAt": 3000, "starterSpecies": "zubat", "firstBattleStartedAt": 1500, "firstBattleAt": 2000, "firstAgentId": "onboarding-agent", "completionRewardGrantedAt": 3000, "completionRewardMoney": 500 },
-    "gang": { "name": "Fixture Gang", "bossName": "Fixture Boss", "bossSprite": "red", "initialized": true, "introSeen": true, "bossTeam": ["onboarding-pk"], "bossTeamSlots": [["onboarding-pk"], [], []] },
-    "pokemons": [{ "id": "onboarding-pk", "species_en": "zubat", "level": 8, "nature": "jolly", "potential": 2, "shiny": false }],
-    "agents": [{ "id": "onboarding-agent", "name": "Jessie", "spriteKey": "rocket", "title": "grunt", "level": 1, "xp": 0, "combatsWon": 0, "ball": "pokeball", "behavior": "all", "personality": [], "team": [], "assignedZone": "route1", "notifyCaptures": true, "legacyLocked": false, "energy": 10, "maxEnergy": 10, "resting": false, "restUntil": null, "lastEnergyReset": 0 }],
-    "zones": { "route1": { "unlocked": true, "combatsWon": 1, "captures": 1, "assignedAgents": ["onboarding-agent"] } }
+    "_schemaVersion": 16,
+    "onboarding": { "version": 3, "status": "completed", "step": "completed", "startedAt": 1000, "completedAt": 3000, "fieldCaptures": 10, "starterSpecies": "meowth", "ambushAt": 2000, "ambushWon": false, "guideAgentId": "ob-guide", "guideSprite": "rocketgrunt", "completionRewardGrantedAt": 3000, "completionRewardMoney": 500 },
+    "gang": { "name": "Team Audit", "bossName": "AuditBoss", "bossSprite": "red", "initialized": true, "introSeen": true, "bossTeam": ["ob-pk-1"], "bossTeamSlots": [["ob-pk-1"], [], []] },
+    "pokemons": [
+      { "id": "ob-pk-1", "species_en": "meowth", "level": 5, "nature": "jolly", "potential": 3, "shiny": false },
+      { "id": "ob-pk-2", "species_en": "ekans", "level": 4, "nature": "brave", "potential": 2, "shiny": false }
+    ],
+    "agents": [{ "id": "ob-guide", "name": "Zane", "sprite": "rocketgrunt", "title": "grunt", "level": 1, "xp": 0, "combatsWon": 0, "ball": "pokeball", "behavior": "all", "personality": [], "team": ["ob-pk-2"], "assignedZone": "route1", "autoCombat": true, "autoCapture": true, "notifyCaptures": true, "legacyLocked": false, "energy": 10, "maxEnergy": 10, "resting": false, "restUntil": null, "lastEnergyReset": 0 }],
+    "zones": { "route1": { "unlocked": true, "combatsWon": 1, "captures": 1, "assignedAgents": ["ob-guide"] } }
   }
 }

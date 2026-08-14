@@ -51,8 +51,8 @@ import { AUTO_COMBAT_VISUAL_MS } from '../../data/gameplay-config-data.js';
 import { EventBus, EVENTS } from '../core/eventBus.js';
 import { esc as _esc } from '../core/escape.js';
 import { getDifficultyTier, getDifficultyBadgeHtml } from '../systems/difficultyTier.js';
-import { isOnboardingFirstEncounter } from '../systems/onboardingFlow.js';
-import { reseedFirstEncounterSpawns } from './firstEncounter.js';
+import { isOnboardingZoneFrozen } from '../systems/onboardingFlow.js';
+import { ensureOnboardingAmbush } from './onboarding.js';
 
 const _notify = (msg, type = '', category = null) => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type, category });
 const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
@@ -1175,11 +1175,10 @@ function openZoneWindow(zoneId) {
   _zsRefreshTile(zoneId);
   _dirty();
   renderZoneWindows();
-  // Reopening Route 1 during the first encounter must restore the three
-  // starters right away rather than waiting for the next (muted) spawn tick.
-  if (isOnboardingFirstEncounter(globalThis.state, zoneId)) {
-    _ensureFirstEncounterSpawns(zoneId, zoneSpawns[zoneId]);
-  }
+  // Reopening the onboarding field mid-ambush must put the Rocket grunts back
+  // right away: closeZoneWindow deleted them, and the spawn tick is muted at
+  // that step, so the zone would otherwise stay empty with nothing to click.
+  if (isOnboardingZoneFrozen(globalThis.state, zoneId)) ensureOnboardingAmbush();
   _zsUpdateButtons();
 }
 
@@ -1529,7 +1528,8 @@ function _openZoneContextMenu(zoneId, clientX, clientY) {
 // sinon null. Défensif (?.()) : les régions pas encore migrées vers ce
 // système n'exposent simplement pas leur getter.
 function _getActiveQuestEncounterForZone(zoneId) {
-  return globalThis.getKantoQuestEncounterForZone?.(zoneId)
+  return globalThis.getOnboardingGuideEncounterForZone?.(zoneId)
+    ?? globalThis.getKantoQuestEncounterForZone?.(zoneId)
     ?? globalThis.getJohtoQuestEncounterForZone?.(zoneId)
     ?? globalThis.getHoennQuestEncounterForZone?.(zoneId)
     ?? globalThis.getSinnohQuestEncounterForZone?.(zoneId)
@@ -1924,30 +1924,19 @@ function renderEventTrainerInWindow(zoneId) {
   viewport.appendChild(el);
 }
 
-// Onboarding step `first_encounter` only: put the three starters back if the
-// zone lost them. closeZoneWindow() deletes zoneSpawns[zoneId] wholesale, and
-// tickZoneSpawn is muted at this step, so a player who closes the Route 1
-// window would otherwise be left with an empty zone, no other tab unlocked and
-// nothing at all to click — recoverable only by reloading the page.
-function _ensureFirstEncounterSpawns(zoneId, spawns) {
-  return reseedFirstEncounterSpawns(spawns, {
-    uid: globalThis.uid,
-    renderSpawn: renderSpawnInWindow,
-  });
-}
-
 function tickZoneSpawn(zoneId) {
   const openZones = globalThis.openZones;
   const zoneSpawns = globalThis.zoneSpawns;
   if (!openZones.has(zoneId)) return;
   const spawns = zoneSpawns[zoneId];
   if (!spawns) return;
-  // The first playable onboarding beat seeds exactly three real Route 1
-  // Pokémon. Keep the regular timer quiet until one is captured so a fourth
-  // random encounter cannot obscure that choice — but never leave the zone
-  // empty, or muting the timer turns into a softlock (see openZoneWindow).
-  if (isOnboardingFirstEncounter(globalThis.state, zoneId)) {
-    _ensureFirstEncounterSpawns(zoneId, spawns);
+  // From the ambush onward the onboarding field must stop producing wild
+  // Pokémon: the raid — then the defector — is the only thing left to
+  // interact with, and the five-spawn cap would otherwise crowd it out.
+  // Never return without something to click, or muting the timer becomes a
+  // softlock (the player has no other tab unlocked at that point).
+  if (isOnboardingZoneFrozen(globalThis.state, zoneId)) {
+    ensureOnboardingAmbush();
     updateZoneTimers(zoneId);
     return;
   }

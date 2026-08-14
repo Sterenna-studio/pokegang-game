@@ -14,6 +14,7 @@
 'use strict';
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
+import { isOnboardingActive } from '../systems/onboardingFlow.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
 const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
@@ -62,8 +63,13 @@ function _getActiveZones() {
   if (_activeRegion === 'johto')  return typeof ZONES_JOHTO  !== 'undefined' ? ZONES_JOHTO  : [];
   if (_activeRegion === 'hoenn')  return typeof ZONES_HOENN  !== 'undefined' ? ZONES_HOENN  : [];
   if (_activeRegion === 'sinnoh') return typeof ZONES_SINNOH !== 'undefined' ? ZONES_SINNOH : [];
-  // Kanto — exclure les zones des autres régions qui ont été pushées dans ZONES
-  return ZONES.filter(z => !_isJohtoZone(z.id) && !_isHoennZone(z.id) && !_isSinnohZone(z.id));
+  // Kanto — exclure les zones des autres régions qui ont été pushées dans ZONES,
+  // et le terrain de départ dès que l'onboarding est fini : isZoneUnlocked le
+  // considère débloqué à vie une fois qu'on y a capturé, donc sans ce filtre il
+  // resterait sur la carte pour toujours.
+  const onboarding = isOnboardingActive(globalThis.state);
+  return ZONES.filter(z => !_isJohtoZone(z.id) && !_isHoennZone(z.id) && !_isSinnohZone(z.id)
+    && (onboarding || z.type !== 'onboarding'));
 }
 
 function _getActiveZoneById() {

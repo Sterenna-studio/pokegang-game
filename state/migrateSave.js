@@ -74,12 +74,24 @@ export function migrateSave(saved, deps) {
   merged.settings     = { ...structuredClone(DEFAULT_STATE.settings),     ...ensureObject(saved.settings) };
   merged.activeBoosts = { ...structuredClone(DEFAULT_STATE.activeBoosts), ...ensureObject(saved.activeBoosts) };
   merged.onboarding   = { ...structuredClone(DEFAULT_STATE.onboarding),   ...ensureObject(saved.onboarding) };
-  // Existing initialized saves must never be routed into onboarding V2.
-  if (saved.onboarding === undefined && merged.gang.initialized) {
+  // An initialized save must never be routed back into the onboarding. That
+  // covers both saves predating it entirely (no `onboarding` key) and saves
+  // written by the earlier funnel, whose steps — first_encounter, team_setup,
+  // first_battle, first_agent — no longer exist and cannot be resumed.
+  const KNOWN_STEPS = new Set([
+    'not_started', 'free_capture', 'rocket_ambush', 'identity',
+    'guide_met', 'guide_team', 'guide_zone', 'guide_combat', 'completed',
+  ]);
+  if (merged.gang.initialized && !KNOWN_STEPS.has(merged.onboarding.step)) {
+    merged.onboarding.status = 'completed';
+    merged.onboarding.step = 'completed';
+    merged.onboarding.completedAt = saved._savedAt || now();
+  } else if (saved.onboarding === undefined && merged.gang.initialized) {
     merged.onboarding.status = 'completed';
     merged.onboarding.step = 'completed';
     merged.onboarding.completedAt = saved._savedAt || now();
   }
+  merged.onboarding.version = DEFAULT_STATE.onboarding.version;
   const savedDiscoveryProgress = ensureObject(saved.discoveryProgress);
   merged.discoveryProgress = {
     ...structuredClone(DEFAULT_STATE.discoveryProgress),

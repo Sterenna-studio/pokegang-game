@@ -153,7 +153,14 @@ import {
   startOnboardingV2,
 } from './modules/ui/onboarding.js';
 import { showOnboardingIdlePayoff } from './modules/ui/onboardingPayoff.js';
+import {
+  configureOnboardingGuide,
+  clearGuide,
+  placeGuide,
+  refreshGuide,
+} from './modules/ui/onboardingGuide.js';
 import { isOnboardingActive } from './modules/systems/onboardingFlow.js';
+import { ONBOARDING_AMBUSH_LINES } from './data/onboarding-data.js';
 import { checkDarkraiCutscene, triggerDarkraiOnLeagueVictory } from './modules/ui/darkraiEvent.js';
 import './modules/ui/hoennEvent.js';
 import './modules/ui/johtoEvent.js';
@@ -1583,6 +1590,10 @@ function restoreOpenZones() {
     if (!ZONE_BY_ID[zId])                       continue;
     if (ZONE_BY_ID[zId].type === 'gang_park')   continue;
     if (ZONE_BY_ID[zId].type === 'vivarium')    continue;
+    // Le terrain de départ est ouvert par le contrôleur d'onboarding lui-même,
+    // qui l'amorce aussi en spawns — le restaurer ici le rouvrirait vide, et
+    // une fois l'onboarding fini il n'a plus rien à faire sur la carte.
+    if (ZONE_BY_ID[zId].type === 'onboarding')  continue;
     if (!isZoneUnlocked(zId))                   continue;
     // A zone can already be open before this runs — showIntroIfNeeded() fires
     // earlier in boot() and the onboarding first encounter opens Route 1 and
@@ -1665,11 +1676,28 @@ function configureEntryFlows() {
     removeSpawn,
     uid,
     openGiovanniIntro,
-    openAgentRecruitModal: (...args) => globalThis.openAgentRecruitModal?.(...args),
+    getActiveSaveSlot,
     getZoneById: zoneId => ZONE_BY_ID[zoneId] ?? null,
     showOnboardingIdlePayoff,
     switchTab,
     renderAll,
+    placeGuide,
+    refreshGuide,
+    clearGuide,
+    notifyFieldIntro: lang => notify(lang === 'en'
+      ? 'You do not know this field. Catch what you can before someone notices.'
+      : 'Tu ne connais pas ce terrain. Capture ce que tu peux avant qu\'on te remarque.', 'gold'),
+    notifyAmbush: lang => notify(lang === 'en'
+      ? ONBOARDING_AMBUSH_LINES.intro.en : ONBOARDING_AMBUSH_LINES.intro.fr, 'error'),
+    notifyAmbushResolved: (lang, won) => notify(
+      won ? (lang === 'en' ? ONBOARDING_AMBUSH_LINES.won.en : ONBOARDING_AMBUSH_LINES.won.fr)
+          : (lang === 'en' ? ONBOARDING_AMBUSH_LINES.lost.en : ONBOARDING_AMBUSH_LINES.lost.fr),
+      won ? 'gold' : 'error'),
+  });
+
+  configureOnboardingGuide({
+    getState: () => state,
+    notify,
   });
 
   configureHub({

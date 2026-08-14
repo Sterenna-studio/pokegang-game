@@ -1,11 +1,32 @@
 'use strict';
 
+// ════════════════════════════════════════════════════════════════
+//  Onboarding V2 — contrôleur du tunnel de première session
+//
+//  Enchaînement : le joueur atterrit sur un terrain inconnu et capture
+//  librement → des sbires Rocket lui tombent dessus → Giovanni révèle que
+//  le terrain est à lui et fonde le gang avec lui → un transfuge Rocket
+//  croisé sur place devient son premier agent ET son guide, qui réclame
+//  successivement un Pokémon, une affectation de zone, puis l'activation
+//  de son option de combat.
+//
+//  Le contrôleur ne dessine rien lui-même : il tient l'état, écoute
+//  l'EventBus et délègue l'affichage (zone, Giovanni, guide, payoff).
+// ════════════════════════════════════════════════════════════════
+
 import { EventBus, EVENTS } from '../core/eventBus.js';
 import {
+  acquireStoryLock,
+  getStoryLockOwner,
   releaseStoryLock,
   requestStory,
   STORY_PRIORITIES,
 } from '../core/storyLock.js';
+import {
+  ONBOARDING_CAPTURE_GOAL,
+  ONBOARDING_ZONE_ID,
+} from '../../data/onboarding-data.js';
+import { BOSS_TEAM_SLOTS } from '../../data/game-config-data.js';
 import {
   ONBOARDING_STEPS,
   ONBOARDING_VERSION,
@@ -14,14 +35,16 @@ import {
   getOnboardingArcProgress,
   getOnboardingElapsedSeconds,
   isOnboardingActive,
+  isOnboardingFreeCapture,
   isManualPlayerCombatWin,
   normalizeOnboardingState,
   shouldRunOnboardingV2,
   startOnboarding,
 } from '../systems/onboardingFlow.js';
-import { openFirstEncounter } from './firstEncounter.js';
 
 const LOCK_OWNER = 'onboarding-v2';
+const AMBUSH_SPAWN_ID = 'onboarding-ambush';
+
 let _ctx = {};
 let _running = false;
 let _eventsBound = false;
@@ -34,6 +57,10 @@ export function configureOnboarding(ctx = {}) {
 
 function _state() {
   return _ctx.getState?.();
+}
+
+function _onboarding() {
+  return normalizeOnboardingState(_state()?.onboarding);
 }
 
 function _track(name, params = {}) {
@@ -100,21 +127,181 @@ function _updateOnboardingDetails(details, { render = true } = {}) {
   return true;
 }
 
-function _openFirstAgentRecruitment() {
-  const state = _state();
-  const onboarding = normalizeOnboardingState(state?.onboarding);
-  if (onboarding.step !== ONBOARDING_STEPS.FIRST_AGENT || onboarding.firstAgentId) return false;
-  return _ctx.openAgentRecruitModal?.(
-    () => _ctx.renderAll?.(),
-    { cost: 0, source: 'onboarding' },
-  ) ?? false;
+// ── Terrain de départ ─────────────────────────────────────────────
+/** Ouvre (ou ré-ouvre) le terrain inconnu et rend la main au gameplay. */
+function _openField() {
+  document.getElementById('introOverlay')?.classList.remove('active');
+  if (_ctx.switchTab?.('tabZones') === false) return false;
+  _ctx.openZoneWindow?.(ONBOARDING_ZONE_ID);
+  return true;
 }
 
-function _completeOnboarding(agentId, zoneId, source = 'assignment') {
+// ── Embuscade Rocket ──────────────────────────────────────────────
+/**
+ * Plante le raid des sbires sur le terrain. Volontairement construit via
+ * makeRaidSpawn avec une zone synthétique : toute la logique d'équipes, de
+ * récompenses et de réputation des raids existants est réutilisée telle
+ * quelle, seuls les dresseurs sont forcés sur des sbires Rocket.
+ */
+function _spawnAmbush() {
+  const spawns = _ctx.getZoneSpawns?.(ONBOARDING_ZONE_ID);
+  if (!Array.isArray(spawns)) return false;
+  if (spawns.some(spawn => spawn.spawnCtx?.ambush)) return true;
+
+  // Le terrain se vide de ses Pokémon sauvages : le raid doit être la seule
+  // chose cliquable, et la zone plafonne à cinq spawns.
+  for (const spawn of [...spawns]) _ctx.removeSpawn?.(ONBOARDING_ZONE_ID, spawn.id);
+
+  const zone = _ctx.getZoneById?.(ONBOARDING_ZONE_ID);
+  if (!zone) return false;
+  // trainers vide → makeRaidSpawn retombe sur eliteTrainer pour les 2-3
+  // dresseurs, ce qui donne un raid 100 % sbires Rocket.
+  const raid = globalThis.makeRaidSpawn?.({ ...zone, trainers: [], eliteTrainer: 'rocketgrunt' }, ONBOARDING_ZONE_ID, 1);
+  if (!raid) return false;
+
+  const spawn = {
+    ...raid,
+    id: AMBUSH_SPAWN_ID,
+    position: { x: 150, y: 60 },
+    spawnCtx: { onboarding: true, ambush: true },
+  };
+  spawns.push(spawn);
+  _ctx.renderSpawn?.(ONBOARDING_ZONE_ID, spawn);
+  return true;
+}
+
+/** Rejoue le raid si le joueur a fermé la fenêtre de zone en pleine embuscade. */
+export function ensureOnboardingAmbush() {
+  if (_onboarding().step !== ONBOARDING_STEPS.ROCKET_AMBUSH) return false;
+  return _spawnAmbush();
+}
+
+/**
+ * Le tunnel n'a plus d'étape « constitue ton équipe » : le joueur arrive à
+ * l'embuscade avec un PC plein et une équipe Boss vide, et openCombatPopup
+ * refuse alors d'ouvrir le combat — le raid devient incliquable et le terrain
+ * un cul-de-sac. On envoie donc au front ce qu'il a de meilleur, ce qui est
+ * aussi ce que la suite du tunnel (agent, zones) suppose déjà fait.
+ */
+function _ensureBossTeamForAmbush() {
   const state = _state();
-  const onboarding = normalizeOnboardingState(state?.onboarding);
-  if (!state || onboarding.step !== ONBOARDING_STEPS.FIRST_AGENT
-    || !zoneId || !onboarding.firstAgentId || agentId !== onboarding.firstAgentId) return false;
+  if (!state?.gang || state.gang.bossTeam?.some(Boolean)) return false;
+  const roster = [...(state.pokemons || [])]
+    .sort((a, b) => (b.level ?? 0) - (a.level ?? 0) || (b.potential ?? 0) - (a.potential ?? 0))
+    .slice(0, BOSS_TEAM_SLOTS)
+    .map(pokemon => pokemon.id);
+  if (!roster.length) return false;
+  state.gang.bossTeam = roster;
+  if (state.gang.bossTeamSlots) {
+    state.gang.bossTeamSlots[state.gang.activeBossTeamSlot || 0] = [...roster];
+  }
+  globalThis.invalidateBossTeamPower?.();
+  return true;
+}
+
+function _startAmbush() {
+  _ensureBossTeamForAmbush();
+  const committed = _commitStep(
+    ONBOARDING_STEPS.FREE_CAPTURE,
+    ONBOARDING_STEPS.ROCKET_AMBUSH,
+    {},
+    () => _track('ambush_started', { zone: ONBOARDING_ZONE_ID, captures: _onboarding().fieldCaptures }),
+  );
+  if (!committed) return false;
+  _openField();
+  _spawnAmbush();
+  _ctx.notifyAmbush?.(_state()?.lang);
+  return true;
+}
+
+/**
+ * L'embuscade se solde par Giovanni dans les deux cas : la défaite est
+ * l'issue attendue (2-3 sbires contre une équipe de première session), mais
+ * un joueur qui gagne ne doit surtout pas rester bloqué sur un terrain vide.
+ */
+function _resolveAmbush(won) {
+  const committed = _commitStep(
+    ONBOARDING_STEPS.ROCKET_AMBUSH,
+    ONBOARDING_STEPS.IDENTITY,
+    { ambushAt: Date.now(), ambushWon: !!won },
+    () => _track('ambush_resolved', { won: !!won, zone: ONBOARDING_ZONE_ID }),
+  );
+  if (!committed) return false;
+  const spawns = _ctx.getZoneSpawns?.(ONBOARDING_ZONE_ID);
+  if (Array.isArray(spawns)) {
+    for (const spawn of [...spawns]) _ctx.removeSpawn?.(ONBOARDING_ZONE_ID, spawn.id);
+  }
+  _ctx.notifyAmbushResolved?.(_state()?.lang, !!won);
+  setTimeout(() => { void _openIdentityStep(); }, 900);
+  return true;
+}
+
+// ── Giovanni ──────────────────────────────────────────────────────
+function _openIdentity() {
+  const onboarding = _onboarding();
+  return new Promise((resolve, reject) => {
+    _track('identity_started', {});
+    const opened = _ctx.openGiovanniIntro?.({
+      slotIdx: _ctx.getActiveSaveSlot?.() ?? 0,
+      starterEn: onboarding.starterSpecies || '',
+      identityOnly: true,
+      lockOwner: LOCK_OWNER,
+      onComplete: payload => resolve(payload),
+    });
+    if (opened === false) reject(new Error('[onboarding] Giovanni identity screen could not open'));
+  });
+}
+
+async function _openIdentityStep() {
+  if (_onboarding().step !== ONBOARDING_STEPS.IDENTITY) return false;
+  // Ce beat se déclenche à la résolution de l'embuscade, donc bien après la
+  // fin de _runOnboardingV2 : le verrou narratif a déjà été relâché, et
+  // openGiovanniIntro refuse de s'ouvrir si personne ne le tient sous ce nom.
+  // On le reprend ici, et on le rend quoi qu'il arrive.
+  const alreadyOwned = getStoryLockOwner() === LOCK_OWNER;
+  if (!alreadyOwned && !acquireStoryLock(LOCK_OWNER)) {
+    // Une autre surface narrative occupe l'écran : on repassera au prochain
+    // tick de zone plutôt que d'échouer définitivement.
+    setTimeout(() => { void _openIdentityStep(); }, 1_000);
+    return false;
+  }
+  try {
+    await _openIdentity();
+    if (!_commitStep(ONBOARDING_STEPS.IDENTITY, ONBOARDING_STEPS.GUIDE_MET)) return false;
+    _track('identity_completed', {});
+    _openField();
+    _ctx.placeGuide?.();
+    return true;
+  } catch (error) {
+    console.error('[onboarding] identity step failed:', error);
+    EventBus.emit(EVENTS.ONBOARDING_FAILED, {
+      version: ONBOARDING_VERSION, step: ONBOARDING_STEPS.IDENTITY, reason: 'identity_error',
+    });
+    return false;
+  } finally {
+    if (!alreadyOwned) releaseStoryLock(LOCK_OWNER);
+  }
+}
+
+// ── Guide transfuge ───────────────────────────────────────────────
+/** Appelé par le module guide une fois le sprite choisi et l'agent recruté. */
+export function onGuideRecruited(agentId, spriteKey) {
+  const onboarding = _onboarding();
+  if (onboarding.step !== ONBOARDING_STEPS.GUIDE_MET || onboarding.guideAgentId) return false;
+  const committed = _commitStep(
+    ONBOARDING_STEPS.GUIDE_MET,
+    ONBOARDING_STEPS.GUIDE_TEAM,
+    { guideAgentId: agentId, guideSprite: spriteKey || null },
+    () => _track('guide_recruited', { sprite: spriteKey || null }),
+  );
+  if (committed) _ctx.refreshGuide?.();
+  return committed;
+}
+
+function _completeOnboarding(source = 'guide') {
+  const state = _state();
+  const onboarding = _onboarding();
+  if (!state || onboarding.step !== ONBOARDING_STEPS.GUIDE_COMBAT) return false;
 
   const previousMoney = state.gang?.money ?? 0;
   const previousTotalMoneyEarned = state.stats?.totalMoneyEarned ?? 0;
@@ -125,38 +312,37 @@ function _completeOnboarding(agentId, zoneId, source = 'assignment') {
     if (state.stats) state.stats.totalMoneyEarned = previousTotalMoneyEarned + rewardMoney;
   }
 
+  const rollback = () => {
+    if (rewardMoney <= 0) return;
+    state.gang.money = previousMoney;
+    if (state.stats) state.stats.totalMoneyEarned = previousTotalMoneyEarned;
+  };
+
   let committed = false;
   try {
     committed = _commitStep(
-      ONBOARDING_STEPS.FIRST_AGENT,
+      ONBOARDING_STEPS.GUIDE_COMBAT,
       ONBOARDING_STEPS.COMPLETED,
       {
         completionRewardGrantedAt: grantedAt,
         completionRewardMoney: rewardMoney || onboarding.completionRewardMoney || 0,
       },
-      () => _track('first_agent_assigned', { zone: zoneId, source }),
+      () => _track('guide_combat_enabled', { source }),
     );
   } catch (error) {
-    if (rewardMoney > 0) {
-      state.gang.money = previousMoney;
-      if (state.stats) state.stats.totalMoneyEarned = previousTotalMoneyEarned;
-    }
+    rollback();
     throw error;
   }
-  if (!committed) {
-    if (rewardMoney > 0) {
-      state.gang.money = previousMoney;
-      if (state.stats) state.stats.totalMoneyEarned = previousTotalMoneyEarned;
-    }
-    return false;
-  }
+  if (!committed) { rollback(); return false; }
 
   if (rewardMoney > 0) {
     EventBus.emit(EVENTS.MONEY_CHANGED, { delta: rewardMoney, newTotal: state.gang.money });
   }
+  _ctx.clearGuide?.();
+  const agent = state.agents?.find(item => item.id === onboarding.guideAgentId);
   _ctx.showOnboardingIdlePayoff?.({
-    agent: state.agents?.find(item => item.id === agentId),
-    zone: _ctx.getZoneById?.(zoneId),
+    agent,
+    zone: _ctx.getZoneById?.(agent?.assignedZone),
     lang: state.lang,
     nextUnlock: 'market',
     rewardMoney,
@@ -165,81 +351,83 @@ function _completeOnboarding(agentId, zoneId, source = 'assignment') {
   return true;
 }
 
+// ── EventBus ──────────────────────────────────────────────────────
 function _bindOnboardingEvents() {
   if (_eventsBound) return;
   _eventsBound = true;
 
-  EventBus.on(EVENTS.TEAM_MEMBER_SET, ({ team, slot, source } = {}) => {
-    if (team !== 'boss') return;
-    _commitStep(
-      ONBOARDING_STEPS.TEAM_SETUP,
-      ONBOARDING_STEPS.FIRST_BATTLE,
-      {},
-      () => _track('first_team_member_set', {
-        slot: slot ?? null,
-        source: source ?? null,
-      }),
-    );
-  });
-
-  EventBus.on(EVENTS.COMBAT_STARTED, event => {
-    const onboarding = normalizeOnboardingState(_state()?.onboarding);
-    if (onboarding.step !== ONBOARDING_STEPS.FIRST_BATTLE
-      || onboarding.firstBattleStartedAt
-      || !isManualPlayerCombatWin(event)) return;
-    _updateOnboardingDetails({ firstBattleStartedAt: Date.now() }, { render: false });
-    _track('first_battle_started', {
-      zone: event?.zoneId ?? null,
-      trainer: event?.trainerKey ?? null,
-    });
-  });
-
-  EventBus.on(EVENTS.COMBAT_WON, event => {
-    if (!isManualPlayerCombatWin(event)) return;
-    if (_commitStep(ONBOARDING_STEPS.FIRST_BATTLE, ONBOARDING_STEPS.FIRST_AGENT, {
-      firstBattleAt: Date.now(),
-    }, () => _track('first_battle_won', {
-      zone: event?.zoneId ?? null,
-      trainer: event?.trainerKey ?? null,
-    }))) {
-      _ctx.switchTab?.('tabAgents');
-      setTimeout(_openFirstAgentRecruitment, 0);
-    }
-  });
-
-  EventBus.on(EVENTS.AGENT_RECRUITED, ({ agentId, source } = {}) => {
+  // Capture libre : chaque prise sur le terrain compte, la première fixe
+  // l'espèce montrée par Giovanni sur son écran de résumé.
+  EventBus.on(EVENTS.POKEMON_CAPTURED, ({ pokemon, zoneId } = {}) => {
     const state = _state();
-    const onboarding = normalizeOnboardingState(state?.onboarding);
-    if (source !== 'onboarding' || onboarding.step !== ONBOARDING_STEPS.FIRST_AGENT) return;
-    if (onboarding.firstAgentId) return;
-    if (_updateOnboardingDetails({ firstAgentId: agentId })) {
-      _track('first_agent_recruited', { source });
+    if (!pokemon || !isOnboardingFreeCapture(state, zoneId)) return;
+    const onboarding = normalizeOnboardingState(state.onboarding);
+    const fieldCaptures = onboarding.fieldCaptures + 1;
+    const details = { fieldCaptures };
+    if (!onboarding.starterSpecies) details.starterSpecies = pokemon.species_en;
+    _updateOnboardingDetails(details, { render: false });
+    if (fieldCaptures === 1) {
+      _track('first_wild_capture', { species: pokemon.species_en, zone: ONBOARDING_ZONE_ID });
+    }
+    if (fieldCaptures >= ONBOARDING_CAPTURE_GOAL) _startAmbush();
+    else _ctx.renderAll?.();
+  });
+
+  // Issue de l'embuscade — quelle qu'elle soit.
+  EventBus.on(EVENTS.COMBAT_WON, event => {
+    if (event?.zoneId === ONBOARDING_ZONE_ID
+      && _onboarding().step === ONBOARDING_STEPS.ROCKET_AMBUSH) {
+      _resolveAmbush(true);
+      return;
+    }
+    // Hors embuscade, on garde la métrique historique du premier combat
+    // gagné à la main — elle ne conditionne plus aucune étape.
+    const onboarding = _onboarding();
+    if (isManualPlayerCombatWin(event) && isOnboardingActive(_state()) && !onboarding.firstBattleAt) {
+      _updateOnboardingDetails({ firstBattleAt: Date.now() }, { render: false });
+      _track('first_battle_won', { zone: event?.zoneId ?? null, trainer: event?.trainerKey ?? null });
     }
   });
 
+  EventBus.on(EVENTS.COMBAT_LOST, event => {
+    if (event?.zoneId === ONBOARDING_ZONE_ID
+      && _onboarding().step === ONBOARDING_STEPS.ROCKET_AMBUSH) _resolveAmbush(false);
+  });
+
+  // « Confie-moi un Pokémon » — il faut que ce soit SON équipe.
+  EventBus.on(EVENTS.TEAM_MEMBER_SET, ({ team, agentId, source } = {}) => {
+    const onboarding = _onboarding();
+    if (team !== 'agent' || !onboarding.guideAgentId || agentId !== onboarding.guideAgentId) return;
+    if (_commitStep(
+      ONBOARDING_STEPS.GUIDE_TEAM,
+      ONBOARDING_STEPS.GUIDE_ZONE,
+      {},
+      () => _track('guide_team_set', { source: source ?? null }),
+    )) _ctx.refreshGuide?.();
+  });
+
+  // « Assigne-moi à une zone ».
   EventBus.on(EVENTS.AGENT_ASSIGNED, ({ agentId, zoneId } = {}) => {
-    _completeOnboarding(agentId, zoneId);
+    const onboarding = _onboarding();
+    if (!zoneId || !onboarding.guideAgentId || agentId !== onboarding.guideAgentId) return;
+    if (_commitStep(
+      ONBOARDING_STEPS.GUIDE_ZONE,
+      ONBOARDING_STEPS.GUIDE_COMBAT,
+      {},
+      () => _track('guide_zone_assigned', { zone: zoneId }),
+    )) _ctx.refreshGuide?.();
   });
 
-  EventBus.on(EVENTS.UI_TAB_CHANGED, ({ tabId } = {}) => {
-    if (tabId === 'tabAgents') setTimeout(_openFirstAgentRecruitment, 0);
-  });
-}
-
-function _openIdentity({ slotIdx, starterSpecies }) {
-  return new Promise((resolve, reject) => {
-    _track('identity_started', { slot: slotIdx });
-    const opened = _ctx.openGiovanniIntro?.({
-      slotIdx,
-      starterEn: starterSpecies,
-      identityOnly: true,
-      lockOwner: LOCK_OWNER,
-      onComplete: payload => resolve(payload),
-    });
-    if (opened === false) reject(new Error('[onboarding] Giovanni identity screen could not open'));
+  // « Active mon option de combat ».
+  EventBus.on(EVENTS.AGENT_FLAG_CHANGED, ({ agentId, flag, value } = {}) => {
+    const onboarding = _onboarding();
+    if (flag !== 'autoCombat' || value !== true) return;
+    if (!onboarding.guideAgentId || agentId !== onboarding.guideAgentId) return;
+    _completeOnboarding('flag');
   });
 }
 
+// ── Cycle de vie ──────────────────────────────────────────────────
 async function _runOnboardingV2({ slotIdx = 0, resume = false, onComplete } = {}) {
   let state = _state();
   if (_running || (resume && !shouldRunOnboardingV2(state))) {
@@ -268,55 +456,30 @@ async function _runOnboardingV2({ slotIdx = 0, resume = false, onComplete } = {}
         slotIdx,
         startedAt: state.onboarding.startedAt,
       });
-      _track('first_encounter_started', { zone: 'route1', slot: slotIdx });
+      _track('free_capture_started', { zone: ONBOARDING_ZONE_ID, slot: slotIdx });
     }
 
-    if (state.onboarding.step === ONBOARDING_STEPS.FIRST_ENCOUNTER) {
-      const result = await openFirstEncounter({
-        switchTab: _ctx.switchTab,
-        openZoneWindow: _ctx.openZoneWindow,
-        getZoneSpawns: _ctx.getZoneSpawns,
-        renderSpawn: _ctx.renderSpawn,
-        removeSpawn: _ctx.removeSpawn,
-        uid: _ctx.uid,
-        hideHub: () => document.getElementById('introOverlay')?.classList.remove('active'),
-        notify: _ctx.notify,
-        onCaptured: pokemon => {
-          const species = pokemon?.species_en;
-          if (!species) return false;
-          const committed = _commitStep(ONBOARDING_STEPS.FIRST_ENCOUNTER, ONBOARDING_STEPS.IDENTITY, {
-            starterSpecies: species,
-          });
-          if (committed) _track('first_wild_capture', { species, zone: 'route1', slot: slotIdx });
-          return committed;
-        },
-      });
-      if (state.onboarding.starterSpecies !== result.species) {
-        throw new Error('[onboarding] Captured starter was not persisted');
-      }
+    switch (state.onboarding.step) {
+      case ONBOARDING_STEPS.FREE_CAPTURE:
+        _openField();
+        _ctx.notifyFieldIntro?.(state.lang);
+        break;
+      case ONBOARDING_STEPS.ROCKET_AMBUSH:
+        _openField();
+        _spawnAmbush();
+        break;
+      case ONBOARDING_STEPS.IDENTITY:
+        await _openIdentityStep();
+        break;
+      default:
+        document.getElementById('introOverlay')?.classList.remove('active');
+        _openField();
+        _ctx.placeGuide?.();
+        break;
     }
 
-    if (state.onboarding.step === ONBOARDING_STEPS.IDENTITY) {
-      const starterSpecies = state.onboarding.starterSpecies;
-      if (!starterSpecies) throw new Error('[onboarding] Missing captured starter before identity setup');
-      const identity = await _openIdentity({ slotIdx, starterSpecies });
-      _commitStep(ONBOARDING_STEPS.IDENTITY, ONBOARDING_STEPS.TEAM_SETUP);
-      _track('identity_completed', { slot: slotIdx });
-      document.getElementById('introOverlay')?.classList.remove('active');
-      _ctx.renderAll?.();
-      onComplete?.({ identity, onboarding: state.onboarding });
-    }
-
-    if (isOnboardingActive(state)
-      && state.onboarding.step !== ONBOARDING_STEPS.FIRST_ENCOUNTER
-      && state.onboarding.step !== ONBOARDING_STEPS.IDENTITY) {
-      document.getElementById('introOverlay')?.classList.remove('active');
-      _ctx.renderAll?.();
-      if (state.onboarding.step === ONBOARDING_STEPS.FIRST_AGENT && !state.onboarding.firstAgentId) {
-        setTimeout(_openFirstAgentRecruitment, 0);
-      }
-    }
-
+    _ctx.renderAll?.();
+    onComplete?.({ onboarding: state.onboarding });
     return true;
   } catch (error) {
     console.error('[onboarding] V2 flow failed:', error);
@@ -336,7 +499,7 @@ async function _runOnboardingV2({ slotIdx = 0, resume = false, onComplete } = {}
   }
 }
 
-/** Queue the guided first encounter and overlay narrative with the highest story priority. */
+/** Queue the guided first session with the highest story priority. */
 export function startOnboardingV2(options = {}) {
   const resume = options.resume === true;
   return requestStory(
@@ -352,22 +515,37 @@ export function startOnboardingV2(options = {}) {
   );
 }
 
-/** Reconcile persisted milestones before exposing the current objective. */
+/**
+ * Rattrape les jalons déjà atteints dans la save avant d'exposer l'objectif
+ * courant — sans quoi une reprise peut demander une action déjà faite.
+ */
 export function reconcileOnboardingProgress() {
   const state = _state();
   if (!state) return null;
   state.onboarding = normalizeOnboardingState(state.onboarding);
+  const onboarding = state.onboarding;
 
-  if (state.onboarding.step === ONBOARDING_STEPS.TEAM_SETUP && state.gang?.bossTeam?.some(Boolean)) {
-    _commitStep(ONBOARDING_STEPS.TEAM_SETUP, ONBOARDING_STEPS.FIRST_BATTLE);
+  if (onboarding.step === ONBOARDING_STEPS.FREE_CAPTURE
+    && onboarding.fieldCaptures >= ONBOARDING_CAPTURE_GOAL) {
+    _startAmbush();
   }
-  if (state.onboarding.step === ONBOARDING_STEPS.FIRST_BATTLE && state.onboarding.firstBattleAt) {
-    _commitStep(ONBOARDING_STEPS.FIRST_BATTLE, ONBOARDING_STEPS.FIRST_AGENT);
+  if (onboarding.step === ONBOARDING_STEPS.GUIDE_MET && onboarding.guideAgentId) {
+    _commitStep(ONBOARDING_STEPS.GUIDE_MET, ONBOARDING_STEPS.GUIDE_TEAM);
   }
-  if (state.onboarding.step === ONBOARDING_STEPS.FIRST_AGENT && state.onboarding.firstAgentId) {
-    const agent = state.agents?.find(item => item.id === state.onboarding.firstAgentId);
-    if (!agent) _updateOnboardingDetails({ firstAgentId: null });
-    else if (agent.assignedZone) _completeOnboarding(agent.id, agent.assignedZone, 'reconcile');
+  const guide = state.agents?.find(item => item.id === state.onboarding.guideAgentId);
+  if (state.onboarding.step === ONBOARDING_STEPS.GUIDE_TEAM && guide?.team?.length) {
+    _commitStep(ONBOARDING_STEPS.GUIDE_TEAM, ONBOARDING_STEPS.GUIDE_ZONE);
+  }
+  if (state.onboarding.step === ONBOARDING_STEPS.GUIDE_ZONE && guide?.assignedZone) {
+    _commitStep(ONBOARDING_STEPS.GUIDE_ZONE, ONBOARDING_STEPS.GUIDE_COMBAT);
+  }
+  if (state.onboarding.step === ONBOARDING_STEPS.GUIDE_COMBAT && guide?.autoCombat === true) {
+    _completeOnboarding('reconcile');
+  }
+  // Un guide effacé de la save (import, édition manuelle) ne doit pas bloquer
+  // le tunnel sur une demande adressée à quelqu'un qui n'existe plus.
+  if (state.onboarding.guideAgentId && !guide) {
+    _updateOnboardingDetails({ guideAgentId: null }, { render: false });
   }
   return state.onboarding;
 }
@@ -386,17 +564,5 @@ export function resumeOnboardingV2({ slotIdx = 0 } = {}) {
       secondsSinceNewGame: getOnboardingElapsedSeconds(onboarding),
     });
   }
-
-  if (onboarding.step === ONBOARDING_STEPS.FIRST_ENCOUNTER || onboarding.step === ONBOARDING_STEPS.IDENTITY) {
-    return startOnboardingV2({ slotIdx, resume: true });
-  }
-  // Later steps have no overlay of their own to show: hand the player straight
-  // back to the game. Closing the hub here matters when this is reached from
-  // the hub's play button, not just from boot.
-  document.getElementById('introOverlay')?.classList.remove('active');
-  if (onboarding.step === ONBOARDING_STEPS.FIRST_AGENT && !onboarding.firstAgentId) {
-    setTimeout(_openFirstAgentRecruitment, 0);
-  }
-  _ctx.renderAll?.();
-  return true;
+  return startOnboardingV2({ slotIdx, resume: true });
 }

@@ -92,7 +92,12 @@ function openTeamPicker(type, targetId, onDone) {
     } else {
       const agent = state.agents.find(a => a.id === targetId);
       const agentSlots = globalThis.getAgentTeamSlots?.(agent) ?? 3;
-      if (agent && agent.team.length < agentSlots) agent.team.push(pkId);
+      if (agent && agent.team.length < agentSlots) {
+        agent.team.push(pkId);
+        teamEvent = {
+          team: 'agent', agentId: agent.id, pokemonId: pkId, slot: agent.team.length - 1, source: 'team-picker',
+        };
+      }
     }
     _save();
     if (teamEvent) EventBus.emit(EVENTS.TEAM_MEMBER_SET, teamEvent);

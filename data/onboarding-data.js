@@ -1,5 +1,24 @@
 'use strict';
 
+// ════════════════════════════════════════════════════════════════
+//  Onboarding V2 — contenu du tunnel de première session
+//
+//  Le joueur commence sur un terrain qu'il ne connaît pas, capture
+//  librement, se fait tomber dessus par des sbires Rocket, puis
+//  apprend que le terrain appartient à Giovanni. Un transfuge Rocket
+//  le prend ensuite en main et sert de guide diégétique — pas
+//  d'objectifs abstraits, c'est lui qui demande chaque action.
+// ════════════════════════════════════════════════════════════════
+
+/** Zone de départ — définie dans data/zones-data.js, masquée une fois l'onboarding terminé. */
+export const ONBOARDING_ZONE_ID = 'unknown_field';
+
+/**
+ * Trio historique du cadeau de démarrage. L'onboarding V2 ne s'en sert plus
+ * (le joueur capture librement dans la zone inconnue), mais openStarterGiftPopup
+ * en dépend encore : c'est le rattrapage des saves initialisées avant que
+ * l'intro n'existe, qui n'ont jamais reçu de Pokémon de départ.
+ */
 export const ONBOARDING_STARTERS = [
   {
     en: 'meowth', fr: 'Miaous', nameEn: 'Meowth', dex: 52,
@@ -23,3 +42,73 @@ export const ONBOARDING_STARTERS = [
     icon: '👻',
   },
 ];
+
+/**
+ * Captures avant que l'embuscade Rocket ne se déclenche. Volontairement
+ * généreux : le Boss peut aligner 6 Pokémon et le transfuge en réclame un,
+ * donc le joueur doit sortir de cette zone avec de quoi jouer. La zone a un
+ * spawnRate très élevé (cf. zones-data.js) pour que ça reste rapide.
+ */
+export const ONBOARDING_CAPTURE_GOAL = 10;
+
+/** Sbires de l'embuscade — plusieurs, donc difficile à gagner par design. */
+export const ONBOARDING_AMBUSH_GRUNTS = 3;
+
+/**
+ * Look proposé pour le transfuge. Volontairement « bas de l'échelle » :
+ * uniquement des sbires de base, jamais les admins (archer/ariana/proton),
+ * qui n'auraient aucune raison de déserter pour rejoindre un inconnu.
+ */
+export const ONBOARDING_GUIDE_SPRITES = [
+  { key: 'rocketgrunt',  fr: 'Sbire',      en: 'Grunt'      },
+  { key: 'rocketgruntf', fr: 'Sbire',      en: 'Grunt'      },
+  { key: 'scientist',    fr: 'Scientifique', en: 'Scientist' },
+];
+
+/**
+ * Répliques du guide. Chaque entrée correspond à une étape de l'onboarding :
+ * le sprite du transfuge reste planté sur la zone et porte la bulle courante
+ * tant que l'action demandée n'est pas faite.
+ */
+export const ONBOARDING_GUIDE_LINES = {
+  met: {
+    fr: "Attends ! Me dénonce pas… J'en ai fini avec la Team Rocket. Ils m'ont laissé sur ce terrain comme un chien de garde.",
+    en: "Wait! Don't turn me in… I'm done with Team Rocket. They left me on this field like a guard dog.",
+  },
+  metFollowUp: {
+    fr: "Prends-moi avec toi. Je connais leurs méthodes — je peux t'être utile.",
+    en: "Take me with you. I know how they operate — I can be useful.",
+  },
+  team: {
+    fr: "Confie-moi un Pokémon solide. Les mains vides, je te sers à rien.",
+    en: "Hand me a solid Pokémon. Empty-handed I'm no use to you.",
+  },
+  zone: {
+    fr: "Maintenant assigne-moi à une zone. Je te ramènerai des captures pendant que tu fais autre chose.",
+    en: "Now assign me to a zone. I'll bring back catches while you do other things.",
+  },
+  combat: {
+    fr: "Je me sens assez fort pour affronter du monde. Active mon option de combat, je m'occupe des dresseurs.",
+    en: "I feel strong enough to take people on. Switch on my battle option and I'll handle the trainers.",
+  },
+  done: {
+    fr: "C'est parti, boss. Je bosse pour toi maintenant.",
+    en: "Here we go, boss. I work for you now.",
+  },
+};
+
+/** Répliques des sbires pendant l'embuscade. */
+export const ONBOARDING_AMBUSH_LINES = {
+  intro: {
+    fr: "Hé ! Personne ne chasse sur ce terrain. Il appartient à quelqu'un.",
+    en: "Hey! Nobody hunts on this field. It belongs to someone.",
+  },
+  lost: {
+    fr: "Tu vois ? On est trop nombreux pour toi. Allez, on l'emmène au patron.",
+    en: "See? Too many of us for you. Come on, we're taking them to the boss.",
+  },
+  won: {
+    fr: "Impossible… tu nous as tous mis au tapis ? Le patron va vouloir te voir.",
+    en: "Impossible… you took all of us down? The boss is going to want to see you.",
+  },
+};

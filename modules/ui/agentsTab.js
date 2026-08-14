@@ -340,6 +340,9 @@ const bossRep   = state.gang.reputation || 0;
       const flag = btn.dataset.flag;
       agent[flag] = agent[flag] === false ? true : false;
       saveState();
+      EventBus.emit(EVENTS.AGENT_FLAG_CHANGED, {
+        agentId: agent.id, flag, value: agent[flag], source: 'agent-card',
+      });
       renderAgentsTab();
     });
   });
@@ -360,6 +363,9 @@ const bossRep   = state.gang.reputation || 0;
       const val  = btn.dataset.val === 'true';
       state.agents.forEach(a => { a[flag] = val; });
       saveState();
+      state.agents.forEach(a => EventBus.emit(EVENTS.AGENT_FLAG_CHANGED, {
+        agentId: a.id, flag, value: val, source: 'set-all',
+      }));
       renderAgentsTab();
       const cfg = BEHAVIOR_FLAGS.find(f => f.key === flag);
       notify(`${_t('Tous les agents →', 'All agents →')} ${cfg ? _bfLabel(cfg) : flag} ${val ? 'ON' : 'OFF'}`, val ? 'success' : '');

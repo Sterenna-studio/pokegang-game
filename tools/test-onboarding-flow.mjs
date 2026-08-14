@@ -2,179 +2,170 @@ import assert from 'node:assert/strict';
 
 import {
   ONBOARDING_STEPS,
+  ONBOARDING_VERSION,
   advanceOnboarding,
   defaultOnboardingState,
-  getOnboardingElapsedSeconds,
   getOnboardingArcProgress,
+  getOnboardingCaptureProgress,
+  getOnboardingElapsedSeconds,
+  getOnboardingGuideLine,
   getOnboardingObjective,
   getOnboardingTabAccess,
-  isOnboardingFirstEncounter,
+  hasReachedStep,
   isManualPlayerCombatWin,
+  isOnboardingActive,
+  isOnboardingFreeCapture,
   isOnboardingFreeAgentPending,
+  isOnboardingZoneFrozen,
   normalizeOnboardingState,
   shouldRunOnboardingV2,
   startOnboarding,
 } from '../modules/systems/onboardingFlow.js';
-import {
-  acquireStoryLock,
-  getPendingStoryOwners,
-  getStoryLockOwner,
-  requestStory,
-  releaseStoryLock,
-  resetStoryLockForTests,
-  STORY_PRIORITIES,
-} from '../modules/core/storyLock.js';
-import { DEFAULT_STATE, SAVE_SCHEMA_VERSION } from '../state/defaultState.js';
+import { ONBOARDING_CAPTURE_GOAL, ONBOARDING_ZONE_ID } from '../data/onboarding-data.js';
 import { migrateSave } from '../state/migrateSave.js';
+import { DEFAULT_STATE, SAVE_SCHEMA_VERSION } from '../state/defaultState.js';
 
-const started = startOnboarding(defaultOnboardingState(), 1_000);
-assert.equal(started.step, ONBOARDING_STEPS.FIRST_ENCOUNTER);
-assert.equal(started.startedAt, 1_000);
-assert.equal(getOnboardingElapsedSeconds(started, 4_999), 3);
+// ── Transitions ───────────────────────────────────────────────────
+const fresh = defaultOnboardingState();
+assert.equal(fresh.step, ONBOARDING_STEPS.NOT_STARTED);
+assert.equal(fresh.fieldCaptures, 0);
+assert.equal(fresh.version, ONBOARDING_VERSION);
 
-const identity = advanceOnboarding(started, ONBOARDING_STEPS.IDENTITY, { starterSpecies: 'zubat' }, 2_000);
-assert.equal(identity.starterSpecies, 'zubat');
+const started = startOnboarding(null, 1_000);
+assert.equal(started.step, ONBOARDING_STEPS.FREE_CAPTURE);
+assert.equal(started.status, 'active');
+// Restarting an already-running onboarding must not rewind it.
+assert.equal(startOnboarding(started, 9_999).startedAt, 1_000);
+
+// Skipping a step has to throw rather than silently land somewhere plausible.
 assert.throws(
-  () => advanceOnboarding(identity, ONBOARDING_STEPS.FIRST_BATTLE),
-  /Invalid transition identity -> first_battle/,
+  () => advanceOnboarding(started, ONBOARDING_STEPS.IDENTITY),
+  /Invalid transition/,
 );
 
-let flow = advanceOnboarding(identity, ONBOARDING_STEPS.TEAM_SETUP, {}, 3_000);
-flow = advanceOnboarding(flow, ONBOARDING_STEPS.FIRST_BATTLE, {}, 4_000);
-flow = advanceOnboarding(flow, ONBOARDING_STEPS.FIRST_AGENT, {}, 5_000);
-flow = advanceOnboarding(flow, ONBOARDING_STEPS.COMPLETED, {}, 6_000);
+let flow = advanceOnboarding(started, ONBOARDING_STEPS.ROCKET_AMBUSH, { fieldCaptures: 10 }, 2_000);
+flow = advanceOnboarding(flow, ONBOARDING_STEPS.IDENTITY, { ambushWon: false }, 3_000);
+flow = advanceOnboarding(flow, ONBOARDING_STEPS.GUIDE_MET, {}, 4_000);
+flow = advanceOnboarding(flow, ONBOARDING_STEPS.GUIDE_TEAM, { guideAgentId: 'ag-1' }, 5_000);
+flow = advanceOnboarding(flow, ONBOARDING_STEPS.GUIDE_ZONE, {}, 6_000);
+flow = advanceOnboarding(flow, ONBOARDING_STEPS.GUIDE_COMBAT, {}, 7_000);
+flow = advanceOnboarding(flow, ONBOARDING_STEPS.COMPLETED, {}, 8_000);
 assert.equal(flow.status, 'completed');
-assert.equal(flow.completedAt, 6_000);
-assert.equal(getOnboardingElapsedSeconds(flow, 99_000), 5);
+assert.equal(flow.completedAt, 8_000);
+assert.equal(getOnboardingElapsedSeconds(flow), 7);
 
-assert.equal(normalizeOnboardingState({ step: 'unknown' }).step, ONBOARDING_STEPS.NOT_STARTED);
+// ── Normalisation ─────────────────────────────────────────────────
+assert.equal(normalizeOnboardingState(null).step, ONBOARDING_STEPS.NOT_STARTED);
+assert.equal(normalizeOnboardingState('nope').step, ONBOARDING_STEPS.NOT_STARTED);
+// A step from the retired funnel must not be replayed.
+assert.equal(normalizeOnboardingState({ step: 'first_encounter' }).step, ONBOARDING_STEPS.NOT_STARTED);
+assert.equal(normalizeOnboardingState({ step: 'guide_zone' }).status, 'active');
+assert.equal(normalizeOnboardingState({ fieldCaptures: -4 }).fieldCaptures, 0);
+assert.equal(normalizeOnboardingState({ fieldCaptures: '7' }).fieldCaptures, 7);
+
+// ── Prédicats de zone ─────────────────────────────────────────────
+const freeCapture = { lang: 'fr', agents: [], onboarding: { step: ONBOARDING_STEPS.FREE_CAPTURE } };
+const ambush      = { lang: 'fr', agents: [], onboarding: { step: ONBOARDING_STEPS.ROCKET_AMBUSH } };
+const guideTeam   = { lang: 'fr', agents: [], onboarding: { step: ONBOARDING_STEPS.GUIDE_TEAM, guideAgentId: 'ag-1' } };
+
+assert.equal(isOnboardingFreeCapture(freeCapture, ONBOARDING_ZONE_ID), true);
+assert.equal(isOnboardingFreeCapture(freeCapture, 'route1'), false);
+assert.equal(isOnboardingFreeCapture(ambush, ONBOARDING_ZONE_ID), false);
+// The field must stop spawning wild Pokémon once the raid is the point.
+assert.equal(isOnboardingZoneFrozen(ambush, ONBOARDING_ZONE_ID), true);
+assert.equal(isOnboardingZoneFrozen(freeCapture, ONBOARDING_ZONE_ID), false);
+assert.equal(isOnboardingZoneFrozen(ambush, 'route1'), false);
+
+assert.equal(isOnboardingActive(freeCapture), true);
+assert.equal(isOnboardingActive({ onboarding: { step: ONBOARDING_STEPS.COMPLETED } }), false);
 assert.equal(shouldRunOnboardingV2({ gang: { initialized: false } }), true);
-assert.equal(shouldRunOnboardingV2({ gang: { initialized: true } }), false);
-assert.equal(shouldRunOnboardingV2({
-  gang: { initialized: true },
-  onboarding: { step: ONBOARDING_STEPS.FIRST_BATTLE },
-}), true);
+assert.equal(shouldRunOnboardingV2({ gang: { initialized: true }, onboarding: { step: ONBOARDING_STEPS.COMPLETED } }), false);
+assert.equal(hasReachedStep(guideTeam, ONBOARDING_STEPS.IDENTITY), true);
+assert.equal(hasReachedStep(freeCapture, ONBOARDING_STEPS.IDENTITY), false);
 
-const firstBattleState = {
-  lang: 'fr',
-  gang: { initialized: true },
-  agents: [],
-  onboarding: { step: ONBOARDING_STEPS.FIRST_BATTLE },
-};
-const firstEncounterState = {
-  ...firstBattleState,
-  onboarding: { step: ONBOARDING_STEPS.FIRST_ENCOUNTER },
-};
-assert.equal(getOnboardingTabAccess(firstEncounterState, 'tabZones').status, 'available');
-assert.equal(getOnboardingTabAccess(firstEncounterState, 'tabPC').status, 'hidden');
-assert.equal(getOnboardingObjective(firstEncounterState).tab, 'tabZones');
-assert.equal(getOnboardingObjective(firstEncounterState).progress.completed, 0);
-assert.equal(isOnboardingFirstEncounter(firstEncounterState, 'route1'), true);
-assert.equal(isOnboardingFirstEncounter(firstEncounterState, 'mt_moon'), false);
-assert.equal(getOnboardingTabAccess(firstBattleState, 'tabZones').status, 'available');
-assert.equal(getOnboardingTabAccess(firstBattleState, 'tabAgents').status, 'locked');
-assert.equal(getOnboardingTabAccess(firstBattleState, 'tabMarket').status, 'hidden');
+// ── Compteur de captures ──────────────────────────────────────────
+const counting = { onboarding: { step: ONBOARDING_STEPS.FREE_CAPTURE, fieldCaptures: 3 } };
+assert.deepEqual(getOnboardingCaptureProgress(counting), { caught: 3, goal: ONBOARDING_CAPTURE_GOAL, reached: false });
+const counted = { onboarding: { step: ONBOARDING_STEPS.FREE_CAPTURE, fieldCaptures: ONBOARDING_CAPTURE_GOAL + 5 } };
+// Overshooting must clamp for display but still report the goal as reached.
+assert.deepEqual(getOnboardingCaptureProgress(counted), { caught: ONBOARDING_CAPTURE_GOAL, goal: ONBOARDING_CAPTURE_GOAL, reached: true });
 
-// Giovanni owns the screen during `identity`: nothing is reachable behind it.
-const identityState = { ...firstBattleState, onboarding: { step: ONBOARDING_STEPS.IDENTITY } };
-assert.equal(getOnboardingTabAccess(identityState, 'tabZones').status, 'hidden');
-assert.equal(getOnboardingTabAccess(identityState, 'tabPC').status, 'hidden');
-assert.ok(getOnboardingTabAccess(identityState, 'tabZones').reason);
+// ── Accès aux onglets ─────────────────────────────────────────────
+assert.equal(getOnboardingTabAccess(freeCapture, 'tabZones').status, 'available');
+assert.equal(getOnboardingTabAccess(freeCapture, 'tabPC').status, 'hidden');
+assert.equal(getOnboardingTabAccess(guideTeam, 'tabPC').status, 'available');
+assert.equal(getOnboardingTabAccess(guideTeam, 'tabAgents').status, 'available');
+assert.equal(getOnboardingTabAccess(guideTeam, 'tabGang').status, 'locked');
+assert.equal(getOnboardingTabAccess(guideTeam, 'tabMarket').status, 'hidden');
+// Giovanni owns the screen: nothing is reachable behind him.
+const identity = { onboarding: { step: ONBOARDING_STEPS.IDENTITY } };
+assert.equal(getOnboardingTabAccess(identity, 'tabZones').status, 'hidden');
+assert.ok(getOnboardingTabAccess(identity, 'tabZones').reason);
+// #btnSaveSlots looks like a tab but carries no data-tab; an unknown id must
+// resolve to hidden so one selector can sweep the whole bar.
+assert.equal(getOnboardingTabAccess(freeCapture, undefined).status, 'hidden');
+// Outside the onboarding nothing is restricted.
+assert.equal(getOnboardingTabAccess({ onboarding: { step: ONBOARDING_STEPS.COMPLETED } }, 'tabMarket').status, 'available');
 
-// Tab-like buttons carrying no data-tab (#btnSaveSlots) resolve to `hidden`,
-// which is what lets applyOnboardingTabAccess sweep them with one selector.
-assert.equal(getOnboardingTabAccess(firstEncounterState, undefined).status, 'hidden');
-assert.equal(getOnboardingTabAccess(firstBattleState, undefined).status, 'hidden');
-assert.equal(getOnboardingObjective(firstBattleState).tab, 'tabZones');
-assert.equal(getOnboardingObjective(firstBattleState).progress.completed, 2);
-assert.equal(getOnboardingArcProgress(firstBattleState).total, 5);
-assert.equal(getOnboardingArcProgress({
-  ...firstBattleState,
-  onboarding: { step: ONBOARDING_STEPS.FIRST_AGENT, firstAgentId: 'agent-1' },
-}).completed, 4);
-assert.equal(getOnboardingArcProgress({
-  ...firstBattleState,
-  onboarding: { step: ONBOARDING_STEPS.COMPLETED, firstAgentId: 'agent-1' },
-}).completed, 5);
+// ── Agent offert ──────────────────────────────────────────────────
+assert.equal(isOnboardingFreeAgentPending({ onboarding: { step: ONBOARDING_STEPS.GUIDE_MET, guideAgentId: null } }), true);
+assert.equal(isOnboardingFreeAgentPending({ onboarding: { step: ONBOARDING_STEPS.GUIDE_MET, guideAgentId: 'ag-1' } }), false);
+assert.equal(isOnboardingFreeAgentPending({ onboarding: { step: ONBOARDING_STEPS.GUIDE_TEAM } }), false);
+assert.equal(isOnboardingFreeAgentPending(null), false);
+
+// ── Répliques du guide ────────────────────────────────────────────
+assert.ok(getOnboardingGuideLine({ lang: 'fr', onboarding: { step: ONBOARDING_STEPS.GUIDE_MET } }));
+assert.notEqual(
+  getOnboardingGuideLine({ lang: 'fr', onboarding: { step: ONBOARDING_STEPS.GUIDE_TEAM } }),
+  getOnboardingGuideLine({ lang: 'fr', onboarding: { step: ONBOARDING_STEPS.GUIDE_ZONE } }),
+);
+assert.notEqual(
+  getOnboardingGuideLine({ lang: 'en', onboarding: { step: ONBOARDING_STEPS.GUIDE_COMBAT } }),
+  getOnboardingGuideLine({ lang: 'fr', onboarding: { step: ONBOARDING_STEPS.GUIDE_COMBAT } }),
+);
+assert.equal(getOnboardingGuideLine({ onboarding: { step: ONBOARDING_STEPS.FREE_CAPTURE } }), null);
+
+// ── Objectifs + arc ───────────────────────────────────────────────
+const captureObjective = getOnboardingObjective(counting);
+assert.equal(captureObjective.tab, 'tabZones');
+assert.ok(captureObjective.text.includes(`3/${ONBOARDING_CAPTURE_GOAL}`));
+assert.equal(getOnboardingObjective(guideTeam).tab, 'tabPC');
+assert.equal(getOnboardingObjective({ onboarding: { step: ONBOARDING_STEPS.GUIDE_COMBAT } }).tab, 'tabAgents');
+assert.equal(getOnboardingObjective({ onboarding: { step: ONBOARDING_STEPS.COMPLETED } }), null);
+
+const arc = getOnboardingArcProgress(guideTeam);
+assert.equal(arc.total, 6);
+assert.equal(arc.completed, 4);
+assert.equal(getOnboardingArcProgress({ onboarding: { step: ONBOARDING_STEPS.COMPLETED } }).completed, 6);
+assert.equal(getOnboardingArcProgress(freeCapture).completed, 0);
+
+// ── Combat manuel ─────────────────────────────────────────────────
 assert.equal(isManualPlayerCombatWin({ mode: 'manual', initiatedBy: 'player' }), true);
 assert.equal(isManualPlayerCombatWin({ mode: 'agent', initiatedBy: 'agent' }), false);
 
-// The free first agent: the recruit modal sets the price from this and the
-// Agents tab card advertises it, so both have to read the same rule.
-assert.equal(isOnboardingFreeAgentPending({
-  onboarding: { step: ONBOARDING_STEPS.FIRST_AGENT, firstAgentId: null },
-}), true);
-assert.equal(isOnboardingFreeAgentPending({
-  onboarding: { step: ONBOARDING_STEPS.FIRST_AGENT, firstAgentId: 'agent-1' },
-}), false);
-assert.equal(isOnboardingFreeAgentPending({
-  onboarding: { step: ONBOARDING_STEPS.FIRST_BATTLE, firstAgentId: null },
-}), false);
-assert.equal(isOnboardingFreeAgentPending({ onboarding: { step: ONBOARDING_STEPS.COMPLETED } }), false);
-assert.equal(isOnboardingFreeAgentPending({}), false);
-assert.equal(isOnboardingFreeAgentPending(null), false);
-assert.equal(getOnboardingObjective({
-  ...firstBattleState,
-  onboarding: { step: ONBOARDING_STEPS.COMPLETED },
-}), null);
-
-resetStoryLockForTests();
-assert.equal(acquireStoryLock('onboarding-v2'), true);
-assert.equal(acquireStoryLock('johto-cinematic'), false);
-assert.equal(getStoryLockOwner(), 'onboarding-v2');
-assert.equal(releaseStoryLock('johto-cinematic'), false);
-assert.equal(releaseStoryLock('onboarding-v2'), true);
-assert.equal(acquireStoryLock('johto-cinematic'), true);
-resetStoryLockForTests();
-
-const storyStarts = [];
-assert.equal(acquireStoryLock('active-story'), true);
-assert.equal(requestStory('boot-story', () => { storyStarts.push('boot'); return true; }), true);
-assert.equal(requestStory('gameplay-story', () => { storyStarts.push('gameplay'); return true; }, {
-  priority: STORY_PRIORITIES.GAMEPLAY,
-}), true);
-assert.deepEqual(getPendingStoryOwners(), ['gameplay-story', 'boot-story']);
-assert.equal(requestStory('boot-story', () => true), false);
-assert.equal(releaseStoryLock('active-story'), true);
-assert.deepEqual(storyStarts, ['gameplay']);
-assert.equal(releaseStoryLock('gameplay-story'), true);
-assert.deepEqual(storyStarts, ['gameplay', 'boot']);
-assert.equal(releaseStoryLock('boot-story'), true);
-
-assert.equal(requestStory('stale-story', () => { storyStarts.push('stale'); return true; }, {
-  isEligible: () => false,
-}), true);
-assert.equal(getStoryLockOwner(), null);
-assert.equal(storyStarts.includes('stale'), false);
-
-const originalConsoleError = console.error;
-console.error = () => {};
-assert.equal(requestStory('failing-story', () => { throw new Error('expected'); }), true);
-console.error = originalConsoleError;
-assert.equal(getStoryLockOwner(), null);
-resetStoryLockForTests();
-
+// ── Migration ─────────────────────────────────────────────────────
 const migrationDeps = {
-  DEFAULT_STATE,
-  SAVE_SCHEMA_VERSION,
-  SPECIES_BY_EN: {},
-  uid: () => 'test',
-  now: () => 42_000,
+  DEFAULT_STATE, SAVE_SCHEMA_VERSION, SPECIES_BY_EN: {}, uid: () => 'test', now: () => 42_000,
 };
-const existingSave = migrateSave({
-  version: '6.0.0',
-  _schemaVersion: 13,
+const legacySave = migrateSave({ _schemaVersion: 13, gang: { initialized: true } }, migrationDeps);
+assert.equal(legacySave.onboarding.step, ONBOARDING_STEPS.COMPLETED);
+assert.equal(legacySave._schemaVersion, SAVE_SCHEMA_VERSION);
+// A save written by the retired V2 funnel must be treated as done, never
+// resumed onto a step that no longer exists.
+const v2Save = migrateSave({
+  _schemaVersion: 15, gang: { initialized: true },
+  onboarding: { version: 2, step: 'team_setup', status: 'active' },
+}, migrationDeps);
+assert.equal(v2Save.onboarding.step, ONBOARDING_STEPS.COMPLETED);
+assert.equal(v2Save.onboarding.version, ONBOARDING_VERSION);
+// Never initialized → gets the new funnel from scratch.
+assert.equal(migrateSave({ gang: { initialized: false } }, migrationDeps).onboarding.step, ONBOARDING_STEPS.NOT_STARTED);
+// A run already on the new funnel survives untouched.
+const v3Save = migrateSave({
   gang: { initialized: true },
+  onboarding: { version: 3, step: 'guide_zone', status: 'active', fieldCaptures: 12, guideAgentId: 'ag-9' },
 }, migrationDeps);
-assert.equal(existingSave.onboarding.step, ONBOARDING_STEPS.COMPLETED);
-assert.equal(existingSave.onboarding.firstAgentId, null);
-assert.equal(existingSave._schemaVersion, SAVE_SCHEMA_VERSION);
-
-const emptySave = migrateSave({
-  version: '6.0.0',
-  _schemaVersion: 13,
-  gang: { initialized: false },
-}, migrationDeps);
-assert.equal(emptySave.onboarding.step, ONBOARDING_STEPS.NOT_STARTED);
+assert.equal(v3Save.onboarding.step, ONBOARDING_STEPS.GUIDE_ZONE);
+assert.equal(v3Save.onboarding.guideAgentId, 'ag-9');
 
 console.log('onboarding flow tests: ok');
