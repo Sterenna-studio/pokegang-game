@@ -246,6 +246,13 @@ export const DEFAULT_STATE = {
     capturesSinceOnboarding: 0,
     agentOperations: 0,
     sessionsSinceOnboarding: 0,
+    // A-t-on déjà proposé le flashback de la cinématique d'ouverture ? Faux
+    // par défaut pour TOUTE save déjà `completed` — y compris celles qui ont
+    // fini le tunnel avant que la cinématique n'existe. Passe à true soit à
+    // la complétion normale (le joueur vient de la vivre en direct), soit dès
+    // que l'offre de flashback est affichée (jamais reproposée après ça).
+    // Voir modules/ui/onboardingFlashback.js.
+    introFlashbackOffered: false,
   },
   groudonMission: {
     active:          false,

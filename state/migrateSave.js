@@ -99,6 +99,9 @@ export function migrateSave(saved, deps) {
     ...(savedDiscoveryProgress.sinnohTeaseUnlocked === undefined
       ? {}
       : { sinnohTeaseUnlocked: savedDiscoveryProgress.sinnohTeaseUnlocked }),
+    ...(savedDiscoveryProgress.introFlashbackOffered === undefined
+      ? {}
+      : { introFlashbackOffered: !!savedDiscoveryProgress.introFlashbackOffered }),
   };
   // Déblocage progressif des onglets. Une save écrite avant ce système n'a pas
   // de `revealedTabs` : lui appliquer la liste vide lui RETIRERAIT des onglets

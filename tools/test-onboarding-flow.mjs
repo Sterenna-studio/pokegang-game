@@ -18,6 +18,7 @@ import {
   isOnboardingFreeAgentPending,
   isOnboardingZoneFrozen,
   normalizeOnboardingState,
+  shouldOfferOnboardingFlashback,
   shouldRunOnboardingV2,
   startOnboarding,
 } from '../modules/systems/onboardingFlow.js';
@@ -197,6 +198,17 @@ assert.equal(getOnboardingArcProgress(freeCapture).completed, 0);
 assert.equal(isManualPlayerCombatWin({ mode: 'manual', initiatedBy: 'player' }), true);
 assert.equal(isManualPlayerCombatWin({ mode: 'agent', initiatedBy: 'agent' }), false);
 
+// ── Offre du flashback de la cinématique ────────────────────────────
+// Ni un tunnel en cours ni un slot vierge (`not_started`) ne sont éligibles —
+// seul un tunnel FINI l'est, et seulement s'il n'a jamais été proposé.
+assert.equal(shouldOfferOnboardingFlashback(freeCapture), false);
+assert.equal(shouldOfferOnboardingFlashback({ onboarding: { step: ONBOARDING_STEPS.NOT_STARTED } }), false);
+const completedFresh = { onboarding: { step: ONBOARDING_STEPS.COMPLETED }, discoveryProgress: {} };
+assert.equal(shouldOfferOnboardingFlashback(completedFresh), true);
+const completedOffered = { onboarding: { step: ONBOARDING_STEPS.COMPLETED }, discoveryProgress: { introFlashbackOffered: true } };
+assert.equal(shouldOfferOnboardingFlashback(completedOffered), false);
+assert.equal(shouldOfferOnboardingFlashback(null), false);
+
 // ── Migration ─────────────────────────────────────────────────────
 const migrationDeps = {
   DEFAULT_STATE, SAVE_SCHEMA_VERSION, SPECIES_BY_EN: {}, uid: () => 'test', now: () => 42_000,
@@ -204,6 +216,17 @@ const migrationDeps = {
 const legacySave = migrateSave({ _schemaVersion: 13, gang: { initialized: true } }, migrationDeps);
 assert.equal(legacySave.onboarding.step, ONBOARDING_STEPS.COMPLETED);
 assert.equal(legacySave._schemaVersion, SAVE_SCHEMA_VERSION);
+// Une save d'avant la cinématique reste éligible au flashback : le champ
+// n'existait pas, donc le défaut (false = éligible) doit s'appliquer.
+assert.equal(legacySave.discoveryProgress.introFlashbackOffered, false);
+// Une fois l'offre affichée et persistée, une nouvelle migration ne doit
+// jamais la remettre à false — sinon le flashback reviendrait à chaque
+// chargement au lieu d'une seule fois pour toute la vie de la save.
+const flashbackSeen = migrateSave({
+  _schemaVersion: 13, gang: { initialized: true },
+  discoveryProgress: { introFlashbackOffered: true },
+}, migrationDeps);
+assert.equal(flashbackSeen.discoveryProgress.introFlashbackOffered, true);
 // A save written by the retired V2 funnel must be treated as done, never
 // resumed onto a step that no longer exists.
 const v2Save = migrateSave({

@@ -205,6 +205,10 @@ assert.equal(state.gang.money, 5_500);
 assert.equal(state.stats.totalMoneyEarned, 500);
 assert.equal(payoff.agent.name, 'Zane');
 assert.equal(payoff.progress.completed, 6);
+// Il vient de vivre la cinématique en direct : jamais lui reproposer un
+// flashback de sa propre scène (state ne portait même pas discoveryProgress
+// au départ — c'est aussi le chemin défensif qui le crée à la volée).
+assert.equal(state.discoveryProgress.introFlashbackOffered, true);
 assert.equal(guideCleared, 1);
 assert.ok(guideRefreshes > 0);
 // Le terrain de départ disparaît : il sort du selecteur ET sa fenêtre est

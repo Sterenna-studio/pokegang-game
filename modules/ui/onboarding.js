@@ -369,11 +369,19 @@ function _completeOnboarding(source = 'guide') {
     state.gang.money = previousMoney + rewardMoney;
     if (state.stats) state.stats.totalMoneyEarned = previousTotalMoneyEarned + rewardMoney;
   }
+  // Il vient de la vivre en direct : jamais lui reproposer un flashback de sa
+  // propre cinématique. Une save déjà `completed` avant cette écriture (donc
+  // qui n'est jamais passée par ici) reste éligible.
+  const previousFlashbackOffered = !!state.discoveryProgress?.introFlashbackOffered;
+  if (!state.discoveryProgress) state.discoveryProgress = {};
+  state.discoveryProgress.introFlashbackOffered = true;
 
   const rollback = () => {
-    if (rewardMoney <= 0) return;
-    state.gang.money = previousMoney;
-    if (state.stats) state.stats.totalMoneyEarned = previousTotalMoneyEarned;
+    if (rewardMoney > 0) {
+      state.gang.money = previousMoney;
+      if (state.stats) state.stats.totalMoneyEarned = previousTotalMoneyEarned;
+    }
+    state.discoveryProgress.introFlashbackOffered = previousFlashbackOffered;
   };
 
   let committed = false;

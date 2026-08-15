@@ -171,6 +171,10 @@ import {
   playGiovanniArrival,
   playGiovanniDeparture,
 } from './modules/ui/onboardingScene.js';
+import {
+  configureOnboardingFlashback,
+  maybeOfferOnboardingFlashback,
+} from './modules/ui/onboardingFlashback.js';
 import { isOnboardingActive } from './modules/systems/onboardingFlow.js';
 import { ONBOARDING_AMBUSH_LINES } from './data/onboarding-data.js';
 import { checkDarkraiCutscene, triggerDarkraiOnLeagueVictory } from './modules/ui/darkraiEvent.js';
@@ -1728,6 +1732,11 @@ function configureEntryFlows() {
     getState: () => state,
   });
 
+  configureOnboardingFlashback({
+    getState: () => state,
+    saveState,
+  });
+
   configureHub({
     getState: () => state,
     pokeSprite,
@@ -1785,6 +1794,12 @@ function scheduleStoryBootChecks() {
   if (state.gang?.initialized && !state.gang?.darkraiCutsceneSeen) {
     setTimeout(() => checkDarkraiCutscene(), 1600);
   }
+
+  // Rattrapage : offre unique du flashback de la cinématique d'ouverture
+  // pour toute save `completed` qui ne l'a jamais vue. maybeOfferOnboardingFlashback
+  // revérifie l'éligibilité elle-même (via le verrou narratif), donc pas
+  // besoin de la garder à jour ici si un autre boot check la précède.
+  setTimeout(() => { maybeOfferOnboardingFlashback(); }, 1100);
 
   if (state.purchases?.hoennUnlocked) {
     const gm = state.groudonMission;

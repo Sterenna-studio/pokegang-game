@@ -293,6 +293,7 @@ node tools/test-onboarding-controller.mjs
 node tools/test-onboarding-payoff.mjs
 node tools/test-onboarding-scene.mjs
 node tools/test-tab-unlocks.mjs
+node tools/test-onboarding-flashback.mjs
 ```
 
 For ES module syntax checks in this no-`package.json` repo, use the established pattern:

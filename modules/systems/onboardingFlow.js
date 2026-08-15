@@ -148,6 +148,18 @@ export function hasReachedStep(state, step) {
   return STEP_ORDER.indexOf(current) >= STEP_ORDER.indexOf(step);
 }
 
+/**
+ * Le flashback de la cinématique d'ouverture (modules/ui/onboardingFlashback.js)
+ * n'a de sens que pour un tunnel FINI, pas simplement inactif — `NOT_STARTED`
+ * n'est pas actif non plus, et proposerait la scène à un slot vierge qui ne l'a
+ * même pas encore vécue. `!isOnboardingActive` seul aurait laissé passer ce cas
+ * (même piège que le déblocage d'onglets, cf. modules/systems/tabUnlocks.js).
+ */
+export function shouldOfferOnboardingFlashback(state) {
+  if (!hasReachedStep(state, ONBOARDING_STEPS.COMPLETED)) return false;
+  return !state.discoveryProgress?.introFlashbackOffered;
+}
+
 /** The starting field only exists during the onboarding. */
 export function isOnboardingFieldZone(zoneId) {
   return zoneId === ONBOARDING_ZONE_ID;
