@@ -24,6 +24,10 @@ const _t = (fr, en) => (globalThis.state?.lang === 'en' ? en : fr);
 function applyOnboardingTabAccess() {
   const state = getState();
   const active = isOnboardingActive(state);
+  // Mode focus : pendant la première session une seule zone est ouverte et un
+  // seul onglet accessible, donc la barre d'onglets et le reste du chrome ne
+  // sont que du bruit. Le CSS isole la zone, en grand, au centre.
+  document.body?.classList.toggle('onboarding-focus', active);
   // `.tab-btn` and not `.tab-btn[data-tab]`: #btnSaveSlots is styled as a tab
   // but carries no data-tab, so the narrower selector left it on screen during
   // the whole onboarding — both a progressive-disclosure leak and a way into

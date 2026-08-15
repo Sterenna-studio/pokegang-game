@@ -1539,10 +1539,14 @@ function _getActiveQuestEncounterForZone(zoneId) {
 
 function _questEncounterHtml(enc) {
   if (!enc) return '';
-  return `<div class="zone-quest-encounter" data-quest-encounter-id="${enc.id}" title="${enc.name}">
-    ${enc.spriteUrl ? `<img src="${enc.spriteUrl}" alt="${enc.name}" onerror="this.style.visibility='hidden'">` : ''}
+  // `bubble` porte une réplique : elle s'affiche au-dessus du sprite, dans une
+  // vraie bulle. `name` reste le libellé court sous le sprite.
+  const label = _esc(enc.name ?? '');
+  return `<div class="zone-quest-encounter" data-quest-encounter-id="${enc.id}" title="${label}">
+    ${enc.bubble ? `<div class="zone-speech-bubble${enc.hostile ? ' hostile' : ''}">${_esc(enc.bubble)}</div>` : ''}
+    ${enc.spriteUrl ? `<img src="${enc.spriteUrl}" alt="${label}" onerror="this.style.visibility='hidden'">` : ''}
     <span class="quest-encounter-badge">!</span>
-    <span class="quest-encounter-name">${enc.icon ? enc.icon + ' ' : ''}${enc.name}</span>
+    <span class="quest-encounter-name">${enc.icon ? enc.icon + ' ' : ''}${label}</span>
   </div>`;
 }
 

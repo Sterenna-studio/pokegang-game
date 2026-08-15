@@ -51,6 +51,24 @@ EventBus.on(EVENTS.POKEMON_CAPTURED, ({ pokemon, zoneId } = {}) => {
   }
 });
 
+// ── Combat / agents ──────────────────────────────────────────────
+// Le contrôleur d'onboarding ne consomme plus ces deux-là depuis que le
+// tunnel passe par l'embuscade et le transfuge, mais ils restent des signaux
+// utiles hors première session — et check-events exige que tout emit ait
+// un abonné.
+EventBus.on(EVENTS.COMBAT_STARTED, ({ zoneId, trainerKey, mode } = {}) => {
+  trackEvent('battle_started', {
+    zone: zoneId ?? null, trainer: trainerKey ?? null, mode: mode ?? null,
+  });
+});
+
+EventBus.on(EVENTS.AGENT_RECRUITED, ({ source, cost } = {}) => {
+  const state = globalThis.state;
+  trackEvent('agent_recruited', {
+    source: source ?? null, cost: cost ?? 0, total_agents: state?.agents?.length ?? 0,
+  });
+});
+
 // ── Onboarding V2 ────────────────────────────────────────────────
 EventBus.on(EVENTS.ONBOARDING_STARTED, ({ version, slotIdx } = {}) => {
   trackEvent('onboarding_started', { onboarding_version: version, slot: slotIdx });

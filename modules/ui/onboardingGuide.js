@@ -70,7 +70,9 @@ export function getOnboardingGuideEncounterForZone(zoneId) {
   const sprite = onboarding.guideSprite || ONBOARDING_GUIDE_SPRITES[0].key;
   return {
     id: GUIDE_ENCOUNTER_ID,
-    name: line,
+    // Libellé court sous le sprite, réplique complète dans la bulle au-dessus.
+    name: agent?.name || _t('Transfuge', 'Defector'),
+    bubble: line,
     icon: '💬',
     spriteUrl: _spriteUrl(agent ? (agent.sprite || sprite) : sprite),
     onClick: openGuideEncounter,

@@ -190,6 +190,62 @@
       text-shadow: 0 0 4px #000; white-space: nowrap; margin-top: 2px;
     }
 
+    /* ── Bulle de dialogue au-dessus d'un sprite ────────────────
+       Le libellé sous le sprite (quest-encounter-name) est en police pixel
+       7px et nowrap : lisible pour un nom, illisible pour une réplique. Les
+       personnages qui parlent portent donc une vraie bulle, ancrée au-dessus
+       d'eux et qui s'ouvre vers le bas. */
+    .zone-speech-bubble {
+      order: -1;
+      max-width: 210px;
+      margin-bottom: 8px;
+      padding: 7px 10px;
+      background: rgba(12, 12, 16, .96);
+      border: 1px solid var(--gold-dim);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 11px;
+      line-height: 1.45;
+      text-align: center;
+      text-wrap: balance;
+      box-shadow: 0 4px 18px rgba(0, 0, 0, .65);
+      pointer-events: none;
+      position: relative;
+      animation: sceneIn .35s ease;
+    }
+    .zone-speech-bubble::after {
+      content: '';
+      position: absolute;
+      bottom: -6px; left: 50%;
+      transform: translateX(-50%);
+      border-left: 6px solid transparent;
+      border-right: 6px solid transparent;
+      border-top: 6px solid var(--gold-dim);
+    }
+    .zone-speech-bubble.hostile {
+      border-color: var(--red);
+      color: #ffd9d9;
+    }
+    .zone-speech-bubble.hostile::after { border-top-color: var(--red); }
+
+    /* ── Mode focus onboarding ──────────────────────────────────
+       Pendant la première session, une seule zone est ouverte et un seul
+       onglet est accessible : tout le chrome autour n'est que du bruit pour
+       quelqu'un qui découvre le jeu. On isole la zone, en grand, au centre. */
+    body.onboarding-focus .tab-nav { display: none; }
+    body.onboarding-focus #zoneWindows {
+      display: flex;
+      justify-content: center;
+    }
+    body.onboarding-focus .zone-window {
+      width: min(760px, 96vw);
+      max-width: none;
+      margin: 0 auto;
+    }
+    body.onboarding-focus .zone-window .zone-viewport {
+      height: clamp(280px, 46vh, 420px);
+    }
+
     /* ── Footer bar layout ── */
     .zone-footer-right {
       margin-left: auto;
