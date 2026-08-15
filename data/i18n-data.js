@@ -544,6 +544,7 @@ const I18N = {
   static_rare_sighting:       { fr:'Pokémon rare aperçu !', en:'Rare Pokémon spotted!' },
   static_combat_resolved:     { fr:'Combat résolu', en:'Battle resolved' },
   static_zone_unlocked:       { fr:'🗺 ZONE DÉBLOQUÉE !', en:'🗺 ZONE UNLOCKED!' },
+  static_tab_unlocked:        { fr:'✦ NOUVEL ONGLET', en:'✦ NEW TAB' },
   static_go_to_zone:          { fr:'→ Aller à la zone', en:'→ Go to zone' },
   static_later:               { fr:'Plus tard', en:'Later' },
   static_back_home:           { fr:"Retour à l'accueil", en:'Back to home' },

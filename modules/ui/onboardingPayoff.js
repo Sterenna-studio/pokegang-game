@@ -21,8 +21,19 @@ export function formatOperationCountdown(seconds) {
   return `${String(minutes).padStart(2, '0')}:${String(remainder).padStart(2, '0')}`;
 }
 
-export function getOnboardingIdlePayoffCopy(lang = 'fr', nextUnlock = 'market', rewardMoney = 0) {
+/**
+ * `progress` est l'arc renvoyé par getOnboardingArcProgress() — son libellé ET
+ * son décompte, jamais des littéraux. Le carton annonçait « 5/5 » en dur alors
+ * que l'arc compte 6 jalons depuis que l'embuscade a été ajoutée : le HUD
+ * d'objectif affichait « x/6 » pendant tout le tunnel, et l'écran de fin
+ * félicitait le joueur pour un 5/5 qui n'existait plus.
+ */
+export function getOnboardingIdlePayoffCopy(lang = 'fr', nextUnlock = 'market', rewardMoney = 0, progress = null) {
   const en = lang === 'en';
+  const arcLabel = progress?.label || (en ? 'NEW BOSS' : 'NOUVEAU BOSS');
+  const arcTotal = Number.isFinite(progress?.total) ? progress.total : 0;
+  const arcDone  = Number.isFinite(progress?.completed) ? progress.completed : arcTotal;
+  const arcCount = arcTotal > 0 ? ` ${arcDone}/${arcTotal}` : '';
   return {
     kicker: en ? 'FIRST OPERATION' : 'PREMIÈRE OPÉRATION',
     title: en ? 'AGENT ON MISSION' : 'AGENT EN MISSION',
@@ -36,7 +47,7 @@ export function getOnboardingIdlePayoffCopy(lang = 'fr', nextUnlock = 'market', 
       ? 'Come back after the next operation to collect the results and grow your gang.'
       : 'Reviens après la prochaine opération pour récupérer les résultats et développer ton gang.',
     fallbackAgent: en ? 'Your agent' : 'Ton agent',
-    arcComplete: en ? 'NEW BOSS 5/5 COMPLETE' : 'NOUVEAU BOSS 5/5 TERMINÉ',
+    arcComplete: `${arcLabel}${arcCount} ${en ? 'COMPLETE' : 'TERMINÉ'}`,
     reward: rewardMoney > 0
       ? (en ? `Completion reward: +${rewardMoney.toLocaleString('en-US')} ₽` : `Récompense finale : +${rewardMoney.toLocaleString('fr-FR')} ₽`)
       : '',
@@ -44,12 +55,12 @@ export function getOnboardingIdlePayoffCopy(lang = 'fr', nextUnlock = 'market', 
   };
 }
 
-function _openPayoff({ agent, zone, lang = 'fr', nextUnlock = 'market', rewardMoney = 0 } = {}) {
+function _openPayoff({ agent, zone, lang = 'fr', nextUnlock = 'market', rewardMoney = 0, progress = null } = {}) {
   if (typeof document === 'undefined' || !agent || !zone) return false;
 
   document.getElementById('onboardingIdlePayoff')?.remove();
   const en = lang === 'en';
-  const copy = getOnboardingIdlePayoffCopy(lang, nextUnlock, rewardMoney);
+  const copy = getOnboardingIdlePayoffCopy(lang, nextUnlock, rewardMoney, progress);
   const intervalSeconds = getOperationEstimateSeconds(zone);
   const zoneName = (en ? zone.en : zone.fr) || zone.en || zone.fr || zone.id;
 
