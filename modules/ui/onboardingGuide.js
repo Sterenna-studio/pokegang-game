@@ -15,8 +15,9 @@
 
 import { esc } from '../core/escape.js';
 import {
-  ONBOARDING_GUIDE_SPRITES,
+  ONBOARDING_AMBUSH_SPRITE_POOL,
   ONBOARDING_ZONE_ID,
+  pickAmbushSprites,
 } from '../../data/onboarding-data.js';
 import {
   ONBOARDING_STEPS,
@@ -50,6 +51,18 @@ function _spriteUrl(key) {
     || `https://play.pokemonshowdown.com/sprites/trainers/${key}.png`;
 }
 
+/**
+ * Les candidats au ralliement sont les assaillants de l'embuscade, tirés au
+ * sort au moment où ils débarquent et persistés dans la save. Le repli sur un
+ * tirage frais ne sert qu'aux saves écrites avant que ce set n'existe.
+ */
+function _guideCandidates(state) {
+  const keys = normalizeOnboardingState(state?.onboarding).ambushSprites;
+  const byKey = new Map(ONBOARDING_AMBUSH_SPRITE_POOL.map(entry => [entry.key, entry]));
+  const resolved = (keys || []).map(key => byKey.get(key)).filter(Boolean);
+  return resolved.length ? resolved : pickAmbushSprites();
+}
+
 function _guideAgent(state) {
   const id = normalizeOnboardingState(state?.onboarding).guideAgentId;
   return id ? state?.agents?.find(agent => agent.id === id) ?? null : null;
@@ -67,7 +80,7 @@ export function getOnboardingGuideEncounterForZone(zoneId) {
 
   const agent = _guideAgent(state);
   const line = getOnboardingGuideLine(state) || '';
-  const sprite = onboarding.guideSprite || ONBOARDING_GUIDE_SPRITES[0].key;
+  const sprite = onboarding.guideSprite || _guideCandidates(state)[0].key;
   return {
     id: GUIDE_ENCOUNTER_ID,
     // Libellé court sous le sprite, réplique complète dans la bulle au-dessus.
@@ -111,7 +124,7 @@ function _openSpritePicker() {
         ${esc(getOnboardingGuideLine(state) || '')}
       </p>
       <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
-        ${ONBOARDING_GUIDE_SPRITES.map(entry => `
+        ${_guideCandidates(state).map(entry => `
           <button data-guide-sprite="${esc(entry.key)}"
             style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;min-width:96px">
             <img src="${_spriteUrl(entry.key)}" alt="" style="width:56px;height:56px;image-rendering:pixelated" onerror="this.style.visibility='hidden'">
@@ -119,7 +132,7 @@ function _openSpritePicker() {
           </button>`).join('')}
       </div>
       <div style="font-size:10px;color:var(--text-dim);text-align:center">
-        ${_t('Choisis son allure — il rejoint ton gang gratuitement.', 'Pick how he looks — he joins your gang for free.')}
+        ${_t('Lequel de tes assaillants déserte ? Il rejoint ton gang gratuitement.', 'Which of your attackers is defecting? He joins your gang for free.')}
       </div>
     </div>`;
 

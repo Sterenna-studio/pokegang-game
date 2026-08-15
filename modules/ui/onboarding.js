@@ -23,8 +23,10 @@ import {
   STORY_PRIORITIES,
 } from '../core/storyLock.js';
 import {
+  ONBOARDING_AMBUSH_GRUNTS,
   ONBOARDING_CAPTURE_GOAL,
   ONBOARDING_ZONE_ID,
+  pickAmbushSprites,
 } from '../../data/onboarding-data.js';
 import { BOSS_TEAM_SLOTS } from '../../data/game-config-data.js';
 import {
@@ -201,11 +203,21 @@ function _ensureBossTeamForAmbush() {
 
 function _startAmbush() {
   _ensureBossTeamForAmbush();
+  // Le trio d'assaillants est tiré ici et persisté : le transfuge sera l'un
+  // d'eux, donc le choix proposé plus tard doit être exactement ce set — et
+  // il doit survivre à un rechargement en pleine embuscade.
+  const ambushSprites = _onboarding().ambushSprites?.length
+    ? _onboarding().ambushSprites
+    : pickAmbushSprites(ONBOARDING_AMBUSH_GRUNTS).map(entry => entry.key);
   const committed = _commitStep(
     ONBOARDING_STEPS.FREE_CAPTURE,
     ONBOARDING_STEPS.ROCKET_AMBUSH,
-    {},
-    () => _track('ambush_started', { zone: ONBOARDING_ZONE_ID, captures: _onboarding().fieldCaptures }),
+    { ambushSprites },
+    () => _track('ambush_started', {
+      zone: ONBOARDING_ZONE_ID,
+      captures: _onboarding().fieldCaptures,
+      sprites: ambushSprites.join(','),
+    }),
   );
   if (!committed) return false;
   _openField();

@@ -55,15 +55,33 @@ export const ONBOARDING_CAPTURE_GOAL = 10;
 export const ONBOARDING_AMBUSH_GRUNTS = 3;
 
 /**
- * Look proposé pour le transfuge. Volontairement « bas de l'échelle » :
- * uniquement des sbires de base, jamais les admins (archer/ariana/proton),
- * qui n'auraient aucune raison de déserter pour rejoindre un inconnu.
+ * Recrues possibles de l'embuscade. Volontairement « bas de l'échelle » :
+ * jamais les admins (archer/ariana/proton), qui n'auraient aucune raison de
+ * déserter pour suivre un inconnu. Le transfuge est l'un des assaillants, donc
+ * le joueur choisit parmi ceux qui viennent de lui tomber dessus — pas dans un
+ * catalogue déconnecté de la scène.
  */
-export const ONBOARDING_GUIDE_SPRITES = [
-  { key: 'rocketgrunt',  fr: 'Sbire',      en: 'Grunt'      },
-  { key: 'rocketgruntf', fr: 'Sbire',      en: 'Grunt'      },
+export const ONBOARDING_AMBUSH_SPRITE_POOL = [
+  { key: 'rocketgrunt',  fr: 'Sbire',        en: 'Grunt'     },
+  { key: 'rocketgruntf', fr: 'Sbire',        en: 'Grunt'     },
   { key: 'scientist',    fr: 'Scientifique', en: 'Scientist' },
+  { key: 'burglar',      fr: 'Voleur',       en: 'Burglar'   },
+  { key: 'cueball',      fr: 'Malabar',      en: 'Cue Ball'  },
+  { key: 'gambler',      fr: 'Joueur',       en: 'Gambler'   },
+  { key: 'tamer',        fr: 'Dresseur',     en: 'Tamer'     },
+  { key: 'rocker',       fr: 'Rockeur',      en: 'Rocker'    },
 ];
+
+/** Tire le trio d'assaillants d'une partie — set différent à chaque run. */
+export function pickAmbushSprites(count = ONBOARDING_AMBUSH_GRUNTS, random = Math.random) {
+  const pool = [...ONBOARDING_AMBUSH_SPRITE_POOL];
+  const picked = [];
+  const wanted = Math.max(1, Math.min(count, pool.length));
+  while (picked.length < wanted) {
+    picked.push(...pool.splice(Math.floor(random() * pool.length), 1));
+  }
+  return picked;
+}
 
 /**
  * Répliques du guide. Chaque entrée correspond à une étape de l'onboarding :

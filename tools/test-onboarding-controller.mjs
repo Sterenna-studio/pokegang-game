@@ -97,6 +97,10 @@ assert.equal(fieldSpawns.length, 1);
 assert.equal(fieldSpawns[0].spawnCtx.ambush, true);
 assert.equal(fieldSpawns[0].raidTrainers.length, 3);
 assert.ok(analyticsEvents.some(e => e.name === 'ambush_started'));
+// Le trio d'assaillants est tiré ici et persisté : c'est lui que la modale du
+// transfuge proposera, et il doit survivre à un rechargement en pleine scène.
+assert.equal(state.onboarding.ambushSprites.length, 3);
+assert.equal(new Set(state.onboarding.ambushSprites).size, 3);
 
 // Losing is the expected outcome and must still move the story forward.
 EventBus.emit(EVENTS.COMBAT_LOST, { zoneId: ONBOARDING_ZONE_ID, trainerKey: 'rocketgrunt' });

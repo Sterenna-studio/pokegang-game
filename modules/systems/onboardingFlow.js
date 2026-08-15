@@ -60,6 +60,9 @@ export function defaultOnboardingState() {
     starterSpecies: null,
     ambushAt: null,
     ambushWon: false,
+    // Sprites des assaillants, tirés au sort à l'embuscade : le transfuge est
+    // l'un d'eux, donc ce set devient aussi le choix proposé au joueur.
+    ambushSprites: [],
     guideAgentId: null,
     guideSprite: null,
     firstBattleAt: null,
@@ -89,6 +92,7 @@ export function normalizeOnboardingState(value) {
     version: ONBOARDING_VERSION,
     step,
     fieldCaptures: Math.max(0, Math.floor(Number(value.fieldCaptures) || 0)),
+    ambushSprites: Array.isArray(value.ambushSprites) ? value.ambushSprites : [],
     status: _statusForStep(step),
   };
 }

@@ -21,7 +21,13 @@ import {
   shouldRunOnboardingV2,
   startOnboarding,
 } from '../modules/systems/onboardingFlow.js';
-import { ONBOARDING_CAPTURE_GOAL, ONBOARDING_ZONE_ID } from '../data/onboarding-data.js';
+import {
+  ONBOARDING_AMBUSH_GRUNTS,
+  ONBOARDING_AMBUSH_SPRITE_POOL,
+  ONBOARDING_CAPTURE_GOAL,
+  ONBOARDING_ZONE_ID,
+  pickAmbushSprites,
+} from '../data/onboarding-data.js';
 import { migrateSave } from '../state/migrateSave.js';
 import { DEFAULT_STATE, SAVE_SCHEMA_VERSION } from '../state/defaultState.js';
 
@@ -89,6 +95,30 @@ assert.deepEqual(getOnboardingCaptureProgress(counting), { caught: 3, goal: ONBO
 const counted = { onboarding: { step: ONBOARDING_STEPS.FREE_CAPTURE, fieldCaptures: ONBOARDING_CAPTURE_GOAL + 5 } };
 // Overshooting must clamp for display but still report the goal as reached.
 assert.deepEqual(getOnboardingCaptureProgress(counted), { caught: ONBOARDING_CAPTURE_GOAL, goal: ONBOARDING_CAPTURE_GOAL, reached: true });
+
+// ── Assaillants tirés au sort ─────────────────────────────────────
+// Le transfuge est l'un d'eux : le set doit être sans doublon (sinon deux
+// choix identiques dans la modale) et rester dans le pool « bas de l'échelle ».
+const poolKeys = new Set(ONBOARDING_AMBUSH_SPRITE_POOL.map(entry => entry.key));
+for (let run = 0; run < 40; run++) {
+  const picked = pickAmbushSprites();
+  assert.equal(picked.length, ONBOARDING_AMBUSH_GRUNTS);
+  assert.equal(new Set(picked.map(entry => entry.key)).size, ONBOARDING_AMBUSH_GRUNTS);
+  assert.ok(picked.every(entry => poolKeys.has(entry.key)));
+}
+// Jamais d'admin Rocket : ils n'ont aucune raison de déserter pour un inconnu.
+assert.ok(['archer', 'ariana', 'proton'].every(key => !poolKeys.has(key)));
+// Demander plus que le pool ne boucle pas à l'infini.
+assert.equal(pickAmbushSprites(99).length, ONBOARDING_AMBUSH_SPRITE_POOL.length);
+// Tirage déterministe : premier élément du pool restant à chaque fois.
+assert.deepEqual(
+  pickAmbushSprites(2, () => 0).map(entry => entry.key),
+  ONBOARDING_AMBUSH_SPRITE_POOL.slice(0, 2).map(entry => entry.key),
+);
+// Le set est persisté tel quel dans la save.
+assert.deepEqual(normalizeOnboardingState({ ambushSprites: ['burglar', 'cueball'] }).ambushSprites, ['burglar', 'cueball']);
+assert.deepEqual(normalizeOnboardingState({ ambushSprites: 'nope' }).ambushSprites, []);
+assert.deepEqual(normalizeOnboardingState({}).ambushSprites, []);
 
 // ── Accès aux onglets ─────────────────────────────────────────────
 assert.equal(getOnboardingTabAccess(freeCapture, 'tabZones').status, 'available');
