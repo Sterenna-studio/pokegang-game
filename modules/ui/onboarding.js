@@ -351,6 +351,13 @@ function _completeOnboarding(source = 'guide') {
     EventBus.emit(EVENTS.MONEY_CHANGED, { delta: rewardMoney, newTotal: state.gang.money });
   }
   _ctx.clearGuide?.();
+  // Le terrain de départ sort du sélecteur dès que l'onboarding est fini, mais
+  // sa fenêtre reste ouverte tant qu'on ne la ferme pas : le joueur se
+  // retrouverait avec une zone affichée qu'il ne peut plus jamais rouvrir.
+  _ctx.closeZoneWindow?.(ONBOARDING_ZONE_ID);
+  if (Array.isArray(state.openZoneOrder)) {
+    state.openZoneOrder = state.openZoneOrder.filter(id => id !== ONBOARDING_ZONE_ID);
+  }
   const agent = state.agents?.find(item => item.id === onboarding.guideAgentId);
   _ctx.showOnboardingIdlePayoff?.({
     agent,

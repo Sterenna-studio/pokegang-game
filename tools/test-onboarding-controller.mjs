@@ -41,6 +41,7 @@ const state = {
 };
 
 let fieldSpawns = [];
+const closedZones = [];
 let openedZone = null;
 let guideRefreshes = 0;
 let guideCleared = 0;
@@ -61,6 +62,7 @@ configureOnboarding({
   getZoneSpawns: () => fieldSpawns,
   renderSpawn: () => {},
   removeSpawn: (_zoneId, id) => { fieldSpawns = fieldSpawns.filter(s => s.id !== id); },
+  closeZoneWindow: zoneId => { closedZones.push(zoneId); },
   getZoneById: zoneId => ({ id: zoneId, fr: 'Zone inconnue', en: 'Unknown Field', spawnRate: 0.5 }),
   getActiveSaveSlot: () => 0,
   openGiovanniIntro: ({ onComplete }) => { identityOpened++; onComplete?.({}); return true; },
@@ -157,6 +159,10 @@ assert.equal(payoff.agent.name, 'Zane');
 assert.equal(payoff.progress.completed, 6);
 assert.equal(guideCleared, 1);
 assert.ok(guideRefreshes > 0);
+// Le terrain de départ disparaît : il sort du selecteur ET sa fenêtre est
+// fermée, sinon le joueur garde à l'écran une zone qu'il ne peut plus rouvrir.
+assert.ok(closedZones.includes(ONBOARDING_ZONE_ID));
+assert.ok(!(state.openZoneOrder || []).includes(ONBOARDING_ZONE_ID));
 
 // Rejouer l'événement ne doit ni repayer la prime ni réémettre l'étape.
 const stepsAfter = completedSteps.length;

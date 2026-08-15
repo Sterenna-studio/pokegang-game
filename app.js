@@ -1671,6 +1671,7 @@ function configureEntryFlows() {
     saveState,
     notify,
     openZoneWindow,
+    closeZoneWindow,
     getZoneSpawns: zoneId => zoneSpawns[zoneId],
     renderSpawn: renderSpawnInWindow,
     removeSpawn,
