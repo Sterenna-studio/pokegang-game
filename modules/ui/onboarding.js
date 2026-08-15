@@ -24,8 +24,10 @@ import {
 } from '../core/storyLock.js';
 import {
   ONBOARDING_AMBUSH_GRUNTS,
+  ONBOARDING_AMBUSH_TRAINER_KEY,
   ONBOARDING_CAPTURE_GOAL,
   ONBOARDING_ZONE_ID,
+  buildAmbushRoster,
   pickAmbushSprites,
 } from '../../data/onboarding-data.js';
 import { BOSS_TEAM_SLOTS } from '../../data/game-config-data.js';
@@ -140,10 +142,25 @@ function _openField() {
 
 // ── Embuscade Rocket ──────────────────────────────────────────────
 /**
+ * Le tirage des assaillants, tel qu'il est persisté dans la save. Le poser ici
+ * plutôt qu'au seul déclenchement de l'embuscade couvre les saves écrites avant
+ * que ce set n'existe : sans lui, le raid et la modale de ralliement
+ * repartiraient chacun sur un tirage frais, et le joueur choisirait parmi des
+ * visages qu'il n'a jamais croisés.
+ */
+function _ambushSprites() {
+  const existing = _onboarding().ambushSprites;
+  if (existing?.length) return existing;
+  const drawn = pickAmbushSprites(ONBOARDING_AMBUSH_GRUNTS).map(entry => entry.key);
+  _updateOnboardingDetails({ ambushSprites: drawn }, { render: false });
+  return drawn;
+}
+
+/**
  * Plante le raid des sbires sur le terrain. Volontairement construit via
  * makeRaidSpawn avec une zone synthétique : toute la logique d'équipes, de
  * récompenses et de réputation des raids existants est réutilisée telle
- * quelle, seuls les dresseurs sont forcés sur des sbires Rocket.
+ * quelle, seule la composition est imposée.
  */
 function _spawnAmbush() {
   const spawns = _ctx.getZoneSpawns?.(ONBOARDING_ZONE_ID);
@@ -156,15 +173,27 @@ function _spawnAmbush() {
 
   const zone = _ctx.getZoneById?.(ONBOARDING_ZONE_ID);
   if (!zone) return false;
-  // trainers vide → makeRaidSpawn retombe sur eliteTrainer pour les 2-3
-  // dresseurs, ce qui donne un raid 100 % sbires Rocket.
-  const raid = globalThis.makeRaidSpawn?.({ ...zone, trainers: [], eliteTrainer: 'rocketgrunt' }, ONBOARDING_ZONE_ID, 1);
+  // Les assaillants affichés SONT le tirage persisté, donc exactement les
+  // candidats que la modale du transfuge proposera ensuite. Le roster fixe à la
+  // fois leur nombre, leurs stats (clés TRAINER_TYPES) et leurs visages.
+  const roster = buildAmbushRoster(_ambushSprites());
+  const raid = globalThis.makeRaidSpawn?.(
+    { ...zone, trainers: [], eliteTrainer: ONBOARDING_AMBUSH_TRAINER_KEY },
+    ONBOARDING_ZONE_ID,
+    1,
+    { roster },
+  );
   if (!raid) return false;
 
   const spawn = {
     ...raid,
     id: AMBUSH_SPAWN_ID,
     position: { x: 150, y: 60 },
+    // La réplique d'intro est portée par le sprite des sbires, pas par un
+    // toast : elle doit rester à l'écran tant que le raid n'est pas engagé, et
+    // revenir telle quelle si le joueur ferme puis rouvre la fenêtre de zone.
+    bubble: _ctx.ambushIntroLine?.(_state()?.lang) ?? '',
+    bubbleHostile: true,
     spawnCtx: { onboarding: true, ambush: true },
   };
   spawns.push(spawn);
@@ -222,7 +251,10 @@ function _startAmbush() {
   if (!committed) return false;
   _openField();
   _spawnAmbush();
-  _ctx.notifyAmbush?.(_state()?.lang);
+  // Les sbires entrent en scène plutôt que d'apparaître : la scène tient le
+  // verrou et le viewport le temps de la marche d'entrée, puis rend la main
+  // pour que le raid redevienne cliquable.
+  void _ctx.playAmbushArrival?.();
   return true;
 }
 
@@ -239,12 +271,19 @@ function _resolveAmbush(won) {
     () => _track('ambush_resolved', { won: !!won, zone: ONBOARDING_ZONE_ID }),
   );
   if (!committed) return false;
+  // L'issue est tranchée dès l'émission de COMBAT_WON/LOST, mais le combat
+  // continue de dérouler son log pendant une vingtaine de secondes et garde le
+  // DOM de la zone verrouillé — patchZoneWindow refuse alors de reconstruire la
+  // rencontre de quête, donc ni Giovanni ni le transfuge ne pourraient
+  // apparaître. On coupe le combat puisque son résultat est déjà appliqué.
+  _ctx.endZoneCombat?.(ONBOARDING_ZONE_ID);
   const spawns = _ctx.getZoneSpawns?.(ONBOARDING_ZONE_ID);
   if (Array.isArray(spawns)) {
     for (const spawn of [...spawns]) _ctx.removeSpawn?.(ONBOARDING_ZONE_ID, spawn.id);
   }
-  _ctx.notifyAmbushResolved?.(_state()?.lang, !!won);
-  setTimeout(() => { void _openIdentityStep(); }, 900);
+  // Le mot de la fin des sbires, l'arrivée de Giovanni puis son écran
+  // d'identité s'enchaînent dans _openIdentityStep, sous un seul verrou.
+  setTimeout(() => { void _openIdentityStep(); }, 600);
   return true;
 }
 
@@ -278,10 +317,17 @@ async function _openIdentityStep() {
     return false;
   }
   try {
+    // Giovanni arrive sur le terrain et parle AVANT que son écran ne s'ouvre.
+    // Sur une reprise à cette étape, le terrain n'est pas encore à l'écran
+    // (le hub l'est) : la scène se saute d'elle-même et l'écran s'ouvre direct.
+    await _ctx.playGiovanniArrival?.({ won: _onboarding().ambushWon });
     await _openIdentity();
     if (!_commitStep(ONBOARDING_STEPS.IDENTITY, ONBOARDING_STEPS.GUIDE_MET)) return false;
     _track('identity_completed', {});
     _openField();
+    // Il repart ; le sbire qui reste planté là est le transfuge, que
+    // placeGuide rend dès que la scène a rendu le terrain.
+    await _ctx.playGiovanniDeparture?.();
     _ctx.placeGuide?.();
     return true;
   } catch (error) {

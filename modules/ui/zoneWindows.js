@@ -1528,7 +1528,10 @@ function _openZoneContextMenu(zoneId, clientX, clientY) {
 // sinon null. Défensif (?.()) : les régions pas encore migrées vers ce
 // système n'exposent simplement pas leur getter.
 function _getActiveQuestEncounterForZone(zoneId) {
-  return globalThis.getOnboardingGuideEncounterForZone?.(zoneId)
+  // La cinématique d'ouverture passe devant le transfuge : tant qu'un acteur
+  // de scène tient le terrain, sa réplique est la seule qui doit s'afficher.
+  return globalThis.getOnboardingSceneEncounterForZone?.(zoneId)
+    ?? globalThis.getOnboardingGuideEncounterForZone?.(zoneId)
     ?? globalThis.getKantoQuestEncounterForZone?.(zoneId)
     ?? globalThis.getJohtoQuestEncounterForZone?.(zoneId)
     ?? globalThis.getHoennQuestEncounterForZone?.(zoneId)
@@ -1542,7 +1545,8 @@ function _questEncounterHtml(enc) {
   // `bubble` porte une réplique : elle s'affiche au-dessus du sprite, dans une
   // vraie bulle. `name` reste le libellé court sous le sprite.
   const label = _esc(enc.name ?? '');
-  return `<div class="zone-quest-encounter" data-quest-encounter-id="${enc.id}" title="${label}">
+  // `cls` : classe d'animation ponctuelle (entrée/sortie de scène scriptée).
+  return `<div class="zone-quest-encounter${enc.cls ? ` ${_esc(enc.cls)}` : ''}" data-quest-encounter-id="${enc.id}" title="${label}">
     ${enc.bubble ? `<div class="zone-speech-bubble${enc.hostile ? ' hostile' : ''}">${_esc(enc.bubble)}</div>` : ''}
     ${enc.spriteUrl ? `<img src="${enc.spriteUrl}" alt="${label}" onerror="this.style.visibility='hidden'">` : ''}
     <span class="quest-encounter-badge">!</span>
@@ -2069,7 +2073,13 @@ function renderSpawnInWindow(zoneId, spawnObj) {
     });
   } else if (spawnObj.type === 'raid') {
     // Raid: show the lead trainer sprite (no more Pokéball)
-    const raidLeaderKey = spawnObj.raidTrainers?.[0]?.key || spawnObj.trainerKey || 'gymleader';
+    // `key` est une clé TRAINER_TYPES, pas une clé de sprite : les deux
+    // coïncident pour la plupart des types mais pas pour les variantes
+    // régionales (acetrainerGen2 → acetrainer-gen2) ni pour un raid scripté
+    // dont les assaillants portent un visage imposé.
+    const raidLead = spawnObj.raidTrainers?.[0];
+    const raidLeaderKey = raidLead?.trainer?.sprite || raidLead?.key
+      || spawnObj.trainer?.sprite || spawnObj.trainerKey || 'gymleader';
     const previewR = getTrainerCombatPreview({ ...spawnObj, zoneId }, null);
     const tierR    = getDifficultyTier(previewR.attackerPower, previewR.defenderPower);
     el.innerHTML = globalThis.safeTrainerImg(raidLeaderKey, { style: 'width:52px;height:52px;image-rendering:pixelated;filter:drop-shadow(0 0 8px #f44)' }) +
@@ -2185,6 +2195,15 @@ function renderSpawnInWindow(zoneId, spawnObj) {
       removeSpawn(zoneId, spawnObj.id);
       updateZoneTimers(zoneId);
     });
+  }
+
+  // Un spawn peut porter une réplique (scène scriptée) : même bulle que les
+  // rencontres de quête, ré-ancrée au-dessus d'un élément positionné en absolu.
+  if (spawnObj.bubble) {
+    const bubble = document.createElement('div');
+    bubble.className = `zone-speech-bubble${spawnObj.bubbleHostile ? ' hostile' : ''}`;
+    bubble.textContent = spawnObj.bubble;
+    el.appendChild(bubble);
   }
 
   viewport.appendChild(el);
@@ -2623,8 +2642,11 @@ function cancelAutoCombatVisual(zoneId) {
   _autoCombatVisualLocks.delete(zoneId);
 }
 
-// Point d'entrée unique pour closeZoneWindow : nettoie tout ce qui peut
-// retenir le DOM combat de cette zone, quel que soit le mécanisme en cause.
+// Point d'entrée unique pour closeZoneWindow et pour toute scène scriptée qui
+// reprend la main sur une zone : nettoie tout ce qui peut retenir le DOM combat
+// de cette zone, quel que soit le mécanisme en cause. Tant que ce verrou tient,
+// patchZoneWindow refuse de reconstruire agents/boss/rencontre de quête — donc
+// aucun acteur de cinématique ne peut s'afficher.
 function teardownZoneCombat(zoneId) {
   if (currentCombat?.zoneId === zoneId) {
     if (currentCombat.isEventBattle) closeEventBattle();
@@ -2683,7 +2705,7 @@ function playAutoCombatVisual(zoneId, spawnObj, combatAgents, win) {
       lock.raidRow = document.createElement('div');
       lock.raidRow.className = 'combat-raid-trainers';
       lock.raidRow.innerHTML = spawnObj.raidTrainers.map(rt =>
-        globalThis.safeTrainerImg(rt.key, { style: 'width:26px;height:26px;image-rendering:pixelated' })
+        globalThis.safeTrainerImg(rt.trainer?.sprite || rt.key, { style: 'width:26px;height:26px;image-rendering:pixelated' })
       ).join('');
       spawnEl.appendChild(lock.raidRow);
     }
@@ -3417,6 +3439,7 @@ Object.assign(globalThis, {
   _zwin_openCombatPopup:          openCombatPopup,
   _zwin_executeCombat:            executeCombat,
   _zwin_closeCombatPopup:         closeCombatPopup,
+  _zwin_teardownZoneCombat:       teardownZoneCombat,
   _zwin_openEventBattlePopup:     openEventBattlePopup,
   _zwin_executeEventBattle:       executeEventBattle,
   _zwin_closeEventBattle:         closeEventBattle,

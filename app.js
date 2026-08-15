@@ -159,6 +159,12 @@ import {
   placeGuide,
   refreshGuide,
 } from './modules/ui/onboardingGuide.js';
+import {
+  configureOnboardingScene,
+  playAmbushArrival,
+  playGiovanniArrival,
+  playGiovanniDeparture,
+} from './modules/ui/onboardingScene.js';
 import { isOnboardingActive } from './modules/systems/onboardingFlow.js';
 import { ONBOARDING_AMBUSH_LINES } from './data/onboarding-data.js';
 import { checkDarkraiCutscene, triggerDarkraiOnLeagueVictory } from './modules/ui/darkraiEvent.js';
@@ -514,7 +520,7 @@ globalThis.zoneTimers = zoneTimers;
 function makeTrainerTeam(zone, trainerKey, forcedSize, masteryLevel = 1) { return globalThis._zsys_makeTrainerTeam(zone, trainerKey, forcedSize, masteryLevel); }
 
 // Build a raid: 2-3 trainers combined into one encounter
-function makeRaidSpawn(zone, zoneId, masteryLevel = 1) { return globalThis._zsys_makeRaidSpawn(zone, zoneId, masteryLevel); }
+function makeRaidSpawn(zone, zoneId, masteryLevel = 1, options = {}) { return globalThis._zsys_makeRaidSpawn(zone, zoneId, masteryLevel, options); }
 
 function spawnInZone(zoneId) { return globalThis._zsys_spawnInZone(zoneId); }
 
@@ -825,6 +831,7 @@ function buildPlayerTeamForZone(zoneId)                            { return glob
 function openCombatPopup(zoneId, spawnObj, options)               { return globalThis._zwin_openCombatPopup(zoneId, spawnObj, options); }
 function executeCombat()                                           { return globalThis._zwin_executeCombat(); }
 function closeCombatPopup()                                        { return globalThis._zwin_closeCombatPopup(); }
+function teardownZoneCombat(zoneId)                                { return globalThis._zwin_teardownZoneCombat(zoneId); }
 function openEventBattlePopup(zoneId)                              { return globalThis._zwin_openEventBattlePopup(zoneId); }
 function executeEventBattle()                                      { return globalThis._zwin_executeEventBattle(); }
 function closeEventBattle()                                        { return globalThis._zwin_closeEventBattle(); }
@@ -1675,6 +1682,7 @@ function configureEntryFlows() {
     getZoneSpawns: zoneId => zoneSpawns[zoneId],
     renderSpawn: renderSpawnInWindow,
     removeSpawn,
+    endZoneCombat: teardownZoneCombat,
     uid,
     openGiovanniIntro,
     getActiveSaveSlot,
@@ -1688,17 +1696,22 @@ function configureEntryFlows() {
     notifyFieldIntro: lang => notify(lang === 'en'
       ? 'You do not know this field. Catch what you can before someone notices.'
       : 'Tu ne connais pas ce terrain. Capture ce que tu peux avant qu\'on te remarque.', 'gold'),
-    notifyAmbush: lang => notify(lang === 'en'
-      ? ONBOARDING_AMBUSH_LINES.intro.en : ONBOARDING_AMBUSH_LINES.intro.fr, 'error'),
-    notifyAmbushResolved: (lang, won) => notify(
-      won ? (lang === 'en' ? ONBOARDING_AMBUSH_LINES.won.en : ONBOARDING_AMBUSH_LINES.won.fr)
-          : (lang === 'en' ? ONBOARDING_AMBUSH_LINES.lost.en : ONBOARDING_AMBUSH_LINES.lost.fr),
-      won ? 'gold' : 'error'),
+    // Les beats de l'embuscade et de Giovanni sont joués sur le terrain
+    // (sprites + bulles), plus notifiés par des toasts.
+    ambushIntroLine: lang => (lang === 'en'
+      ? ONBOARDING_AMBUSH_LINES.intro.en : ONBOARDING_AMBUSH_LINES.intro.fr),
+    playAmbushArrival,
+    playGiovanniArrival,
+    playGiovanniDeparture,
   });
 
   configureOnboardingGuide({
     getState: () => state,
     notify,
+  });
+
+  configureOnboardingScene({
+    getState: () => state,
   });
 
   configureHub({

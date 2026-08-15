@@ -60,17 +60,48 @@ export const ONBOARDING_AMBUSH_GRUNTS = 3;
  * déserter pour suivre un inconnu. Le transfuge est l'un des assaillants, donc
  * le joueur choisit parmi ceux qui viennent de lui tomber dessus — pas dans un
  * catalogue déconnecté de la scène.
+ *
+ * `key` est une clé de SPRITE (dossier trainers de Showdown), pas une clé
+ * TRAINER_TYPES : la moitié de ces classes Gen 1 (burglar, cueball, gambler,
+ * tamer, rocker) n'existe pas dans le registre des types de dresseurs. `trainer`
+ * dit donc sous quel type ils se battent — tous du muscle Rocket, quel que soit
+ * le costume. Sans cette distinction, planter ces clés dans raidTrainers[].key
+ * les ferait retomber sur le dresseur de repli de la zone.
  */
 export const ONBOARDING_AMBUSH_SPRITE_POOL = [
-  { key: 'rocketgrunt',  fr: 'Sbire',        en: 'Grunt'     },
-  { key: 'rocketgruntf', fr: 'Sbire',        en: 'Grunt'     },
-  { key: 'scientist',    fr: 'Scientifique', en: 'Scientist' },
-  { key: 'burglar',      fr: 'Voleur',       en: 'Burglar'   },
-  { key: 'cueball',      fr: 'Malabar',      en: 'Cue Ball'  },
-  { key: 'gambler',      fr: 'Joueur',       en: 'Gambler'   },
-  { key: 'tamer',        fr: 'Dresseur',     en: 'Tamer'     },
-  { key: 'rocker',       fr: 'Rockeur',      en: 'Rocker'    },
+  { key: 'rocketgrunt',  trainer: 'rocketgrunt',  fr: 'Sbire',        en: 'Grunt'     },
+  { key: 'rocketgruntf', trainer: 'rocketgruntf', fr: 'Sbire',        en: 'Grunt'     },
+  { key: 'scientist',    trainer: 'scientist',    fr: 'Scientifique', en: 'Scientist' },
+  { key: 'burglar',      trainer: 'rocketgrunt',  fr: 'Voleur',       en: 'Burglar'   },
+  { key: 'cueball',      trainer: 'rocketgrunt',  fr: 'Malabar',      en: 'Cue Ball'  },
+  { key: 'gambler',      trainer: 'rocketgrunt',  fr: 'Joueur',       en: 'Gambler'   },
+  { key: 'tamer',        trainer: 'rocketgrunt',  fr: 'Dresseur',     en: 'Tamer'     },
+  { key: 'rocker',       trainer: 'rocketgrunt',  fr: 'Rockeur',      en: 'Rocker'    },
 ];
+
+/** Type de dresseur de repli si une entrée du pool perd son `trainer`. */
+export const ONBOARDING_AMBUSH_TRAINER_KEY = 'rocketgrunt';
+
+/** Retrouve les entrées du pool derrière les clés persistées dans la save. */
+export function resolveAmbushSprites(keys) {
+  const byKey = new Map(ONBOARDING_AMBUSH_SPRITE_POOL.map(entry => [entry.key, entry]));
+  return (keys || []).map(key => byKey.get(key)).filter(Boolean);
+}
+
+/**
+ * Traduit le tirage persisté en roster de raid : `key` reste une clé
+ * TRAINER_TYPES (stats, récompenses), `sprite` porte le visage effectivement
+ * affiché. C'est ce qui garantit que les assaillants montrés à l'écran sont
+ * exactement les candidats proposés ensuite au ralliement.
+ */
+export function buildAmbushRoster(keys) {
+  return resolveAmbushSprites(keys).map(entry => ({
+    key: entry.trainer || ONBOARDING_AMBUSH_TRAINER_KEY,
+    sprite: entry.key,
+    fr: entry.fr,
+    en: entry.en,
+  }));
+}
 
 /** Tire le trio d'assaillants d'une partie — set différent à chaque run. */
 export function pickAmbushSprites(count = ONBOARDING_AMBUSH_GRUNTS, random = Math.random) {
@@ -128,5 +159,34 @@ export const ONBOARDING_AMBUSH_LINES = {
   won: {
     fr: "Impossible… tu nous as tous mis au tapis ? Le patron va vouloir te voir.",
     en: "Impossible… you took all of us down? The boss is going to want to see you.",
+  },
+};
+
+/**
+ * Giovanni arrive en personne sur le terrain avant que son écran d'identité ne
+ * s'ouvre : ses répliques s'enchaînent une par une, chacune portée par la bulle
+ * au-dessus de son sprite. `arrival` a une variante pour le joueur qui gagne
+ * l'embuscade — rare, mais la scène ne doit pas lui parler d'une défaite.
+ */
+export const ONBOARDING_GIOVANNI_LINES = {
+  arrival: {
+    fr: "Laissez-le. C'est donc toi qui chasses sur mes terres.",
+    en: "Leave them. So you're the one hunting on my land.",
+  },
+  arrivalWon: {
+    fr: "Laissez-le. Trois de mes hommes au tapis… et toi encore debout.",
+    en: "Leave them. Three of my men down… and you still standing.",
+  },
+  claim: {
+    fr: "Ce terrain m'appartient. Comme tout ce qui traîne dessus.",
+    en: "This field belongs to me. Like everything else lying around on it.",
+  },
+  offer: {
+    fr: "Mais tu as du cran. Assez pour monter ton propre gang — sous mon nom. Dis-moi qui tu es.",
+    en: "But you've got nerve. Enough to run your own gang — under my name. Tell me who you are.",
+  },
+  farewell: {
+    fr: "Le reste, tu te débrouilles. Ne me déçois pas.",
+    en: "The rest is on you. Don't disappoint me.",
   },
 };

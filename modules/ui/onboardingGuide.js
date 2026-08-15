@@ -15,9 +15,9 @@
 
 import { esc } from '../core/escape.js';
 import {
-  ONBOARDING_AMBUSH_SPRITE_POOL,
   ONBOARDING_ZONE_ID,
   pickAmbushSprites,
+  resolveAmbushSprites,
 } from '../../data/onboarding-data.js';
 import {
   ONBOARDING_STEPS,
@@ -57,9 +57,7 @@ function _spriteUrl(key) {
  * tirage frais ne sert qu'aux saves écrites avant que ce set n'existe.
  */
 function _guideCandidates(state) {
-  const keys = normalizeOnboardingState(state?.onboarding).ambushSprites;
-  const byKey = new Map(ONBOARDING_AMBUSH_SPRITE_POOL.map(entry => [entry.key, entry]));
-  const resolved = (keys || []).map(key => byKey.get(key)).filter(Boolean);
+  const resolved = resolveAmbushSprites(normalizeOnboardingState(state?.onboarding).ambushSprites);
   return resolved.length ? resolved : pickAmbushSprites();
 }
 
@@ -87,7 +85,9 @@ export function getOnboardingGuideEncounterForZone(zoneId) {
     name: agent?.name || _t('Transfuge', 'Defector'),
     bubble: line,
     icon: '💬',
-    spriteUrl: _spriteUrl(agent ? (agent.sprite || sprite) : sprite),
+    // agent.sprite est déjà une URL, agent.spriteKey la clé — ne pas repasser
+    // une URL dans _spriteUrl(), qui la traiterait comme un nom de sprite.
+    spriteUrl: agent?.sprite || _spriteUrl(agent?.spriteKey || sprite),
     onClick: openGuideEncounter,
   };
 }
@@ -151,8 +151,12 @@ function _recruitGuide(spriteKey) {
   const candidate = globalThis.rollNewAgent?.();
   if (!candidate) return false;
   // Le look est imposé par le joueur ; le reste (nom, personnalité, stats)
-  // reste tiré au sort comme pour n'importe quel agent.
-  candidate.sprite = spriteKey;
+  // reste tiré au sort comme pour n'importe quel agent. `sprite` est une URL et
+  // `spriteKey` la clé (cf. rollNewAgent) : n'écrire que l'un des deux laissait
+  // l'agent sans visage dans la barre de zone et l'onglet Agents, alors que
+  // c'est justement le visage que le joueur vient de choisir.
+  candidate.sprite = _spriteUrl(spriteKey);
+  candidate.spriteKey = spriteKey;
   if (globalThis.recruitAgent?.(candidate, { source: 'onboarding', cost: 0 }) === false) return false;
   onGuideRecruited(candidate.id, spriteKey);
   _ctx.notify?.(_t(

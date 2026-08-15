@@ -228,6 +228,42 @@
     }
     .zone-speech-bubble.hostile::after { border-top-color: var(--red); }
 
+    /* Portée par un spawn : .zone-spawn est positionné en absolu et n'est pas
+       une colonne flex, donc `order: -1` ne suffit pas — on ré-ancre la bulle
+       au-dessus du sprite à la main. */
+    .zone-spawn > .zone-speech-bubble {
+      position: absolute;
+      bottom: calc(100% + 8px);
+      left: 50%;
+      /* `translate` et non `transform` : la bulle porte déjà l'animation
+         sceneIn, qui anime `transform` et écraserait le centrage. */
+      translate: -50% 0;
+      margin-bottom: 0;
+      width: max-content;
+      max-width: 210px;
+    }
+
+    /* ── Cinématique d'ouverture ────────────────────────────────
+       Les beats scriptés (arrivée des sbires, Giovanni sur le terrain) jouent
+       dans le viewport de la zone. Le capteur de clic couvre le viewport
+       pendant la scène : il fait avancer le beat courant et neutralise le
+       gameplay derrière, sans permettre de sauter la scène. */
+    .onboarding-scene-catcher {
+      position: absolute;
+      inset: 0;
+      z-index: 6;
+      cursor: pointer;
+      background: transparent;
+    }
+    @keyframes sceneWalkIn  { from { transform: translateX(-90px); opacity: 0 } to { transform: none; opacity: 1 } }
+    @keyframes sceneWalkOut { from { transform: none; opacity: 1 } to { transform: translateX(70px); opacity: 0 } }
+    /* !important : renderSpawnInWindow pose l'animation du raid en style inline. */
+    .zone-spawn.onboarding-arriving { animation: sceneWalkIn .7s ease-out !important; }
+    .zone-spawn.onboarding-arriving > .zone-speech-bubble { opacity: 0; }
+    /* Le float reprend la main une fois la marche d'entrée terminée. */
+    .zone-quest-encounter.scene-arrive { animation: sceneWalkIn .55s ease-out, float 3s ease-in-out .55s infinite; }
+    .zone-quest-encounter.scene-leave  { animation: sceneWalkOut .5s ease-in forwards; }
+
     /* ── Mode focus onboarding ──────────────────────────────────
        Pendant la première session, une seule zone est ouverte et un seul
        onglet est accessible : tout le chrome autour n'est que du bruit pour

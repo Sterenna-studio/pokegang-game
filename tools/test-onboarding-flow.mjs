@@ -26,8 +26,11 @@ import {
   ONBOARDING_AMBUSH_SPRITE_POOL,
   ONBOARDING_CAPTURE_GOAL,
   ONBOARDING_ZONE_ID,
+  buildAmbushRoster,
   pickAmbushSprites,
+  resolveAmbushSprites,
 } from '../data/onboarding-data.js';
+import { TRAINER_TYPES } from '../data/trainers-data.js';
 import { migrateSave } from '../state/migrateSave.js';
 import { DEFAULT_STATE, SAVE_SCHEMA_VERSION } from '../state/defaultState.js';
 
@@ -119,6 +122,27 @@ assert.deepEqual(
 assert.deepEqual(normalizeOnboardingState({ ambushSprites: ['burglar', 'cueball'] }).ambushSprites, ['burglar', 'cueball']);
 assert.deepEqual(normalizeOnboardingState({ ambushSprites: 'nope' }).ambushSprites, []);
 assert.deepEqual(normalizeOnboardingState({}).ambushSprites, []);
+
+// ── Roster de l'embuscade ─────────────────────────────────────────
+// Le pool est un pool de SPRITES : plusieurs de ces classes Gen 1 n'existent
+// pas dans TRAINER_TYPES. Chaque entrée doit donc nommer un type de dresseur
+// valide, sinon makeRaidSpawn retombe sur le dresseur de repli de la zone et
+// les assaillants affichés cessent d'être les candidats proposés.
+for (const entry of ONBOARDING_AMBUSH_SPRITE_POOL) {
+  assert.ok(TRAINER_TYPES[entry.trainer], `${entry.key} → ${entry.trainer} doit être une clé TRAINER_TYPES`);
+}
+assert.deepEqual(resolveAmbushSprites(['cueball', 'inconnu']).map(entry => entry.key), ['cueball']);
+assert.deepEqual(resolveAmbushSprites(null), []);
+
+const roster = buildAmbushRoster(['burglar', 'scientist', 'rocketgruntf']);
+// Le visage vient du tirage, les stats d'un type de dresseur réel.
+assert.deepEqual(roster.map(entry => entry.sprite), ['burglar', 'scientist', 'rocketgruntf']);
+assert.ok(roster.every(entry => TRAINER_TYPES[entry.key]));
+assert.equal(roster[0].key, 'rocketgrunt');
+assert.equal(roster[1].key, 'scientist');
+assert.equal(roster[0].fr, 'Voleur');
+// Une clé inconnue ne doit pas fabriquer un assaillant fantôme.
+assert.equal(buildAmbushRoster(['nope']).length, 0);
 
 // ── Accès aux onglets ─────────────────────────────────────────────
 assert.equal(getOnboardingTabAccess(freeCapture, 'tabZones').status, 'available');

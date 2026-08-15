@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { EventBus, EVENTS } from '../modules/core/eventBus.js';
 import { ONBOARDING_STEPS } from '../modules/systems/onboardingFlow.js';
 import { ONBOARDING_CAPTURE_GOAL, ONBOARDING_ZONE_ID } from '../data/onboarding-data.js';
+import { TRAINER_TYPES } from '../data/trainers-data.js';
 import {
   configureOnboarding,
   reconcileOnboardingProgress,
@@ -18,14 +19,27 @@ globalThis.document = {
     ? { classList: { remove: cls => overlayClasses.delete(cls) } }
     : null),
 };
-globalThis.makeRaidSpawn = () => ({
-  type: 'raid',
-  raidTrainers: [{ key: 'rocketgrunt' }, { key: 'rocketgrunt' }, { key: 'rocketgrunt' }],
-  trainerKey: 'rocketgrunt',
-  trainer: { fr: '[RAID]', en: '[RAID]', reward: [10, 20], rep: 5 },
-  team: [],
-  isRaid: true,
-});
+// Reproduit le contrat de makeRaidSpawn sur le point qui compte ici : un roster
+// imposé fixe le nombre d'assaillants, leur type de combat (`key`) et leur
+// visage (`trainer.sprite`).
+globalThis.makeRaidSpawn = (zone, zoneId, mastery = 1, { roster = null } = {}) => {
+  const entries = roster?.length ? roster : [{ key: 'rocketgrunt' }, { key: 'rocketgrunt' }];
+  return {
+    type: 'raid',
+    raidTrainers: entries.map(entry => ({
+      key: entry.key,
+      trainer: {
+        fr: entry.fr ?? 'Sbire Rocket', en: entry.en ?? 'Rocket Grunt',
+        sprite: entry.sprite || entry.key, reward: [10, 20], rep: 5, diff: 4,
+      },
+      team: [],
+    })),
+    trainerKey: entries[0].key,
+    trainer: { fr: '[RAID]', en: '[RAID]', reward: [10, 20], rep: 5 },
+    team: [],
+    isRaid: true,
+  };
+};
 
 const state = {
   lang: 'fr',
@@ -49,6 +63,9 @@ let payoff = null;
 let identityOpened = 0;
 const analyticsEvents = [];
 const completedSteps = [];
+// Ordre de la cinématique : ce qui compte est que Giovanni parle sur le terrain
+// AVANT que son écran d'identité ne s'ouvre, et qu'il reparte APRÈS.
+const cinematic = [];
 
 globalThis.trackEvent = (name, params) => analyticsEvents.push({ name, params });
 
@@ -62,10 +79,20 @@ configureOnboarding({
   getZoneSpawns: () => fieldSpawns,
   renderSpawn: () => {},
   removeSpawn: (_zoneId, id) => { fieldSpawns = fieldSpawns.filter(s => s.id !== id); },
+  endZoneCombat: zoneId => { cinematic.push(`combat-teardown:${zoneId}`); },
   closeZoneWindow: zoneId => { closedZones.push(zoneId); },
   getZoneById: zoneId => ({ id: zoneId, fr: 'Zone inconnue', en: 'Unknown Field', spawnRate: 0.5 }),
   getActiveSaveSlot: () => 0,
-  openGiovanniIntro: ({ onComplete }) => { identityOpened++; onComplete?.({}); return true; },
+  openGiovanniIntro: ({ onComplete }) => {
+    identityOpened++;
+    cinematic.push('identity');
+    onComplete?.({});
+    return true;
+  },
+  ambushIntroLine: () => 'intro',
+  playAmbushArrival: () => { cinematic.push('ambush-arrival'); return Promise.resolve(true); },
+  playGiovanniArrival: ({ won }) => { cinematic.push(`giovanni-arrival:${won}`); return Promise.resolve(true); },
+  playGiovanniDeparture: () => { cinematic.push('giovanni-departure'); return Promise.resolve(true); },
   showOnboardingIdlePayoff: options => { payoff = options; return true; },
   placeGuide: () => { guideRefreshes++; },
   refreshGuide: () => { guideRefreshes++; },
@@ -103,6 +130,19 @@ assert.ok(analyticsEvents.some(e => e.name === 'ambush_started'));
 // transfuge proposera, et il doit survivre à un rechargement en pleine scène.
 assert.equal(state.onboarding.ambushSprites.length, 3);
 assert.equal(new Set(state.onboarding.ambushSprites).size, 3);
+// Les visages du raid SONT le tirage persisté — sinon le joueur choisit son
+// transfuge parmi des têtes qu'il n'a jamais vues.
+assert.deepEqual(
+  fieldSpawns[0].raidTrainers.map(rt => rt.trainer.sprite),
+  state.onboarding.ambushSprites,
+);
+// …et chacun se bat sous une clé TRAINER_TYPES réelle, pas sous sa clé de sprite.
+assert.ok(fieldSpawns[0].raidTrainers.every(rt => TRAINER_TYPES[rt.key]));
+// La réplique d'intro est portée par le sprite, pas par un toast : elle doit
+// vivre sur le spawn pour survivre à une fermeture/réouverture de la zone.
+assert.equal(fieldSpawns[0].bubble, 'intro');
+assert.equal(fieldSpawns[0].bubbleHostile, true);
+assert.deepEqual(cinematic, ['ambush-arrival']);
 
 // Losing is the expected outcome and must still move the story forward.
 EventBus.emit(EVENTS.COMBAT_LOST, { zoneId: ONBOARDING_ZONE_ID, trainerKey: 'rocketgrunt' });
@@ -116,6 +156,14 @@ await new Promise(resolve => setTimeout(resolve, 1_000));
 assert.equal(identityOpened, 1);
 assert.equal(state.onboarding.step, ONBOARDING_STEPS.GUIDE_MET);
 assert.equal(overlayClasses.has('active'), false);
+// Giovanni arrive et parle sur le terrain, PUIS son écran s'ouvre, PUIS il
+// repart — l'ordre est tout l'intérêt de la scène.
+// Le combat est coupé avant la scène : tant qu'il tient le DOM de la zone,
+// aucun acteur de cinématique ne peut s'y afficher.
+assert.deepEqual(cinematic, [
+  'ambush-arrival', `combat-teardown:${ONBOARDING_ZONE_ID}`,
+  'giovanni-arrival:false', 'identity', 'giovanni-departure',
+]);
 
 // ── Le transfuge ──────────────────────────────────────────────────
 const { onGuideRecruited } = await import('../modules/ui/onboarding.js');
