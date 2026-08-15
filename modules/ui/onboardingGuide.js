@@ -52,6 +52,17 @@ function _spriteUrl(key) {
 }
 
 /**
+ * rollNewAgent écrit une URL dans `sprite` et la clé dans `spriteKey`, mais les
+ * saves de la préversion (et les fixtures de QA) ont pu recevoir une clé nue
+ * dans `sprite`. On accepte les deux plutôt que d'afficher une image cassée.
+ */
+function _agentSpriteUrl(agent, fallbackKey) {
+  const sprite = agent?.sprite;
+  if (typeof sprite === 'string' && /^(https?:|data:|\/)/.test(sprite)) return sprite;
+  return _spriteUrl(sprite || agent?.spriteKey || fallbackKey);
+}
+
+/**
  * Les candidats au ralliement sont les assaillants de l'embuscade, tirés au
  * sort au moment où ils débarquent et persistés dans la save. Le repli sur un
  * tirage frais ne sert qu'aux saves écrites avant que ce set n'existe.
@@ -85,9 +96,7 @@ export function getOnboardingGuideEncounterForZone(zoneId) {
     name: agent?.name || _t('Transfuge', 'Defector'),
     bubble: line,
     icon: '💬',
-    // agent.sprite est déjà une URL, agent.spriteKey la clé — ne pas repasser
-    // une URL dans _spriteUrl(), qui la traiterait comme un nom de sprite.
-    spriteUrl: agent?.sprite || _spriteUrl(agent?.spriteKey || sprite),
+    spriteUrl: agent ? _agentSpriteUrl(agent, sprite) : _spriteUrl(sprite),
     onClick: openGuideEncounter,
   };
 }

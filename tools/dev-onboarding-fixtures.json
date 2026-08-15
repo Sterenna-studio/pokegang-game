@@ -1,63 +1,435 @@
 {
-  "_comment": "Saves partielles pour l'onboarding V2 (funnel terrain inconnu -> embuscade Rocket -> Giovanni -> transfuge guide). Choisir une entree, la JSON.stringify dans le slot pokeforge.v6 actif, puis recharger ; migrateSave complete les defauts omis.",
+  "_comment": "Saves partielles pour l'onboarding V2 (funnel terrain inconnu -> embuscade Rocket -> Giovanni -> transfuge guide). Choisir une entree, la JSON.stringify dans le slot pokeforge.v6 actif, puis recharger ; migrateSave complete les defauts omis. ambushSprites est le tirage des assaillants : c'est LUI qui pilote a la fois les sbires affiches dans le raid et les candidats proposes au ralliement, donc le laisser vide fait tester un chemin de repli et non le vrai. L'agent guide porte sprite (URL) ET spriteKey (cle), comme rollNewAgent.",
   "free_capture": {
     "version": "6.0.0",
     "_schemaVersion": 16,
-    "onboarding": { "version": 3, "status": "active", "step": "free_capture", "startedAt": 1000, "fieldCaptures": 8, "starterSpecies": "meowth" },
-    "gang": { "name": "Team ???", "bossName": "Boss", "initialized": false, "introSeen": false, "bossTeam": [], "bossTeamSlots": [[], [], []] },
-    "pokemons": [{ "id": "ob-pk-1", "species_en": "meowth", "level": 4, "nature": "jolly", "potential": 3, "shiny": false }]
+    "onboarding": {
+      "version": 3,
+      "status": "active",
+      "step": "free_capture",
+      "startedAt": 1000,
+      "fieldCaptures": 8,
+      "starterSpecies": "meowth"
+    },
+    "gang": {
+      "name": "Team ???",
+      "bossName": "Boss",
+      "initialized": false,
+      "introSeen": false,
+      "bossTeam": [],
+      "bossTeamSlots": [
+        [],
+        [],
+        []
+      ]
+    },
+    "pokemons": [
+      {
+        "id": "ob-pk-1",
+        "species_en": "meowth",
+        "level": 4,
+        "nature": "jolly",
+        "potential": 3,
+        "shiny": false
+      }
+    ]
   },
   "rocket_ambush": {
     "version": "6.0.0",
     "_schemaVersion": 16,
-    "onboarding": { "version": 3, "status": "active", "step": "rocket_ambush", "startedAt": 1000, "fieldCaptures": 10, "starterSpecies": "meowth" },
-    "gang": { "name": "Team ???", "bossName": "Boss", "initialized": false, "introSeen": false, "bossTeam": ["ob-pk-1"], "bossTeamSlots": [["ob-pk-1"], [], []] },
-    "pokemons": [{ "id": "ob-pk-1", "species_en": "meowth", "level": 5, "nature": "jolly", "potential": 3, "shiny": false }]
+    "onboarding": {
+      "version": 3,
+      "status": "active",
+      "step": "rocket_ambush",
+      "startedAt": 1000,
+      "fieldCaptures": 10,
+      "starterSpecies": "meowth",
+      "ambushSprites": [
+        "burglar",
+        "rocketgruntf",
+        "cueball"
+      ]
+    },
+    "gang": {
+      "name": "Team ???",
+      "bossName": "Boss",
+      "initialized": false,
+      "introSeen": false,
+      "bossTeam": [
+        "ob-pk-1"
+      ],
+      "bossTeamSlots": [
+        [
+          "ob-pk-1"
+        ],
+        [],
+        []
+      ]
+    },
+    "pokemons": [
+      {
+        "id": "ob-pk-1",
+        "species_en": "meowth",
+        "level": 5,
+        "nature": "jolly",
+        "potential": 3,
+        "shiny": false
+      }
+    ]
   },
   "identity": {
     "version": "6.0.0",
     "_schemaVersion": 16,
-    "onboarding": { "version": 3, "status": "active", "step": "identity", "startedAt": 1000, "fieldCaptures": 10, "starterSpecies": "meowth", "ambushAt": 2000, "ambushWon": false },
-    "gang": { "name": "Team ???", "bossName": "Boss", "initialized": false, "introSeen": false, "bossTeam": ["ob-pk-1"], "bossTeamSlots": [["ob-pk-1"], [], []] },
-    "pokemons": [{ "id": "ob-pk-1", "species_en": "meowth", "level": 5, "nature": "jolly", "potential": 3, "shiny": false }]
+    "onboarding": {
+      "version": 3,
+      "status": "active",
+      "step": "identity",
+      "startedAt": 1000,
+      "fieldCaptures": 10,
+      "starterSpecies": "meowth",
+      "ambushAt": 2000,
+      "ambushWon": false,
+      "ambushSprites": [
+        "burglar",
+        "rocketgruntf",
+        "cueball"
+      ]
+    },
+    "gang": {
+      "name": "Team ???",
+      "bossName": "Boss",
+      "initialized": false,
+      "introSeen": false,
+      "bossTeam": [
+        "ob-pk-1"
+      ],
+      "bossTeamSlots": [
+        [
+          "ob-pk-1"
+        ],
+        [],
+        []
+      ]
+    },
+    "pokemons": [
+      {
+        "id": "ob-pk-1",
+        "species_en": "meowth",
+        "level": 5,
+        "nature": "jolly",
+        "potential": 3,
+        "shiny": false
+      }
+    ]
   },
   "guide_met": {
     "version": "6.0.0",
     "_schemaVersion": 16,
-    "onboarding": { "version": 3, "status": "active", "step": "guide_met", "startedAt": 1000, "fieldCaptures": 10, "starterSpecies": "meowth", "ambushAt": 2000, "ambushWon": false, "guideAgentId": null },
-    "gang": { "name": "Team Audit", "bossName": "AuditBoss", "bossSprite": "red", "initialized": true, "introSeen": true, "bossTeam": ["ob-pk-1"], "bossTeamSlots": [["ob-pk-1"], [], []] },
-    "pokemons": [{ "id": "ob-pk-1", "species_en": "meowth", "level": 5, "nature": "jolly", "potential": 3, "shiny": false }]
+    "onboarding": {
+      "version": 3,
+      "status": "active",
+      "step": "guide_met",
+      "startedAt": 1000,
+      "fieldCaptures": 10,
+      "starterSpecies": "meowth",
+      "ambushAt": 2000,
+      "ambushWon": false,
+      "guideAgentId": null,
+      "ambushSprites": [
+        "burglar",
+        "rocketgruntf",
+        "cueball"
+      ]
+    },
+    "gang": {
+      "name": "Team Audit",
+      "bossName": "AuditBoss",
+      "bossSprite": "red",
+      "initialized": true,
+      "introSeen": true,
+      "bossTeam": [
+        "ob-pk-1"
+      ],
+      "bossTeamSlots": [
+        [
+          "ob-pk-1"
+        ],
+        [],
+        []
+      ]
+    },
+    "pokemons": [
+      {
+        "id": "ob-pk-1",
+        "species_en": "meowth",
+        "level": 5,
+        "nature": "jolly",
+        "potential": 3,
+        "shiny": false
+      }
+    ]
   },
   "guide_team": {
     "version": "6.0.0",
     "_schemaVersion": 16,
-    "onboarding": { "version": 3, "status": "active", "step": "guide_team", "startedAt": 1000, "fieldCaptures": 10, "starterSpecies": "meowth", "ambushAt": 2000, "ambushWon": false, "guideAgentId": "ob-guide", "guideSprite": "rocketgrunt" },
-    "gang": { "name": "Team Audit", "bossName": "AuditBoss", "bossSprite": "red", "initialized": true, "introSeen": true, "bossTeam": ["ob-pk-1"], "bossTeamSlots": [["ob-pk-1"], [], []] },
-    "pokemons": [{ "id": "ob-pk-1", "species_en": "meowth", "level": 5, "nature": "jolly", "potential": 3, "shiny": false }],
-    "agents": [{ "id": "ob-guide", "name": "Zane", "sprite": "rocketgrunt", "title": "grunt", "level": 1, "xp": 0, "combatsWon": 0, "ball": "pokeball", "behavior": "all", "personality": [], "team": [], "assignedZone": null, "autoCombat": false, "autoCapture": true, "notifyCaptures": true, "legacyLocked": false, "energy": 10, "maxEnergy": 10, "resting": false, "restUntil": null, "lastEnergyReset": 0 }]
+    "onboarding": {
+      "version": 3,
+      "status": "active",
+      "step": "guide_team",
+      "startedAt": 1000,
+      "fieldCaptures": 10,
+      "starterSpecies": "meowth",
+      "ambushAt": 2000,
+      "ambushWon": false,
+      "guideAgentId": "ob-guide",
+      "guideSprite": "burglar",
+      "ambushSprites": [
+        "burglar",
+        "rocketgruntf",
+        "cueball"
+      ]
+    },
+    "gang": {
+      "name": "Team Audit",
+      "bossName": "AuditBoss",
+      "bossSprite": "red",
+      "initialized": true,
+      "introSeen": true,
+      "bossTeam": [
+        "ob-pk-1"
+      ],
+      "bossTeamSlots": [
+        [
+          "ob-pk-1"
+        ],
+        [],
+        []
+      ]
+    },
+    "pokemons": [
+      {
+        "id": "ob-pk-1",
+        "species_en": "meowth",
+        "level": 5,
+        "nature": "jolly",
+        "potential": 3,
+        "shiny": false
+      }
+    ],
+    "agents": [
+      {
+        "id": "ob-guide",
+        "name": "Zane",
+        "sprite": "https://play.pokemonshowdown.com/sprites/trainers/burglar.png",
+        "title": "grunt",
+        "level": 1,
+        "xp": 0,
+        "combatsWon": 0,
+        "ball": "pokeball",
+        "behavior": "all",
+        "personality": [],
+        "team": [],
+        "assignedZone": null,
+        "autoCombat": false,
+        "autoCapture": true,
+        "notifyCaptures": true,
+        "legacyLocked": false,
+        "energy": 10,
+        "maxEnergy": 10,
+        "resting": false,
+        "restUntil": null,
+        "lastEnergyReset": 0,
+        "spriteKey": "burglar"
+      }
+    ]
   },
   "guide_combat": {
     "version": "6.0.0",
     "_schemaVersion": 16,
-    "onboarding": { "version": 3, "status": "active", "step": "guide_combat", "startedAt": 1000, "fieldCaptures": 10, "starterSpecies": "meowth", "ambushAt": 2000, "ambushWon": false, "guideAgentId": "ob-guide", "guideSprite": "rocketgrunt" },
-    "gang": { "name": "Team Audit", "bossName": "AuditBoss", "bossSprite": "red", "initialized": true, "introSeen": true, "bossTeam": ["ob-pk-1"], "bossTeamSlots": [["ob-pk-1"], [], []] },
+    "onboarding": {
+      "version": 3,
+      "status": "active",
+      "step": "guide_combat",
+      "startedAt": 1000,
+      "fieldCaptures": 10,
+      "starterSpecies": "meowth",
+      "ambushAt": 2000,
+      "ambushWon": false,
+      "guideAgentId": "ob-guide",
+      "guideSprite": "burglar",
+      "ambushSprites": [
+        "burglar",
+        "rocketgruntf",
+        "cueball"
+      ]
+    },
+    "gang": {
+      "name": "Team Audit",
+      "bossName": "AuditBoss",
+      "bossSprite": "red",
+      "initialized": true,
+      "introSeen": true,
+      "bossTeam": [
+        "ob-pk-1"
+      ],
+      "bossTeamSlots": [
+        [
+          "ob-pk-1"
+        ],
+        [],
+        []
+      ]
+    },
     "pokemons": [
-      { "id": "ob-pk-1", "species_en": "meowth", "level": 5, "nature": "jolly", "potential": 3, "shiny": false },
-      { "id": "ob-pk-2", "species_en": "ekans", "level": 4, "nature": "brave", "potential": 2, "shiny": false }
+      {
+        "id": "ob-pk-1",
+        "species_en": "meowth",
+        "level": 5,
+        "nature": "jolly",
+        "potential": 3,
+        "shiny": false
+      },
+      {
+        "id": "ob-pk-2",
+        "species_en": "ekans",
+        "level": 4,
+        "nature": "brave",
+        "potential": 2,
+        "shiny": false
+      }
     ],
-    "agents": [{ "id": "ob-guide", "name": "Zane", "sprite": "rocketgrunt", "title": "grunt", "level": 1, "xp": 0, "combatsWon": 0, "ball": "pokeball", "behavior": "all", "personality": [], "team": ["ob-pk-2"], "assignedZone": "route1", "autoCombat": false, "autoCapture": true, "notifyCaptures": true, "legacyLocked": false, "energy": 10, "maxEnergy": 10, "resting": false, "restUntil": null, "lastEnergyReset": 0 }],
-    "zones": { "route1": { "unlocked": true, "assignedAgents": ["ob-guide"] } }
+    "agents": [
+      {
+        "id": "ob-guide",
+        "name": "Zane",
+        "sprite": "https://play.pokemonshowdown.com/sprites/trainers/burglar.png",
+        "title": "grunt",
+        "level": 1,
+        "xp": 0,
+        "combatsWon": 0,
+        "ball": "pokeball",
+        "behavior": "all",
+        "personality": [],
+        "team": [
+          "ob-pk-2"
+        ],
+        "assignedZone": "route1",
+        "autoCombat": false,
+        "autoCapture": true,
+        "notifyCaptures": true,
+        "legacyLocked": false,
+        "energy": 10,
+        "maxEnergy": 10,
+        "resting": false,
+        "restUntil": null,
+        "lastEnergyReset": 0,
+        "spriteKey": "burglar"
+      }
+    ],
+    "zones": {
+      "route1": {
+        "unlocked": true,
+        "assignedAgents": [
+          "ob-guide"
+        ]
+      }
+    }
   },
   "completed": {
     "version": "6.0.0",
     "_schemaVersion": 16,
-    "onboarding": { "version": 3, "status": "completed", "step": "completed", "startedAt": 1000, "completedAt": 3000, "fieldCaptures": 10, "starterSpecies": "meowth", "ambushAt": 2000, "ambushWon": false, "guideAgentId": "ob-guide", "guideSprite": "rocketgrunt", "completionRewardGrantedAt": 3000, "completionRewardMoney": 500 },
-    "gang": { "name": "Team Audit", "bossName": "AuditBoss", "bossSprite": "red", "initialized": true, "introSeen": true, "bossTeam": ["ob-pk-1"], "bossTeamSlots": [["ob-pk-1"], [], []] },
+    "onboarding": {
+      "version": 3,
+      "status": "completed",
+      "step": "completed",
+      "startedAt": 1000,
+      "completedAt": 3000,
+      "fieldCaptures": 10,
+      "starterSpecies": "meowth",
+      "ambushAt": 2000,
+      "ambushWon": false,
+      "guideAgentId": "ob-guide",
+      "guideSprite": "burglar",
+      "completionRewardGrantedAt": 3000,
+      "completionRewardMoney": 500,
+      "ambushSprites": [
+        "burglar",
+        "rocketgruntf",
+        "cueball"
+      ]
+    },
+    "gang": {
+      "name": "Team Audit",
+      "bossName": "AuditBoss",
+      "bossSprite": "red",
+      "initialized": true,
+      "introSeen": true,
+      "bossTeam": [
+        "ob-pk-1"
+      ],
+      "bossTeamSlots": [
+        [
+          "ob-pk-1"
+        ],
+        [],
+        []
+      ]
+    },
     "pokemons": [
-      { "id": "ob-pk-1", "species_en": "meowth", "level": 5, "nature": "jolly", "potential": 3, "shiny": false },
-      { "id": "ob-pk-2", "species_en": "ekans", "level": 4, "nature": "brave", "potential": 2, "shiny": false }
+      {
+        "id": "ob-pk-1",
+        "species_en": "meowth",
+        "level": 5,
+        "nature": "jolly",
+        "potential": 3,
+        "shiny": false
+      },
+      {
+        "id": "ob-pk-2",
+        "species_en": "ekans",
+        "level": 4,
+        "nature": "brave",
+        "potential": 2,
+        "shiny": false
+      }
     ],
-    "agents": [{ "id": "ob-guide", "name": "Zane", "sprite": "rocketgrunt", "title": "grunt", "level": 1, "xp": 0, "combatsWon": 0, "ball": "pokeball", "behavior": "all", "personality": [], "team": ["ob-pk-2"], "assignedZone": "route1", "autoCombat": true, "autoCapture": true, "notifyCaptures": true, "legacyLocked": false, "energy": 10, "maxEnergy": 10, "resting": false, "restUntil": null, "lastEnergyReset": 0 }],
-    "zones": { "route1": { "unlocked": true, "combatsWon": 1, "captures": 1, "assignedAgents": ["ob-guide"] } }
+    "agents": [
+      {
+        "id": "ob-guide",
+        "name": "Zane",
+        "sprite": "https://play.pokemonshowdown.com/sprites/trainers/burglar.png",
+        "title": "grunt",
+        "level": 1,
+        "xp": 0,
+        "combatsWon": 0,
+        "ball": "pokeball",
+        "behavior": "all",
+        "personality": [],
+        "team": [
+          "ob-pk-2"
+        ],
+        "assignedZone": "route1",
+        "autoCombat": true,
+        "autoCapture": true,
+        "notifyCaptures": true,
+        "legacyLocked": false,
+        "energy": 10,
+        "maxEnergy": 10,
+        "resting": false,
+        "restUntil": null,
+        "lastEnergyReset": 0,
+        "spriteKey": "burglar"
+      }
+    ],
+    "zones": {
+      "route1": {
+        "unlocked": true,
+        "combatsWon": 1,
+        "captures": 1,
+        "assignedAgents": [
+          "ob-guide"
+        ]
+      }
+    }
   }
 }
