@@ -238,6 +238,14 @@ export const DEFAULT_STATE = {
   },
   discoveryProgress: {
     sinnohTeaseUnlocked: false, // true after Darkrai cutscene — unlocks Sinnoh section in pokédex
+    // Déblocage progressif des onglets après l'onboarding V2 — règles et
+    // compteurs dans modules/systems/tabUnlocks.js. Liste vide = tout reste à
+    // mériter ; migrateSave ouvre tout pour les saves qui n'ont pas connu ce
+    // tunnel, pour ne jamais retirer un onglet à quelqu'un qui l'avait.
+    revealedTabs: [],
+    capturesSinceOnboarding: 0,
+    agentOperations: 0,
+    sessionsSinceOnboarding: 0,
   },
   groudonMission: {
     active:          false,

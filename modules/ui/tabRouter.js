@@ -17,9 +17,35 @@ import { SFX, MusicPlayer } from './audio.js';
 import { ITEM_SPRITE_URLS } from '../../data/assets-data.js';
 import { KANTO_DEX_MIN, KANTO_DEX_MAX } from '../../data/game-config-data.js';
 import { getOnboardingTabAccess, isOnboardingActive } from '../systems/onboardingFlow.js';
+import { TAB_UNLOCK_COPY } from '../../data/tab-unlocks-data.js';
+import { isTabRevealed } from '../systems/tabUnlocks.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type });
 const _t = (fr, en) => (globalThis.state?.lang === 'en' ? en : fr);
+
+/**
+ * Hors tunnel, les onglets pas encore mérités restent hors de la barre. Le
+ * masquage utilise la même propriété `display` que applyOnboardingTabAccess,
+ * mais un attribut distinct : les deux mécanismes se succèdent sur le même
+ * bouton et ne doivent pas se restaurer mutuellement une valeur périmée.
+ */
+function _applyTabDiscovery(state) {
+  document.querySelectorAll('.tab-btn[data-tab]').forEach(btn => {
+    const revealed = isTabRevealed(state, btn.dataset.tab);
+    if (!revealed) {
+      if (!btn.dataset.discoveryPreviousDisplay) {
+        btn.dataset.discoveryPreviousDisplay = btn.style.display || '__empty__';
+      }
+      btn.style.display = 'none';
+      return;
+    }
+    if (btn.dataset.discoveryPreviousDisplay) {
+      const previous = btn.dataset.discoveryPreviousDisplay;
+      btn.style.display = previous === '__empty__' ? '' : previous;
+      delete btn.dataset.discoveryPreviousDisplay;
+    }
+  });
+}
 
 function applyOnboardingTabAccess() {
   const state = getState();
@@ -57,6 +83,7 @@ function applyOnboardingTabAccess() {
       return;
     }
 
+
     const access = getOnboardingTabAccess(state, btn.dataset.tab);
     btn.dataset.onboardingAccess = access.status;
     if (access.status === 'hidden') {
@@ -75,7 +102,60 @@ function applyOnboardingTabAccess() {
       btn.appendChild(lock);
     }
   });
+
+  // Hors tunnel, le relais est pris par le déblocage progressif.
+  if (!active) _applyTabDiscovery(state);
 }
+
+// ── Carte « nouvel onglet » ───────────────────────────────────────
+// Même surface que le déblocage de zone (#tabUnlockPopup partage son CSS),
+// et même file d'attente : plusieurs onglets peuvent tomber sur le même
+// événement, ils défilent un par un au lieu de s'écraser.
+let _tabUnlockQueue = [];
+let _tabUnlockBusy = false;
+
+function _processTabUnlockQueue() {
+  if (!_tabUnlockQueue.length) { _tabUnlockBusy = false; return; }
+  _tabUnlockBusy = true;
+  const tabId = _tabUnlockQueue.shift();
+  const popup = document.getElementById('tabUnlockPopup');
+  const nameEl = document.getElementById('tabUnlockName');
+  const whyEl = document.getElementById('tabUnlockWhy');
+  const goBtn = document.getElementById('tabUnlockGo');
+  if (!popup || !nameEl) { _tabUnlockBusy = false; return; }
+  const copy = TAB_UNLOCK_COPY[tabId];
+  const label = copy ? _t(copy.fr, copy.en) : tabId;
+  nameEl.textContent = label;
+  if (whyEl) whyEl.textContent = copy ? _t(copy.whyFr, copy.whyEn) : '';
+  if (goBtn) goBtn.textContent = _t(`→ Ouvrir ${label}`, `→ Open ${label}`);
+  popup.dataset.tabId = tabId;
+  popup.classList.add('show');
+}
+
+function _closeTabUnlockPopup({ open = false } = {}) {
+  const popup = document.getElementById('tabUnlockPopup');
+  if (!popup) return;
+  popup.classList.remove('show');
+  const tabId = popup.dataset.tabId;
+  delete popup.dataset.tabId;
+  if (open && tabId) switchTab(tabId);
+  _processTabUnlockQueue();
+}
+
+export function bindTabUnlockPopupUi() {
+  document.getElementById('tabUnlockGo')?.addEventListener('click', () => _closeTabUnlockPopup({ open: true }));
+  document.getElementById('tabUnlockClose')?.addEventListener('click', () => _closeTabUnlockPopup());
+  document.getElementById('tabUnlockPopup')?.addEventListener('click', event => {
+    if (event.target.id === 'tabUnlockPopup') _closeTabUnlockPopup();
+  });
+}
+
+EventBus.on(EVENTS.TABS_REVEALED, ({ tabs } = {}) => {
+  applyOnboardingTabAccess();
+  if (!Array.isArray(tabs) || !tabs.length) return;
+  _tabUnlockQueue.push(...tabs);
+  if (!_tabUnlockBusy) _processTabUnlockQueue();
+});
 
 let tabRouterCtx = {};
 
@@ -346,6 +426,12 @@ function switchTab(tabId) {
   const access = getOnboardingTabAccess(state, tabId);
   if (access.status !== 'available') {
     _notify(access.reason || _t('Cet onglet est encore verrouillé.', 'This tab is still locked.'), 'error');
+    return false;
+  }
+  // Un onglet pas encore débloqué reste inatteignable même par raccourci
+  // clavier ou lien interne — sinon le masquage n'est que cosmétique.
+  if (!isTabRevealed(state, tabId)) {
+    _notify(_t('Cet onglet n\'est pas encore débloqué.', 'This tab is not unlocked yet.'), 'error');
     return false;
   }
   const prevTab = globalThis.activeTab;

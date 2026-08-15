@@ -98,7 +98,13 @@ import {
   updateTopBar,
   renderAll,
   initKeyboardShortcuts,
+  bindTabUnlockPopupUi,
 } from './modules/ui/tabRouter.js';
+import {
+  checkTabUnlocks,
+  configureTabUnlocks,
+  recordDiscoverySession,
+} from './modules/systems/tabUnlocks.js';
 import {
   addBattleLogEntry,
   configurePcPokedex,
@@ -1566,12 +1572,19 @@ function bindGlobalUi() {
   bindPcFilters();
   bindInfoModalUi();
   bindZoneUnlockPopupUi();
+  bindTabUnlockPopupUi();
 }
 
 function initializeSystems() {
   initSettings();
   initKeyboardShortcuts();
   initMissions();
+  configureTabUnlocks({ getState: () => state, saveState });
+  // Une session de plus depuis la fin du tunnel : c'est ce compteur qui fait
+  // apparaître l'onglet Compte au retour du joueur. Puis on rattrape tout ce
+  // que la save mérite déjà (réputation gagnée hors ligne, etc.).
+  recordDiscoverySession(state);
+  checkTabUnlocks();
   detectLLM();
   initSupabase();
 }
@@ -1677,6 +1690,7 @@ function configureEntryFlows() {
     setActiveSaveSlot: slotIdx => setActiveSaveSlotValue(slotIdx, { persist: true }),
     saveState,
     notify,
+    initMissions,
     openZoneWindow,
     closeZoneWindow,
     getZoneSpawns: zoneId => zoneSpawns[zoneId],

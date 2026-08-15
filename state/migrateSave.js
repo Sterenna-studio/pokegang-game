@@ -1,6 +1,7 @@
 'use strict';
 
 import { SHOWCASE_SLOTS } from '../data/game-config-data.js';
+import { UNLOCKABLE_TABS } from '../data/tab-unlocks-data.js';
 
 // ── Helper ───────────────────────────────────────────────────────────────────
 function ensureObject(value, fallback = {}) {
@@ -99,6 +100,20 @@ export function migrateSave(saved, deps) {
       ? {}
       : { sinnohTeaseUnlocked: savedDiscoveryProgress.sinnohTeaseUnlocked }),
   };
+  // Déblocage progressif des onglets. Une save écrite avant ce système n'a pas
+  // de `revealedTabs` : lui appliquer la liste vide lui RETIRERAIT des onglets
+  // qu'elle avait déjà, ce que l'issue #59 exclut explicitement. On n'impose le
+  // parcours qu'aux runs qui sont encore dans le tunnel.
+  if (Array.isArray(savedDiscoveryProgress.revealedTabs)) {
+    merged.discoveryProgress.revealedTabs = savedDiscoveryProgress.revealedTabs
+      .filter(tab => UNLOCKABLE_TABS.includes(tab));
+  } else if (merged.onboarding.step === 'completed' || merged.onboarding.step === 'not_started') {
+    merged.discoveryProgress.revealedTabs = merged.gang.initialized ? [...UNLOCKABLE_TABS] : [];
+  }
+  for (const key of ['capturesSinceOnboarding', 'agentOperations', 'sessionsSinceOnboarding']) {
+    const value = Number(savedDiscoveryProgress[key]);
+    if (Number.isFinite(value) && value > 0) merged.discoveryProgress[key] = Math.floor(value);
+  }
   merged.trainingRoom = { ...structuredClone(DEFAULT_STATE.trainingRoom), ...ensureObject(saved.trainingRoom) };
   merged.cosmetics    = { ...structuredClone(DEFAULT_STATE.cosmetics),    ...ensureObject(saved.cosmetics) };
   if (!Array.isArray(merged.cosmetics.favoriteBgs))  merged.cosmetics.favoriteBgs  = [];

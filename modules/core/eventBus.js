@@ -37,6 +37,7 @@ export const EVENTS = {
   UI_NOTIFY:         'ui:notify',         // { msg, type } → notify()
   UI_TOPBAR_UPDATE:  'ui:topbar',         // updateTopBar() requis
   UI_TAB_CHANGED:    'ui:tab',            // { tabId }
+  TABS_REVEALED:     'ui:tabs-revealed',  // { tabs } — déblocage progressif post-onboarding
 
   // Pokémon
   POKEMON_CAPTURED:  'pokemon:captured',  // { pokemon, zoneId, agentId?, spawnCtx? }

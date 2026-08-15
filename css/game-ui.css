@@ -1646,7 +1646,10 @@
       50%      { box-shadow: 0 0 0 5px rgba(255,204,90,.0); }
     }
 
-    #zoneUnlockPopup {
+    /* Carte de déblocage — partagée par les zones et par la révélation
+       progressive des onglets, pour que les deux se ressemblent. */
+    #zoneUnlockPopup,
+    #tabUnlockPopup {
       position: fixed;
       inset: 0;
       z-index: 9999;
@@ -1658,7 +1661,8 @@
       pointer-events: none;
       transition: opacity .3s ease;
     }
-    #zoneUnlockPopup.show { opacity: 1; pointer-events: auto; }
+    #zoneUnlockPopup.show,
+    #tabUnlockPopup.show { opacity: 1; pointer-events: auto; }
     .unlock-box {
       background: var(--bg-panel);
       border: 2px solid var(--gold);

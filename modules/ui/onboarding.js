@@ -505,6 +505,13 @@ async function _runOnboardingV2({ slotIdx = 0, resume = false, onComplete } = {}
     if (!resume) {
       _ctx.resetStateForNewGame?.();
       state = _state();
+      // Les quêtes journalières se mesurent contre un baseline figé au premier
+      // initMissions(). Le refaire ICI, sur un état vierge, le fixe à zéro :
+      // les captures du tunnel comptent alors pour « Attraper 5 Pokémon », et
+      // l'onglet Missions s'ouvre plus tard sur une quête déjà réclamable. Sans
+      // ça, le baseline était pris au premier rendu de l'onglet — donc APRÈS
+      // les dix captures, qui étaient purement et simplement effacées.
+      _ctx.initMissions?.();
     }
     _ctx.setActiveSaveSlot?.(slotIdx);
     const current = normalizeOnboardingState(state.onboarding);
