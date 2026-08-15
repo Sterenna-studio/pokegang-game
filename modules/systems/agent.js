@@ -43,7 +43,9 @@ function getAgentTeamSlots(agent) {
 
 // Courbe d'accès aux agents (coût pour recruter le (n+1)ième agent) :
 //   Agent 1  :      5 000₽
-//   Agent 2  :     50 000₽
+//   Agent 2  :     15 000₽  ← était 50 000₽ : mur pour le joueur sortant de
+//                              l'onboarding V2 (transfuge gratuit + 5 500₽ en
+//                              poche, cf. issue #59)
 //   Agent 3  :    100 000₽
 //   Agent 4  :    250 000₽
 //   Agent 5  :    500 000₽
@@ -55,7 +57,7 @@ function getAgentTeamSlots(agent) {
 //   Agent 16 : 20 000 000₽
 //   …
 function _agentCostAtIndex(n) {
-  const FIXED = [5_000, 50_000, 100_000, 250_000, 500_000, 1_000_000, 2_000_000];
+  const FIXED = [5_000, 15_000, 100_000, 250_000, 500_000, 1_000_000, 2_000_000];
   if (n < FIXED.length) return FIXED[n];
   const steps   = n - 7;
   const linearM = 3 + steps;

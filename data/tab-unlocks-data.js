@@ -11,7 +11,7 @@
 //  Principe : un onglet s'ouvre quand le joueur a une RAISON et les MOYENS de
 //  s'en servir, et il ne doit jamais s'ouvrir sur un écran vide. Les seuils
 //  sont calés sur l'état réel de fin de tunnel — ≈11 Pokémon, 5 500 ₽
-//  (5 000 de départ + 500 de récompense), 1 agent posté, 2ᵉ agent à 50 000 ₽.
+//  (5 000 de départ + 500 de récompense), 1 agent posté, 2ᵉ agent à 15 000 ₽.
 //
 //  La logique vit dans modules/systems/tabUnlocks.js ; ce fichier ne contient
 //  que des constantes, pour que state/migrateSave.js puisse s'y référer sans
