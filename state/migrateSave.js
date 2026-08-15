@@ -102,6 +102,9 @@ export function migrateSave(saved, deps) {
     ...(savedDiscoveryProgress.introFlashbackOffered === undefined
       ? {}
       : { introFlashbackOffered: !!savedDiscoveryProgress.introFlashbackOffered }),
+    ...(typeof savedDiscoveryProgress.advisorLastSeen === 'string'
+      ? { advisorLastSeen: savedDiscoveryProgress.advisorLastSeen }
+      : {}),
   };
   // Déblocage progressif des onglets. Une save écrite avant ce système n'a pas
   // de `revealedTabs` : lui appliquer la liste vide lui RETIRERAIT des onglets

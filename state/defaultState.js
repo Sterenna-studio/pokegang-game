@@ -253,6 +253,10 @@ export const DEFAULT_STATE = {
     // que l'offre de flashback est affichée (jamais reproposée après ça).
     // Voir modules/ui/onboardingFlashback.js.
     introFlashbackOffered: false,
+    // Dernier objectif que le conseiller a déjà commenté (id de
+    // getNextObjective). Persisté pour que son « ! » ne se rallume qu'au
+    // changement d'objectif, pas à chaque rechargement de page.
+    advisorLastSeen: null,
   },
   groudonMission: {
     active:          false,

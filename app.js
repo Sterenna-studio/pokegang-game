@@ -175,6 +175,7 @@ import {
   configureOnboardingFlashback,
   maybeOfferOnboardingFlashback,
 } from './modules/ui/onboardingFlashback.js';
+import { initAdvisor, renderAdvisor } from './modules/ui/advisor.js';
 import { isOnboardingActive } from './modules/systems/onboardingFlow.js';
 import { ONBOARDING_AMBUSH_LINES } from './data/onboarding-data.js';
 import { checkDarkraiCutscene, triggerDarkraiOnLeagueVictory } from './modules/ui/darkraiEvent.js';
@@ -1653,6 +1654,15 @@ function renderInitialUi() {
   switchTab(activeTab);
   renderAll();
   checkBossSpriteValidity();
+  // Le conseiller (le transfuge du tunnel) reprend la narration une fois
+  // l'onboarding fini — il se rend lui-même invisible pendant le tunnel.
+  initAdvisor({
+    getState: () => state,
+    saveState,
+    // sessionObjectives n'expose getNextObjective que sur globalThis (pas de
+    // binding local ici) — lecture paresseuse pour ne pas capturer undefined.
+    getNextObjective: () => globalThis.getNextObjective?.(),
+  });
 }
 
 function loadRuntimeAssets() {
