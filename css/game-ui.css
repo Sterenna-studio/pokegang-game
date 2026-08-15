@@ -267,8 +267,21 @@
     /* ── Mode focus onboarding ──────────────────────────────────
        Pendant la première session, une seule zone est ouverte et un seul
        onglet est accessible : tout le chrome autour n'est que du bruit pour
-       quelqu'un qui découvre le jeu. On isole la zone, en grand, au centre. */
+       quelqu'un qui découvre le jeu. On isole la zone, en grand, au centre.
+       `.tab-nav` seul ne suffisait pas : le sélecteur fogmap (filtre, sélecteur
+       de région, TOUTES les zones de Kanto même verrouillées jusqu'à Rép.
+       +1200) et la fiche du QG restaient visibles sous la fenêtre de zone —
+       le chrome qu'on isole justement pour ce mode. */
     body.onboarding-focus .tab-nav { display: none; }
+    body.onboarding-focus #zoneFilterBar,
+    body.onboarding-focus .fog-map-layout,
+    body.onboarding-focus #gangBaseContainer {
+      display: none;
+    }
+    /* !important : renderZoneWindows repose switcher.style.display='flex' en
+       inline à chaque rendu (visibilité Hoenn/Sinnoh conditionnelle) — une
+       règle de feuille de style sans !important ne le battrait jamais. */
+    body.onboarding-focus #regionSwitcher { display: none !important; }
     body.onboarding-focus #zoneWindows {
       display: flex;
       justify-content: center;
