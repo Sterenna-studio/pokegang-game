@@ -666,6 +666,9 @@ const I18N = {
   zone_selector_open_count:         { fr:'{n} zone(s) ouverte(s)', en:'{n} open zone(s)' },
   zone_selector_many_open_warning:  { fr:'Beaucoup de zones ouvertes : timers, rendu et spawns restent actifs.', en:'Many zones are open: timers, rendering and spawns remain active.' },
   zone_selector_open_count_title:   { fr:'Nombre de zones actuellement ouvertes.', en:'Number of zones currently open.' },
+  zone_selector_to_unlock:          { fr:'À débloquer', en:'To unlock' },
+  zone_selector_to_unlock_hint:     { fr:'Zones qui demandent un objet ou un accès particulier, pas seulement de la réputation.', en:'Zones that need a special item or access, not just reputation.' },
+  zone_selector_needs_rep_and_item: { fr:'Rép. {rep} + {item}', en:'Rep. {rep} + {item}' },
 
   // Gang competition
   competition_locale:                 { fr:'fr-FR', en:'en-US' },

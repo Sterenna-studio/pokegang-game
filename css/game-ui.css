@@ -809,6 +809,44 @@
       max-height: none;
       overflow-y: visible;
     }
+
+    /* ── Section « À débloquer » — zones à objet/événement ─────
+       Contrairement aux tuiles "?????" du fogmap, ces cartes révèlent le nom
+       de la zone : les cacher jusqu'à un seuil comme les zones à réputation
+       perdrait l'information (quel objet, où l'obtenir) plutôt que de
+       simplement la différer. */
+    .fog-unlock-section {
+      margin-top: 10px;
+      padding-top: 8px;
+      border-top: 1px dashed var(--border);
+    }
+    .fog-unlock-header {
+      font-family: var(--font-pixel);
+      font-size: 8px;
+      color: var(--gold-dim);
+      letter-spacing: .04em;
+      margin-bottom: 6px;
+      cursor: help;
+    }
+    .fog-unlock-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 6px;
+    }
+    .fog-unlock-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 6px 8px;
+    }
+    .fog-unlock-card-name {
+      font-family: var(--font-pixel);
+      font-size: 8px;
+      color: var(--text-dim);
+      margin-bottom: 3px;
+    }
+    .fog-unlock-card-req { font-size: 8px; color: var(--gold); }
+
     .fog-tile {
       position: relative;
       height: 100px;
