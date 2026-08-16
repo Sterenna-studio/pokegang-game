@@ -260,7 +260,10 @@
     /* !important : renderSpawnInWindow pose l'animation du raid en style inline. */
     .zone-spawn.onboarding-arriving { animation: sceneWalkIn .7s ease-out !important; }
     .zone-spawn.onboarding-arriving > .zone-speech-bubble { opacity: 0; }
-    /* Le float reprend la main une fois la marche d'entrée terminée. */
+    /* Le float reprend la main une fois la marche d'entrée terminée.
+       scene-arrive ne porte jamais de réplique (cf. onboardingScene.js) : la
+       bulle n'existe donc pas tant que le sprite glisse encore — inutile de
+       la masquer ici, elle n'a tout simplement pas encore de raison d'exister. */
     .zone-quest-encounter.scene-arrive { animation: sceneWalkIn .55s ease-out, float 3s ease-in-out .55s infinite; }
     .zone-quest-encounter.scene-leave  { animation: sceneWalkOut .5s ease-in forwards; }
 

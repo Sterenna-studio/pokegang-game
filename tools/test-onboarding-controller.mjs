@@ -59,6 +59,7 @@ const closedZones = [];
 let openedZone = null;
 let guideRefreshes = 0;
 let guideCleared = 0;
+let zonesForceRefreshed = 0;
 let payoff = null;
 let identityOpened = 0;
 const analyticsEvents = [];
@@ -81,6 +82,7 @@ configureOnboarding({
   removeSpawn: (_zoneId, id) => { fieldSpawns = fieldSpawns.filter(s => s.id !== id); },
   endZoneCombat: zoneId => { cinematic.push(`combat-teardown:${zoneId}`); },
   closeZoneWindow: zoneId => { closedZones.push(zoneId); },
+  forceZonesRefresh: () => { zonesForceRefreshed++; },
   getZoneById: zoneId => ({ id: zoneId, fr: 'Zone inconnue', en: 'Unknown Field', spawnRate: 0.5 }),
   getActiveSaveSlot: () => 0,
   openGiovanniIntro: ({ onComplete }) => {
@@ -215,6 +217,10 @@ assert.ok(guideRefreshes > 0);
 // fermée, sinon le joueur garde à l'écran une zone qu'il ne peut plus rouvrir.
 assert.ok(closedZones.includes(ONBOARDING_ZONE_ID));
 assert.ok(!(state.openZoneOrder || []).includes(ONBOARDING_ZONE_ID));
+// Le joueur est sur Agents à cet instant (dernier geste du transfuge), pas
+// Zones — sans ce forçage explicite, le fogmap ne montrerait le Marché
+// fraîchement débloqué qu'au prochain clic manuel sur l'onglet Zones.
+assert.equal(zonesForceRefreshed, 1);
 
 // Rejouer l'événement ne doit ni repayer la prime ni réémettre l'étape.
 const stepsAfter = completedSteps.length;

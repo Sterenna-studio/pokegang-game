@@ -99,6 +99,7 @@ import {
   renderAll,
   initKeyboardShortcuts,
   bindTabUnlockPopupUi,
+  applyOnboardingTabAccess,
 } from './modules/ui/tabRouter.js';
 import {
   checkTabUnlocks,
@@ -1721,6 +1722,18 @@ function configureEntryFlows() {
     placeGuide,
     refreshGuide,
     clearGuide,
+    // Forcé plutôt que confié au cycle de rendu habituel : à la complétion,
+    // le joueur est presque toujours sur l'onglet Agents (dernier geste du
+    // transfuge), pas Zones — renderAll() ne redessine que l'onglet actif,
+    // donc le fogmap resterait construit avec l'état d'avant tant que
+    // personne ne clique sur Zones. applyOnboardingTabAccess est lui déjà
+    // rappelé via le rAF de updateTopBar, mais ce rAF ne se déclenche jamais
+    // si le document est masqué (volet de test) — l'appeler ici aussi coûte
+    // rien et enlève toute dépendance au timing.
+    forceZonesRefresh: () => {
+      applyOnboardingTabAccess();
+      globalThis.renderZonesTab?.();
+    },
     notifyFieldIntro: lang => notify(lang === 'en'
       ? 'You do not know this field. Catch what you can before someone notices.'
       : 'Tu ne connais pas ce terrain. Capture ce que tu peux avant qu\'on te remarque.', 'gold'),

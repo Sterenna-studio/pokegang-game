@@ -412,6 +412,11 @@ function _completeOnboarding(source = 'guide') {
   if (Array.isArray(state.openZoneOrder)) {
     state.openZoneOrder = state.openZoneOrder.filter(id => id !== ONBOARDING_ZONE_ID);
   }
+  // Le joueur est presque toujours sur l'onglet Agents à cet instant (dernier
+  // geste du transfuge) : sans cet appel explicite, le fogmap ne serait
+  // reconstruit qu'au prochain clic sur Zones, avec le Marché/Pokédex/etc.
+  // fraîchement débloqués mais invisibles jusque-là.
+  _ctx.forceZonesRefresh?.();
   const agent = state.agents?.find(item => item.id === onboarding.guideAgentId);
   _ctx.showOnboardingIdlePayoff?.({
     agent,

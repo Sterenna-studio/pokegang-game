@@ -12,7 +12,16 @@ import { ONBOARDING_GIOVANNI_LINES, ONBOARDING_AMBUSH_LINES } from '../data/onbo
 // zoneWindows de repeindre. Il lui faut juste un viewport où planter son
 // capteur de clic — sans lui elle refuse de jouer, cf. le cas « pas de
 // terrain à l'écran » plus bas.
-const viewport = { children: [], appendChild(el) { this.children.push(el); el.remove = () => {}; } };
+// La bulle est un vrai nœud (textContent mutable) : la machine à écrire de
+// onboardingScene.js la cherche via querySelector et la tape dessus. Sans
+// elle, _typeAndWait retomberait silencieusement sur l'ancien comportement
+// chronométré et le test ne couvrirait rien de neuf.
+const bubbleEl = { textContent: '' };
+const viewport = {
+  children: [],
+  appendChild(el) { this.children.push(el); el.remove = () => {}; },
+  querySelector: sel => (sel === '.zone-quest-encounter .zone-speech-bubble' ? bubbleEl : null),
+};
 let fieldOnScreen = true;
 globalThis.document = {
   getElementById: id => (fieldOnScreen && id === 'zw-unknown_field'
@@ -40,19 +49,56 @@ configureOnboardingScene({ getState: () => state });
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-/** Avance la scène beat par beat en enregistrant chaque réplique affichée. */
+/**
+ * Avance la scène beat par beat en enregistrant chaque réplique affichée.
+ * Deux clics par beat, sans condition : un beat avec réplique a besoin du
+ * premier pour terminer la frappe et du second pour avancer ; un beat muet
+ * résout dès le premier, le second ne fait alors rien (advanceOnboardingScene
+ * renvoie false hors scène active) — la même paire marche donc pour les deux.
+ */
 async function drain(promise, zoneId = 'unknown_field') {
   const seen = [];
   while (isOnboardingSceneRunning()) {
     const actor = getOnboardingSceneEncounterForZone(zoneId);
     if (actor) seen.push(`${actor.name}|${actor.bubble}|${actor.cls}`);
-    // Un clic passe au beat suivant sans attendre la fin du minuteur : c'est
-    // tout l'intérêt du mode « clic = avancer ».
+    advanceOnboardingScene();
     advanceOnboardingScene();
     await sleep(0);
   }
   await promise;
   return seen;
+}
+
+// ── Machine à écrire : jamais d'avance automatique ─────────────────
+// Reproduit un joueur qui n'agit pas du tout : un beat avec réplique ne doit
+// JAMAIS avancer tout seul — c'était tout le problème de l'ancien minuteur
+// (BEAT_HOLD_MS) qui pouvait faire défiler du texte sans que personne l'ait lu.
+{
+  const typingScene = playGiovanniArrival({ won: false });
+  const fullLine = ONBOARDING_AMBUSH_LINES.lost.fr;
+  await sleep(90); // largement moins que le temps de frappe complet (~22ms/caractère)
+  assert.ok(isOnboardingSceneRunning(), 'toujours en cours sans clic — pas de minuteur qui avance seul');
+  assert.equal(getOnboardingSceneEncounterForZone('unknown_field').name, 'Sbire Rocket');
+  assert.ok(bubbleEl.textContent.length > 0, 'la frappe a commencé');
+  assert.ok(bubbleEl.textContent.length < fullLine.length, 'pas encore fini de taper à 90ms');
+
+  // Premier clic : termine la ligne affichée, mais n'avance PAS au beat suivant.
+  advanceOnboardingScene();
+  assert.equal(bubbleEl.textContent, fullLine, 'le premier clic complète la frappe en cours');
+  assert.equal(getOnboardingSceneEncounterForZone('unknown_field').name, 'Sbire Rocket', 'toujours le même beat');
+
+  // Attendre après une ligne complète ne fait rien avancer non plus.
+  await sleep(120);
+  assert.equal(getOnboardingSceneEncounterForZone('unknown_field').name, 'Sbire Rocket', 'aucun minuteur derrière une ligne terminée');
+
+  // Second clic : avance réellement au beat suivant.
+  advanceOnboardingScene();
+  await sleep(0);
+  assert.equal(getOnboardingSceneEncounterForZone('unknown_field').name, 'Giovanni', 'le second clic avance');
+
+  cancelOnboardingScene();
+  await typingScene;
+  assert.equal(getStoryLockOwner(), null);
 }
 
 // ── Arrivée de Giovanni ───────────────────────────────────────────
@@ -64,12 +110,15 @@ assert.equal(isOnboardingSceneRunning(), true);
 assert.equal(getStoryLockOwner(), 'onboarding-v2');
 
 const arrivalBeats = await drain(arrival);
-// Les sbires ont le dernier mot, puis Giovanni arrive et enchaîne.
+// Les sbires ont le dernier mot, puis Giovanni arrive — en silence d'abord
+// (bulle vide tant qu'il marche : jamais de texte pendant que le sprite
+// bouge, sinon illisible), sa réplique n'arrive qu'une fois immobile.
 assert.ok(arrivalBeats[0].startsWith('Sbire Rocket|' + ONBOARDING_AMBUSH_LINES.lost.fr));
-assert.ok(arrivalBeats[1].startsWith('Giovanni|' + ONBOARDING_GIOVANNI_LINES.arrival.fr));
-assert.ok(arrivalBeats[1].endsWith('|scene-arrive'), 'il entre en marchant');
-assert.ok(arrivalBeats[2].includes(ONBOARDING_GIOVANNI_LINES.claim.fr));
-assert.ok(arrivalBeats[3].includes(ONBOARDING_GIOVANNI_LINES.offer.fr));
+assert.equal(arrivalBeats[1], 'Giovanni||scene-arrive', 'entrée silencieuse, rien à lire pendant qu\'il marche');
+assert.ok(arrivalBeats[2].startsWith('Giovanni|' + ONBOARDING_GIOVANNI_LINES.arrival.fr));
+assert.ok(arrivalBeats[2].endsWith('|'), 'plus de cls d\'animation une fois immobile');
+assert.ok(arrivalBeats[3].includes(ONBOARDING_GIOVANNI_LINES.claim.fr));
+assert.ok(arrivalBeats[4].includes(ONBOARDING_GIOVANNI_LINES.offer.fr));
 // Le terrain est rendu avant que l'écran d'identité ne s'ouvre.
 assert.equal(getOnboardingSceneEncounterForZone('unknown_field'), null);
 // …et le verrou aussi : le laisser traîner bloquerait toute autre surface
@@ -79,7 +128,7 @@ assert.equal(getStoryLockOwner(), null);
 // Le joueur qui gagne l'embuscade ne doit pas s'entendre parler d'une défaite.
 const wonBeats = await drain(playGiovanniArrival({ won: true }));
 assert.ok(wonBeats[0].includes(ONBOARDING_AMBUSH_LINES.won.fr));
-assert.ok(wonBeats[1].includes(ONBOARDING_GIOVANNI_LINES.arrivalWon.fr));
+assert.ok(wonBeats[2].includes(ONBOARDING_GIOVANNI_LINES.arrivalWon.fr));
 
 // L'acteur n'existe que sur le terrain de départ.
 const running = playGiovanniDeparture();

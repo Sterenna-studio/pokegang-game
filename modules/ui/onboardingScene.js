@@ -11,11 +11,15 @@
 //  sa réplique — donc ce module ne dessine rien lui-même : il tient
 //  l'acteur courant et laisse zoneWindows le rendre.
 //
-//  Rythme : chaque beat a une durée, et un clic n'importe où dans le
-//  viewport passe au suivant sans attendre. Il n'y a pas de saut global —
-//  au tout premier run, un clic réflexe ne doit pas escamoter la mise en
-//  place. Le capteur de clic couvre le viewport pendant la scène, ce qui
-//  neutralise aussi le gameplay derrière.
+//  Rythme : un beat avec réplique se tape à la machine à écrire (comme les
+//  jeux Pokémon d'origine) et n'avance JAMAIS tout seul — un premier clic
+//  termine la ligne instantanément si elle est encore en cours de frappe, un
+//  second clic passe au beat suivant. Aucun texte ne défile sans que le
+//  joueur l'ait demandé. Un beat muet (entrée/sortie de scène, sans
+//  réplique) garde lui un délai chronométré : il n'y a rien à lire, le faire
+//  attendre un clic serait juste une invite vide. Le capteur de clic couvre
+//  le viewport pendant toute la scène, ce qui neutralise aussi le gameplay
+//  derrière.
 //
 //  Dépendances globalThis : trainerSprite, patchZoneWindow
 // ════════════════════════════════════════════════════════════════
@@ -38,17 +42,21 @@ const SCENE_ENCOUNTER_ID = 'onboarding-scene';
 const AMBUSH_SPAWN_SELECTOR = '[data-spawn-id="onboarding-ambush"]';
 const CATCHER_CLASS = 'onboarding-scene-catcher';
 
-/** Durée par défaut d'une réplique avant enchaînement automatique. */
-const BEAT_HOLD_MS = 3_400;
 /** Beat muet (entrée/sortie de scène) — juste le temps de l'animation. */
 const MOVE_HOLD_MS = 700;
+/** Durée d'un beat sans réplique et sans animation propre (silence, pause). */
+const PAUSE_HOLD_MS = 3_400;
+/** Cadence de la machine à écrire — même valeur que modules/ui/intro.js. */
+const TYPE_SPEED_MS = 22;
 
 let _ctx = {};
 let _actor = null;
 let _running = false;
 let _cancelled = false;
-let _advance = null;
+let _advance = null;      // clic du joueur — termine la frappe, ou avance
+let _forceResolve = null; // résout le beat courant sans condition (annulation)
 let _timer = 0;
+let _typeTimer = 0;
 let _catcher = null;
 
 export function configureOnboardingScene(ctx = {}) {
@@ -101,6 +109,10 @@ function _viewport() {
   return document.getElementById(`zw-${ONBOARDING_ZONE_ID}`)?.querySelector('.zone-viewport') ?? null;
 }
 
+function _bubbleEl() {
+  return _viewport()?.querySelector('.zone-quest-encounter .zone-speech-bubble') ?? null;
+}
+
 function _mountCatcher() {
   if (_catcher?.isConnected) return;
   const viewport = _viewport();
@@ -128,6 +140,7 @@ export function advanceOnboardingScene() {
   return true;
 }
 
+/** Beat muet : chronométré, un clic le termine en avance. Rien à lire. */
 function _hold(ms) {
   return new Promise(resolve => {
     let settled = false;
@@ -137,10 +150,54 @@ function _hold(ms) {
       clearTimeout(_timer);
       _timer = 0;
       _advance = null;
+      _forceResolve = null;
       resolve();
     };
     _advance = finish;
+    _forceResolve = finish;
     _timer = setTimeout(finish, ms);
+  });
+}
+
+/**
+ * Beat avec réplique : machine à écrire, aucun délai automatique. Premier
+ * clic pendant la frappe → termine la ligne instantanément. Clic une fois la
+ * ligne complète → passe au beat suivant. Sans clic, la scène attend
+ * indéfiniment — comme les jeux d'origine, jamais de texte qui défile seul.
+ */
+function _typeAndWait(beat) {
+  return new Promise(resolve => {
+    const el = _bubbleEl();
+    const fullText = beat.actor?.bubble || '';
+    if (!el || !fullText) {
+      // Rien à taper (bulle vide ou pas encore montée) : comportement de
+      // repli identique à un beat muet plutôt que d'attendre un clic sur rien.
+      _hold(beat.hold ?? PAUSE_HOLD_MS).then(resolve);
+      return;
+    }
+    el.textContent = '';
+    let i = 0;
+    let typing = true;
+
+    const finishTyping = () => {
+      clearInterval(_typeTimer);
+      _typeTimer = 0;
+      el.textContent = fullText;
+      typing = false;
+    };
+    const finish = () => {
+      clearInterval(_typeTimer);
+      _typeTimer = 0;
+      _advance = null;
+      _forceResolve = null;
+      resolve();
+    };
+    _advance = () => { if (typing) finishTyping(); else finish(); };
+    _forceResolve = finish;
+    _typeTimer = setInterval(() => {
+      el.textContent += fullText[i++];
+      if (i >= fullText.length) finishTyping();
+    }, TYPE_SPEED_MS);
   });
 }
 
@@ -168,7 +225,10 @@ async function _play(beats) {
       beat.enter?.();
       if (beat.actor !== undefined) _actor = beat.actor;
       if (beat.actor !== undefined || beat.repaint) _repaint();
-      await _hold(beat.hold ?? BEAT_HOLD_MS);
+      // Une réplique se tape et attend un clic ; un beat muet reste
+      // chronométré — rien n'y défile puisqu'il n'y a rien à y lire.
+      if (beat.actor?.bubble) await _typeAndWait(beat);
+      else await _hold(beat.hold ?? PAUSE_HOLD_MS);
       beat.exit?.();
     }
   } catch (error) {
@@ -176,7 +236,11 @@ async function _play(beats) {
   } finally {
     _running = false;
     _advance = null;
+    _forceResolve = null;
     clearTimeout(_timer);
+    clearInterval(_typeTimer);
+    _timer = 0;
+    _typeTimer = 0;
     _unmountCatcher();
     if (_cancelled) { _actor = null; _repaint(); }
     // Rendre le verrou exactement dans le cas où on l'a pris : le laisser
@@ -214,8 +278,10 @@ export function playAmbushArrival() {
       exit: () => spawnEl()?.classList.remove('onboarding-arriving'),
     },
     // La bulle d'intro vit sur le spawn (spawn.bubble) et reste affichée après
-    // la scène : c'est l'invitation au combat, elle doit survivre au clic.
-    { hold: BEAT_HOLD_MS },
+    // la scène : c'est l'invitation au combat, elle doit survivre au clic. Ce
+    // n'est pas un beat de _play (le spawn n'est pas un `actor`), donc pas de
+    // machine à écrire ici — juste la pause avant que le raid soit cliquable.
+    { hold: PAUSE_HOLD_MS },
   ]);
 }
 
@@ -229,7 +295,15 @@ export function playGiovanniArrival({ won = false } = {}) {
   const arrival = _line(won ? ONBOARDING_GIOVANNI_LINES.arrivalWon : ONBOARDING_GIOVANNI_LINES.arrival);
   return _play([
     { actor: _grunt(aftermath) },
-    { actor: _giovanni(arrival, 'scene-arrive') },
+    // Il entre EN SILENCE d'abord (bulle vide → aucun nœud .zone-speech-bubble
+    // rendu, cf. _questEncounterHtml) : le texte n'apparaît qu'une fois le
+    // sprite immobile, jamais pendant qu'il glisse encore. Une temporisation
+    // CSS (opacity + animation-delay) avait été tentée mais ne survit pas au
+    // rafraîchissement périodique du timer de zone (1s, updateZoneTimers) qui
+    // reconstruit .zone-quest-encounter et relance l'animation à chaque tick —
+    // un beat muet séparé, comme scene-leave plus bas, est robuste à ça.
+    { actor: _giovanni('', 'scene-arrive'), hold: MOVE_HOLD_MS },
+    { actor: _giovanni(arrival) },
     { actor: _giovanni(_line(ONBOARDING_GIOVANNI_LINES.claim)) },
     { actor: _giovanni(_line(ONBOARDING_GIOVANNI_LINES.offer)) },
     // Terrain rendu avant l'ouverture de l'écran d'identité.
@@ -253,7 +327,10 @@ export function playGiovanniDeparture() {
 export function cancelOnboardingScene() {
   if (!_running) return false;
   _cancelled = true;
-  _advance?.();
+  // _forceResolve, pas _advance : en pleine frappe, _advance() ne ferait que
+  // terminer la ligne (comportement clic normal) sans jamais résoudre le
+  // beat — l'annulation doit sauter par-dessus, pas se comporter comme un clic.
+  _forceResolve?.();
   return true;
 }
 
