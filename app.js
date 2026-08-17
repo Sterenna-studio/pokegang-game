@@ -182,6 +182,10 @@ import {
   maybeOfferOnboardingFlashback,
 } from './modules/ui/onboardingFlashback.js';
 import { initAdvisor, renderAdvisor } from './modules/ui/advisor.js';
+import {
+  configureItemsIntroPopup,
+  maybeShowItemsIntro,
+} from './modules/ui/itemsIntroPopup.js';
 import { isOnboardingActive } from './modules/systems/onboardingFlow.js';
 import { ONBOARDING_AMBUSH_LINES } from './data/onboarding-data.js';
 import { checkDarkraiCutscene, triggerDarkraiOnLeagueVictory } from './modules/ui/darkraiEvent.js';
@@ -1766,6 +1770,12 @@ function configureEntryFlows() {
     getState: () => state,
     pokeSprite,
     saveState,
+  });
+
+  configureItemsIntroPopup({
+    getState: () => state,
+    saveState,
+    switchTab,
   });
 
   configureOnboardingFlashback({

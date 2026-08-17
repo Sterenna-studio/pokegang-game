@@ -2007,6 +2007,12 @@
       from { opacity: 0; }
       to   { opacity: 1; }
     }
+    /* Flèche qui pousse vers l'action (popup d'intro objets, etc.) */
+    .iip-arrow { display: inline-block; animation: iipArrowNudge 1s ease-in-out infinite; }
+    @keyframes iipArrowNudge {
+      0%, 100% { translate: 0 0; }
+      50%      { translate: 4px 0; }
+    }
 
     @keyframes fadeOut {
       from { opacity: 1; }

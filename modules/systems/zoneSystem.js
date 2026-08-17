@@ -575,6 +575,9 @@ function rollChestLoot(zoneId, passive = false) {
     }
     case 'item': {
       state.inventory[loot.itemId] = (state.inventory[loot.itemId] || 0) + loot.qty;
+      // Premier objet consommable jamais obtenu : le transfuge explique à
+      // quoi ça sert avant que ça dorme dans l'inventaire sans être compris.
+      setTimeout(() => globalThis.maybeShowItemsIntro?.(), 300);
       return { msg: `📦 ${loot.qty}x ${name}`, type: 'gold' };
     }
     case 'event': {

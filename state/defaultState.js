@@ -257,6 +257,9 @@ export const DEFAULT_STATE = {
     // getNextObjective). Persisté pour que son « ! » ne se rallume qu'au
     // changement d'objectif, pas à chaque rechargement de page.
     advisorLastSeen: null,
+    // Popup "cadeau du transfuge" présentant les consommables — une seule
+    // fois, au premier objet obtenu hors onboarding. modules/ui/itemsIntroPopup.js.
+    itemsIntroShown: false,
   },
   groudonMission: {
     active:          false,
