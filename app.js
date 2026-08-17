@@ -173,6 +173,10 @@ import {
   playGiovanniDeparture,
 } from './modules/ui/onboardingScene.js';
 import {
+  configureOnboardingAmbushPopup,
+  showAmbushChallengePopup,
+} from './modules/ui/onboardingAmbushPopup.js';
+import {
   configureOnboardingFlashback,
   maybeOfferOnboardingFlashback,
 } from './modules/ui/onboardingFlashback.js';
@@ -1744,6 +1748,7 @@ function configureEntryFlows() {
     playAmbushArrival,
     playGiovanniArrival,
     playGiovanniDeparture,
+    showAmbushChallengePopup,
   });
 
   configureOnboardingGuide({
@@ -1753,6 +1758,12 @@ function configureEntryFlows() {
 
   configureOnboardingScene({
     getState: () => state,
+  });
+
+  configureOnboardingAmbushPopup({
+    getState: () => state,
+    pokeSprite,
+    saveState,
   });
 
   configureOnboardingFlashback({

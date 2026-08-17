@@ -253,8 +253,21 @@ function _startAmbush() {
   _spawnAmbush();
   // Les sbires entrent en scène plutôt que d'apparaître : la scène tient le
   // verrou et le viewport le temps de la marche d'entrée, puis rend la main
-  // pour que le raid redevienne cliquable.
-  void _ctx.playAmbushArrival?.();
+  // pour que le raid redevienne cliquable. La popup de défi s'affiche juste
+  // après : sans elle, rien n'indique au joueur qu'il doit cliquer le raid,
+  // ni que son équipe a déjà été constituée pour lui.
+  void _ctx.playAmbushArrival?.().then(() => {
+    _ctx.showAmbushChallengePopup?.({
+      zoneId: ONBOARDING_ZONE_ID,
+      onConfirm: () => {
+        const win = document.getElementById(`zw-${ONBOARDING_ZONE_ID}`);
+        const raidEl = win?.querySelector(`[data-spawn-id="${AMBUSH_SPAWN_ID}"]`);
+        // Un vrai clic déclenche exactement ce que cliquer le raid aurait
+        // fait (openCombatPopup) — pas de logique de combat dupliquée ici.
+        raidEl?.click();
+      },
+    });
+  });
   return true;
 }
 
