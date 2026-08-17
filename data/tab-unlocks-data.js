@@ -51,8 +51,8 @@ const UNLOCKABLE_TABS = Object.freeze(TAB_UNLOCK_RULES.map(entry => entry.tab));
 /** Libellé + raison, affichés par la carte de déblocage. */
 const TAB_UNLOCK_COPY = Object.freeze({
   tabMarket:      { fr: 'Marché',     en: 'Market',
-    whyFr: 'Des leurres et des encens pour capturer plus vite.',
-    whyEn: 'Lures and incense to catch faster.' },
+    whyFr: 'Dépense tes pokédollars contre des ressources — et jette un œil au Marché Noir, pour les missions moins recommandables.',
+    whyEn: 'Spend your pokédollars on resources — and check out the Black Market, for the less reputable jobs.' },
   tabPokedex:     { fr: 'Pokédex',    en: 'Pokédex',
     whyFr: 'Ta collection se remplit à chaque capture.',
     whyEn: 'Your collection fills up with every catch.' },
