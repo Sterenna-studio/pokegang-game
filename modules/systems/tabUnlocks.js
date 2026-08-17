@@ -73,6 +73,10 @@ function _ruleMet(rule, state, discovery) {
     case 'agentOps':   return discovery.agentOperations >= rule.threshold;
     case 'reputation': return (state?.gang?.reputation ?? 0) >= rule.threshold;
     case 'sessions':   return discovery.sessionsSinceOnboarding >= rule.threshold;
+    // Déblocage narratif : un booléen quelconque de discoveryProgress plutôt
+    // qu'un seuil numérique — ex. tabPokedex/rivalPokedexUnlocked, posé par
+    // modules/ui/rivalEncounterPopup.js à l'issue de sa scène.
+    case 'flag':       return !!state?.discoveryProgress?.[rule.flag];
     default:           return false;
   }
 }

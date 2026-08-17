@@ -3097,9 +3097,48 @@ function _renderTrainerEncountersView(grid) {
   `;
 }
 
+// ── Familles d'évolution (halo Pokédex) ─────────────────────────────────────
+// La topologie ne change jamais à l'exécution : mémorisée une fois calculée.
+const _familyMembersCache = new Map();
+function _evolutionFamilyMembers(species_en) {
+  if (_familyMembersCache.has(species_en)) return _familyMembersCache.get(species_en);
+  const base = getBaseSpecies(species_en);
+  const members = [base];
+  const queue = [base];
+  while (queue.length) {
+    const cur = queue.shift();
+    for (const evo of (EVO_BY_SPECIES[cur] || [])) {
+      if (!members.includes(evo.to)) { members.push(evo.to); queue.push(evo.to); }
+    }
+  }
+  for (const m of members) _familyMembersCache.set(m, members);
+  return members;
+}
+// Jamais vrai pour une famille de 1 (rien à "compléter") — sinon chaque
+// espèce sans évolution briillerait dès sa toute première capture.
+function _isFamilyComplete(species_en) {
+  const members = _evolutionFamilyMembers(species_en);
+  if (members.length < 2) return false;
+  return members.every(m => state.pokedex[m]?.caught);
+}
+
+// Rejoue la cascade de remplissage même si state.settings.pokedexAnimations
+// est désactivé — geste manuel explicite (bouton), distinct du déclenchement
+// automatique à l'unlock, que ce réglage gouverne. Non persisté : un simple
+// aller-retour de tab n'a pas besoin de la rejouer.
+let _dexForceReplay = false;
+
 function renderPokedexTab() {
   const grid = document.getElementById('pokedexGrid');
   if (!grid) return;
+
+  const animationsEnabled = state.settings?.pokedexAnimations !== false;
+  const shouldReplay = _dexForceReplay || (animationsEnabled && !!state.discoveryProgress?.pokedexRevealPending);
+  _dexForceReplay = false;
+  if (state.discoveryProgress?.pokedexRevealPending) {
+    state.discoveryProgress.pokedexRevealPending = false;
+    saveState();
+  }
 
   // ── Unlock state ───────────────────────────────────────────────
   const _purchases     = getState()?.purchases ?? {};
@@ -3141,9 +3180,22 @@ function renderPokedexTab() {
       ${sinnohUnlocked ? `<span title="${_t('pc_dex_sinnoh_title')}" style="opacity:.85">❄️ Sinnoh&nbsp;<b style="color:var(--text)">${sinnohCaught}/${sinnohTotal}</b></span>` : ''}
       <span title="${_t('pc_dex_national_title')}" style="opacity:.7">🌐 National&nbsp;<b style="color:var(--text)">${nationalCaught}/${getNationalDexSize()}</b></span>
       <span title="${_t('pc_dex_shiny_species_title')}">✨&nbsp;<b style="color:var(--gold)">${shinySpecies}</b></span>
-      <button id="dexRebuildBtn" title="${_t('pc_dex_rebuild_title')}" style="margin-left:auto;font-family:var(--font-pixel);font-size:7px;padding:3px 7px;background:rgba(255,204,90,.08);border:1px solid rgba(255,204,90,.35);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer;white-space:nowrap">🔄 ${_t('pc_recalibrate')}</button>
+      <label style="margin-left:auto;display:flex;align-items:center;gap:4px;cursor:pointer;user-select:none;opacity:.85" title="${_t('Anime le remplissage du Pokédex et le halo des familles complètes', 'Animates the Pokédex fill-in and the completed-family glow')}">
+        <input type="checkbox" id="dexAnimToggle" ${animationsEnabled ? 'checked' : ''} style="accent-color:var(--gold)">
+        ${_t('Animations', 'Animations')}
+      </label>
+      <button id="dexReplayBtn" title="${_t('Rejouer l\'animation de remplissage', 'Replay the fill-in animation')}" style="font-family:var(--font-pixel);font-size:7px;padding:3px 7px;background:rgba(255,204,90,.08);border:1px solid rgba(255,204,90,.35);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer;white-space:nowrap">🔄 ${_t('Charger', 'Reload')}</button>
+      <button id="dexRebuildBtn" title="${_t('pc_dex_rebuild_title')}" style="font-family:var(--font-pixel);font-size:7px;padding:3px 7px;background:rgba(255,204,90,.08);border:1px solid rgba(255,204,90,.35);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer;white-space:nowrap">🔄 ${_t('pc_recalibrate')}</button>
   `;
   document.getElementById('dexRebuildBtn')?.addEventListener('click', rebuildPokedex);
+  document.getElementById('dexReplayBtn')?.addEventListener('click', () => {
+    _dexForceReplay = true;
+    renderPokedexTab();
+  });
+  document.getElementById('dexAnimToggle')?.addEventListener('change', (e) => {
+    state.settings.pokedexAnimations = e.target.checked;
+    saveState();
+  });
 
   // ── Filter tabs ────────────────────────────────────────────────
   const DEX_FILTERS = [
@@ -3221,14 +3273,18 @@ function renderPokedexTab() {
   const hasActiveOverlay = dexViewFilter === 'shiny' || dexViewFilter === 'missing';
 
   // ── Render grid ────────────────────────────────────────────────
-  grid.innerHTML = pool.length ? pool.map(sp => {
+  grid.classList.toggle('dex-reveal-fade', shouldReplay);
+  grid.innerHTML = pool.length ? pool.map((sp, i) => {
     const entry    = state.pokedex[sp.en];
     const caught   = entry?.caught;
     const seen     = entry?.seen;
     const sel      = dexSelectedEn === sp.en ? 'selected' : '';
     const hasShiny = !!entry?.shiny;
     const dimmed   = hasActiveOverlay && !isHighlighted(sp) ? 'dex-dimmed' : '';
-    return `<div class="dex-entry ${caught ? 'caught' : ''} ${!seen && !caught ? 'unseen' : ''} ${dimmed} ${sel}" data-dex-en="${sp.en}" style="position:relative">
+    const familyComplete = animationsEnabled && caught && _isFamilyComplete(sp.en) ? 'dex-family-complete' : '';
+    const popIn    = shouldReplay ? 'dex-pop-in' : '';
+    const style     = shouldReplay ? `position:relative;--dex-i:${i}` : 'position:relative';
+    return `<div class="dex-entry ${caught ? 'caught' : ''} ${!seen && !caught ? 'unseen' : ''} ${dimmed} ${sel} ${familyComplete} ${popIn}" data-dex-en="${sp.en}" style="${style}">
       ${caught || seen
         ? `<img src="${pokeSprite(sp.en, hasShiny)}" style="width:36px;height:36px;${!caught ? 'filter:brightness(0)' : ''}">`
         : `<div style="width:36px;height:36px;display:flex;align-items:center;justify-content:center;color:var(--text-dim);font-size:14px">?</div>`

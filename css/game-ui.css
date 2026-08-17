@@ -1208,6 +1208,27 @@
     .dex-entry img { width: 36px; height: 36px; }
     .dex-entry .dex-number { font-family: var(--font-pixel); font-size: 7px; margin-top: 2px; }
 
+    /* ── Mur du Pokédex : remplissage progressif + halo de famille complète ── */
+    /* modules/ui/rivalEncounterPopup.js débloque l'onglet, modules/ui/pcPokedex.js
+       joue cette cascade à la première ouverture (ou au clic sur "Charger"). */
+    #pokedexGrid.dex-reveal-fade { animation: fadeIn .5s ease; }
+    .dex-entry.dex-pop-in {
+      animation: dexEntryPopIn .4s cubic-bezier(.34,1.56,.64,1) both;
+      animation-delay: min(calc(var(--dex-i, 0) * 16ms), 3s);
+    }
+    @keyframes dexEntryPopIn {
+      from { opacity: 0; scale: .5; }
+      to   { opacity: 1; scale: 1; }
+    }
+    .dex-entry.dex-family-complete {
+      border-color: var(--gold);
+      animation: dexFamilyGlow 2.4s ease-in-out infinite;
+    }
+    @keyframes dexFamilyGlow {
+      0%, 100% { box-shadow: 0 0 6px 0px rgba(255, 204, 90, .35); }
+      50%      { box-shadow: 0 0 12px 3px rgba(255, 204, 90, .65); }
+    }
+
     /* ── Event Feed (tabBattleLog) ───────────────────────────────── */
     .feed-filter-btn {
       font-family: var(--font-pixel);

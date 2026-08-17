@@ -26,7 +26,10 @@ const BASE_TABS = Object.freeze(['tabZones', 'tabPC', 'tabAgents', 'tabGang']);
  *
  *   Marché      fin du tunnel      5 500 ₽ = leurres/encens, tous des boosts
  *                                  de CAPTURE, le geste qu'il vient d'apprendre
- *   Pokédex     1 capture          11/151 déjà remplis, rien à payer
+ *   Pokédex     scène du rival     mur narratif — le transfuge reconnaît un
+ *                                  dresseur au 5e combat en zone ; son
+ *                                  Pokédex volé ouvre l'onglet (voir
+ *                                  modules/ui/rivalEncounterPopup.js)
  *   Missions    5 captures         arrive avec une quête déjà réclamable
  *                                  (baseline journalier figé à zéro au départ)
  *   Évts        1 opé d'agent      seul onglet dont le contenu n'existe
@@ -38,7 +41,7 @@ const BASE_TABS = Object.freeze(['tabZones', 'tabPC', 'tabAgents', 'tabGang']);
  */
 const TAB_UNLOCK_RULES = Object.freeze([
   { tab: 'tabMarket',      rule: 'onboarding',  threshold: 0   },
-  { tab: 'tabPokedex',     rule: 'captures',    threshold: 1   },
+  { tab: 'tabPokedex',     rule: 'flag',        flag: 'rivalPokedexUnlocked' },
   { tab: 'tabMissions',    rule: 'captures',    threshold: 5   },
   { tab: 'tabBattleLog',   rule: 'agentOps',    threshold: 1   },
   { tab: 'tabCompetition', rule: 'reputation',  threshold: 50  },

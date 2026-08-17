@@ -83,18 +83,26 @@ assert.equal(isTabRevealed(run, 'tabMarket'), true);
 assert.deepEqual(revealTabs(run, ['tabMarket']), []);
 assert.deepEqual(evaluateTabUnlocks(run), []);
 
-// Première capture → Pokédex.
+// Les captures seules n'ouvrent plus le Pokédex — mur narratif désormais
+// (modules/ui/rivalEncounterPopup.js) — mais continuent d'alimenter le
+// seuil Missions, inchangé.
 recordDiscoveryCapture(run);
-assert.deepEqual(evaluateTabUnlocks(run), ['tabPokedex']);
-revealTabs(run, evaluateTabUnlocks(run));
+assert.deepEqual(evaluateTabUnlocks(run), []);
 
 // Captures 2 à 4 : rien de neuf.
 for (let i = 0; i < 3; i++) recordDiscoveryCapture(run);
 assert.deepEqual(evaluateTabUnlocks(run), []);
-// Cinquième capture → Missions.
+// Cinquième capture → Missions. Le Pokédex, lui, reste verrouillé.
 recordDiscoveryCapture(run);
 assert.deepEqual(evaluateTabUnlocks(run), ['tabMissions']);
 revealTabs(run, evaluateTabUnlocks(run));
+assert.equal(isTabRevealed(run, 'tabPokedex'), false);
+
+// Seul le flag posé par la scène du rival ouvre le Pokédex.
+run.discoveryProgress.rivalPokedexUnlocked = true;
+assert.deepEqual(evaluateTabUnlocks(run), ['tabPokedex']);
+revealTabs(run, evaluateTabUnlocks(run));
+assert.equal(isTabRevealed(run, 'tabPokedex'), true);
 
 // Première opération d'agent → Événements.
 recordDiscoveryAgentOperation(run);
@@ -157,11 +165,26 @@ const sinnoh = migrateSave({
 }, migrationDeps);
 assert.equal(sinnoh.discoveryProgress.sinnohTeaseUnlocked, true);
 
-// Chaque règle doit avoir un seuil atteignable et un type connu.
-const KNOWN_RULES = new Set(['onboarding', 'captures', 'agentOps', 'reputation', 'sessions']);
+// Chaque règle doit avoir un type connu, et un seuil atteignable — sauf
+// 'flag', qui pointe vers un booléen de discoveryProgress plutôt qu'un seuil.
+const KNOWN_RULES = new Set(['onboarding', 'captures', 'agentOps', 'reputation', 'sessions', 'flag']);
 for (const rule of TAB_UNLOCK_RULES) {
   assert.ok(KNOWN_RULES.has(rule.rule), `règle inconnue : ${rule.rule}`);
-  assert.ok(Number.isFinite(rule.threshold) && rule.threshold >= 0);
+  if (rule.rule === 'flag') {
+    assert.ok(typeof rule.flag === 'string' && rule.flag.length > 0, `${rule.tab} : flag manquant`);
+  } else {
+    assert.ok(Number.isFinite(rule.threshold) && rule.threshold >= 0);
+  }
 }
+
+// ── Règle 'flag' isolée ─────────────────────────────────────────────
+// Pas seulement testée via tabPokedex : vérifie le mécanisme générique lui-même.
+const flagState = makeState();
+assert.deepEqual(evaluateTabUnlocks(flagState), ['tabMarket'], 'sanity : fin du tunnel seule');
+revealTabs(flagState, ['tabMarket']);
+flagState.discoveryProgress.rivalPokedexUnlocked = false;
+assert.equal(evaluateTabUnlocks(flagState).includes('tabPokedex'), false);
+flagState.discoveryProgress.rivalPokedexUnlocked = true;
+assert.equal(evaluateTabUnlocks(flagState).includes('tabPokedex'), true);
 
 console.log('tab unlocks tests: ok');

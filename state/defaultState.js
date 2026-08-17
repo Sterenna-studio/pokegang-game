@@ -172,6 +172,7 @@ export const DEFAULT_STATE = {
     protectedSpecies: [],  // species_en never auto-sold by any system
     publicProfile: false,  // API publique opt-in
     profileToken:  null,   // token unique généré par Supabase au premier opt-in
+    pokedexAnimations: true, // cascade de remplissage + halo de famille complète (modules/ui/pcPokedex.js)
   },
   log: [],
   marketSales: {},
@@ -260,6 +261,17 @@ export const DEFAULT_STATE = {
     // Popup "cadeau du transfuge" présentant les consommables — une seule
     // fois, au premier objet obtenu hors onboarding. modules/ui/itemsIntroPopup.js.
     itemsIntroShown: false,
+    // Mur du Pokédex — modules/ui/rivalEncounterPopup.js. Compteur de combats
+    // de zone gagnés depuis la fin de l'onboarding ; au seuil, la scène du
+    // rival se déclenche une seule fois (rivalSceneShown) et, à son issue,
+    // débloque réellement l'onglet (rivalPokedexUnlocked — lu par la règle
+    // 'flag' de data/tab-unlocks-data.js). pokedexRevealPending fait jouer
+    // l'animation de remplissage à la PROCHAINE ouverture de l'onglet plutôt
+    // qu'immédiatement, pour laisser le joueur fermer la popup d'abord.
+    postOnboardingZoneCombats: 0,
+    rivalSceneShown: false,
+    rivalPokedexUnlocked: false,
+    pokedexRevealPending: false,
   },
   groudonMission: {
     active:          false,
