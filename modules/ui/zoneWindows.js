@@ -1423,7 +1423,7 @@ function _openZoneContextMenu(zoneId, clientX, clientY) {
     'box-shadow:0 4px 24px rgba(0,0,0,.8)',
     'min-width:260px',
     'max-width:300px',
-    'max-height:80vh',
+    'max-height:min(560px, 66vh)',
     'overflow-y:auto',
     'font-family:var(--font-ui,sans-serif)',
     'font-size:11px',
@@ -1460,7 +1460,7 @@ function _openZoneContextMenu(zoneId, clientX, clientY) {
     </div>
 
     <!-- Combat power preview -->
-    <div style="padding:8px 10px;border-bottom:1px solid var(--border)">
+    <div style="padding:6px 10px;border-bottom:1px solid var(--border)">
       <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);margin-bottom:5px">${_t('zone_combat_power').toUpperCase()}</div>
       <div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:4px">
         <span style="color:#5af">${_t('zone_attack')} <strong>${atkPow.toLocaleString()}</strong></span>
@@ -1477,19 +1477,19 @@ function _openZoneContextMenu(zoneId, clientX, clientY) {
     </div>
 
     <!-- Pokémon pool -->
-    <div style="padding:8px 10px;border-bottom:1px solid var(--border)">
+    <div style="padding:6px 10px;border-bottom:1px solid var(--border)">
       <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);margin-bottom:5px">${_t('zone_pokemon').toUpperCase()} (${pool.length})</div>
-      <div style="display:flex;flex-wrap:wrap;gap:2px">${poolHtml}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:2px;max-height:90px;overflow-y:auto">${poolHtml}</div>
     </div>
 
     <!-- Trainers -->
-    <div style="padding:8px 10px;border-bottom:1px solid var(--border)">
+    <div style="padding:6px 10px;border-bottom:1px solid var(--border)">
       <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);margin-bottom:5px">${_t('zone_trainers').toUpperCase()}</div>
-      ${trainersHtml || '<span style="color:var(--text-dim);font-size:10px">—</span>'}
+      <div style="max-height:132px;overflow-y:auto">${trainersHtml || '<span style="color:var(--text-dim);font-size:10px">—</span>'}</div>
     </div>
 
     <!-- Assigned agents -->
-    <div style="padding:8px 10px">
+    <div style="padding:6px 10px">
       <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);margin-bottom:5px">${_t('zone_assigned_agents').toUpperCase()}</div>
       ${agentsHtml}
     </div>
