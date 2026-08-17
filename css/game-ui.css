@@ -196,6 +196,12 @@
        personnages qui parlent portent donc une vraie bulle, ancrée au-dessus
        d'eux et qui s'ouvre vers le bas. */
     .zone-speech-bubble {
+      /* .zone-quest-encounter et .zone-spawn tournent tous les deux via
+         `float` (scaleX(-1) dans le keyframe), et la bulle est toujours leur
+         descendante : sans ce contre-miroir, le texte se rendrait à l'envers.
+         `scale`, pas `transform` : `transform` est déjà pris par l'animation
+         sceneIn ci-dessous (même raison que le `translate:` plus bas). */
+      scale: -1 1;
       order: -1;
       max-width: 210px;
       margin-bottom: 8px;
