@@ -2330,13 +2330,31 @@ function animateCapture(zoneId, spawnObj, spawnEl, clickOffset = null) {
     ball.style.setProperty('--bounce-y', bounceY);
     ball.classList.add('ball-impact-bounce');
 
+    const IMPACT_MS = 220; // durée du rebond + de l'aspiration du sprite
+    const FALL_MS = 180;
+    // Une fois le sprite aspiré, plus rien ne tient la balle en l'air : elle
+    // retombe au sol, au centre-bas de la zone qu'occupait le sprite (56px),
+    // pas à sa hauteur de contact d'origine.
+    const groundY = targetY + 28;
+    setTimeout(() => {
+      // .ball-impact-bounce (2 classes) est plus spécifique que .ball-wobble
+      // (1 classe) : la laisser posée gagnerait la cascade sur `animation` et
+      // masquerait tout wobble ultérieur, même après la fin de son propre
+      // rebond — on la retire dès qu'elle a fini de jouer.
+      ball.classList.remove('ball-impact-bounce');
+      ball.style.transition = 'top .18s ease-in';
+      ball.style.top = (groundY - 10) + 'px';
+    }, IMPACT_MS);
+
     function doCaptureAttempt() {
       const caught = globalThis.tryCapture(zoneId, spawnObj.species_en, isCritical ? 1 : 0, spawnObj.spawnCtx || {});
       if (caught) {
         globalThis.SFX.play('capture', caught.potential, caught.shiny);
         // Étoiles progressives autour de la balle plutôt qu'une notification
         // texte — le feedback critique/shiny est porté par leur couleur.
-        showCaptureStars(viewport, targetX, targetY, caught.potential, caught.shiny, isCritical);
+        // groundY, pas targetY : la balle est retombée au sol depuis, les
+        // étoiles doivent tourner autour d'elle là où elle est vraiment.
+        showCaptureStars(viewport, targetX, groundY, caught.potential, caught.shiny, isCritical);
         ball.classList.add('ball-absorb');
         setTimeout(() => ball.remove(), 400);
         removeSpawn(zoneId, spawnObj.id);
@@ -2362,11 +2380,13 @@ function animateCapture(zoneId, spawnObj, spawnEl, clickOffset = null) {
       }
     }
 
-    // +220ms : laisse le rebond d'impact jouer avant que le wobble (ou la
-    // capture instantanée critique) ne prenne le relais.
+    // IMPACT_MS + FALL_MS : laisse le rebond d'impact puis la chute au sol
+    // jouer avant que le wobble (ou la capture instantanée critique) ne
+    // prenne le relais — le wobble doit se voir au sol, pas en l'air.
+    const SETTLE_MS = IMPACT_MS + FALL_MS;
     if (wobbles === 0) {
       // Critical — instant capture (no wobble)
-      setTimeout(doCaptureAttempt, 150 + 220);
+      setTimeout(doCaptureAttempt, 150 + SETTLE_MS);
     } else {
       // Wobble N times then attempt
       let w = 0;
@@ -2381,7 +2401,7 @@ function animateCapture(zoneId, spawnObj, spawnEl, clickOffset = null) {
           setTimeout(doCaptureAttempt, 520);
         }
       }
-      setTimeout(nextWobble, 100 + 220);
+      setTimeout(nextWobble, 100 + SETTLE_MS);
     }
   }, 380);
 }
