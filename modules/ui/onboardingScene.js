@@ -55,6 +55,7 @@ let _running = false;
 let _cancelled = false;
 let _advance = null;      // clic du joueur — termine la frappe, ou avance
 let _forceResolve = null; // résout le beat courant sans condition (annulation)
+let _pendingAdvance = false; // clic arrivé entre deux beats, le temps qu'un microtask retende _advance
 let _timer = 0;
 let _typeTimer = 0;
 let _catcher = null;
@@ -133,11 +134,30 @@ export function isOnboardingSceneRunning() {
   return _running;
 }
 
-/** Passe au beat suivant. Renvoie false si aucune scène n'attend. */
+/**
+ * Passe au beat suivant. Renvoie false si aucune scène n'attend.
+ *
+ * Entre le moment où un beat résout sa promesse (_advance mis à null) et
+ * celui où le beat suivant repose ses propres handlers, il s'écoule au moins
+ * un microtask (l'await de _play) — un clic tombant pile dans cette fenêtre
+ * serait sinon silencieusement perdu. On le mémorise plutôt et _armAdvance
+ * le rejoue dès que le prochain handler est prêt.
+ */
 export function advanceOnboardingScene() {
-  if (!_running || !_advance) return false;
-  _advance();
+  if (!_running) return false;
+  if (_advance) _advance();
+  else _pendingAdvance = true;
   return true;
+}
+
+/** Pose les handlers du beat courant ; rejoue un clic resté en attente. */
+function _armAdvance(advanceFn, forceFn) {
+  _advance = advanceFn;
+  _forceResolve = forceFn;
+  if (_pendingAdvance) {
+    _pendingAdvance = false;
+    _advance();
+  }
 }
 
 /** Beat muet : chronométré, un clic le termine en avance. Rien à lire. */
@@ -153,9 +173,8 @@ function _hold(ms) {
       _forceResolve = null;
       resolve();
     };
-    _advance = finish;
-    _forceResolve = finish;
     _timer = setTimeout(finish, ms);
+    _armAdvance(finish, finish);
   });
 }
 
@@ -192,12 +211,11 @@ function _typeAndWait(beat) {
       _forceResolve = null;
       resolve();
     };
-    _advance = () => { if (typing) finishTyping(); else finish(); };
-    _forceResolve = finish;
     _typeTimer = setInterval(() => {
       el.textContent += fullText[i++];
       if (i >= fullText.length) finishTyping();
     }, TYPE_SPEED_MS);
+    _armAdvance(() => { if (typing) finishTyping(); else finish(); }, finish);
   });
 }
 
@@ -218,13 +236,29 @@ async function _play(beats) {
 
   _running = true;
   _cancelled = false;
+  _pendingAdvance = false;
   _mountCatcher();
   try {
     for (const beat of beats) {
       if (_cancelled) break;
       beat.enter?.();
-      if (beat.actor !== undefined) _actor = beat.actor;
-      if (beat.actor !== undefined || beat.repaint) _repaint();
+      if (beat.actor !== undefined) {
+        // Même personnage plantant dans la même pose (nom + classe CSS) que le
+        // beat précédent, qui a déjà une bulle montée : on laisse _typeAndWait
+        // retaper la bulle existante plutôt que de démonter/remonter tout
+        // .zone-quest-encounter. Sans ça, `float` repart de zéro à chaque
+        // beat (nouveau nœud DOM = animation relancée) et le sprite semble
+        // sursauter/réapparaître à chaque réplique enchaînée (ex. les trois
+        // lignes de Giovanni : arrivée, revendication, offre).
+        const chained = !!_actor && beat.actor
+          && beat.actor.name === _actor.name
+          && (beat.actor.cls || '') === (_actor.cls || '')
+          && !!_bubbleEl();
+        _actor = beat.actor;
+        if (!chained) _repaint();
+      } else if (beat.repaint) {
+        _repaint();
+      }
       // Une réplique se tape et attend un clic ; un beat muet reste
       // chronométré — rien n'y défile puisqu'il n'y a rien à y lire.
       if (beat.actor?.bubble) await _typeAndWait(beat);
@@ -237,6 +271,7 @@ async function _play(beats) {
     _running = false;
     _advance = null;
     _forceResolve = null;
+    _pendingAdvance = false;
     clearTimeout(_timer);
     clearInterval(_typeTimer);
     _timer = 0;

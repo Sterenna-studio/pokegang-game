@@ -221,6 +221,14 @@
       pointer-events: none;
       position: relative;
       animation: sceneIn .35s ease;
+      /* Ancrée au-dessus d'un sprite qui peut être proche du haut du viewport
+         (raid d'embuscade, petits viewports mobile) : sans plafond, une
+         réplique longue pousse le haut de la bulle au-delà de .zone-viewport
+         (overflow:hidden) et se fait couper — invisible sous le zone-headbar.
+         overflow-y:auto plutôt qu'un simple clip : le pire cas reste
+         consultable au lieu de perdre du texte silencieusement. */
+      max-height: min(150px, 42vh);
+      overflow-y: auto;
     }
     .zone-speech-bubble::after {
       content: '';
@@ -264,8 +272,9 @@
       cursor: pointer;
       background: transparent;
     }
-    @keyframes sceneWalkIn  { from { transform: translateX(-90px); opacity: 0 } to { transform: none; opacity: 1 } }
-    @keyframes sceneWalkOut { from { transform: none; opacity: 1 } to { transform: translateX(70px); opacity: 0 } }
+    @keyframes sceneWalkIn      { from { transform: translateX(-90px); opacity: 0 } to { transform: none; opacity: 1 } }
+    @keyframes sceneWalkInRight { from { transform: translateX(90px);  opacity: 0 } to { transform: none; opacity: 1 } }
+    @keyframes sceneWalkOut     { from { transform: none; opacity: 1 } to { transform: translateX(70px); opacity: 0 } }
     /* !important : renderSpawnInWindow pose l'animation du raid en style inline. */
     .zone-spawn.onboarding-arriving { animation: sceneWalkIn .7s ease-out !important; }
     .zone-spawn.onboarding-arriving > .zone-speech-bubble { opacity: 0; }
@@ -273,7 +282,11 @@
        scene-arrive ne porte jamais de réplique (cf. onboardingScene.js) : la
        bulle n'existe donc pas tant que le sprite glisse encore — inutile de
        la masquer ici, elle n'a tout simplement pas encore de raison d'exister. */
-    .zone-quest-encounter.scene-arrive { animation: sceneWalkIn .55s ease-out, float 3s ease-in-out .55s infinite; }
+    /* Giovanni arrive par la droite (sceneWalkInRight), pas par la gauche
+       comme les sbires (sceneWalkIn) : leur embuscade vient d'être retirée du
+       même point d'ancrage (.zone-quest-encounter, bottom/left fixes) — le
+       faire entrer du même côté aurait l'air de le faire sortir de sous eux. */
+    .zone-quest-encounter.scene-arrive { animation: sceneWalkInRight .55s ease-out, float 3s ease-in-out .55s infinite; }
     .zone-quest-encounter.scene-leave  { animation: sceneWalkOut .5s ease-in forwards; }
 
     /* ── Conseiller (le transfuge, après le tunnel) ──────────────
@@ -393,6 +406,14 @@
       width: min(760px, 96vw);
       max-width: none;
       margin: 0 auto;
+    }
+    /* Centrage vertical en plus de l'horizontal : #gangBaseContainer est déjà
+       masqué en focus, #zoneWindows est donc seul dans #zonesTopArea — lui
+       donner assez de hauteur pour que le centrage flex ait de la place. */
+    body.onboarding-focus #zonesTopArea {
+      min-height: clamp(320px, 78vh, 680px);
+      align-items: center;
+      justify-content: center;
     }
     body.onboarding-focus .zone-window .zone-viewport {
       height: clamp(280px, 46vh, 420px);

@@ -101,6 +101,28 @@ async function drain(promise, zoneId = 'unknown_field') {
   assert.equal(getStoryLockOwner(), null);
 }
 
+// ── Clic dans la fenêtre morte entre deux beats (jamais perdu) ─────
+// Entre la résolution d'un beat et la pose des handlers du suivant, il
+// s'écoule un microtask (l'await de _play) : un clic tombant pile là ne doit
+// pas être avalé. Trois clics synchrones (aucun `await sleep` entre eux, pour
+// forcer le pire cas) doivent faire avancer la scène de deux beats complets :
+// terminer la frappe du sbire, puis sauter le beat silencieux de Giovanni
+// (700ms, scene-arrive) sans attendre son minuteur.
+{
+  const scene = playGiovanniArrival({ won: false });
+  await sleep(90);
+  advanceOnboardingScene(); // termine la frappe du sbire
+  advanceOnboardingScene(); // avance vers le beat silencieux de Giovanni
+  advanceOnboardingScene(); // clic immédiat, sans attendre — ne doit pas se perdre
+  await sleep(0);
+  const actor = getOnboardingSceneEncounterForZone('unknown_field');
+  assert.equal(actor.name, 'Giovanni');
+  assert.equal(actor.cls, '', 'le beat silencieux (scene-arrive) a été sauté, pas juste écourté');
+  cancelOnboardingScene();
+  await scene;
+  assert.equal(getStoryLockOwner(), null);
+}
+
 // ── Arrivée de Giovanni ───────────────────────────────────────────
 assert.equal(getOnboardingSceneEncounterForZone('unknown_field'), null, 'pas de scène = pas d’acteur');
 
