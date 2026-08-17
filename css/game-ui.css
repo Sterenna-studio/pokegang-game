@@ -186,6 +186,9 @@
       box-shadow: 0 0 4px rgba(0,0,0,.6);
     }
     .zone-quest-encounter .quest-encounter-name {
+      /* Même contre-miroir que .zone-speech-bubble juste en dessous, même
+         raison : descendante d'un parent tourné via `float` (scaleX(-1)). */
+      scale: -1 1;
       font-family: var(--font-pixel); font-size: 7px; color: var(--gold);
       text-shadow: 0 0 4px #000; white-space: nowrap; margin-top: 2px;
     }

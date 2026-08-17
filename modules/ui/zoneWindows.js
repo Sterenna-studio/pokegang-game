@@ -1614,7 +1614,7 @@ function buildZoneWindowEl(zoneId) {
         const label = state.lang === 'fr' ? eventDef.fr : eventDef.en;
         return `<div class="zone-event-banner" data-event-zone="${zoneId}">${eventDef.icon} ${label} <span class="event-ttl">${secsLeft}s</span></div>`;
       })() : ''}
-      <div id="zpb-${zoneId}" style="position:absolute;top:4px;left:50%;transform:translateX(-50%);font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);background:rgba(0,0,0,.55);border-radius:2px;padding:1px 5px;white-space:nowrap;z-index:2;pointer-events:none">${progressText}${zone.type === 'city' ? ` — XP×${zone.xpBonus}` : ''}</div>
+      ${zone.type === 'onboarding' ? '' : `<div id="zpb-${zoneId}" style="position:absolute;top:4px;left:50%;transform:translateX(-50%);font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);background:rgba(0,0,0,.55);border-radius:2px;padding:1px 5px;white-space:nowrap;z-index:2;pointer-events:none">${progressText}${zone.type === 'city' ? ` — XP×${zone.xpBonus}` : ''}</div>`}
       ${zone.type === 'city' && zone.gymLeader && combats >= 10 ? (() => {
         const lastRaid = zState.gymRaidLastFight || 0;
         const raidCooldownMs = 5 * 60 * 1000;
@@ -2084,7 +2084,10 @@ function renderSpawnInWindow(zoneId, spawnObj) {
     const tierR    = getDifficultyTier(previewR.attackerPower, previewR.defenderPower);
     el.innerHTML = globalThis.safeTrainerImg(raidLeaderKey, { style: 'width:52px;height:52px;image-rendering:pixelated;filter:drop-shadow(0 0 8px #f44)' }) +
       getDifficultyBadgeHtml(tierR) +
-      `<div style="font-family:var(--font-pixel);font-size:6px;color:#f66;background:rgba(0,0,0,.75);border-radius:2px;padding:1px 4px;margin-top:2px;text-align:center">⚔ ${_t('zone_raid').toUpperCase()}</div>`;
+      // scale:-1 1 contre le miroir de `float` sur .zone-spawn (même souci que
+      // .quest-encounter-name / .zone-speech-bubble, mais ce label n'a pas de
+      // classe dédiée — inline le plus simple ici).
+      `<div style="scale:-1 1;font-family:var(--font-pixel);font-size:6px;color:#f66;background:rgba(0,0,0,.75);border-radius:2px;padding:1px 4px;margin-top:2px;text-align:center">⚔ ${_t('zone_raid').toUpperCase()}</div>`;
     el.title = state.lang === 'fr'
       ? (spawnObj.trainer?.fr ?? spawnObj.trainerKey ?? 'Raid')
       : (spawnObj.trainer?.en ?? spawnObj.trainerKey ?? 'Raid');
