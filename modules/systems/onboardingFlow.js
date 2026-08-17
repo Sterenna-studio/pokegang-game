@@ -172,6 +172,20 @@ export function isOnboardingFreeCapture(state, zoneId = null) {
 }
 
 /**
+ * Tout premier Pokémon du tunnel, avant la moindre capture : le terrain se
+ * limite à lui seul (au lieu du plafond habituel de 5) et il ne despawn
+ * jamais — sans ça, un nouveau joueur peut se retrouver face à plusieurs
+ * sprites à la fois sans savoir lequel toucher, ou voir l'unique spawn
+ * expirer avant d'avoir cliqué. Sert aussi à décider où poser la flèche
+ * d'invitation (cf. renderSpawnInWindow / tickZoneSpawn).
+ */
+export function isOnboardingFirstCapturePending(state, zoneId = null) {
+  if (zoneId !== null && !isOnboardingFieldZone(zoneId)) return false;
+  const onboarding = normalizeOnboardingState(state?.onboarding);
+  return onboarding.step === ONBOARDING_STEPS.FREE_CAPTURE && onboarding.fieldCaptures === 0;
+}
+
+/**
  * During the ambush the field must stop producing wild Pokémon: the raid is
  * the only thing left to interact with, and a zone capped at five spawns could
  * otherwise leave no room for it.

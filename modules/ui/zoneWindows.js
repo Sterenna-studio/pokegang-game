@@ -51,7 +51,7 @@ import { AUTO_COMBAT_VISUAL_MS } from '../../data/gameplay-config-data.js';
 import { EventBus, EVENTS } from '../core/eventBus.js';
 import { esc as _esc } from '../core/escape.js';
 import { getDifficultyTier, getDifficultyBadgeHtml } from '../systems/difficultyTier.js';
-import { isOnboardingZoneFrozen } from '../systems/onboardingFlow.js';
+import { isOnboardingZoneFrozen, isOnboardingFirstCapturePending } from '../systems/onboardingFlow.js';
 import { ensureOnboardingAmbush } from './onboarding.js';
 
 const _notify = (msg, type = '', category = null) => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type, category });
@@ -1948,10 +1948,22 @@ function tickZoneSpawn(zoneId) {
     updateZoneTimers(zoneId);
     return;
   }
-  // Max 5 spawns at once
-  if (spawns.length >= 5) { updateZoneTimers(zoneId); return; }
+  // Tout premier Pokémon du tunnel d'onboarding : un seul spawn à la fois
+  // (pas le plafond habituel de 5) pour ne pas noyer un nouveau joueur sous
+  // plusieurs sprites au tout premier contact.
+  const firstCaptureTutorial = isOnboardingFirstCapturePending(globalThis.state, zoneId);
+  const spawnCap = firstCaptureTutorial ? 1 : 5;
+  if (spawns.length >= spawnCap) { updateZoneTimers(zoneId); return; }
 
-  const entry = globalThis.spawnInZone(zoneId);
+  let entry = globalThis.spawnInZone(zoneId);
+  // Ce premier spawn DOIT être un Pokémon (c'est lui que la flèche désigne) —
+  // spawnInZone peut renvoyer un coffre (5% de base) : on retire jusqu'à en
+  // obtenir un, borné pour ne jamais boucler indéfiniment.
+  if (firstCaptureTutorial) {
+    for (let attempts = 0; entry && entry.type !== 'pokemon' && attempts < 8; attempts++) {
+      entry = globalThis.spawnInZone(zoneId);
+    }
+  }
   if (!entry) {
     // Un événement combat vient peut-être de démarrer sans passer par le
     // pipeline de spawn à TTL court (voir spawnInZone) — le PNJ permanent
@@ -1973,13 +1985,23 @@ function tickZoneSpawn(zoneId) {
   zoneNextSpawn[zoneId].lastSpawnType = entry.type;
 
   const spawnObj = { ...entry, id: globalThis.uid() };
+  if (firstCaptureTutorial) {
+    spawnObj.tutorialArrow = true;
+    // Position fixe et basse plutôt que le tirage aléatoire habituel : la
+    // flèche a besoin de place au-dessus du sprite sans risquer de sortir de
+    // .zone-viewport (overflow:hidden) sur un tirage malchanceux près du haut.
+    spawnObj.position = { x: 150, y: 130 };
+  }
   spawns.push(spawnObj);
 
-  // TTL: 10-15 seconds
-  const ttl = globalThis.randInt(10000, 15000);
-  spawnObj.timeout = setTimeout(() => {
-    removeSpawn(zoneId, spawnObj.id);
-  }, ttl);
+  // TTL: 10-15 seconds — sauf le tout premier Pokémon du tunnel, qui ne doit
+  // jamais expirer avant d'avoir été capturé (cf. isOnboardingFirstCapturePending).
+  if (!spawnObj.tutorialArrow) {
+    const ttl = globalThis.randInt(10000, 15000);
+    spawnObj.timeout = setTimeout(() => {
+      removeSpawn(zoneId, spawnObj.id);
+    }, ttl);
+  }
 
   renderSpawnInWindow(zoneId, spawnObj);
   updateZoneTimers(zoneId);
@@ -2059,7 +2081,8 @@ function renderSpawnInWindow(zoneId, spawnObj) {
 
   if (spawnObj.type === 'pokemon') {
     const sp = SPECIES_BY_EN[spawnObj.species_en];
-    el.innerHTML = `<img src="${globalThis.pokeSprite(spawnObj.species_en)}" style="width:56px;height:56px" alt="${sp?.fr || spawnObj.species_en}">`;
+    el.innerHTML = `<img src="${globalThis.pokeSprite(spawnObj.species_en)}" style="width:56px;height:56px" alt="${sp?.fr || spawnObj.species_en}">`
+      + (spawnObj.tutorialArrow ? `<div class="onboarding-capture-arrow">👇</div>` : '');
     el.title = sp ? (state.lang === 'fr' ? sp.fr : sp.en) : spawnObj.species_en;
     // Rare / very_rare / legendary popup notification
     if (sp && (sp.rarity === 'very_rare' || sp.rarity === 'legendary')) {
