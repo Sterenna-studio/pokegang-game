@@ -93,18 +93,16 @@ export function migrateSave(saved, deps) {
     merged.onboarding.completedAt = saved._savedAt || now();
   }
   merged.onboarding.version = DEFAULT_STATE.onboarding.version;
+  // Même patron que gang/inventory/stats/settings ci-dessus : un simple merge
+  // par-dessus les défauts. Ce champ accueille tous les flags one-shot "déjà
+  // montré au joueur" (itemsIntroShown, rivalPokedexUnlocked, etc.) — avant ce
+  // fix, seuls 3 champs nommés explicitement survivaient à un reload et TOUS
+  // les autres retombaient silencieusement à leur défaut à chaque migrateSave(),
+  // ce qui aurait fait réapparaître leur popup à chaque session.
   const savedDiscoveryProgress = ensureObject(saved.discoveryProgress);
   merged.discoveryProgress = {
     ...structuredClone(DEFAULT_STATE.discoveryProgress),
-    ...(savedDiscoveryProgress.sinnohTeaseUnlocked === undefined
-      ? {}
-      : { sinnohTeaseUnlocked: savedDiscoveryProgress.sinnohTeaseUnlocked }),
-    ...(savedDiscoveryProgress.introFlashbackOffered === undefined
-      ? {}
-      : { introFlashbackOffered: !!savedDiscoveryProgress.introFlashbackOffered }),
-    ...(typeof savedDiscoveryProgress.advisorLastSeen === 'string'
-      ? { advisorLastSeen: savedDiscoveryProgress.advisorLastSeen }
-      : {}),
+    ...savedDiscoveryProgress,
   };
   // Déblocage progressif des onglets. Une save écrite avant ce système n'a pas
   // de `revealedTabs` : lui appliquer la liste vide lui RETIRERAIT des onglets
