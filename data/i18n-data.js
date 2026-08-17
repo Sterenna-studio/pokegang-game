@@ -100,6 +100,7 @@ const I18N = {
   missions_daily:          { fr:'Missions Quotidiennes', en:'Daily Missions'     },
   missions_weekly:         { fr:'Missions Hebdomadaires',en:'Weekly Missions'    },
   missions_story:          { fr:'Histoire & Objectifs',  en:'Story & Objectives' },
+  missions_cosmetic:       { fr:'Missions Spéciales',    en:'Special Missions'   },
   missions_completed:      { fr:'Terminés',              en:'Completed'          },
   missions_claim:          { fr:'Récupérer',             en:'Claim'              },
   missions_claim_all:      { fr:'✓ Tout réclamer ({n})', en:'✓ Claim all ({n})'  },
