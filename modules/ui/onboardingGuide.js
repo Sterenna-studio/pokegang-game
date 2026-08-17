@@ -175,6 +175,20 @@ function _recruitGuide(spriteKey) {
   return true;
 }
 
+/**
+ * Ouvre directement le sélecteur de recrutement, sans attendre que le joueur
+ * remarque puis clique le sprite planté sur le terrain — appelé par
+ * onboarding.js juste après le départ de Giovanni, pour enchaîner la
+ * révélation du transfuge dans la continuité de sa fenêtre modale plutôt que
+ * de renvoyer le joueur devant le terrain sans explication.
+ */
+export function autoOpenGuideEncounter() {
+  const state = _state();
+  const onboarding = normalizeOnboardingState(state?.onboarding);
+  if (onboarding.step !== ONBOARDING_STEPS.GUIDE_MET || onboarding.guideAgentId) return false;
+  return _openSpritePicker();
+}
+
 /** Clic sur le sprite du transfuge. */
 export function openGuideEncounter() {
   const state = _state();
@@ -193,4 +207,5 @@ export function openGuideEncounter() {
 Object.assign(globalThis, {
   getOnboardingGuideEncounterForZone,
   openGuideEncounter,
+  autoOpenGuideEncounter,
 });

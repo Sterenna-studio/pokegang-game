@@ -162,6 +162,7 @@ import {
 import { showOnboardingIdlePayoff } from './modules/ui/onboardingPayoff.js';
 import {
   configureOnboardingGuide,
+  autoOpenGuideEncounter,
   clearGuide,
   placeGuide,
   refreshGuide,
@@ -1726,6 +1727,7 @@ function configureEntryFlows() {
     placeGuide,
     refreshGuide,
     clearGuide,
+    openGuideRecruitModal: autoOpenGuideEncounter,
     // Forcé plutôt que confié au cycle de rendu habituel : à la complétion,
     // le joueur est presque toujours sur l'onglet Agents (dernier geste du
     // transfuge), pas Zones — renderAll() ne redessine que l'onglet actif,

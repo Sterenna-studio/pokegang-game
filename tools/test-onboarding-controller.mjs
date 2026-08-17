@@ -173,8 +173,13 @@ state.agents.push({ id: 'guide-1', name: 'Zane', assignedZone: null, team: [], a
 assert.equal(onGuideRecruited('guide-1', 'rocketgrunt'), true);
 assert.equal(state.onboarding.step, ONBOARDING_STEPS.GUIDE_TEAM);
 assert.equal(state.onboarding.guideSprite, 'rocketgrunt');
-// Recruiting twice must not double-advance.
+// Le recrutement s'est joué dans une popup par-dessus le jeu (enchaînée
+// depuis le départ de Giovanni) : même besoin de refresh forcé qu'à la
+// complétion finale, sinon l'onglet resterait construit avec l'état d'avant.
+assert.equal(zonesForceRefreshed, 1);
+// Recruiting twice must not double-advance, and must not force a second refresh.
 assert.equal(onGuideRecruited('guide-1', 'rocketgrunt'), false);
+assert.equal(zonesForceRefreshed, 1);
 
 // « Confie-moi un Pokémon » — seule SON équipe compte.
 EventBus.emit(EVENTS.TEAM_MEMBER_SET, { team: 'boss', pokemonId: 'pk-1', source: 'test' });
@@ -220,7 +225,8 @@ assert.ok(!(state.openZoneOrder || []).includes(ONBOARDING_ZONE_ID));
 // Le joueur est sur Agents à cet instant (dernier geste du transfuge), pas
 // Zones — sans ce forçage explicite, le fogmap ne montrerait le Marché
 // fraîchement débloqué qu'au prochain clic manuel sur l'onglet Zones.
-assert.equal(zonesForceRefreshed, 1);
+// 2 au total : le recrutement du transfuge plus haut en a déjà déclenché un.
+assert.equal(zonesForceRefreshed, 2);
 
 // Rejouer l'événement ne doit ni repayer la prime ni réémettre l'étape.
 const stepsAfter = completedSteps.length;

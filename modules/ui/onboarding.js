@@ -342,6 +342,11 @@ async function _openIdentityStep() {
     // placeGuide rend dès que la scène a rendu le terrain.
     await _ctx.playGiovanniDeparture?.();
     _ctx.placeGuide?.();
+    // Enchaîne directement sur sa fenêtre de recrutement (même popup que le
+    // clic manuel sur son sprite) plutôt que de renvoyer le joueur devant le
+    // terrain sans lui dire quoi faire — comme la popup de défi de
+    // l'embuscade, ça évite de dépendre d'un sprite in-zone à repérer.
+    _ctx.openGuideRecruitModal?.();
     return true;
   } catch (error) {
     console.error('[onboarding] identity step failed:', error);
@@ -365,7 +370,15 @@ export function onGuideRecruited(agentId, spriteKey) {
     { guideAgentId: agentId, guideSprite: spriteKey || null },
     () => _track('guide_recruited', { sprite: spriteKey || null }),
   );
-  if (committed) _ctx.refreshGuide?.();
+  if (committed) {
+    _ctx.refreshGuide?.();
+    // La popup de recrutement vient de se refermer sur un flux qui, pour le
+    // joueur, s'est joué entièrement par-dessus le jeu (identité → départ de
+    // Giovanni → recrutement) : forcer le refresh évite de revenir sur un
+    // onglet resté construit avec l'état d'avant, même souci que
+    // forceZonesRefresh à la fin complète de l'onboarding.
+    _ctx.forceZonesRefresh?.();
+  }
   return committed;
 }
 
