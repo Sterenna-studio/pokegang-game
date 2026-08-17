@@ -2088,11 +2088,15 @@ function renderSpawnInWindow(zoneId, spawnObj) {
     if (sp && (sp.rarity === 'very_rare' || sp.rarity === 'legendary')) {
       setTimeout(() => globalThis.showRarePopup?.(spawnObj.species_en, zoneId), 300);
     }
-    el.addEventListener('click', () => {
+    el.addEventListener('click', (e) => {
       if (el.classList.contains('catching')) return;
       el.classList.add('catching');
       spawnObj.playerCatching = true;
-      animateCapture(zoneId, spawnObj, el);
+      // Où sur le sprite le joueur a cliqué : donne à la balle un rebond
+      // d'impact dont la direction dépend du clic plutôt que d'être générique.
+      const rect = el.getBoundingClientRect();
+      const clickOffset = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+      animateCapture(zoneId, spawnObj, el, clickOffset);
     });
   } else if (spawnObj.type === 'raid') {
     // Raid: show the lead trainer sprite (no more Pokéball)
@@ -2254,7 +2258,7 @@ function removeSpawn(zoneId, spawnId) {
 
 // ── Ball throw + capture burst animation ──────────────────────
 
-function animateCapture(zoneId, spawnObj, spawnEl) {
+function animateCapture(zoneId, spawnObj, spawnEl, clickOffset = null) {
   const state = globalThis.state;
   const BALL_SPRITES = globalThis.BALL_SPRITES;
   const win = document.getElementById(`zw-${zoneId}`);
@@ -2278,6 +2282,14 @@ function animateCapture(zoneId, spawnObj, spawnEl) {
   }
   const targetX = parseInt(spawnEl.style.left) + 28;
   const targetY = parseInt(spawnEl.style.top) + 28;
+
+  // Rebond d'impact : direction opposée au point cliqué sur le sprite (56×56,
+  // centre à 28,28) — la balle "repart" du côté qu'elle vient de heurter,
+  // comme un vrai contact plutôt qu'un arrêt générique sur place.
+  const nx = clickOffset ? Math.max(-1, Math.min(1, (clickOffset.x - 28) / 28)) : 0;
+  const ny = clickOffset ? Math.max(-1, Math.min(1, (clickOffset.y - 28) / 28)) : 0;
+  const bounceX = (-nx * 7).toFixed(1) + 'px';
+  const bounceY = (-ny * 7).toFixed(1) + 'px';
 
   // Create ball projectile
   const ball = document.createElement('div');
@@ -2310,21 +2322,34 @@ function animateCapture(zoneId, spawnObj, spawnEl) {
       ball.style.filter = 'drop-shadow(0 0 6px gold)';
     }
 
+    // Contact : le sprite se fait aspirer par la balle (disparaît), qui
+    // rebondit légèrement dans la direction opposée au clic — avant même de
+    // savoir si la capture aboutit. Sur échec, doCaptureAttempt annule les deux.
+    if (spawnEl) spawnEl.classList.add('capture-impact');
+    ball.style.setProperty('--bounce-x', bounceX);
+    ball.style.setProperty('--bounce-y', bounceY);
+    ball.classList.add('ball-impact-bounce');
+
     function doCaptureAttempt() {
-      ball.remove();
       const caught = globalThis.tryCapture(zoneId, spawnObj.species_en, isCritical ? 1 : 0, spawnObj.spawnCtx || {});
       if (caught) {
-        if (isCritical) _notify(`★ Capture critique ! +1 potentiel`, 'gold');
-        if (caught.shiny) spawnEl.classList.add('shiny-flash');
         globalThis.SFX.play('capture', caught.potential, caught.shiny);
-        showCaptureBurst(viewport, targetX, targetY, caught.potential, caught.shiny);
+        // Étoiles progressives autour de la balle plutôt qu'une notification
+        // texte — le feedback critique/shiny est porté par leur couleur.
+        showCaptureStars(viewport, targetX, targetY, caught.potential, caught.shiny, isCritical);
+        ball.classList.add('ball-absorb');
+        setTimeout(() => ball.remove(), 400);
         removeSpawn(zoneId, spawnObj.id);
         _topBar();
         if (globalThis.activeTab === 'tabPC') globalThis.renderPCTab();
         updateZoneTimers(zoneId);
       } else {
-        // Fade out au contact, puis fade in si échec
+        ball.remove();
+        // Échec : le sprite reprend forme là où il était (annule l'aspiration
+        // avant de rejouer un aller-retour d'opacité, sinon les deux
+        // animations se disputent le même sprite).
         if (spawnEl) {
+          spawnEl.classList.remove('capture-impact');
           spawnEl.style.transition = 'opacity .15s, transform .15s';
           spawnEl.style.opacity = '0';
           spawnEl.style.transform = 'scale(.7)';
@@ -2337,9 +2362,11 @@ function animateCapture(zoneId, spawnObj, spawnEl) {
       }
     }
 
+    // +220ms : laisse le rebond d'impact jouer avant que le wobble (ou la
+    // capture instantanée critique) ne prenne le relais.
     if (wobbles === 0) {
       // Critical — instant capture (no wobble)
-      setTimeout(doCaptureAttempt, 150);
+      setTimeout(doCaptureAttempt, 150 + 220);
     } else {
       // Wobble N times then attempt
       let w = 0;
@@ -2354,9 +2381,35 @@ function animateCapture(zoneId, spawnObj, spawnEl) {
           setTimeout(doCaptureAttempt, 520);
         }
       }
-      setTimeout(nextWobble, 100);
+      setTimeout(nextWobble, 100 + 220);
     }
   }, 380);
+}
+
+/**
+ * Feedback visuel d'une capture réussie : étoiles (= potentiel obtenu, 1-5)
+ * apparaissant une à une autour de la balle, qui orbitent puis convergent
+ * vers son centre avant de s'effacer — remplace l'ancien texte de notif
+ * "capture critique". `.capture-burst` (ring + particules) reste utilisée
+ * ailleurs (drops, captures silencieuses d'agent, embuscade de quête).
+ */
+function showCaptureStars(container, x, y, potential, shiny, isCritical) {
+  const count = Math.max(1, Math.min(5, potential || 1));
+  const wrap = document.createElement('div');
+  wrap.className = 'capture-stars' + (shiny ? ' shiny' : '') + (isCritical ? ' critical' : '');
+  wrap.style.left = x + 'px';
+  wrap.style.top = y + 'px';
+  for (let i = 0; i < count; i++) {
+    const star = document.createElement('div');
+    star.className = 'capture-star';
+    star.style.setProperty('--angle', (i / count) + 'turn');
+    star.style.setProperty('--delay', (i * 90) + 'ms');
+    wrap.appendChild(star);
+  }
+  container.appendChild(wrap);
+  const convergeAt = count * 90 + 800;
+  setTimeout(() => wrap.classList.add('converge'), convergeAt);
+  setTimeout(() => wrap.remove(), convergeAt + 400);
 }
 
 function showCaptureBurst(container, x, y, potential, shiny) {

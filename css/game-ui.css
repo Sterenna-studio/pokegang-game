@@ -121,6 +121,15 @@
     }
     .zone-spawn:hover { transform: scale(1.15); }
     .zone-spawn.catching { pointer-events: none; animation: none; }
+    /* Le sprite se fait "aspirer" par la balle au contact, avant même de
+       savoir si la capture aboutit (comme dans les jeux d'origine) — sur
+       échec, animateCapture retire la classe et fait réapparaître le sprite. */
+    .zone-spawn.capture-impact { animation: captureSpriteVanish .22s ease-in forwards; }
+    @keyframes captureSpriteVanish {
+      0%   { opacity: 1; scale: 1;   filter: brightness(1); }
+      45%  { opacity: 1; scale: 1.2; filter: brightness(2.4); }
+      100% { opacity: 0; scale: .15; filter: brightness(2.4); }
+    }
     /* Sprites dans les zones — plus grands + ombre */
     .zone-spawn img {
       filter: drop-shadow(0 3px 4px rgba(0,0,0,.8));
@@ -469,6 +478,77 @@
       transition: none;
     }
     .ball-projectile img { width: 100%; height: 100%; }
+    /* `translate`, pas `transform` : n'entre pas en collision avec left/top
+       (positionnement) ni avec un futur transform — juste un décalage
+       temporaire par-dessus, qui revient à 0 en fin d'animation. */
+    .ball-projectile.ball-impact-bounce { animation: ballImpactBounce .22s ease-out; }
+    @keyframes ballImpactBounce {
+      0%   { translate: 0 0; }
+      35%  { translate: var(--bounce-x, 6px) var(--bounce-y, -4px); }
+      100% { translate: 0 0; }
+    }
+    /* La balle "range" les étoiles absorbées et s'efface, une fois la
+       capture confirmée (cf. showCaptureStars). */
+    .ball-projectile.ball-absorb { animation: ballAbsorb .4s ease-in forwards; }
+    @keyframes ballAbsorb {
+      0%   { opacity: 1; scale: 1; }
+      55%  { opacity: 1; scale: 1.25; }
+      100% { opacity: 0; scale: .3; }
+    }
+
+    /* ── Étoiles de capture : apparition progressive autour de la balle,
+       orbite, puis convergence vers son centre avant de disparaître —
+       remplace l'ancien feedback par notification pour une capture réussie
+       (garde .capture-burst pour les autres usages : drops, captures
+       silencieuses d'agent, embuscade de quête). ── */
+    .capture-stars {
+      position: absolute;
+      width: 0; height: 0;
+      pointer-events: none;
+      z-index: 55;
+    }
+    .capture-star {
+      position: absolute;
+      top: 50%; left: 50%;
+      width: 14px; height: 14px;
+      margin: -7px 0 0 -7px;
+      opacity: 0;
+      font-size: 13px;
+      line-height: 14px;
+      text-align: center;
+      color: var(--gold);
+      text-shadow: 0 0 5px rgba(255, 204, 90, .9);
+      animation:
+        captureStarAppear .3s ease-out var(--delay) both,
+        captureStarOrbit 1.3s linear var(--delay) 1;
+    }
+    .capture-star::before { content: '★'; }
+    .capture-stars.shiny .capture-star {
+      color: #7de8ff;
+      text-shadow: 0 0 6px rgba(125, 232, 255, .9);
+    }
+    .capture-stars.critical .capture-star {
+      color: #fff;
+      text-shadow: 0 0 8px #fff, 0 0 14px var(--gold);
+    }
+    @keyframes captureStarAppear {
+      from { opacity: 0; scale: .2; }
+      to   { opacity: 1; scale: 1; }
+    }
+    @keyframes captureStarOrbit {
+      from { transform: rotate(var(--angle)) translateX(24px) rotate(calc(-1 * var(--angle))); }
+      to   { transform: rotate(calc(var(--angle) + 1turn)) translateX(24px) rotate(calc(-1 * (var(--angle) + 1turn))); }
+    }
+    /* Convergence : on coupe l'animation d'orbite pour laisser une transition
+       reprendre `transform` proprement (sinon les deux se disputent la
+       propriété et le retour au centre saute plutôt que de glisser). */
+    .capture-stars.converge .capture-star {
+      animation: none;
+      transition: transform .35s ease-in, opacity .3s ease-in .05s, scale .35s ease-in;
+      transform: rotate(0deg) translateX(0) rotate(0deg);
+      opacity: 0;
+      scale: .2;
+    }
 
     /* ── Capture burst effects ── */
     .capture-burst {
@@ -1722,11 +1802,6 @@
 
     /* ── Feedback Dopamine ──────────────────────────────────────── */
 
-    /* Shiny capture: zone-spawn flashes rainbow when caught */
-    .zone-spawn.shiny-flash {
-      animation: shinyFlash .8s ease-out forwards !important;
-    }
-
     /* Shiny popup overlay — coin discret en haut à droite, ne bloque pas la vue */
     #shinyPopup {
       position: fixed;
@@ -1904,12 +1979,6 @@
     @keyframes eventBannerPulse {
       0%, 100% { opacity: .85; text-shadow: 0 0 8px var(--gold); }
       50%      { opacity: 1;   text-shadow: 0 0 18px var(--gold), 0 0 32px rgba(255,204,90,.5); }
-    }
-    @keyframes shinyFlash {
-      0%   { filter: brightness(3) hue-rotate(0deg);   transform: scale(1.3); }
-      30%  { filter: brightness(2) hue-rotate(120deg); transform: scale(1.2); }
-      60%  { filter: brightness(2) hue-rotate(240deg); transform: scale(1.15); }
-      100% { filter: brightness(1) hue-rotate(0deg);   transform: scale(1); }
     }
     @keyframes shinyIconBounce {
       0%, 100% { transform: translateY(0) scale(1); }
