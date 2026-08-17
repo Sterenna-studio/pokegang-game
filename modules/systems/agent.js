@@ -94,6 +94,7 @@ function rollNewAgent() {
     level:         1,
     xp:            0,
     combatsWon:    0,
+    combatsLost:   0,
     ball: 'pokeball', // skin cosmétique — pas d'effet mécanique
     behavior:      'all',
     personality,
@@ -494,6 +495,9 @@ function _applyResolvedAgentCombat(zoneId, spawnObj, combatAgents, result) {
     }
     globalThis.addLog(globalThis.t('agent_win', { agent: mainAgent?.name || 'Agent' }));
   } else {
+    // Pas de pénalité XP/niveau : juste un compteur pour repérer un agent qui
+    // encaisse trop (cf. le conseil "équipe-le mieux" dans sessionObjectives.js).
+    for (const agent of combatAgents) agent.combatsLost = (agent.combatsLost || 0) + 1;
     if (_collecting) {
       globalThis.OfflineReport.pushCombat(false, 0);
     } else if (mainAgent?.notifyCaptures !== false) {

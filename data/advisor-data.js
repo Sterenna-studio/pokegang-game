@@ -34,6 +34,10 @@ const ADVISOR_LINES = {
     fr: "Je peux pas ratisser tout Kanto tout seul. Trouve-moi du renfort.",
     en: "I can't sweep all of Kanto by myself. Get me some backup.",
   },
+  agent_struggling: {
+    fr: "{agent} rentre en sale état trop souvent. File-lui un Pokémon plus costaud avant qu'il se fasse vraiment mal.",
+    en: "{agent} keeps coming back beat up. Give them a stronger Pokémon before they really get hurt.",
+  },
   unlock_zone: {
     fr: "{zone} est encore fermé. Fais-toi un nom, la porte s'ouvrira toute seule.",
     en: "{zone} is still shut. Make a name for yourself and the door opens on its own.",

@@ -339,8 +339,8 @@
     #gangAdvisor > * { pointer-events: auto; }
     .advisor-avatar {
       position: relative;
-      width: 54px;
-      height: 54px;
+      width: 70px;
+      height: 70px;
       padding: 0;
       border-radius: 50%;
       border: 2px solid var(--border);
@@ -350,7 +350,7 @@
     }
     .advisor-avatar:hover { border-color: var(--gold-dim); transform: translateY(-2px); }
     .advisor-avatar img {
-      width: 46px; height: 46px;
+      width: 60px; height: 60px;
       image-rendering: pixelated;
       filter: drop-shadow(0 2px 4px rgba(0,0,0,.8));
     }
@@ -362,16 +362,16 @@
     }
     .advisor-badge {
       position: absolute;
-      top: -4px; right: -4px;
-      min-width: 16px; height: 16px;
+      top: -5px; right: -5px;
+      min-width: 20px; height: 20px;
       border-radius: 50%;
       background: var(--red);
       color: #fff;
       font-family: var(--font-pixel);
-      font-size: 8px;
-      line-height: 16px;
+      font-size: 10px;
+      line-height: 20px;
       text-align: center;
-      box-shadow: 0 0 6px rgba(0,0,0,.7);
+      box-shadow: 0 0 8px rgba(0,0,0,.8);
     }
     .advisor-bubble {
       max-width: min(300px, 78vw);
@@ -408,8 +408,8 @@
     body.onboarding-focus #gangAdvisor { display: none; }
     @media (max-width: 720px) {
       #gangAdvisor { left: 8px; bottom: 8px; }
-      .advisor-avatar { width: 44px; height: 44px; }
-      .advisor-avatar img { width: 36px; height: 36px; }
+      .advisor-avatar { width: 56px; height: 56px; }
+      .advisor-avatar img { width: 46px; height: 46px; }
     }
 
     /* ── Mode focus onboarding ──────────────────────────────────

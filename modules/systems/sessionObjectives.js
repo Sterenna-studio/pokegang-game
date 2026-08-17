@@ -147,6 +147,25 @@ function getNextObjective() {
     const progress = money >= cost ? _t('Prêt !', 'Ready!') : `₽${money.toLocaleString()}/${cost.toLocaleString()}`;
     return { id: 'first_agent', text: _t('👤 Recrute ton premier agent', '👤 Recruit your first agent'), detail: progress, tab: 'tabPC' };
   }
+  // Rapport d'un agent qui encaisse trop — plus de défaites que de victoires,
+  // sur un minimum de combats pour ne pas réagir à une simple malchance
+  // ponctuelle. Le pire cas d'abord (le plus de défaites), pour rester une
+  // seule remarque à la fois plutôt qu'un rapport par agent en difficulté.
+  const strugglingAgent = state.agents
+    .filter(a => (a.combatsLost || 0) >= 3 && (a.combatsLost || 0) > (a.combatsWon || 0))
+    .sort((a, b) => (b.combatsLost || 0) - (a.combatsLost || 0))[0];
+  if (strugglingAgent) {
+    return {
+      id: `agent_struggling:${strugglingAgent.id}`,
+      text: _t(
+        `⚠ ${strugglingAgent.name} perd trop souvent (${strugglingAgent.combatsLost} défaites)`,
+        `⚠ ${strugglingAgent.name} keeps losing (${strugglingAgent.combatsLost} defeats)`,
+      ),
+      detail: _t('Équipe-le mieux', 'Give them a better team'),
+      tab: 'tabAgents',
+      agentName: strugglingAgent.name,
+    };
+  }
   // Zone suivante verrouillée
   const nextLocked = ZONES.find(z => !globalThis.isZoneUnlocked(z.id));
   if (nextLocked) {

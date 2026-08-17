@@ -75,7 +75,9 @@ export function getAdvisorMessage(state) {
   // `unlock_zone:route22` → ligne générique `unlock_zone`, nom injecté.
   const baseId = objective.id.split(':')[0];
   const entry = ADVISOR_LINES[baseId] || ADVISOR_FALLBACK;
-  const line = _pick(entry, state).replace('{zone}', objective.zoneName || '');
+  const line = _pick(entry, state)
+    .replace('{zone}', objective.zoneName || '')
+    .replace('{agent}', objective.agentName || '');
   return { id: objective.id, line, tab: objective.tab || null };
 }
 

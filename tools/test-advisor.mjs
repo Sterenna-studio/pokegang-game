@@ -56,6 +56,15 @@ assert.equal(zoneMsg.id, 'unlock_zone:mt_moon');
 assert.ok(zoneMsg.line.includes('Mont Sélénite'));
 assert.ok(!zoneMsg.line.includes('{zone}'));
 
+// Même mécanique pour `agent_struggling:<id>` avec {agent} injecté — le
+// rapport de performance d'agent (sessionObjectives.js) suit exactement le
+// même patron composite que unlock_zone.
+withObjective({ id: 'agent_struggling:ag-7', tab: 'tabAgents', agentName: 'Zane' });
+const agentMsg = getAdvisorMessage(makeState());
+assert.equal(agentMsg.id, 'agent_struggling:ag-7');
+assert.ok(agentMsg.line.includes('Zane'));
+assert.ok(!agentMsg.line.includes('{agent}'));
+
 // Un objectif sans ligne dédiée ne doit pas produire de bulle vide.
 withObjective({ id: 'objectif_inconnu', tab: null });
 assert.equal(getAdvisorMessage(makeState()).line, ADVISOR_FALLBACK.fr);
@@ -88,6 +97,8 @@ for (const [id, entry] of Object.entries(ADVISOR_LINES)) {
   // s'afficherait tel quel, faute de zoneName à injecter.
   const usesZone = entry.fr.includes('{zone}') || entry.en.includes('{zone}');
   assert.equal(usesZone, id === 'unlock_zone', `${id} : placeholder {zone} inattendu`);
+  const usesAgent = entry.fr.includes('{agent}') || entry.en.includes('{agent}');
+  assert.equal(usesAgent, id === 'agent_struggling', `${id} : placeholder {agent} inattendu`);
 }
 
 console.log('advisor tests: ok');
