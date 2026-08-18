@@ -303,11 +303,19 @@ function _resolveAmbush(won) {
 // ── Giovanni ──────────────────────────────────────────────────────
 function _openIdentity() {
   const onboarding = _onboarding();
+  const state = _state();
+  // Le slot 1 de l'équipe peut avoir été réordonné dans la popup de défi de
+  // l'embuscade (le joueur y promeut un autre Pokémon en starter) — c'est
+  // LUI que Giovanni doit citer, pas forcément la toute première capture
+  // sauvage figée dans onboarding.starterSpecies.
+  const starterId = state?.gang?.bossTeam?.[0];
+  const starterPokemon = starterId ? state.pokemons.find(p => p.id === starterId) : null;
+  const starterEn = starterPokemon?.species_en || onboarding.starterSpecies || '';
   return new Promise((resolve, reject) => {
     _track('identity_started', {});
     const opened = _ctx.openGiovanniIntro?.({
       slotIdx: _ctx.getActiveSaveSlot?.() ?? 0,
-      starterEn: onboarding.starterSpecies || '',
+      starterEn,
       identityOnly: true,
       lockOwner: LOCK_OWNER,
       onComplete: payload => resolve(payload),

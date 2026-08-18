@@ -1761,6 +1761,7 @@ function configureEntryFlows() {
   configureOnboardingGuide({
     getState: () => state,
     notify,
+    switchTab,
   });
 
   configureOnboardingScene({

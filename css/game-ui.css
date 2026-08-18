@@ -321,6 +321,42 @@
     }
     .zone-spawn.catching .onboarding-capture-arrow { display: none; }
 
+    /* ── Aide guidée du transfuge (« confie-moi un Pokémon », etc.) ──────
+       Flèche flottante positionnée en JS via getBoundingClientRect() sur une
+       cible arbitraire d'un AUTRE onglet (agent-team-slot) — pas d'ancrage
+       CSS relatif possible comme pour .onboarding-capture-arrow ci-dessus.
+       z-index modeste : une modale ouverte par-dessus (ex. le sélecteur de
+       Pokémon) doit rester au-dessus, pas se retrouver sous la flèche. */
+    .onboarding-guide-help-arrow {
+      position: fixed;
+      transform: translateX(-50%);
+      font-size: 26px;
+      pointer-events: none;
+      filter: drop-shadow(0 0 6px rgba(255, 204, 90, .9));
+      z-index: 500;
+      animation: guideHelpArrowBounce 1s ease-in-out infinite;
+    }
+    @keyframes guideHelpArrowBounce {
+      0%, 100% { translate: 0 0; }
+      50%      { translate: 0 8px; }
+    }
+    .onboarding-guide-help-banner {
+      position: fixed;
+      top: 12px; left: 50%;
+      translate: -50% 0;
+      max-width: min(420px, 90vw);
+      background: var(--bg-card);
+      border: 1px solid var(--gold-dim);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      font-size: 11px;
+      line-height: 1.5;
+      color: var(--text);
+      z-index: 500;
+      box-shadow: 0 6px 20px rgba(0,0,0,.4);
+      animation: fadeIn .25s ease;
+    }
+
     /* ── Conseiller (le transfuge, après le tunnel) ──────────────
        Ancré en bas à gauche : la cloche de notifications occupe déjà le coin
        haut-droit, et le bas-droit est pris par le chat/les toasts. Il ne

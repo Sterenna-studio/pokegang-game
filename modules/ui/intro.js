@@ -30,6 +30,13 @@ const _starterName  = (s) => _t(s.fr, s.nameEn);
 const _starterTypes = (s) => (_t(s.types, s.typesEn) || []).join(' · ');
 const _starterDesc  = (s) => _t(s.desc, s.descEn);
 
+// SPECIES_BY_EN : global posé par le <script> classique data/species-data.js,
+// accessible par nom nu dans un module ES — jamais via globalThis (cf. CLAUDE.md).
+function _resolveIdentityStarterName(speciesEn) {
+  const sp = SPECIES_BY_EN?.[speciesEn];
+  return sp ? _t(sp.fr, sp.en) : (speciesEn || _t('ton Pokémon', 'your Pokémon'));
+}
+
 // ── Boss sprite pool (player-character looking) ───────────────────
 const INTRO_BOSS_SPRITES = [
   'red','leaf','ethan','kris','brendan','may','lucas','dawn','hilbert','hilda',
@@ -344,8 +351,11 @@ export function openGiovanniIntro({
           if (!val) { input.style.borderColor = 'rgba(255,80,80,.9)'; input.focus(); return; }
           bossName = val;
           if (identityOnly) {
-            const starter = INTRO_STARTERS.find(item => item.en === starterEn) || INTRO_STARTERS[0];
-            stepGang(_starterName(starter));
+            // Le starter réel (onboarding V2) est capturé librement dans la
+            // zone — quasiment jamais un des 3 de INTRO_STARTERS (qui ne
+            // servent qu'au choix de l'ancien flux ci-dessous). Le nom vient
+            // donc de la vraie base d'espèces, pas de cette liste legacy.
+            stepGang(_resolveIdentityStarterName(starterEn));
           } else {
             stepStarter();
           }

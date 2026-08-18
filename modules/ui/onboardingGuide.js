@@ -14,6 +14,7 @@
 // ════════════════════════════════════════════════════════════════
 
 import { esc } from '../core/escape.js';
+import { EventBus, EVENTS } from '../core/eventBus.js';
 import {
   ONBOARDING_ZONE_ID,
   pickAmbushSprites,
@@ -28,11 +29,25 @@ import { onGuideRecruited } from './onboarding.js';
 
 const GUIDE_ENCOUNTER_ID = 'onboarding-guide';
 const PICKER_ID = 'onboardingGuidePicker';
+const HELP_ARROW_ID = 'onboarding-guide-help-arrow';
+const HELP_BANNER_ID = 'onboarding-guide-help-banner';
 
 let _ctx = {};
+let _helpEventsBound = false;
 
 export function configureOnboardingGuide(ctx = {}) {
   _ctx = { ..._ctx, ...ctx };
+  _bindGuideHelpEvents();
+}
+
+function _bindGuideHelpEvents() {
+  if (_helpEventsBound) return;
+  _helpEventsBound = true;
+  // La cible pointée vit sur tabAgents : en sortir la rend invisible sans la
+  // faire disparaître (elle resterait plantée à l'écran, décorrélée de rien).
+  EventBus.on(EVENTS.UI_TAB_CHANGED, ({ tabId } = {}) => {
+    if (tabId !== 'tabAgents') _clearGuideHelp();
+  });
 }
 
 const _state = () => _ctx.getState?.() ?? globalThis.state;
@@ -101,8 +116,65 @@ export function getOnboardingGuideEncounterForZone(zoneId) {
   };
 }
 
+// ── Aide guidée (« confie-moi un Pokémon », etc.) ───────────────────
+// Flèche + bandeau flottants, positionnés en JS sur une cible arbitraire
+// (potentiellement sur un AUTRE onglet que celui affiché au clic) — pas
+// d'ancrage CSS relatif possible comme pour la flèche de première capture.
+function _clearGuideHelp() {
+  document.getElementById(HELP_ARROW_ID)?.remove();
+  document.getElementById(HELP_BANNER_ID)?.remove();
+}
+
+function _pointGuideHelpAt(targetEl, text) {
+  _clearGuideHelp();
+  if (!targetEl) return false;
+  targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+  const banner = document.createElement('div');
+  banner.id = HELP_BANNER_ID;
+  banner.className = 'onboarding-guide-help-banner';
+  banner.textContent = text;
+  document.body.appendChild(banner);
+
+  const arrow = document.createElement('div');
+  arrow.id = HELP_ARROW_ID;
+  arrow.className = 'onboarding-guide-help-arrow';
+  arrow.textContent = '👇';
+  document.body.appendChild(arrow);
+
+  // Après le scrollIntoView : la position finale n'est connue qu'une fois le
+  // scroll (et un éventuel changement d'onglet) retombés. setTimeout, pas
+  // requestAnimationFrame — rAF est intégralement suspendu tant que l'onglet
+  // navigateur est masqué (contrairement à setTimeout, juste ralenti), donc
+  // ne se déclencherait jamais si le joueur avait l'app en arrière-plan.
+  setTimeout(() => {
+    if (!document.getElementById(HELP_ARROW_ID)) return; // déjà refermé
+    const r = targetEl.getBoundingClientRect();
+    arrow.style.left = `${r.left + r.width / 2}px`;
+    arrow.style.top = `${r.top - 30}px`;
+  }, 0);
+  return true;
+}
+
+/** Guide vers l'écran d'affectation d'un Pokémon à cet agent (étape GUIDE_TEAM). */
+function _guideToTeamAssignment(agentId) {
+  _ctx.switchTab?.('tabAgents');
+  setTimeout(() => {
+    const target = document.querySelector(`.agent-team-slot[data-agent-team="${agentId}"]`);
+    _pointGuideHelpAt(target, _t(
+      'Les Pokémon que tu confies à tes agents sont utilisés en combat — donne-leur des Pokémon puissants et adaptés à leur zone.',
+      'The Pokémon you give your agents get used in combat — give them strong Pokémon suited to their zone.',
+    ));
+  }, 0);
+  return true;
+}
+
 /** Repose le sprite immédiatement plutôt qu'au prochain tick de zone. */
 export function refreshGuide() {
+  // Un pas vient d'être franchi : quoi que la flèche pointait, ce n'est plus
+  // à jour — c'est encore vrai si le pas franchi n'est pas celui qu'elle
+  // aidait (ex. le joueur a fini une autre étape entre-temps).
+  _clearGuideHelp();
   const win = document.getElementById(`zw-${ONBOARDING_ZONE_ID}`);
   if (win) globalThis.patchZoneWindow?.(ONBOARDING_ZONE_ID, win);
 }
@@ -198,7 +270,13 @@ export function openGuideEncounter() {
   if (onboarding.step === ONBOARDING_STEPS.GUIDE_MET && !onboarding.guideAgentId) {
     return _openSpritePicker();
   }
-  // Déjà à bord : il se contente de répéter sa demande en cours.
+  // « Confie-moi un Pokémon » — plutôt qu'une simple notif qui laisse le
+  // joueur deviner où aller, on l'y emmène directement, flèche à l'appui.
+  if (onboarding.step === ONBOARDING_STEPS.GUIDE_TEAM) {
+    return _guideToTeamAssignment(onboarding.guideAgentId);
+  }
+  // Déjà à bord, autre étape (zone/combat) : il se contente de répéter sa
+  // demande en cours.
   const line = getOnboardingGuideLine(state);
   if (line) _ctx.notify?.(line, 'gold');
   return true;
