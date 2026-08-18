@@ -3337,6 +3337,7 @@
     .gb2-focus-zone-type.route   { background: rgba(68,187,85,.08);  color: var(--green); border: 1px solid rgba(68,187,85,.25); }
     .gb2-focus-zone-type.city    { background: rgba(68,136,204,.08); color: var(--blue);  border: 1px solid rgba(68,136,204,.25); }
     .gb2-focus-zone-type.special { background: rgba(170,102,204,.08); color: #aa66cc;     border: 1px solid rgba(170,102,204,.25); }
+    .gb2-focus-zone-type.onboarding { background: rgba(255,204,90,.08); color: var(--gold); border: 1px solid rgba(255,204,90,.25); }
 
     .gb2-possession-meter { padding: 8px 10px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
     .gb2-poss-top { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 5px; }

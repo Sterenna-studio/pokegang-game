@@ -4,6 +4,6 @@ Auto-updated on every commit by .githooks/pre-commit.
 Garantit qu'un marqueur horodaté est présent dans chaque commit
 et que le workflow GitHub Actions se déclenche.
 
-Last update : 2026-08-18 18:59:24 +0200
+Last update : 2026-08-18 20:25:32 +0200
 Branch      : feat/issue-59-onboarding-v2
-Previous sha: c26fe6e
+Previous sha: 21f0e27
