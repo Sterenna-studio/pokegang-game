@@ -3180,11 +3180,11 @@ function renderPokedexTab() {
       ${sinnohUnlocked ? `<span title="${_t('pc_dex_sinnoh_title')}" style="opacity:.85">❄️ Sinnoh&nbsp;<b style="color:var(--text)">${sinnohCaught}/${sinnohTotal}</b></span>` : ''}
       <span title="${_t('pc_dex_national_title')}" style="opacity:.7">🌐 National&nbsp;<b style="color:var(--text)">${nationalCaught}/${getNationalDexSize()}</b></span>
       <span title="${_t('pc_dex_shiny_species_title')}">✨&nbsp;<b style="color:var(--gold)">${shinySpecies}</b></span>
-      <label style="margin-left:auto;display:flex;align-items:center;gap:4px;cursor:pointer;user-select:none;opacity:.85" title="${_t('Anime le remplissage du Pokédex et le halo des familles complètes', 'Animates the Pokédex fill-in and the completed-family glow')}">
+      <label style="margin-left:auto;display:flex;align-items:center;gap:4px;cursor:pointer;user-select:none;opacity:.85" title="${_t('pc_dex_anim_toggle_title')}">
         <input type="checkbox" id="dexAnimToggle" ${animationsEnabled ? 'checked' : ''} style="accent-color:var(--gold)">
-        ${_t('Animations', 'Animations')}
+        ${_t('pc_dex_anim_toggle_label')}
       </label>
-      <button id="dexReplayBtn" title="${_t('Rejouer l\'animation de remplissage', 'Replay the fill-in animation')}" style="font-family:var(--font-pixel);font-size:7px;padding:3px 7px;background:rgba(255,204,90,.08);border:1px solid rgba(255,204,90,.35);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer;white-space:nowrap">🔄 ${_t('Charger', 'Reload')}</button>
+      <button id="dexReplayBtn" title="${_t('pc_dex_reload_title')}" style="font-family:var(--font-pixel);font-size:7px;padding:3px 7px;background:rgba(255,204,90,.08);border:1px solid rgba(255,204,90,.35);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer;white-space:nowrap">🔄 ${_t('pc_dex_reload_btn')}</button>
       <button id="dexRebuildBtn" title="${_t('pc_dex_rebuild_title')}" style="font-family:var(--font-pixel);font-size:7px;padding:3px 7px;background:rgba(255,204,90,.08);border:1px solid rgba(255,204,90,.35);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer;white-space:nowrap">🔄 ${_t('pc_recalibrate')}</button>
   `;
   document.getElementById('dexRebuildBtn')?.addEventListener('click', rebuildPokedex);
