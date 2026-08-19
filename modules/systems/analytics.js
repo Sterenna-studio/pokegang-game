@@ -21,13 +21,15 @@
 import { EventBus, EVENTS } from '../core/eventBus.js';
 import { GAME_VERSION } from '../../state/defaultState.js';
 
-function _detectPlatform() {
+// Exportée : modules/ui/hub.js s'en sert aussi pour gater le démarrage
+// automatique d'une première partie sur itch (voir shouldAutoStartFirstGame).
+export function detectPlatform() {
   const h = location.hostname;
   if (h.endsWith('.itch.io') || h.includes('itch.zone') || h.endsWith('.hwcdn.st')) return 'itch';
   if (h === 'pokegang.sterenna.fr') return 'web';
   return 'dev';
 }
-const _platform = _detectPlatform();
+const _platform = detectPlatform();
 
 function trackEvent(name, params = {}) {
   if (typeof globalThis.gtag !== 'function') return;

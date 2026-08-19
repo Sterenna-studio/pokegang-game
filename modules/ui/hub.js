@@ -3,10 +3,14 @@
 import { esc } from '../core/escape.js';
 import { FALLBACK_TRAINER_SVG, LOGO_SMALL_URL } from '../../data/assets-data.js';
 import { ONBOARDING_STEPS, normalizeOnboardingState } from '../systems/onboardingFlow.js';
+import { detectPlatform } from '../systems/analytics.js';
+
+const AUTO_START_DELAY_MS = 2000;
 
 let _ctx = {};
 let _bound = false;
 let _showcaseInterval = null;
+let _autoStartTimer = 0;
 
 export function configureHub(ctx = {}) {
   _ctx = { ..._ctx, ...ctx };
@@ -55,6 +59,32 @@ function _isOnboardingPreview(preview) {
   if (!preview) return false;
   const onboarding = normalizeOnboardingState(preview.onboarding);
   return onboarding.step !== ONBOARDING_STEPS.NOT_STARTED && onboarding.step !== ONBOARDING_STEPS.COMPLETED;
+}
+
+// ── Démarrage auto d'une première partie (itch uniquement) ─────────
+// Un joueur qui arrive depuis la page itch.io s'attend à jouer tout de
+// suite, pas à choisir un slot. Pure (aucun accès DOM/état direct) pour
+// être testable sans navigateur ; le site principal n'en profite pas
+// (l'écran de sauvegardes y a un vrai rôle pour un joueur qui revient).
+export function shouldAutoStartFirstGame(platform, hasAnySave) {
+  return platform === 'itch' && !hasAnySave;
+}
+
+function _cancelAutoStart() {
+  if (!_autoStartTimer) return;
+  clearTimeout(_autoStartTimer);
+  _autoStartTimer = 0;
+}
+
+function _maybeScheduleAutoStart() {
+  _cancelAutoStart();
+  const hasAnySave = [0, 1, 2].some(index => !!_ctx.getSlotPreview?.(index));
+  if (!shouldAutoStartFirstGame(detectPlatform(), hasAnySave)) return;
+  _autoStartTimer = setTimeout(() => {
+    _autoStartTimer = 0;
+    _stopShowcase();
+    _ctx.startOnboarding?.({ slotIdx: 0, resume: false });
+  }, AUTO_START_DELAY_MS);
 }
 
 function _renderSlots() {
@@ -128,6 +158,11 @@ function _renderSlots() {
 function _bindOnce() {
   if (_bound) return;
   _bound = true;
+  // Un joueur qui touche quoi que ce soit dans le hub a déjà pris la main —
+  // le départ auto ne doit plus lui couper l'herbe sous le pied. Capture sur
+  // l'overlay entier plutôt qu'un listener par bouton/slot (ceux-ci sont
+  // reconstruits à chaque _renderSlots()).
+  document.getElementById('introOverlay')?.addEventListener('click', _cancelAutoStart, true);
   document.getElementById('introSettingsBtn')?.addEventListener('click', () => _ctx.openSettingsModal?.());
   document.getElementById('introStartGameBtn')?.addEventListener('click', () => {
     const freeSlot = [0, 1, 2].find(index => !_ctx.getSlotPreview?.(index));
@@ -172,4 +207,5 @@ export function showIntro() {
   _bindOnce();
   _renderSlots();
   _startShowcase();
+  _maybeScheduleAutoStart();
 }
