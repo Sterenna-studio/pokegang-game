@@ -380,12 +380,80 @@ create index if not exists gang_raids_defender_idx
   on public.pokegang_gang_raids(defender_id, executed_at desc);
 
 -- ============================================================================
+-- Public API — colonnes supplémentaires sur pokegang_players
+-- Migration à appliquer pour activer l'API publique PokéGang.
+-- ============================================================================
+
+-- Opt-in profil public + token unique de partage
+alter table public.pokegang_players add column if not exists public_profile     boolean     not null default false;
+alter table public.pokegang_players add column if not exists profile_token      text        unique;
+
+-- Données richies pour la fiche API
+alter table public.pokegang_players add column if not exists boss_sprite        text;
+alter table public.pokegang_players add column if not exists title_full         text;
+alter table public.pokegang_players add column if not exists total_fights_won   integer     not null default 0;
+alter table public.pokegang_players add column if not exists chests_opened      integer     not null default 0;
+alter table public.pokegang_players add column if not exists pokemon_count      integer     not null default 0;
+alter table public.pokegang_players add column if not exists money              bigint      not null default 0;
+alter table public.pokegang_players add column if not exists total_money_earned bigint      not null default 0;
+alter table public.pokegang_players add column if not exists regions_data       jsonb       default '["kanto"]'::jsonb;
+alter table public.pokegang_players add column if not exists showcase_data      jsonb       default '[]'::jsonb;
+alter table public.pokegang_players add column if not exists boss_team_data     jsonb       default '[]'::jsonb;
+alter table public.pokegang_players add column if not exists badges_data        jsonb       default '[]'::jsonb;
+
+-- Snapshot du vivarium (résidents + pool de cameos + fond, déjà résolus pour
+-- l'affichage — cf. modules/systems/vivariumSnapshot.js) poussé périodiquement
+-- pour l'affichage distant en lecture seule (source navigateur OBS,
+-- gang/live.html). Gated par le même opt-in public_profile que showcase_data/
+-- boss_team_data/badges_data ci-dessus — aucune nouvelle policy nécessaire.
+alter table public.pokegang_players add column if not exists vivarium_data      jsonb       default '{}'::jsonb;
+
+-- Génère automatiquement un token unique si public_profile passe à true
+create or replace function public.pg_generate_profile_token()
+returns trigger language plpgsql as $$
+begin
+  if new.public_profile = true and (old.profile_token is null or old.profile_token = '') then
+    new.profile_token := lower(
+      replace(new.gang_name, ' ', '-') || '-' ||
+      substring(encode(gen_random_bytes(4), 'hex'), 1, 6)
+    );
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists pg_profile_token_trigger on public.pokegang_players;
+create trigger pg_profile_token_trigger
+  before update on public.pokegang_players
+  for each row execute function public.pg_generate_profile_token();
+
+-- Politique de lecture publique : accessible sans authentification
+-- si le joueur a activé son profil public
+drop policy if exists "players_select_public" on public.pokegang_players;
+create policy "players_select_public"
+  on public.pokegang_players for select
+  to anon
+  using (public_profile = true);
+
+-- Index pour la recherche par nom et par token
+create index if not exists players_gang_name_idx    on public.pokegang_players (lower(gang_name));
+create index if not exists players_profile_token_idx on public.pokegang_players (profile_token)
+  where public_profile = true;
+
+-- ============================================================================
 -- Vue d'ensemble créateur — agrège des données déjà collectées, aucune
 -- nouvelle collecte côté client. Toutes les vues ci-dessous n'exposent que
 -- des AGRÉGATS/comptages (jamais une ligne individuelle), donc aucune
 -- exposition nouvelle même pour pokegang_players, qui n'est pas entièrement
 -- public par ailleurs — voir modules/systems/cloudAccount.js pour comment
 -- ces chiffres sont déjà collectés (leaderboard anonyme + comptes connectés).
+--
+-- Placée après la section Public API ci-dessus à dessein : la vue
+-- pokegang_stats_region_funnel lit pokegang_players.regions_data, qui n'existe
+-- qu'à partir de cette section. Sur une base déjà migrée (ex. prod), l'ordre
+-- n'a pas d'importance ; sur un projet neuf exécuté du haut vers le bas (ex.
+-- un projet de staging), la placer avant faisait échouer ce fichier avec
+-- « column "regions_data" does not exist ».
 -- ============================================================================
 
 -- created_at : horodatage de première apparition d'un token, pour distinguer
@@ -454,64 +522,3 @@ grant select on public.pokegang_stats_daily_active     to anon, authenticated;
 grant select on public.pokegang_stats_new_players       to anon, authenticated;
 grant select on public.pokegang_stats_rep_distribution  to anon, authenticated;
 grant select on public.pokegang_stats_region_funnel     to anon, authenticated;
-
--- ============================================================================
--- Public API — colonnes supplémentaires sur pokegang_players
--- Migration à appliquer pour activer l'API publique PokéGang.
--- ============================================================================
-
--- Opt-in profil public + token unique de partage
-alter table public.pokegang_players add column if not exists public_profile     boolean     not null default false;
-alter table public.pokegang_players add column if not exists profile_token      text        unique;
-
--- Données richies pour la fiche API
-alter table public.pokegang_players add column if not exists boss_sprite        text;
-alter table public.pokegang_players add column if not exists title_full         text;
-alter table public.pokegang_players add column if not exists total_fights_won   integer     not null default 0;
-alter table public.pokegang_players add column if not exists chests_opened      integer     not null default 0;
-alter table public.pokegang_players add column if not exists pokemon_count      integer     not null default 0;
-alter table public.pokegang_players add column if not exists money              bigint      not null default 0;
-alter table public.pokegang_players add column if not exists total_money_earned bigint      not null default 0;
-alter table public.pokegang_players add column if not exists regions_data       jsonb       default '["kanto"]'::jsonb;
-alter table public.pokegang_players add column if not exists showcase_data      jsonb       default '[]'::jsonb;
-alter table public.pokegang_players add column if not exists boss_team_data     jsonb       default '[]'::jsonb;
-alter table public.pokegang_players add column if not exists badges_data        jsonb       default '[]'::jsonb;
-
--- Snapshot du vivarium (résidents + pool de cameos + fond, déjà résolus pour
--- l'affichage — cf. modules/systems/vivariumSnapshot.js) poussé périodiquement
--- pour l'affichage distant en lecture seule (source navigateur OBS,
--- gang/live.html). Gated par le même opt-in public_profile que showcase_data/
--- boss_team_data/badges_data ci-dessus — aucune nouvelle policy nécessaire.
-alter table public.pokegang_players add column if not exists vivarium_data      jsonb       default '{}'::jsonb;
-
--- Génère automatiquement un token unique si public_profile passe à true
-create or replace function public.pg_generate_profile_token()
-returns trigger language plpgsql as $$
-begin
-  if new.public_profile = true and (old.profile_token is null or old.profile_token = '') then
-    new.profile_token := lower(
-      replace(new.gang_name, ' ', '-') || '-' ||
-      substring(encode(gen_random_bytes(4), 'hex'), 1, 6)
-    );
-  end if;
-  return new;
-end;
-$$;
-
-drop trigger if exists pg_profile_token_trigger on public.pokegang_players;
-create trigger pg_profile_token_trigger
-  before update on public.pokegang_players
-  for each row execute function public.pg_generate_profile_token();
-
--- Politique de lecture publique : accessible sans authentification
--- si le joueur a activé son profil public
-drop policy if exists "players_select_public" on public.pokegang_players;
-create policy "players_select_public"
-  on public.pokegang_players for select
-  to anon
-  using (public_profile = true);
-
--- Index pour la recherche par nom et par token
-create index if not exists players_gang_name_idx    on public.pokegang_players (lower(gang_name));
-create index if not exists players_profile_token_idx on public.pokegang_players (profile_token)
-  where public_profile = true;
