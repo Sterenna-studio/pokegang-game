@@ -1,0 +1,6 @@
+# OVH/Apache does not always register .mjs with a JavaScript MIME type.
+# ES modules are subject to strict MIME checking in browsers, so serve them
+# explicitly as JavaScript when the Screenshot Studio is deployed to /studio/.
+<IfModule mod_mime.c>
+  AddType application/javascript .mjs
+</IfModule>
