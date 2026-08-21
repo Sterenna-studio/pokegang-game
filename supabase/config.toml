@@ -13,6 +13,7 @@
 # Deploy Edge Functions:
 #   supabase functions deploy pokegang-api
 #   supabase functions deploy pokegang-leaderboard-submit
+#   supabase functions deploy pokegang-analytics-ingest --no-verify-jwt
 #
 # Browser builds must only use the publishable/anon key. Never ship a secret
 # or service_role key in web/itch artifacts.
@@ -59,4 +60,10 @@ verify_jwt = false
 [functions.pokegang-leaderboard-submit]
 # Anonymous players can submit a score. The function validates/sanitizes the
 # payload and links user_id only when a valid user access token is present.
+verify_jwt = false
+
+[functions.pokegang-analytics-ingest]
+# Apps Script sends a Google OAuth bearer token rather than a Supabase JWT.
+# The function validates that token against GA4 property 547494860 before any
+# service-role database write is allowed.
 verify_jwt = false
