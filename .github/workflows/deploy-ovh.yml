@@ -34,7 +34,7 @@ jobs:
 
       - name: Ensure remote target directory exists
         run: |
-          ssh -i ~/.ssh/ovh_key "${{ secrets.OVH_USER }}@${{ secrets.OVH_HOST }}" "mkdir -p ~/pokegang"
+          ssh -i ~/.ssh/ovh_key "${{ secrets.OVH_USER }}@${{ secrets.OVH_HOST }}" "mkdir -p ~/pokegang ~/pokegang/studio"
 
       - name: Deploy to OVH with rsync
         run: |
@@ -45,12 +45,22 @@ jobs:
             --exclude='LICENSE' \
             --exclude='supabase/' \
             --exclude='tools/' \
+            --exclude='studio/' \
             --exclude='test/' \
             --exclude='info/' \
             --exclude='docs/*.md' \
             --exclude='docs/*.sql' \
             -e "ssh -i ~/.ssh/ovh_key" \
             ./ "${{ secrets.OVH_USER }}@${{ secrets.OVH_HOST }}:~/pokegang/"
+
+      # Screenshot Studio is the only internal tool intentionally published.
+      # It stays under tools/ in the repo (and outside the itch build), while
+      # OVH exposes it at /studio/ for quick release/devlog screenshot work.
+      - name: Deploy Screenshot Studio
+        run: |
+          rsync -avz --delete \
+            -e "ssh -i ~/.ssh/ovh_key" \
+            tools/screenshot-studio/ "${{ secrets.OVH_USER }}@${{ secrets.OVH_HOST }}:~/pokegang/studio/"
 
       # Le cache-busting ?v=<hash> ne couvre que les <script src>/<link href>
       # d'index.html — les `import '...'` imbriqués dans les fichiers JS n'ont
