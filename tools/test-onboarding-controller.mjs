@@ -196,6 +196,11 @@ assert.equal(state.onboarding.step, ONBOARDING_STEPS.GUIDE_ZONE);
 state.agents[0].assignedZone = 'route1';
 EventBus.emit(EVENTS.AGENT_ASSIGNED, { agentId: 'guide-1', zoneId: 'route1' });
 assert.equal(state.onboarding.step, ONBOARDING_STEPS.GUIDE_COMBAT);
+// Assignation faite depuis l'onglet Agents, comme le recrutement plus haut —
+// même besoin de refresh forcé, sinon la fenêtre de zone (bulle du guide)
+// resterait construite avec l'état d'avant tant que le joueur ne rouvre pas
+// Zones lui-même.
+assert.equal(zonesForceRefreshed, 2);
 
 // « Active mon option de combat » — le bon drapeau, la bonne valeur, le bon agent.
 EventBus.emit(EVENTS.AGENT_FLAG_CHANGED, { agentId: 'guide-1', flag: 'autoCapture', value: true });
@@ -225,8 +230,9 @@ assert.ok(!(state.openZoneOrder || []).includes(ONBOARDING_ZONE_ID));
 // Le joueur est sur Agents à cet instant (dernier geste du transfuge), pas
 // Zones — sans ce forçage explicite, le fogmap ne montrerait le Marché
 // fraîchement débloqué qu'au prochain clic manuel sur l'onglet Zones.
-// 2 au total : le recrutement du transfuge plus haut en a déjà déclenché un.
-assert.equal(zonesForceRefreshed, 2);
+// 3 au total : le recrutement du transfuge et l'assignation de zone plus
+// haut en ont déjà déclenché un chacun.
+assert.equal(zonesForceRefreshed, 3);
 
 // Rejouer l'événement ne doit ni repayer la prime ni réémettre l'étape.
 const stepsAfter = completedSteps.length;
