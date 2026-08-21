@@ -63,6 +63,7 @@ jobs:
         run: |
           node <<'NODE'
           const fs = require('fs');
+          const path = require('path');
           const release = JSON.parse(fs.readFileSync('release/itch-release.json', 'utf8'));
           const expected = release.uploadFile;
           if (!fs.existsSync(expected)) throw new Error(`Missing release archive: ${expected}`);
@@ -78,6 +79,49 @@ jobs:
           }
           const index = fs.readFileSync('dist-itch/index.html', 'utf8');
           if (!index.includes('G-NP6C2KZ16G')) throw new Error('GA4 measurement ID missing from itch build');
+
+          // Validate all relative ES module imports in the staged runtime. The
+          // three config.js imports are intentional optional fallbacks: itch
+          // must run without that file and those call sites are wrapped in
+          // try/catch. Comments are removed first to avoid matching examples.
+          const root = path.resolve('dist-itch');
+          const jsFiles = [];
+          const walk = dir => {
+            for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+              const full = path.join(dir, entry.name);
+              if (entry.isDirectory()) walk(full);
+              else if (entry.isFile() && entry.name.endsWith('.js')) jsFiles.push(full);
+            }
+          };
+          walk(root);
+
+          const optionalConfig = new Set(['config.js']);
+          const missing = [];
+          let checkedImports = 0;
+          for (const file of jsFiles) {
+            let text = fs.readFileSync(file, 'utf8')
+              .replace(/\/\*[\s\S]*?\*\//g, '')
+              .replace(/(^|\s)\/\/.*$/gm, '$1');
+            const specs = [];
+            const staticImport = /(?:^|[;\n]\s*)import\s+(?:[^'"\n]+?\s+from\s+)?['"]([^'"]+)['"]/gm;
+            const dynamicImport = /\bimport\(\s*['"]([^'"]+)['"]\s*\)/g;
+            for (const regex of [staticImport, dynamicImport]) {
+              let match;
+              while ((match = regex.exec(text))) specs.push(match[1]);
+            }
+            for (const spec of specs) {
+              if (!spec.startsWith('.')) continue;
+              checkedImports++;
+              const target = path.resolve(path.dirname(file), spec);
+              const rel = path.relative(root, target).replaceAll('\\', '/');
+              const candidates = [target, `${target}.js`, path.join(target, 'index.js')];
+              if (candidates.some(candidate => fs.existsSync(candidate) && fs.statSync(candidate).isFile())) continue;
+              if (optionalConfig.has(rel)) continue;
+              missing.push(`${path.relative(root, file)} -> ${spec}`);
+            }
+          }
+          if (missing.length) throw new Error(`Missing required runtime imports:\n${missing.join('\n')}`);
+          console.log(`Relative import graph OK: ${checkedImports} import(s), no required target missing.`);
           console.log(`Release artifact OK: ${expected}`);
           NODE
 
