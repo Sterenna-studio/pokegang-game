@@ -21,6 +21,11 @@ export const LEGACY_SAVE_KEYS = [
 export const DEFAULT_STATE = {
   version: '6.0.0',
   _schemaVersion: SAVE_SCHEMA_VERSION,
+  // Identifiant pseudonyme de CETTE partie, posé à la volée par
+  // modules/systems/analytics.js s'il manque, puis conservé dans la save. Sert
+  // à recoller les événements d'une même partie après un rechargement sans
+  // dépendre du seul client ID GA. Rien de personnel : tirage aléatoire.
+  gameInstanceId: null,
   lang: 'fr',
   // Shape mirrored from defaultOnboardingState() in modules/systems/onboardingFlow.js.
   onboarding: {

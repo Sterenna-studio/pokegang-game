@@ -2427,7 +2427,12 @@ function animateCapture(zoneId, spawnObj, spawnEl, clickOffset = null) {
     }, IMPACT_MS);
 
     function doCaptureAttempt() {
-      const caught = globalThis.tryCapture(zoneId, spawnObj.species_en, isCritical ? 1 : 0, spawnObj.spawnCtx || {});
+      // Clic du joueur sur un spawn : c'est LA capture manuelle. Le terrain
+      // d'onboarding porte déjà spawnCtx.onboarding, que tryCapture privilégie.
+      const caught = globalThis.tryCapture(zoneId, spawnObj.species_en, isCritical ? 1 : 0, {
+        ...(spawnObj.spawnCtx || {}),
+        captureSource: spawnObj.spawnCtx?.onboarding ? 'onboarding' : 'manual',
+      });
       if (caught) {
         globalThis.SFX.play('capture', caught.potential, caught.shiny);
         // Étoiles progressives autour de la balle plutôt qu'une notification

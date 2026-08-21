@@ -558,7 +558,7 @@ function rollChestLoot(zoneId, passive = false) {
           pokemon.potential = Math.max(pokemon.potential, 3); // guaranteed 3+ stars
           pokemon.stats = globalThis.calculateStats(pokemon);
           state.pokemons.push(pokemon); _dirty();
-          EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon, zoneId });
+          EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon, zoneId, source: 'chest' });
           state.stats.totalCaught++;
           globalThis.registerPokedexCapture(state, pokemon);
           if (pokemon.shiny) state.stats.shinyCaught++;
@@ -653,7 +653,7 @@ function activateEvent(zoneId, event) {
         p.level = Math.max(p.level, 20);
         p.stats = globalThis.calculateStats(p);
         state.pokemons.push(p); _dirty();
-        EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: p, zoneId });
+        EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: p, zoneId, source: 'event' });
         parts.push(_t(
           `${globalThis.speciesName(reward.pokemonGift)} rejoint le gang !`,
           `${globalThis.speciesName(reward.pokemonGift)} joined the gang!`,
@@ -761,7 +761,19 @@ function tryCapture(zoneId, speciesEN, bonusPotential = 0, spawnCtx = {}) {
   if (!pokemon) return null;
   if (bonusPotential > 0) pokemon.potential = Math.min(5, pokemon.potential + bonusPotential);
   state.pokemons.push(pokemon); _dirty();
-  EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon, zoneId, spawnCtx });
+  // Émetteur UNIQUE pour toute capture passant par ici — chemin joueur comme
+  // chemin agent. L'appelant décrit son contexte via spawnCtx plutôt que de
+  // réémettre de son côté : agentCaptureVisibleSpawn le faisait, et chaque
+  // capture d'agent partait donc en double (analytics faussé, mais aussi
+  // progression de missions et compteur de déblocage d'onglets comptés deux
+  // fois pour une seule prise).
+  EventBus.emit(EVENTS.POKEMON_CAPTURED, {
+    pokemon,
+    zoneId,
+    spawnCtx,
+    agentId: spawnCtx?.capturedByAgentId ?? null,
+    source: spawnCtx?.captureSource ?? (spawnCtx?.onboarding ? 'onboarding' : 'manual'),
+  });
   state.stats.totalCaught++;
   // Zone captures counter
   if (zoneId && state.zones[zoneId]) state.zones[zoneId].captures = (state.zones[zoneId].captures || 0) + 1;

@@ -11,6 +11,15 @@ import {
 import { buildSavePayload } from './serialization.js';
 import { migrateSave, getMigrationSummary } from './migrateSave.js';
 import { openImportPreviewModal } from '../modules/ui/modals.js';
+import { EventBus, EVENTS } from '../modules/core/eventBus.js';
+
+/** Remonte une panne de persistance : un joueur qui perd sa save doit être
+ *  distinguable dans les données d'un joueur qui se lasse. */
+function _reportGameError(kind, error, { fatal = false } = {}) {
+  try {
+    EventBus.emit(EVENTS.GAME_ERROR, { kind, reason: error?.name || String(error), fatal });
+  } catch { /* l'instrumentation ne doit jamais aggraver l'incident */ }
+}
 
 export function createStore(options = {}) {
   const {
@@ -81,14 +90,19 @@ export function createStore(options = {}) {
     } catch (e) {
       if (e.name === 'QuotaExceededError') {
         notify('⚠ Save trop volumineuse — historiques supprimés', 'error');
+        _reportGameError('save_failed', e);
         try {
           const emergency = JSON.parse(data);
           for (const p of emergency.pokemons || []) delete p.history;
           localStorageRef.setItem(saveKey, JSON.stringify(emergency));
         } catch (emergencyErr) {
           console.error('[Store] emergency save failed:', emergencyErr);
+          // Le repli a échoué à son tour : là, la progression est réellement
+          // perdue, d'où `fatal`.
+          _reportGameError('save_failed', emergencyErr, { fatal: true });
         }
       } else {
+        _reportGameError('save_failed', e, { fatal: true });
         throw e;
       }
     }
@@ -126,6 +140,9 @@ export function createStore(options = {}) {
       return state;
     } catch (e) {
       console.error('[Store] load error:', e);
+      // Une save présente mais illisible : le joueur repart de zéro sans
+      // l'avoir demandé. C'est le cas qu'il faut pouvoir compter.
+      _reportGameError('load_failed', e, { fatal: true });
       return null;
     }
   }

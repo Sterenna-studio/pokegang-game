@@ -50,7 +50,12 @@ async function prepareModules() {
     ['./serialization.js', './serialization.mjs'],
     ['./migrateSave.js', './migrateSave.mjs'],
     ['../modules/ui/modals.js', '../modules/ui/modals.mjs'],
+    ['../modules/core/eventBus.js', '../modules/core/eventBus.mjs'],
   ]);
+  // store.js remonte les échecs de save/load sur l'EventBus : le vrai module
+  // est copié tel quel, pour que ces émissions passent par le même chemin
+  // qu'en production plutôt que par un stub complaisant.
+  await writeModuleCopy('modules/core/eventBus.js', path.join(tmpRoot, 'modules', 'core', 'eventBus.mjs'));
   await writeModuleCopy('state/defaultState.js', path.join(tmpRoot, 'state', 'defaultState.mjs'));
   await writeModuleCopy('state/serialization.js', path.join(tmpRoot, 'state', 'serialization.mjs'));
   await writeModuleCopy('state/migrateSave.js', path.join(tmpRoot, 'state', 'migrateSave.mjs'), [

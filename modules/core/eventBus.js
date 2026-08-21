@@ -73,6 +73,11 @@ export const EVENTS = {
   ONBOARDING_STEP_COMPLETED: 'onboarding:step-completed', // { step, nextStep, secondsSinceNewGame }
   ONBOARDING_COMPLETED:      'onboarding:completed',      // { version, secondsSinceNewGame }
   ONBOARDING_FAILED:         'onboarding:failed',         // { version, step, reason }
+
+  // Erreurs produit — { kind, reason, fatal }. `kind` porte le nom d'événement
+  // analytics ('load_failed', 'save_failed', …) : il faut pouvoir distinguer
+  // un joueur qui décroche d'un jeu qui a cassé sous lui.
+  GAME_ERROR:                'game:error',
 };
 
 // ── Internal store ────────────────────────────────────────────

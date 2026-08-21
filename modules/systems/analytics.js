@@ -31,26 +31,109 @@ export function detectPlatform() {
 }
 const _platform = detectPlatform();
 
+// ── Testeur interne ───────────────────────────────────────────────
+// `platform` isole déjà localhost, mais PAS nos propres parties jouées sur la
+// vraie build web/itch : elles se confondent avec celles des joueurs. D'où ce
+// marqueur volontaire, posé une fois par navigateur et renvoyé sur CHAQUE
+// événement, pour pouvoir exclure ce trafic dans GA4 (et lever l'ambiguïté du
+// genre « cette ville, c'est probablement nous »).
+//
+// Activation : ajouter ?internalTester=1 à l'URL (persisté ensuite), ou poser
+// localStorage['pg.internalTester'] = '1' à la main. ?internalTester=0 lève le
+// marqueur. Rien n'est envoyé de plus qu'un booléen.
+const INTERNAL_TESTER_KEY = 'pg.internalTester';
+
+function _readInternalTester() {
+  try {
+    const param = new URLSearchParams(location.search).get('internalTester');
+    if (param === '1' || param === 'true') localStorage.setItem(INTERNAL_TESTER_KEY, '1');
+    else if (param === '0' || param === 'false') localStorage.removeItem(INTERNAL_TESTER_KEY);
+    return localStorage.getItem(INTERNAL_TESTER_KEY) === '1';
+  } catch {
+    return false; // storage indisponible (itch en mode restreint, navigation privée)
+  }
+}
+let _internalTester = _readInternalTester();
+
+/** Bascule le marqueur depuis la console : `pgSetInternalTester(true)`. */
+function setInternalTester(on) {
+  try {
+    if (on) localStorage.setItem(INTERNAL_TESTER_KEY, '1');
+    else localStorage.removeItem(INTERNAL_TESTER_KEY);
+  } catch { /* stockage indisponible — le marqueur ne survivra pas au reload */ }
+  _internalTester = !!on;
+  return _internalTester;
+}
+
+// ── Identifiant de partie ─────────────────────────────────────────
+// Le slot ne suffit pas : il est réutilisé d'une partie à l'autre. Cet id est
+// propre à UNE partie, persiste dans la save et permet de recoller les
+// événements d'une même partie après un rechargement, sans dépendre du seul
+// client ID GA (qui saute au changement de navigateur ou au vidage du cache).
+// Pseudonyme par construction : tirage aléatoire, aucune donnée personnelle.
+//
+// Créé à la volée s'il manque — une save antérieure à ce champ en obtient un
+// stable dès son premier chargement, plutôt que de rester non identifiable.
+function _gameInstanceId() {
+  const state = globalThis.state;
+  if (!state) return null;
+  if (!state.gameInstanceId) {
+    state.gameInstanceId = `g-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+    globalThis.markDirty?.();
+  }
+  return state.gameInstanceId;
+}
+
 function trackEvent(name, params = {}) {
   if (typeof globalThis.gtag !== 'function') return;
   try {
-    globalThis.gtag('event', name, { platform: _platform, game_version: GAME_VERSION, ...params });
+    globalThis.gtag('event', name, {
+      platform: _platform,
+      game_version: GAME_VERSION,
+      internal_tester: _internalTester,
+      game_instance_id: _gameInstanceId(),
+      slot: globalThis.activeSaveSlot ?? 0,
+      ...params,
+    });
   } catch (err) {
     console.warn('[Analytics] trackEvent failed:', name, err);
   }
 }
 
 // ── Captures ───────────────────────────────────────────────────────
-EventBus.on(EVENTS.POKEMON_CAPTURED, ({ pokemon, zoneId } = {}) => {
+// `source` dit QUI a capturé. Sans lui, 500 captures peuvent aussi bien
+// signifier beaucoup de jeu actif que de l'automatisation qui tourne seule —
+// deux situations produit radicalement différentes.
+//
+// Valeurs posées par les émetteurs : manual | agent | background | onboarding
+// | quest | chest | event | hatch | starter | cheat. `unknown` signale un
+// chemin d'émission non annoté, à corriger côté émetteur plutôt qu'ici.
+EventBus.on(EVENTS.POKEMON_CAPTURED, ({ pokemon, zoneId, source, agentId, spawnCtx } = {}) => {
   const state = globalThis.state;
+  const resolved = source
+    // Repli : l'embuscade et le terrain d'intro portent déjà ce contexte.
+    ?? (spawnCtx?.onboarding ? 'onboarding' : null)
+    ?? (agentId ? 'agent' : null)
+    ?? 'unknown';
   trackEvent('pokemon_captured', {
     species: pokemon?.species_en ?? null,
     shiny:   !!pokemon?.shiny,
     zone:    zoneId ?? null,
+    capture_source: resolved,
   });
   if (state?.stats?.totalCaught === 1) {
-    trackEvent('first_capture', { species: pokemon?.species_en ?? null });
+    trackEvent('first_capture', {
+      species: pokemon?.species_en ?? null,
+      capture_source: resolved,
+    });
   }
+});
+
+EventBus.on(EVENTS.POKEMON_SOLD, ({ pokemonIds, totalPrice } = {}) => {
+  trackEvent('pokemon_sold', {
+    count: Array.isArray(pokemonIds) ? pokemonIds.length : 0,
+    total_price: totalPrice ?? 0,
+  });
 });
 
 // ── Combat / agents ──────────────────────────────────────────────
@@ -64,10 +147,78 @@ EventBus.on(EVENTS.COMBAT_STARTED, ({ zoneId, trainerKey, mode } = {}) => {
   });
 });
 
+EventBus.on(EVENTS.COMBAT_WON, ({ zoneId, trainerKey, elite, mode, initiatedBy } = {}) => {
+  trackEvent('battle_won', {
+    zone: zoneId ?? null, trainer: trainerKey ?? null,
+    elite: !!elite, mode: mode ?? null, initiated_by: initiatedBy ?? null,
+  });
+});
+
+EventBus.on(EVENTS.COMBAT_LOST, ({ zoneId, trainerKey, mode, initiatedBy } = {}) => {
+  trackEvent('battle_lost', {
+    zone: zoneId ?? null, trainer: trainerKey ?? null,
+    mode: mode ?? null, initiated_by: initiatedBy ?? null,
+  });
+});
+
 EventBus.on(EVENTS.AGENT_RECRUITED, ({ source, cost } = {}) => {
   const state = globalThis.state;
   trackEvent('agent_recruited', {
     source: source ?? null, cost: cost ?? 0, total_agents: state?.agents?.length ?? 0,
+  });
+});
+
+// Les trois gestes qui font passer un agent d'un figurant à une machine à
+// ramener des Pokémon. Suivre leur adoption dit si l'automatisation est
+// comprise, ou si les agents restent inertes après leur recrutement.
+EventBus.on(EVENTS.TEAM_MEMBER_SET, ({ team, agentId, slot, source } = {}) => {
+  trackEvent('team_member_set', {
+    team: team ?? null,
+    has_agent: !!agentId,
+    // `team_slot`, pas `slot` : ce dernier est un paramètre global qui porte
+    // le slot de SAUVEGARDE, et le réutiliser ici l'écrasait silencieusement.
+    team_slot: slot ?? null,
+    source: source ?? null,
+  });
+});
+
+EventBus.on(EVENTS.AGENT_ASSIGNED, ({ zoneId, previousZoneId, source } = {}) => {
+  trackEvent('agent_assigned', {
+    zone: zoneId ?? null,
+    previous_zone: previousZoneId ?? null,
+    unassigned: !zoneId,
+    source: source ?? null,
+  });
+});
+
+EventBus.on(EVENTS.AGENT_FLAG_CHANGED, ({ flag, value, source } = {}) => {
+  trackEvent('agent_flag_changed', {
+    flag: flag ?? null, value: !!value, source: source ?? null,
+  });
+});
+
+// ── Navigation ───────────────────────────────────────────────────
+// Une ligne par onglet et par session, pas par clic : ce qui nous intéresse
+// est « ce joueur a-t-il jamais ouvert le Marché / le Pokédex », pas ses
+// allers-retours, qui noieraient le signal sous des centaines d'événements.
+const _tabsSeen = new Set();
+EventBus.on(EVENTS.UI_TAB_CHANGED, ({ tabId } = {}) => {
+  if (!tabId || _tabsSeen.has(tabId)) return;
+  _tabsSeen.add(tabId);
+  trackEvent('tab_first_view', { tab: tabId });
+});
+
+EventBus.on(EVENTS.TABS_REVEALED, ({ tabs } = {}) => {
+  for (const tab of tabs || []) trackEvent('tab_unlocked', { tab });
+});
+
+// ── Erreurs produit ──────────────────────────────────────────────
+// Sans ça, un joueur qui disparaît des données est indistinguable d'un joueur
+// qui décroche : on ne sait pas si le jeu a cassé sous lui.
+EventBus.on(EVENTS.GAME_ERROR, ({ kind, reason, fatal } = {}) => {
+  trackEvent(kind || 'game_error', {
+    reason: String(reason ?? '').slice(0, 100), // GA4 tronque à 100 caractères
+    fatal: !!fatal,
   });
 });
 
@@ -107,5 +258,5 @@ EventBus.on(EVENTS.ONBOARDING_FAILED, ({ version, step, reason } = {}) => {
   });
 });
 
-Object.assign(globalThis, { trackEvent });
-export {};
+Object.assign(globalThis, { trackEvent, pgSetInternalTester: setInternalTester });
+export { setInternalTester };

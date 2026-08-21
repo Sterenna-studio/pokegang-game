@@ -827,7 +827,7 @@ function _openLegendary(key) {
       cfg.onWin(mission);
       mission.totalCaptures = (mission.totalCaptures || 0) + 1;
       s.pokemons.push(pk);
-      EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: pk, zoneId: cfg.zone });
+      EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: pk, zoneId: cfg.zone, source: 'quest' });
       globalThis.registerPokedexCapture?.(s, pk);
       _notify(_t(`✨ ${cfg.name} capturé !`, `✨ ${cfg.name} caught!`), 'gold');
       _save();
@@ -864,7 +864,7 @@ function _openBeast() {
       if (globalThis.calculateStats) pk.stats = globalThis.calculateStats(pk);
       bm.beastOwned = true; bm.step = 6; bm.totalCaptures = (bm.totalCaptures || 0) + 1;
       s.pokemons.push(pk);
-      EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: pk, zoneId: _BEAST_ZONE });
+      EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: pk, zoneId: _BEAST_ZONE, source: 'quest' });
       globalThis.registerPokedexCapture?.(s, pk);
       _notify(_t(`✨ ${names[beast]} capturé !`, `✨ ${names[beast]} caught!`), 'gold');
       _save();
