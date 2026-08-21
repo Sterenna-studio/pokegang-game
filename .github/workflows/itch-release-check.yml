@@ -1,0 +1,79 @@
+name: Itch release check
+
+on:
+  pull_request:
+    paths:
+      - 'release/**'
+      - 'tools/build-itch.js'
+      - 'docs/itch-build.md'
+      - 'docs/devlogs/**'
+      - 'index.html'
+      - 'app.js'
+      - 'css/**'
+      - 'data/**'
+      - 'modules/**'
+      - 'state/**'
+      - 'assets/**'
+      - 'gang/**'
+      - '.github/workflows/itch-release-check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Core regression checks
+        run: |
+          node tools/check-events.js
+          node tools/test-onboarding-controller.mjs
+          node tools/test-tab-unlocks.mjs
+          node tools/test-advisor.mjs
+          node tools/test-runtime-store.mjs
+          node tools/test-update-manager.mjs
+
+      - name: Build itch archive
+        run: node tools/build-itch.js
+
+      - name: Verify release artifact
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const release = JSON.parse(fs.readFileSync('release/itch-release.json', 'utf8'));
+          const expected = release.uploadFile;
+          if (!fs.existsSync(expected)) throw new Error(`Missing release archive: ${expected}`);
+          if (!fs.existsSync('dist-itch/index.html')) throw new Error('Missing staged index.html');
+          if (fs.existsSync('dist-itch/config.js')) throw new Error('config.js leaked into itch build');
+          const stagedState = fs.readFileSync('dist-itch/state/defaultState.js', 'utf8');
+          if (!stagedState.includes("lang: 'en', // itch.io build default")) {
+            throw new Error('Staged itch build is not English by default');
+          }
+          const sourceState = fs.readFileSync('state/defaultState.js', 'utf8');
+          if (!sourceState.includes("lang: 'fr',")) {
+            throw new Error('Source game no longer defaults to French');
+          }
+          const index = fs.readFileSync('dist-itch/index.html', 'utf8');
+          if (!index.includes('G-NP6C2KZ16G')) throw new Error('GA4 measurement ID missing from itch build');
+          console.log(`Release artifact OK: ${expected}`);
+          NODE
+
+      - name: Upload validated itch build
+        uses: actions/upload-artifact@v4
+        with:
+          name: pokegang-itch-release-v0.5.0
+          path: pokegang-v0.5.0-itch.zip
+          if-no-files-found: error
+          retention-days: 14
