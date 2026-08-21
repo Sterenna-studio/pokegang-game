@@ -1,67 +1,78 @@
-# GA4 custom definitions as code
+# GA4 custom definitions as code — Apps Script
 
-PokéGang keeps the GA4 custom-dimension/custom-metric contract in
+PokéGang keeps its GA4 custom-dimension/custom-metric contract in
 [`analytics/ga4-definitions.json`](../analytics/ga4-definitions.json).
 
-This avoids manually recreating dozens of definitions in the GA4 UI after each
-analytics change. The manifest is synchronized through the Google Analytics
-Admin API by [`tools/sync-ga4-definitions.mjs`](../tools/sync-ga4-definitions.mjs).
+The live GA4 property is synchronized by a small Google Apps Script running as
+the Analytics owner/editor account. This avoids a billable Google Cloud setup,
+service-account JSON keys and GitHub secrets.
+
+## Source of truth
+
+- Event semantics: [`docs/analytics-events.md`](analytics-events.md)
+- GA4 registered custom definitions: [`analytics/ga4-definitions.json`](../analytics/ga4-definitions.json)
+- Apps Script source: [`analytics/apps-script/`](../analytics/apps-script/)
+- CI validation: [`tools/validate-ga4-definitions.mjs`](../tools/validate-ga4-definitions.mjs)
+
+`game_instance_id` and free-form error `reason` are intentionally not registered
+as GA4 report dimensions because of high-cardinality risk.
 
 ## Safety model
 
-- The sync only manages definitions explicitly present in the manifest.
-- Missing managed definitions can be created.
-- `displayName` and `description` can be updated.
-- Immutable scope mismatches fail loudly.
-- Metric-unit mismatches fail loudly for manual review.
-- Existing GA4 definitions not present in the manifest are **never archived or deleted** automatically.
-- `game_instance_id` and free-form error `reason` are intentionally not registered as report dimensions because of high-cardinality risk.
+The Apps Script:
 
-## One-time Google setup
+- creates missing definitions present in the manifest;
+- updates only mutable `displayName` / `description` drift;
+- stops on immutable scope or metric-unit conflicts;
+- never archives or deletes unmanaged GA4 definitions;
+- reads the public manifest directly from the repository `main` branch.
 
-1. In a Google Cloud project, enable **Google Analytics Admin API**.
-2. Create a service account dedicated to GA4 administration, for example
-   `pokegang-ga4-admin`.
-3. In GA4 property `547494860`, add that service-account email as **Editor**
-   (or Administrator). Viewer access is not enough to create/update custom
-   definitions.
-4. Create a JSON key for that service account.
-5. Base64-encode the full JSON file and save it as the GitHub repository secret:
+## One-time setup — no service account
 
-   `GA4_ADMIN_SERVICE_ACCOUNT_JSON_B64`
+1. Open <https://script.google.com> with the Google account that has Editor or
+   Administrator access to GA4 property `547494860`.
+2. Create a project named **PokéGang Analytics**.
+3. In Project Settings, enable **Show `appsscript.json` manifest file in editor**.
+4. Replace `Code.gs` with [`analytics/apps-script/Code.gs`](../analytics/apps-script/Code.gs).
+5. Replace `appsscript.json` with
+   [`analytics/apps-script/appsscript.json`](../analytics/apps-script/appsscript.json).
+6. Save.
 
-On Windows PowerShell:
+The manifest enables the **Google Analytics Admin API** and **Google Analytics
+Data API** advanced services for the Apps Script default Cloud project. No
+service-account private key is used.
 
-```powershell
-$file = '.\pokegang-ga4-admin.json'
-[Convert]::ToBase64String([IO.File]::ReadAllBytes($file)) | Set-Clipboard
-```
+## First authorization / smoke test
 
-Never commit the JSON key itself.
+Run these functions from the Apps Script editor, in this order:
 
-## Using the workflow
+1. `pgCheckGa4Definitions`
+   - Google asks you to authorize Analytics access on first run.
+   - The execution log reports `OK`, `MISSING`, `DRIFT` and `UNMANAGED` fields.
+   - This function does not change GA4.
+2. `pgApplyGa4Definitions`
+   - Creates missing managed custom dimensions/metrics and updates safe metadata.
+   - Run only after reviewing the check log.
+3. `pgTestGa4DataAccess`
+   - Reads yesterday's `activeUsers` through the Analytics Data API.
+   - This is the smoke test for the future GA4 → Supabase import.
 
-GitHub → **Actions** → **GA4 custom schema** → **Run workflow**.
+The manifest URL intentionally targets the repository `main` branch, so merge
+the analytics schema change before the first real sync.
 
-- `check`: compares the live GA4 property with the manifest and fails when a
-  managed definition is missing or has drifted.
-- `apply`: creates missing definitions and updates safe mutable fields.
+## Future changes
 
-Pull requests that edit the manifest or sync tool run local validation without
-needing Google credentials.
+When gameplay starts emitting a new bounded-cardinality parameter that needs to
+be reportable:
 
-## Adding analytics fields later
+1. document it in `docs/analytics-events.md`;
+2. add it to `analytics/ga4-definitions.json`;
+3. let GitHub CI validate the manifest;
+4. merge the change;
+5. run `pgCheckGa4Definitions`, then `pgApplyGa4Definitions` in Apps Script.
 
-When gameplay starts emitting a new parameter that needs to be queryable by the
-GA4 Data API:
+No Google Cloud Console, billing account, service-account JSON or GitHub secret
+is required for this schema-management path.
 
-1. Update `docs/analytics-events.md`.
-2. Add the corresponding definition to `analytics/ga4-definitions.json` if it
-   is useful for reporting and has bounded cardinality.
-3. Open/merge the PR.
-4. Run the **GA4 custom schema** workflow in `check` mode.
-5. Review the drift, then run it in `apply` mode.
-
-The Data API can reference an event-scoped custom dimension or metric after it
-has been registered, using names such as `customEvent:capture_source` or
-`customEvent:seconds_since_new_game`.
+The next stage will reuse the same Apps Script project's Analytics Data access
+to export aggregate reports into the dedicated PokéGang Supabase backend.
