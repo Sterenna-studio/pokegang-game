@@ -1178,7 +1178,7 @@ function _addDeoxysToPC() {
       if (globalThis.calculateStats) p.stats = globalThis.calculateStats(p);
       s.pokemons.push(p);
       EventBus.emit(EVENTS.STATE_DIRTY);
-      EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: p, zoneId: 'laboratoire_spatial' });
+      EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: p, zoneId: 'laboratoire_spatial', source: 'quest' });
       globalThis.registerPokedexCapture?.(s, p);
       _notify(_t(`⭐ Deoxys (Niv.80 / Pot.5) a rejoint le Gang !`, `⭐ Deoxys (Lv.80 / Pot.5) has joined the Gang!`), 'gold');
     }

@@ -627,6 +627,13 @@ export function migrateSave(saved, deps) {
     merged._limitViolationReward = true;
   }
 
+  // Identifiant de partie : on préserve celui de la save et on ne fabrique
+  // rien ici — analytics.js le pose à la volée s'il manque, ce qui couvre
+  // aussi les saves antérieures à ce champ.
+  if (typeof saved.gameInstanceId === 'string' && saved.gameInstanceId) {
+    merged.gameInstanceId = saved.gameInstanceId;
+  }
+
   merged._schemaVersion = SAVE_SCHEMA_VERSION;
   return merged;
 }

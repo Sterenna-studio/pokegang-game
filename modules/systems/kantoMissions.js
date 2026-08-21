@@ -606,7 +606,7 @@ function _openBirdLegendary(key) {
       if (globalThis.calculateStats) pk.stats = globalThis.calculateStats(pk);
       b.owned = true; b.step = 6; b.captures = (b.captures || 0) + 1;
       s.pokemons.push(pk);
-      EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: pk, zoneId: bird.zone });
+      EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: pk, zoneId: bird.zone, source: 'quest' });
       globalThis.registerPokedexCapture?.(s, pk);
       _notify(_t(`✨ ${_birdName(bird)} capturé !`, `✨ ${_birdName(bird)} caught!`), 'gold');
       _save();
@@ -664,7 +664,7 @@ function _openMewtwo() {
       if (globalThis.calculateStats) pk.stats = globalThis.calculateStats(pk);
       mm.mewtwoOwned = true; mm.step = 6; mm.totalCaptures = (mm.totalCaptures || 0) + 1;
       s.pokemons.push(pk);
-      EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: pk, zoneId: MEWTWO_CFG.zone });
+      EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: pk, zoneId: MEWTWO_CFG.zone, source: 'quest' });
       globalThis.registerPokedexCapture?.(s, pk);
       _notify(_t('✨ Mewtwo capturé !', '✨ Mewtwo caught!'), 'gold');
       _save();

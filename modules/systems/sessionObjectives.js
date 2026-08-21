@@ -90,17 +90,34 @@ function getSessionDelta() {
   return parts.filter(Boolean).join(' · ');
 }
 
-// ── session_completed analytics event ─────────────────────────────
-// Fired once when the tab is hidden/closed — visibilitychange fires
-// reliably on mobile (tab switch, app backgrounded) where pagehide/
-// beforeunload sometimes don't; pagehide catches the desktop close-tab
-// case. _sent guards against both firing for the same hide.
-let _sessionEndSent = false;
-function _sendSessionCompleted() {
+// ── game_segment_completed ────────────────────────────────────────
+// ATTENTION à ce que cet événement mesure : un SEGMENT de jeu, pas une
+// session. Il part quand l'onglet passe en arrière-plan ou se ferme.
+//
+// Il s'appelait `session_completed` et se réarmait au retour sur l'onglet :
+// un joueur qui alterne entre fenêtres en produisait plusieurs pour une seule
+// session logique, ce qui rendait tout comptage de sessions faux — et
+// silencieusement, puisque l'événement partait normalement à chaque fois.
+// Renommé pour dire ce qu'il mesure vraiment. Pour compter des SESSIONS,
+// utiliser `session_start` de GA4, qui applique la fenêtre d'inactivité
+// standard ; ces segments servent à mesurer ce qui a été accompli entre deux
+// mises en arrière-plan, et se cumulent sur une session GA4.
+//
+// visibilitychange couvre le mobile (bascule d'app) où pagehide ne part pas
+// toujours ; pagehide couvre la fermeture d'onglet sur desktop. Le garde
+// empêche le doublon quand les deux se déclenchent pour la même mise en
+// arrière-plan.
+let _segmentEndSent = false;
+let _segmentIndex = 0;
+function _sendSegmentCompleted() {
   const state = globalThis.state;
-  if (_sessionEndSent || !_sessionBaseline || !state) return;
-  _sessionEndSent = true;
-  globalThis.trackEvent?.('session_completed', {
+  if (_segmentEndSent || !_sessionBaseline || !state) return;
+  _segmentEndSent = true;
+  _segmentIndex += 1;
+  globalThis.trackEvent?.('game_segment_completed', {
+    // Rang du segment dans la session : 1 = premier passage en arrière-plan.
+    // Permet de distinguer une vraie fin de session d'un simple aller-retour.
+    segment_index: _segmentIndex,
     duration_s:  Math.round((Date.now() - _sessionBaseline.startTs) / 1000),
     money_delta: state.gang.money - _sessionBaseline.money,
     rep_delta:   state.gang.reputation - _sessionBaseline.rep,
@@ -110,10 +127,14 @@ function _sendSessionCompleted() {
   });
 }
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'hidden') _sendSessionCompleted();
-  else _sessionEndSent = false; // revenu sur l'onglet — une nouvelle fin de session pourra être envoyée
+  // Le désarmement au retour est volontaire : les deltas sont cumulatifs
+  // depuis le début de la session, donc chaque segment est un instantané de
+  // la progression totale, pas un double comptage. C'est `segment_index` qui
+  // permet de ne garder que le dernier si l'on veut un point par session.
+  if (document.visibilityState === 'hidden') _sendSegmentCompleted();
+  else _segmentEndSent = false;
 });
-window.addEventListener('pagehide', _sendSessionCompleted);
+window.addEventListener('pagehide', _sendSegmentCompleted);
 
 // ════════════════════════════════════════════════════════════════
 // NEXT OBJECTIVE

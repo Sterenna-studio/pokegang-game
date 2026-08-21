@@ -645,7 +645,7 @@ function resolveBackgroundSpawnForZone(zoneId) {
     }
 
     state.pokemons.push(pokemon); _dirty();
-    EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon, zoneId: state.zoneFocus, agentId: capturer?.id });
+    EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon, zoneId: state.zoneFocus, agentId: capturer?.id, source: 'background' });
     state.stats.totalCaught++;
     capturer.captureCount = (capturer.captureCount || 0) + 1;
     // XP de zone v2
@@ -978,7 +978,13 @@ function agentCaptureVisibleSpawn(agent, zoneId, spawnObj) {
     const prevBall  = state.activeBall;
     state.activeBall = usedBall; // temporairement pour que tryCapture log le bon skin
     globalThis._agentCaptureCtx = { agentName: agent.name, ball: usedBall, zoneId };
-    const caught = globalThis.tryCapture(zoneId, spawnObj.species_en, 0, spawnObj.spawnCtx || {});
+    // tryCapture émet POKEMON_CAPTURED lui-même : on lui décrit le contexte
+    // au lieu de réémettre après coup (ce qui doublait chaque capture d'agent).
+    const caught = globalThis.tryCapture(zoneId, spawnObj.species_en, 0, {
+      ...(spawnObj.spawnCtx || {}),
+      captureSource: 'agent',
+      capturedByAgentId: agent.id,
+    });
     globalThis._agentCaptureCtx = null;
     state.activeBall = prevBall;
     if (caught) {
@@ -1015,7 +1021,8 @@ function agentCaptureVisibleSpawn(agent, zoneId, spawnObj) {
         zone:       zoneName,
         ball:       ballName,
       });
-      EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: caught, zoneId, agentId: agent.id });
+      // (POKEMON_CAPTURED déjà émis par tryCapture ci-dessus, avec l'agent
+      // et la source dans son contexte — ne pas réémettre ici.)
       globalThis.removeSpawn(zoneId, spawnObj.id);
       _topBar();
       globalThis.updateZoneTimers(zoneId);

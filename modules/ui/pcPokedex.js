@@ -948,7 +948,7 @@ function hatchEgg(eggId) {
 
   state.eggs = state.eggs.filter(e => e.id !== eggId);
   state.pokemons.push(hatched); _dirty();
-  EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: hatched, zoneId: 'pension' });
+  EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: hatched, zoneId: 'pension', source: 'hatch' });
   state.stats.totalCaught++;
   state.stats.eggsHatched = (state.stats.eggsHatched || 0) + 1;
   if (hatched.shiny) state.stats.shinyCaught++;

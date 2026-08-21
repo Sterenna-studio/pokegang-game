@@ -930,7 +930,7 @@ function _addLegendaryToPC(questId) {
       if (globalThis.calculateStats) p.stats = globalThis.calculateStats(p);
       s.pokemons.push(p);
       EventBus.emit(EVENTS.STATE_DIRTY);
-      EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: p, zoneId: 'cave_of_origin' });
+      EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: p, zoneId: 'cave_of_origin', source: 'quest' });
       globalThis.registerPokedexCapture?.(s, p);
     }
   } catch (e) {

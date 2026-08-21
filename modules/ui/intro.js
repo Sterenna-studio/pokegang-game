@@ -585,7 +585,7 @@ export function openGiovanniIntro({
           starter.history = [{ type: 'starter', ts: Date.now(), zone: 'intro', ball: 'giovanni' }];
           if (!Array.isArray(state.pokemons)) state.pokemons = [];
           state.pokemons.push(starter); _dirty();
-          EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: starter, zoneId: null });
+          EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: starter, zoneId: null, source: 'starter' });
           globalThis.registerPokedexCapture?.(state, starter);
         }
       }
@@ -828,7 +828,7 @@ function _openStarterGiftPopupNow({ onComplete } = {}) {
         starter.history = [{ type: 'starter', ts: Date.now(), zone: 'intro', ball: 'giovanni' }];
         if (!Array.isArray(state.pokemons)) state.pokemons = [];
         state.pokemons.push(starter); _dirty();
-        EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: starter, zoneId: null });
+        EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: starter, zoneId: null, source: 'starter' });
         globalThis.registerPokedexCapture?.(state, starter);
       }
 
