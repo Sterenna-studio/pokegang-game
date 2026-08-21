@@ -1,0 +1,27 @@
+name: GA4 custom schema
+
+on:
+  pull_request:
+    paths:
+      - 'analytics/ga4-definitions.json'
+      - 'analytics/apps-script/**'
+      - 'tools/validate-ga4-definitions.mjs'
+      - '.github/workflows/ga4-schema-sync.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate manifest
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate GA4 manifest
+        run: node tools/validate-ga4-definitions.mjs
