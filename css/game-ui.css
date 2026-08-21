@@ -1229,9 +1229,13 @@
       gap: 4px;
     }
 
+    /* --dex-tile : taille de tuile réglable depuis la barre du Pokédex
+       (boutons − / +, persistée dans state.settings.pokedexTileSize). 60px
+       reproduit exactement l'ancienne taille fixe. */
+    #pokedexGrid { --dex-tile: 60px; }
     .dex-entry {
-      width: 60px;
-      height: 68px;
+      width: var(--dex-tile);
+      height: calc(var(--dex-tile) + 8px);
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: var(--radius-sm);
@@ -1251,8 +1255,23 @@
     .dex-entry.unseen  { opacity: .35; }
     .dex-entry.dex-dimmed { opacity: .15; pointer-events: none; filter: grayscale(1); }
 
-    .dex-entry img { width: 36px; height: 36px; }
+    /* Sprite et case « ? » suivent la taille de tuile (.6 → 36px au défaut). */
+    .dex-entry img,
+    .dex-entry .dex-placeholder {
+      width: calc(var(--dex-tile) * .6);
+      height: calc(var(--dex-tile) * .6);
+    }
+    .dex-entry .dex-placeholder {
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-dim); font-size: calc(var(--dex-tile) * .23);
+    }
     .dex-entry .dex-number { font-family: var(--font-pixel); font-size: 7px; margin-top: 2px; }
+
+    .dex-shiny-badge {
+      position: absolute; top: -3px; right: -3px;
+      font-size: 9px; line-height: 1; pointer-events: none;
+      transition: opacity .35s ease;
+    }
 
     /* ── Mur du Pokédex : remplissage progressif + halo de famille complète ── */
     /* modules/ui/rivalEncounterPopup.js débloque l'onglet, modules/ui/pcPokedex.js
@@ -1265,6 +1284,23 @@
     @keyframes dexEntryPopIn {
       from { opacity: 0; scale: .5; }
       to   { opacity: 1; scale: 1; }
+    }
+
+    /* Révélation en deux temps : pendant `dex-revealing`, la grille ne montre
+       QUE les Pokémon capturés qui se posent un à un. Les surlignages
+       (badge chromatique, halo de famille complète) sont neutralisés et
+       n'arrivent qu'ensuite, en seconde vague — pcPokedex.js retire la classe
+       quand la cascade est finie. Avant, tout apparaissait d'un bloc et le
+       remplissage se lisait mal. */
+    #pokedexGrid.dex-revealing .dex-shiny-badge { opacity: 0; }
+    #pokedexGrid.dex-revealing .dex-entry.dex-family-complete::after {
+      opacity: 0;
+      animation: none;
+    }
+    /* Seconde vague : léger décalage par entrée, dans le même ordre que la
+       cascade, pour que le doré balaie la grille au lieu de s'allumer d'un coup. */
+    #pokedexGrid:not(.dex-revealing) .dex-shiny-badge {
+      transition-delay: min(calc(var(--dex-i, 0) * 9ms), 1.6s);
     }
     /* Même montage que .pc-pokemon.shiny : c'est ici que ça comptait le plus,
        un Pokédex bien avancé affichant plus de 130 familles complètes d'un
@@ -3992,8 +4028,11 @@
 
       /* Pokedex grid : icônes encore plus petites */
       #pokedexGrid    { grid-template-columns: repeat(auto-fill, minmax(50px, 1fr)); gap: 3px; }
+      /* Sur mobile la grille pilote la largeur ; la hauteur et le sprite
+         continuent de suivre --dex-tile pour que les boutons − / + gardent
+         un effet. Le réglage du joueur prime, on plafonne juste par défaut. */
+      #pokedexGrid    { --dex-tile: 50px; }
       .dex-entry      { width: auto; }
-      .dex-entry img  { width: 30px; height: 30px; }
 
       /* Gang base : simplifié */
       .base-boss-frame { width: 60px; height: 60px; flex: 0 0 60px; }

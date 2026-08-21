@@ -2584,6 +2584,24 @@ let dexSelectedEn  = null;
 let dexViewFilter  = 'kanto'; // 'kanto' | 'johto' | 'hoenn' | 'sinnoh' | 'national' | 'shiny' | 'missing' | 'trainers'
 let dexDetailTab   = 'info'; // 'info' | 'stats' — onglet actif dans le panneau fiche (#dexDetail)
 
+// Taille des tuiles du Pokédex, réglable par le joueur (persistée dans
+// state.settings.pokedexTileSize). 60 = taille historique, avant que la
+// grille ne devienne redimensionnable.
+const DEX_TILE_MIN     = 40;
+const DEX_TILE_MAX     = 104;
+const DEX_TILE_STEP    = 8;
+const DEX_TILE_DEFAULT = 60;
+const DEX_TILE_BTN_CSS = 'font-family:var(--font-pixel);font-size:9px;line-height:1;width:18px;height:16px;padding:0;'
+  + 'background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);cursor:pointer';
+
+// Cascade de révélation : `dex-revealing` masque les surlignages pendant que
+// les tuiles capturées se posent une à une ; on la retire quand la dernière a
+// fini, pour que le doré balaie la grille en seconde vague.
+const DEX_POP_STEP_MS      = 16;   // doit rester aligné sur l'animation-delay CSS
+const DEX_POP_MAX_DELAY_MS = 3000; // idem : plafond du min() CSS
+const DEX_POP_DURATION_MS  = 400;  // durée de dexEntryPopIn
+let _dexRevealTimer = 0;
+
 function getSpawnZones(species_en) {
   return ZONES
     .filter(z => z.pool && z.pool.includes(species_en))
@@ -3135,6 +3153,25 @@ function renderPokedexTab() {
   const animationsEnabled = state.settings?.pokedexAnimations !== false;
   const shouldReplay = _dexForceReplay || (animationsEnabled && !!state.discoveryProgress?.pokedexRevealPending);
   _dexForceReplay = false;
+
+  if (!state.settings) state.settings = {};
+  // Tant que le joueur n'a rien réglé, on laisse le CSS décider : il a un
+  // défaut plus petit sur mobile, qu'un style inline écraserait. Dès qu'il
+  // touche aux boutons, son choix devient explicite et prime partout.
+  const _savedTile = Number(state.settings.pokedexTileSize);
+  const hasCustomTile = Number.isFinite(_savedTile) && _savedTile > 0;
+  if (hasCustomTile) {
+    grid.style.setProperty('--dex-tile',
+      Math.max(DEX_TILE_MIN, Math.min(DEX_TILE_MAX, _savedTile)) + 'px');
+  } else {
+    grid.style.removeProperty('--dex-tile');
+  }
+  // Le compteur doit afficher la taille RÉELLEMENT appliquée, pas le défaut
+  // supposé : sans réglage du joueur, le CSS mobile descend à 50px et
+  // annoncer 60 serait faux. Les boutons partent eux aussi de cette valeur.
+  const tileSize = Math.round(
+    parseFloat(getComputedStyle(grid).getPropertyValue('--dex-tile'))
+  ) || DEX_TILE_DEFAULT;
   if (state.discoveryProgress?.pokedexRevealPending) {
     state.discoveryProgress.pokedexRevealPending = false;
     saveState();
@@ -3186,8 +3223,33 @@ function renderPokedexTab() {
       </label>
       <button id="dexReplayBtn" title="${_t('pc_dex_reload_title')}" style="font-family:var(--font-pixel);font-size:7px;padding:3px 7px;background:rgba(255,204,90,.08);border:1px solid rgba(255,204,90,.35);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer;white-space:nowrap">🔄 ${_t('pc_dex_reload_btn')}</button>
       <button id="dexRebuildBtn" title="${_t('pc_dex_rebuild_title')}" style="font-family:var(--font-pixel);font-size:7px;padding:3px 7px;background:rgba(255,204,90,.08);border:1px solid rgba(255,204,90,.35);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer;white-space:nowrap">🔄 ${_t('pc_recalibrate')}</button>
+      <span style="display:flex;align-items:center;gap:3px" title="${_t('pc_dex_tile_size_title')}">
+        <button id="dexTileMinus" aria-label="${_t('pc_dex_tile_smaller')}" title="${_t('pc_dex_tile_smaller')}" style="${DEX_TILE_BTN_CSS}">−</button>
+        <span id="dexTileVal" style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);min-width:26px;text-align:center">${tileSize}</span>
+        <button id="dexTilePlus" aria-label="${_t('pc_dex_tile_bigger')}" title="${_t('pc_dex_tile_bigger')}" style="${DEX_TILE_BTN_CSS}">+</button>
+      </span>
   `;
   document.getElementById('dexRebuildBtn')?.addEventListener('click', rebuildPokedex);
+  // Taille de tuile : on applique la variable CSS et on met le libellé à jour
+  // sur place, sans re-rendre la grille — 500 tuiles n'ont aucune raison
+  // d'être reconstruites pour un changement purement visuel.
+  const _applyTileSize = (next) => {
+    const clamped = Math.max(DEX_TILE_MIN, Math.min(DEX_TILE_MAX, next));
+    state.settings.pokedexTileSize = clamped;
+    grid.style.setProperty('--dex-tile', clamped + 'px');
+    const valEl = document.getElementById('dexTileVal');
+    if (valEl) valEl.textContent = String(clamped);
+    document.getElementById('dexTileMinus')?.toggleAttribute('disabled', clamped <= DEX_TILE_MIN);
+    document.getElementById('dexTilePlus')?.toggleAttribute('disabled', clamped >= DEX_TILE_MAX);
+    saveState();
+  };
+  // On repart de la taille réellement affichée, pas d'un défaut supposé, pour
+  // qu'un premier clic sur mobile parte bien de 50 et non de 60.
+  const _currentTile = () => Math.round(
+    parseFloat(getComputedStyle(grid).getPropertyValue('--dex-tile'))
+  ) || DEX_TILE_DEFAULT;
+  document.getElementById('dexTileMinus')?.addEventListener('click', () => _applyTileSize(_currentTile() - DEX_TILE_STEP));
+  document.getElementById('dexTilePlus')?.addEventListener('click', () => _applyTileSize(_currentTile() + DEX_TILE_STEP));
   document.getElementById('dexReplayBtn')?.addEventListener('click', () => {
     _dexForceReplay = true;
     renderPokedexTab();
@@ -3274,6 +3336,17 @@ function renderPokedexTab() {
 
   // ── Render grid ────────────────────────────────────────────────
   grid.classList.toggle('dex-reveal-fade', shouldReplay);
+  // Phase 1 : seules les tuiles capturées se posent. Les surlignages
+  // (badge chromatique, halo de famille) restent neutralisés par le CSS tant
+  // que `dex-revealing` est là ; on la retire quand la dernière tuile a fini.
+  clearTimeout(_dexRevealTimer);
+  grid.classList.toggle('dex-revealing', shouldReplay);
+  if (shouldReplay) {
+    const lastDelay = Math.min((pool.length - 1) * DEX_POP_STEP_MS, DEX_POP_MAX_DELAY_MS);
+    _dexRevealTimer = setTimeout(() => {
+      document.getElementById('pokedexGrid')?.classList.remove('dex-revealing');
+    }, lastDelay + DEX_POP_DURATION_MS + 120);
+  }
   grid.innerHTML = pool.length ? pool.map((sp, i) => {
     const entry    = state.pokedex[sp.en];
     const caught   = entry?.caught;
@@ -3283,13 +3356,14 @@ function renderPokedexTab() {
     const dimmed   = hasActiveOverlay && !isHighlighted(sp) ? 'dex-dimmed' : '';
     const familyComplete = animationsEnabled && caught && _isFamilyComplete(sp.en) ? 'dex-family-complete' : '';
     const popIn    = shouldReplay ? 'dex-pop-in' : '';
-    const style     = shouldReplay ? `position:relative;--dex-i:${i}` : 'position:relative';
+    // --dex-i cadence la cascade ET, en seconde vague, l'allumage des badges.
+    const style     = `position:relative;--dex-i:${i}`;
     return `<div class="dex-entry ${caught ? 'caught' : ''} ${!seen && !caught ? 'unseen' : ''} ${dimmed} ${sel} ${familyComplete} ${popIn}" data-dex-en="${sp.en}" style="${style}">
       ${caught || seen
-        ? `<img src="${pokeSprite(sp.en, hasShiny)}" style="width:36px;height:36px;${!caught ? 'filter:brightness(0)' : ''}">`
-        : `<div style="width:36px;height:36px;display:flex;align-items:center;justify-content:center;color:var(--text-dim);font-size:14px">?</div>`
+        ? `<img src="${pokeSprite(sp.en, hasShiny)}"${!caught ? ' style="filter:brightness(0)"' : ''}>`
+        : `<div class="dex-placeholder">?</div>`
       }
-      ${hasShiny ? `<span style="position:absolute;top:-3px;right:-3px;font-size:9px;line-height:1;pointer-events:none" title="${_t('pc_shiny_obtained_short')}">✨</span>` : ''}
+      ${hasShiny ? `<span class="dex-shiny-badge" title="${_t('pc_shiny_obtained_short')}">✨</span>` : ''}
       <div class="dex-number">#${String(sp.dex).padStart(3, '0')}</div>
     </div>`;
   }).join('') : `<div style="color:var(--text-dim);font-size:9px;padding:16px;font-family:var(--font-pixel)">${_t('pc_no_result')}</div>`;
