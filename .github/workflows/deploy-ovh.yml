@@ -51,3 +51,23 @@ jobs:
             --exclude='docs/*.sql' \
             -e "ssh -i ~/.ssh/ovh_key" \
             ./ "${{ secrets.OVH_USER }}@${{ secrets.OVH_HOST }}:~/pokegang/"
+
+      # Le cache-busting ?v=<hash> ne couvre que les <script src>/<link href>
+      # d'index.html — les `import '...'` imbriqués dans les fichiers JS n'ont
+      # pas d'URL versionnée, donc Cloudflare peut continuer à servir une
+      # ancienne copie (jusqu'à 7 jours, cf. cache-control sur la zone) même
+      # après un déploiement qui a changé leur contenu sur l'origine.
+      - name: Purge Cloudflare cache
+        run: |
+          response=$(curl -s -w '\n%{http_code}' -X POST \
+            "https://api.cloudflare.com/client/v4/zones/${{ secrets.CLOUDFLARE_ZONE_ID }}/purge_cache" \
+            -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            --data '{"purge_everything":true}')
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+          echo "$body"
+          if [ "$http_code" != "200" ] || ! echo "$body" | grep -q '"success":true'; then
+            echo "::error::Cloudflare cache purge failed (HTTP $http_code)"
+            exit 1
+          fi
