@@ -3,6 +3,9 @@
 const TRAINER_TYPES = {
   // Basic trainers
   youngster:    { fr:'Gamin',        en:'Youngster',    sprite:'youngster',    diff:1, reward:[10,30],    rep:1  },
+  // Éclaireur du Pr. Chen — trainer scripté pour la scène du rival
+  // (modules/ui/rivalEncounterPopup.js), jamais tiré au hasard dans une zone.
+  rivalscout:   { fr:'Éclaireur du Labo', en:'Lab Scout', sprite:'youngster', diff:1, reward:[30,60], rep:3 },
   lass:         { fr:'Fillette',     en:'Lass',         sprite:'lass',         diff:1, reward:[10,30],    rep:1  },
   bugcatcher:   { fr:'Chasseur',     en:'Bug Catcher',  sprite:'bugcatcher',   diff:1, reward:[10,30],    rep:1  },
   camper:       { fr:'Campeur',      en:'Camper',       sprite:'camper',       diff:1, reward:[15,40],    rep:1  },

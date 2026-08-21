@@ -89,6 +89,16 @@
       return res.json();
     }
 
+    // pokegang_stats_region_funnel est une fonction (RPC), pas une vue — voir
+    // docs/supabase-schema.sql pour pourquoi.
+    async function fetchRpc(config, name) {
+      const res = await fetch(`${config.url}/rest/v1/rpc/${name}`, {
+        headers: { apikey: config.anonKey, Authorization: `Bearer ${config.anonKey}` },
+      });
+      if (!res.ok) throw new Error(`${name}: HTTP ${res.status}`);
+      return res.json();
+    }
+
     function renderBars(container, rows, keyField, valueField, opts = {}) {
       if (!rows.length) { container.innerHTML = '<span class="error">Aucune donnée.</span>'; return; }
       const max = Math.max(...rows.map(r => r[valueField]), 1);
@@ -112,7 +122,7 @@
           fetchView(config, 'pokegang_stats_daily_active', 'select=*&order=day.desc&limit=30'),
           fetchView(config, 'pokegang_stats_new_players', 'select=*&order=day.desc&limit=30'),
           fetchView(config, 'pokegang_stats_rep_distribution', 'select=*'),
-          fetchView(config, 'pokegang_stats_region_funnel', 'select=*'),
+          fetchRpc(config, 'pokegang_stats_region_funnel'),
         ]);
 
         const todayActive = daily[0]?.active_players ?? 0;

@@ -238,10 +238,14 @@ function rerollHourlyQuest(idx) {
   _notify(_t(`Reroll : ${newQName}`, `Reroll: ${newQName}`), 'success');
 }
 
+// 'cosmetic' partage le cycle de vie one-shot de 'story' (state.missions.completed) —
+// seule sa récompense diffère (un fond de Vitrine plutôt que de l'argent).
+const _isOneShot = mission => mission.type === 'story' || mission.type === 'cosmetic';
+
 function getMissionProgress(mission) {
   const state = globalThis.state;
   const current = getMissionStat(mission.stat);
-  if (mission.type === 'story') {
+  if (_isOneShot(mission)) {
     return Math.min(current, mission.target);
   }
   const period = mission.type === 'daily' ? state.missions.daily : state.missions.weekly;
@@ -255,7 +259,7 @@ function isMissionComplete(mission) {
 
 function isMissionClaimed(mission) {
   const state = globalThis.state;
-  if (mission.type === 'story') return state.missions.completed.includes(mission.id);
+  if (_isOneShot(mission)) return state.missions.completed.includes(mission.id);
   const period = mission.type === 'daily' ? state.missions.daily : state.missions.weekly;
   return period.claimed.includes(mission.id);
 }
@@ -275,15 +279,40 @@ function claimMission(mission) {
     EventBus.emit(EVENTS.REP_CHANGED, { delta: mission.reward.rep, newTotal: state.gang.reputation });
     globalThis.checkForNewlyUnlockedZones(prevRep);
   }
+  // Récompenses annexes (fond cosmétique, objets en lot) — pas de floating
+  // number comme money/rep, donc on les décrit dans la notif de claim.
+  let bonusText = '';
+  if (mission.reward.cosmeticBg) {
+    const bgKey = mission.reward.cosmeticBg;
+    if (!state.cosmetics) state.cosmetics = { unlockedBgs: [] };
+    const unlocked = state.cosmetics.unlockedBgs || [];
+    if (!unlocked.includes(bgKey)) {
+      state.cosmetics.unlockedBgs = [...unlocked, bgKey];
+      const bg = globalThis.COSMETIC_BGS?.[bgKey];
+      const bgName = bg ? (state.lang === 'en' ? bg.en : bg.fr) : bgKey;
+      bonusText += _t(` — 🎁 fond "${bgName}" débloqué ! Va le choisir dans la Vitrine.`, ` — 🎁 "${bgName}" background unlocked! Go pick it in the Showcase.`);
+    }
+  }
+  if (mission.reward.items) {
+    if (!state.inventory) state.inventory = {};
+    const parts = [];
+    for (const [itemId, qty] of Object.entries(mission.reward.items)) {
+      state.inventory[itemId] = (state.inventory[itemId] || 0) + qty;
+      const item = globalThis.SHOP_ITEMS?.find(i => i.id === itemId);
+      const itemName = item ? (state.lang === 'en' ? item.en : item.fr) : itemId;
+      parts.push(`${itemName} ×${qty}`);
+    }
+    if (parts.length) bonusText += ` — 📦 ${parts.join(', ')}`;
+  }
   // Mark as claimed
-  if (mission.type === 'story') {
+  if (_isOneShot(mission)) {
     state.missions.completed.push(mission.id);
   } else {
     const period = mission.type === 'daily' ? state.missions.daily : state.missions.weekly;
     period.claimed.push(mission.id);
   }
   const name = state.lang === 'en' ? (mission.en || mission.fr) : mission.fr;
-  _notify(`${mission.icon} ${name} — ${_t('Récompense récupérée !', 'Reward claimed!')}`, 'gold');
+  _notify(`${mission.icon} ${name} — ${_t('Récompense récupérée !', 'Reward claimed!')}${bonusText}`, 'gold');
   _save();
   _topBar();
 }

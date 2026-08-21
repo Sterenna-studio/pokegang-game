@@ -98,7 +98,14 @@ import {
   updateTopBar,
   renderAll,
   initKeyboardShortcuts,
+  bindTabUnlockPopupUi,
+  applyOnboardingTabAccess,
 } from './modules/ui/tabRouter.js';
+import {
+  checkTabUnlocks,
+  configureTabUnlocks,
+  recordDiscoverySession,
+} from './modules/systems/tabUnlocks.js';
 import {
   addBattleLogEntry,
   configurePcPokedex,
@@ -145,7 +152,43 @@ import './modules/systems/johto.js';
 import './modules/systems/hoenn.js';
 import './modules/systems/sinnoh.js';
 import './modules/ui/pickers.js';
-import { configureIntro, openGiovanniIntro, openStarterGiftPopup, showIntro } from './modules/ui/intro.js';
+import { configureIntro, openGiovanniIntro, openStarterGiftPopup } from './modules/ui/intro.js';
+import { configureHub, showIntro } from './modules/ui/hub.js';
+import {
+  configureOnboarding,
+  resumeOnboardingV2,
+  startOnboardingV2,
+} from './modules/ui/onboarding.js';
+import { showOnboardingIdlePayoff } from './modules/ui/onboardingPayoff.js';
+import {
+  configureOnboardingGuide,
+  autoOpenGuideEncounter,
+  clearGuide,
+  placeGuide,
+  refreshGuide,
+} from './modules/ui/onboardingGuide.js';
+import {
+  configureOnboardingScene,
+  playAmbushArrival,
+  playGiovanniArrival,
+  playGiovanniDeparture,
+} from './modules/ui/onboardingScene.js';
+import {
+  configureOnboardingAmbushPopup,
+  showAmbushChallengePopup,
+} from './modules/ui/onboardingAmbushPopup.js';
+import {
+  configureOnboardingFlashback,
+  maybeOfferOnboardingFlashback,
+} from './modules/ui/onboardingFlashback.js';
+import { initAdvisor, renderAdvisor } from './modules/ui/advisor.js';
+import {
+  configureItemsIntroPopup,
+  maybeShowItemsIntro,
+} from './modules/ui/itemsIntroPopup.js';
+import { configureRivalEncounterPopup } from './modules/ui/rivalEncounterPopup.js';
+import { isOnboardingActive } from './modules/systems/onboardingFlow.js';
+import { ONBOARDING_AMBUSH_LINES } from './data/onboarding-data.js';
 import { checkDarkraiCutscene, triggerDarkraiOnLeagueVictory } from './modules/ui/darkraiEvent.js';
 import './modules/ui/hoennEvent.js';
 import './modules/ui/johtoEvent.js';
@@ -499,7 +542,7 @@ globalThis.zoneTimers = zoneTimers;
 function makeTrainerTeam(zone, trainerKey, forcedSize, masteryLevel = 1) { return globalThis._zsys_makeTrainerTeam(zone, trainerKey, forcedSize, masteryLevel); }
 
 // Build a raid: 2-3 trainers combined into one encounter
-function makeRaidSpawn(zone, zoneId, masteryLevel = 1) { return globalThis._zsys_makeRaidSpawn(zone, zoneId, masteryLevel); }
+function makeRaidSpawn(zone, zoneId, masteryLevel = 1, options = {}) { return globalThis._zsys_makeRaidSpawn(zone, zoneId, masteryLevel, options); }
 
 function spawnInZone(zoneId) { return globalThis._zsys_spawnInZone(zoneId); }
 
@@ -807,9 +850,10 @@ function animateCapture(zoneId, spawnObj, spawnEl)                 { return glob
 function showCaptureBurst(container, x, y, potential, shiny)      { return globalThis._zwin_showCaptureBurst(container, x, y, potential, shiny); }
 function animateQuestCapture(opts)                                 { return globalThis._zwin_animateQuestCapture(opts); }
 function buildPlayerTeamForZone(zoneId)                            { return globalThis._zwin_buildPlayerTeamForZone(zoneId); }
-function openCombatPopup(zoneId, spawnObj)                        { return globalThis._zwin_openCombatPopup(zoneId, spawnObj); }
+function openCombatPopup(zoneId, spawnObj, options)               { return globalThis._zwin_openCombatPopup(zoneId, spawnObj, options); }
 function executeCombat()                                           { return globalThis._zwin_executeCombat(); }
 function closeCombatPopup()                                        { return globalThis._zwin_closeCombatPopup(); }
+function teardownZoneCombat(zoneId)                                { return globalThis._zwin_teardownZoneCombat(zoneId); }
 function openEventBattlePopup(zoneId)                              { return globalThis._zwin_openEventBattlePopup(zoneId); }
 function executeEventBattle()                                      { return globalThis._zwin_executeEventBattle(); }
 function closeEventBattle()                                        { return globalThis._zwin_closeEventBattle(); }
@@ -848,7 +892,7 @@ function openHubImportModal(raw) {
   return openHubImportModalImpl(raw);
 }
 
-// ── showIntro() (extracted → modules/ui/intro.js) ───────────────────────────
+// ── showIntro() (extracted → modules/ui/hub.js) ─────────────────────────────
 
 // ════════════════════════════════════════════════════════════════
 // 19b. BOSS SPRITE VALIDATOR  (extracted → modules/ui/hubModals.js)
@@ -1544,18 +1588,29 @@ function bindGlobalUi() {
   bindPcFilters();
   bindInfoModalUi();
   bindZoneUnlockPopupUi();
+  bindTabUnlockPopupUi();
 }
 
 function initializeSystems() {
   initSettings();
   initKeyboardShortcuts();
   initMissions();
+  configureTabUnlocks({ getState: () => state, saveState });
+  // Une session de plus depuis la fin du tunnel : c'est ce compteur qui fait
+  // apparaître l'onglet Compte au retour du joueur. Puis on rattrape tout ce
+  // que la save mérite déjà (réputation gagnée hors ligne, etc.).
+  recordDiscoverySession(state);
+  checkTabUnlocks();
   detectLLM();
   initSupabase();
 }
 
 function showIntroIfNeeded() {
-  if (!state.gang.initialized) showIntro();
+  if (isOnboardingActive(state)) {
+    resumeOnboardingV2({ slotIdx: getActiveSaveSlot() });
+  } else if (!state.gang.initialized) {
+    showIntro();
+  }
 }
 
 function restoreUnlockedRegions() {
@@ -1571,11 +1626,21 @@ function restoreOpenZones() {
     if (!ZONE_BY_ID[zId])                       continue;
     if (ZONE_BY_ID[zId].type === 'gang_park')   continue;
     if (ZONE_BY_ID[zId].type === 'vivarium')    continue;
+    // Le terrain de départ est ouvert par le contrôleur d'onboarding lui-même,
+    // qui l'amorce aussi en spawns — le restaurer ici le rouvrirait vide, et
+    // une fois l'onboarding fini il n'a plus rien à faire sur la carte.
+    if (ZONE_BY_ID[zId].type === 'onboarding')  continue;
     if (!isZoneUnlocked(zId))                   continue;
-    openZones.add(zId);
-    initZone(zId);
-    zoneSpawns[zId] = [];
-    startActiveZone(zId);
+    // A zone can already be open before this runs — showIntroIfNeeded() fires
+    // earlier in boot() and the onboarding first encounter opens Route 1 and
+    // seeds it there. Resetting zoneSpawns unconditionally would drop those
+    // spawns from the model while their DOM elements survive.
+    if (!openZones.has(zId)) {
+      openZones.add(zId);
+      initZone(zId);
+      zoneSpawns[zId] = [];
+      startActiveZone(zId);
+    }
     restoredOrder.push(zId);
   }
   state.openZoneOrder = restoredOrder;
@@ -1600,6 +1665,15 @@ function renderInitialUi() {
   switchTab(activeTab);
   renderAll();
   checkBossSpriteValidity();
+  // Le conseiller (le transfuge du tunnel) reprend la narration une fois
+  // l'onboarding fini — il se rend lui-même invisible pendant le tunnel.
+  initAdvisor({
+    getState: () => state,
+    saveState,
+    // sessionObjectives n'expose getNextObjective que sur globalThis (pas de
+    // binding local ici) — lecture paresseuse pour ne pas capturer undefined.
+    getNextObjective: () => globalThis.getNextObjective?.(),
+  });
 }
 
 function loadRuntimeAssets() {
@@ -1618,7 +1692,7 @@ function loadRuntimeAssets() {
   });
 }
 
-function configureIntroFlow() {
+function configureEntryFlows() {
   configureIntro({
     getState: () => state,
     makePokemon,
@@ -1629,16 +1703,121 @@ function configureIntroFlow() {
     setActiveSaveSlot: slotIdx => setActiveSaveSlotValue(slotIdx, { persist: true }),
     saveState,
     notify,
+  });
+
+  configureOnboarding({
+    getState: () => state,
+    resetStateForNewGame: () => {
+      const previousLang = state.lang;
+      setState(createDefaultState());
+      state.lang = previousLang;
+    },
+    setActiveSaveSlot: slotIdx => setActiveSaveSlotValue(slotIdx, { persist: true }),
+    saveState,
+    notify,
+    initMissions,
+    openZoneWindow,
+    closeZoneWindow,
+    getZoneSpawns: zoneId => zoneSpawns[zoneId],
+    renderSpawn: renderSpawnInWindow,
+    removeSpawn,
+    endZoneCombat: teardownZoneCombat,
+    uid,
+    openGiovanniIntro,
+    getActiveSaveSlot,
+    getZoneById: zoneId => ZONE_BY_ID[zoneId] ?? null,
+    showOnboardingIdlePayoff,
+    switchTab,
+    renderAll,
+    placeGuide,
+    refreshGuide,
+    clearGuide,
+    openGuideRecruitModal: autoOpenGuideEncounter,
+    // Forcé plutôt que confié au cycle de rendu habituel : à la complétion,
+    // le joueur est presque toujours sur l'onglet Agents (dernier geste du
+    // transfuge), pas Zones — renderAll() ne redessine que l'onglet actif,
+    // donc le fogmap resterait construit avec l'état d'avant tant que
+    // personne ne clique sur Zones. applyOnboardingTabAccess est lui déjà
+    // rappelé via le rAF de updateTopBar, mais ce rAF ne se déclenche jamais
+    // si le document est masqué (volet de test) — l'appeler ici aussi coûte
+    // rien et enlève toute dépendance au timing.
+    forceZonesRefresh: () => {
+      applyOnboardingTabAccess();
+      globalThis.renderZonesTab?.();
+    },
+    notifyFieldIntro: lang => notify(lang === 'en'
+      ? 'You do not know this field. Catch what you can before someone notices.'
+      : 'Tu ne connais pas ce terrain. Capture ce que tu peux avant qu\'on te remarque.', 'gold'),
+    // Les beats de l'embuscade et de Giovanni sont joués sur le terrain
+    // (sprites + bulles), plus notifiés par des toasts.
+    ambushIntroLine: lang => (lang === 'en'
+      ? ONBOARDING_AMBUSH_LINES.intro.en : ONBOARDING_AMBUSH_LINES.intro.fr),
+    playAmbushArrival,
+    playGiovanniArrival,
+    playGiovanniDeparture,
+    showAmbushChallengePopup,
+  });
+
+  configureOnboardingGuide({
+    getState: () => state,
+    notify,
+    switchTab,
+  });
+
+  configureOnboardingScene({
+    getState: () => state,
+  });
+
+  configureOnboardingAmbushPopup({
+    getState: () => state,
+    pokeSprite,
+    saveState,
+  });
+
+  configureItemsIntroPopup({
+    getState: () => state,
+    saveState,
+    switchTab,
+  });
+
+  configureRivalEncounterPopup({
+    getState: () => state,
+    saveState,
+    notify,
+    trainerSprite,
+    openCombatPopup,
+    switchTab,
+    checkTabUnlocks,
+  });
+
+  configureOnboardingFlashback({
+    getState: () => state,
+    saveState,
+  });
+
+  configureHub({
+    getState: () => state,
+    pokeSprite,
+    trainerSprite,
     openSettingsModal,
     getSlotPreview,
     formatPlaytime,
     showConfirm,
     getSaveKeys: () => SAVE_KEYS,
     getActiveSaveSlot,
+    setActiveSaveSlot: slotIdx => setActiveSaveSlotValue(slotIdx, { persist: true }),
     renderAll,
     loadSlot,
     openHubSlotRepairModal,
     openHubImportModal,
+    removeSlot: slotIdx => localStorage.removeItem(SAVE_KEYS[slotIdx]),
+    // Resuming must go through resumeOnboardingV2, which reconciles milestones
+    // already reached in the save (a full boss team at step team_setup, an
+    // agent already assigned…) before showing an objective the player can no
+    // longer satisfy. startOnboardingV2 alone skips that reconciliation.
+    startOnboarding: options => (options?.resume
+      ? resumeOnboardingV2(options)
+      : startOnboardingV2(options)),
   });
 }
 
@@ -1673,6 +1852,12 @@ function scheduleStoryBootChecks() {
   if (state.gang?.initialized && !state.gang?.darkraiCutsceneSeen) {
     setTimeout(() => checkDarkraiCutscene(), 1600);
   }
+
+  // Rattrapage : offre unique du flashback de la cinématique d'ouverture
+  // pour toute save `completed` qui ne l'a jamais vue. maybeOfferOnboardingFlashback
+  // revérifie l'éligibilité elle-même (via le verrou narratif), donc pas
+  // besoin de la garder à jour ici si un autre boot check la précède.
+  setTimeout(() => { maybeOfferOnboardingFlashback(); }, 1100);
 
   if (state.purchases?.hoennUnlocked) {
     const gm = state.groudonMission;
@@ -1726,13 +1911,13 @@ function boot() {
   localizeStaticUi();
   bindGlobalUi();
   initializeSystems();
+  configureEntryFlows();
   showIntroIfNeeded();
   applyCosmetics();
   initSession();
   restoreSessionState();
   renderInitialUi();
   loadRuntimeAssets();
-  configureIntroFlow();
   startGameLoop();
   bindEventBusBridges();
   scheduleBootChecks();

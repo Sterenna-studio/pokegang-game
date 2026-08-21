@@ -1,6 +1,7 @@
 'use strict';
 
 import { SHOWCASE_SLOTS } from '../data/game-config-data.js';
+import { UNLOCKABLE_TABS } from '../data/tab-unlocks-data.js';
 
 // ── Helper ───────────────────────────────────────────────────────────────────
 function ensureObject(value, fallback = {}) {
@@ -73,13 +74,50 @@ export function migrateSave(saved, deps) {
   merged.stats        = { ...structuredClone(DEFAULT_STATE.stats),        ...ensureObject(saved.stats) };
   merged.settings     = { ...structuredClone(DEFAULT_STATE.settings),     ...ensureObject(saved.settings) };
   merged.activeBoosts = { ...structuredClone(DEFAULT_STATE.activeBoosts), ...ensureObject(saved.activeBoosts) };
+  merged.onboarding   = { ...structuredClone(DEFAULT_STATE.onboarding),   ...ensureObject(saved.onboarding) };
+  // An initialized save must never be routed back into the onboarding. That
+  // covers both saves predating it entirely (no `onboarding` key) and saves
+  // written by the earlier funnel, whose steps — first_encounter, team_setup,
+  // first_battle, first_agent — no longer exist and cannot be resumed.
+  const KNOWN_STEPS = new Set([
+    'not_started', 'free_capture', 'rocket_ambush', 'identity',
+    'guide_met', 'guide_team', 'guide_zone', 'guide_combat', 'completed',
+  ]);
+  if (merged.gang.initialized && !KNOWN_STEPS.has(merged.onboarding.step)) {
+    merged.onboarding.status = 'completed';
+    merged.onboarding.step = 'completed';
+    merged.onboarding.completedAt = saved._savedAt || now();
+  } else if (saved.onboarding === undefined && merged.gang.initialized) {
+    merged.onboarding.status = 'completed';
+    merged.onboarding.step = 'completed';
+    merged.onboarding.completedAt = saved._savedAt || now();
+  }
+  merged.onboarding.version = DEFAULT_STATE.onboarding.version;
+  // Même patron que gang/inventory/stats/settings ci-dessus : un simple merge
+  // par-dessus les défauts. Ce champ accueille tous les flags one-shot "déjà
+  // montré au joueur" (itemsIntroShown, rivalPokedexUnlocked, etc.) — avant ce
+  // fix, seuls 3 champs nommés explicitement survivaient à un reload et TOUS
+  // les autres retombaient silencieusement à leur défaut à chaque migrateSave(),
+  // ce qui aurait fait réapparaître leur popup à chaque session.
   const savedDiscoveryProgress = ensureObject(saved.discoveryProgress);
   merged.discoveryProgress = {
     ...structuredClone(DEFAULT_STATE.discoveryProgress),
-    ...(savedDiscoveryProgress.sinnohTeaseUnlocked === undefined
-      ? {}
-      : { sinnohTeaseUnlocked: savedDiscoveryProgress.sinnohTeaseUnlocked }),
+    ...savedDiscoveryProgress,
   };
+  // Déblocage progressif des onglets. Une save écrite avant ce système n'a pas
+  // de `revealedTabs` : lui appliquer la liste vide lui RETIRERAIT des onglets
+  // qu'elle avait déjà, ce que l'issue #59 exclut explicitement. On n'impose le
+  // parcours qu'aux runs qui sont encore dans le tunnel.
+  if (Array.isArray(savedDiscoveryProgress.revealedTabs)) {
+    merged.discoveryProgress.revealedTabs = savedDiscoveryProgress.revealedTabs
+      .filter(tab => UNLOCKABLE_TABS.includes(tab));
+  } else if (merged.onboarding.step === 'completed' || merged.onboarding.step === 'not_started') {
+    merged.discoveryProgress.revealedTabs = merged.gang.initialized ? [...UNLOCKABLE_TABS] : [];
+  }
+  for (const key of ['capturesSinceOnboarding', 'agentOperations', 'sessionsSinceOnboarding']) {
+    const value = Number(savedDiscoveryProgress[key]);
+    if (Number.isFinite(value) && value > 0) merged.discoveryProgress[key] = Math.floor(value);
+  }
   merged.trainingRoom = { ...structuredClone(DEFAULT_STATE.trainingRoom), ...ensureObject(saved.trainingRoom) };
   merged.cosmetics    = { ...structuredClone(DEFAULT_STATE.cosmetics),    ...ensureObject(saved.cosmetics) };
   if (!Array.isArray(merged.cosmetics.favoriteBgs))  merged.cosmetics.favoriteBgs  = [];

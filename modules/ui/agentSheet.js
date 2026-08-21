@@ -150,7 +150,8 @@ function _buildSheetHtml(agent) {
   const unlockedZones = [
     ...(typeof ZONES !== 'undefined' ? ZONES : []),
     ...(typeof ZONES_JOHTO !== 'undefined' ? ZONES_JOHTO : []),
-  ].filter(z => globalThis.isZoneUnlocked?.(z.id) && z.id !== 'gang_park');
+  ].filter(z => globalThis.isZoneUnlocked?.(z.id)
+    && z.type !== 'gang_park' && z.type !== 'vivarium' && z.type !== 'onboarding');
 
   const bhIcons = [
     agent.autoCombat  !== false ? '⚔️' : '',

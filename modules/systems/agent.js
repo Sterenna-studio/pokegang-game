@@ -6,6 +6,7 @@
 import { resolveTrainerCombat } from './zoneCombat.js';
 import { AUTO_COMBAT_VISUAL_MS, AGENT_PRISON_MS } from '../../data/gameplay-config-data.js';
 import { EventBus, EVENTS } from '../core/eventBus.js';
+import { isOnboardingFreeAgentPending } from './onboardingFlow.js';
 
 // ── Convenience shims (progressive migration from globalThis.*) ─
 const _notify     = (msg, type = '', category = null) => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type, category });
@@ -42,7 +43,9 @@ function getAgentTeamSlots(agent) {
 
 // Courbe d'accès aux agents (coût pour recruter le (n+1)ième agent) :
 //   Agent 1  :      5 000₽
-//   Agent 2  :     50 000₽
+//   Agent 2  :     15 000₽  ← était 50 000₽ : mur pour le joueur sortant de
+//                              l'onboarding V2 (transfuge gratuit + 5 500₽ en
+//                              poche, cf. issue #59)
 //   Agent 3  :    100 000₽
 //   Agent 4  :    250 000₽
 //   Agent 5  :    500 000₽
@@ -54,7 +57,7 @@ function getAgentTeamSlots(agent) {
 //   Agent 16 : 20 000 000₽
 //   …
 function _agentCostAtIndex(n) {
-  const FIXED = [5_000, 50_000, 100_000, 250_000, 500_000, 1_000_000, 2_000_000];
+  const FIXED = [5_000, 15_000, 100_000, 250_000, 500_000, 1_000_000, 2_000_000];
   if (n < FIXED.length) return FIXED[n];
   const steps   = n - 7;
   const linearM = 3 + steps;
@@ -91,6 +94,7 @@ function rollNewAgent() {
     level:         1,
     xp:            0,
     combatsWon:    0,
+    combatsLost:   0,
     ball: 'pokeball', // skin cosmétique — pas d'effet mécanique
     behavior:      'all',
     personality,
@@ -106,22 +110,31 @@ function rollNewAgent() {
   };
 }
 
-function recruitAgent(agentData) {
+function recruitAgent(agentData, { source = 'paid', cost = 0 } = {}) {
   const state = globalThis.state;
+  if (!agentData?.id || state.agents.some(agent => agent.id === agentData.id)) return false;
   state.agents.push(agentData); _dirty();
   globalThis.addLog(globalThis.t('recruit_agent') + ': ' + agentData.name);
   _save();
+  EventBus.emit(EVENTS.AGENT_RECRUITED, { agentId: agentData.id, source, cost });
+  return true;
 }
 
-function openAgentRecruitModal(onAfterRecruit) {
+function openAgentRecruitModal(onAfterRecruit, options = {}) {
   const state = globalThis.state;
   const SFX   = globalThis.SFX;
-  const cost  = getAgentRecruitCost();
+  const onboardingRecruit = isOnboardingFreeAgentPending(state);
+  const source = options.source || (onboardingRecruit ? 'onboarding' : 'paid');
+  const cost  = Number.isFinite(options.cost)
+    ? Math.max(0, options.cost)
+    : (onboardingRecruit ? 0 : getAgentRecruitCost());
+
+  if (document.getElementById('agentRecruitModal')) return false;
 
   if ((state.gang?.money || 0) < cost) {
     _notify(_t(`Fonds insuffisants (${cost.toLocaleString()}₽ requis)`, `Insufficient funds (${cost.toLocaleString()}₽ required)`), 'error');
     SFX?.play('error');
-    return;
+    return false;
   }
 
   const candidates = [rollNewAgent(), rollNewAgent(), rollNewAgent()];
@@ -146,6 +159,7 @@ function openAgentRecruitModal(onAfterRecruit) {
     </div>`).join('');
 
   const modal = document.createElement('div');
+  modal.id = 'agentRecruitModal';
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.82);display:flex;align-items:center;justify-content:center;z-index:9999';
   modal.innerHTML = `
     <div style="background:var(--bg-panel);border:2px solid var(--gold-dim);border-radius:var(--radius);padding:20px;max-width:640px;width:96%;display:flex;flex-direction:column;gap:14px">
@@ -178,9 +192,11 @@ function openAgentRecruitModal(onAfterRecruit) {
         modal.remove();
         return;
       }
-      state.gang.money -= cost;
-      EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -cost, newTotal: state.gang.money });
-      recruitAgent(candidates[idx]);
+      if (cost > 0) {
+        state.gang.money -= cost;
+        EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -cost, newTotal: state.gang.money });
+      }
+      recruitAgent(candidates[idx], { source, cost });
       _notify(_t(`${candidates[idx].name} rejoint votre organisation !`, `${candidates[idx].name} joined your organization!`), 'gold');
       _topBar();
       modal.remove();
@@ -190,9 +206,10 @@ function openAgentRecruitModal(onAfterRecruit) {
 
   modal.querySelector('#recruitCancelBtn').addEventListener('click', () => modal.remove());
   modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  return true;
 }
 
-function assignAgentToZone(agentId, zoneId) {
+function assignAgentToZone(agentId, zoneId, { source = 'ui' } = {}) {
   const state = globalThis.state;
   const agent = state.agents.find(a => a.id === agentId);
   if (!agent) return false;
@@ -205,6 +222,9 @@ function assignAgentToZone(agentId, zoneId) {
       return false;
     }
   }
+
+  const previousZoneId = agent.assignedZone || null;
+  if (previousZoneId === (zoneId || null)) return true;
 
   // Retirer l'agent de son ancienne zone
   if (agent.assignedZone) {
@@ -222,6 +242,9 @@ function assignAgentToZone(agentId, zoneId) {
     }
   }
   _save();
+  EventBus.emit(EVENTS.AGENT_ASSIGNED, {
+    agentId, zoneId: zoneId || null, previousZoneId, source,
+  });
   globalThis.syncActiveZones?.();
   return true;
 }
@@ -440,7 +463,7 @@ function _applyResolvedAgentCombat(zoneId, spawnObj, combatAgents, result) {
   const state = globalThis.state;
   const agentIds   = combatAgents.map(agent => agent.id);
   const teamIds    = _combatTeamIdsForAgents(agentIds, zoneId);
-  const trainerData = { ...spawnObj, zoneId };
+  const trainerData = { ...spawnObj, zoneId, combatMode: 'agent', initiatedBy: 'agent' };
   const trainer    = trainerData.trainer || {};
   const rewardRange = trainer.reward || [10, 50];
   const reward     = result.attackerWin
@@ -472,6 +495,9 @@ function _applyResolvedAgentCombat(zoneId, spawnObj, combatAgents, result) {
     }
     globalThis.addLog(globalThis.t('agent_win', { agent: mainAgent?.name || 'Agent' }));
   } else {
+    // Pas de pénalité XP/niveau : juste un compteur pour repérer un agent qui
+    // encaisse trop (cf. le conseil "équipe-le mieux" dans sessionObjectives.js).
+    for (const agent of combatAgents) agent.combatsLost = (agent.combatsLost || 0) + 1;
     if (_collecting) {
       globalThis.OfflineReport.pushCombat(false, 0);
     } else if (mainAgent?.notifyCaptures !== false) {
@@ -1029,7 +1055,7 @@ function _bossAutoCombat(zoneId, spawnObj) {
     globalThis.applyCombatResult(
       { win: result.attackerWin, reward, repGain, tier: _bgTier },
       bossTeam,
-      { ...spawnObj, zoneId },
+      { ...spawnObj, zoneId, combatMode: 'agent', initiatedBy: 'boss-auto' },
     );
 
     if (result.attackerWin) {

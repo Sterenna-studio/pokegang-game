@@ -374,6 +374,7 @@ async function supaCloudSave() {
         supaLastSync = Date.now();
         _cloudSaveFingerprint = fp;
         await supaUpdateLeaderboard();
+        await supaMaybeCreateFirstSnapshot();
       }
     }
   } catch { /* silencieux — la save locale est toujours là */ }
@@ -519,20 +520,21 @@ async function supaForceCloudLoad() {
 }
 
 // ── Rolling snapshots ─────────────────────────────────────────────
+// Cadence entièrement décidée par les appelants, pas de throttle ici : le
+// tick Scheduler ('snapshot', TICK_SNAPSHOT_MS = 6h dans app.js) pour le
+// rythme normal, et supaMaybeCreateFirstSnapshot() une fois après la
+// première sauvegarde cloud réussie — sans ça, une session plus courte que
+// 6h (le cas normal pour un idle game) n'obtenait jamais de premier
+// snapshot. Un ancien throttle de 30 min existait ici (hérité d'une époque
+// où l'appelant tournait toutes les 5 min) : supprimé, il n'avait plus
+// aucun effet une fois l'intervalle passé à 6h — le trigger PostgreSQL sur
+// pokegang_save_snapshots borne de toute façon la table à MAX_SNAPSHOTS
+// côté serveur, quelle que soit la cadence côté client.
 const MAX_SNAPSHOTS = 2;
 let _snapshotCount = -1; // -1 = unknown (fetched lazily); avoids SELECT on every write
 
-// Snapshot throttle — one snapshot per session at most every 30 minutes.
-// The 5-min game loop calls this but the guard prevents actual DB writes more often.
-let _lastSnapshotAt = 0;
-const SNAPSHOT_THROTTLE_MS = 30 * 60 * 1000; // 30 min minimum between snapshots
-
 async function supaWriteSnapshot() {
   if (!_supabase || !supaSession) return;
-
-  // Rate-limit to one snapshot per 30 minutes (previously fired every 5 min)
-  const now = Date.now();
-  if (now - _lastSnapshotAt < SNAPSHOT_THROTTLE_MS) return;
 
   try {
     // Slim the payload — same as cloud save and localStorage
@@ -548,8 +550,6 @@ async function supaWriteSnapshot() {
       saved_at:  new Date().toISOString(),
     });
     if (error) return;
-
-    _lastSnapshotAt = now;
 
     // Track count client-side to avoid a SELECT on every write
     if (_snapshotCount < 0) {
@@ -580,6 +580,25 @@ async function supaWriteSnapshot() {
       }
     }
   } catch { /* silencieux */ }
+}
+
+/**
+ * Un point de restauration dès la première session, même courte, plutôt que
+ * d'attendre jusqu'à TICK_SNAPSHOT_MS (6h) — appelé après chaque sauvegarde
+ * cloud réussie, mais n'écrit réellement qu'une fois : dès que
+ * _snapshotCount > 0, le rolling 6h (Scheduler) prend seul le relais.
+ */
+async function supaMaybeCreateFirstSnapshot() {
+  if (!_supabase || !supaSession) return;
+  if (_snapshotCount < 0) {
+    const { count } = await _supabase
+      .from('pokegang_save_snapshots')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', supaSession.user.id)
+      .eq('slot', getActiveSaveSlot());
+    _snapshotCount = count ?? 0;
+  }
+  if (_snapshotCount === 0) await supaWriteSnapshot();
 }
 
 async function supaFetchSnapshots() {
@@ -1229,7 +1248,7 @@ async function renderCompteTab() {
 
         <!-- Historique des snapshots -->
         <div style="background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:16px">
-          <div style="font-family:var(--font-pixel);font-size:10px;color:var(--blue);margin-bottom:12px">📸 ${_t('HISTORIQUE CLOUD', 'CLOUD HISTORY')} <span style="font-size:7px;opacity:.6">${_t('(toutes les 6h · 2 max)', '(every 6h · 2 max)')}</span></div>
+          <div style="font-family:var(--font-pixel);font-size:10px;color:var(--blue);margin-bottom:12px">📸 ${_t('HISTORIQUE CLOUD', 'CLOUD HISTORY')} <span style="font-size:7px;opacity:.6">${_t('(2 max · mise à jour ~6h)', '(2 max · updated ~every 6h)')}</span></div>
           <div id="supaSnapshots" style="min-height:40px">
             <div style="color:var(--text-dim);font-size:10px;padding:4px">${_t('Chargement…', 'Loading…')}</div>
           </div>
@@ -1319,7 +1338,7 @@ async function renderCompteTab() {
       const el = document.getElementById('supaSnapshots');
       if (!el) return;
       if (!snapshots.length) {
-        el.innerHTML = `<div style="color:var(--text-dim);font-size:9px;font-style:italic">${_t('Aucun snapshot disponible — le premier sera créé dans 5 minutes.', 'No snapshot available — the first will be created in 5 minutes.')}</div>`;
+        el.innerHTML = `<div style="color:var(--text-dim);font-size:9px;font-style:italic">${_t('Aucun snapshot disponible — le premier point de restauration sera créé après la prochaine sauvegarde cloud.', 'No snapshot available — the first restore point will be created after the next cloud save.')}</div>`;
         return;
       }
       const now = Date.now();
@@ -1439,6 +1458,7 @@ function getSupaSession()  { return supaSession; }
 
 export {
   configureCloudAccount, initSupabase, supaConfigured, supaCloudSave, supaWriteSnapshot,
+  supaMaybeCreateFirstSnapshot,
   supaUpdateLeaderboard, supaUpdateLeaderboardAnon, renderLeaderboardTab, renderCompteTab,
   markPlayerActivity, consumePlayerActivityForLeaderboard, leaderboardSyncTick,
   supaUpdateVivarium, vivariumSyncTick,

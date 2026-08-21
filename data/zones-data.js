@@ -10,7 +10,21 @@ const POT_UPGRADE_COSTS = [3, 6, 12, 24]; // index = current potential-1 (1->2, 
 // type: 'route' (captures + investissement) | 'city' (ville avec arène) | 'special' (hybride)
 // type: 'gang_park' — zone exclusive du joueur (toujours accessible, non comptée dans la limite)
 // type: 'vivarium' — zone d'affichage cosmétique (Pokémon vitrine/équipe boss qui se baladent)
+// type: 'onboarding' — terrain de départ, visible uniquement pendant l'onboarding V2
 const ZONES = [
+  // ══ TERRAIN DE DÉPART (onboarding V2 uniquement) ══
+  // Le joueur y débarque sans savoir où il est ; il apprend à la fin de
+  // l'embuscade que le terrain appartient à Giovanni. Masquée du sélecteur
+  // dès l'onboarding terminé (cf. _getActiveZones dans modules/ui/zoneSelector.js).
+  // spawnRate volontairement ~20× celui de la Route 1 : le joueur doit pouvoir
+  // capturer ONBOARDING_CAPTURE_GOAL Pokémon en une poignée de minutes, pas
+  // passer la moitié de sa première session à attendre des apparitions.
+  { id:'unknown_field', fr:'Zone inconnue', en:'Unknown Field', rep:0, spawnRate:0.5, type:'onboarding',
+    pool:['rattata','ekans','koffing','grimer','meowth','zubat','gastly'],
+    trainers:[], investCost:0,
+    desc_fr:'Un terrain clôturé, sans panneau. Quelqu\'un y élève des Pokémon.',
+    desc_en:'A fenced field with no sign. Someone is raising Pokémon here.' },
+
   // ══ QUARTIER GÉNÉRAL (zone joueur — toujours ouverte) ══
   { id:'gang_park', fr:'Quartier Général', en:'Gang HQ', rep:0, spawnRate:0, type:'gang_park',
     pool:[], trainers:[], investCost:0,
@@ -346,6 +360,7 @@ ZONE_BY_ID[GANG_BASE.id] = GANG_BASE;
 // Ajoutez un fichier .mp3 dans game/music/ puis référencez-le ici.
 const ZONE_MUSIC_MAP = {
   gang_park:        'city',
+  unknown_field:    'forest',
   // Routes & nature
   route1:           'forest',
   viridian_forest:  'forest',

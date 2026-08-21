@@ -3,6 +3,10 @@
 const SD_BG = 'https://play.pokemonshowdown.com/fx/bg-';
 
 const ZONE_BGS = {
+  // ── Terrain de départ (onboarding) ────────────────────────────
+  // Un champ clôturé, sans panneau — jamais visité, donc plus terne et
+  // plus froid que route1 (le même herbage, mais pas encore réclamé).
+  unknown_field:    { url:`${SD_BG}meadow.png`,         fb:'#242a1c,#12160c' },
   // ── Routes & nature ──────────────────────────────────────────
   route1:           { url:`${SD_BG}meadow.png`,         fb:'#1a3a0a,#0d2008' },
   viridian_forest:  { url:`${SD_BG}forest.png`,         fb:'#0a2a08,#041504' },

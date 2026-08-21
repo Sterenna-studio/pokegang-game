@@ -23,6 +23,9 @@
 
 import { invalidateBossTeamPower } from '../systems/bossPower.js';
 import { EventBus, EVENTS } from '../core/eventBus.js';
+import { releaseStoryLock, requestStory, STORY_PRIORITIES } from '../core/storyLock.js';
+
+const STORY_OWNER = 'darkrai-cutscene';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type });
 const _save   = ()               => globalThis.saveState?.();
@@ -559,17 +562,27 @@ function _finish() {
   setTimeout(() => {
     _overlay?.remove();
     _overlay = null;
+    releaseStoryLock(STORY_OWNER);
     globalThis.switchTab?.('tabGang');
     globalThis.renderAll?.();
   }, 580);
 }
 
 // ── Déclenchement ─────────────────────────────────────────────────
-function _startCutscene() {
-  if (_overlay) return;
-  _overlay      = _buildOverlay();
-  _torchChoice  = null;
-  _step0();
+function _startCutscene(priority = STORY_PRIORITIES.BOOT) {
+  return requestStory(STORY_OWNER, () => {
+    if (_overlay) return false;
+    _overlay      = _buildOverlay();
+    _torchChoice  = null;
+    _step0();
+    return true;
+  }, {
+    priority,
+    isEligible: () => {
+      const s = _state();
+      return !!s?.gang?.initialized && !s.gang.darkraiCutsceneSeen;
+    },
+  });
 }
 
 export function checkDarkraiCutscene() {
@@ -591,7 +604,7 @@ export function checkDarkraiCutscene() {
 export function triggerDarkraiOnLeagueVictory() {
   const s = _state();
   if (s.gang?.darkraiCutsceneSeen) return;
-  _startCutscene();
+  _startCutscene(STORY_PRIORITIES.GAMEPLAY);
 }
 
 Object.assign(globalThis, { checkDarkraiCutscene, triggerDarkraiOnLeagueVictory });

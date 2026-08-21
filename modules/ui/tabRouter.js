@@ -16,9 +16,146 @@ import { EventBus, EVENTS } from '../core/eventBus.js';
 import { SFX, MusicPlayer } from './audio.js';
 import { ITEM_SPRITE_URLS } from '../../data/assets-data.js';
 import { KANTO_DEX_MIN, KANTO_DEX_MAX } from '../../data/game-config-data.js';
+import { getOnboardingTabAccess, isOnboardingActive } from '../systems/onboardingFlow.js';
+import { TAB_UNLOCK_COPY } from '../../data/tab-unlocks-data.js';
+import { isTabRevealed } from '../systems/tabUnlocks.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type });
 const _t = (fr, en) => (globalThis.state?.lang === 'en' ? en : fr);
+
+/**
+ * Hors tunnel, les onglets pas encore mérités restent hors de la barre. Le
+ * masquage utilise la même propriété `display` que applyOnboardingTabAccess,
+ * mais un attribut distinct : les deux mécanismes se succèdent sur le même
+ * bouton et ne doivent pas se restaurer mutuellement une valeur périmée.
+ */
+function _applyTabDiscovery(state) {
+  document.querySelectorAll('.tab-btn[data-tab]').forEach(btn => {
+    const revealed = isTabRevealed(state, btn.dataset.tab);
+    if (!revealed) {
+      if (!btn.dataset.discoveryPreviousDisplay) {
+        btn.dataset.discoveryPreviousDisplay = btn.style.display || '__empty__';
+      }
+      btn.style.display = 'none';
+      return;
+    }
+    if (btn.dataset.discoveryPreviousDisplay) {
+      const previous = btn.dataset.discoveryPreviousDisplay;
+      btn.style.display = previous === '__empty__' ? '' : previous;
+      delete btn.dataset.discoveryPreviousDisplay;
+    }
+  });
+}
+
+function applyOnboardingTabAccess() {
+  const state = getState();
+  const active = isOnboardingActive(state);
+  // Mode focus : pendant la première session une seule zone est ouverte et un
+  // seul onglet accessible, donc la barre d'onglets et le reste du chrome ne
+  // sont que du bruit. Le CSS isole la zone, en grand, au centre.
+  document.body?.classList.toggle('onboarding-focus', active);
+  // `.tab-btn` and not `.tab-btn[data-tab]`: #btnSaveSlots is styled as a tab
+  // but carries no data-tab, so the narrower selector left it on screen during
+  // the whole onboarding — both a progressive-disclosure leak and a way into
+  // the save-slot modal from a half-configured state. An unknown tab id is
+  // reported as `hidden` by getOnboardingTabAccess, which is what we want.
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    if (active && !btn.dataset.onboardingPreviousDisplay) {
+      btn.dataset.onboardingPreviousDisplay = btn.style.display || '__empty__';
+      btn.dataset.onboardingPreviousTitle = btn.hasAttribute('title') ? btn.title : '__none__';
+    }
+    btn.querySelector('.onboarding-lock-indicator')?.remove();
+    btn.classList.remove('onboarding-locked');
+    btn.removeAttribute('aria-disabled');
+    delete btn.dataset.onboardingAccess;
+    if (btn.dataset.onboardingPreviousTitle) {
+      if (btn.dataset.onboardingPreviousTitle === '__none__') btn.removeAttribute('title');
+      else btn.title = btn.dataset.onboardingPreviousTitle;
+    }
+
+    if (!active) {
+      if (btn.dataset.onboardingPreviousDisplay) {
+        const previous = btn.dataset.onboardingPreviousDisplay;
+        btn.style.display = previous === '__empty__' ? '' : previous;
+        delete btn.dataset.onboardingPreviousDisplay;
+        delete btn.dataset.onboardingPreviousTitle;
+      }
+      return;
+    }
+
+
+    const access = getOnboardingTabAccess(state, btn.dataset.tab);
+    btn.dataset.onboardingAccess = access.status;
+    if (access.status === 'hidden') {
+      btn.style.display = 'none';
+      return;
+    }
+
+    btn.style.display = '';
+    if (access.status === 'locked') {
+      btn.classList.add('onboarding-locked');
+      btn.setAttribute('aria-disabled', 'true');
+      btn.title = access.reason;
+      const lock = document.createElement('span');
+      lock.className = 'onboarding-lock-indicator';
+      lock.textContent = ' 🔒';
+      btn.appendChild(lock);
+    }
+  });
+
+  // Hors tunnel, le relais est pris par le déblocage progressif.
+  if (!active) _applyTabDiscovery(state);
+}
+
+// ── Carte « nouvel onglet » ───────────────────────────────────────
+// Même surface que le déblocage de zone (#tabUnlockPopup partage son CSS),
+// et même file d'attente : plusieurs onglets peuvent tomber sur le même
+// événement, ils défilent un par un au lieu de s'écraser.
+let _tabUnlockQueue = [];
+let _tabUnlockBusy = false;
+
+function _processTabUnlockQueue() {
+  if (!_tabUnlockQueue.length) { _tabUnlockBusy = false; return; }
+  _tabUnlockBusy = true;
+  const tabId = _tabUnlockQueue.shift();
+  const popup = document.getElementById('tabUnlockPopup');
+  const nameEl = document.getElementById('tabUnlockName');
+  const whyEl = document.getElementById('tabUnlockWhy');
+  const goBtn = document.getElementById('tabUnlockGo');
+  if (!popup || !nameEl) { _tabUnlockBusy = false; return; }
+  const copy = TAB_UNLOCK_COPY[tabId];
+  const label = copy ? _t(copy.fr, copy.en) : tabId;
+  nameEl.textContent = label;
+  if (whyEl) whyEl.textContent = copy ? _t(copy.whyFr, copy.whyEn) : '';
+  if (goBtn) goBtn.textContent = _t(`→ Ouvrir ${label}`, `→ Open ${label}`);
+  popup.dataset.tabId = tabId;
+  popup.classList.add('show');
+}
+
+function _closeTabUnlockPopup({ open = false } = {}) {
+  const popup = document.getElementById('tabUnlockPopup');
+  if (!popup) return;
+  popup.classList.remove('show');
+  const tabId = popup.dataset.tabId;
+  delete popup.dataset.tabId;
+  if (open && tabId) switchTab(tabId);
+  _processTabUnlockQueue();
+}
+
+export function bindTabUnlockPopupUi() {
+  document.getElementById('tabUnlockGo')?.addEventListener('click', () => _closeTabUnlockPopup({ open: true }));
+  document.getElementById('tabUnlockClose')?.addEventListener('click', () => _closeTabUnlockPopup());
+  document.getElementById('tabUnlockPopup')?.addEventListener('click', event => {
+    if (event.target.id === 'tabUnlockPopup') _closeTabUnlockPopup();
+  });
+}
+
+EventBus.on(EVENTS.TABS_REVEALED, ({ tabs } = {}) => {
+  applyOnboardingTabAccess();
+  if (!Array.isArray(tabs) || !tabs.length) return;
+  _tabUnlockQueue.push(...tabs);
+  if (!_tabUnlockBusy) _processTabUnlockQueue();
+});
 
 let tabRouterCtx = {};
 
@@ -285,6 +422,18 @@ const _visitedTabs = new Set(JSON.parse(sessionStorage.getItem('pg_visited_tabs'
 
 function switchTab(tabId) {
   const state = getState();
+  applyOnboardingTabAccess();
+  const access = getOnboardingTabAccess(state, tabId);
+  if (access.status !== 'available') {
+    _notify(access.reason || _t('Cet onglet est encore verrouillé.', 'This tab is still locked.'), 'error');
+    return false;
+  }
+  // Un onglet pas encore débloqué reste inatteignable même par raccourci
+  // clavier ou lien interne — sinon le masquage n'est que cosmétique.
+  if (!isTabRevealed(state, tabId)) {
+    _notify(_t('Cet onglet n\'est pas encore débloqué.', 'This tab is not unlocked yet.'), 'error');
+    return false;
+  }
   const prevTab = globalThis.activeTab;
   if (tabId !== 'tabPC') globalThis.resetPcRenderCache?.();
   SFX.play('tabSwitch');
@@ -307,6 +456,7 @@ function switchTab(tabId) {
     sessionStorage.setItem('pg_visited_tabs', JSON.stringify([..._visitedTabs]));
     showFirstVisitHint(tabId);
   }
+  return true;
 }
 
 // ── updateTopBar debounce + dex badge cache ───────────────────────────────────
@@ -317,6 +467,7 @@ let _dexBadgeCaughtCount = -1;
 
 function _updateTopBarImpl() {
   const state = getState();
+  applyOnboardingTabAccess();
   const gangEl = document.getElementById('gangNameDisplay');
   const moneyEl = document.getElementById('moneyDisplay');
   if (gangEl) {
@@ -355,10 +506,13 @@ function _updateTopBarImpl() {
   if (objBar) {
     const obj = globalThis.getNextObjective?.();
     if (obj) {
+      const progress = obj.progress
+        ? `<span class="onboarding-objective-progress">${obj.progress.label} ${obj.progress.completed}/${obj.progress.total}</span>`
+        : '';
       const tabBtn = obj.tab
         ? `<button onclick="switchTab('${obj.tab}')" style="font-family:var(--font-pixel);font-size:7px;color:var(--red);background:none;border:none;border-bottom:1px solid var(--red);cursor:pointer;padding:0;margin-left:6px">${obj.detail || obj.tab}</button>`
         : (obj.detail ? `<span style="color:var(--text-dim);font-size:9px;margin-left:6px">${obj.detail}</span>` : '');
-      objBar.innerHTML = `<span style="font-family:var(--font-pixel);font-size:7px;color:var(--gold-dim,#999);margin-right:6px">▶</span><span style="font-size:9px;color:var(--text)">${obj.text}</span>${tabBtn}`;
+      objBar.innerHTML = `<span style="font-family:var(--font-pixel);font-size:7px;color:var(--gold-dim,#999);margin-right:6px">▶</span>${progress}<span style="font-size:9px;color:var(--text)">${obj.text}</span>${tabBtn}`;
       objBar.style.display = 'flex';
     } else {
       objBar.style.display = 'none';
@@ -431,4 +585,5 @@ export {
   updateTopBar,
   renderAll,
   initKeyboardShortcuts,
+  applyOnboardingTabAccess,
 };

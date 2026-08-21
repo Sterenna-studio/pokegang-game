@@ -51,6 +51,8 @@ import { AUTO_COMBAT_VISUAL_MS } from '../../data/gameplay-config-data.js';
 import { EventBus, EVENTS } from '../core/eventBus.js';
 import { esc as _esc } from '../core/escape.js';
 import { getDifficultyTier, getDifficultyBadgeHtml } from '../systems/difficultyTier.js';
+import { isOnboardingZoneFrozen, isOnboardingFirstCapturePending } from '../systems/onboardingFlow.js';
+import { ensureOnboardingAmbush } from './onboarding.js';
 
 const _notify = (msg, type = '', category = null) => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type, category });
 const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
@@ -1173,6 +1175,10 @@ function openZoneWindow(zoneId) {
   _zsRefreshTile(zoneId);
   _dirty();
   renderZoneWindows();
+  // Reopening the onboarding field mid-ambush must put the Rocket grunts back
+  // right away: closeZoneWindow deleted them, and the spawn tick is muted at
+  // that step, so the zone would otherwise stay empty with nothing to click.
+  if (isOnboardingZoneFrozen(globalThis.state, zoneId)) ensureOnboardingAmbush();
   _zsUpdateButtons();
 }
 
@@ -1417,7 +1423,7 @@ function _openZoneContextMenu(zoneId, clientX, clientY) {
     'box-shadow:0 4px 24px rgba(0,0,0,.8)',
     'min-width:260px',
     'max-width:300px',
-    'max-height:80vh',
+    'max-height:min(560px, 66vh)',
     'overflow-y:auto',
     'font-family:var(--font-ui,sans-serif)',
     'font-size:11px',
@@ -1454,7 +1460,7 @@ function _openZoneContextMenu(zoneId, clientX, clientY) {
     </div>
 
     <!-- Combat power preview -->
-    <div style="padding:8px 10px;border-bottom:1px solid var(--border)">
+    <div style="padding:6px 10px;border-bottom:1px solid var(--border)">
       <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);margin-bottom:5px">${_t('zone_combat_power').toUpperCase()}</div>
       <div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:4px">
         <span style="color:#5af">${_t('zone_attack')} <strong>${atkPow.toLocaleString()}</strong></span>
@@ -1471,19 +1477,19 @@ function _openZoneContextMenu(zoneId, clientX, clientY) {
     </div>
 
     <!-- Pokémon pool -->
-    <div style="padding:8px 10px;border-bottom:1px solid var(--border)">
+    <div style="padding:6px 10px;border-bottom:1px solid var(--border)">
       <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);margin-bottom:5px">${_t('zone_pokemon').toUpperCase()} (${pool.length})</div>
-      <div style="display:flex;flex-wrap:wrap;gap:2px">${poolHtml}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:2px;max-height:90px;overflow-y:auto">${poolHtml}</div>
     </div>
 
     <!-- Trainers -->
-    <div style="padding:8px 10px;border-bottom:1px solid var(--border)">
+    <div style="padding:6px 10px;border-bottom:1px solid var(--border)">
       <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);margin-bottom:5px">${_t('zone_trainers').toUpperCase()}</div>
-      ${trainersHtml || '<span style="color:var(--text-dim);font-size:10px">—</span>'}
+      <div style="max-height:132px;overflow-y:auto">${trainersHtml || '<span style="color:var(--text-dim);font-size:10px">—</span>'}</div>
     </div>
 
     <!-- Assigned agents -->
-    <div style="padding:8px 10px">
+    <div style="padding:6px 10px">
       <div style="font-family:var(--font-pixel);font-size:8px;color:var(--text-dim);margin-bottom:5px">${_t('zone_assigned_agents').toUpperCase()}</div>
       ${agentsHtml}
     </div>
@@ -1522,7 +1528,11 @@ function _openZoneContextMenu(zoneId, clientX, clientY) {
 // sinon null. Défensif (?.()) : les régions pas encore migrées vers ce
 // système n'exposent simplement pas leur getter.
 function _getActiveQuestEncounterForZone(zoneId) {
-  return globalThis.getKantoQuestEncounterForZone?.(zoneId)
+  // La cinématique d'ouverture passe devant le transfuge : tant qu'un acteur
+  // de scène tient le terrain, sa réplique est la seule qui doit s'afficher.
+  return globalThis.getOnboardingSceneEncounterForZone?.(zoneId)
+    ?? globalThis.getOnboardingGuideEncounterForZone?.(zoneId)
+    ?? globalThis.getKantoQuestEncounterForZone?.(zoneId)
     ?? globalThis.getJohtoQuestEncounterForZone?.(zoneId)
     ?? globalThis.getHoennQuestEncounterForZone?.(zoneId)
     ?? globalThis.getSinnohQuestEncounterForZone?.(zoneId)
@@ -1532,10 +1542,15 @@ function _getActiveQuestEncounterForZone(zoneId) {
 
 function _questEncounterHtml(enc) {
   if (!enc) return '';
-  return `<div class="zone-quest-encounter" data-quest-encounter-id="${enc.id}" title="${enc.name}">
-    ${enc.spriteUrl ? `<img src="${enc.spriteUrl}" alt="${enc.name}" onerror="this.style.visibility='hidden'">` : ''}
+  // `bubble` porte une réplique : elle s'affiche au-dessus du sprite, dans une
+  // vraie bulle. `name` reste le libellé court sous le sprite.
+  const label = _esc(enc.name ?? '');
+  // `cls` : classe d'animation ponctuelle (entrée/sortie de scène scriptée).
+  return `<div class="zone-quest-encounter${enc.cls ? ` ${_esc(enc.cls)}` : ''}" data-quest-encounter-id="${enc.id}" title="${label}">
+    ${enc.bubble ? `<div class="zone-speech-bubble${enc.hostile ? ' hostile' : ''}">${_esc(enc.bubble)}</div>` : ''}
+    ${enc.spriteUrl ? `<img src="${enc.spriteUrl}" alt="${label}" onerror="this.style.visibility='hidden'">` : ''}
     <span class="quest-encounter-badge">!</span>
-    <span class="quest-encounter-name">${enc.icon ? enc.icon + ' ' : ''}${enc.name}</span>
+    <span class="quest-encounter-name">${enc.icon ? enc.icon + ' ' : ''}${label}</span>
   </div>`;
 }
 
@@ -1599,7 +1614,7 @@ function buildZoneWindowEl(zoneId) {
         const label = state.lang === 'fr' ? eventDef.fr : eventDef.en;
         return `<div class="zone-event-banner" data-event-zone="${zoneId}">${eventDef.icon} ${label} <span class="event-ttl">${secsLeft}s</span></div>`;
       })() : ''}
-      <div id="zpb-${zoneId}" style="position:absolute;top:4px;left:50%;transform:translateX(-50%);font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);background:rgba(0,0,0,.55);border-radius:2px;padding:1px 5px;white-space:nowrap;z-index:2;pointer-events:none">${progressText}${zone.type === 'city' ? ` — XP×${zone.xpBonus}` : ''}</div>
+      ${zone.type === 'onboarding' ? '' : `<div id="zpb-${zoneId}" style="position:absolute;top:4px;left:50%;transform:translateX(-50%);font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);background:rgba(0,0,0,.55);border-radius:2px;padding:1px 5px;white-space:nowrap;z-index:2;pointer-events:none">${progressText}${zone.type === 'city' ? ` — XP×${zone.xpBonus}` : ''}</div>`}
       ${zone.type === 'city' && zone.gymLeader && combats >= 10 ? (() => {
         const lastRaid = zState.gymRaidLastFight || 0;
         const raidCooldownMs = 5 * 60 * 1000;
@@ -1923,10 +1938,32 @@ function tickZoneSpawn(zoneId) {
   if (!openZones.has(zoneId)) return;
   const spawns = zoneSpawns[zoneId];
   if (!spawns) return;
-  // Max 5 spawns at once
-  if (spawns.length >= 5) { updateZoneTimers(zoneId); return; }
+  // From the ambush onward the onboarding field must stop producing wild
+  // Pokémon: the raid — then the defector — is the only thing left to
+  // interact with, and the five-spawn cap would otherwise crowd it out.
+  // Never return without something to click, or muting the timer becomes a
+  // softlock (the player has no other tab unlocked at that point).
+  if (isOnboardingZoneFrozen(globalThis.state, zoneId)) {
+    ensureOnboardingAmbush();
+    updateZoneTimers(zoneId);
+    return;
+  }
+  // Tout premier Pokémon du tunnel d'onboarding : un seul spawn à la fois
+  // (pas le plafond habituel de 5) pour ne pas noyer un nouveau joueur sous
+  // plusieurs sprites au tout premier contact.
+  const firstCaptureTutorial = isOnboardingFirstCapturePending(globalThis.state, zoneId);
+  const spawnCap = firstCaptureTutorial ? 1 : 5;
+  if (spawns.length >= spawnCap) { updateZoneTimers(zoneId); return; }
 
-  const entry = globalThis.spawnInZone(zoneId);
+  let entry = globalThis.spawnInZone(zoneId);
+  // Ce premier spawn DOIT être un Pokémon (c'est lui que la flèche désigne) —
+  // spawnInZone peut renvoyer un coffre (5% de base) : on retire jusqu'à en
+  // obtenir un, borné pour ne jamais boucler indéfiniment.
+  if (firstCaptureTutorial) {
+    for (let attempts = 0; entry && entry.type !== 'pokemon' && attempts < 8; attempts++) {
+      entry = globalThis.spawnInZone(zoneId);
+    }
+  }
   if (!entry) {
     // Un événement combat vient peut-être de démarrer sans passer par le
     // pipeline de spawn à TTL court (voir spawnInZone) — le PNJ permanent
@@ -1948,13 +1985,23 @@ function tickZoneSpawn(zoneId) {
   zoneNextSpawn[zoneId].lastSpawnType = entry.type;
 
   const spawnObj = { ...entry, id: globalThis.uid() };
+  if (firstCaptureTutorial) {
+    spawnObj.tutorialArrow = true;
+    // Position fixe et basse plutôt que le tirage aléatoire habituel : la
+    // flèche a besoin de place au-dessus du sprite sans risquer de sortir de
+    // .zone-viewport (overflow:hidden) sur un tirage malchanceux près du haut.
+    spawnObj.position = { x: 150, y: 130 };
+  }
   spawns.push(spawnObj);
 
-  // TTL: 10-15 seconds
-  const ttl = globalThis.randInt(10000, 15000);
-  spawnObj.timeout = setTimeout(() => {
-    removeSpawn(zoneId, spawnObj.id);
-  }, ttl);
+  // TTL: 10-15 seconds — sauf le tout premier Pokémon du tunnel, qui ne doit
+  // jamais expirer avant d'avoir été capturé (cf. isOnboardingFirstCapturePending).
+  if (!spawnObj.tutorialArrow) {
+    const ttl = globalThis.randInt(10000, 15000);
+    spawnObj.timeout = setTimeout(() => {
+      removeSpawn(zoneId, spawnObj.id);
+    }, ttl);
+  }
 
   renderSpawnInWindow(zoneId, spawnObj);
   updateZoneTimers(zoneId);
@@ -2027,33 +2074,47 @@ function renderSpawnInWindow(zoneId, spawnObj) {
   el.dataset.spawnId = spawnObj.id;
 
   // Random position (relative to viewport size)
-  const x = globalThis.randInt(10, 310);
-  const y = globalThis.randInt(10, 160);
+  const x = Number.isFinite(spawnObj.position?.x) ? spawnObj.position.x : globalThis.randInt(10, 310);
+  const y = Number.isFinite(spawnObj.position?.y) ? spawnObj.position.y : globalThis.randInt(10, 160);
   el.style.left = x + 'px';
   el.style.top = y + 'px';
 
   if (spawnObj.type === 'pokemon') {
     const sp = SPECIES_BY_EN[spawnObj.species_en];
-    el.innerHTML = `<img src="${globalThis.pokeSprite(spawnObj.species_en)}" style="width:56px;height:56px" alt="${sp?.fr || spawnObj.species_en}">`;
+    el.innerHTML = `<img src="${globalThis.pokeSprite(spawnObj.species_en)}" style="width:56px;height:56px" alt="${sp?.fr || spawnObj.species_en}">`
+      + (spawnObj.tutorialArrow ? `<div class="onboarding-capture-arrow">👇</div>` : '');
     el.title = sp ? (state.lang === 'fr' ? sp.fr : sp.en) : spawnObj.species_en;
     // Rare / very_rare / legendary popup notification
     if (sp && (sp.rarity === 'very_rare' || sp.rarity === 'legendary')) {
       setTimeout(() => globalThis.showRarePopup?.(spawnObj.species_en, zoneId), 300);
     }
-    el.addEventListener('click', () => {
+    el.addEventListener('click', (e) => {
       if (el.classList.contains('catching')) return;
       el.classList.add('catching');
       spawnObj.playerCatching = true;
-      animateCapture(zoneId, spawnObj, el);
+      // Où sur le sprite le joueur a cliqué : donne à la balle un rebond
+      // d'impact dont la direction dépend du clic plutôt que d'être générique.
+      const rect = el.getBoundingClientRect();
+      const clickOffset = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+      animateCapture(zoneId, spawnObj, el, clickOffset);
     });
   } else if (spawnObj.type === 'raid') {
     // Raid: show the lead trainer sprite (no more Pokéball)
-    const raidLeaderKey = spawnObj.raidTrainers?.[0]?.key || spawnObj.trainerKey || 'gymleader';
+    // `key` est une clé TRAINER_TYPES, pas une clé de sprite : les deux
+    // coïncident pour la plupart des types mais pas pour les variantes
+    // régionales (acetrainerGen2 → acetrainer-gen2) ni pour un raid scripté
+    // dont les assaillants portent un visage imposé.
+    const raidLead = spawnObj.raidTrainers?.[0];
+    const raidLeaderKey = raidLead?.trainer?.sprite || raidLead?.key
+      || spawnObj.trainer?.sprite || spawnObj.trainerKey || 'gymleader';
     const previewR = getTrainerCombatPreview({ ...spawnObj, zoneId }, null);
     const tierR    = getDifficultyTier(previewR.attackerPower, previewR.defenderPower);
     el.innerHTML = globalThis.safeTrainerImg(raidLeaderKey, { style: 'width:52px;height:52px;image-rendering:pixelated;filter:drop-shadow(0 0 8px #f44)' }) +
       getDifficultyBadgeHtml(tierR) +
-      `<div style="font-family:var(--font-pixel);font-size:6px;color:#f66;background:rgba(0,0,0,.75);border-radius:2px;padding:1px 4px;margin-top:2px;text-align:center">⚔ ${_t('zone_raid').toUpperCase()}</div>`;
+      // scale:-1 1 contre le miroir de `float` sur .zone-spawn (même souci que
+      // .quest-encounter-name / .zone-speech-bubble, mais ce label n'a pas de
+      // classe dédiée — inline le plus simple ici).
+      `<div style="scale:-1 1;font-family:var(--font-pixel);font-size:6px;color:#f66;background:rgba(0,0,0,.75);border-radius:2px;padding:1px 4px;margin-top:2px;text-align:center">⚔ ${_t('zone_raid').toUpperCase()}</div>`;
     el.title = state.lang === 'fr'
       ? (spawnObj.trainer?.fr ?? spawnObj.trainerKey ?? 'Raid')
       : (spawnObj.trainer?.en ?? spawnObj.trainerKey ?? 'Raid');
@@ -2166,6 +2227,15 @@ function renderSpawnInWindow(zoneId, spawnObj) {
     });
   }
 
+  // Un spawn peut porter une réplique (scène scriptée) : même bulle que les
+  // rencontres de quête, ré-ancrée au-dessus d'un élément positionné en absolu.
+  if (spawnObj.bubble) {
+    const bubble = document.createElement('div');
+    bubble.className = `zone-speech-bubble${spawnObj.bubbleHostile ? ' hostile' : ''}`;
+    bubble.textContent = spawnObj.bubble;
+    el.appendChild(bubble);
+  }
+
   viewport.appendChild(el);
 }
 
@@ -2188,7 +2258,7 @@ function removeSpawn(zoneId, spawnId) {
 
 // ── Ball throw + capture burst animation ──────────────────────
 
-function animateCapture(zoneId, spawnObj, spawnEl) {
+function animateCapture(zoneId, spawnObj, spawnEl, clickOffset = null) {
   const state = globalThis.state;
   const BALL_SPRITES = globalThis.BALL_SPRITES;
   const win = document.getElementById(`zw-${zoneId}`);
@@ -2212,6 +2282,14 @@ function animateCapture(zoneId, spawnObj, spawnEl) {
   }
   const targetX = parseInt(spawnEl.style.left) + 28;
   const targetY = parseInt(spawnEl.style.top) + 28;
+
+  // Rebond d'impact : direction opposée au point cliqué sur le sprite (56×56,
+  // centre à 28,28) — la balle "repart" du côté qu'elle vient de heurter,
+  // comme un vrai contact plutôt qu'un arrêt générique sur place.
+  const nx = clickOffset ? Math.max(-1, Math.min(1, (clickOffset.x - 28) / 28)) : 0;
+  const ny = clickOffset ? Math.max(-1, Math.min(1, (clickOffset.y - 28) / 28)) : 0;
+  const bounceX = (-nx * 7).toFixed(1) + 'px';
+  const bounceY = (-ny * 7).toFixed(1) + 'px';
 
   // Create ball projectile
   const ball = document.createElement('div');
@@ -2244,21 +2322,52 @@ function animateCapture(zoneId, spawnObj, spawnEl) {
       ball.style.filter = 'drop-shadow(0 0 6px gold)';
     }
 
+    // Contact : le sprite se fait aspirer par la balle (disparaît), qui
+    // rebondit légèrement dans la direction opposée au clic — avant même de
+    // savoir si la capture aboutit. Sur échec, doCaptureAttempt annule les deux.
+    if (spawnEl) spawnEl.classList.add('capture-impact');
+    ball.style.setProperty('--bounce-x', bounceX);
+    ball.style.setProperty('--bounce-y', bounceY);
+    ball.classList.add('ball-impact-bounce');
+
+    const IMPACT_MS = 220; // durée du rebond + de l'aspiration du sprite
+    const FALL_MS = 180;
+    // Une fois le sprite aspiré, plus rien ne tient la balle en l'air : elle
+    // retombe au sol, au centre-bas de la zone qu'occupait le sprite (56px),
+    // pas à sa hauteur de contact d'origine.
+    const groundY = targetY + 28;
+    setTimeout(() => {
+      // .ball-impact-bounce (2 classes) est plus spécifique que .ball-wobble
+      // (1 classe) : la laisser posée gagnerait la cascade sur `animation` et
+      // masquerait tout wobble ultérieur, même après la fin de son propre
+      // rebond — on la retire dès qu'elle a fini de jouer.
+      ball.classList.remove('ball-impact-bounce');
+      ball.style.transition = 'top .18s ease-in';
+      ball.style.top = (groundY - 10) + 'px';
+    }, IMPACT_MS);
+
     function doCaptureAttempt() {
-      ball.remove();
       const caught = globalThis.tryCapture(zoneId, spawnObj.species_en, isCritical ? 1 : 0, spawnObj.spawnCtx || {});
       if (caught) {
-        if (isCritical) _notify(`★ Capture critique ! +1 potentiel`, 'gold');
-        if (caught.shiny) spawnEl.classList.add('shiny-flash');
         globalThis.SFX.play('capture', caught.potential, caught.shiny);
-        showCaptureBurst(viewport, targetX, targetY, caught.potential, caught.shiny);
+        // Étoiles progressives autour de la balle plutôt qu'une notification
+        // texte — le feedback critique/shiny est porté par leur couleur.
+        // groundY, pas targetY : la balle est retombée au sol depuis, les
+        // étoiles doivent tourner autour d'elle là où elle est vraiment.
+        showCaptureStars(viewport, targetX, groundY, caught.potential, caught.shiny, isCritical);
+        ball.classList.add('ball-absorb');
+        setTimeout(() => ball.remove(), 400);
         removeSpawn(zoneId, spawnObj.id);
         _topBar();
         if (globalThis.activeTab === 'tabPC') globalThis.renderPCTab();
         updateZoneTimers(zoneId);
       } else {
-        // Fade out au contact, puis fade in si échec
+        ball.remove();
+        // Échec : le sprite reprend forme là où il était (annule l'aspiration
+        // avant de rejouer un aller-retour d'opacité, sinon les deux
+        // animations se disputent le même sprite).
         if (spawnEl) {
+          spawnEl.classList.remove('capture-impact');
           spawnEl.style.transition = 'opacity .15s, transform .15s';
           spawnEl.style.opacity = '0';
           spawnEl.style.transform = 'scale(.7)';
@@ -2271,9 +2380,13 @@ function animateCapture(zoneId, spawnObj, spawnEl) {
       }
     }
 
+    // IMPACT_MS + FALL_MS : laisse le rebond d'impact puis la chute au sol
+    // jouer avant que le wobble (ou la capture instantanée critique) ne
+    // prenne le relais — le wobble doit se voir au sol, pas en l'air.
+    const SETTLE_MS = IMPACT_MS + FALL_MS;
     if (wobbles === 0) {
       // Critical — instant capture (no wobble)
-      setTimeout(doCaptureAttempt, 150);
+      setTimeout(doCaptureAttempt, 150 + SETTLE_MS);
     } else {
       // Wobble N times then attempt
       let w = 0;
@@ -2288,9 +2401,35 @@ function animateCapture(zoneId, spawnObj, spawnEl) {
           setTimeout(doCaptureAttempt, 520);
         }
       }
-      setTimeout(nextWobble, 100);
+      setTimeout(nextWobble, 100 + SETTLE_MS);
     }
   }, 380);
+}
+
+/**
+ * Feedback visuel d'une capture réussie : étoiles (= potentiel obtenu, 1-5)
+ * apparaissant une à une autour de la balle, qui orbitent puis convergent
+ * vers son centre avant de s'effacer — remplace l'ancien texte de notif
+ * "capture critique". `.capture-burst` (ring + particules) reste utilisée
+ * ailleurs (drops, captures silencieuses d'agent, embuscade de quête).
+ */
+function showCaptureStars(container, x, y, potential, shiny, isCritical) {
+  const count = Math.max(1, Math.min(5, potential || 1));
+  const wrap = document.createElement('div');
+  wrap.className = 'capture-stars' + (shiny ? ' shiny' : '') + (isCritical ? ' critical' : '');
+  wrap.style.left = x + 'px';
+  wrap.style.top = y + 'px';
+  for (let i = 0; i < count; i++) {
+    const star = document.createElement('div');
+    star.className = 'capture-star';
+    star.style.setProperty('--angle', (i / count) + 'turn');
+    star.style.setProperty('--delay', (i * 90) + 'ms');
+    wrap.appendChild(star);
+  }
+  container.appendChild(wrap);
+  const convergeAt = count * 90 + 800;
+  setTimeout(() => wrap.classList.add('converge'), convergeAt);
+  setTimeout(() => wrap.remove(), convergeAt + 400);
 }
 
 function showCaptureBurst(container, x, y, potential, shiny) {
@@ -2602,8 +2741,11 @@ function cancelAutoCombatVisual(zoneId) {
   _autoCombatVisualLocks.delete(zoneId);
 }
 
-// Point d'entrée unique pour closeZoneWindow : nettoie tout ce qui peut
-// retenir le DOM combat de cette zone, quel que soit le mécanisme en cause.
+// Point d'entrée unique pour closeZoneWindow et pour toute scène scriptée qui
+// reprend la main sur une zone : nettoie tout ce qui peut retenir le DOM combat
+// de cette zone, quel que soit le mécanisme en cause. Tant que ce verrou tient,
+// patchZoneWindow refuse de reconstruire agents/boss/rencontre de quête — donc
+// aucun acteur de cinématique ne peut s'afficher.
 function teardownZoneCombat(zoneId) {
   if (currentCombat?.zoneId === zoneId) {
     if (currentCombat.isEventBattle) closeEventBattle();
@@ -2662,7 +2804,7 @@ function playAutoCombatVisual(zoneId, spawnObj, combatAgents, win) {
       lock.raidRow = document.createElement('div');
       lock.raidRow.className = 'combat-raid-trainers';
       lock.raidRow.innerHTML = spawnObj.raidTrainers.map(rt =>
-        globalThis.safeTrainerImg(rt.key, { style: 'width:26px;height:26px;image-rendering:pixelated' })
+        globalThis.safeTrainerImg(rt.trainer?.sprite || rt.key, { style: 'width:26px;height:26px;image-rendering:pixelated' })
       ).join('');
       spawnEl.appendChild(lock.raidRow);
     }
@@ -2715,7 +2857,7 @@ function playAutoCombatVisual(zoneId, spawnObj, combatAgents, win) {
 // Combat Popup
 // ════════════════════════════════════════════════════════════════
 
-function openCombatPopup(zoneId, spawnObj) {
+function openCombatPopup(zoneId, spawnObj, { mode = 'manual', initiatedBy = 'player' } = {}) {
   const state = globalThis.state;
   // currentCombat est un verrou global (un seul combat joueur interactif à
   // la fois, où qu'il soit) ; isZoneCombatBusy couvre en plus l'auto-combat
@@ -2744,7 +2886,7 @@ function openCombatPopup(zoneId, spawnObj) {
   const trainerName = state.lang === 'fr'
     ? (spawnObj.trainer?.fr ?? spawnObj.trainerKey ?? '???')
     : (spawnObj.trainer?.en ?? spawnObj.trainerKey ?? '???');
-  const spawnWithZone = { ...spawnObj, zoneId };
+  const spawnWithZone = { ...spawnObj, zoneId, combatMode: mode, initiatedBy };
   const teamIds = buildTrainerCombatTeamIds(agentIds, zoneId);
   const battlePlayerTeam = teamIds
     .map(id => state.pokemons.find(pokemon => pokemon.id === id))
@@ -2875,6 +3017,12 @@ function executeCombat() {
   currentCombat.combatStarted = true;
 
   const { zoneId, spawnObj, spawnWithZone, spawnEl, playerAnchorEl, playerTeam, enemyTeam, teamIds, enemyPool, summary } = currentCombat;
+  EventBus.emit(EVENTS.COMBAT_STARTED, {
+    zoneId,
+    trainerKey: spawnWithZone.trainerKey ?? null,
+    mode: spawnWithZone.combatMode || 'manual',
+    initiatedBy: spawnWithZone.initiatedBy || 'player',
+  });
   const logEl = document.getElementById(`zchud-log-${zoneId}`);
   const combatLogLines = [];
   const trainerReward = spawnWithZone.trainer?.reward || [10, 50];
@@ -3019,18 +3167,25 @@ function executeCombat() {
     ...resultLines.map(text => ({ type: 'log', text, final: true })),
   ];
 
+  // L'embuscade d'onboarding est le premier combat jamais vu par le joueur —
+  // un rythme plus lent le laisse remarquer chaque Pokémon plutôt que de
+  // défiler comme un combat de routine parmi des centaines d'autres.
+  const isOnboardingAmbush = !!spawnWithZone?.spawnCtx?.ambush;
   let index = 0;
-  const delay = 650;
+  const delay = isOnboardingAmbush ? 1500 : 650;
+  const switchDelay = isOnboardingAmbush ? 2200 : delay;
   function nextStep() {
     if (!currentCombat || currentCombat.zoneId !== zoneId) return;
     if (index < script.length) {
       const item = script[index++];
+      let stepDelay = delay;
       if (item.type === 'log') {
         const text = item.text;
         const kind = text.startsWith('— ') ? 'result' : (text.startsWith('+') || text.includes(_t('zone_no_loot'))) ? 'loot' : '';
         logLine(text, kind);
       } else if (item.type === 'switch') {
         playSwitch(item);
+        stepDelay = switchDelay;
       } else if (item.type === 'attack') {
         const atkName = globalThis.speciesName(item.attackerSpecies);
         const effTxt = item.effectiveness > 1 ? _t('zone_effective_super')
@@ -3043,7 +3198,7 @@ function executeCombat() {
       } else if (item.type === 'faint') {
         logLine(_t('zone_knocked_out', { pokemon: globalThis.speciesName(item.species_en) }));
       }
-      queueTimer(nextStep, delay);
+      queueTimer(nextStep, stepDelay);
       return;
     }
 
@@ -3053,10 +3208,10 @@ function executeCombat() {
       closeBtn.textContent = _t('zone_close');
       closeBtn.onclick = doClose;
     }
-    queueTimer(doClose, 1800);
+    queueTimer(doClose, isOnboardingAmbush ? 2600 : 1800);
   }
 
-  queueTimer(nextStep, 120);
+  queueTimer(nextStep, isOnboardingAmbush ? 500 : 120);
 }
 
 function closeCombatPopup() {
@@ -3167,6 +3322,9 @@ function executeEventBattle() {
   currentCombat.combatStarted = true;
 
   const { zoneId, npcEl, anchorPlayerEl, playerPokemon, enemyTeam, eventDef, trainerData, trainerName, zoneName, teamIds } = currentCombat;
+  EventBus.emit(EVENTS.COMBAT_STARTED, {
+    zoneId, trainerKey: eventDef.trainerKey, mode: 'event', initiatedBy: 'player',
+  });
   const logEl = document.getElementById(`zchud-log-${zoneId}`);
   const battle = resolveEventBattle({ playerTeam: playerPokemon, enemyTeam });
   currentCombat.battle = battle;
@@ -3251,7 +3409,10 @@ function executeEventBattle() {
     const boostedReward = [trainerData.reward[0] * 4, trainerData.reward[1] * 4];
     const reward = win ? Math.min(globalThis.MAX_COMBAT_REWARD, globalThis.randInt(boostedReward[0], boostedReward[1])) : 0;
     const repGain = globalThis.getCombatRepGain(eventDef.trainerKey, win);
-    const spawnData = { zoneId, isSpecial: true, trainerKey: eventDef.trainerKey, trainer: trainerData, event: eventDef };
+    const spawnData = {
+      zoneId, isSpecial: true, trainerKey: eventDef.trainerKey, trainer: trainerData,
+      event: eventDef, combatMode: 'event', initiatedBy: 'player',
+    };
     globalThis.applyCombatResult({ win, reward, repGain }, teamIds, spawnData);
 
     if (win) {
@@ -3384,6 +3545,7 @@ Object.assign(globalThis, {
   _zwin_openCombatPopup:          openCombatPopup,
   _zwin_executeCombat:            executeCombat,
   _zwin_closeCombatPopup:         closeCombatPopup,
+  _zwin_teardownZoneCombat:       teardownZoneCombat,
   _zwin_openEventBattlePopup:     openEventBattlePopup,
   _zwin_executeEventBattle:       executeEventBattle,
   _zwin_closeEventBattle:         closeEventBattle,

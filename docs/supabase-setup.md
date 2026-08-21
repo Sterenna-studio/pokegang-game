@@ -14,9 +14,11 @@ This project can run without Supabase. Supabase enables:
 Create `config.js` at the repo root. Keep it local; it is ignored by Git.
 
 ```js
-const SUPABASE_URL = 'https://your-project.supabase.co';
-const SUPABASE_ANON_KEY = 'your-anon-or-publishable-key';
+export const SUPABASE_URL = 'https://your-project.supabase.co';
+export const SUPABASE_ANON_KEY = 'your-anon-or-publishable-key';
 ```
+
+`export` is required: `app.js` loads this file via `await import('./config.js')`, a real ES module import — without `export`, the import silently succeeds with an empty module (no error, no warning) and `cfg.SUPABASE_URL` is just `undefined`, so cloud features stay disabled with no clue why.
 
 Only use the browser-safe anon/publishable key here. Never put a `service_role` key in this file.
 
