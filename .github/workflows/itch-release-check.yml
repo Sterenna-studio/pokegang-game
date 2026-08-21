@@ -35,6 +35,17 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Read release manifest
+        id: release
+        shell: bash
+        run: |
+          node <<'NODE' >> "$GITHUB_OUTPUT"
+          const fs = require('fs');
+          const release = JSON.parse(fs.readFileSync('release/itch-release.json', 'utf8'));
+          console.log(`version=${release.version}`);
+          console.log(`file=${release.uploadFile}`);
+          NODE
+
       - name: Core regression checks
         run: |
           node tools/check-events.js
@@ -73,7 +84,7 @@ jobs:
       - name: Upload validated itch build
         uses: actions/upload-artifact@v4
         with:
-          name: pokegang-itch-release-v0.5.0
-          path: pokegang-v0.5.0-itch.zip
+          name: pokegang-itch-release-v${{ steps.release.outputs.version }}
+          path: ${{ steps.release.outputs.file }}
           if-no-files-found: error
           retention-days: 14
