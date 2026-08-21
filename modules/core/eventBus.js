@@ -53,6 +53,12 @@ export const EVENTS = {
   COMBAT_STARTED:    'combat:started',    // { zoneId, trainerKey, mode, initiatedBy }
   COMBAT_WON:        'combat:won',        // { zoneId, trainerKey, elite, mode, initiatedBy }
   COMBAT_LOST:       'combat:lost',       // { zoneId, trainerKey } — consommé par le patch ciblé agentsTab (énergie)
+  // { zoneId } — la séquence VISUELLE du combat de zone est terminée et le DOM
+  // de la zone est rendu. À ne pas confondre avec COMBAT_WON/LOST, émis bien
+  // plus tôt (dès applyCombatResult, avant que le script d'animation ne
+  // démarre) : c'est cet écart qui empêchait l'embuscade d'onboarding de
+  // s'afficher, son issue coupant le combat avant sa première image.
+  COMBAT_SEQUENCE_ENDED: 'combat:sequence-ended',
 
   // Economy
   MONEY_CHANGED:     'economy:money',     // { delta, newTotal }

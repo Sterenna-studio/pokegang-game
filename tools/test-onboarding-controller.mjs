@@ -150,8 +150,19 @@ assert.deepEqual(cinematic, ['ambush-arrival']);
 EventBus.emit(EVENTS.COMBAT_LOST, { zoneId: ONBOARDING_ZONE_ID, trainerKey: 'rocketgrunt' });
 assert.equal(state.onboarding.step, ONBOARDING_STEPS.IDENTITY);
 assert.equal(state.onboarding.ambushWon, false);
-// The grunts leave the field behind them.
+// COMBAT_LOST est émis par applyCombatResult, donc AVANT la première image du
+// combat : le terrain doit rester en place le temps que la séquence visuelle
+// se joue. Couper ici supprimait l'unique combat de la première session.
+assert.equal(fieldSpawns.length, 1);
+assert.deepEqual(cinematic, ['ambush-arrival']);
+
+// Fin de l'animation → c'est seulement maintenant que le terrain se vide et
+// que la cinématique de Giovanni peut prendre la main sur le DOM de la zone.
+EventBus.emit(EVENTS.COMBAT_SEQUENCE_ENDED, { zoneId: ONBOARDING_ZONE_ID });
 assert.equal(fieldSpawns.length, 0);
+
+// Une autre zone qui finit son combat ne doit pas piloter l'embuscade.
+EventBus.emit(EVENTS.COMBAT_SEQUENCE_ENDED, { zoneId: 'route1' });
 
 // ── Giovanni ──────────────────────────────────────────────────────
 await new Promise(resolve => setTimeout(resolve, 1_000));
