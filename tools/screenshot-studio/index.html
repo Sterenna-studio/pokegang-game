@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PokéGang — Screenshot Studio</title>
+  <link rel="icon" type="image/png" href="../../assets/pokegang_logo/pokegang_logo_little.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/base.css">
+  <link rel="stylesheet" href="../../css/intro.css">
+  <link rel="stylesheet" href="../../css/game-ui.css">
+  <link rel="stylesheet" href="../../gang/gang.css">
+  <link rel="stylesheet" href="./studio.css">
+</head>
+<body class="studio-body">
+  <div id="studioApp" class="studio-app">
+    <aside class="studio-sidebar" id="studioSidebar">
+      <div class="studio-brand">
+        <img src="../../assets/pokegang_logo/pokegang_logo_full_color_small.png" alt="PokéGang">
+        <div><div class="studio-kicker">INTERNAL TOOL</div><h1>Screenshot Studio</h1></div>
+      </div>
+      <div class="studio-search-wrap"><input id="sceneSearch" class="studio-search" type="search" placeholder="Chercher une scène…" autocomplete="off"></div>
+      <div id="sceneList" class="studio-scene-list" aria-label="Scènes disponibles"></div>
+      <div class="studio-sidebar-foot"><span>← → scène</span><span>R rejouer</span><span>F clean view</span></div>
+    </aside>
+
+    <main class="studio-main">
+      <header class="studio-toolbar" id="studioToolbar">
+        <div class="studio-toolbar-title">
+          <div id="sceneCategory" class="studio-kicker">—</div>
+          <strong id="sceneTitle">—</strong><span id="sceneDescription">—</span>
+        </div>
+        <div class="studio-controls">
+          <label class="studio-control"><span>Langue</span><select id="languageSelect"><option value="en">EN</option><option value="fr">FR</option></select></label>
+          <label class="studio-control"><span>Format</span><select id="sizePreset">
+            <option value="1280x720">1280 × 720</option><option value="1920x1080">1920 × 1080</option>
+            <option value="1080x1080">1080 × 1080</option><option value="1080x1350">1080 × 1350</option><option value="1200x1600">1200 × 1600</option>
+          </select></label>
+          <label class="studio-control compact"><span>W</span><input id="widthInput" type="number" min="640" max="2560" step="10"></label>
+          <label class="studio-control compact"><span>H</span><input id="heightInput" type="number" min="480" max="2560" step="10"></label>
+          <button id="fitBtn" class="studio-btn">Ajuster</button>
+          <button id="animBtn" class="studio-btn active" aria-pressed="true">Animations</button>
+          <button id="reloadBtn" class="studio-btn">↻ Rejouer</button>
+          <button id="cleanBtn" class="studio-btn primary">Ouvrir clean</button>
+        </div>
+      </header>
+
+      <section class="studio-stage-area" id="studioStageArea"><div id="stageMeasure" class="studio-stage-measure"><div id="shotViewport" class="shot-viewport" role="region" aria-label="Aperçu de la scène"></div></div></section>
+      <footer class="studio-statusbar" id="studioStatusbar">
+        <span id="sceneCounter">—</span><span id="resolutionLabel">—</span><span id="zoomLabel">—</span>
+        <span class="studio-status-note">Aucune vraie sauvegarde n’est chargée ou modifiée.</span>
+        <button id="copyLinkBtn" class="studio-link-btn">Copier le lien</button>
+      </footer>
+    </main>
+  </div>
+  <script type="module" src="./studio.mjs"></script>
+</body>
+</html>
