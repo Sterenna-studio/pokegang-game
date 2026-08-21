@@ -48,6 +48,11 @@ import {
 
 const LOCK_OWNER = 'onboarding-v2';
 const AMBUSH_SPAWN_ID = 'onboarding-ambush';
+// Plafond d'attente de la séquence visuelle de l'embuscade (cf.
+// _afterAmbushSequence). Volontairement très au-dessus du budget d'animation
+// (~14 s côté zoneWindows, plus la pause finale) : ce n'est pas un rythme,
+// c'est un filet — s'il se déclenche, c'est que le combat a été interrompu.
+const AMBUSH_SEQUENCE_TIMEOUT_MS = 40_000;
 
 let _ctx = {};
 let _running = false;
@@ -284,20 +289,50 @@ function _resolveAmbush(won) {
     () => _track('ambush_resolved', { won: !!won, zone: ONBOARDING_ZONE_ID }),
   );
   if (!committed) return false;
-  // L'issue est tranchée dès l'émission de COMBAT_WON/LOST, mais le combat
-  // continue de dérouler son log pendant une vingtaine de secondes et garde le
-  // DOM de la zone verrouillé — patchZoneWindow refuse alors de reconstruire la
-  // rencontre de quête, donc ni Giovanni ni le transfuge ne pourraient
-  // apparaître. On coupe le combat puisque son résultat est déjà appliqué.
-  _ctx.endZoneCombat?.(ONBOARDING_ZONE_ID);
-  const spawns = _ctx.getZoneSpawns?.(ONBOARDING_ZONE_ID);
-  if (Array.isArray(spawns)) {
-    for (const spawn of [...spawns]) _ctx.removeSpawn?.(ONBOARDING_ZONE_ID, spawn.id);
-  }
-  // Le mot de la fin des sbires, l'arrivée de Giovanni puis son écran
-  // d'identité s'enchaînent dans _openIdentityStep, sous un seul verrou.
-  setTimeout(() => { void _openIdentityStep(); }, 600);
+  // COMBAT_WON/LOST est émis par applyCombatResult, donc AVANT que le combat
+  // n'ait affiché sa première image : couper ici (ce que faisait la version
+  // précédente) supprimait purement et simplement l'unique combat de la
+  // première session — le joueur voyait le raid disparaître d'un coup, puis
+  // Giovanni. On laisse donc la séquence visuelle se dérouler et on n'enchaîne
+  // qu'à COMBAT_SEQUENCE_ENDED, une fois le DOM de la zone rendu : sans ça,
+  // patchZoneWindow refuse de reconstruire la rencontre et ni Giovanni ni le
+  // transfuge ne peuvent apparaître.
+  _afterAmbushSequence(() => {
+    // No-op si le combat s'est déjà refermé de lui-même ; indispensable si on
+    // arrive ici par le filet de sécurité.
+    _ctx.endZoneCombat?.(ONBOARDING_ZONE_ID);
+    const spawns = _ctx.getZoneSpawns?.(ONBOARDING_ZONE_ID);
+    if (Array.isArray(spawns)) {
+      for (const spawn of [...spawns]) _ctx.removeSpawn?.(ONBOARDING_ZONE_ID, spawn.id);
+    }
+    // Le mot de la fin des sbires, l'arrivée de Giovanni puis son écran
+    // d'identité s'enchaînent dans _openIdentityStep, sous un seul verrou.
+    setTimeout(() => { void _openIdentityStep(); }, 600);
+  });
   return true;
+}
+
+/**
+ * Exécute `next` quand la séquence visuelle du combat d'embuscade est finie.
+ * Filet de sécurité obligatoire : si le combat est interrompu autrement
+ * (fenêtre de zone fermée, teardown par une autre surface), COMBAT_SEQUENCE_ENDED
+ * n'arrivera jamais et le tunnel resterait bloqué sur un terrain vide.
+ */
+function _afterAmbushSequence(next) {
+  let done = false;
+  let unsubscribe = null;
+  let safety = null;
+  const run = () => {
+    if (done) return;
+    done = true;
+    unsubscribe?.();
+    clearTimeout(safety);
+    next();
+  };
+  unsubscribe = EventBus.on(EVENTS.COMBAT_SEQUENCE_ENDED, ({ zoneId } = {}) => {
+    if (zoneId === ONBOARDING_ZONE_ID) run();
+  });
+  safety = setTimeout(run, AMBUSH_SEQUENCE_TIMEOUT_MS);
 }
 
 // ── Giovanni ──────────────────────────────────────────────────────

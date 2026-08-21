@@ -3147,6 +3147,9 @@ function executeCombat() {
     _topBar();
     updateZoneTimers(zoneId);
     if (globalThis.activeTab === 'tabGang') globalThis.renderGangTab();
+    // Le DOM de la zone est libéré : une surface narrative qui attendait la
+    // fin de l'animation (l'embuscade d'onboarding) peut enchaîner ici.
+    EventBus.emit(EVENTS.COMBAT_SEQUENCE_ENDED, { zoneId });
   }
 
   if (spawnEl) {
@@ -3170,10 +3173,24 @@ function executeCombat() {
   // L'embuscade d'onboarding est le premier combat jamais vu par le joueur —
   // un rythme plus lent le laisse remarquer chaque Pokémon plutôt que de
   // défiler comme un combat de routine parmi des centaines d'autres.
+  //
+  // Le délai est calculé sur un budget total plutôt que fixé par étape : le
+  // script fait 3 dresseurs × 2 Pokémon face à l'équipe de première session,
+  // donc sa longueur varie beaucoup d'une partie à l'autre. À 1500 ms fixes,
+  // un combat un peu long retardait l'arrivée de Giovanni de plus de trente
+  // secondes. Les entrées en scène (`switch`) gardent une pause plus longue :
+  // c'est précisément là qu'on veut laisser voir chaque Pokémon.
   const isOnboardingAmbush = !!spawnWithZone?.spawnCtx?.ambush;
+  const AMBUSH_BUDGET_MS = 14_000;
   let index = 0;
-  const delay = isOnboardingAmbush ? 1500 : 650;
-  const switchDelay = isOnboardingAmbush ? 2200 : delay;
+  const delay = isOnboardingAmbush
+    ? Math.min(1400, Math.max(400, Math.round(AMBUSH_BUDGET_MS / Math.max(script.length, 1))))
+    : 650;
+  // Une équipe de première session tombe souvent en une trentaine d'étapes :
+  // le budget ramène alors chaque échange autour de 400 ms, et c'est la pause
+  // d'entrée en scène qui porte la lisibilité. Sur un combat court, le délai
+  // remonte jusqu'au plafond et le rythme redevient franchement posé.
+  const switchDelay = isOnboardingAmbush ? Math.round(delay * 1.8) : delay;
   function nextStep() {
     if (!currentCombat || currentCombat.zoneId !== zoneId) return;
     if (index < script.length) {
