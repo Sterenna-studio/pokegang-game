@@ -470,7 +470,9 @@ create index if not exists leaderboard_created_at_idx on public.pokegang_leaderb
 -- lorsqu'une activité réelle est détectée côté client
 -- (consumePlayerActivityForLeaderboard()), donc c'est un vrai signal
 -- d'usage, pas juste "un onglet resté ouvert en arrière-plan".
-create or replace view public.pokegang_stats_daily_active as
+create or replace view public.pokegang_stats_daily_active
+with (security_invoker = true)
+as
 select
   date_trunc('day', updated_at)::date as day,
   count(*) as active_players
@@ -480,7 +482,9 @@ group by 1
 order by 1 desc;
 
 -- Nouveaux joueurs par jour (30 derniers jours), à partir de created_at.
-create or replace view public.pokegang_stats_new_players as
+create or replace view public.pokegang_stats_new_players
+with (security_invoker = true)
+as
 select
   date_trunc('day', created_at)::date as day,
   count(*) as new_players
@@ -490,7 +494,9 @@ group by 1
 order by 1 desc;
 
 -- Distribution de réputation — où en sont les joueurs dans leur progression.
-create or replace view public.pokegang_stats_rep_distribution as
+create or replace view public.pokegang_stats_rep_distribution
+with (security_invoker = true)
+as
 select
   case
     when reputation < 100    then '0-99'
@@ -509,6 +515,15 @@ group by 1;
 -- flux compte connecté (supaUpdateLeaderboard()), jamais par le flux
 -- anonyme (supaUpdateLeaderboardAnon() / pokegang-leaderboard-submit), qui
 -- ne porte pas ce champ. Sous-estime donc la vraie population de joueurs.
+--
+-- Reste volontairement SECURITY DEFINER (pas de `security_invoker`, contrairement
+-- aux 3 vues ci-dessus) : le RLS de pokegang_players restreint anon aux lignes
+-- public_profile = true et authenticated à sa propre ligne, alors que ce
+-- comptage doit porter sur TOUS les comptes pour être un vrai total côté
+-- créateur. Passer en security_invoker sous-compterait encore plus que la
+-- limite déjà documentée ci-dessus. Le Security Advisor de Supabase continuera
+-- de lister cette vue — accepté sciemment : elle n'expose qu'un agrégat
+-- (comptages), jamais une ligne individuelle.
 create or replace view public.pokegang_stats_region_funnel as
 select
   count(*) filter (where regions_data ? 'kanto')  as kanto,
