@@ -516,24 +516,42 @@ group by 1;
 -- anonyme (supaUpdateLeaderboardAnon() / pokegang-leaderboard-submit), qui
 -- ne porte pas ce champ. Sous-estime donc la vraie population de joueurs.
 --
--- Reste volontairement SECURITY DEFINER (pas de `security_invoker`, contrairement
--- aux 3 vues ci-dessus) : le RLS de pokegang_players restreint anon aux lignes
--- public_profile = true et authenticated à sa propre ligne, alors que ce
--- comptage doit porter sur TOUS les comptes pour être un vrai total côté
--- créateur. Passer en security_invoker sous-compterait encore plus que la
--- limite déjà documentée ci-dessus. Le Security Advisor de Supabase continuera
--- de lister cette vue — accepté sciemment : elle n'expose qu'un agrégat
--- (comptages), jamais une ligne individuelle.
-create or replace view public.pokegang_stats_region_funnel as
-select
-  count(*) filter (where regions_data ? 'kanto')  as kanto,
-  count(*) filter (where regions_data ? 'johto')  as johto,
-  count(*) filter (where regions_data ? 'hoenn')  as hoenn,
-  count(*) filter (where regions_data ? 'sinnoh') as sinnoh,
-  count(*) as total_accounts
-from public.pokegang_players;
+-- Implémentée comme FONCTION (pas une vue) exprès : elle doit compter TOUS
+-- les comptes de pokegang_players, alors que son RLS restreint anon aux
+-- lignes public_profile = true et authenticated à sa propre ligne — un accès
+-- élevé volontaire est donc nécessaire. Le Security Advisor de Supabase
+-- flague spécifiquement les VUES portant la propriété SECURITY DEFINER (accès
+-- élevé implicite et facile à manquer sur un simple SELECT) ; une fonction
+-- security definer avec search_path figé rend cet accès élevé explicite (un
+-- appel RPC nommé) et n'est pas concernée par ce lint. search_path = '' impose
+-- de qualifier tous les objets référencés par leur schéma — déjà le cas ici
+-- (public.pokegang_players). Appelée par docs/stats.html via
+-- POST/GET /rest/v1/rpc/pokegang_stats_region_funnel.
+drop view if exists public.pokegang_stats_region_funnel;
+
+create or replace function public.pokegang_stats_region_funnel()
+returns table (
+  kanto bigint,
+  johto bigint,
+  hoenn bigint,
+  sinnoh bigint,
+  total_accounts bigint
+)
+language sql
+security definer
+set search_path = ''
+stable
+as $$
+  select
+    count(*) filter (where regions_data ? 'kanto')  as kanto,
+    count(*) filter (where regions_data ? 'johto')  as johto,
+    count(*) filter (where regions_data ? 'hoenn')  as hoenn,
+    count(*) filter (where regions_data ? 'sinnoh') as sinnoh,
+    count(*) as total_accounts
+  from public.pokegang_players;
+$$;
 
 grant select on public.pokegang_stats_daily_active     to anon, authenticated;
 grant select on public.pokegang_stats_new_players       to anon, authenticated;
 grant select on public.pokegang_stats_rep_distribution  to anon, authenticated;
-grant select on public.pokegang_stats_region_funnel     to anon, authenticated;
+grant execute on function public.pokegang_stats_region_funnel() to anon, authenticated;
