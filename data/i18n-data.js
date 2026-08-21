@@ -816,7 +816,6 @@ const I18N = {
   gang_base_no_agent:      { fr:'Aucun agent',            en:'No agent'            },
   gang_base_buy_skin_confirm:{ fr:'Acheter le skin "{name}" pour {cost}₽ ?', en:'Buy the "{name}" skin for {cost}₽?' },
   gang_base_open_zone_hint:{ fr:'Ouvrez une zone pour lancer les opérations', en:'Open a zone to start operations' },
-  gang_base_possession:    { fr:'Possession',             en:'Control'             },
   gang_base_danger:        { fr:'Danger',                 en:'Danger'              },
   gang_base_rarity:        { fr:'Rareté',                 en:'Rarity'              },
   rarity_common:           { fr:'Commun',                 en:'Common'              },

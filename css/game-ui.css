@@ -2490,7 +2490,6 @@
       border-radius: 3px;
       background: var(--red);
     }
-    .base-possession b,
     .base-state b { background: var(--green); }
     .base-rarity b { background: var(--gold); }
 
@@ -3339,17 +3338,9 @@
     .gb2-focus-zone-type.special { background: rgba(170,102,204,.08); color: #aa66cc;     border: 1px solid rgba(170,102,204,.25); }
     .gb2-focus-zone-type.onboarding { background: rgba(255,204,90,.08); color: var(--gold); border: 1px solid rgba(255,204,90,.25); }
 
-    .gb2-possession-meter { padding: 8px 10px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
-    .gb2-poss-top { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 5px; }
-    .gb2-poss-val { font-family: var(--font-pixel); font-size: 20px; color: var(--text); line-height: 1; }
-    .gb2-poss-val.high { color: var(--red); text-shadow: 0 0 10px rgba(204,51,51,.35); }
-    .gb2-poss-val.med  { color: #e67c00; }
-    .gb2-poss-val.low  { color: var(--text-dim); }
-    .gb2-poss-label { font-family: var(--font-pixel); font-size: 6px; color: var(--text-dim); letter-spacing: 2px; margin-bottom: 2px; }
-    .gb2-poss-sub { font-size: 8px; color: var(--text-dim); }
-    .gb2-poss-bar-track { height: 4px; background: var(--bg-card); border: 1px solid var(--border); overflow: hidden; }
-    .gb2-poss-bar-fill { height: 100%; background: linear-gradient(90deg, var(--red-dark), var(--red)); transition: width .4s ease; }
-    .gb2-poss-badges { display: flex; gap: 3px; margin-top: 5px; flex-wrap: wrap; }
+    .gb2-focus-status { padding: 8px 10px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .gb2-focus-status-top { font-size: 8px; color: var(--text-dim); margin-bottom: 5px; }
+    .gb2-focus-badges { display: flex; gap: 3px; flex-wrap: wrap; }
     .gb2-pbadge { font-family: var(--font-pixel); font-size: 6px; padding: 1px 5px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-dim); }
     .gb2-pbadge.faible  { border-color: rgba(68,187,85,.3);  color: var(--green); }
     .gb2-pbadge.modere  { border-color: rgba(255,204,90,.3); color: var(--gold); }
@@ -3377,9 +3368,7 @@
     .gb2-zone-row-info { flex: 1; min-width: 0; }
     .gb2-zone-row-name { font-family: var(--font-pixel); font-size: 6px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .gb2-zone-row-sub { font-size: 8px; color: var(--text-dim); }
-    .gb2-zone-row-poss { font-family: var(--font-pixel); font-size: 7px; color: var(--text-dim); flex-shrink: 0; }
-    .gb2-zone-row-poss.hi  { color: var(--red); }
-    .gb2-zone-row-poss.med { color: #e67c00; }
+    .gb2-zone-row-open { font-family: var(--font-pixel); font-size: 7px; color: var(--red); flex-shrink: 0; }
 
     /* ── CENTER column ── */
     .gb2-center { display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
