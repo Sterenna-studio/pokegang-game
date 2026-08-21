@@ -100,6 +100,17 @@ function rollNewAgent() {
     personality,
     team:          [],
     assignedZone:  null,
+    // Un agent frais ne se bat pas et ne raide pas tant que le joueur ne l'a
+    // pas décidé : il ramène des captures, c'est tout. Ces drapeaux étaient
+    // simplement absents, et tout le code les lit en `!== false` — un agent
+    // recruté partait donc au combat sans qu'on le lui ait demandé, ce qui
+    // contredisait le transfuge quand il réclame ensuite qu'on active son
+    // option de combat. Les agents des saves existantes gardent leur
+    // comportement (undefined y reste traité comme actif) : on ne désarme
+    // personne rétroactivement.
+    autoCombat:    false,
+    autoRaid:      false,
+    autoCapture:   true,
     notifyCaptures: true,
     legacyLocked:  false,
     energy:        10,

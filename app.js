@@ -169,6 +169,7 @@ import {
 } from './modules/ui/onboardingGuide.js';
 import {
   configureOnboardingScene,
+  playScriptedAmbush,
   playAmbushArrival,
   playGiovanniArrival,
   playGiovanniDeparture,
@@ -188,7 +189,7 @@ import {
 } from './modules/ui/itemsIntroPopup.js';
 import { configureRivalEncounterPopup } from './modules/ui/rivalEncounterPopup.js';
 import { isOnboardingActive } from './modules/systems/onboardingFlow.js';
-import { ONBOARDING_AMBUSH_LINES } from './data/onboarding-data.js';
+import { ONBOARDING_AMBUSH_LINES, ONBOARDING_ZONE_ID } from './data/onboarding-data.js';
 import { checkDarkraiCutscene, triggerDarkraiOnLeagueVictory } from './modules/ui/darkraiEvent.js';
 import './modules/ui/hoennEvent.js';
 import './modules/ui/johtoEvent.js';
@@ -1753,6 +1754,7 @@ function configureEntryFlows() {
     ambushIntroLine: lang => (lang === 'en'
       ? ONBOARDING_AMBUSH_LINES.intro.en : ONBOARDING_AMBUSH_LINES.intro.fr),
     playAmbushArrival,
+    playScriptedAmbush,
     playGiovanniArrival,
     playGiovanniDeparture,
     showAmbushChallengePopup,
@@ -1762,6 +1764,17 @@ function configureEntryFlows() {
     getState: () => state,
     notify,
     switchTab,
+    // Le terrain de départ n'a plus rien à montrer une fois que le transfuge
+    // renvoie le joueur vers l'onglet Agents : on le referme pour que l'onglet
+    // Zones affiche directement le vrai fogmap au prochain passage.
+    purgeOnboardingZone: () => {
+      closeZoneWindow(ONBOARDING_ZONE_ID);
+      if (Array.isArray(state.openZoneOrder)) {
+        state.openZoneOrder = state.openZoneOrder.filter(id => id !== ONBOARDING_ZONE_ID);
+      }
+      applyOnboardingTabAccess();
+      globalThis.renderZonesTab?.();
+    },
   });
 
   configureOnboardingScene({

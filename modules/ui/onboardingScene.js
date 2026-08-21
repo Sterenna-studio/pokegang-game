@@ -129,6 +129,37 @@ function _unmountCatcher() {
   _catcher = null;
 }
 
+// ── Renforts de l'embuscade ───────────────────────────────────────
+// L'acteur de scène est unique (un seul .zone-quest-encounter) : pour montrer
+// la bande qui encercle le joueur, on pose des sprites décoratifs
+// supplémentaires dans le viewport, échelonnés, sans passer par le moteur de
+// beats. Ils ne sont jamais cliquables — le capteur de scène est au-dessus.
+const BACKUP_CLASS = 'onboarding-backup-grunt';
+
+function _mountBackupGrunts(keys) {
+  const viewport = _viewport();
+  if (!viewport) return;
+  _unmountBackupGrunts();
+  keys.forEach((key, i) => {
+    const el = document.createElement('img');
+    el.className = BACKUP_CLASS;
+    el.src = _spriteUrl(key);
+    el.alt = '';
+    // Répartis vers la droite du terrain, l'acteur occupant déjà la gauche.
+    el.style.left = `${38 + i * 17}%`;
+    el.style.animationDelay = `${i * 180}ms`;
+    el.onerror = function () { this.style.visibility = 'hidden'; };
+    viewport.appendChild(el);
+  });
+}
+
+function _unmountBackupGrunts() {
+  // Scopé au viewport : c'est le seul endroit où ils sont posés, et ça évite
+  // de dépendre d'un document complet (le harnais de test n'en stubbe qu'une
+  // partie).
+  _viewport()?.querySelectorAll(`.${BACKUP_CLASS}`).forEach(el => el.remove());
+}
+
 // ── Moteur de beats ───────────────────────────────────────────────
 export function isOnboardingSceneRunning() {
   return _running;
@@ -321,6 +352,49 @@ export function playAmbushArrival() {
 }
 
 /**
+ * L'embuscade elle-même, entièrement scénarisée : le joueur sort son premier
+ * Pokémon, le sbire s'en moque, la bande le rejoint et l'issue est écrite —
+ * il se fait prendre. Remplace le vrai combat qui se jouait ici : la défaite
+ * était de toute façon l'issue attendue (une équipe de première session contre
+ * six Pokémon), mais elle passait par le moteur de combat, avec ses aléas et
+ * son rythme mal adapté à un moment narratif.
+ *
+ * Le sbire qui parle est celui dont le sprite sera proposé juste après comme
+ * transfuge : c'est volontairement la même tête.
+ */
+export function playScriptedAmbush({ starterSpeciesEn = '', starterShiny = false } = {}) {
+  const starterSprite = globalThis.pokeSprite?.(starterSpeciesEn, starterShiny) || '';
+  const starterName = globalThis.speciesName?.(starterSpeciesEn) || starterSpeciesEn || '';
+  // Des sbires « classiques » pour les renforts, distincts de la tête qui parle.
+  const speakerKey = _gruntSpriteKey();
+  const backupKeys = ['rocketgrunt', 'rocketgruntf', 'rocketgrunt']
+    .filter(k => k !== speakerKey)
+    .slice(0, 2);
+
+  return _play([
+    // Le joueur envoie son Pokémon : il entre seul, en silence.
+    {
+      actor: {
+        name: starterName,
+        bubble: '',
+        cls: 'scene-arrive',
+        icon: '⚔',
+        spriteUrl: starterSprite,
+      },
+      hold: MOVE_HOLD_MS,
+    },
+    // Le sbire se moque du geste.
+    { actor: _grunt(_line(ONBOARDING_AMBUSH_LINES.taunt)) },
+    // La bande arrive — beat muet, le temps que les sprites entrent.
+    {
+      actor: _grunt(''),
+      hold: MOVE_HOLD_MS + 400,
+      enter: () => _mountBackupGrunts(backupKeys),
+    },
+  ]).finally(() => _unmountBackupGrunts());
+}
+
+/**
  * L'après-embuscade : les sbires ont le dernier mot, puis Giovanni arrive et
  * enchaîne ses répliques. L'écran d'identité ne s'ouvre qu'au retour de cette
  * promesse — d'où le fait que l'appelant garde le verrou.
@@ -360,6 +434,10 @@ export function playGiovanniDeparture() {
 
 /** Coupe une scène en cours (changement de slot, abandon de l'onboarding). */
 export function cancelOnboardingScene() {
+  // Les renforts sont posés hors du moteur de beats : le `finally` de
+  // playScriptedAmbush les retire au retour normal, mais une annulation qui
+  // n'attend pas la promesse les laisserait plantés sur le terrain.
+  _unmountBackupGrunts();
   if (!_running) return false;
   _cancelled = true;
   // _forceResolve, pas _advance : en pleine frappe, _advance() ne ferait que

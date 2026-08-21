@@ -152,6 +152,12 @@ export const ONBOARDING_AMBUSH_LINES = {
     fr: "Hé ! Personne ne chasse sur ce terrain. Il appartient à quelqu'un.",
     en: "Hey! Nobody hunts on this field. It belongs to someone.",
   },
+  // Le joueur vient de sortir son premier Pokémon : la réplique se moque de
+  // ce geste, juste avant que les renforts n'entrent en scène.
+  taunt: {
+    fr: "Parce que tu penses pouvoir te défendre face à nous !",
+    en: "You think you can defend yourself against us!",
+  },
   lost: {
     fr: "Tu vois ? On est trop nombreux pour toi. Allez, on l'emmène au patron.",
     en: "See? Too many of us for you. Come on, we're taking them to the boss.",

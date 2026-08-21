@@ -156,16 +156,34 @@ function _pointGuideHelpAt(targetEl, text) {
   return true;
 }
 
+/**
+ * Attend que la cible existe avant d'y planter la flèche. Deviner un délai ne
+ * marche pas : renderAgentsTab() est débouncé (80ms), et il diffère encore son
+ * rendu si un champ de la grille a le focus — sans compter le bridage des
+ * timers quand l'onglet navigateur est en arrière-plan. On sonde donc jusqu'à
+ * ce que l'élément apparaisse, avec un plafond pour ne pas boucler à vide.
+ */
+function _pointGuideHelpWhenReady(selector, text, { tries = 24, intervalMs = 80 } = {}) {
+  let left = tries;
+  const attempt = () => {
+    const target = document.querySelector(selector);
+    if (target) { _pointGuideHelpAt(target, text); return; }
+    if (--left > 0) setTimeout(attempt, intervalMs);
+  };
+  setTimeout(attempt, 0);
+}
+
 /** Guide vers l'écran d'affectation d'un Pokémon à cet agent (étape GUIDE_TEAM). */
 function _guideToTeamAssignment(agentId) {
+  // Le terrain de départ a fini son office : tout ce qui reste au transfuge
+  // (équipe, zone, option de combat) se règle dans l'onglet Agents. Le laisser
+  // ouvert affichait une fenêtre de zone vide par-dessus le fogmap au retour.
+  _ctx.purgeOnboardingZone?.();
   _ctx.switchTab?.('tabAgents');
-  setTimeout(() => {
-    const target = document.querySelector(`.agent-team-slot[data-agent-team="${agentId}"]`);
-    _pointGuideHelpAt(target, _t(
-      'Les Pokémon que tu confies à tes agents sont utilisés en combat — donne-leur des Pokémon puissants et adaptés à leur zone.',
-      'The Pokémon you give your agents get used in combat — give them strong Pokémon suited to their zone.',
-    ));
-  }, 0);
+  _pointGuideHelpWhenReady(`.agent-team-slot[data-agent-team="${agentId}"]`, _t(
+    'Les Pokémon que tu confies à tes agents sont utilisés en combat — donne-leur des Pokémon puissants et adaptés à leur zone.',
+    'The Pokémon you give your agents get used in combat — give them strong Pokémon suited to their zone.',
+  ));
   return true;
 }
 
