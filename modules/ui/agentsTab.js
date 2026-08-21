@@ -85,7 +85,11 @@ function _doRenderAgentsTab() {
   const grid = document.getElementById('agentsGrid');
   if (!grid) return;
 
-  const unlockedZones = ZONES.filter(z => isZoneUnlocked(z.id));
+  // gang_park/vivarium ne sont pas de vraies zones de travail (pas de spawns,
+  // pas de combat) et onboarding est le terrain de départ réservé à l'intro —
+  // aucun des trois ne doit apparaître comme zone assignable à un agent.
+  const unlockedZones = ZONES.filter(z => isZoneUnlocked(z.id)
+    && z.type !== 'gang_park' && z.type !== 'vivarium' && z.type !== 'onboarding');
   // The onboarding gives this one away; openAgentRecruitModal() already charges
   // 0₽, so advertising the normal price here contradicted both the modal and
   // the "premier agent offert" objective.
@@ -385,7 +389,8 @@ const bossRep   = state.gang.reputation || 0;
       const aId = card.dataset.agentId;
       const agent = state.agents.find(a => a.id === aId);
       if (!agent) return;
-      const unlockedZones = ZONES.filter(z => isZoneUnlocked(z.id));
+      const unlockedZones = ZONES.filter(z => isZoneUnlocked(z.id)
+        && z.type !== 'gang_park' && z.type !== 'vivarium' && z.type !== 'onboarding');
       const zoneItems = unlockedZones.slice(0, 8).map(z => ({
         action: 'zone_' + z.id,
         label: (state.lang === 'en' ? z.en : z.fr),

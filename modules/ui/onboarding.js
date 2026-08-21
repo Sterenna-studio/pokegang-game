@@ -527,7 +527,15 @@ function _bindOnboardingEvents() {
       ONBOARDING_STEPS.GUIDE_COMBAT,
       {},
       () => _track('guide_zone_assigned', { zone: zoneId }),
-    )) _ctx.refreshGuide?.();
+    )) {
+      // Même souci que forceZonesRefresh au recrutement/à la fin de
+      // l'onboarding : l'assignation se fait depuis l'onglet Agents, donc la
+      // fenêtre de zone (assignation visible, prochaine bulle du guide)
+      // resterait construite avec l'état d'avant tant que le joueur ne
+      // rouvre pas Zones lui-même.
+      _ctx.forceZonesRefresh?.();
+      _ctx.refreshGuide?.();
+    }
   });
 
   // « Active mon option de combat ».

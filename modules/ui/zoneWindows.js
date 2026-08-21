@@ -3167,18 +3167,25 @@ function executeCombat() {
     ...resultLines.map(text => ({ type: 'log', text, final: true })),
   ];
 
+  // L'embuscade d'onboarding est le premier combat jamais vu par le joueur —
+  // un rythme plus lent le laisse remarquer chaque Pokémon plutôt que de
+  // défiler comme un combat de routine parmi des centaines d'autres.
+  const isOnboardingAmbush = !!spawnWithZone?.spawnCtx?.ambush;
   let index = 0;
-  const delay = 650;
+  const delay = isOnboardingAmbush ? 1500 : 650;
+  const switchDelay = isOnboardingAmbush ? 2200 : delay;
   function nextStep() {
     if (!currentCombat || currentCombat.zoneId !== zoneId) return;
     if (index < script.length) {
       const item = script[index++];
+      let stepDelay = delay;
       if (item.type === 'log') {
         const text = item.text;
         const kind = text.startsWith('— ') ? 'result' : (text.startsWith('+') || text.includes(_t('zone_no_loot'))) ? 'loot' : '';
         logLine(text, kind);
       } else if (item.type === 'switch') {
         playSwitch(item);
+        stepDelay = switchDelay;
       } else if (item.type === 'attack') {
         const atkName = globalThis.speciesName(item.attackerSpecies);
         const effTxt = item.effectiveness > 1 ? _t('zone_effective_super')
@@ -3191,7 +3198,7 @@ function executeCombat() {
       } else if (item.type === 'faint') {
         logLine(_t('zone_knocked_out', { pokemon: globalThis.speciesName(item.species_en) }));
       }
-      queueTimer(nextStep, delay);
+      queueTimer(nextStep, stepDelay);
       return;
     }
 
@@ -3201,10 +3208,10 @@ function executeCombat() {
       closeBtn.textContent = _t('zone_close');
       closeBtn.onclick = doClose;
     }
-    queueTimer(doClose, 1800);
+    queueTimer(doClose, isOnboardingAmbush ? 2600 : 1800);
   }
 
-  queueTimer(nextStep, 120);
+  queueTimer(nextStep, isOnboardingAmbush ? 500 : 120);
 }
 
 function closeCombatPopup() {
