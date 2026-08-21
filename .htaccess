@@ -1,0 +1,64 @@
+# ════════════════════════════════════════════════════════════════════════════
+# PokéGang — en-têtes de cache (production, pokegang.sterenna.fr)
+# ════════════════════════════════════════════════════════════════════════════
+#
+# PROBLÈME RÉSOLU ICI
+# Le cache-busting ?v=<hash> de tools/cache-bust.js ne réécrit que les
+# <script src>/<link href> de index.html, soit 13 fichiers. Les ~111 autres
+# modules JS arrivent par des `import '...'` imbriqués, dont l'URL ne porte
+# aucun hash de version. Avec le max-age=604800 (7 jours) servi par défaut,
+# un joueur déjà venu gardait ces 111 fichiers épinglés dans le cache de son
+# navigateur : après un déploiement, index.html et app.js arrivaient frais
+# (leur ?v= avait changé) mais leurs imports restaient périmés — graphe de
+# modules incohérent, et erreur d'import bloquante du type
+# « does not provide an export named X ».
+#
+# Purger Cloudflare ne corrige PAS ce cas : la copie périmée est dans le
+# navigateur du joueur, pas sur l'edge. C'est complémentaire, pas redondant.
+#
+# STRATÉGIE
+# Les fichiers qui composent le graphe applicatif revalident systématiquement
+# côté navigateur (max-age=0, must-revalidate) tout en restant cachés sur
+# l'edge Cloudflare (s-maxage) : la revalidation tape le PoP le plus proche
+# et répond 304 (quelques centaines d'octets), pas le mutualisé OVH. Le
+# workflow .github/workflows/deploy-ovh.yml purge déjà l'edge à chaque push
+# sur main, donc l'edge est toujours frais après un déploiement.
+#
+# Les binaires lourds (sprites, sons, polices) gardent un cache long : leur
+# péremption ne casse aucune cohérence de code, et ce sont eux qui pèsent.
+#
+# LIMITE CONNUE — plafond imposé par Cloudflare
+# Mesuré sur des répertoires de test isolés servis par ce même hôte : le
+# réglage de zone Cloudflare « Browser Cache TTL » (4 h par défaut) réécrit
+# le max-age envoyé au navigateur dès que la valeur d'origine est plus basse.
+# `max-age=0` comme `no-cache` ressortent donc en `max-age=14400` côté client.
+# `must-revalidate` et `s-maxage` survivent intacts, et cf-cache-status passe
+# bien à REVALIDATED (l'edge protège toujours le mutualisé OVH).
+#
+# Concrètement, ce fichier fait passer la fenêtre de péremption navigateur de
+# 7 jours à 4 heures — c'est mod_expires côté OVH qui posait l'Expires à
+# +7 jours, d'où le ExpiresActive Off plus bas. Pour supprimer complètement
+# cette fenêtre, il faut passer « Browser Cache TTL » à « Respect Existing
+# Headers » dans le dashboard Cloudflare (Caching → Configuration) : le
+# max-age=0 ci-dessous prendra alors effet tel quel, sans rien changer ici.
+
+<IfModule mod_headers.c>
+  # ── Graphe applicatif : toujours revalider côté navigateur ────────────────
+  <FilesMatch "\.(js|mjs|css|json|html)$">
+    Header always set Cache-Control "public, max-age=0, must-revalidate, s-maxage=604800"
+    Header always unset Expires
+    Header always unset Pragma
+  </FilesMatch>
+
+  # ── Binaires immuables : cache long, sans impact sur la cohérence du code ─
+  <FilesMatch "\.(png|jpe?g|gif|svg|webp|avif|ico|woff2?|ttf|eot|mp3|ogg|wav|webm|mp4)$">
+    Header always set Cache-Control "public, max-age=2592000"
+  </FilesMatch>
+</IfModule>
+
+# mod_expires poserait un Expires calculé qui brouille la lecture des en-têtes
+# ci-dessus (Cache-Control prime en HTTP/1.1, mais autant ne pas envoyer les
+# deux). Les règles Cache-Control de ce fichier sont la seule source de vérité.
+<IfModule mod_expires.c>
+  ExpiresActive Off
+</IfModule>
