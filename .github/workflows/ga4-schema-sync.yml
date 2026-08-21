@@ -1,0 +1,60 @@
+name: GA4 custom schema
+
+on:
+  pull_request:
+    paths:
+      - 'analytics/ga4-definitions.json'
+      - 'tools/sync-ga4-definitions.mjs'
+      - '.github/workflows/ga4-schema-sync.yml'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Compare GA4 with the manifest, or apply missing/changed managed definitions'
+        required: true
+        default: 'check'
+        type: choice
+        options:
+          - check
+          - apply
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate manifest
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate GA4 manifest
+        run: node tools/sync-ga4-definitions.mjs --validate
+
+  sync:
+    name: ${{ inputs.mode == 'apply' && 'Apply GA4 schema' || 'Check GA4 schema' }}
+    if: github.event_name == 'workflow_dispatch'
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: ga4-admin
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Sync GA4 custom definitions
+        env:
+          GA4_PROPERTY_ID: '547494860'
+          GA4_ADMIN_SERVICE_ACCOUNT_JSON_B64: ${{ secrets.GA4_ADMIN_SERVICE_ACCOUNT_JSON_B64 }}
+        shell: bash
+        run: |
+          if [ "${{ inputs.mode }}" = "apply" ]; then
+            node tools/sync-ga4-definitions.mjs --apply
+          else
+            node tools/sync-ga4-definitions.mjs --check
+          fi
