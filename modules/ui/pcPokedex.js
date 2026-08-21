@@ -3294,14 +3294,21 @@ function renderPokedexTab() {
     </div>`;
   }).join('') : `<div style="color:var(--text-dim);font-size:9px;padding:16px;font-family:var(--font-pixel)">${_t('pc_no_result')}</div>`;
 
-  grid.querySelectorAll('.dex-entry[data-dex-en]').forEach(el => {
-    el.addEventListener('click', () => {
+  // Délégation : un seul listener sur la grille, posé une fois pour toutes,
+  // au lieu d'un par entrée réattaché à chaque rendu (le Pokédex national en
+  // compte plusieurs centaines, et cette fonction re-rend à chaque frappe
+  // dans la recherche comme à chaque changement de filtre).
+  if (!grid.dataset.dexClickWired) {
+    grid.dataset.dexClickWired = '1';
+    grid.addEventListener('click', (e) => {
+      const el = e.target.closest?.('.dex-entry[data-dex-en]');
+      if (!el || !grid.contains(el)) return;
       dexSelectedEn = el.dataset.dexEn;
-      grid.querySelectorAll('.dex-entry').forEach(e => e.classList.remove('selected'));
+      grid.querySelector('.dex-entry.selected')?.classList.remove('selected');
       el.classList.add('selected');
       renderDexDetail(dexSelectedEn);
     });
-  });
+  }
 
   // Search input wiring (once)
   const searchInput = document.getElementById('dexSearchInput');

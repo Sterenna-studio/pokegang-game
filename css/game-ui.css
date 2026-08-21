@@ -833,7 +833,17 @@
     .pc-group-card { transition: border-color .15s, transform .12s; }
     .pc-group-card:hover { border-color: var(--gold-dim) !important; transform: scale(1.05); }
     .pc-group-card.selected { border-color: var(--gold) !important; box-shadow: 0 0 8px var(--red-glow); }
-    .pc-pokemon.shiny { animation: glow 2s ease-in-out infinite; }
+    /* Halo chromatique — voir @keyframes haloPulse pour le pourquoi de ce
+       montage en pseudo-élément plutôt qu'un `animation: glow` direct. */
+    .pc-pokemon.shiny::after {
+      content: '';
+      position: absolute;
+      inset: -1px;
+      border-radius: inherit;
+      box-shadow: 0 0 14px var(--gold), 0 0 24px var(--gold-dim);
+      animation: haloPulse 2s ease-in-out infinite;
+      pointer-events: none;
+    }
 
     .pc-pokemon img { width: 64px; height: 64px; }
     .pc-pokemon.in-team { border-color: var(--green); }
@@ -1256,13 +1266,18 @@
       from { opacity: 0; scale: .5; }
       to   { opacity: 1; scale: 1; }
     }
-    .dex-entry.dex-family-complete {
-      border-color: var(--gold);
-      animation: dexFamilyGlow 2.4s ease-in-out infinite;
-    }
-    @keyframes dexFamilyGlow {
-      0%, 100% { box-shadow: 0 0 6px 0px rgba(255, 204, 90, .35); }
-      50%      { box-shadow: 0 0 12px 3px rgba(255, 204, 90, .65); }
+    /* Même montage que .pc-pokemon.shiny : c'est ici que ça comptait le plus,
+       un Pokédex bien avancé affichant plus de 130 familles complètes d'un
+       coup. Voir @keyframes haloPulse. */
+    .dex-entry.dex-family-complete { border-color: var(--gold); }
+    .dex-entry.dex-family-complete::after {
+      content: '';
+      position: absolute;
+      inset: -1px;
+      border-radius: inherit;
+      box-shadow: 0 0 12px 3px rgba(255, 204, 90, .65);
+      animation: haloPulse 2.4s ease-in-out infinite;
+      pointer-events: none;
     }
 
     /* ── Event Feed (tabBattleLog) ───────────────────────────────── */
@@ -2079,6 +2094,21 @@
     @keyframes glow {
       0%, 100% { box-shadow: 0 0 4px var(--gold-dim); }
       50%      { box-shadow: 0 0 14px var(--gold), 0 0 24px var(--gold-dim); }
+    }
+
+    /* Pulsation de halo pour les éléments présents EN GRAND NOMBRE à l'écran
+       (chromatiques du PC, familles complètes du Pokédex). `glow` ci-dessus
+       anime la box-shadow elle-même : le navigateur doit alors repeindre
+       l'élément à chaque frame, sur le thread principal, sans pouvoir
+       déléguer au GPU. Sur un Pokédex bien rempli, ~140 entrées animaient
+       ainsi leur ombre en continu et l'onglet devenait poussif.
+       Ici l'ombre est FIXE sur un pseudo-élément et seule son opacité varie —
+       une propriété compositable, donc sans repaint. Rendu quasi identique.
+       `glow` reste en place pour les usages ponctuels (un bouton à la fois),
+       où le coût est négligeable. */
+    @keyframes haloPulse {
+      0%, 100% { opacity: .28; }
+      50%      { opacity: 1; }
     }
 
     /* ── Zone Headbar (collapsible) ─────────────────────────────── */
