@@ -27,6 +27,9 @@
 // ════════════════════════════════════════════════════════════════
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
+import { releaseStoryLock, requestStory, STORY_PRIORITIES } from '../core/storyLock.js';
+
+const STORY_OWNER = 'hoenn-cinematic';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type });
 const _save   = ()               => globalThis.saveState?.();
@@ -826,21 +829,31 @@ function _close() {
   setTimeout(() => {
     _overlay?.remove();
     _overlay = null;
+    releaseStoryLock(STORY_OWNER);
   }, 520);
 }
 
 // ── Déclenchement ─────────────────────────────────────────────────
 function _startCinematic() {
-  if (_overlay) return;
-  _overlay = _buildOverlay();
-  _step0();
+  return requestStory(STORY_OWNER, () => {
+    if (_overlay) return false;
+    _overlay = _buildOverlay();
+    _step0();
+    return true;
+  }, {
+    priority: STORY_PRIORITIES.GAMEPLAY,
+    isEligible: () => {
+      const s = _state();
+      return !!s?.gang?.initialized && !s.gang.hoennCinematicSeen && !s.purchases?.hoennUnlocked;
+    },
+  });
 }
 
 export function showHoennCinematic() {
   const s = _state();
   if (s.gang?.hoennCinematicSeen) return;
   if (s.purchases?.hoennUnlocked) return;
-  _startCinematic();
+  return _startCinematic();
 }
 
 Object.assign(globalThis, { showHoennCinematic });

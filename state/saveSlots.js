@@ -82,6 +82,8 @@ export function getSlotPreview(slotIdx) {
     const agentSprites = (s.agents || []).slice(0, 3).map(a => a.sprite);
     return {
       name: s.gang?.name || '???',
+      initialized: !!s.gang?.initialized,
+      onboarding: s.onboarding || null,
       money: s.gang?.money || 0,
       pokemon: (s.pokemons || []).length,
       rep: s.gang?.reputation || 0,

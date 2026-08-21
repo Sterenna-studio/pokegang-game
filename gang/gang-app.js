@@ -16,7 +16,7 @@ import { createStore } from '../state/store.js';
 import '../modules/ui/cosmetics.js'; // side-effect: expose applyCosmetics() sur globalThis
 import '../modules/core/sprites.js';  // side-effect: expose pokeSprite/pokeIcon/trainerSprite/... sur globalThis
 import {
-  COSMETIC_BGS, FABRIC_SPECIES, PATCH_PIDS, fabricBgUrl, patchUrl,
+  ZONE_BGS, COSMETIC_BGS, FABRIC_SPECIES, PATCH_PIDS, fabricBgUrl, patchUrl,
 } from '../data/zones-visuals-data.js';
 import {
   SHOWCASE_SLOTS, BOSS_TEAM_SLOTS, AGENT_RANK_LABELS, NATURES,
@@ -168,7 +168,7 @@ function updateTopbar() {
 Object.assign(globalThis, {
   state, EventBus, EVENTS, notify, showConfirm, SFX, saveState, isZoneUnlocked,
   pokeSprite, pokeIcon, trainerSprite, speciesName, pokemonDisplayName,
-  COSMETIC_BGS, FABRIC_SPECIES, PATCH_PIDS, fabricBgUrl, patchUrl,
+  ZONE_BGS, COSMETIC_BGS, FABRIC_SPECIES, PATCH_PIDS, fabricBgUrl, patchUrl,
   SHOWCASE_SLOTS, BOSS_TEAM_SLOTS, AGENT_RANK_LABELS, BALL_SPRITES, BALLS, SHOP_ITEMS, NATURES,
   EGG_SPRITES, TRAINER_TYPES,
 });

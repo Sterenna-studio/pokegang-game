@@ -14,6 +14,7 @@
 'use strict';
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
+import { isOnboardingActive } from '../systems/onboardingFlow.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
 const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
@@ -62,8 +63,13 @@ function _getActiveZones() {
   if (_activeRegion === 'johto')  return typeof ZONES_JOHTO  !== 'undefined' ? ZONES_JOHTO  : [];
   if (_activeRegion === 'hoenn')  return typeof ZONES_HOENN  !== 'undefined' ? ZONES_HOENN  : [];
   if (_activeRegion === 'sinnoh') return typeof ZONES_SINNOH !== 'undefined' ? ZONES_SINNOH : [];
-  // Kanto — exclure les zones des autres régions qui ont été pushées dans ZONES
-  return ZONES.filter(z => !_isJohtoZone(z.id) && !_isHoennZone(z.id) && !_isSinnohZone(z.id));
+  // Kanto — exclure les zones des autres régions qui ont été pushées dans ZONES,
+  // et le terrain de départ dès que l'onboarding est fini : isZoneUnlocked le
+  // considère débloqué à vie une fois qu'on y a capturé, donc sans ce filtre il
+  // resterait sur la carte pour toujours.
+  const onboarding = isOnboardingActive(globalThis.state);
+  return ZONES.filter(z => !_isJohtoZone(z.id) && !_isHoennZone(z.id) && !_isSinnohZone(z.id)
+    && (onboarding || z.type !== 'onboarding'));
 }
 
 function _getActiveZoneById() {
@@ -104,6 +110,33 @@ function _getZoneShinyPct(zone) {
   return { caught, total: species.length, pct: Math.round(caught / species.length * 100) };
 }
 
+// ── Révélation progressive des zones verrouillées ────────────────
+// Le fogmap montrait TOUTES les zones d'une région d'un coup, verrouillées
+// comprises — jusqu'à 20 tuiles "?????" rien qu'en Kanto, de Rép. +15 à
+// +1200. Un joueur qui sort tout juste de l'onboarding avec 5 500₽ se
+// retrouvait déjà à voir la quasi-totalité de la progression du jeu.
+//
+// Une zone à réputation PURE (sans unlockItem) n'apparaît désormais,
+// verrouillée, qu'une fois cette proportion de son seuil atteinte — avant
+// ça elle n'existe simplement pas encore dans la liste. Une fois déverrouillée
+// elle reste affichée pour de bon (isZoneUnlocked prime, jamais de retour en
+// arrière même si la réputation baisse).
+//
+// Les zones à objet/événement (unlockItem) suivent une règle différente :
+// leur « proximité » n'est pas un nombre lisible comme la réputation, donc
+// les cacher jusqu'à un seuil arbitraire perdrait de l'information (quel
+// objet, où l'obtenir) plutôt que de simplement la différer. Elles sont
+// exclues d'ici et vivent en permanence dans _buildUnlockSection().
+const ZONE_REVEAL_PROXIMITY = 0.6;
+
+function _isRevealed(zone) {
+  if (globalThis.isZoneUnlocked?.(zone.id)) return true;
+  if (zone.unlockItem) return false;
+  if (!zone.rep) return true;
+  const state = globalThis.state;
+  return (state?.gang?.reputation || 0) >= zone.rep * ZONE_REVEAL_PROXIMITY;
+}
+
 // ── Filter helpers ────────────────────────────────────────────
 function _getFilteredZones() {
   const state = globalThis.state;
@@ -122,10 +155,16 @@ function _getFilteredZones() {
     case 'dex_shiny':filtered = activeZones.filter(z => !isPinned(z) && globalThis.isZoneUnlocked?.(z.id) && _getZoneShinyPct(z).pct < 100); break;
     default:         filtered = activeZones.filter(z => !isPinned(z)); break;
   }
+  filtered = filtered.filter(_isRevealed);
   // Gang Park + Vivarium toujours en tête (sauf filtre strict par type)
   const showPark = !['route','city','special','dex','dex_shiny'].includes(_zoneFilter);
   const pinned = [gangPark, vivarium].filter(Boolean);
   return showPark && pinned.length ? [...pinned, ...filtered] : filtered;
+}
+
+/** Zones à objet/événement encore verrouillées — section "À débloquer" dédiée. */
+function _getLockedItemZones() {
+  return _getActiveZones().filter(z => z.unlockItem && !globalThis.isZoneUnlocked?.(z.id));
 }
 
 // ── Favorite helpers ──────────────────────────────────────────
@@ -481,43 +520,67 @@ function _buildTile(zone) {
         title="${isFav ? _t('zone_selector_remove_favorite') : _t('zone_selector_favorite_hint')}">${isFav ? '★' : '☆'}</button>
     </div>`;
   } else {
-    const SHOP_ITEMS = globalThis.SHOP_ITEMS;
-    const repDiff    = zone.rep > state.gang.reputation ? zone.rep - state.gang.reputation : 0;
-    const needsItem  = zone.unlockItem && !state.purchases?.[zone.unlockItem];
-    const itemDef    = needsItem ? SHOP_ITEMS?.find(s => s.id === zone.unlockItem) : null;
-    const isWingPermit = needsItem &&
-      (zone.unlockItem === 'tourbillon_permit' || zone.unlockItem === 'carillon_permit');
-
-    let lockHint, lockSub;
-    if (isWingPermit) {
-      const wingId   = zone.unlockItem === 'tourbillon_permit' ? 'silver_wing' : 'rainbow_wing';
-      const wingName = zone.unlockItem === 'tourbillon_permit'
-        ? _t('zone_selector_silver_wing')
-        : _t('zone_selector_rainbow_wing');
-      const have     = state.inventory?.[wingId] || 0;
-      const pct      = Math.min(100, Math.round(have / 50 * 100));
-      lockHint = wingName;
-      lockSub  = `<div style="height:3px;background:rgba(255,255,255,0.15);border-radius:2px;margin:3px 0;overflow:hidden">
-                    <div style="height:100%;width:${pct}%;background:var(--gold);border-radius:2px"></div>
-                  </div>
-                  <div style="font-size:8px;color:var(--gold)">${have}/50</div>`;
-    } else if (needsItem) {
-      lockHint = _localized(itemDef) || zone.unlockItem;
-      lockSub  = '';
-    } else {
-      lockHint = _t('zone_selector_reputation_required', { value: repDiff });
-      lockSub  = '';
-    }
-
+    // Une zone à objet n'atteint plus jamais cette branche : _isRevealed()
+    // l'exclut du fogmap principal en amont, elle vit dans
+    // _buildUnlockSection(). Il ne reste donc que l'accroche réputation.
+    const repDiff = zone.rep > state.gang.reputation ? zone.rep - state.gang.reputation : 0;
     return `<div class="fog-tile locked">
       <div class="fog-tile-overlay fog"></div>
       <div class="fog-tile-content">
         <div class="fog-tile-name" style="letter-spacing:2px;color:rgba(255,255,255,0.3)">?????</div>
-        <div class="fog-tile-stats" style="${needsItem ? 'color:var(--gold)' : ''}">${lockHint}</div>
-        ${lockSub}
+        <div class="fog-tile-stats">${_t('zone_selector_reputation_required', { value: repDiff })}</div>
       </div>
     </div>`;
   }
+}
+
+// ── Section « À débloquer » — zones à objet/événement ─────────
+// Contrairement au fogmap principal, ces cartes révèlent le nom de la zone :
+// le but est justement de ne pas perdre l'information sur ce qui existe et
+// comment l'obtenir, ce qu'un masquage progressif façon réputation ferait.
+function _buildUnlockCard(zone) {
+  const state      = globalThis.state;
+  const SHOP_ITEMS = globalThis.SHOP_ITEMS;
+  const name       = _localized(zone);
+  const itemDef    = SHOP_ITEMS?.find(s => s.id === zone.unlockItem);
+  const isWingPermit = zone.unlockItem === 'tourbillon_permit' || zone.unlockItem === 'carillon_permit';
+  const repDiff    = zone.rep > (state.gang?.reputation || 0) ? zone.rep - state.gang.reputation : 0;
+
+  let requirement, progress;
+  if (isWingPermit) {
+    const wingId   = zone.unlockItem === 'tourbillon_permit' ? 'silver_wing' : 'rainbow_wing';
+    const wingName = zone.unlockItem === 'tourbillon_permit'
+      ? _t('zone_selector_silver_wing')
+      : _t('zone_selector_rainbow_wing');
+    const have = state.inventory?.[wingId] || 0;
+    const pct  = Math.min(100, Math.round(have / 50 * 100));
+    requirement = wingName;
+    progress = `<div style="height:3px;background:rgba(255,255,255,0.15);border-radius:2px;margin:3px 0;overflow:hidden">
+                  <div style="height:100%;width:${pct}%;background:var(--gold);border-radius:2px"></div>
+                </div>
+                <div style="font-size:8px;color:var(--gold)">${have}/50</div>`;
+  } else {
+    requirement = _localized(itemDef) || zone.unlockItem;
+    progress = '';
+  }
+  const reqText = repDiff > 0
+    ? _t('zone_selector_needs_rep_and_item', { rep: `+${repDiff}`, item: requirement })
+    : requirement;
+
+  return `<div class="fog-unlock-card" data-zone="${zone.id}">
+    <div class="fog-unlock-card-name">${name}</div>
+    <div class="fog-unlock-card-req">${reqText}</div>
+    ${progress}
+  </div>`;
+}
+
+function _buildUnlockSection() {
+  const zones = _getLockedItemZones();
+  if (!zones.length) return '';
+  return `<div class="fog-unlock-section">
+    <div class="fog-unlock-header" title="${_t('zone_selector_to_unlock_hint')}">🔑 ${_t('zone_selector_to_unlock')}</div>
+    <div class="fog-unlock-grid">${zones.map(_buildUnlockCard).join('')}</div>
+  </div>`;
 }
 
 // ── Main render ───────────────────────────────────────────────
@@ -526,7 +589,11 @@ export function renderZoneSelector() {
   if (!el) return;
 
   const filteredZones = _getFilteredZones();
-  el.innerHTML = `<div class="fog-map">${filteredZones.map(_buildTile).join('')}</div>`;
+  // La section « À débloquer » n'a de sens que sur la vue complète : sous un
+  // filtre par type (Routes/Villes/...) ou par progression (Favoris/Pokédex),
+  // une zone encore verrouillée n'y a jamais sa place de toute façon.
+  const unlockSection = _zoneFilter === 'all' ? _buildUnlockSection() : '';
+  el.innerHTML = `<div class="fog-map">${filteredZones.map(_buildTile).join('')}</div>${unlockSection}`;
 
   // ── Left-click: open/close zone window ────────────────────
   el.querySelectorAll('.fog-tile.unlocked').forEach(tile => {
@@ -732,6 +799,21 @@ export function bindZoneActionButtons() {
   }
   updateZoneButtons();
 }
+
+// ── Ré-évaluation de la révélation progressive ─────────────────
+// La proximité de réputation n'est vérifiée qu'au rendu — sans ce hook, un
+// gain de réputation obtenu en dehors de l'onglet Zones (mission, raid...)
+// n'aurait fait apparaître les nouvelles tuiles "?????" qu'au prochain
+// changement de filtre. Même mécanisme que gangTab.js pour tabGang.
+let _zoneSelectorEventsRegistered = false;
+function _registerZoneSelectorEvents() {
+  if (_zoneSelectorEventsRegistered) return;
+  _zoneSelectorEventsRegistered = true;
+  EventBus.on(EVENTS.REP_CHANGED, () => {
+    if (globalThis.activeTab === 'tabZones') renderZoneSelector();
+  });
+}
+_registerZoneSelectorEvents();
 
 Object.assign(globalThis, {
   _zsel_setActiveRegion: setActiveRegion,

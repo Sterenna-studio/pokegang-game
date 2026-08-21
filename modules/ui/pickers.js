@@ -79,18 +79,28 @@ function openTeamPicker(type, targetId, onDone) {
   const _pick = (pkId) => {
     const pk = state.pokemons.find(p => p.id === pkId);
     if (!pk) return;
+    let teamEvent = null;
     if (type === 'boss') {
       if (state.gang.bossTeam.length < BOSS_TEAM_SLOTS) {
         globalThis.removePokemonFromAllAssignments(pkId);
         state.gang.bossTeam.push(pkId);
         if (state.gang.bossTeamSlots) state.gang.bossTeamSlots[state.gang.activeBossTeamSlot || 0] = [...state.gang.bossTeam];
+        teamEvent = {
+          team: 'boss', pokemonId: pkId, slot: state.gang.bossTeam.length - 1, source: 'team-picker',
+        };
       }
     } else {
       const agent = state.agents.find(a => a.id === targetId);
       const agentSlots = globalThis.getAgentTeamSlots?.(agent) ?? 3;
-      if (agent && agent.team.length < agentSlots) agent.team.push(pkId);
+      if (agent && agent.team.length < agentSlots) {
+        agent.team.push(pkId);
+        teamEvent = {
+          team: 'agent', agentId: agent.id, pokemonId: pkId, slot: agent.team.length - 1, source: 'team-picker',
+        };
+      }
     }
     _save();
+    if (teamEvent) EventBus.emit(EVENTS.TEAM_MEMBER_SET, teamEvent);
     overlay.remove();
     _notify(`${globalThis.speciesName(pk.species_en)} → ${targetLabel}`, 'success');
     onDone?.();
@@ -186,10 +196,14 @@ function openAssignToPicker(pokemonId) {
     el.addEventListener('click', () => {
       const destType = el.dataset.destType;
       const destId   = el.dataset.destId;
+      let teamEvent = null;
       if (destType === 'boss') {
         if (state.gang.bossTeam.length < BOSS_TEAM_SLOTS) {
           globalThis.removePokemonFromAllAssignments(pokemonId);
           state.gang.bossTeam.push(pokemonId);
+          teamEvent = {
+            team: 'boss', pokemonId, slot: state.gang.bossTeam.length - 1, source: 'pc-picker',
+          };
         }
       } else {
         const agent = state.agents.find(a => a.id === destId);
@@ -197,6 +211,7 @@ function openAssignToPicker(pokemonId) {
         if (agent && agent.team.length < agentSlots) agent.team.push(pokemonId);
       }
       _save();
+      if (teamEvent) EventBus.emit(EVENTS.TEAM_MEMBER_SET, teamEvent);
       overlay.remove();
       const destLabel = destType === 'boss'
         ? state.gang.bossName

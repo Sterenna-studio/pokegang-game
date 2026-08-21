@@ -26,6 +26,18 @@ function renderMissionsTab() {
       const rewardStr = [];
       if (m.reward.money) rewardStr.push(m.reward.money.toLocaleString() + '₽');
       if (m.reward.rep) rewardStr.push('+' + m.reward.rep + ' rep');
+      if (m.reward.cosmeticBg) {
+        const bg = globalThis.COSMETIC_BGS?.[m.reward.cosmeticBg];
+        rewardStr.push('🎁 ' + (bg ? (state.lang === 'fr' ? bg.fr : bg.en) : m.reward.cosmeticBg));
+      }
+      if (m.reward.items) {
+        const parts = Object.entries(m.reward.items).map(([id, qty]) => {
+          const item = globalThis.SHOP_ITEMS?.find(i => i.id === id);
+          const itemName = item ? (state.lang === 'fr' ? item.fr : item.en) : id;
+          return `${itemName} ×${qty}`;
+        });
+        rewardStr.push('📦 ' + parts.join(', '));
+      }
       html += `<div style="display:flex;align-items:center;gap:10px;padding:8px;border-bottom:1px solid var(--border);opacity:${claimed ? '.5' : '1'}">
         <img src="${pokeIcon(m.icon)}" style="width:32px;height:24px;image-rendering:pixelated;flex-shrink:0" onerror="this.style.display='none'">
         <div style="flex:1;min-width:0">
@@ -103,6 +115,11 @@ function renderMissionsTab() {
   const storyMissions  = MISSIONS.filter(m => m.type === 'story');
   const unclaimedStory = storyMissions.filter(m => !isMissionClaimed(m));
   const claimedStory = storyMissions.filter(m => isMissionClaimed(m));
+  // Section à part : leur récompense (fond de Vitrine) mérite d'être mise en
+  // avant plutôt que noyée dans "Histoire & Objectifs".
+  const cosmeticMissions = MISSIONS.filter(m => m.type === 'cosmetic');
+  const unclaimedCosmetic = cosmeticMissions.filter(m => !isMissionClaimed(m));
+  const claimedCosmetic = cosmeticMissions.filter(m => isMissionClaimed(m));
 
   let content = hourlyHtml;
   content += renderSection(
@@ -113,11 +130,14 @@ function renderMissionsTab() {
     `${_t('missions_weekly')} (${weeklyD}j ${weeklyH}h)`,
     weeklyMissions
   );
+  if (unclaimedCosmetic.length > 0) {
+    content += renderSection(_t('missions_cosmetic'), unclaimedCosmetic);
+  }
   if (unclaimedStory.length > 0) {
     content += renderSection(_t('missions_story'), unclaimedStory);
   }
-  if (claimedStory.length > 0) {
-    content += renderSection(_t('missions_completed'), claimedStory);
+  if (claimedStory.length + claimedCosmetic.length > 0) {
+    content += renderSection(_t('missions_completed'), [...claimedCosmetic, ...claimedStory]);
   }
 
   // ── Bouton "Tout réclamer" — couvre missions ET quêtes horaires ──

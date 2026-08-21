@@ -180,6 +180,43 @@ const MISSIONS = [
   { id:'sinnoh_weekly_fight', type:'weekly', region:'sinnoh',
     fr:'Gagner 30 combats en Sinnoh',    en:'Win 30 fights in Sinnoh',
     stat:'sinnohFightsWon', target:30, reward:{ money:42000, rep:70 }, icon:'lucario' },
+  // ── Missions Cosmétiques (one-shot, récompense = fond de Vitrine — jamais
+  // de pokéballs) : quelques hauts faits assez rares pour justifier de
+  // débloquer gratuitement un fond normalement réservé au Marché. ──
+  { id:'cosmetic_shiny_hunter', type:'cosmetic', fr:'Chasseur de Chromatiques', en:'Shiny Hunter',
+    stat:'shinyCaught', target:3, reward:{ rep:10, cosmeticBg:'theme_gold' }, icon:'eevee',
+    desc_fr:'Capturez 3 Pokémon chromatiques. Un fond doré, digne d\'un collectionneur.',
+    desc_en:'Catch 3 shiny Pokémon. A golden background, fit for a collector.' },
+  { id:'cosmetic_rocket_purge', type:'cosmetic', fr:'Purge Écarlate', en:'Scarlet Purge',
+    stat:'rocketDefeated', target:15, reward:{ rep:15, cosmeticBg:'theme_red' }, icon:'ekans',
+    desc_fr:'Vainquez 15 Sbires Rocket. Le sang qu\'ils ont versé teinte ce fond.',
+    desc_en:'Defeat 15 Rocket Grunts. Their spilled blood tints this background.' },
+  { id:'cosmetic_high_roller', type:'cosmetic', fr:'Gros Bonnet', en:'High Roller',
+    stat:'totalMoneyEarned', target:100000, reward:{ rep:15, cosmeticBg:'theme_sunset' }, icon:'meowth',
+    desc_fr:'Amassez 100 000₽ au total. Le coucher de soleil des riches.',
+    desc_en:'Earn 100,000₽ in total. The rich man\'s sunset.' },
+  { id:'cosmetic_chest_hoarder', type:'cosmetic', fr:'Pilleur de Coffres', en:'Chest Hoarder',
+    stat:'chestsOpened', target:40, reward:{ rep:10, cosmeticBg:'theme_purple' }, icon:'snorlax',
+    desc_fr:'Ouvrez 40 coffres. Un fond violet, à la hauteur du butin amassé.',
+    desc_en:'Open 40 chests. A violet background, worthy of the loot piled up.' },
+  { id:'cosmetic_event_master', type:'cosmetic', fr:'Maître des Événements', en:'Event Master',
+    stat:'eventsCompleted', target:20, reward:{ rep:12, cosmeticBg:'theme_green' }, icon:'chansey',
+    desc_fr:'Complétez 20 événements. Le gang laisse sa marque, partout.',
+    desc_en:'Complete 20 events. The gang leaves its mark, everywhere.' },
+  // ── Missions Ravitaillement (one-shot, récompense = objets consommables en
+  // grande quantité — le pendant "objets" des missions cosmétiques). ──
+  { id:'story_supply_lures', type:'story', fr:'Ravitaillement en Leurres', en:'Lure Resupply',
+    stat:'totalCaught', target:75, reward:{ items:{ lure:15, superlure:5 } }, icon:'pikachu',
+    desc_fr:'75 Pokémon capturés. Le transfuge remplit le stock de leurres.',
+    desc_en:'75 Pokémon caught. The defector restocks the lures.' },
+  { id:'story_supply_incense', type:'story', fr:'Ravitaillement en Encens', en:'Incense Resupply',
+    stat:'totalFightsWon', target:40, reward:{ items:{ incense:10, aura:3 } }, icon:'machoke',
+    desc_fr:'40 combats gagnés. De quoi tenir un moment sans repasser au Marché.',
+    desc_en:'40 fights won. Enough to hold over without a Market run.' },
+  { id:'story_supply_scope', type:'story', fr:'Ravitaillement en Rarioscopes', en:'Rare Scope Resupply',
+    stat:'_zonesWithCapture', target:12, reward:{ items:{ rarescope:10 } }, icon:'geodude',
+    desc_fr:'Capturez dans 12 zones différentes. Un lot de rarioscopes pour explorer plus loin.',
+    desc_en:'Catch in 12 different zones. A batch of rare scopes to explore further.' },
 ];
 
 // ── Quêtes horaires (pool aléatoire 3 medium + 2 hard, reset 1h) ──

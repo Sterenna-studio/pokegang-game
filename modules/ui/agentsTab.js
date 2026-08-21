@@ -2,6 +2,7 @@
 
 import { BALL_SPRITES, FALLBACK_TRAINER_SVG } from '../../data/assets-data.js';
 import { EventBus, EVENTS } from '../core/eventBus.js';
+import { isOnboardingFreeAgentPending } from '../systems/onboardingFlow.js';
 
 const _esc = s => String(s ?? '').replace(/[&<>"']/g, ch => (
   ch === '&' ? '&amp;' : ch === '<' ? '&lt;' : ch === '>' ? '&gt;' : ch === '"' ? '&quot;' : '&#39;'));
@@ -84,8 +85,16 @@ function _doRenderAgentsTab() {
   const grid = document.getElementById('agentsGrid');
   if (!grid) return;
 
-  const unlockedZones = ZONES.filter(z => isZoneUnlocked(z.id));
-  const RECRUIT_COST  = getAgentRecruitCost();
+  // gang_park/vivarium ne sont pas de vraies zones de travail (pas de spawns,
+  // pas de combat) et onboarding est le terrain de départ réservé à l'intro —
+  // aucun des trois ne doit apparaître comme zone assignable à un agent.
+  const unlockedZones = ZONES.filter(z => isZoneUnlocked(z.id)
+    && z.type !== 'gang_park' && z.type !== 'vivarium' && z.type !== 'onboarding');
+  // The onboarding gives this one away; openAgentRecruitModal() already charges
+  // 0₽, so advertising the normal price here contradicted both the modal and
+  // the "premier agent offert" objective.
+  const RECRUIT_FREE  = isOnboardingFreeAgentPending(state);
+  const RECRUIT_COST  = RECRUIT_FREE ? 0 : getAgentRecruitCost();
   const ballLabels    = AGENT_BALL_LABELS();
 
   // ── Boss card ───────────────────────────────────────────────────────────
@@ -241,7 +250,9 @@ const bossRep   = state.gang.reputation || 0;
         ${_t('RECRUTER UN AGENT', 'RECRUIT AN AGENT')}
       </div>
       <div style="font-size:9px;color:var(--gold);margin-top:3px">
-        ${_t('Agent', 'Agent')} ${state.agents.length + 1} — ${RECRUIT_COST.toLocaleString()}₽
+        ${_t('Agent', 'Agent')} ${state.agents.length + 1} — ${RECRUIT_FREE
+          ? _t('offert', 'free')
+          : `${RECRUIT_COST.toLocaleString()}₽`}
       </div>
     </div>
   </div>`;
@@ -333,6 +344,9 @@ const bossRep   = state.gang.reputation || 0;
       const flag = btn.dataset.flag;
       agent[flag] = agent[flag] === false ? true : false;
       saveState();
+      EventBus.emit(EVENTS.AGENT_FLAG_CHANGED, {
+        agentId: agent.id, flag, value: agent[flag], source: 'agent-card',
+      });
       renderAgentsTab();
     });
   });
@@ -353,6 +367,9 @@ const bossRep   = state.gang.reputation || 0;
       const val  = btn.dataset.val === 'true';
       state.agents.forEach(a => { a[flag] = val; });
       saveState();
+      state.agents.forEach(a => EventBus.emit(EVENTS.AGENT_FLAG_CHANGED, {
+        agentId: a.id, flag, value: val, source: 'set-all',
+      }));
       renderAgentsTab();
       const cfg = BEHAVIOR_FLAGS.find(f => f.key === flag);
       notify(`${_t('Tous les agents →', 'All agents →')} ${cfg ? _bfLabel(cfg) : flag} ${val ? 'ON' : 'OFF'}`, val ? 'success' : '');
@@ -372,7 +389,8 @@ const bossRep   = state.gang.reputation || 0;
       const aId = card.dataset.agentId;
       const agent = state.agents.find(a => a.id === aId);
       if (!agent) return;
-      const unlockedZones = ZONES.filter(z => isZoneUnlocked(z.id));
+      const unlockedZones = ZONES.filter(z => isZoneUnlocked(z.id)
+        && z.type !== 'gang_park' && z.type !== 'vivarium' && z.type !== 'onboarding');
       const zoneItems = unlockedZones.slice(0, 8).map(z => ({
         action: 'zone_' + z.id,
         label: (state.lang === 'en' ? z.en : z.fr),

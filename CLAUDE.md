@@ -28,6 +28,14 @@ Every local `<script src="...">`/`<link href="...">` in `index.html` carries a `
 
 To regenerate manually: `node tools/cache-bust.js`. Safe to run anytime; it's a no-op if nothing changed.
 
+### Remote previews
+
+Publish the current branch to the isolated OVH QA URLs with
+`tools/deploy-ovh-previews.ps1`. The web preview keeps the repository's French
+default; the itch preview rebuilds the English, cloud-free artifact first. See
+`docs/preview-testing.md` for URLs, browser-profile isolation and the final
+private itch.io iframe check.
+
 ### Testing with a prefilled save (dev-only)
 
 `tools/dev-seed-save.json` is a deliberately partial test fixture — `migrateSave()` (`state/migrateSave.js`) backfills anything omitted from `DEFAULT_STATE` at load time, so this file only lists what makes the vivarium/PC/agents interesting to test: a few Pokémon spread across every vivarium source (showcase, active team, pension, training room), an agent with contextual dialogue, reputation ≥700 (unlocks the rival cameo + boss dialogue lines), 2 shinies, a favorite, a nicknamed Pokémon.
@@ -42,6 +50,16 @@ fetch('/tools/dev-seed-save.json').then(r => r.text()).then(json => {
 ```
 
 This overwrites whatever is in the `pokeforge.v6` save slot — never run it against a browser profile holding a real save.
+
+Onboarding V2 has step-specific partial saves in `tools/dev-onboarding-fixtures.json`.
+Load one from DevTools with:
+
+```js
+fetch('/tools/dev-onboarding-fixtures.json').then(r => r.json()).then(fixtures => {
+  localStorage.setItem('pokeforge.v6', JSON.stringify(fixtures.guide_team));
+  location.reload();
+});
+```
 
 ---
 
@@ -153,9 +171,9 @@ Tabs: `tabZones`, `tabPC`, `tabAgents`, `tabMarket`, `tabGang`, `tabPokedex`, `t
 2. `initializeRuntimeState()`;
 3. global UI bindings;
 4. system initialization;
-5. intro/cosmetics/session restore;
-6. initial render and async asset loading;
-7. intro module configuration;
+5. entry-flow configuration (hub, onboarding, Giovanni), then intro/cosmetics/session restore;
+6. initial render;
+7. async runtime asset loading;
 8. Scheduler startup;
 9. EventBus bridges;
 10. scripted boot checks.
@@ -269,6 +287,14 @@ When touching a system that has both an `app.js` implementation and a `modules/`
 node tools/test-runtime-store.mjs
 node tools/test-update-manager.mjs
 node tools/check-events.js
+
+node tools/test-onboarding-flow.mjs
+node tools/test-onboarding-controller.mjs
+node tools/test-onboarding-payoff.mjs
+node tools/test-onboarding-scene.mjs
+node tools/test-tab-unlocks.mjs
+node tools/test-onboarding-flashback.mjs
+node tools/test-advisor.mjs
 ```
 
 For ES module syntax checks in this no-`package.json` repo, use the established pattern:

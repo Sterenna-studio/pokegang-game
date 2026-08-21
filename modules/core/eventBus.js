@@ -37,13 +37,21 @@ export const EVENTS = {
   UI_NOTIFY:         'ui:notify',         // { msg, type } → notify()
   UI_TOPBAR_UPDATE:  'ui:topbar',         // updateTopBar() requis
   UI_TAB_CHANGED:    'ui:tab',            // { tabId }
+  TABS_REVEALED:     'ui:tabs-revealed',  // { tabs } — déblocage progressif post-onboarding
 
   // Pokémon
-  POKEMON_CAPTURED:  'pokemon:captured',  // { pokemon, zoneId, agentId? }
+  POKEMON_CAPTURED:  'pokemon:captured',  // { pokemon, zoneId, agentId?, spawnCtx? }
   POKEMON_SOLD:      'pokemon:sold',      // { pokemonIds, totalPrice }
 
+  // Team / agents
+  TEAM_MEMBER_SET:   'team:member-set',   // { team: 'boss'|'agent', agentId?, pokemonId, slot, source }
+  AGENT_RECRUITED:   'agent:recruited',   // { agentId, source, cost }
+  AGENT_ASSIGNED:    'agent:assigned',    // { agentId, zoneId, previousZoneId, source }
+  AGENT_FLAG_CHANGED:'agent:flag',        // { agentId, flag, value, source } — autoCombat/autoRaid/autoCapture
+
   // Combat
-  COMBAT_WON:        'combat:won',        // { zoneId, trainerKey, elite }
+  COMBAT_STARTED:    'combat:started',    // { zoneId, trainerKey, mode, initiatedBy }
+  COMBAT_WON:        'combat:won',        // { zoneId, trainerKey, elite, mode, initiatedBy }
   COMBAT_LOST:       'combat:lost',       // { zoneId, trainerKey } — consommé par le patch ciblé agentsTab (énergie)
 
   // Economy
@@ -52,6 +60,13 @@ export const EVENTS = {
 
   // Inventory
   ITEM_RECEIVED:     'inventory:item',    // { itemId, qty } — fired when itemGift is applied
+
+  // Onboarding / story
+  ONBOARDING_STARTED:        'onboarding:started',        // { version, slotIdx, startedAt }
+  ONBOARDING_RESUMED:        'onboarding:resumed',        // { version, step, secondsSinceNewGame }
+  ONBOARDING_STEP_COMPLETED: 'onboarding:step-completed', // { step, nextStep, secondsSinceNewGame }
+  ONBOARDING_COMPLETED:      'onboarding:completed',      // { version, secondsSinceNewGame }
+  ONBOARDING_FAILED:         'onboarding:failed',         // { version, step, reason }
 };
 
 // ── Internal store ────────────────────────────────────────────

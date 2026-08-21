@@ -262,7 +262,12 @@ function makeTrainerTeam(zone, trainerKey, forcedSize, masteryLevel = 1) {
 }
 
 // Build a raid: 2-3 trainers combined into one encounter
-function makeRaidSpawn(zone, zoneId, masteryLevel = 1) {
+//
+// `roster` impose la composition exacte au lieu de la tirer au sort : une liste
+// de { key, sprite?, fr?, en? } où `key` est une clé TRAINER_TYPES (stats) et
+// les autres champs habillent le dresseur. Sert aux scènes scriptées qui ont
+// déjà tiré et persisté leurs assaillants (embuscade de l'onboarding).
+function makeRaidSpawn(zone, zoneId, masteryLevel = 1, { roster = null } = {}) {
   const trainerKeys = zone.trainers.length >= 2
     ? [globalThis.pick(zone.trainers), globalThis.pick(zone.trainers), zone.eliteTrainer || globalThis.pick(zone.trainers)]
     : [zone.eliteTrainer || 'acetrainer', zone.eliteTrainer || 'acetrainer', zone.eliteTrainer || 'acetrainer'];
@@ -270,16 +275,21 @@ function makeRaidSpawn(zone, zoneId, masteryLevel = 1) {
   const scaling = ZONE_DIFFICULTY_SCALING[masteryLevel] || ZONE_DIFFICULTY_SCALING[1];
   // Mastery 3 : chance de raid à 3 dresseurs (triple raid)
   const forceTriple = masteryLevel >= 3 && Math.random() < scaling.tripleRaidChance;
+  const forcedRoster = Array.isArray(roster) && roster.length ? roster : null;
   // Pick 2-3 distinct trainers
-  const numTrainers = forceTriple ? 3 : globalThis.randInt(2, 3);
+  const numTrainers = forcedRoster ? forcedRoster.length : (forceTriple ? 3 : globalThis.randInt(2, 3));
   const raidTrainers = [];
   const usedKeys = [];
   for (let i = 0; i < numTrainers; i++) {
-    let key = globalThis.pick(trainerKeys);
+    const forced = forcedRoster?.[i] ?? null;
+    let key = forced ? forced.key : globalThis.pick(trainerKeys);
     if (!TRAINER_TYPES[key]) key = zone.eliteTrainer || 'acetrainer';
+    const base = TRAINER_TYPES[key];
     raidTrainers.push({
       key,
-      trainer: TRAINER_TYPES[key],
+      trainer: forced
+        ? { ...base, sprite: forced.sprite || base.sprite || key, fr: forced.fr ?? base.fr, en: forced.en ?? base.en }
+        : base,
       team: makeTrainerTeam(zone, key, 2, masteryLevel),
     });
     usedKeys.push(key);
@@ -303,7 +313,7 @@ function makeRaidSpawn(zone, zoneId, masteryLevel = 1) {
       ...raidTrainers[0].trainer,
       fr: `[RAID] (${numTrainers} dresseurs)`,
       en: `[RAID] (${numTrainers} trainers)`,
-      sprite: raidTrainers[0].key,
+      sprite: raidTrainers[0].trainer?.sprite || raidTrainers[0].key,
       diff: maxDiff + 1,
       reward: totalReward,
       rep: totalRep,
@@ -565,6 +575,9 @@ function rollChestLoot(zoneId, passive = false) {
     }
     case 'item': {
       state.inventory[loot.itemId] = (state.inventory[loot.itemId] || 0) + loot.qty;
+      // Premier objet consommable jamais obtenu : le transfuge explique à
+      // quoi ça sert avant que ça dorme dans l'inventaire sans être compris.
+      setTimeout(() => globalThis.maybeShowItemsIntro?.(), 300);
       return { msg: `📦 ${loot.qty}x ${name}`, type: 'gold' };
     }
     case 'event': {
@@ -748,7 +761,7 @@ function tryCapture(zoneId, speciesEN, bonusPotential = 0, spawnCtx = {}) {
   if (!pokemon) return null;
   if (bonusPotential > 0) pokemon.potential = Math.min(5, pokemon.potential + bonusPotential);
   state.pokemons.push(pokemon); _dirty();
-  EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon, zoneId });
+  EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon, zoneId, spawnCtx });
   state.stats.totalCaught++;
   // Zone captures counter
   if (zoneId && state.zones[zoneId]) state.zones[zoneId].captures = (state.zones[zoneId].captures || 0) + 1;
@@ -983,9 +996,20 @@ function applyCombatResult(result, playerTeamIds, trainerData) {
     }
   }
   if (result.win) {
-    EventBus.emit(EVENTS.COMBAT_WON, { zoneId: trainerData.zoneId, trainerKey: trainerData.trainerKey, elite: !!trainerData.elite });
+    EventBus.emit(EVENTS.COMBAT_WON, {
+      zoneId: trainerData.zoneId,
+      trainerKey: trainerData.trainerKey,
+      elite: !!trainerData.elite,
+      mode: trainerData.combatMode || 'system',
+      initiatedBy: trainerData.initiatedBy || 'system',
+    });
   } else {
-    EventBus.emit(EVENTS.COMBAT_LOST, { zoneId: trainerData.zoneId, trainerKey: trainerData.trainerKey });
+    EventBus.emit(EVENTS.COMBAT_LOST, {
+      zoneId: trainerData.zoneId,
+      trainerKey: trainerData.trainerKey,
+      mode: trainerData.combatMode || 'system',
+      initiatedBy: trainerData.initiatedBy || 'system',
+    });
   }
   _save();
 }

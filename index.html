@@ -9,9 +9,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./css/base.css?v=94d4ecd5">
+  <link rel="stylesheet" href="./css/base.css?v=1a0f0004">
   <link rel="stylesheet" href="./css/intro.css?v=89b54717">
-  <link rel="stylesheet" href="./css/game-ui.css?v=05a09dc9">
+  <link rel="stylesheet" href="./css/game-ui.css?v=d7d7283d">
   <link rel="stylesheet" href="./gang/gang.css?v=3e0588ac">
 
   <!-- ── Google Analytics (GA4) ──────────────────────────────────────
@@ -66,6 +66,18 @@
       <div class="unlock-btns">
         <button class="unlock-btn-go"    id="zoneUnlockGo" data-i18n="static_go_to_zone">→ Aller à la zone</button>
         <button class="unlock-btn-later" id="zoneUnlockClose" data-i18n="static_later">Plus tard</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="tabUnlockPopup">
+    <div class="unlock-box">
+      <div class="unlock-title" id="tabUnlockTitle" data-i18n="static_tab_unlocked">✦ NOUVEL ONGLET</div>
+      <div class="unlock-zone" id="tabUnlockName">—</div>
+      <div class="unlock-rep"  id="tabUnlockWhy"></div>
+      <div class="unlock-btns">
+        <button class="unlock-btn-go"    id="tabUnlockGo">→</button>
+        <button class="unlock-btn-later" id="tabUnlockClose" data-i18n="static_later">Plus tard</button>
       </div>
     </div>
   </div>
@@ -373,7 +385,7 @@
   -->
   <script defer src="./data/loaders.js?v=9976ed89"></script>
   <script defer src="./data/species-data.js?v=da3253db"></script>
-  <script defer src="./data/zones-data.js?v=5adb8d66"></script>
+  <script defer src="./data/zones-data.js?v=93dedbde"></script>
   <script defer src="./data/evolutions-data.js?v=7f8565ae"></script>
   <script defer src="./data/titles-data.js?v=776904fe"></script>
   <script defer src="./data/zones-johto-data.js?v=6cb442c5"></script>
@@ -381,7 +393,7 @@
   <script defer src="./data/zones-sinnoh-data.js?v=5fc631a9"></script>
   <script defer src="./data/regions-config.js?v=22ab8f2c"></script>
   <script defer src="./data/moves-data.js?v=d2daccb1"></script>
-  <script type="module" src="./app.js?v=632bf49b"></script>
+  <script type="module" src="./app.js?v=09723323"></script>
   <!-- Offline / background idle catchup system -->
   <script type="module" src="./modules/systems/offlineCatchup.js?v=60ccc721"></script>
   <!-- Offline mission report (modal de rapport au retour de tab) -->

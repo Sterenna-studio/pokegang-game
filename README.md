@@ -240,12 +240,15 @@ modules/ui/
   settingsModal.js          Modale paramètres
   modals.js                 Modales info, confirmation, nommage, sprites
   sprites.js                Helpers sprite (pokeIcon, pokeSprite, trainerSprite)
-  intro.js                  Onboarding Giovanni
+  hub.js                    Accueil et sélection/reprise des sauvegardes
+  onboarding.js             Orchestrateur navigateur de l'onboarding V2
+  firstEncounter.js         Première rencontre et animation de capture
+  intro.js                  Écran spécialisé Giovanni + cadeau legacy
   audio.js                  Jukebox + musiques de zone
   tabRouter.js              Routage des onglets
 
 state/
-  defaultState.js           DEFAULT_STATE, APP_VERSION, SAVE_SCHEMA_VERSION
+  defaultState.js           DEFAULT_STATE, APP_VERSION, SAVE_SCHEMA_VERSION, état onboarding
   migrateSave.js            Migrations de schéma
   store.js                  (Refactor en cours — futur store centralisé)
 

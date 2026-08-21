@@ -315,7 +315,13 @@ export function buildVivariumCameoPool(state) {
 // différente d'être appliquées en CSS (cf. gang/environment.js:_applyBackgroundData).
 export function buildVivariumBackgroundData(state) {
   const key = state.cosmetics?.bossBg || null;
-  if (!key) return null;
+  if (!key) {
+    // Pas de fond choisi : celui de la route de base plutôt qu'un dégradé
+    // générique (gang/environment.js:_applyBackgroundData) — vitrine vide de
+    // personnalisation, pas vitrine vide d'ambiance.
+    const routeBg = globalThis.ZONE_BGS?.route1;
+    return routeBg ? { type: 'image', url: routeBg.url } : null;
+  }
   const COSMETIC_BGS = globalThis.COSMETIC_BGS;
   const bg = COSMETIC_BGS?.[key];
 
