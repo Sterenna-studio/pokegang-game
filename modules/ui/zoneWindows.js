@@ -1546,7 +1546,9 @@ function _questEncounterHtml(enc) {
   // vraie bulle. `name` reste le libellé court sous le sprite.
   const label = _esc(enc.name ?? '');
   // `cls` : classe d'animation ponctuelle (entrée/sortie de scène scriptée).
-  return `<div class="zone-quest-encounter${enc.cls ? ` ${_esc(enc.cls)}` : ''}" data-quest-encounter-id="${enc.id}" title="${label}">
+  // data-quest-cls mémorise la classe d'animation appliquée, pour que la mise
+  // à jour en place (_updateQuestEncounterEl) sache laquelle retirer.
+  return `<div class="zone-quest-encounter${enc.cls ? ` ${_esc(enc.cls)}` : ''}" data-quest-encounter-id="${enc.id}" data-quest-cls="${_esc(enc.cls ?? '')}" title="${label}">
     ${enc.bubble ? `<div class="zone-speech-bubble${enc.hostile ? ' hostile' : ''}">${_esc(enc.bubble)}</div>` : ''}
     ${enc.spriteUrl ? `<img src="${enc.spriteUrl}" alt="${label}" onerror="this.style.visibility='hidden'">` : ''}
     <span class="quest-encounter-badge">!</span>
@@ -1556,10 +1558,79 @@ function _questEncounterHtml(enc) {
 
 function _bindQuestEncounter(win, enc) {
   if (!enc) return;
-  win.querySelector('[data-quest-encounter-id]')?.addEventListener('click', (e) => {
+  const el = win.querySelector('[data-quest-encounter-id]');
+  if (!el) return;
+  // Le handler est relu à chaque clic depuis l'élément : un PNJ maintenu en
+  // place d'une réplique à l'autre (cf. _updateQuestEncounterEl) change de
+  // closure onClick sans changer de nœud, et un listener capturant `enc`
+  // resterait figé sur le beat précédent.
+  el._questOnClick = enc.onClick;
+  if (el.dataset.questBound === '1') return;
+  el.dataset.questBound = '1';
+  el.addEventListener('click', (e) => {
     e.stopPropagation();
-    enc.onClick?.();
+    el._questOnClick?.();
   });
+}
+
+/**
+ * Met à jour EN PLACE le PNJ déjà à l'écran, au lieu de le démonter/remonter.
+ * Recréer le nœud relance ses animations CSS (`float` repart de zéro), ce qui
+ * donne l'impression que le personnage disparaît puis réapparaît alors qu'il
+ * ne fait qu'enchaîner deux répliques. onboardingScene.js contournait déjà le
+ * problème de son côté en sautant le repaint ; le régler ici couvre tous les
+ * porteurs de bulle, dont le transfuge (met → metFollowUp → team → zone → …).
+ */
+function _updateQuestEncounterEl(el, enc) {
+  const label = enc.name ?? '';
+  el.title = label;
+
+  // Classe d'animation ponctuelle : ne la retoucher que si elle change, sinon
+  // on relancerait justement l'animation qu'on cherche à préserver.
+  const prevCls = el.dataset.questCls || '';
+  const nextCls = enc.cls || '';
+  if (prevCls !== nextCls) {
+    if (prevCls) el.classList.remove(...prevCls.split(/\s+/).filter(Boolean));
+    if (nextCls) el.classList.add(...nextCls.split(/\s+/).filter(Boolean));
+    el.dataset.questCls = nextCls;
+  }
+
+  let bubble = el.querySelector('.zone-speech-bubble');
+  if (enc.bubble) {
+    if (!bubble) {
+      bubble = document.createElement('div');
+      bubble.className = 'zone-speech-bubble';
+      el.insertBefore(bubble, el.firstChild);
+    }
+    // textContent : pas d'échappement à faire, et pas de reflow si identique.
+    if (bubble.textContent !== enc.bubble) bubble.textContent = enc.bubble;
+    bubble.classList.toggle('hostile', !!enc.hostile);
+  } else {
+    bubble?.remove();
+  }
+
+  const img = el.querySelector('img');
+  if (enc.spriteUrl) {
+    if (img) {
+      // Réassigner un src identique relancerait le chargement (et le clignotement).
+      if (img.getAttribute('src') !== enc.spriteUrl) img.setAttribute('src', enc.spriteUrl);
+      img.alt = label;
+    } else {
+      const fresh = document.createElement('img');
+      fresh.src = enc.spriteUrl;
+      fresh.alt = label;
+      fresh.onerror = function () { this.style.visibility = 'hidden'; };
+      el.insertBefore(fresh, el.querySelector('.quest-encounter-badge'));
+    }
+  } else {
+    img?.remove();
+  }
+
+  const nameEl = el.querySelector('.quest-encounter-name');
+  if (nameEl) {
+    const text = `${enc.icon ? enc.icon + ' ' : ''}${label}`;
+    if (nameEl.textContent !== text) nameEl.textContent = text;
+  }
 }
 
 function buildZoneWindowEl(zoneId) {
@@ -1795,9 +1866,18 @@ function patchZoneWindow(zoneId, win) {
     // Quest encounter sprite — dresseur/légendaire de quête, réévalué à
     // chaque patch pour apparaître/disparaître avec la progression de la
     // quête sans nécessiter de fermer/rouvrir la fenêtre de zone.
-    viewport.querySelectorAll('.zone-quest-encounter').forEach(el => el.remove());
     const questEncounter = _getActiveQuestEncounterForZone(zoneId);
-    if (questEncounter) {
+    const existingEnc = viewport.querySelector('.zone-quest-encounter');
+    const sameActor = existingEnc && questEncounter
+      && existingEnc.dataset.questEncounterId === String(questEncounter.id);
+    if (!questEncounter) {
+      viewport.querySelectorAll('.zone-quest-encounter').forEach(el => el.remove());
+    } else if (sameActor) {
+      // Même PNJ déjà en scène : il enchaîne une réplique, il ne réapparaît pas.
+      _updateQuestEncounterEl(existingEnc, questEncounter);
+      _bindQuestEncounter(win, questEncounter);
+    } else {
+      viewport.querySelectorAll('.zone-quest-encounter').forEach(el => el.remove());
       const tmp = document.createElement('div');
       tmp.innerHTML = _questEncounterHtml(questEncounter);
       const encEl = tmp.firstElementChild;
