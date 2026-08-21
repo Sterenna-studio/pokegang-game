@@ -1,0 +1,63 @@
+# PokéGang Screenshot Studio
+
+Outil interne pour fabriquer rapidement des captures d'écran de PokéGang sans devoir préparer ou rejouer une vraie partie.
+
+Le studio utilise les styles et assets du repo, mais **ne charge pas le moteur du jeu** : les scènes sont des états de communication déterministes. Il ne lit ni ne modifie les saves `pokeforge.*`, ne lance pas Supabase et n'émet pas d'analytics GA4.
+
+## Lancer
+
+Servir la racine du repo (les modules ES ne doivent pas être ouverts en `file://`) :
+
+```bash
+py -m http.server 8080
+```
+
+Puis ouvrir :
+
+```text
+http://localhost:8080/tools/screenshot-studio/
+```
+
+## Utilisation
+
+La colonne de gauche permet de passer immédiatement d'une scène à l'autre. Le bandeau supérieur permet de choisir :
+
+- FR ou EN ;
+- 1280×720, 1920×1080, 1080×1080, 1080×1350 ou 1200×1600 ;
+- une taille personnalisée ;
+- animations actives ou figées ;
+- replay de la scène.
+
+`Ouvrir clean` ouvre uniquement le faux écran de jeu, aux dimensions exactes demandées, sans l'interface du studio. C'est la vue prévue pour faire la capture navigateur/OS.
+
+Raccourcis : `←` / `→` scène précédente/suivante, `R` rejoue, `F` ouvre la vue clean.
+
+Les paramètres sont conservés dans l'URL (`scene`, `lang`, `w`, `h`, `anim`) ; `Copier le lien` permet donc de garder un cadrage précis ou de le partager.
+
+## Scènes incluses
+
+Le premier pack couvre l'introduction (première capture, embuscade Rocket, Giovanni, transfuge), la révélation progressive des zones et du Pokédex, les principaux écrans de gestion, les feedbacks de capture/déblocage et les nouveaux combats Groudon/Kyogre.
+
+## Ajouter une scène
+
+Les presets vivent dans :
+
+```text
+tools/screenshot-studio/scenes.mjs
+```
+
+Ajouter une entrée à `SCENES` avec un `id` unique, une catégorie, les textes FR/EN et une fonction de rendu. Préférer les helpers existants (`shell`, `chip`, `poke`, `trainer`) afin de garder le rendu cohérent.
+
+Puis vérifier :
+
+```bash
+node tools/test-screenshot-studio.mjs
+```
+
+Le test vérifie les ids, la scène par défaut et le rendu FR/EN de chaque preset.
+
+## Important
+
+Le studio est volontairement dans `tools/`. Le build itch ne copie que les dossiers runtime (`index.html`, `app.js`, `css/`, `data/`, `modules/`, `state/`, `assets/`, `gang/`) : le Screenshot Studio n'augmente donc pas la taille du jeu publié.
+
+Les scènes sont **fausses mais fidèles** : elles servent à la communication et non à tester la logique gameplay. Pour un bug ou une validation fonctionnelle, utiliser le vrai jeu et les tests runtime.
