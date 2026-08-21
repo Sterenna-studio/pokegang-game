@@ -4,7 +4,17 @@ Outil interne pour fabriquer rapidement des captures d'écran de PokéGang sans 
 
 Le studio utilise les styles et assets du repo, mais **ne charge pas le moteur du jeu** : les scènes sont des états de communication déterministes. Il ne lit ni ne modifie les saves `pokeforge.*`, ne lance pas Supabase et n'émet pas d'analytics GA4.
 
-## Lancer
+## Accès hébergé
+
+Après merge sur `main`, le déploiement OVH publie uniquement ce sous-outil interne à l'adresse :
+
+```text
+https://pokegang.sterenna.fr/studio/
+```
+
+Il n'est pas lié depuis l'interface publique du jeu. Le reste de `tools/` reste exclu du déploiement.
+
+## Lancer en local
 
 Servir la racine du repo (les modules ES ne doivent pas être ouverts en `file://`) :
 
@@ -58,6 +68,8 @@ Le test vérifie les ids, la scène par défaut et le rendu FR/EN de chaque pres
 
 ## Important
 
-Le studio est volontairement dans `tools/`. Le build itch ne copie que les dossiers runtime (`index.html`, `app.js`, `css/`, `data/`, `modules/`, `state/`, `assets/`, `gang/`) : le Screenshot Studio n'augmente donc pas la taille du jeu publié.
+Le studio reste volontairement dans `tools/`. Le build itch ne copie que les dossiers runtime (`index.html`, `app.js`, `css/`, `data/`, `modules/`, `state/`, `assets/`, `gang/`) : le Screenshot Studio n'augmente donc pas la taille du jeu publié.
+
+Le workflow OVH traite ce dossier comme une exception explicite et le synchronise vers `/studio/`; aucun autre outil interne n'est exposé par cette règle.
 
 Les scènes sont **fausses mais fidèles** : elles servent à la communication et non à tester la logique gameplay. Pour un bug ou une validation fonctionnelle, utiliser le vrai jeu et les tests runtime.
