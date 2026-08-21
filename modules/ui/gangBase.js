@@ -146,20 +146,19 @@ function _baseZoneRarity(zone) {
 }
 
 function _baseZoneStatus(zone, state, zState, assignedCount) {
-  if (!zone) return { stateLabel: '—', dangerLabel: '—', possession: 0 };
+  if (!zone) return { stateLabel: '—', dangerLabel: '—' };
   const open = globalThis.openZones?.has(zone.id);
   const degraded = globalThis.isZoneDegraded?.(zone.id);
-  const combats = zState?.combatsWon || 0;
-  const captures = zState?.captures || 0;
-  const mastery = globalThis.getZoneMastery?.(zone.id) || 0;
   const repGap = Math.max(0, (zone.rep || 0) - (state.gang?.reputation || 0));
-  const possession = Math.max(5, Math.min(100,
-    18 + mastery * 18 + Math.min(24, combats * 2) + Math.min(18, captures) + assignedCount * 12 + (open ? 10 : 0)
-  ));
+  // NB : il y avait ici un pourcentage de « Possession » — une formule
+  // fabriquée pour l'affichage (mastery + combats + captures + agents), qui
+  // ne correspondait à aucune donnée persistée et ne pilotait aucune
+  // mécanique. Retiré : les libellés ci-dessous, eux, décrivent de vraies
+  // propriétés de la zone (seuil de réputation, état dégradé, occupation).
   const dangerScore = (zone.rep || 0) + (zone.type === 'city' ? 140 : 0) + (zone.type === 'special' ? 90 : 0) + (degraded ? 250 : 0);
   const dangerLabel = degraded ? _t('gang_base_danger_critical') : dangerScore >= 900 ? _t('gang_base_danger_extreme') : dangerScore >= 550 ? _t('gang_base_danger_high') : dangerScore >= 250 ? _t('gang_base_danger_moderate') : _t('gang_base_danger_low');
   const stateLabel = degraded ? _t('gang_base_state_weakened') : open ? _t('gang_base_state_open') : assignedCount > 0 ? _t('gang_base_state_held') : repGap > 0 ? _t('gang_base_state_locked') : _t('gang_base_state_available');
-  return { stateLabel, dangerLabel, possession };
+  return { stateLabel, dangerLabel };
 }
 
 function _baseModuleTitle(text, meta = '') {
@@ -371,7 +370,8 @@ function _patchGangBaseV1(win, state) {
       }
     }
 
-    // 4. Territory cards — possession, danger, rareté, état
+    // 4. Territory cards — danger, rareté, état. L'ordre doit rester aligné
+    // sur celui construit dans renderGangBaseWindow (territoryCards).
     const focusZone = _baseFocusZone(state);
     if (focusZone) {
       const focusState  = state.zones?.[focusZone.id] || {};
@@ -382,7 +382,6 @@ function _patchGangBaseV1(win, state) {
 
       const cards = win.querySelectorAll('.base-status-strip .base-status-card, .base-status-grid .base-status-card');
       const updates = [
-        { value: `${focusMeta.possession}%`, fill: `${Math.max(4, focusMeta.possession)}%` },
         { value: focusMeta.dangerLabel,      fill: focusMeta.dangerLabel === 'Critique' ? '100%' : focusMeta.dangerLabel === 'Extreme' ? '84%' : focusMeta.dangerLabel === 'Eleve' ? '66%' : focusMeta.dangerLabel === 'Modere' ? '42%' : '22%' },
         { value: focusRarity,                fill: focusRarity.includes('+') || focusRarity.includes('Legendaire') ? '86%' : focusRarity.includes('Rare') ? '66%' : '38%' },
         { value: focusMeta.stateLabel,       fill: isFocusOpen ? '100%' : focusAgents.length ? '68%' : '36%' },
@@ -585,7 +584,6 @@ function renderGangBaseWindow() {
       </div>`;
 
   const territoryCards = [
-    [_t('gang_base_possession'), `${focusMeta.possession}%`, 'base-possession', `${Math.max(4, focusMeta.possession)}%`],
     [_t('gang_base_danger'), focusMeta.dangerLabel, 'base-danger', focusMeta.dangerLabel === _t('gang_base_danger_critical') ? '100%' : focusMeta.dangerLabel === _t('gang_base_danger_extreme') ? '84%' : focusMeta.dangerLabel === _t('gang_base_danger_high') ? '66%' : focusMeta.dangerLabel === _t('gang_base_danger_moderate') ? '42%' : '22%'],
     [_t('gang_base_rarity'), focusRarity, 'base-rarity', focusRarity.includes('+') || focusRarity.includes('Legendaire') ? '86%' : focusRarity.includes('Rare') ? '66%' : '38%'],
     [_t('gang_base_state'), focusMeta.stateLabel, 'base-state', isFocusOpen ? '100%' : focusAgents.length ? '68%' : '36%'],
@@ -699,8 +697,6 @@ function renderGangBaseWindowV2() {
   const focusMeta   = _baseZoneStatus(focusZone, state, focusState, focusAgents.length);
   const isFocusOpen = !!(focusZone && globalThis.openZones?.has(focusZone.id));
   const bossTitle   = globalThis.getBossFullTitle?.() || globalThis.getTitleLabel?.(state.gang.title) || 'Boss';
-  const poss        = focusMeta.possession;
-  const possClass   = poss >= 70 ? 'high' : poss >= 40 ? 'med' : 'low';
   const dangerClass = focusMeta.dangerLabel === _t('gang_base_danger_critical') ? 'critique'
     : focusMeta.dangerLabel === _t('gang_base_danger_extreme') ? 'extreme'
     : focusMeta.dangerLabel === _t('gang_base_danger_high') ? 'eleve'
@@ -733,20 +729,19 @@ function renderGangBaseWindowV2() {
   // ── Zone list ──
   const unlockedZones = _baseUnlockedZones(state);
   const zoneListHtml  = unlockedZones.map(zone => {
-    const zs      = state.zones?.[zone.id] || {};
     const agents  = (state.agents || []).filter(a => a.assignedZone === zone.id).length;
-    const meta    = _baseZoneStatus(zone, state, zs, agents);
     const isFocus = zone.id === focusZoneId;
     const isOpen  = globalThis.openZones?.has(zone.id);
     const icon    = zone.type === 'city' ? '🏙' : zone.type === 'special' ? '⭐' : '🛤';
-    const pc      = meta.possession >= 70 ? 'hi' : meta.possession >= 40 ? 'med' : '';
+    // La colonne de droite ne portait qu'un pourcentage de « Possession »
+    // fabriqué ; seul le point « zone ouverte » y disait quelque chose de vrai.
     return `<div class="gb2-zone-row${isFocus ? ' focus' : ''}" data-gb2-zone-select="${zone.id}">
       <span class="gb2-zone-row-icon">${icon}</span>
       <div class="gb2-zone-row-info">
         <div class="gb2-zone-row-name">${_baseZoneName(zone, state)}</div>
         <div class="gb2-zone-row-sub">${_t('gang_base_agent_count', { n: agents })}${isOpen ? ` · ${_t('gang_base_state_open')}` : ''}</div>
       </div>
-      <div class="gb2-zone-row-poss ${pc}">${isOpen ? '●' : meta.possession + '%'}</div>
+      <div class="gb2-zone-row-open">${isOpen ? '●' : ''}</div>
     </div>`;
   }).join('') || `<div class="base-empty-note">${_t('gang_base_no_unlocked_front')}</div>`;
 
@@ -814,14 +809,19 @@ function renderGangBaseWindowV2() {
   // ── Feed ──
   const pendingIncome = focusState?.pendingIncome || 0;
   const readyEggs     = incubatingEggs.filter(e => e.status === 'ready').length;
+  // Pas de repli sur le nom de la zone : il sert déjà de titre à la ligne de
+  // feed juste en dessous, et la plupart des routes n'ont pas de description —
+  // on affichait donc « Route 1 » deux fois. À défaut de description, le
+  // nombre d'agents sur place dit au moins quelque chose.
   const zoneDesc      = focusZone
-    ? (state.lang === 'fr' ? (focusZone.desc_fr || focusZone.fr) : (focusZone.desc_en || focusZone.en))
+    ? ((state.lang === 'fr' ? focusZone.desc_fr : focusZone.desc_en)
+        || _t('gang_base_agent_count', { n: focusAgents.length }))
     : _t('gang_base_start_operations_hint');
 
   const feedHtml = [
     focusZone ? {
       tag:    focusMeta.stateLabel,
-      title:  `${focusName} · ${poss}%`,
+      title:  focusName,
       detail: pendingIncome > 0 ? _t('gang_base_income_to_collect') : zoneDesc,
       cls:    focusMeta.dangerLabel === _t('gang_base_danger_critical') || focusMeta.dangerLabel === _t('gang_base_danger_extreme') ? 'alert'
               : isFocusOpen ? 'ok' : '',
@@ -927,16 +927,9 @@ function renderGangBaseWindowV2() {
           <div class="gb2-focus-zone-name">${focusName}</div>
           <div class="gb2-focus-zone-type ${focusType}">${focusTypeFR.toUpperCase()}</div>
         </div>
-        <div class="gb2-possession-meter">
-          <div class="gb2-poss-top">
-            <div>
-              <div class="gb2-poss-label">${_t('gang_base_possession')}</div>
-              <div class="gb2-poss-val ${possClass}">${poss}%</div>
-            </div>
-            <div class="gb2-poss-sub">${_t('gang_base_agent_count', { n: focusAgents.length })}</div>
-          </div>
-          <div class="gb2-poss-bar-track"><div class="gb2-poss-bar-fill" style="width:${poss}%"></div></div>
-          <div class="gb2-poss-badges">
+        <div class="gb2-focus-status">
+          <div class="gb2-focus-status-top">${_t('gang_base_agent_count', { n: focusAgents.length })}</div>
+          <div class="gb2-focus-badges">
             <span class="gb2-pbadge ${dangerClass}">${focusMeta.dangerLabel}</span>
             <span class="gb2-pbadge ${stateClass}">${focusMeta.stateLabel}</span>
           </div>
