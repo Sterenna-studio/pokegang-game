@@ -1,17 +1,21 @@
-# Supabase project config — PokéGang
+# Supabase project config — PokéGang dedicated backend
+# Remote project: pokegang (ref: ojklmobvafovftqvevzh)
+# https://ojklmobvafovftqvevzh.supabase.co
 # https://supabase.com/docs/guides/cli/config
 #
-# Deploy les Edge Functions :
+# Link once locally:
 #   supabase login
-#   supabase link --project-ref YOUR_PROJECT_REF
+#   supabase link --project-ref ojklmobvafovftqvevzh
+#
+# Apply versioned migrations:
+#   supabase db push
+#
+# Deploy Edge Functions:
 #   supabase functions deploy pokegang-api
 #   supabase functions deploy pokegang-leaderboard-submit
 #
-# ⚠ Ordre de rollout pour le durcissement leaderboard :
-#   1) déployer pokegang-leaderboard-submit
-#   2) PUIS rejouer docs/supabase-schema.sql (qui révoque l'écriture directe)
-#   Inverser l'ordre = les écritures leaderboard échouent (silencieusement) le
-#   temps que la fonction soit en ligne.
+# Browser builds must only use the publishable/anon key. Never ship a secret
+# or service_role key in web/itch artifacts.
 
 [api]
 enabled = true
@@ -23,7 +27,7 @@ max_rows = 1000
 [db]
 port = 54322
 shadow_port = 54320
-major_version = 15
+major_version = 17
 
 [studio]
 enabled = true
@@ -49,12 +53,10 @@ double_confirm_changes = true
 enable_confirmations = false
 
 [functions.pokegang-api]
-# Accès public — pas besoin de JWT
+# Public read API; no platform-level JWT requirement.
 verify_jwt = false
 
 [functions.pokegang-leaderboard-submit]
-# Les joueurs anonymes (sans compte) doivent pouvoir soumettre leur score :
-# on n'exige donc pas de JWT au niveau de la plateforme. La fonction vérifie
-# elle-même l'access token quand il est présent (pour lier user_id), et assainit
-# tout le payload côté serveur. L'écriture directe sur la table est révoquée (RLS).
+# Anonymous players can submit a score. The function validates/sanitizes the
+# payload and links user_id only when a valid user access token is present.
 verify_jwt = false
