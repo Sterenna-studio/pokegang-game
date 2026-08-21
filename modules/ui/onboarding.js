@@ -264,16 +264,31 @@ function _startAmbush() {
   void _ctx.playAmbushArrival?.().then(() => {
     _ctx.showAmbushChallengePopup?.({
       zoneId: ONBOARDING_ZONE_ID,
-      onConfirm: () => {
-        const win = document.getElementById(`zw-${ONBOARDING_ZONE_ID}`);
-        const raidEl = win?.querySelector(`[data-spawn-id="${AMBUSH_SPAWN_ID}"]`);
-        // Un vrai clic déclenche exactement ce que cliquer le raid aurait
-        // fait (openCombatPopup) — pas de logique de combat dupliquée ici.
-        raidEl?.click();
-      },
+      onConfirm: () => _runScriptedAmbush(),
     });
   });
   return true;
+}
+
+/**
+ * L'embuscade ne passe plus par le moteur de combat : elle est jouée comme une
+ * scène et son issue est écrite (le joueur se fait prendre). La défaite était
+ * déjà l'issue attendue — une équipe de première session face à six Pokémon —
+ * mais elle dépendait d'un tirage, et le combat réel imposait son propre
+ * rythme à un moment qui est narratif, pas ludique.
+ */
+function _runScriptedAmbush() {
+  const state = _state();
+  const starterId = state?.gang?.bossTeam?.find(Boolean);
+  const starter = starterId ? state.pokemons?.find(p => p.id === starterId) : null;
+  // Aucun combat réel derrière : on enchaîne dès la fin de la scène.
+  const done = () => _resolveAmbush(false, { waitForCombat: false });
+  const scene = _ctx.playScriptedAmbush?.({
+    starterSpeciesEn: starter?.species_en || '',
+    starterShiny: !!starter?.shiny,
+  });
+  if (scene?.then) void scene.then(done, done);
+  else done(); // scène indisponible (tests, scène annulée) — on n'enferme pas le joueur
 }
 
 /**
@@ -281,7 +296,7 @@ function _startAmbush() {
  * l'issue attendue (2-3 sbires contre une équipe de première session), mais
  * un joueur qui gagne ne doit surtout pas rester bloqué sur un terrain vide.
  */
-function _resolveAmbush(won) {
+function _resolveAmbush(won, { waitForCombat = true } = {}) {
   const committed = _commitStep(
     ONBOARDING_STEPS.ROCKET_AMBUSH,
     ONBOARDING_STEPS.IDENTITY,
@@ -297,7 +312,13 @@ function _resolveAmbush(won) {
   // qu'à COMBAT_SEQUENCE_ENDED, une fois le DOM de la zone rendu : sans ça,
   // patchZoneWindow refuse de reconstruire la rencontre et ni Giovanni ni le
   // transfuge ne peuvent apparaître.
-  _afterAmbushSequence(() => {
+  // L'embuscade normale est désormais scénarisée : il n'y a plus de séquence
+  // de combat à attendre, et guetter COMBAT_SEQUENCE_ENDED laisserait le
+  // joueur devant un terrain figé jusqu'au filet de sécurité. L'attente ne
+  // sert plus qu'au chemin résiduel — un vrai combat déclenché dans la zone
+  // (auto-combat d'agent, par exemple) pendant l'étape d'embuscade.
+  const runAfter = waitForCombat ? _afterAmbushSequence : (fn) => fn();
+  runAfter(() => {
     // No-op si le combat s'est déjà refermé de lui-même ; indispensable si on
     // arrive ici par le filet de sécurité.
     _ctx.endZoneCombat?.(ONBOARDING_ZONE_ID);

@@ -19,15 +19,27 @@ import { ONBOARDING_GIOVANNI_LINES, ONBOARDING_AMBUSH_LINES } from '../data/onbo
 const bubbleEl = { textContent: '' };
 const viewport = {
   children: [],
-  appendChild(el) { this.children.push(el); el.remove = () => {}; },
+  appendChild(el) {
+    this.children.push(el);
+    el.remove = () => {
+      const i = this.children.indexOf(el);
+      if (i >= 0) this.children.splice(i, 1);
+    };
+  },
   querySelector: sel => (sel === '.zone-quest-encounter .zone-speech-bubble' ? bubbleEl : null),
+  // Le vrai viewport en a un, et onboardingScene s'en sert pour retirer les
+  // sbires de renfort de l'embuscade scénarisée.
+  querySelectorAll(sel) {
+    const cls = sel.replace(/^\./, '');
+    return this.children.filter(el => String(el.className || '').split(/\s+/).includes(cls));
+  },
 };
 let fieldOnScreen = true;
 globalThis.document = {
   getElementById: id => (fieldOnScreen && id === 'zw-unknown_field'
     ? { querySelector: sel => (sel === '.zone-viewport' ? viewport : null) }
     : null),
-  createElement: () => ({ className: '', addEventListener() {}, remove() {}, isConnected: false }),
+  createElement: () => ({ className: '', style: {}, addEventListener() {}, remove() {}, isConnected: false }),
 };
 globalThis.trainerSprite = key => `sprite:${key}`;
 
