@@ -1,0 +1,24 @@
+{
+  "timeZone": "Europe/Paris",
+  "exceptionLogging": "STACKDRIVER",
+  "runtimeVersion": "V8",
+  "dependencies": {
+    "enabledAdvancedServices": [
+      {
+        "userSymbol": "AnalyticsAdmin",
+        "serviceId": "analyticsadmin",
+        "version": "v1beta"
+      },
+      {
+        "userSymbol": "AnalyticsData",
+        "serviceId": "analyticsdata",
+        "version": "v1beta"
+      }
+    ]
+  },
+  "oauthScopes": [
+    "https://www.googleapis.com/auth/analytics.edit",
+    "https://www.googleapis.com/auth/analytics.readonly",
+    "https://www.googleapis.com/auth/script.external_request"
+  ]
+}
