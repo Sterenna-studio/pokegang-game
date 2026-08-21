@@ -651,12 +651,16 @@ ZONES_JOHTO.forEach(z => {
     z.rarePool = [...rare, ...veryRare, ...legendary];
   }
 
-  ZONES.push(z);
-  ZONE_BY_ID[z.id] = z;
+  // NB : ne pas pousser dans ZONES ici — c'est activateJohtoRegion() qui le
+  // fait. Le pousser au chargement du script (comme avant ce fix) rendait
+  // TOUTES les zones de Johto sélectionnables — y compris pour l'assignation
+  // d'un agent — pour n'importe quel joueur, région jamais débloquée ou pas :
+  // isZoneUnlocked() ne vérifie qu'un seuil de réputation et un unlockItem
+  // éventuel, jamais l'achat de la région elle-même. Hoenn et Sinnoh suivent
+  // déjà ce patron ; Johto en avait été oublié.
 });
 
 SPECIAL_EVENTS_JOHTO.forEach(e => SPECIAL_EVENTS.push(e));
-Object.assign(ZONE_MUSIC_MAP, ZONE_MUSIC_MAP_JOHTO);
 
 // Index rapide Johto (accès direct par id sans passer par ZONES)
 const ZONE_JOHTO_BY_ID = {};
