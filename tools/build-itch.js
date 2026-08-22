@@ -1,14 +1,9 @@
 #!/usr/bin/env node
-// Builds a self-contained folder + zip ready to upload to itch.io: copies
-// only the files the game actually needs at runtime, and flips the default
-// language to English in the COPY ONLY (pokegang.sterenna.fr keeps 'fr' in
-// the source repo). See docs/itch-build.md for the why behind every choice
-// here — most notably why `gang/` must be included even though it looks
-// like just the standalone companion page.
-//
-// Run with `node tools/build-itch.js`. Produces dist-itch/ (staged files,
-// for manual inspection) and dist-itch.zip (upload this one) at the repo
-// root — both gitignored, regenerated from scratch on every run.
+// Builds a self-contained folder + versioned zip ready to upload to itch.io.
+// The public itch release metadata lives in release/itch-release.json so the
+// upload filename and documentation are driven from one small source of truth.
+// The staged copy still flips the default language to English only for itch.
+// See docs/itch-build.md for the full release workflow and historical pitfalls.
 
 'use strict';
 
@@ -16,16 +11,42 @@ const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
 
-const ROOT      = path.resolve(__dirname, '..');
+const ROOT = path.resolve(__dirname, '..');
 const STAGE_DIR = path.join(ROOT, 'dist-itch');
-const ZIP_PATH  = path.join(ROOT, 'dist-itch.zip');
+const RELEASE_MANIFEST_PATH = path.join(ROOT, 'release', 'itch-release.json');
+
+function readReleaseManifest() {
+  let manifest;
+  try {
+    manifest = JSON.parse(fs.readFileSync(RELEASE_MANIFEST_PATH, 'utf8'));
+  } catch (error) {
+    throw new Error(`[build-itch] impossible de lire release/itch-release.json: ${error.message}`);
+  }
+
+  if (!/^\d+\.\d+\.\d+$/.test(manifest.version || '')) {
+    throw new Error('[build-itch] release.version doit être un SemVer simple x.y.z.');
+  }
+
+  const expectedUpload = `pokegang-v${manifest.version}-itch.zip`;
+  if (manifest.uploadFile !== expectedUpload) {
+    throw new Error(
+      `[build-itch] uploadFile doit être "${expectedUpload}" pour la version ${manifest.version}.`
+    );
+  }
+
+  return manifest;
+}
+
+const RELEASE = readReleaseManifest();
+const ZIP_PATH = path.join(ROOT, RELEASE.uploadFile);
 
 // Tout ce dont le jeu principal a besoin au runtime — voir docs/itch-build.md
-// pour le detail (notamment gang/, qui n'est PAS que la page compagnon).
+// pour le détail (notamment gang/, qui n'est PAS que la page compagnon).
 const INCLUDE = ['index.html', 'app.js', 'css', 'data', 'modules', 'state', 'assets', 'gang'];
 
 function clean() {
   fs.rmSync(STAGE_DIR, { recursive: true, force: true });
+  fs.rmSync(path.join(ROOT, 'dist-itch.zip'), { force: true }); // ancien nom de build
   fs.rmSync(ZIP_PATH, { force: true });
 }
 
@@ -37,8 +58,8 @@ function stage() {
   console.log(`[build-itch] ${INCLUDE.length} entrées copiées dans dist-itch/`);
 }
 
-// itch.io démarre en anglais par défaut (issue #57/#58) — pokegang.sterenna.fr
-// reste en 'fr'. Patché uniquement dans la copie stagée, jamais dans le repo.
+// itch.io démarre en anglais par défaut — pokegang.sterenna.fr reste en 'fr'.
+// Patché uniquement dans la copie stagée, jamais dans le repo.
 function patchLang() {
   const target = path.join(STAGE_DIR, 'state', 'defaultState.js');
   const src = fs.readFileSync(target, 'utf8');
@@ -55,7 +76,7 @@ function patchLang() {
     "lang: 'en', // itch.io build default — pokegang.sterenna.fr keeps 'fr' in the source repo"
   );
   fs.writeFileSync(target, patched);
-  console.log('[build-itch] state/defaultState.js patché : lang par défaut = en (copie uniquement).');
+  console.log('[build-itch] state/defaultState.js patché : langue par défaut = en (copie uniquement).');
 }
 
 function which(bin) {
@@ -68,11 +89,9 @@ function which(bin) {
 }
 
 // ⚠ Windows PowerShell 5.1 (`powershell.exe`) produit des entrées zip avec des
-// séparateurs `\`, ce que la spec ZIP interdit (APPNOTE 4.4.17.1 impose `/`).
-// itch.io traite alors `css\base.css` comme un NOM DE FICHIER littéral au lieu
-// d'un chemin : le jeu se charge, mais tous les assets renvoient 404. Bug
-// réellement livré une fois — d'où pwsh 7+ en priorité ET la validation
-// ci-dessous, qui fait échouer le build au lieu de laisser passer.
+// séparateurs `\\`, ce que la spec ZIP interdit. itch.io traite alors les
+// chemins comme des noms de fichiers littéraux et tous les assets 404. Bug déjà
+// livré une fois — d'où pwsh 7+ en priorité ET la validation ci-dessous.
 function zip() {
   if (process.platform === 'win32') {
     const shell = which('pwsh') ? 'pwsh' : 'powershell';
@@ -88,7 +107,7 @@ function zip() {
     execFileSync('zip', ['-r', ZIP_PATH, '.'], { cwd: STAGE_DIR, stdio: 'inherit' });
   }
   const { size } = fs.statSync(ZIP_PATH);
-  console.log(`[build-itch] dist-itch.zip généré (${(size / (1024 * 1024)).toFixed(2)} Mo).`);
+  console.log(`[build-itch] ${RELEASE.uploadFile} généré (${(size / (1024 * 1024)).toFixed(2)} Mo).`);
 }
 
 // Lit le central directory du zip et retourne la liste des noms d'entrées.
@@ -100,13 +119,39 @@ function readZipEntryNames(zipPath) {
   const SIG = 0x02014b50;
   for (let i = 0; i <= buf.length - 46; i++) {
     if (buf.readUInt32LE(i) !== SIG) continue;
-    const nameLen  = buf.readUInt16LE(i + 28);
+    const nameLen = buf.readUInt16LE(i + 28);
     const extraLen = buf.readUInt16LE(i + 30);
-    const cmtLen   = buf.readUInt16LE(i + 32);
+    const cmtLen = buf.readUInt16LE(i + 32);
     names.push(buf.toString('utf8', i + 46, i + 46 + nameLen));
     i += 46 + nameLen + extraLen + cmtLen - 1;
   }
   return names;
+}
+
+function validateReleaseAlignment() {
+  const sourceState = fs.readFileSync(path.join(ROOT, 'state', 'defaultState.js'), 'utf8');
+  const stagedState = fs.readFileSync(path.join(STAGE_DIR, 'state', 'defaultState.js'), 'utf8');
+
+  if (!sourceState.includes("lang: 'fr',")) {
+    throw new Error('[build-itch] le source principal ne semble plus être FR par défaut.');
+  }
+  if (!stagedState.includes("lang: 'en', // itch.io build default")) {
+    throw new Error('[build-itch] la copie itch n’a pas été basculée en anglais.');
+  }
+
+  // GAME_VERSION est volontairement un libellé produit plus large (ex. v0.5)
+  // alors que le manifeste itch porte le patch SemVer exact (ex. 0.5.0).
+  const gameVersion = sourceState.match(/export const GAME_VERSION = '([^']+)'/)?.[1] || '';
+  const releaseMinor = RELEASE.version.split('.').slice(0, 2).join('.');
+  if (!gameVersion.startsWith(`v${releaseMinor}`)) {
+    throw new Error(
+      `[build-itch] GAME_VERSION (${gameVersion || 'introuvable'}) n'est pas aligné avec la release itch v${RELEASE.version}.`
+    );
+  }
+
+  if (fs.existsSync(path.join(STAGE_DIR, 'config.js'))) {
+    throw new Error('[build-itch] config.js ne doit jamais être inclus dans le build itch.');
+  }
 }
 
 function validate() {
@@ -128,24 +173,27 @@ function validate() {
     throw new Error('[build-itch] index.html absent de la racine du zip — itch.io ne saurait pas quoi lancer.');
   }
 
-  // Les dossiers dont le jeu a besoin au runtime doivent être présents en tant
-  // que préfixe de chemin (gang/ inclus : dépendance réelle, cf. docs/itch-build.md).
   for (const dir of ['css', 'data', 'modules', 'state', 'assets', 'gang']) {
     if (!names.some(n => n.startsWith(`${dir}/`))) {
       throw new Error(`[build-itch] aucune entrée sous ${dir}/ — le build est incomplet.`);
     }
   }
 
-  console.log(`[build-itch] Validation OK : ${names.length} entrées, séparateurs '/', index.html à la racine.`);
+  validateReleaseAlignment();
+  console.log(
+    `[build-itch] Validation OK : release v${RELEASE.version}, ${names.length} entrées, ` +
+    `séparateurs '/', index.html à la racine, EN itch / FR site, config.js absent.`
+  );
 }
 
 function main() {
+  console.log(`[build-itch] Préparation PokéGang v${RELEASE.version} (${RELEASE.channel}).`);
   clean();
   stage();
   patchLang();
   zip();
   validate();
-  console.log('[build-itch] Terminé — dist-itch.zip prêt à uploader sur itch.io (voir docs/itch-build.md).');
+  console.log(`[build-itch] Terminé — ${RELEASE.uploadFile} prêt à uploader sur itch.io.`);
 }
 
 main();
