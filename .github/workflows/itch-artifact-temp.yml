@@ -1,0 +1,28 @@
+name: Temporary itch artifact build
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build itch package
+        run: node tools/build-itch.js
+      - name: Rename artifact
+        run: mv dist-itch.zip pokegang-v0.5.0-itch.zip
+      - name: Upload itch zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: pokegang-v0.5.0-itch
+          path: pokegang-v0.5.0-itch.zip
+          if-no-files-found: error
+          retention-days: 3
