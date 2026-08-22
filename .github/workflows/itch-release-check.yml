@@ -1,0 +1,134 @@
+name: Itch release check
+
+on:
+  pull_request:
+    paths:
+      - 'release/**'
+      - 'tools/build-itch.js'
+      - 'docs/itch-build.md'
+      - 'docs/devlogs/**'
+      - 'index.html'
+      - 'app.js'
+      - 'css/**'
+      - 'data/**'
+      - 'modules/**'
+      - 'state/**'
+      - 'assets/**'
+      - 'gang/**'
+      - '.github/workflows/itch-release-check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Read release manifest
+        id: release
+        shell: bash
+        run: |
+          node <<'NODE' >> "$GITHUB_OUTPUT"
+          const fs = require('fs');
+          const release = JSON.parse(fs.readFileSync('release/itch-release.json', 'utf8'));
+          console.log(`version=${release.version}`);
+          console.log(`file=${release.uploadFile}`);
+          NODE
+
+      - name: Core regression checks
+        run: |
+          node tools/check-events.js
+          node tools/test-onboarding-controller.mjs
+          node tools/test-tab-unlocks.mjs
+          node tools/test-advisor.mjs
+          node tools/test-runtime-store.mjs
+          node tools/test-update-manager.mjs
+
+      - name: Build itch archive
+        run: node tools/build-itch.js
+
+      - name: Verify release artifact
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+          const release = JSON.parse(fs.readFileSync('release/itch-release.json', 'utf8'));
+          const expected = release.uploadFile;
+          if (!fs.existsSync(expected)) throw new Error(`Missing release archive: ${expected}`);
+          if (!fs.existsSync('dist-itch/index.html')) throw new Error('Missing staged index.html');
+          if (fs.existsSync('dist-itch/config.js')) throw new Error('config.js leaked into itch build');
+          const stagedState = fs.readFileSync('dist-itch/state/defaultState.js', 'utf8');
+          if (!stagedState.includes("lang: 'en', // itch.io build default")) {
+            throw new Error('Staged itch build is not English by default');
+          }
+          const sourceState = fs.readFileSync('state/defaultState.js', 'utf8');
+          if (!sourceState.includes("lang: 'fr',")) {
+            throw new Error('Source game no longer defaults to French');
+          }
+          const index = fs.readFileSync('dist-itch/index.html', 'utf8');
+          if (!index.includes('G-NP6C2KZ16G')) throw new Error('GA4 measurement ID missing from itch build');
+
+          // Validate all relative ES module imports in the staged runtime. The
+          // three config.js imports are intentional optional fallbacks: itch
+          // must run without that file and those call sites are wrapped in
+          // try/catch. Comments are removed first to avoid matching examples.
+          const root = path.resolve('dist-itch');
+          const jsFiles = [];
+          const walk = dir => {
+            for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+              const full = path.join(dir, entry.name);
+              if (entry.isDirectory()) walk(full);
+              else if (entry.isFile() && entry.name.endsWith('.js')) jsFiles.push(full);
+            }
+          };
+          walk(root);
+
+          const optionalConfig = new Set(['config.js']);
+          const missing = [];
+          let checkedImports = 0;
+          for (const file of jsFiles) {
+            let text = fs.readFileSync(file, 'utf8')
+              .replace(/\/\*[\s\S]*?\*\//g, '')
+              .replace(/(^|\s)\/\/.*$/gm, '$1');
+            const specs = [];
+            const staticImport = /(?:^|[;\n]\s*)import\s+(?:[^'"\n]+?\s+from\s+)?['"]([^'"]+)['"]/gm;
+            const dynamicImport = /\bimport\(\s*['"]([^'"]+)['"]\s*\)/g;
+            for (const regex of [staticImport, dynamicImport]) {
+              let match;
+              while ((match = regex.exec(text))) specs.push(match[1]);
+            }
+            for (const spec of specs) {
+              if (!spec.startsWith('.')) continue;
+              checkedImports++;
+              const target = path.resolve(path.dirname(file), spec);
+              const rel = path.relative(root, target).replaceAll('\\', '/');
+              const candidates = [target, `${target}.js`, path.join(target, 'index.js')];
+              if (candidates.some(candidate => fs.existsSync(candidate) && fs.statSync(candidate).isFile())) continue;
+              if (optionalConfig.has(rel)) continue;
+              missing.push(`${path.relative(root, file)} -> ${spec}`);
+            }
+          }
+          if (missing.length) throw new Error(`Missing required runtime imports:\n${missing.join('\n')}`);
+          console.log(`Relative import graph OK: ${checkedImports} import(s), no required target missing.`);
+          console.log(`Release artifact OK: ${expected}`);
+          NODE
+
+      - name: Upload validated itch build
+        uses: actions/upload-artifact@v4
+        with:
+          name: pokegang-itch-release-v${{ steps.release.outputs.version }}
+          path: ${{ steps.release.outputs.file }}
+          if-no-files-found: error
+          retention-days: 14
