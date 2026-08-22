@@ -19,6 +19,26 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Barrière avant la mise en ligne. Les workflows de contrôle du repo ne
+      # se déclenchent que sur `pull_request` : un push direct sur main —
+      # pratique courante ici — partait donc en production sans qu'aucun test
+      # ne soit exécuté. La suite est déterministe et tourne en quelques
+      # secondes, donc la faire précéder le rsync ne coûte rien et empêche un
+      # commit cassé d'atteindre pokegang.sterenna.fr.
+      - name: Regression suite
+        run: |
+          set -e
+          node tools/check-events.js
+          for test in tools/test-*.mjs; do
+            echo "── $test"
+            node "$test"
+          done
+
       - name: Add deployment marker
         run: |
           echo "PokéGang deploy" > deploy-test.txt

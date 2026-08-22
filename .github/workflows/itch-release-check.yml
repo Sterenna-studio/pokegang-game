@@ -46,14 +46,20 @@ jobs:
           console.log(`file=${release.uploadFile}`);
           NODE
 
-      - name: Core regression checks
+      # Suite complète plutôt qu'une sélection : l'ancienne liste codée en dur
+      # couvrait 5 tests sur 15 et omettait notamment test-hub-autostart, le
+      # seul qui vérifie le démarrage automatique d'une première partie — un
+      # comportement propre à itch, donc exactement ce que cette porte devrait
+      # protéger. Une liste manuelle se périme dès qu'un test est ajouté ;
+      # itérer sur le glob ne peut pas rater un nouveau venu.
+      - name: Regression suite
         run: |
+          set -e
           node tools/check-events.js
-          node tools/test-onboarding-controller.mjs
-          node tools/test-tab-unlocks.mjs
-          node tools/test-advisor.mjs
-          node tools/test-runtime-store.mjs
-          node tools/test-update-manager.mjs
+          for test in tools/test-*.mjs; do
+            echo "── $test"
+            node "$test"
+          done
 
       - name: Build itch archive
         run: node tools/build-itch.js
