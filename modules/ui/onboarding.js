@@ -571,7 +571,13 @@ function _bindOnboardingEvents() {
       ONBOARDING_STEPS.GUIDE_ZONE,
       {},
       () => _track('guide_team_set', { source: source ?? null }),
-    )) _ctx.refreshGuide?.();
+    )) {
+      _ctx.refreshGuide?.();
+      // Enchaîne directement sur la demande de zone, sans attendre que le
+      // joueur reclique quoi que ce soit — le transfuge n'a plus de sprite sur
+      // lequel cliquer une fois le terrain de départ purgé.
+      _ctx.guideToZoneAssignment?.(agentId);
+    }
   });
 
   // « Assigne-moi à une zone ».
@@ -591,6 +597,9 @@ function _bindOnboardingEvents() {
       // rouvre pas Zones lui-même.
       _ctx.forceZonesRefresh?.();
       _ctx.refreshGuide?.();
+      // Idem team → zone : enchaîne directement sur la demande d'activer le
+      // combat, sans repasser par un sprite qui n'existe plus.
+      _ctx.guideToCombatToggle?.(agentId);
     }
   });
 

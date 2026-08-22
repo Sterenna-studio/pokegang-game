@@ -166,6 +166,8 @@ import {
   clearGuide,
   placeGuide,
   refreshGuide,
+  guideToZoneAssignment,
+  guideToCombatToggle,
 } from './modules/ui/onboardingGuide.js';
 import {
   configureOnboardingScene,
@@ -1733,6 +1735,8 @@ function configureEntryFlows() {
     placeGuide,
     refreshGuide,
     clearGuide,
+    guideToZoneAssignment,
+    guideToCombatToggle,
     openGuideRecruitModal: autoOpenGuideEncounter,
     // Forcé plutôt que confié au cycle de rendu habituel : à la complétion,
     // le joueur est presque toujours sur l'onglet Agents (dernier geste du

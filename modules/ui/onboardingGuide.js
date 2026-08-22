@@ -187,6 +187,34 @@ function _guideToTeamAssignment(agentId) {
   return true;
 }
 
+/**
+ * Enchaîne automatiquement sur les deux étapes suivantes (zone, puis combat),
+ * sans attendre un clic du joueur sur quoi que ce soit — contrairement à
+ * _guideToTeamAssignment, qui répond à un clic sur le sprite du transfuge,
+ * encore visible à ce moment-là sur le terrain. Ces deux étapes n'ont plus de
+ * sprite : le terrain de départ est purgé depuis l'étape précédente, donc sans
+ * cet enchaînement explicite le joueur se retrouverait sur l'onglet Agents
+ * sans aucune indication de ce qu'il reste à faire. Le texte vient de
+ * getOnboardingGuideLine(), pas d'un doublon codé en dur ici : il reflète déjà
+ * la réplique de l'étape qu'on vient de committer (_commitStep() met à jour
+ * state.onboarding.step de façon synchrone avant que l'appelant ne poursuive).
+ */
+export function guideToZoneAssignment(agentId) {
+  _ctx.switchTab?.('tabAgents');
+  _pointGuideHelpWhenReady(
+    `.agents-zone-select[data-agent-id="${agentId}"]`,
+    getOnboardingGuideLine(_state()),
+  );
+}
+
+export function guideToCombatToggle(agentId) {
+  _ctx.switchTab?.('tabAgents');
+  _pointGuideHelpWhenReady(
+    `button[data-ag-flag="${agentId}"][data-flag="autoCombat"]`,
+    getOnboardingGuideLine(_state()),
+  );
+}
+
 /** Repose le sprite immédiatement plutôt qu'au prochain tick de zone. */
 export function refreshGuide() {
   // Un pas vient d'être franchi : quoi que la flèche pointait, ce n'est plus
