@@ -12,19 +12,48 @@
 //    5. Confrontation      — Combat final contre Deoxys
 //  Rejouable : 1 Météore permet de relancer l'étape 5 uniquement.
 //
+//  L'intro cinématique (_showQuestIntro/_showQuestStep2) et le tracker
+//  restent gérés ici tels quels. Les affrontements de quête (Directeur,
+//  Deoxys) ne se déclenchent plus depuis un modal à jet de probabilité
+//  (`resolveSpecialCombat`) : une fois l'étape atteinte,
+//  getDeoxysQuestEncounterForZone(zoneId) fait apparaître le dresseur/
+//  légendaire comme sprite persistant dans laboratoire_spatial (agrégé par
+//  modules/ui/zoneWindows.js) ; un clic ouvre un vrai combat tour-par-tour
+//  (modules/ui/questEncounterPopup.js + modules/systems/questCombat.js) —
+//  même patron que kantoMissions.js/johtoMissions.js/legendaryMissions.js/
+//  sinnohMissions.js.
+//
+//  La révélation en 3 phases de Deoxys (_deoxysPhases) est une cinématique
+//  cosmétique — elle ne détermine jamais l'issue, seul le combat qui suit
+//  compte. Conservée telle quelle, mais jouée UNE SEULE FOIS (gardée par
+//  deoxysPhasesShown) : un joueur qui relance juste après une défaite ne
+//  doit pas se retaper 20 secondes de texte à chaque tentative.
+//
+//  Les anciens seuils de puissance (DIRECTOR_POWER_THRESHOLD,
+//  DEOXYS_POWER_THRESHOLD) servaient à bloquer l'accès au combat avant
+//  même de le lancer — aucune région migrée ne fait ça : la difficulté
+//  passe uniquement par statMult + niveau d'équipe, et le joueur peut
+//  toujours envoyer des agents affaiblir l'adversaire avant d'y aller lui-
+//  même. Supprimés ; la puissance du boss reste affichée dans le tracker à
+//  titre indicatif, comme Hoenn/Sinnoh le font déjà.
+//
 //  Déclenchement :
-//    checkDeoxysMissionUnlock()   — à appeler au boot et après Ever Grande
-//    openDeoxysMission()          — ouvre le tracker de quête
+//    checkDeoxysMissionUnlock()      — à appeler au boot et après Ever Grande
+//    openDeoxysMission()             — ouvre le tracker de quête
+//    getDeoxysQuestEncounterForZone() — sprite de combat pour une zone
 //
 //  Dépendances globalThis :
-//    state, saveState, notify, makePokemon, speciesName,
-//    calculateStats, getBossTeamPower, switchTab
+//    state, saveState, makePokemon, calculateStats, registerPokedexCapture,
+//    trainerSprite, getBossTeamPower, switchTab, openQuestEncounterPopup,
+//    patchZoneWindow
+//  Dépendances import :
+//    defaultEncounterState (modules/systems/questCombat.js)
 //  Dépendances bare-name (classic scripts) :
-//    ZONE_HOENN_BY_ID, SPECIES_BY_EN
+//    ZONE_HOENN_BY_ID
 // ════════════════════════════════════════════════════════════════
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
-import { resolveSpecialCombat } from './specialCombat.js';
+import { defaultEncounterState } from './questCombat.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type });
 const _save   = ()               => globalThis.saveState?.();
@@ -32,22 +61,30 @@ const _t = (fr, en) => (globalThis.state?.lang === 'en' ? en : fr);
 
 // ── Assets ────────────────────────────────────────────────────
 const DEOXYS_SPRITE     = 'assets/pokemon_sprite/legendary_fight_by_muzyun/deoxys.png';
-const DEOXYS_FIGHT_FULL = 'assets/pokemon_sprite/legendary_fight_by_muzyun/deoxys_fight_full.png';
 const DEOXYS_FIGHT_HALF = 'assets/pokemon_sprite/legendary_fight_by_muzyun/deoxys_fight_half.png';
 
 // ── Config ────────────────────────────────────────────────────
-const TARGET_TRAINERS    = 20;
-const TARGET_METEORES    = 3;
-const TARGET_LAB_FIGHTS  = 10;
-const LAB_ZONE_ID        = 'laboratoire_spatial';
+const TARGET_TRAINERS   = 20;
+const TARGET_METEORES   = 3;
+const TARGET_LAB_FIGHTS = 10;
+const LAB_ZONE_ID       = 'laboratoire_spatial';
 
-// Seuils de puissance boss
-const DIRECTOR_POWER_THRESHOLD = 1500;
-const DEOXYS_POWER_THRESHOLD   = 3500;
-const DEOXYS_CATCH_BASE        = 0.45; // taux de capture de base si puissance >= seuil
+// Directeur/Deoxys : niveaux calibrés en conservant l'écart relatif des
+// anciens seuils de puissance (Directeur 1500 < Deoxys 3500), nettement en
+// dessous des seuils Hoenn (admin 2000 / chef 3000 / légendaire 4500) — cette
+// quête était déjà, dans l'ancien système, plus accessible que les quêtes
+// Magma/Aqua malgré son positionnement narratif "final".
+const DIRECTOR_TEAM = [
+  { species_en: 'metang', level: 48 }, { species_en: 'claydol', level: 49 }, { species_en: 'porygon-z', level: 50 },
+];
+const DEOXYS_SPECIES = 'deoxys';
+const DEOXYS_LEVEL = 80;   // valeur déjà explicite dans l'ancien système — conservée
+const DEOXYS_POT   = 5;    // idem
+const DEOXYS_CATCH_BASE = 0.45; // idem
+const DEOXYS_STAT_MULT  = 1.5;
 
 // ── Helpers ───────────────────────────────────────────────────
-const _state = ()  => globalThis.state ?? null;
+const _state = () => globalThis.state ?? null;
 
 function _qs() {
   const s = _state();
@@ -57,6 +94,7 @@ function _qs() {
       active: false, step: 0,
       trainersDefeated: 0, labFightsWon: 0,
       labBossDefeated: false, deoxysOwned: false, totalCaptures: 0,
+      deoxysPhasesShown: false,
     };
   }
   return s.deoxysMission;
@@ -65,8 +103,12 @@ function _qs() {
 function _isHoennZone(zoneId) {
   if (!zoneId) return false;
   if (typeof ZONE_HOENN_BY_ID !== 'undefined' && ZONE_HOENN_BY_ID[zoneId]) return true;
-  // Fallback : ids contenus dans des data strings
   return false;
+}
+
+function _repatchZone(zoneId) {
+  const win = document.getElementById(`zw-${zoneId}`);
+  if (win) globalThis.patchZoneWindow?.(zoneId, win);
 }
 
 function _wait(ms) { return new Promise(r => setTimeout(r, ms)); }
@@ -97,15 +139,11 @@ function _onCombatWon({ zoneId } = {}) {
   if (!q?.active) return;
   const hoenn = _isHoennZone(zoneId);
 
-  // Objectif 1 — combats Hoenn
   if (q.step === 1 && hoenn) {
     q.trainersDefeated = Math.min((q.trainersDefeated || 0) + 1, TARGET_TRAINERS);
     if (q.trainersDefeated >= TARGET_TRAINERS) {
       q.step = 2;
       _notify(_t('☄️ Signal localisé ! Collectez 3 Météores dans les zones Hoenn.', '☄️ Signal located! Collect 3 Meteorites in the Hoenn zones.'), 'gold');
-      // Des météores peuvent déjà avoir été récoltés avant la fin de l'étape 1
-      // (ex: via l'événement de zone meteore_crash, indépendant du step) — valider
-      // le seuil tout de suite plutôt que d'attendre un nouveau drop aléatoire.
       const inv0 = _state().inventory;
       if ((inv0.meteore || 0) >= TARGET_METEORES) {
         inv0.meteore -= TARGET_METEORES;
@@ -116,22 +154,20 @@ function _onCombatWon({ zoneId } = {}) {
     _save();
   }
 
-  // Objectif 3 — combats dans le labo
   if (q.step === 3 && zoneId === LAB_ZONE_ID) {
     q.labFightsWon = Math.min((q.labFightsWon || 0) + 1, TARGET_LAB_FIGHTS);
     if (q.labFightsWon >= TARGET_LAB_FIGHTS) {
       q.step = 4;
-      _notify(_t('☄️ Laboratoire infiltré ! Affrontez le Directeur Devon depuis la quête.', '☄️ Lab infiltrated! Face the Devon Director from the quest tracker.'), 'gold');
+      _notify(_t('☄️ Laboratoire infiltré ! Rendez-vous au Laboratoire Spatial pour affronter le Directeur.', '☄️ Lab infiltrated! Head to the Space Lab to face the Director.'), 'gold');
+      _repatchZone(LAB_ZONE_ID);
     }
     _save();
   }
 
   // Le drop météore passe uniquement par l'event SPECIAL_EVENTS "meteore_crash"
-  // (data/zones-hoenn-data.js) — voir _onItemGiftReceived ci-dessous. Un second
-  // tirage indépendant existait ici (doublon non documenté) et a été retiré.
+  // (data/zones-hoenn-data.js) — voir _onItemGiftReceived ci-dessous.
 }
 
-// Hook depuis zoneSystem.js (reward.itemGift)
 function _onItemGiftReceived(itemId) {
   if (itemId !== 'meteore') return;
   const q = _qs();
@@ -146,13 +182,12 @@ function _onItemGiftReceived(itemId) {
   }
 }
 
-// ── Styles (prefix dxq-) ──────────────────────────────────────
+// ── Styles (prefix dxq-) — intro cinématique + phases uniquement ──
 function _injectStyles() {
   if (document.getElementById('dxq-styles')) return;
   const style = document.createElement('style');
   style.id = 'dxq-styles';
   style.textContent = `
-    /* ── Overlay de base ── */
     #dxq-overlay {
       position:fixed; inset:0; z-index:9100;
       background:#03030f;
@@ -172,7 +207,6 @@ function _injectStyles() {
     }
     .dxq-close-btn:hover { color:#00e5ff; }
     @keyframes dxq-fadein  { from{opacity:0} to{opacity:1} }
-    @keyframes dxq-fadeout { from{opacity:1} to{opacity:0} }
     @keyframes dxq-pulse   { 0%,100%{opacity:.3;transform:scale(1)} 50%{opacity:1;transform:scale(1.08)} }
     @keyframes dxq-holo    {
       0%   { filter:hue-rotate(0deg)   brightness(1.2); }
@@ -180,11 +214,9 @@ function _injectStyles() {
       100% { filter:hue-rotate(0deg)   brightness(1.2); }
     }
     @keyframes dxq-bob     { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
-    @keyframes dxq-tremble { 0%,100%{transform:translate(0,0)} 25%{transform:translate(-2px,1px)} 75%{transform:translate(2px,-1px)} }
     @keyframes dxq-appear  { from{opacity:0;transform:scale(.85) translateY(14px)} to{opacity:1;transform:none} }
     @keyframes dxq-flash   { 0%{opacity:0} 15%{opacity:1} 100%{opacity:0} }
 
-    /* ── Boîte principale ── */
     .dxq-box {
       max-width:540px; width:100%;
       background:rgba(4,4,20,.97);
@@ -200,7 +232,6 @@ function _injectStyles() {
       opacity:.7;
     }
 
-    /* ── Typo ── */
     .dxq-label {
       font-family:var(--font-pixel,monospace);
       font-size:7px; letter-spacing:3px;
@@ -223,16 +254,7 @@ function _injectStyles() {
       margin-bottom:16px;
       white-space:pre-wrap;
     }
-    .dxq-voice {
-      font-family:var(--font-pixel,monospace);
-      font-size:8px; line-height:2.2;
-      color:#7b8fff;
-      text-align:center; letter-spacing:1px;
-      white-space:pre-wrap; font-style:italic;
-      margin-bottom:14px;
-    }
 
-    /* ── Boutons ── */
     .dxq-choices { display:flex; flex-direction:column; gap:8px; }
     .dxq-btn {
       background:none;
@@ -247,12 +269,8 @@ function _injectStyles() {
     .dxq-btn:hover { border-color:#00c8ff; color:#e0f4ff; background:rgba(0,200,255,.06); }
     .dxq-btn.cyan  { border-color:#00c8ff; color:#00e5ff; }
     .dxq-btn.cyan:hover { background:rgba(0,200,255,.1); }
-    .dxq-btn.gold  { border-color:#ffcc5a; color:#ffcc5a; }
-    .dxq-btn.gold:hover { background:rgba(255,204,90,.08); }
-    .dxq-btn.red   { border-color:#cc1111; color:#e63535; }
     .dxq-btn:disabled { opacity:.35; cursor:not-allowed; }
 
-    /* ── Sprite Deoxys ── */
     .dxq-sprite-wrap {
       text-align:center; margin-bottom:16px;
       position:relative; display:inline-block;
@@ -271,14 +289,8 @@ function _injectStyles() {
       position:relative; z-index:1;
     }
     .dxq-sprite.silhouette { filter:brightness(0) drop-shadow(0 0 10px rgba(0,200,255,.5)); }
-    .dxq-sprite.revealed   {
-      filter:brightness(.1) saturate(0)
-             drop-shadow(0 0 14px rgba(0,200,255,.6))
-             drop-shadow(0 0 6px rgba(123,47,255,.7));
-    }
     .dxq-sprite.holo { animation:dxq-bob 3s ease-in-out infinite, dxq-holo 3s linear infinite; }
 
-    /* ── Combat backdrop ── */
     .dxq-fight-bg {
       width:100%; max-height:180px; object-fit:cover;
       object-position:center top;
@@ -287,7 +299,6 @@ function _injectStyles() {
       image-rendering:pixelated;
     }
 
-    /* ── Quest tracker ── */
     .dxq-tracker { display:flex; flex-direction:column; gap:10px; }
     .dxq-step {
       display:flex; align-items:flex-start; gap:12px;
@@ -331,9 +342,8 @@ function _injectStyles() {
       border-radius:2px;
       transition:width .4s ease;
     }
-    .dxq-step-action { margin-top:8px; }
+    .dxq-goto { color:#ffcc5a; font-size:8px; margin-top:6px; }
 
-    /* ── Power bar ── */
     .dxq-power-row {
       display:flex; align-items:center; gap:10px;
       padding:10px 12px;
@@ -345,7 +355,6 @@ function _injectStyles() {
     .dxq-power-label { font-family:var(--font-pixel,monospace); font-size:7px; color:#8a9ab0; flex:1; }
     .dxq-power-val   { font-family:var(--font-pixel,monospace); font-size:9px; color:#ffcc5a; }
 
-    /* ── Météore counter ── */
     .dxq-meteore-row {
       display:flex; align-items:center; gap:8px;
       padding:8px 12px;
@@ -357,7 +366,6 @@ function _injectStyles() {
       margin-top:8px;
     }
 
-    /* ── Flash overlay ── */
     #dxq-flash {
       position:fixed; inset:0; z-index:9200;
       background:#fff;
@@ -365,7 +373,6 @@ function _injectStyles() {
       animation:dxq-flash .6s ease forwards;
     }
 
-    /* ── Result badge ── */
     .dxq-badge {
       font-family:var(--font-pixel,monospace);
       font-size:9px; letter-spacing:2px;
@@ -375,26 +382,13 @@ function _injectStyles() {
       margin-bottom:14px;
       text-transform:uppercase;
     }
-    .dxq-badge.gold  { color:#ffcc5a; border-color:rgba(255,204,90,.4); }
-    .dxq-badge.green { color:#00ff88; border-color:rgba(0,255,136,.4); }
-    .dxq-badge.red   { color:#ff8080; border-color:rgba(255,128,128,.4); }
   `;
   document.head.appendChild(style);
 }
 
 // ── Overlay helpers ───────────────────────────────────────────
 let _overlay = null;
-
 let _closeBtnEl = null;
-
-// Verrouillé pendant les fenêtres await _wait(...)/_flash() entre le clic sur
-// "Engager le combat" et l'appel à _box() qui rend l'écran de résolution —
-// le bouton "✕ FERMER" est un élément fixe indépendant du contenu du box, donc
-// cliquable pendant cette fenêtre ; sans ce verrou, _overlay passe à null en
-// plein milieu et _box() plante sur _overlay.appendChild.
-let _resolving = false;
-
-let _autoReturnTimer = null;
 
 function _buildOverlay() {
   _injectStyles();
@@ -403,15 +397,10 @@ function _buildOverlay() {
   document.body.appendChild(el);
   _overlay = el;
 
-  // Bouton fermer fixe (survit aux rebuilds internes via _clearOverlay, contrairement
-  // à un bouton placé dans le contenu du tracker — même patron que Johto/Kanto).
   const closeBtn = document.createElement('span');
   closeBtn.className = 'dxq-close-btn';
   closeBtn.textContent = `✕ ${_t('FERMER', 'CLOSE')}`;
-  closeBtn.onclick = () => {
-    if (_resolving) { _notify(_t('⏳ Résolution en cours…', '⏳ Resolving…'), ''); return; }
-    _closeOverlay();
-  };
+  closeBtn.onclick = () => _closeOverlay();
   document.body.appendChild(closeBtn);
   _closeBtnEl = closeBtn;
 
@@ -427,25 +416,8 @@ function _closeOverlay(ms = 400) {
   el.style.opacity = '0';
   _closeBtnEl?.remove();
   _closeBtnEl = null;
-  if (_autoReturnTimer) { clearTimeout(_autoReturnTimer); _autoReturnTimer = null; }
-  // _overlay est nullifié tout de suite (pas seulement à la fin du fondu) —
-  // les écrans suivants enchaînés via setTimeout(() => _launchX(...), 300)
-  // depuis les boutons "Suite/Réessayer" dépendent de _overlay === null pour
-  // passer leur propre garde d'entrée ; le nullifier après coup créait une
-  // course perdue (300ms < ce délai de fondu) qui fermait tout sans rien
-  // rouvrir.
   _overlay = null;
   setTimeout(() => { el.remove(); }, ms);
-}
-
-// Minuterie de sécurité : ramène automatiquement au tracker si le joueur ne
-// clique aucun bouton (parité Johto/Kanto — jamais d'écran de résultat bloqué
-// sans issue). Tout clic explicite sur un bouton du même écran doit d'abord
-// appeler clearTimeout(timer) pour laisser son propre choix prévaloir.
-function _armAutoReturn(ms = 3500) {
-  if (_autoReturnTimer) clearTimeout(_autoReturnTimer);
-  _autoReturnTimer = setTimeout(() => { _autoReturnTimer = null; _clearOverlay(); _renderTracker(); }, ms);
-  return _autoReturnTimer;
 }
 
 function _box() {
@@ -492,7 +464,6 @@ function _btn(label, cls = '') {
   return el;
 }
 
-// ── Flash blanc ───────────────────────────────────────────────
 function _flash() {
   const el = document.createElement('div');
   el.id = 'dxq-flash';
@@ -508,11 +479,9 @@ async function _showQuestIntro() {
   if (_overlay) return;
   _buildOverlay();
 
-  // Étape 0 : noir pendant 800ms
   await _wait(800);
   if (!_overlay) return;
 
-  // Étape 1 : message Devon Research
   _clearOverlay();
   const box = _box();
   _label(box, _t('Devon Research Corporation — Signal classifié', 'Devon Research Corporation — Classified Signal'));
@@ -562,7 +531,6 @@ async function _showQuestStep2() {
   const box = _box();
   _label(box, 'Devon Research Corporation');
 
-  // Deoxys silhouette
   const sw = document.createElement('div');
   sw.className = 'dxq-sprite-wrap aura';
   sw.style.display = 'block';
@@ -602,339 +570,71 @@ async function _showQuestStep2() {
 }
 
 // ════════════════════════════════════════════════════════════════
-//  TRACKER — vue d'ensemble de la quête
+//  RENCONTRES DE QUÊTE (sprite sur zone → popup de combat réel)
 // ════════════════════════════════════════════════════════════════
 
-function openDeoxysMission() {
-  if (_overlay) return;
-  const q = _qs();
-  if (!q) return;
-
-  // Si pas encore active → montrer l'intro
-  if (!q.active) {
-    _showQuestIntro();
-    return;
-  }
-
-  _buildOverlay();
-  _renderTracker();
-}
-
-function _renderTracker() {
-  _clearOverlay();
-  if (!_overlay) return;
-  const q = _qs();
-  const s = _state();
-  if (!q || !s) return;
-
-  const bosspower = globalThis.getBossTeamPower?.() ?? 0;
-  const meteores  = s.inventory?.meteore ?? 0;
-
-  const box = _box();
-  _label(box, _t('— Quête Légendaire —', '— Legendary Quest —'));
-  _titleEl(box, _t('☄️  Opération : Forme ADN', '☄️  Operation: DNA Form'));
-
-  // Météore counter
-  const mRow = document.createElement('div');
-  mRow.className = 'dxq-meteore-row';
-  mRow.innerHTML = `☄️ ${_t('Météores', 'Meteorites')} : <strong style="margin-left:4px">${meteores}</strong>
-    <span style="opacity:.5;font-size:7px;margin-left:8px">— ${_t('0,5 % par combat Hoenn', '0.5% per Hoenn battle')}</span>`;
-  box.appendChild(mRow);
-
-  // Power
-  const pRow = document.createElement('div');
-  pRow.className = 'dxq-power-row';
-  pRow.innerHTML = `<span class="dxq-power-label">${_t('Puissance Boss', 'Boss Power')}</span>
-    <span class="dxq-power-val">${bosspower.toLocaleString()}</span>`;
-  box.appendChild(pRow);
-
-  // ── 5 étapes ──
-  const tracker = document.createElement('div');
-  tracker.className = 'dxq-tracker';
-  tracker.style.marginTop = '14px';
-  box.appendChild(tracker);
-
-  const steps = [
-    {
-      n: 1, title: _t('Signal Anomal', 'Anomalous Signal'),
-      desc: _t(`Vaincre 20 dresseurs dans les zones Hoenn`, `Defeat 20 trainers in the Hoenn zones`),
-      progress: q.step > 1 ? 1 : (q.trainersDefeated || 0) / TARGET_TRAINERS,
-      progressLabel: `${Math.min(q.trainersDefeated || 0, TARGET_TRAINERS)} / ${TARGET_TRAINERS}`,
-    },
-    {
-      n: 2, title: _t('Fragments de Météorite', 'Meteorite Fragments'),
-      desc: _t(`Collecter 3 Météores (0,5 % par combat Hoenn)\nActuellement : ${meteores} météore${meteores !== 1 ? 's' : ''} en inventaire`,
-                `Collect 3 Meteorites (0.5% per Hoenn battle)\nCurrently: ${meteores} meteorite${meteores !== 1 ? 's' : ''} in inventory`),
-      progress: q.step > 2 ? 1 : Math.min(meteores, TARGET_METEORES) / TARGET_METEORES,
-    },
-    {
-      n: 3, title: _t('Infiltration du Laboratoire', 'Lab Infiltration'),
-      desc: _t(`Vaincre 10 combats dans le Laboratoire Spatial Devon`, `Win 10 battles in the Devon Space Lab`),
-      progress: q.step > 3 ? 1 : (q.labFightsWon || 0) / TARGET_LAB_FIGHTS,
-      progressLabel: `${Math.min(q.labFightsWon || 0, TARGET_LAB_FIGHTS)} / ${TARGET_LAB_FIGHTS}`,
-    },
-    {
-      n: 4, title: _t('Prise de Contrôle', 'Taking Control'),
-      desc: _t(`Vaincre le Directeur du Laboratoire Devon\n(Puissance requise : ${DIRECTOR_POWER_THRESHOLD.toLocaleString()})`,
-                `Defeat the Devon Lab Director\n(Power required: ${DIRECTOR_POWER_THRESHOLD.toLocaleString()})`),
-      actionLabel: `⚔ ${_t('Affronter le Directeur', 'Face the Director')} →`,
-      actionAvail: q.step === 4,
-      actionFn: () => { _closeOverlay(); setTimeout(_launchDirectorFight, 300); },
-    },
-    {
-      n: 5, title: _t('Confrontation : Forme ADN', 'Confrontation: DNA Form'),
-      desc: _t(`Combat final contre Deoxys\n(Puissance requise : ${DEOXYS_POWER_THRESHOLD.toLocaleString()})`,
-                `Final battle against Deoxys\n(Power required: ${DEOXYS_POWER_THRESHOLD.toLocaleString()})`),
-      actionLabel: q.step === 6 ? `♺ ${_t('Rejouer', 'Retry')} (1 ${_t('Météore', 'Meteorite')})` : `☄ ${_t('Affronter Deoxys', 'Face Deoxys')} →`,
-      actionAvail: q.step === 5 || (q.step === 6 && meteores >= 1),
-      actionFn: () => {
-        if (q.step === 6) {
-          // Repeat mode: spend 1 météore — guard avant décrément (double-clic rapide)
-          const inv3 = _state().inventory;
-          if ((inv3.meteore || 0) < 1) return;
-          inv3.meteore--;
-          _save();
-        }
-        _closeOverlay();
-        setTimeout(_launchDeoxysFight, 300);
-      },
-    },
-  ];
-
-  for (const st of steps) {
-    const div  = document.createElement('div');
-    const done = q.step > st.n || (st.n === 5 && q.step === 6 && q.deoxysOwned);
-    const active = q.step === st.n || (st.n === 5 && q.step === 6);
-    const locked = q.step < st.n && !(st.n === 5 && q.step === 6);
-
-    div.className = 'dxq-step' +
-      (done   ? ' done'   : '') +
-      (active ? ' active' : '') +
-      (locked ? ' locked' : '');
-
-    const numEl = document.createElement('div');
-    numEl.className = 'dxq-step-num';
-    numEl.textContent = done ? '✓' : String(st.n);
-
-    const body = document.createElement('div');
-    body.className = 'dxq-step-body';
-
-    const titleEl = document.createElement('div');
-    titleEl.className = 'dxq-step-title';
-    titleEl.textContent = st.title;
-
-    const descEl = document.createElement('div');
-    descEl.className = 'dxq-step-desc';
-    descEl.style.whiteSpace = 'pre-wrap';
-    descEl.textContent = st.desc || '';
-
-    body.appendChild(titleEl);
-    body.appendChild(descEl);
-
-    // Barre de progression
-    if (st.progress !== undefined) {
-      const pct = Math.min(Math.round(st.progress * 100), 100);
-      const barWrap = document.createElement('div');
-      barWrap.className = 'dxq-progress-bar';
-      barWrap.title = st.progressLabel || `${pct}%`;
-      const fill = document.createElement('div');
-      fill.className = 'dxq-progress-fill';
-      fill.style.width = pct + '%';
-      barWrap.appendChild(fill);
-      body.appendChild(barWrap);
-    }
-
-    // Bouton d'action
-    if (st.actionLabel && (active || (st.n === 5 && q.step === 6))) {
-      const actDiv = document.createElement('div');
-      actDiv.className = 'dxq-step-action';
-      const actBtn = _btn(st.actionLabel, 'cyan');
-      if (!st.actionAvail) actBtn.disabled = true;
-      else actBtn.onclick = st.actionFn;
-      actDiv.appendChild(actBtn);
-      body.appendChild(actDiv);
-    }
-
-    div.appendChild(numEl);
-    div.appendChild(body);
-    tracker.appendChild(div);
-  }
-}
-
-// ════════════════════════════════════════════════════════════════
-//  ÉTAPE 4 — Directeur du Laboratoire
-// ════════════════════════════════════════════════════════════════
-
-async function _launchDirectorFight() {
-  if (_overlay) return;
+function _openDirector() {
   const q = _qs();
   if (!q || q.step !== 4) return;
-
-  _buildOverlay();
-
-  const bosspower = globalThis.getBossTeamPower?.() ?? 0;
-  const qualified = bosspower >= DIRECTOR_POWER_THRESHOLD;
-
-  _clearOverlay();
-  const box = _box();
-  _label(box, _t('Étape 4 — Prise de Contrôle', 'Step 4 — Taking Control'));
-  _titleEl(box, _t('⚔  Combat : Directeur Devon Stone', '⚔  Battle: Director Devon Stone'));
-
-  const txt = _textEl(box);
-  await _typewrite(txt, _t(
-    'Le Directeur Devon Stone bloque l\'accès au cœur du laboratoire.\n\n' +
-    'Son équipe de recherche : Metang, Claydol, Porygon-Z.\n' +
-    'Des machines de précision, entraînées dans des conditions extrêmes.\n\n' +
-    '"Vous n\'avez aucun droit d\'être ici. Mes Pokémon n\'ont pas perdu\n' +
-    'depuis 3 ans. Partez pendant que vous le pouvez encore."',
-    'Director Devon Stone blocks access to the heart of the lab.\n\n' +
-    'His research team: Metang, Claydol, Porygon-Z.\n' +
-    'Precision machines, trained under extreme conditions.\n\n' +
-    '"You have no right to be here. My Pokémon haven\'t lost\n' +
-    'in 3 years. Leave while you still can."',
-  ));
-
-  // Jauge de puissance
-  const pct = Math.min(bosspower / DIRECTOR_POWER_THRESHOLD, 1);
-  const needed = Math.max(0, DIRECTOR_POWER_THRESHOLD - bosspower);
-  const pRow = document.createElement('div');
-  pRow.className = 'dxq-power-row';
-  pRow.innerHTML = `
-    <span class="dxq-power-label">${_t('Votre puissance', 'Your power')}</span>
-    <span class="dxq-power-val">${bosspower.toLocaleString()} / ${DIRECTOR_POWER_THRESHOLD.toLocaleString()}</span>`;
-  box.appendChild(pRow);
-
-  if (!qualified) {
-    const warn = document.createElement('div');
-    warn.style.cssText = 'font-family:var(--font-pixel,monospace);font-size:7px;color:#cc1111;padding:8px 0;letter-spacing:1px';
-    warn.textContent = _t(`Puissance insuffisante — il vous manque ${needed.toLocaleString()} points. Renforcez votre équipe.`, `Not enough power — you're ${needed.toLocaleString()} points short. Strengthen your team.`);
-    box.appendChild(warn);
-  }
-
-  const ch = _choices(box);
-
-  if (qualified) {
-    const bFight = _btn(`⚔  ${_t('Engager le combat', 'Engage the battle')} →`, 'cyan');
-    bFight.onclick = async () => {
-      bFight.disabled = true;
-      bFight.textContent = '…';
-      _resolving = true;
-      await _wait(600);
-      _flash();
-      await _wait(700);
-      if (!_overlay) { _resolving = false; return; }
-      _clearOverlay();
-      const { win } = resolveSpecialCombat({ power: bosspower, requiredPower: DIRECTOR_POWER_THRESHOLD });
-      if (win) await _directorVictory();
-      else     await _directorDefeat();
-    };
-    ch.appendChild(bFight);
-  }
-
-  const bBack = _btn(_t('← Revenir au tracker', '← Back to tracker'));
-  bBack.onclick = () => { _clearOverlay(); _renderTracker(); };
-  ch.appendChild(bBack);
+  if (!q.directorEncounter) q.directorEncounter = defaultEncounterState();
+  globalThis.openQuestEncounterPopup?.({
+    id: 'dxq-director', kind: 'trainer',
+    name: 'Devon Stone', icon: '☄️',
+    spriteUrl: globalThis.trainerSprite?.('scientist') ?? '',
+    lore: _t('Directeur du Laboratoire Devon', 'Devon Lab Director'),
+    team: DIRECTOR_TEAM,
+    encounterState: q.directorEncounter,
+    onResolved: (result) => {
+      if (!result.won) return;
+      q.labBossDefeated = true;
+      q.step = 5;
+      _notify(_t('☄️ Devon Stone est vaincu. Rendez-vous au Laboratoire Spatial pour affronter Deoxys.', '☄️ Devon Stone is defeated. Head to the Space Lab to face Deoxys.'), 'gold');
+      _save();
+      _repatchZone(LAB_ZONE_ID);
+    },
+  });
 }
 
-async function _directorVictory() {
-  _resolving = false;
-  if (!_overlay) return;
-  const q = _qs();
-  const box = _box();
-  _label(box, _t('Étape 4 — Résultat', 'Step 4 — Result'));
-
-  const badge = document.createElement('div');
-  badge.className = 'dxq-badge green';
-  badge.textContent = `✓  ${_t('Directeur Devon Stone — Vaincu', 'Director Devon Stone — Defeated')}`;
-  box.appendChild(badge);
-
-  const txt = _textEl(box);
-  await _typewrite(txt, _t(
-    'Stone tombe à genoux.\n\n' +
-    '"C\'est… impossible. Mon équipe n\'a jamais…"\n\n' +
-    'Il se relève lentement, les yeux fixés sur l\'écran principal.\n' +
-    'La forme ADN pulse sur les moniteurs, plus forte que jamais.\n\n' +
-    '"Si vous pouvez vaincre ça… alors peut-être que vous méritez\n' +
-    'ce que vous êtes venu chercher. La chambre de confinement\n' +
-    'est au sous-sol. Mais vous n\'êtes pas prêts."\n\n' +
-    'Il dégage l\'entrée.',
-    'Stone falls to his knees.\n\n' +
-    '"This is… impossible. My team has never…"\n\n' +
-    'He slowly stands back up, eyes fixed on the main screen.\n' +
-    'The DNA Form pulses on the monitors, stronger than ever.\n\n' +
-    '"If you can defeat that… then maybe you deserve\n' +
-    'what you came looking for. The containment chamber\n' +
-    'is in the basement. But you\'re not ready."\n\n' +
-    'He clears the entrance.',
-  ));
-
-  q.labBossDefeated = true;
-  q.step = 5;
-  _save();
-  _notify(_t('☄️ Étape 4 complète ! Affrontez Deoxys depuis le tracker.', '☄️ Step 4 complete! Face Deoxys from the tracker.'), 'gold');
-
-  const ch = _choices(box);
-  const autoT = _armAutoReturn();
-  const bNext = _btn(_t('▸  Accéder au sous-sol →', '▸  Access the basement →'), 'cyan');
-  bNext.onclick = () => { clearTimeout(autoT); _closeOverlay(); setTimeout(_launchDeoxysFight, 300); };
-  const bTrack = _btn(_t('← Retour au tracker', '← Back to tracker'));
-  bTrack.onclick = () => { clearTimeout(autoT); _clearOverlay(); _renderTracker(); };
-  ch.appendChild(bNext);
-  ch.appendChild(bTrack);
-}
-
-async function _directorDefeat() {
-  _resolving = false;
-  if (!_overlay) return;
-  const box = _box();
-  _label(box, _t('Étape 4 — Résultat', 'Step 4 — Result'));
-
-  const badge = document.createElement('div');
-  badge.className = 'dxq-badge red';
-  badge.textContent = `✗  ${_t('Directeur Devon Stone — Défaite', 'Director Devon Stone — Defeat')}`;
-  box.appendChild(badge);
-
-  const txt = _textEl(box);
-  await _typewrite(txt, _t(
-    'Metang encaisse le dernier assaut sans broncher.\n\n' +
-    '"Revenez quand vous serez prêts."\n\n' +
-    'Renforcez votre équipe et retentez votre chance.',
-    'Metang absorbs the last assault without flinching.\n\n' +
-    '"Come back when you\'re ready."\n\n' +
-    'Strengthen your team and try again.',
-  ));
-
-  _notify(_t('☄️ Défaite contre le Directeur Devon Stone.', '☄️ Defeat against Director Devon Stone.'), 'error');
-
-  const ch = _choices(box);
-  const autoT = _armAutoReturn();
-  const bRetry = _btn(`⚔  ${_t('Retenter', 'Retry')} →`, 'cyan');
-  bRetry.onclick = () => { clearTimeout(autoT); _closeOverlay(); setTimeout(_launchDirectorFight, 300); };
-  const bTrack = _btn(_t('← Retour au tracker', '← Back to tracker'));
-  bTrack.onclick = () => { clearTimeout(autoT); _clearOverlay(); _renderTracker(); };
-  ch.appendChild(bRetry);
-  ch.appendChild(bTrack);
-}
-
-// ════════════════════════════════════════════════════════════════
-//  ÉTAPE 5 — Combat Deoxys
-// ════════════════════════════════════════════════════════════════
-
-async function _launchDeoxysFight() {
-  if (_overlay) return;
+/** Combat réel contre Deoxys — appelé directement en rejeu (phases déjà vues). */
+function _openDeoxysFight() {
   const q = _qs();
   if (!q || (q.step !== 5 && q.step !== 6)) return;
+  if (!q.deoxysEncounter) q.deoxysEncounter = defaultEncounterState();
+  globalThis.openQuestEncounterPopup?.({
+    id: 'dxq-deoxys', kind: 'legendary',
+    name: 'Deoxys', icon: '☄️', spriteUrl: DEOXYS_SPRITE,
+    team: [{ species_en: DEOXYS_SPECIES, level: DEOXYS_LEVEL, potential: DEOXYS_POT }],
+    statMult: DEOXYS_STAT_MULT, catchBase: DEOXYS_CATCH_BASE,
+    potential: DEOXYS_POT, zoneId: LAB_ZONE_ID,
+    encounterState: q.deoxysEncounter,
+    onResolved: (result) => {
+      if (!result.won) return;
+      if (!result.captured) {
+        _notify(_t('☄️ Deoxys s\'échappe !', '☄️ Deoxys escapes!'), '');
+        return;
+      }
+      _addDeoxysToPC();
+      q.deoxysOwned = true;
+      q.totalCaptures = (q.totalCaptures || 0) + 1;
+      q.step = 6;
+      _notify(_t(`★ Deoxys capturé — Niv.${DEOXYS_LEVEL} / Pot.${DEOXYS_POT} !`, `★ Deoxys caught — Lv.${DEOXYS_LEVEL} / Pot.${DEOXYS_POT}!`), 'gold');
+      _save();
+      _repatchZone(LAB_ZONE_ID);
+    },
+  });
+}
+
+/** Clic sur le sprite en zone : joue la révélation en 3 phases une seule
+ *  fois (cosmétique, ne détermine rien), puis enchaîne sur le vrai combat. */
+async function _openDeoxys() {
+  const q = _qs();
+  if (!q || (q.step !== 5 && q.step !== 6)) return;
+  if (q.deoxysPhasesShown) { _openDeoxysFight(); return; }
 
   _buildOverlay();
-
-  const bosspower = globalThis.getBossTeamPower?.() ?? 0;
-
-  // ─ Intro ─
-  _clearOverlay();
   const box = _box();
   _label(box, _t('Étape 5 — Confrontation Finale', 'Step 5 — Final Confrontation'));
 
-  // Image combat
   const fightImg = document.createElement('img');
   fightImg.src = DEOXYS_FIGHT_HALF;
   fightImg.className = 'dxq-fight-bg';
@@ -954,20 +654,8 @@ async function _launchDeoxysFight() {
     'It is not a prisoner.\n' +
     'It is waiting.',
   ), 20);
+  if (!_overlay) return;
 
-  const ch = _choices(box);
-  const bFight = _btn(`☄  ${_t('Engager le combat', 'Engage the battle')} →`, 'cyan');
-  const bFlee  = _btn(_t('← Reculer (sans pénalité)', '← Retreat (no penalty)'));
-
-  bFight.onclick = async () => { bFight.disabled = true; bFlee.disabled = true; await _deoxysPhases(bosspower); };
-  bFlee.onclick  = () => { _closeOverlay(); };
-
-  ch.appendChild(bFight);
-  ch.appendChild(bFlee);
-}
-
-async function _deoxysPhases(bosspower) {
-  _resolving = true;
   const phases = [
     {
       name: _t('Forme Attaque', 'Attack Forme'),
@@ -990,19 +678,18 @@ async function _deoxysPhases(bosspower) {
   ];
 
   for (let i = 0; i < phases.length; i++) {
-    if (!_overlay) { _resolving = false; return; }
+    if (!_overlay) return;
     _clearOverlay();
-    const box = _box();
+    const pbox = _box();
     const phase = phases[i];
 
     const badge = document.createElement('div');
     badge.className = 'dxq-badge';
-    badge.style.borderColor = `rgba(${phase.color.slice(1).match(/../g).map(x=>parseInt(x,16)).join(',')}, .4)`;
+    badge.style.borderColor = `rgba(${phase.color.slice(1).match(/../g).map(x => parseInt(x, 16)).join(',')}, .4)`;
     badge.style.color = phase.color;
     badge.textContent = `— ${_t('PHASE', 'PHASE')} ${i + 1} / 3 — ${phase.name} —`;
-    box.appendChild(badge);
+    pbox.appendChild(badge);
 
-    // Deoxys avec style de phase
     const sw = document.createElement('div');
     sw.className = 'dxq-sprite-wrap aura';
     sw.style.display = 'block';
@@ -1013,14 +700,15 @@ async function _deoxysPhases(bosspower) {
     img.style.filter = `drop-shadow(0 0 18px ${phase.color}) hue-rotate(${i * 90}deg)`;
     img.alt = 'Deoxys';
     sw.appendChild(img);
-    box.appendChild(sw);
+    pbox.appendChild(sw);
 
-    const txt = _textEl(box);
-    await _typewrite(txt, phase.desc, 28);
+    const ptxt = _textEl(pbox);
+    await _typewrite(ptxt, phase.desc, 28);
+    if (!_overlay) return;
 
     if (i < phases.length - 1) {
       await _wait(400);
-      const ch = _choices(box);
+      const ch = _choices(pbox);
       const bNext = _btn(`▸  ${_t('Phase suivante', 'Next phase')} →`, 'cyan');
       await new Promise(res => { bNext.onclick = () => { ch.innerHTML = ''; res(); }; ch.appendChild(bNext); });
       _flash();
@@ -1028,162 +716,203 @@ async function _deoxysPhases(bosspower) {
     }
   }
 
-  // ─ Résolution ─
   await _wait(300);
   _flash();
-  await _wait(800);
-  if (!_overlay) { _resolving = false; return; }
-  _deoxysResolution(bosspower);
+  await _wait(700);
+  if (!_overlay) return;
+
+  q.deoxysPhasesShown = true;
+  _save();
+  _closeOverlay();
+  setTimeout(() => _openDeoxysFight(), 300);
 }
 
-async function _deoxysResolution(bosspower) {
-  _resolving = false;
-  if (!_overlay) return;
-  _clearOverlay();
+/** Agrégateur appelé par modules/ui/zoneWindows.js. */
+export function getDeoxysQuestEncounterForZone(zoneId) {
+  if (zoneId !== LAB_ZONE_ID) return null;
   const q = _qs();
-  const box = _box();
-
-  const qualified = bosspower >= DEOXYS_POWER_THRESHOLD;
-  const powerRatio = bosspower / DEOXYS_POWER_THRESHOLD;
-  // Tentative "quand même" sous le seuil : chance réduite dédiée (pas la formule
-  // partagée, qui suppose un jet normal au-dessus du seuil requis).
-  const winChance = qualified
-    ? resolveSpecialCombat({ power: bosspower, requiredPower: DEOXYS_POWER_THRESHOLD, baseChance: 0.5 }).chance
-    : powerRatio * 0.3;
-  const won = Math.random() < winChance;
-
-  _label(box, _t('Résultat du combat', 'Battle result'));
-
-  // Image plein écran
-  const fightImg = document.createElement('img');
-  fightImg.src = DEOXYS_FIGHT_FULL;
-  fightImg.className = 'dxq-fight-bg';
-  fightImg.alt = 'Deoxys';
-  box.appendChild(fightImg);
-
-  const txt = _textEl(box);
-
-  if (won) {
-    // Tentative de capture
-    const catchRoll = Math.random() < (DEOXYS_CATCH_BASE + (powerRatio - 1) * 0.2);
-
-    if (catchRoll) {
-      await _typewrite(txt, _t(
-        'Deoxys s\'immobilise.\n\n' +
-        'Son cristal s\'assombrit, vacille. Puis cède.\n\n' +
-        'La Poké Ball roule sur le sol du laboratoire.\n' +
-        'Un clic. Deux clics. Trois clics.\n\n' +
-        '…\n\n' +
-        '          ★  Capturé.',
-        'Deoxys freezes.\n\n' +
-        'Its crystal darkens, flickers. Then gives in.\n\n' +
-        'The Poké Ball rolls across the lab floor.\n' +
-        'One click. Two clicks. Three clicks.\n\n' +
-        '…\n\n' +
-        '          ★  Caught.',
-      ));
-
-      // Ajouter Deoxys au PC
-      _addDeoxysToPC();
-      q.deoxysOwned   = true;
-      q.totalCaptures = (q.totalCaptures || 0) + 1;
-      q.step = 6; // marqué complet
-      _save();
-
-      const badge = document.createElement('div');
-      badge.className = 'dxq-badge green';
-      badge.textContent = _t('★  DEOXYS CAPTURÉ — REJOUE AVEC 1 MÉTÉORE', '★  DEOXYS CAUGHT — REPLAY WITH 1 METEORITE');
-      box.appendChild(badge);
-
-      const ch = _choices(box);
-      const autoT1 = _armAutoReturn();
-      const bDone = _btn(_t('▸  Voir Deoxys dans le PC →', '▸  View Deoxys in the PC →'), 'gold');
-      bDone.onclick = () => { clearTimeout(autoT1); _closeOverlay(); globalThis.switchTab?.('tabPC'); };
-      ch.appendChild(bDone);
-      const bTrack = _btn(_t('← Tracker de quête', '← Quest tracker'));
-      bTrack.onclick = () => { clearTimeout(autoT1); _clearOverlay(); _renderTracker(); };
-      ch.appendChild(bTrack);
-
-    } else {
-      // Victoire mais échec de capture
-      await _typewrite(txt, _t(
-        'Deoxys fléchit.\n\n' +
-        'Mais au moment où la Poké Ball touche son cristal,\n' +
-        'une explosion d\'énergie la repousse.\n\n' +
-        'Deoxys disparaît dans une lueur aveuglante.\n\n' +
-        'Il reviendra. Vous pourrez retenter.',
-        'Deoxys wavers.\n\n' +
-        'But the moment the Poké Ball touches its crystal,\n' +
-        'a burst of energy repels it.\n\n' +
-        'Deoxys vanishes in a blinding glow.\n\n' +
-        'It will return. You can try again.',
-      ));
-
-      // Réinitialiser step 5 pour retry
-      if (q.step !== 6) { /* laisse step 5 pour retry gratuit */ }
-      _save();
-      _notify(_t('☄️ Deoxys s\'est échappé — retry gratuit disponible.', '☄️ Deoxys escaped — free retry available.'), '');
-
-      const ch = _choices(box);
-      const autoT2 = _armAutoReturn();
-      const bRetry = _btn(_t('▸  Réessayer', '▸  Try again'), 'cyan');
-      bRetry.onclick = () => { clearTimeout(autoT2); _closeOverlay(); setTimeout(_launchDeoxysFight, 300); };
-      ch.appendChild(bRetry);
-      const bTrack = _btn(_t('← Tracker de quête', '← Quest tracker'));
-      bTrack.onclick = () => { clearTimeout(autoT2); _clearOverlay(); _renderTracker(); };
-      ch.appendChild(bTrack);
-    }
-
-  } else {
-    // Défaite
-    const powerNeeded = Math.max(0, DEOXYS_POWER_THRESHOLD - bosspower);
-    await _typewrite(txt, _t(
-      'Deoxys te traverse d\'un regard vide.\n\n' +
-      'En une fraction de seconde, votre équipe est au sol.\n\n' +
-      '"…Trop faible."\n\n' +
-      'Il tourne le dos et disparaît dans les ténèbres du laboratoire.',
-      'Deoxys looks through you with an empty gaze.\n\n' +
-      'In a split second, your team is on the ground.\n\n' +
-      '"…Too weak."\n\n' +
-      'It turns its back and vanishes into the lab\'s darkness.',
-    ), 28);
-
-    const warn = document.createElement('div');
-    warn.style.cssText = 'font-family:var(--font-pixel,monospace);font-size:7px;color:#cc1111;padding:8px 0;margin-top:4px;letter-spacing:1px';
-    warn.textContent = qualified
-      ? _t(`Défaite (chance : ${Math.round(winChance * 100)}%) — renforcez votre équipe et réessayez.`, `Defeat (chance: ${Math.round(winChance * 100)}%) — strengthen your team and try again.`)
-      : _t(`Puissance insuffisante (${bosspower.toLocaleString()} / ${DEOXYS_POWER_THRESHOLD.toLocaleString()}). Il manque ${powerNeeded.toLocaleString()} pts.`, `Not enough power (${bosspower.toLocaleString()} / ${DEOXYS_POWER_THRESHOLD.toLocaleString()}). Short by ${powerNeeded.toLocaleString()} pts.`);
-    box.appendChild(warn);
-
-    const ch = _choices(box);
-    const autoT3 = _armAutoReturn();
-    const bRetry = _btn(_t('▸  Réessayer', '▸  Try again'), 'cyan');
-    bRetry.onclick = () => { clearTimeout(autoT3); _closeOverlay(); setTimeout(_launchDeoxysFight, 300); };
-    ch.appendChild(bRetry);
-    const bTrack = _btn(_t('← Tracker de quête', '← Quest tracker'));
-    bTrack.onclick = () => { clearTimeout(autoT3); _clearOverlay(); _renderTracker(); };
-    ch.appendChild(bTrack);
+  if (!q?.active) return null;
+  if (q.step === 4) {
+    return { id: 'dxq-director', name: 'Devon Stone', icon: '☄️', spriteUrl: globalThis.trainerSprite?.('scientist') ?? '', onClick: () => _openDirector() };
   }
+  if (q.step === 5 || q.step === 6) {
+    return { id: 'dxq-deoxys', name: 'Deoxys', icon: '☄️', spriteUrl: DEOXYS_SPRITE, onClick: () => _openDeoxys() };
+  }
+  return null;
 }
 
 function _addDeoxysToPC() {
   const s = _state();
   if (!s) return;
   try {
-    const p = globalThis.makePokemon?.('deoxys', 'laboratoire_spatial', 'pokeball');
+    const p = globalThis.makePokemon?.(DEOXYS_SPECIES, LAB_ZONE_ID, 'pokeball');
     if (p) {
-      p.level  = 80;
-      p.shiny  = false;
-      p.potential = 5;
+      p.level     = DEOXYS_LEVEL;
+      p.shiny     = false;
+      p.potential = DEOXYS_POT;
       if (globalThis.calculateStats) p.stats = globalThis.calculateStats(p);
       s.pokemons.push(p);
       EventBus.emit(EVENTS.STATE_DIRTY);
-      EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: p, zoneId: 'laboratoire_spatial', source: 'quest' });
+      EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: p, zoneId: LAB_ZONE_ID, source: 'quest' });
       globalThis.registerPokedexCapture?.(s, p);
-      _notify(_t(`⭐ Deoxys (Niv.80 / Pot.5) a rejoint le Gang !`, `⭐ Deoxys (Lv.80 / Pot.5) has joined the Gang!`), 'gold');
+      _notify(_t(`⭐ Deoxys (Niv.${DEOXYS_LEVEL} / Pot.${DEOXYS_POT}) a rejoint le Gang !`, `⭐ Deoxys (Lv.${DEOXYS_LEVEL} / Pot.${DEOXYS_POT}) has joined the Gang!`), 'gold');
     }
   } catch (e) {
     console.warn('[deoxysMission] makePokemon failed:', e);
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+//  TRACKER — vue d'ensemble de la quête
+// ════════════════════════════════════════════════════════════════
+
+function openDeoxysMission() {
+  if (_overlay) return;
+  const q = _qs();
+  if (!q) return;
+
+  if (!q.active) {
+    _showQuestIntro();
+    return;
+  }
+
+  _buildOverlay();
+  _renderTracker();
+}
+
+function _renderTracker() {
+  _clearOverlay();
+  if (!_overlay) return;
+  const q = _qs();
+  const s = _state();
+  if (!q || !s) return;
+
+  const bosspower = globalThis.getBossTeamPower?.() ?? 0;
+  const meteores  = s.inventory?.meteore ?? 0;
+  const zoneName  = globalThis.getZoneById?.(LAB_ZONE_ID)?.[s.lang === 'en' ? 'en' : 'fr'] ?? LAB_ZONE_ID;
+
+  const box = _box();
+  _label(box, _t('— Quête Légendaire —', '— Legendary Quest —'));
+  _titleEl(box, _t('☄️  Opération : Forme ADN', '☄️  Operation: DNA Form'));
+
+  const mRow = document.createElement('div');
+  mRow.className = 'dxq-meteore-row';
+  mRow.innerHTML = `☄️ ${_t('Météores', 'Meteorites')} : <strong style="margin-left:4px">${meteores}</strong>
+    <span style="opacity:.5;font-size:7px;margin-left:8px">— ${_t('0,5 % par combat Hoenn', '0.5% per Hoenn battle')}</span>`;
+  box.appendChild(mRow);
+
+  const pRow = document.createElement('div');
+  pRow.className = 'dxq-power-row';
+  pRow.innerHTML = `<span class="dxq-power-label">${_t('Puissance Boss', 'Boss Power')}</span>
+    <span class="dxq-power-val">${bosspower.toLocaleString()}</span>`;
+  box.appendChild(pRow);
+
+  const tracker = document.createElement('div');
+  tracker.className = 'dxq-tracker';
+  tracker.style.marginTop = '14px';
+  box.appendChild(tracker);
+
+  const steps = [
+    {
+      n: 1, title: _t('Signal Anomal', 'Anomalous Signal'),
+      desc: _t('Vaincre 20 dresseurs dans les zones Hoenn', 'Defeat 20 trainers in the Hoenn zones'),
+      progress: q.step > 1 ? 1 : (q.trainersDefeated || 0) / TARGET_TRAINERS,
+    },
+    {
+      n: 2, title: _t('Fragments de Météorite', 'Meteorite Fragments'),
+      desc: _t(`Collecter 3 Météores (0,5 % par combat Hoenn)\nActuellement : ${meteores} météore${meteores !== 1 ? 's' : ''} en inventaire`,
+                `Collect 3 Meteorites (0.5% per Hoenn battle)\nCurrently: ${meteores} meteorite${meteores !== 1 ? 's' : ''} in inventory`),
+      progress: q.step > 2 ? 1 : Math.min(meteores, TARGET_METEORES) / TARGET_METEORES,
+    },
+    {
+      n: 3, title: _t('Infiltration du Laboratoire', 'Lab Infiltration'),
+      desc: _t('Vaincre 10 combats dans le Laboratoire Spatial Devon', 'Win 10 battles in the Devon Space Lab'),
+      progress: q.step > 3 ? 1 : (q.labFightsWon || 0) / TARGET_LAB_FIGHTS,
+    },
+    {
+      n: 4, title: _t('Prise de Contrôle', 'Taking Control'),
+      desc: _t('Vaincre le Directeur du Laboratoire Devon', 'Defeat the Devon Lab Director'),
+      goto: q.step === 4,
+    },
+    {
+      n: 5, title: _t('Confrontation : Forme ADN', 'Confrontation: DNA Form'),
+      desc: _t('Combat final contre Deoxys', 'Final battle against Deoxys'),
+      goto: q.step === 5,
+      actionLabel: q.step === 6 ? `♺ ${_t('Rejouer', 'Retry')} (1 ${_t('Météore', 'Meteorite')})` : undefined,
+      actionAvail: q.step === 6 && meteores >= 1,
+      actionFn: () => {
+        const inv = _state().inventory;
+        if ((inv.meteore || 0) < 1) return;
+        inv.meteore--;
+        q.step = 5;
+        q.deoxysEncounter = defaultEncounterState();
+        _save();
+        _clearOverlay();
+        _renderTracker();
+        _repatchZone(LAB_ZONE_ID);
+        _notify(_t('☄️ Deoxys réapparaît au Laboratoire Spatial.', '☄️ Deoxys reappears at the Space Lab.'), 'gold');
+      },
+    },
+  ];
+
+  for (const st of steps) {
+    const div = document.createElement('div');
+    const done = q.step > st.n || (st.n === 5 && q.step === 6 && q.deoxysOwned);
+    const active = q.step === st.n || (st.n === 5 && q.step === 6);
+    const locked = q.step < st.n && !(st.n === 5 && q.step === 6);
+
+    div.className = 'dxq-step' + (done ? ' done' : '') + (active ? ' active' : '') + (locked ? ' locked' : '');
+
+    const numEl = document.createElement('div');
+    numEl.className = 'dxq-step-num';
+    numEl.textContent = done ? '✓' : String(st.n);
+
+    const body = document.createElement('div');
+    body.className = 'dxq-step-body';
+
+    const titleEl = document.createElement('div');
+    titleEl.className = 'dxq-step-title';
+    titleEl.textContent = st.title;
+
+    const descEl = document.createElement('div');
+    descEl.className = 'dxq-step-desc';
+    descEl.style.whiteSpace = 'pre-wrap';
+    descEl.textContent = st.desc || '';
+
+    body.appendChild(titleEl);
+    body.appendChild(descEl);
+
+    if (st.progress !== undefined) {
+      const pct = Math.min(Math.round(st.progress * 100), 100);
+      const barWrap = document.createElement('div');
+      barWrap.className = 'dxq-progress-bar';
+      const fill = document.createElement('div');
+      fill.className = 'dxq-progress-fill';
+      fill.style.width = pct + '%';
+      barWrap.appendChild(fill);
+      body.appendChild(barWrap);
+    }
+
+    if (st.goto) {
+      const gotoEl = document.createElement('div');
+      gotoEl.className = 'dxq-goto';
+      gotoEl.textContent = `→ ${_t('Rendez-vous au', 'Head to the')} ${zoneName}`;
+      body.appendChild(gotoEl);
+    }
+
+    if (st.actionLabel && active) {
+      const actDiv = document.createElement('div');
+      actDiv.style.marginTop = '8px';
+      const actBtn = _btn(st.actionLabel, 'cyan');
+      if (!st.actionAvail) actBtn.disabled = true;
+      else actBtn.onclick = st.actionFn;
+      actDiv.appendChild(actBtn);
+      body.appendChild(actDiv);
+    }
+
+    div.appendChild(numEl);
+    div.appendChild(body);
+    tracker.appendChild(div);
   }
 }
 
@@ -1196,15 +925,12 @@ function checkDeoxysMissionUnlock() {
   if (!s) return;
   const q = _qs();
 
-  // Déjà actif → rien à faire
   if (q.active) return;
 
-  // Prérequis : Hoenn débloqué + Ever Grande battu + rep 4000+
   if (!s.purchases?.hoennUnlocked) return;
   if (!s.zones?.['ever_grande_hoenn']?.gymDefeated) return;
   if ((s.gang?.reputation ?? 0) < 4000) return;
 
-  // Déclencher l'intro après un court délai (pour ne pas cumuler avec les autres popups)
   setTimeout(() => _showQuestIntro(), 2500);
 }
 
@@ -1215,6 +941,7 @@ _register();
 Object.assign(globalThis, {
   openDeoxysMission,
   checkDeoxysMissionUnlock,
+  getDeoxysQuestEncounterForZone,
   onItemGiftReceived: _onItemGiftReceived, // hook depuis zoneSystem
 });
 
