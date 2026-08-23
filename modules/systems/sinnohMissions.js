@@ -117,25 +117,26 @@ const TRAINERS = {
 };
 
 // ── Config Dialga/Palkia (choix) ──────────────────────────────────
+// `desc` est une fonction (pas une string figée) : GALAXIE_LEGENDS est
+// construit une seule fois à l'import du module — souvent avant même que
+// state.lang soit chargé depuis la sauvegarde — donc une string évaluée ici
+// se figerait en français pour toute la session (y compris les joueurs
+// itch.io, en anglais par défaut). Appelé à chaque rendu du chooser à la
+// place (c.desc()) pour toujours lire la langue courante.
 const GALAXIE_LEGENDS = {
   dialga: {
     name: 'Dialga', species: 'dialga', static: DIALGA_STATIC,
     accent: '#4060d0', icon: '💎',
-    desc: _t2('Maître du Temps — son rugissement fait vibrer le passé et le futur.', 'Master of Time — its roar makes the past and future tremble.'),
+    desc: () => _t('Maître du Temps — son rugissement fait vibrer le passé et le futur.', 'Master of Time — its roar makes the past and future tremble.'),
     catchBase: 0.45, level: 72, pot: 3, statMult: 1.7,
   },
   palkia: {
     name: 'Palkia', species: 'palkia', static: PALKIA_STATIC,
     accent: '#c050a0', icon: '🌀',
-    desc: _t2("Maître de l'Espace — il distord les dimensions à sa guise.", 'Master of Space — it warps dimensions at will.'),
+    desc: () => _t("Maître de l'Espace — il distord les dimensions à sa guise.", 'Master of Space — it warps dimensions at will.'),
     catchBase: 0.45, level: 72, pot: 3, statMult: 1.7,
   },
 };
-// _t() lit globalThis.state au moment de l'appel : GALAXIE_LEGENDS est construit
-// une seule fois au chargement du module, donc `desc` fige la langue du boot.
-// _t2 relit dynamiquement — évité pour `desc` (jamais affiché sans re-rendu de
-// toute façon), mais gardé explicite pour ne pas dupliquer _t avec un piège.
-function _t2(fr, en) { return _t(fr, en); }
 
 const GIRATINA = {
   // `species` doit rester la clé valide 'giratina' (seule présente dans
@@ -630,7 +631,7 @@ function _openLegendChooser() {
           <div class="snm-chooser-card" data-key="${key}" style="--accent:${c.accent}">
             <img class="snm-chooser-gif" src="${c.static}" alt="${c.name}">
             <div class="snm-chooser-name">${c.icon} ${c.name}</div>
-            <div class="snm-chooser-desc">${c.desc}</div>
+            <div class="snm-chooser-desc">${c.desc()}</div>
             <button class="snm-btn snm-btn-accent" data-action="choose" data-key="${key}">
               ${_t('Choisir', 'Choose')} ${c.name}
             </button>
