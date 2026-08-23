@@ -31,6 +31,12 @@ jobs:
             // intentionally closed without merging. Treat it as disposable.
             const explicitlyDisposableClosedPrs = new Set([69]);
 
+            // Historical squash-merge exception verified during the initial
+            // housekeeping pass: all Screenshot Studio payload blobs on this
+            // branch already exist byte-for-byte on main, while main contains
+            // additional follow-up fixes. Safe to prune once.
+            const explicitlyDisposableBranches = new Set(['feat/screenshot-studio']);
+
             const branches = await github.paginate(github.rest.repos.listBranches, {
               owner,
               repo,
@@ -64,7 +70,7 @@ jobs:
                 (Boolean(pr.merged_at) || explicitlyDisposableClosedPrs.has(pr.number))
               );
 
-              if (!matchingPr) {
+              if (!matchingPr && !explicitlyDisposableBranches.has(name)) {
                 kept.push(`${name} (no safe closed-PR match)`);
                 continue;
               }
@@ -75,7 +81,10 @@ jobs:
                   repo,
                   ref: `heads/${name}`,
                 });
-                deleted.push(`${name} (#${matchingPr.number}${matchingPr.merged_at ? ', merged' : ', disposable'})`);
+                const reason = matchingPr
+                  ? `#${matchingPr.number}${matchingPr.merged_at ? ', merged' : ', disposable'}`
+                  : 'verified historical squash branch';
+                deleted.push(`${name} (${reason})`);
               } catch (error) {
                 core.warning(`Could not delete ${name}: ${error.message}`);
                 kept.push(`${name} (delete failed)`);
