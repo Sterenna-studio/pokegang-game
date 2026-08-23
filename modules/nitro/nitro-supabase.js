@@ -2,14 +2,39 @@
 //  NITRO SUPABASE BRIDGE
 //  Tente de charger le client Supabase partagé depuis Nitro.
 //  Échoue proprement si indisponible (CORS, réseau, module absent).
+//
+//  Exception itch.io : la build embarque directement la configuration
+//  PUBLIQUE du projet Supabase PokéGang (URL + publishable key uniquement).
+//  Cela permet auth + cloud save sur itch sans dépendre de Nitro. La sécurité
+//  reste assurée par Supabase Auth + RLS ; aucune clé service_role/secret n'est
+//  présente dans le runtime navigateur.
 // ════════════════════════════════════════════════════════════════
 
 const NITRO_SHARED_BASE = 'https://nitro.sterenna.fr/shared';
 
+// Configuration navigateur-safe du backend PokéGang dédié.
+// Une publishable key Supabase est faite pour être distribuée aux clients web.
+const POKEGANG_SUPABASE_URL = 'https://ojklmobvafovftqvevzh.supabase.co';
+const POKEGANG_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_BupJx29LBTSfbbArMPbNvA_DRqPcmmc';
+
 let _nitroSupabase = null;
 let _available = null; // null = non testé, true/false = résultat connu
 let _lastError = null; // mémorise la dernière erreur pour debug (utile après cache)
-let _configCache = null; // { url, anonKey } — credentials extraits de /shared/config.js
+let _configCache = null; // { url, anonKey }
+
+function _isItchRuntime() {
+  const host = String(globalThis.location?.hostname || '').toLowerCase();
+  return host.endsWith('.itch.io') || host.includes('itch.zone') || host.endsWith('.hwcdn.st');
+}
+
+function _itchSupabaseConfig() {
+  return {
+    url: POKEGANG_SUPABASE_URL,
+    // cloudAccount appelle historiquement ce champ `anonKey`; le SDK accepte
+    // aussi bien la modern publishable key dans ce paramètre.
+    anonKey: POKEGANG_SUPABASE_PUBLISHABLE_KEY,
+  };
+}
 
 /**
  * Tente de charger le client Supabase Nitro depuis le module partagé distant.
@@ -38,14 +63,25 @@ export async function getNitroSupabase() {
 }
 
 /**
- * Récupère les credentials Supabase publics depuis Nitro (/shared/config.js).
- * Permet à PokéGang d'instancier son propre client (avec ses options custom)
- * sans avoir besoin de déployer un config.js local.
+ * Récupère les credentials Supabase publics.
+ *
+ * - Sur itch.io : utilise immédiatement la config navigateur-safe embarquée du
+ *   projet `pokegang`, afin que les comptes et saves cloud fonctionnent même si
+ *   le wrapper itch ne peut pas charger Nitro.
+ * - Ailleurs : garde Nitro comme source principale, puis laisse app.js gérer
+ *   son fallback local `config.js` en développement.
  *
  * @returns {Promise<{ url: string, anonKey: string }|null>}
  */
 export async function getNitroSupabaseConfig() {
   if (_configCache) return _configCache;
+
+  if (_isItchRuntime()) {
+    _configCache = _itchSupabaseConfig();
+    console.info('[PokéGang Supabase] Bundled public config loaded for itch');
+    return _configCache;
+  }
+
   try {
     const mod = await import(`${NITRO_SHARED_BASE}/config.js`);
     const url     = mod.SUPABASE_URL ?? mod.default?.SUPABASE_URL ?? '';
