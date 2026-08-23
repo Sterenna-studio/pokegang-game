@@ -79,6 +79,29 @@ function patchLang() {
   console.log('[build-itch] state/defaultState.js patché : langue par défaut = en (copie uniquement).');
 }
 
+// Nitro / Gwen Ha Star est une intégration propre à l'écosystème Sterenna web.
+// La build itch dispose désormais de son propre accès direct au Supabase
+// PokéGang pour les comptes et sauvegardes cloud : afficher la carte Nitro n'y
+// apporte rien et produit surtout un message CORS/indisponible. On retire donc
+// uniquement son point de rendu dans la copie stagée ; le site web reste intact.
+function patchItchUi() {
+  const target = path.join(STAGE_DIR, 'modules', 'systems', 'cloudAccount.js');
+  const src = fs.readFileSync(target, 'utf8');
+  const needle = `  // ── Section Nitro (couche bonus, toujours affichée) ─────────────\n  _appendNitroSection(tab).catch(e =>\n    console.warn('[PokéGang Nitro] Section render error:', e.message)\n  );\n`;
+  const count = src.split(needle).length - 1;
+  if (count !== 1) {
+    throw new Error(
+      `[build-itch] attendu exactement 1 point de rendu Nitro dans cloudAccount.js, trouvé ${count}.`
+    );
+  }
+  const patched = src.replace(
+    needle,
+    `  // Section Nitro / Gwen Ha Star intentionally omitted from the itch.io build.\n`
+  );
+  fs.writeFileSync(target, patched);
+  console.log('[build-itch] cloudAccount.js patché : section Nitro masquée sur itch uniquement.');
+}
+
 function which(bin) {
   try {
     execFileSync(process.platform === 'win32' ? 'where' : 'which', [bin], { stdio: 'pipe' });
@@ -131,12 +154,25 @@ function readZipEntryNames(zipPath) {
 function validateReleaseAlignment() {
   const sourceState = fs.readFileSync(path.join(ROOT, 'state', 'defaultState.js'), 'utf8');
   const stagedState = fs.readFileSync(path.join(STAGE_DIR, 'state', 'defaultState.js'), 'utf8');
+  const sourceCloud = fs.readFileSync(path.join(ROOT, 'modules', 'systems', 'cloudAccount.js'), 'utf8');
+  const stagedCloud = fs.readFileSync(path.join(STAGE_DIR, 'modules', 'systems', 'cloudAccount.js'), 'utf8');
 
   if (!sourceState.includes("lang: 'fr',")) {
     throw new Error('[build-itch] le source principal ne semble plus être FR par défaut.');
   }
   if (!stagedState.includes("lang: 'en', // itch.io build default")) {
     throw new Error('[build-itch] la copie itch n’a pas été basculée en anglais.');
+  }
+
+  // Le source web conserve Nitro, mais la copie itch ne doit jamais invoquer
+  // son renderer. Les fonctions peuvent rester dans le bundle ; sans ce point
+  // d'appel, aucune carte ni tentative de connexion Nitro n'est déclenchée.
+  const nitroRenderCall = '_appendNitroSection(tab).catch';
+  if (!sourceCloud.includes(nitroRenderCall)) {
+    throw new Error('[build-itch] le point de rendu Nitro source est introuvable — vérifier le patch itch.');
+  }
+  if (stagedCloud.includes(nitroRenderCall)) {
+    throw new Error('[build-itch] la section Nitro est encore activée dans la copie itch.');
   }
 
   // GAME_VERSION est volontairement un libellé produit plus large (ex. v0.5)
@@ -182,7 +218,7 @@ function validate() {
   validateReleaseAlignment();
   console.log(
     `[build-itch] Validation OK : release v${RELEASE.version}, ${names.length} entrées, ` +
-    `séparateurs '/', index.html à la racine, EN itch / FR site, config.js absent.`
+    `séparateurs '/', index.html à la racine, EN itch / FR site, Nitro masqué sur itch, config.js absent.`
   );
 }
 
@@ -191,6 +227,7 @@ function main() {
   clean();
   stage();
   patchLang();
+  patchItchUi();
   zip();
   validate();
   console.log(`[build-itch] Terminé — ${RELEASE.uploadFile} prêt à uploader sur itch.io.`);
