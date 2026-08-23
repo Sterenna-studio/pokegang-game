@@ -1,0 +1,91 @@
+name: Repository housekeeping
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: read
+
+concurrency:
+  group: repository-housekeeping
+  cancel-in-progress: false
+
+jobs:
+  prune-closed-pr-branches:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete stale PR branches
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const { data: repository } = await github.rest.repos.get({ owner, repo });
+            const defaultBranch = repository.default_branch;
+
+            // PR #69 was explicitly a temporary artifact-build branch and was
+            // intentionally closed without merging. Treat it as disposable.
+            const explicitlyDisposableClosedPrs = new Set([69]);
+
+            const branches = await github.paginate(github.rest.repos.listBranches, {
+              owner,
+              repo,
+              per_page: 100,
+            });
+
+            const closedPulls = await github.paginate(github.rest.pulls.list, {
+              owner,
+              repo,
+              state: 'closed',
+              sort: 'updated',
+              direction: 'desc',
+              per_page: 100,
+            });
+
+            const repoFullName = `${owner}/${repo}`;
+            const deleted = [];
+            const kept = [];
+
+            for (const branch of branches) {
+              const name = branch.name;
+              if (name === defaultBranch || branch.protected) {
+                kept.push(`${name} (default/protected)`);
+                continue;
+              }
+
+              const matchingPr = closedPulls.find((pr) =>
+                pr.head?.repo?.full_name === repoFullName &&
+                pr.head?.ref === name &&
+                pr.head?.sha === branch.commit.sha &&
+                (Boolean(pr.merged_at) || explicitlyDisposableClosedPrs.has(pr.number))
+              );
+
+              if (!matchingPr) {
+                kept.push(`${name} (no safe closed-PR match)`);
+                continue;
+              }
+
+              try {
+                await github.rest.git.deleteRef({
+                  owner,
+                  repo,
+                  ref: `heads/${name}`,
+                });
+                deleted.push(`${name} (#${matchingPr.number}${matchingPr.merged_at ? ', merged' : ', disposable'})`);
+              } catch (error) {
+                core.warning(`Could not delete ${name}: ${error.message}`);
+                kept.push(`${name} (delete failed)`);
+              }
+            }
+
+            core.summary
+              .addHeading('Repository housekeeping')
+              .addRaw(`Deleted ${deleted.length} stale branch(es).\n\n`)
+              .addList(deleted.length ? deleted : ['None'])
+              .addRaw(`\nKept ${kept.length} branch(es).\n\n`)
+              .addList(kept.length ? kept : ['None'])
+              .write();

@@ -1,6 +1,23 @@
+# Local/private configuration
 .claude/settings.local.json
 config.js
+.env
+.env.*
+!.env.example
+
+# Supabase local state
 supabase/.temp/
+
+# Dependencies / generated reports
+node_modules/
+coverage/
+*.log
+
+# itch.io build outputs
 dist-itch/
 dist-itch.zip
 pokegang-v*-itch.zip
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
