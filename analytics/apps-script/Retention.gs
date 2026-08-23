@@ -71,9 +71,18 @@ function pgBuildRetentionRows_(cohortDates, completeEndDate) {
   if (!cohortDates.length) return [];
 
   const completeEnd = pgRetentionParseDate_(completeEndDate);
+
+  // GA4 requires cohortsRange.endOffset and does not accept a useful day-zero
+  // retention report here. The newest cohort has no D1 checkpoint yet anyway,
+  // so wait until it is at least one complete day old before persisting it.
+  const matureCohortDates = cohortDates.filter(date =>
+    pgRetentionDaysBetween_(pgRetentionParseDate_(date), completeEnd) >= 1
+  );
+  if (!matureCohortDates.length) return [];
+
   const byDate = new Map();
 
-  cohortDates.forEach(date => {
+  matureCohortDates.forEach(date => {
     byDate.set(date, {
       cohort_date: date,
       platform: 'all',
@@ -88,11 +97,11 @@ function pgBuildRetentionRows_(cohortDates, completeEndDate) {
   });
 
   // Query each cohort only to the highest checkpoint that is fully mature.
-  // This avoids requesting future dates and keeps API usage low.
+  // All cohorts here are at least D1 mature, so endOffset is always >= 1.
   const maturityGroups = new Map();
-  cohortDates.forEach(date => {
+  matureCohortDates.forEach(date => {
     const ageDays = pgRetentionDaysBetween_(pgRetentionParseDate_(date), completeEnd);
-    let maxOffset = 0;
+    let maxOffset = 1;
     for (const checkpoint of PG_RETENTION_CHECKPOINTS) {
       if (ageDays >= checkpoint) maxOffset = checkpoint;
     }
@@ -161,7 +170,7 @@ function pgRunRetentionCohortReport_(cohortDates, endOffset) {
     })),
     cohortsRange: {
       startOffset: 0,
-      endOffset: Math.max(0, endOffset),
+      endOffset: Math.max(1, endOffset),
       granularity: 'DAILY',
     },
   };
