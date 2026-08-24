@@ -35,7 +35,6 @@ function cover(lang){
  const monsHtml=mons.map(m=>`<img class="pg-cover-mon" style="left:${m.left};top:${m.top};width:${m.w}px;height:${m.w}px;transform:translate(-50%,-50%)" src="${poke(m.d)}">`).join('');
  return `<div class="shot-scene"><div class="pg-cover">
   <div class="pg-cover-grid"></div>
-  <img class="pg-cover-logo-neg" src="${ROOT}/assets/pokegang_logo/pokegang_logo_full_B.png">
   <img class="pg-cover-boss" style="left:50%;top:50%;width:30%;transform:translate(-50%,-50%)" src="${trainer('red')}">
   <img class="pg-cover-boss" style="left:22%;top:47%;width:18%;transform:translate(-50%,-50%);opacity:.4" src="${trainer('rocketgrunt')}">
   <img class="pg-cover-boss" style="left:78%;top:47%;width:18%;transform:translate(-50%,-50%);opacity:.4" src="${trainer('rocketgruntf')}">
@@ -43,7 +42,7 @@ function cover(lang){
   <div class="pg-cover-shade-bottom"></div>
   <div class="pg-cover-corner" style="left:14px;top:14px">⭐ <b>724</b> REP</div>
   <div class="pg-cover-corner" style="right:14px;top:14px">₽ <b>184,200</b></div>
-  <div class="pg-cover-head"><img class="pg-cover-title-logo" src="${ROOT}/assets/pokegang_logo/pokegang_logo_full_B.png" alt="PokéGang"><div class="pg-cover-sub">Gotta rule ’em all</div></div>
+  <div class="pg-cover-head"><img class="pg-cover-title-logo" src="${ROOT}/assets/pokegang_logo/pokegang_logo_full_B.png" alt="PokéGang"><div class="pg-cover-sub" data-text="Gotta rule ’em all">Gotta rule ’em all</div></div>
   <div class="pg-cover-stage">${monsHtml}<div class="pg-cover-ball"></div></div>
   <div class="pg-cover-tagwrap">${L(lang,'CAPTURE','CATCH')}<span class="dot">·</span>${L(lang,'RECRUTE','RECRUIT')}<span class="dot">·</span>${L(lang,'ÉTENDS','EXPAND')}</div>
  </div></div>`;
