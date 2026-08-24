@@ -1438,6 +1438,17 @@
       animation: combatHit .32s ease-out;
       filter: brightness(1.8) drop-shadow(0 0 7px rgba(255,255,255,.9));
     }
+    /* Posée sur le sprite d'un Pokémon K.O. (nextStep/nextTurn dans
+       zoneWindows.js) — reste affichée jusqu'au switch suivant, qui remplace
+       le sprite via renderCombatPokemonSprite (combatSequence.js). */
+    .fainted {
+      animation: combatFaint .3s ease-in forwards;
+      filter: grayscale(1) brightness(.6);
+    }
+    @keyframes combatFaint {
+      from { opacity: 1; transform: translateY(0); }
+      to   { opacity: .35; transform: translateY(8px); }
+    }
 
     @keyframes combatPkAppear {
       from { opacity: 0; transform: scaleX(0.5); }

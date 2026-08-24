@@ -4,6 +4,6 @@ Auto-updated on every commit by .githooks/pre-commit.
 Garantit qu'un marqueur horodaté est présent dans chaque commit
 et que le workflow GitHub Actions se déclenche.
 
-Last update : 2026-08-24 23:34:18 +0200
-Branch      : fix/combat-multi-pokemon-transition
-Previous sha: a2c8f31
+Last update : 2026-08-25 01:22:24 +0200
+Branch      : main
+Previous sha: 8043a05
