@@ -28,9 +28,9 @@ function legendary(lang,key){const[d,n]=PK[key];const body=`<div class="pg-legen
 function identity(lang){return `<div class="shot-scene"><div class="pg-giovanni"><img class="portrait" src="${giovanni}"><div class="pg-giovanni-content"><div class="pg-team-row">${chip('meowth',{level:10})}${chip('gastly',{level:9,stars:4})}${chip('zubat',{level:8,stars:2})}</div></div><div class="pg-giovanni-dialog"><div class="pg-giovanni-name">GIOVANNI</div><div>${L(lang,"Pas mal. Mais je ne sais même pas encore à qui j'ai affaire…","Not bad. But I don't even know who I'm dealing with yet…")}</div><input class="pg-input" value="Nova"><div class="pg-btn-row"><button class="pg-action-btn primary">${L(lang,'Continuer','Continue')} →</button></div></div></div></div>`}
 function cover(lang){
  const mons=[
-  {d:6,left:'15%',top:'60%',w:192},
-  {d:94,left:'85%',top:'60%',w:192},
-  {d:149,left:'50%',top:'17%',w:96},
+  {d:6,left:'15%',top:'70%',w:192},
+  {d:94,left:'85%',top:'70%',w:192},
+  {d:149,left:'50%',top:'60%',w:96},
  ];
  const monsHtml=mons.map(m=>`<img class="pg-cover-mon" style="left:${m.left};top:${m.top};width:${m.w}px;height:${m.w}px;transform:translate(-50%,-50%)" src="${poke(m.d)}">`).join('');
  return `<div class="shot-scene"><div class="pg-cover">
