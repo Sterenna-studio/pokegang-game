@@ -28,11 +28,13 @@ function legendary(lang,key){const[d,n]=PK[key];const body=`<div class="pg-legen
 function identity(lang){return `<div class="shot-scene"><div class="pg-giovanni"><img class="portrait" src="${giovanni}"><div class="pg-giovanni-content"><div class="pg-team-row">${chip('meowth',{level:10})}${chip('gastly',{level:9,stars:4})}${chip('zubat',{level:8,stars:2})}</div></div><div class="pg-giovanni-dialog"><div class="pg-giovanni-name">GIOVANNI</div><div>${L(lang,"Pas mal. Mais je ne sais même pas encore à qui j'ai affaire…","Not bad. But I don't even know who I'm dealing with yet…")}</div><input class="pg-input" value="Nova"><div class="pg-btn-row"><button class="pg-action-btn primary">${L(lang,'Continuer','Continue')} →</button></div></div></div></div>`}
 function cover(lang){
  const mons=[
-  {d:6,left:'15%',top:'70%',w:192},
-  {d:94,left:'85%',top:'70%',w:192},
-  {d:149,left:'50%',top:'60%',w:96},
+  {d:6,left:'15%',top:'62%',w:192},
+  {d:94,left:'85%',top:'62%',w:192},
+  {d:149,left:'50%',top:'56%',w:240},
  ];
  const monsHtml=mons.map(m=>`<img class="pg-cover-mon" style="left:${m.left};top:${m.top};width:${m.w}px;height:${m.w}px;transform:translate(-50%,-50%)" src="${poke(m.d)}">`).join('');
+ const words=[[L(lang,'CAPTURE','CATCH'),0],[L(lang,'RECRUTE','RECRUIT'),0.53],[L(lang,'ÉTENDS','EXPAND'),1.06]];
+ const tagHtml=words.map(([w,delay],i)=>`${i?'<span class="dot">·</span>':''}<span class="pg-cover-tagword" style="animation-delay:${delay}s">${w}</span>`).join('');
  return `<div class="shot-scene"><div class="pg-cover">
   <div class="pg-cover-grid"></div>
   <img class="pg-cover-boss" style="left:50%;top:50%;width:30%;transform:translate(-50%,-50%)" src="${trainer('red')}">
@@ -43,8 +45,8 @@ function cover(lang){
   <div class="pg-cover-corner" style="left:14px;top:14px">⭐ <b>724</b> REP</div>
   <div class="pg-cover-corner" style="right:14px;top:14px">₽ <b>184,200</b></div>
   <div class="pg-cover-head"><img class="pg-cover-title-logo" src="${ROOT}/assets/pokegang_logo/pokegang_logo_full_B.png" alt="PokéGang"><div class="pg-cover-sub" data-text="Gotta rule ’em all">Gotta rule ’em all</div></div>
-  <div class="pg-cover-stage">${monsHtml}<div class="pg-cover-ball"></div></div>
-  <div class="pg-cover-tagwrap">${L(lang,'CAPTURE','CATCH')}<span class="dot">·</span>${L(lang,'RECRUTE','RECRUIT')}<span class="dot">·</span>${L(lang,'ÉTENDS','EXPAND')}</div>
+  <div class="pg-cover-stage">${monsHtml}</div>
+  <div class="pg-cover-tagwrap">${tagHtml}</div>
  </div></div>`;
 }
 
