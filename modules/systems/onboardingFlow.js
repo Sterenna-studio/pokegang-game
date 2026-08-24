@@ -272,7 +272,7 @@ export function getOnboardingObjective(state) {
   const onboarding = normalizeOnboardingState(state.onboarding);
   const en = state?.lang === 'en';
   const progress = getOnboardingArcProgress(state);
-  const zoneLabel = en ? '→ Unknown Field' : '→ Zone inconnue';
+  const zoneLabel = en ? '→ Hidden Field' : '→ Zone inconnue';
 
   switch (onboarding.step) {
     case ONBOARDING_STEPS.FREE_CAPTURE: {

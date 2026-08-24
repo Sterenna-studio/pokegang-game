@@ -83,7 +83,7 @@ configureOnboarding({
   endZoneCombat: zoneId => { cinematic.push(`combat-teardown:${zoneId}`); },
   closeZoneWindow: zoneId => { closedZones.push(zoneId); },
   forceZonesRefresh: () => { zonesForceRefreshed++; },
-  getZoneById: zoneId => ({ id: zoneId, fr: 'Zone inconnue', en: 'Unknown Field', spawnRate: 0.5 }),
+  getZoneById: zoneId => ({ id: zoneId, fr: 'Zone inconnue', en: 'Hidden Field', spawnRate: 0.5 }),
   getActiveSaveSlot: () => 0,
   openGiovanniIntro: ({ onComplete }) => {
     identityOpened++;

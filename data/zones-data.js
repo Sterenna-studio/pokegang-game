@@ -19,7 +19,7 @@ const ZONES = [
   // spawnRate volontairement ~20× celui de la Route 1 : le joueur doit pouvoir
   // capturer ONBOARDING_CAPTURE_GOAL Pokémon en une poignée de minutes, pas
   // passer la moitié de sa première session à attendre des apparitions.
-  { id:'unknown_field', fr:'Zone inconnue', en:'Unknown Field', rep:0, spawnRate:0.5, type:'onboarding',
+  { id:'unknown_field', fr:'Zone inconnue', en:'Hidden Field', rep:0, spawnRate:0.5, type:'onboarding',
     pool:['rattata','ekans','koffing','grimer','meowth','zubat','gastly'],
     trainers:[], investCost:0,
     desc_fr:'Un terrain clôturé, sans panneau. Quelqu\'un y élève des Pokémon.',
