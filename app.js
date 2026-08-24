@@ -154,6 +154,8 @@ import './modules/systems/sinnoh.js';
 import './modules/ui/pickers.js';
 import { configureIntro, openGiovanniIntro, openStarterGiftPopup } from './modules/ui/intro.js';
 import { configureHub, showIntro } from './modules/ui/hub.js';
+import { configureFirstRunSplash, hideFirstRunSplash, shouldShowFirstRunSplash } from './modules/ui/firstRunSplash.js';
+import { configureOnboardingBriefing, showOnboardingBriefing } from './modules/ui/onboardingBriefing.js';
 import {
   configureOnboarding,
   resumeOnboardingV2,
@@ -1612,7 +1614,16 @@ function showIntroIfNeeded() {
   if (isOnboardingActive(state)) {
     resumeOnboardingV2({ slotIdx: getActiveSaveSlot() });
   } else if (!state.gang.initialized) {
-    showIntro();
+    // Nouveau joueur itch sans save : le splash statique (déjà visible dès
+    // le HTML, cf. index.html) laisse place directement au briefing puis au
+    // terrain — jamais au hub, qui resterait un flash inutile pour ce
+    // joueur précis (issue #76). Tout autre joueur garde le hub inchangé.
+    if (shouldShowFirstRunSplash()) {
+      hideFirstRunSplash();
+      showOnboardingBriefing({ onDone: () => startOnboardingV2({ slotIdx: 0, resume: false }) });
+    } else {
+      showIntro();
+    }
   }
 }
 
@@ -1836,6 +1847,9 @@ function configureEntryFlows() {
       ? resumeOnboardingV2(options)
       : startOnboardingV2(options)),
   });
+
+  configureFirstRunSplash({ getSlotPreview });
+  configureOnboardingBriefing({ getState: () => state });
 }
 
 let _eventBusBridgesBound = false;

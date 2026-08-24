@@ -14,6 +14,7 @@ import {
   hasReachedStep,
   isManualPlayerCombatWin,
   isOnboardingActive,
+  isOnboardingFirstCapturePending,
   isOnboardingFreeCapture,
   isOnboardingFreeAgentPending,
   isOnboardingZoneFrozen,
@@ -85,6 +86,16 @@ assert.equal(isOnboardingFreeCapture(ambush, ONBOARDING_ZONE_ID), false);
 assert.equal(isOnboardingZoneFrozen(ambush, ONBOARDING_ZONE_ID), true);
 assert.equal(isOnboardingZoneFrozen(freeCapture, ONBOARDING_ZONE_ID), false);
 assert.equal(isOnboardingZoneFrozen(ambush, 'route1'), false);
+
+// Le trio diégétique (issue #76) ne doit apparaître qu'au tout premier
+// affichage du terrain — dès qu'une capture existe, ce n'est plus le cas,
+// quelle qu'elle soit (starter choisi ou capture libre déjà en cours).
+const freeCaptureNoneYet = { lang: 'fr', agents: [], onboarding: { step: ONBOARDING_STEPS.FREE_CAPTURE, fieldCaptures: 0 } };
+const freeCaptureSome    = { lang: 'fr', agents: [], onboarding: { step: ONBOARDING_STEPS.FREE_CAPTURE, fieldCaptures: 3 } };
+assert.equal(isOnboardingFirstCapturePending(freeCaptureNoneYet, ONBOARDING_ZONE_ID), true);
+assert.equal(isOnboardingFirstCapturePending(freeCaptureSome, ONBOARDING_ZONE_ID), false);
+assert.equal(isOnboardingFirstCapturePending(freeCaptureNoneYet, 'route1'), false);
+assert.equal(isOnboardingFirstCapturePending(ambush, ONBOARDING_ZONE_ID), false);
 
 assert.equal(isOnboardingActive(freeCapture), true);
 assert.equal(isOnboardingActive({ onboarding: { step: ONBOARDING_STEPS.COMPLETED } }), false);

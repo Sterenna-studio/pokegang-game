@@ -10,8 +10,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./css/base.css?v=d630f76a">
-  <link rel="stylesheet" href="./css/intro.css?v=89b54717">
-  <link rel="stylesheet" href="./css/game-ui.css?v=5c96de60">
+  <link rel="stylesheet" href="./css/intro.css?v=72a05f2f">
+  <link rel="stylesheet" href="./css/game-ui.css?v=bc9f1001">
+  <link rel="stylesheet" href="./css/onboarding.css?v=99f296ad">
   <link rel="stylesheet" href="./gang/gang.css?v=3e0588ac">
 
   <!-- ── Google Analytics (GA4) ──────────────────────────────────────
@@ -31,6 +32,46 @@
   </script>
 </head>
 <body>
+
+  <!-- ── First-run splash (issue #76) ────────────────────────────────
+       Markup statique pur, présent dès le HTML initial : pour un nouveau
+       joueur itch (aucune save), ceci doit être la SEULE chose visible
+       pendant que app.js/le reste charge — pas de flash du shell du jeu
+       (#app) ni du hub (#introOverlay) avant le briefing. Pour tout autre
+       joueur (site web, ou itch avec une save existante), le petit script
+       classique juste en dessous pose `first-run-splash-skip` de façon
+       synchrone, avant même le premier paint complet, donc CE bloc ne
+       s'affiche jamais visiblement pour eux — voir css/onboarding.css et
+       modules/ui/firstRunSplash.js pour le reste du mécanisme. -->
+  <div id="firstRunSplash">
+    <img src="assets/pokegang_logo/pokegang_logo_full_B.png" alt="PokéGang" class="frs-logo">
+    <div class="frs-tagline" data-i18n="static_first_run_loading">Chargement…</div>
+  </div>
+  <script>
+    // Duplique volontairement la logique de detectPlatform()
+    // (modules/systems/analytics.js) et SAVE_KEYS (state/defaultState.js) :
+    // un module ES ne peut pas s'exécuter avant le premier paint, donc cette
+    // décision doit être synchrone et autonome ici. Si l'une des deux sources
+    // canoniques change (nouvelles règles de host itch, nouvelles clés de
+    // save), reporter le changement ici à la main.
+    (function () {
+      try {
+        var h = location.hostname;
+        var isItch = h.endsWith('.itch.io') || h.includes('itch.zone') || h.endsWith('.hwcdn.st');
+        var saveKeys = ['pokeforge.v6', 'pokeforge.v6.s2', 'pokeforge.v6.s3'];
+        var hasSave = saveKeys.some(function (k) { return !!localStorage.getItem(k); });
+        if (!isItch || hasSave) document.body.classList.add('first-run-splash-skip');
+      } catch (e) {
+        // Fail open : ne jamais bloquer un joueur derrière un splash cassé.
+        document.body.classList.add('first-run-splash-skip');
+      }
+      // Filet de sécurité : si app.js ne charge jamais (asset externe en
+      // échec, erreur de boot), ne pas laisser le splash à l'écran indéfiniment.
+      setTimeout(function () {
+        document.body.classList.add('first-run-splash-skip');
+      }, 4000);
+    })();
+  </script>
 
   <!-- ── Dopamine Popups (outside #app so they overlay everything) ── -->
   <div id="shinyPopup">
@@ -393,7 +434,7 @@
   <script defer src="./data/zones-sinnoh-data.js?v=5fc631a9"></script>
   <script defer src="./data/regions-config.js?v=22ab8f2c"></script>
   <script defer src="./data/moves-data.js?v=d2daccb1"></script>
-  <script type="module" src="./app.js?v=e968ca54"></script>
+  <script type="module" src="./app.js?v=f1255c81"></script>
   <!-- Offline / background idle catchup system -->
   <script type="module" src="./modules/systems/offlineCatchup.js?v=60ccc721"></script>
   <!-- Offline mission report (modal de rapport au retour de tab) -->

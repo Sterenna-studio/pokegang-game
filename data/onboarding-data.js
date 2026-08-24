@@ -14,10 +14,12 @@
 export const ONBOARDING_ZONE_ID = 'unknown_field';
 
 /**
- * Trio historique du cadeau de démarrage. L'onboarding V2 ne s'en sert plus
- * (le joueur capture librement dans la zone inconnue), mais openStarterGiftPopup
- * en dépend encore : c'est le rattrapage des saves initialisées avant que
- * l'intro n'existe, qui n'ont jamais reçu de Pokémon de départ.
+ * Trio du choix diégétique de départ (issue #76) : les trois apparaissent
+ * simultanément sur le terrain au tout premier affichage de la zone
+ * (modules/ui/onboarding.js:_spawnStarterChoice), la capture de l'un fait
+ * disparaître les deux autres. Également utilisé par openStarterGiftPopup
+ * (modules/ui/intro.js), le rattrapage pour les saves initialisées avant
+ * que l'intro n'existe et qui n'ont jamais reçu de Pokémon de départ.
  */
 export const ONBOARDING_STARTERS = [
   {
@@ -196,3 +198,47 @@ export const ONBOARDING_GIOVANNI_LINES = {
     en: "The rest is on you. Don't disappoint me.",
   },
 };
+
+/**
+ * Slides du briefing de bienvenue (issue #76) — écran dédié affiché une fois
+ * avant l'ouverture du terrain pour un nouveau joueur itch, avant même que
+ * l'onboarding V2 ne démarre (aucune étape de state.onboarding ne lui
+ * correspond, cf. modules/ui/onboardingBriefing.js). La 3e slide met la vente
+ * du surplus en avant-plan — boucle capturer → trier → vendre → réinvestir →
+ * conquérir — sans jamais forcer une vente réelle : c'est de la copie
+ * narrative pure, aucune action n'y est câblée. La dernière slide enchaîne
+ * directement sur l'ouverture du terrain, sans bouton supplémentaire.
+ */
+export const ONBOARDING_BRIEFING_SLIDES = [
+  {
+    id: 'lead',
+    fr: { title: 'DIRIGE TON GANG', body: 'Conquiers des territoires et développe ta réputation.' },
+    en: { title: 'LEAD YOUR GANG', body: 'Conquer territories and build your reputation.' },
+  },
+  {
+    id: 'capture',
+    fr: { title: 'CAPTURE DES POKÉMON', body: 'Garde les meilleurs pour tes équipes et ton Pokédex.' },
+    en: { title: 'CATCH POKÉMON', body: 'Keep the best for your teams and your Pokédex.' },
+  },
+  {
+    id: 'sell',
+    fr: {
+      title: 'VENDS LE SURPLUS',
+      body: "Les Pokémon dont tu n'as pas besoin deviennent une source majeure de ₽ pour développer ton gang, acheter du matériel et accélérer ta progression.",
+    },
+    en: {
+      title: 'SELL THE SURPLUS',
+      body: 'Pokémon you don\'t need become a major source of ₽ to grow your gang, buy gear, and speed up your progress.',
+    },
+  },
+  {
+    id: 'recruit',
+    fr: { title: 'RECRUTE DES AGENTS', body: 'Confie-leur des Pokémon et des zones ; ils capturent et combattent aussi pendant ton absence.' },
+    en: { title: 'RECRUIT AGENTS', body: "Hand them Pokémon and zones — they capture and fight even while you're away." },
+  },
+  {
+    id: 'watch',
+    fr: { title: 'ATTENTION…', body: "Quelque chose bouge dans l'herbe." },
+    en: { title: 'WATCH OUT…', body: 'Something is moving in the grass.' },
+  },
+];

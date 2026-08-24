@@ -12,6 +12,10 @@
 //  Pokémon en slot 1 d'un clic. Le bouton Combattre déclenche exactement ce
 //  qu'un clic sur le raid aurait fait (_ctx.openCombatPopup).
 //
+//  Présentation (couleurs, tailles, layout) dans css/onboarding.css sous
+//  le préfixe `oap-*` — seul le choix conditionnel starter/non-starter reste
+//  géré via la classe modificatrice `.oap-slot-starter` déjà présente.
+//
 //  Dépendances injectées via configureOnboardingAmbushPopup :
 //    getState, pokeSprite, openCombatPopup, saveState, renderAll
 // ════════════════════════════════════════════════════════════════
@@ -56,37 +60,22 @@ export function showAmbushChallengePopup({ zoneId, onConfirm } = {}) {
 
   const overlay = document.createElement('div');
   overlay.id = OVERLAY_ID;
-  overlay.style.cssText = `
-    position:fixed; inset:0; z-index:7000;
-    background:rgba(6,6,10,.75);
-    display:flex; align-items:center; justify-content:center;
-    padding:16px; animation:fadeIn .2s ease;
-  `;
+  overlay.className = 'oap-overlay';
 
   const box = document.createElement('div');
-  box.style.cssText = `
-    width:min(420px,92vw);
-    background:var(--bg-card); border:2px solid var(--red);
-    border-radius:var(--radius); padding:18px;
-    box-shadow:0 12px 40px rgba(0,0,0,.6);
-    font-family:var(--font-body);
-  `;
+  box.className = 'oap-box';
   box.innerHTML = `
-    <div style="font-family:var(--font-pixel);font-size:11px;color:var(--red);margin-bottom:8px;text-align:center">
+    <div class="oap-title">
       ${_t('⚠ LE SBIRE ROCKET TE DÉFIE', '⚠ THE ROCKET GRUNT CHALLENGES YOU')}
     </div>
-    <div style="font-size:12px;color:var(--text-dim);line-height:1.5;margin-bottom:14px;text-align:center">
+    <div class="oap-desc">
       ${_t(
         'Ton équipe s\'est formée avec tes meilleures captures. Le slot 1 devient ton starter — clique un autre Pokémon pour le mettre à sa place.',
         'Your team was built from your best catches. Slot 1 becomes your starter — click another Pokémon to put it there instead.'
       )}
     </div>
-    <div id="oap-slots" style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:16px"></div>
-    <button id="oap-fight-btn" style="
-      display:block; width:100%; padding:10px; border:none; border-radius:6px;
-      background:var(--red); color:#fff; font-family:var(--font-pixel); font-size:10px;
-      cursor:pointer;
-    ">${_t('⚔ Combattre', '⚔ Fight')}</button>
+    <div id="oap-slots" class="oap-slots"></div>
+    <button id="oap-fight-btn" class="oap-fight-btn">${_t('⚔ Combattre', '⚔ Fight')}</button>
   `;
   overlay.appendChild(box);
   document.body.appendChild(overlay);
@@ -94,19 +83,13 @@ export function showAmbushChallengePopup({ zoneId, onConfirm } = {}) {
   const slotsEl = box.querySelector('#oap-slots');
   function _renderSlots() {
     slotsEl.innerHTML = _bossPokemons().map((pk, i) => `
-      <div class="oap-slot${i === 0 ? ' oap-slot-starter' : ''}" data-idx="${i}" style="
-        cursor:${i === 0 ? 'default' : 'pointer'}; text-align:center; width:56px;
-      ">
-        <div style="
-          position:relative; width:52px; height:52px; border-radius:6px;
-          border:2px solid ${i === 0 ? 'var(--gold)' : 'var(--border)'};
-          background:rgba(0,0,0,.3); display:flex; align-items:center; justify-content:center;
-        ">
+      <div class="oap-slot${i === 0 ? ' oap-slot-starter' : ''}" data-idx="${i}">
+        <div class="oap-slot-sprite-wrap">
           <img src="${_ctx.pokeSprite?.(pk.species_en, pk.shiny) || ''}" alt="${_speciesLabel(pk)}"
-            style="width:44px;height:44px;image-rendering:pixelated" onerror="this.style.visibility='hidden'">
-          ${i === 0 ? `<span style="position:absolute;top:-8px;left:50%;translate:-50% 0;font-size:9px">★</span>` : ''}
+            class="oap-slot-img" onerror="this.style.visibility='hidden'">
+          ${i === 0 ? `<span class="oap-slot-star">★</span>` : ''}
         </div>
-        <div style="font-size:7px;font-family:var(--font-pixel);color:${i === 0 ? 'var(--gold)' : 'var(--text-dim)'};margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+        <div class="oap-slot-label">
           ${i === 0 ? _t('Starter', 'Starter') : _speciesLabel(pk)}
         </div>
       </div>

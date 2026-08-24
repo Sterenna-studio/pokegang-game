@@ -1,0 +1,681 @@
+/* ═══════════════════════════════════════════════════════════════
+   ONBOARDING — presentation for the intro/onboarding UI modules.
+   Extracted from inline `style="..."`/`.style.cssText` blocks that used
+   to live in the JS (issue #76 audit). Only genuinely dynamic values
+   (fade-transition opacity/transform, computed left/top anchoring, live
+   HP-bar widths) remain inline in their source files — everything else
+   (colors, sizes, layout, animations) lives here.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Giovanni wizard (modules/ui/intro.js, gi-* prefix) ──────────
+   Also reused as-is by the starter-gift catch-up popup (sgp-* prefix
+   for its own starter-card variant) — same visual language, one overlay
+   open at a time so sharing `.gi-overlay`/`.gi-stage`/etc. is safe. */
+
+.gi-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 8000;
+  background: linear-gradient(160deg, #09090f 0%, #140808 55%, #0a0a0f 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  font-family: var(--font-system, sans-serif);
+  overflow: hidden;
+}
+
+.gi-bg-texture {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 50% 20%, rgba(180, 30, 30, .07) 0%, transparent 65%),
+    radial-gradient(ellipse at 20% 80%, rgba(80, 20, 80, .05) 0%, transparent 50%);
+}
+
+.gi-stage {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 16px 0;
+}
+
+.gi-portrait {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 560px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 32px;
+  pointer-events: none;
+  transition: opacity .3s ease;
+}
+
+.gi-portrait-inner {
+  position: relative;
+  text-align: center;
+}
+
+.gi-portrait-img {
+  width: 140px;
+  height: 140px;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 8px 24px rgba(180, 20, 20, .45));
+  animation: gi-bob 2.8s ease-in-out infinite;
+}
+
+.gi-portrait-shadow {
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80px;
+  height: 10px;
+  background: radial-gradient(ellipse, rgba(0, 0, 0, .5) 0%, transparent 70%);
+  filter: blur(3px);
+}
+
+.gi-content {
+  width: 100%;
+  max-width: 560px;
+  margin-bottom: 8px;
+  min-height: 180px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 8px;
+}
+
+.gi-dialog {
+  width: 100%;
+  max-width: 560px;
+  background: rgba(6, 6, 10, .95);
+  border: 2px solid rgba(180, 30, 30, .6);
+  border-radius: 8px;
+  padding: 16px 18px 18px;
+  margin-bottom: 24px;
+  box-shadow: 0 -4px 32px rgba(0, 0, 0, .5), inset 0 0 0 1px rgba(255, 255, 255, .04);
+  position: relative;
+  animation: gi-fadein .3s ease;
+}
+
+.gi-dialog-label {
+  font-family: var(--font-pixel, monospace);
+  font-size: 7px;
+  color: rgba(204, 60, 60, .9);
+  letter-spacing: .8px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.gi-text {
+  font-size: 14px;
+  color: #e8e8e8;
+  line-height: 1.65;
+  min-height: 46px;
+}
+
+.gi-input-area {
+  margin-top: 14px;
+}
+
+.gi-cursor {
+  position: absolute;
+  bottom: 14px;
+  right: 16px;
+  font-size: 10px;
+  color: rgba(204, 60, 60, .7);
+  animation: gi-blink 1s ease-in-out infinite;
+}
+
+.gi-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.gi-hint {
+  font-size: 9px;
+  color: rgba(255, 255, 255, .25);
+  margin-top: 6px;
+}
+
+.gi-actions-end {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.gi-actions-end-gap {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  align-items: center;
+}
+
+.gi-starter-row {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  padding: 0 4px;
+  align-items: stretch;
+}
+
+.gi-starter-card-img {
+  width: 72px;
+  height: 72px;
+  image-rendering: pixelated;
+  display: block;
+  margin: 0 auto 8px;
+}
+
+.gi-starter-card-name {
+  font-family: var(--font-pixel, monospace);
+  font-size: 9px;
+  color: #e8e8e8;
+  margin-bottom: 4px;
+}
+
+.gi-starter-card-types {
+  font-size: 8px;
+  color: rgba(255, 255, 255, .35);
+  margin-bottom: 8px;
+}
+
+.gi-starter-card-desc {
+  font-size: 10px;
+  color: rgba(255, 255, 255, .6);
+  line-height: 1.5;
+  white-space: pre-line;
+}
+
+.gi-starter-card-level {
+  margin-top: 8px;
+  font-size: 8px;
+  color: rgba(200, 160, 0, .7);
+}
+
+.gi-sprite-pool {
+  width: 100%;
+  background: rgba(0, 0, 0, .3);
+  border-radius: 8px;
+  padding: 12px 8px;
+}
+
+.gi-sprite-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+
+.gi-sprite-img {
+  width: 44px;
+  height: 44px;
+  image-rendering: pixelated;
+}
+
+.gi-summary {
+  width: 100%;
+  background: rgba(0, 0, 0, .3);
+  border: 1px solid rgba(200, 160, 0, .15);
+  border-radius: 8px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.gi-summary-label {
+  font-family: var(--font-pixel, monospace);
+  font-size: 8px;
+  color: rgba(200, 160, 0, .7);
+  letter-spacing: .6px;
+  margin-bottom: 2px;
+}
+
+.gi-summary-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.gi-summary-boss-img {
+  width: 52px;
+  height: 52px;
+  image-rendering: pixelated;
+}
+
+.gi-summary-name {
+  font-size: 15px;
+  color: #e8e8e8;
+  font-weight: 600;
+}
+
+.gi-summary-gang {
+  font-size: 11px;
+  color: rgba(255, 255, 255, .45);
+  margin-top: 2px;
+}
+
+.gi-summary-starter {
+  margin-left: auto;
+  text-align: center;
+}
+
+.gi-summary-starter-img {
+  width: 56px;
+  height: 56px;
+  image-rendering: pixelated;
+  display: block;
+  margin: 0 auto;
+}
+
+.gi-summary-starter-name {
+  font-size: 9px;
+  color: rgba(255, 255, 255, .45);
+  margin-top: 2px;
+}
+
+@keyframes gi-bob    { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+@keyframes gi-blink  { 0%, 100% { opacity: .7; } 50% { opacity: .15; } }
+@keyframes gi-fadein { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+.gi-starter-card {
+  flex: 1;
+  min-width: 0;
+  background: rgba(255, 255, 255, .03);
+  border: 2px solid rgba(255, 255, 255, .1);
+  border-radius: 8px;
+  padding: 12px 8px;
+  cursor: pointer;
+  text-align: center;
+  transition: border-color .15s, background .15s, transform .12s;
+}
+.gi-starter-card:hover { border-color: rgba(204, 60, 60, .6); background: rgba(204, 60, 60, .07); transform: translateY(-3px); }
+.gi-starter-card.selected { border-color: var(--gold, #fcc800); background: rgba(200, 160, 0, .10); transform: translateY(-3px); }
+
+.gi-sprite-opt {
+  width: 68px;
+  height: 68px;
+  background: rgba(255, 255, 255, .04);
+  border: 2px solid rgba(255, 255, 255, .08);
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color .15s, background .15s;
+}
+.gi-sprite-opt:hover { border-color: rgba(200, 160, 0, .5); background: rgba(200, 160, 0, .07); }
+.gi-sprite-opt.selected { border-color: var(--gold, #fcc800); background: rgba(200, 160, 0, .12); }
+
+.gi-btn {
+  font-family: var(--font-pixel, monospace);
+  font-size: 10px;
+  padding: 10px 22px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  transition: background .15s, transform .1s;
+}
+.gi-btn:active { transform: scale(.97); }
+.gi-btn-primary { background: var(--red, #cc3333); color: #fff; }
+.gi-btn-primary:hover { background: #aa2222; }
+.gi-btn-ghost {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, .15);
+  color: rgba(255, 255, 255, .5);
+  font-size: 9px;
+  padding: 8px 14px;
+}
+.gi-btn-ghost:hover { border-color: rgba(255, 255, 255, .35); color: rgba(255, 255, 255, .8); }
+
+.gi-input {
+  width: 100%;
+  background: rgba(255, 255, 255, .05);
+  border: 1px solid rgba(180, 30, 30, .5);
+  border-radius: 6px;
+  color: #e8e8e8;
+  padding: 10px 14px;
+  font-size: 16px;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color .15s;
+}
+.gi-input:focus { border-color: rgba(204, 60, 60, .9); }
+
+.gi-step-dots { display: flex; gap: 6px; justify-content: center; margin-bottom: 6px; }
+.gi-dot { width: 5px; height: 5px; border-radius: 50%; background: rgba(255, 255, 255, .15); transition: background .3s; }
+.gi-dot.active { background: rgba(204, 60, 60, .85); }
+.gi-dot.done { background: rgba(200, 160, 0, .6); }
+
+/* Starter-gift catch-up popup's own card variant (border color differs
+   slightly in hover from .gi-starter-card in the original, preserved). */
+.sgp-starter-card {
+  flex: 1;
+  min-width: 0;
+  background: rgba(255, 255, 255, .03);
+  border: 2px solid rgba(255, 255, 255, .1);
+  border-radius: 8px;
+  padding: 12px 8px;
+  cursor: pointer;
+  text-align: center;
+  transition: border-color .15s, background .15s, transform .12s;
+}
+.sgp-starter-card:hover { border-color: rgba(204, 60, 60, .6); background: rgba(204, 60, 60, .07); transform: translateY(-3px); }
+.sgp-starter-card.selected { border-color: var(--gold, #fcc800); background: rgba(200, 160, 0, .10); transform: translateY(-3px); }
+
+/* ── Ambush challenge popup (modules/ui/onboardingAmbushPopup.js, oap-* prefix) ── */
+
+.oap-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 7000;
+  background: rgba(6, 6, 10, .75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: fadeIn .2s ease;
+}
+
+.oap-box {
+  width: min(420px, 92vw);
+  background: var(--bg-card);
+  border: 2px solid var(--red);
+  border-radius: var(--radius);
+  padding: 18px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, .6);
+  font-family: var(--font-body);
+}
+
+.oap-title {
+  font-family: var(--font-pixel);
+  font-size: 11px;
+  color: var(--red);
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.oap-desc {
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.5;
+  margin-bottom: 14px;
+  text-align: center;
+}
+
+.oap-slots {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.oap-fight-btn {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  border: none;
+  border-radius: 6px;
+  background: var(--red);
+  color: #fff;
+  font-family: var(--font-pixel);
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.oap-slot {
+  cursor: pointer;
+  text-align: center;
+  width: 56px;
+}
+.oap-slot.oap-slot-starter { cursor: default; }
+
+.oap-slot-sprite-wrap {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  border-radius: 6px;
+  border: 2px solid var(--border);
+  background: rgba(0, 0, 0, .3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.oap-slot-starter .oap-slot-sprite-wrap { border-color: var(--gold); }
+
+.oap-slot-img {
+  width: 44px;
+  height: 44px;
+  image-rendering: pixelated;
+}
+
+.oap-slot-star {
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  translate: -50% 0;
+  font-size: 9px;
+}
+
+.oap-slot-label {
+  font-size: 7px;
+  font-family: var(--font-pixel);
+  color: var(--text-dim);
+  margin-top: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.oap-slot-starter .oap-slot-label { color: var(--gold); }
+
+/* ── Guide recruit picker (modules/ui/onboardingGuide.js, obg-* prefix) ── */
+
+.obg-picker-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.obg-picker-box {
+  background: var(--bg-panel);
+  border: 2px solid var(--gold-dim);
+  border-radius: var(--radius);
+  padding: 22px;
+  max-width: 520px;
+  width: 94%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.obg-picker-title {
+  font-family: var(--font-pixel);
+  font-size: 10px;
+  color: var(--gold);
+  letter-spacing: .08em;
+}
+
+.obg-picker-desc {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-dim);
+}
+
+.obg-picker-grid {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.obg-picker-option {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 96px;
+}
+
+.obg-picker-option-img {
+  width: 56px;
+  height: 56px;
+  image-rendering: pixelated;
+}
+
+.obg-picker-option-label {
+  font-size: 9px;
+  color: var(--text-dim);
+}
+
+.obg-picker-hint {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-align: center;
+}
+
+/* ── Welcome briefing (modules/ui/onboardingBriefing.js, ob-* prefix) ──
+   Same visual language as the Giovanni wizard (dark gradient, pixel font,
+   gold accent) but its own overlay — the briefing runs before any other
+   onboarding surface exists, so nothing to share an id/class scope with. */
+
+.ob-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 8500;
+  background: linear-gradient(160deg, #09090f 0%, #140808 55%, #0a0a0f 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-system, sans-serif);
+  cursor: pointer;
+  animation: ob-fadein .3s ease;
+}
+
+.ob-skip {
+  position: absolute;
+  top: 18px;
+  right: 20px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, .15);
+  color: rgba(255, 255, 255, .5);
+  font-family: var(--font-pixel, monospace);
+  font-size: 9px;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.ob-skip:hover { border-color: rgba(255, 255, 255, .35); color: rgba(255, 255, 255, .8); }
+
+.ob-box {
+  width: min(480px, 92vw);
+  text-align: center;
+  cursor: default;
+  animation: ob-fadein .35s ease;
+}
+
+.ob-title {
+  font-family: var(--font-pixel, monospace);
+  font-size: 16px;
+  letter-spacing: 1px;
+  color: var(--gold, #ffcc5a);
+  margin-bottom: 18px;
+}
+
+.ob-body {
+  font-size: 14px;
+  color: #e8e8e8;
+  line-height: 1.7;
+  min-height: 60px;
+  margin-bottom: 24px;
+}
+
+.ob-dots { display: flex; gap: 7px; justify-content: center; margin-bottom: 20px; }
+.ob-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .15);
+  transition: background .3s, transform .3s;
+}
+.ob-dot.active { background: var(--red, #cc3333); transform: scale(1.3); }
+.ob-dot.done { background: var(--gold, #ffcc5a); }
+
+.ob-next {
+  font-family: var(--font-pixel, monospace);
+  font-size: 10px;
+  padding: 12px 28px;
+  border-radius: 6px;
+  border: none;
+  background: var(--red, #cc3333);
+  color: #fff;
+  cursor: pointer;
+  transition: background .15s, transform .1s;
+}
+.ob-next:hover { background: #aa2222; }
+.ob-next:active { transform: scale(.97); }
+
+@keyframes ob-fadein { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ── First-run splash (issue #76) — index.html static markup +
+   modules/ui/firstRunSplash.js. See index.html's inline bootstrap
+   <script> for how `first-run-splash-skip` gets set before first paint. ── */
+
+#firstRunSplash {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  background: #07060b;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+}
+
+.frs-logo {
+  width: min(280px, 70vw);
+  animation: ob-fadein .5s ease both;
+}
+
+.frs-tagline {
+  font-family: var(--font-pixel, monospace);
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: rgba(255, 255, 255, .4);
+  animation: ob-fadein .5s ease .15s both;
+}
+
+/* Le joueur pour qui le splash n'a pas de rôle (web, ou itch avec save
+   existante) reçoit la classe skip AVANT le premier paint (script inline
+   dans index.html) : #app/#introOverlay ne sont donc jamais visiblement
+   masqués pour lui — seule la branche itch-neuf voit cette transition. */
+body.first-run-splash-skip #firstRunSplash { display: none; }
+body:not(.first-run-splash-skip) #app,
+body:not(.first-run-splash-skip) #introOverlay {
+  visibility: hidden;
+}
+body.first-run-splash-skip #app,
+body.first-run-splash-skip #introOverlay {
+  visibility: visible;
+}

@@ -556,6 +556,7 @@ const I18N = {
   static_go_to_zone:          { fr:'→ Aller à la zone', en:'→ Go to zone' },
   static_later:               { fr:'Plus tard', en:'Later' },
   static_back_home:           { fr:"Retour à l'accueil", en:'Back to home' },
+  static_first_run_loading:   { fr:'Chargement…', en:'Loading…' },
   static_owned_pokemon:       { fr:'Pokémon possédés', en:'Owned Pokémon' },
   static_codex_hint:          { fr:'Codex — Prix & Spawns', en:'Codex — Prices & Spawns' },
   static_cloud_account:       { fr:'Compte cloud', en:'Cloud account' },

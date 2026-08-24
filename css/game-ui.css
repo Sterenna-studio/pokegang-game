@@ -311,33 +311,11 @@
     .zone-quest-encounter.scene-arrive { animation: sceneWalkInRight .55s ease-out, float 3s ease-in-out .55s infinite; }
     .zone-quest-encounter.scene-leave  { animation: sceneWalkOut .5s ease-in forwards; }
 
-    /* ── Flèche du tout premier Pokémon (onboarding) ─────────────
-       .zone-spawn tourne via `float` (scaleX(-1)) : contre-miroir nécessaire
-       comme pour .zone-speech-bubble / .quest-encounter-name, sinon la main
-       de l'emoji se retrouve dans le mauvais sens. `translate`, pas
-       `transform`, pour l'animation de rebond ci-dessous — cohérent avec le
-       reste du fichier (transform est repris entièrement par les keyframes). */
-    .onboarding-capture-arrow {
-      scale: -1 1;
-      position: absolute;
-      top: -30px; left: 50%;
-      translate: -50% 0;
-      font-size: 26px;
-      pointer-events: none;
-      filter: drop-shadow(0 0 6px rgba(255, 204, 90, .9));
-      animation: captureArrowBounce 1s ease-in-out infinite;
-      z-index: 3;
-    }
-    @keyframes captureArrowBounce {
-      0%, 100% { translate: -50% 0; }
-      50%      { translate: -50% 8px; }
-    }
-    .zone-spawn.catching .onboarding-capture-arrow { display: none; }
 
     /* ── Aide guidée du transfuge (« confie-moi un Pokémon », etc.) ──────
        Flèche flottante positionnée en JS via getBoundingClientRect() sur une
        cible arbitraire d'un AUTRE onglet (agent-team-slot) — pas d'ancrage
-       CSS relatif possible comme pour .onboarding-capture-arrow ci-dessus.
+       CSS relatif possible.
        z-index modeste : une modale ouverte par-dessus (ex. le sélecteur de
        Pokémon) doit rester au-dessus, pas se retrouver sous la flèche. */
     .onboarding-guide-help-arrow {

@@ -1,4 +1,4 @@
-﻿'use strict';
+'use strict';
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
 import { esc as _esc } from '../core/escape.js';
@@ -21,6 +21,11 @@ const _lvl    = (n)              => _t(`Niv. ${n}`, `Lvl ${n}`);
 //  deps (injected via configureIntro):
 //    getState, makePokemon, calculateStats, pokeSprite, trainerSprite,
 //    BOSS_SPRITES, saveState, notify, setActiveSaveSlot
+//
+//  Presentation (colors, sizes, layout, animations) lives in
+//  css/onboarding.css under the `gi-*`/`sgp-*` prefixes. Only genuinely
+//  dynamic values stay inline here: fade-transition opacity/transform
+//  during step changes, and the typewriter cursor's blink visibility.
 // ════════════════════════════════════════════════════════════════
 
 let _ctx = {};
@@ -79,6 +84,8 @@ function _typewrite(el, text, onDone) {
 }
 
 // ── Step transition ───────────────────────────────────────────────
+// The opacity/transform values here are genuinely dynamic (animated per
+// call, not a fixed decorative style), so they stay inline on purpose.
 function _fadeTransition(el, fn) {
   el.style.transition = 'opacity .18s ease, transform .18s ease';
   el.style.opacity = '0';
@@ -132,23 +139,12 @@ export function openGiovanniIntro({
   // ── Overlay ───────────────────────────────────────────────────
   const overlay = document.createElement('div');
   overlay.id = 'giovanni-intro-overlay';
-  overlay.style.cssText = `
-    position:fixed;inset:0;z-index:8000;
-    background:linear-gradient(160deg,#09090f 0%,#140808 55%,#0a0a0f 100%);
-    display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
-    font-family:var(--font-system,sans-serif);
-    overflow:hidden;
-    padding:0 0 0 0;
-  `;
+  overlay.className = 'gi-overlay';
 
   // Subtle background texture
   overlay.innerHTML = `
-    <div style="position:absolute;inset:0;pointer-events:none;
-      background:radial-gradient(ellipse at 50% 20%,rgba(180,30,30,.07) 0%,transparent 65%),
-                 radial-gradient(ellipse at 20% 80%,rgba(80,20,80,.05) 0%,transparent 50%)">
-    </div>
-    <div id="gi-stage" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:0 16px 0;">
-    </div>`;
+    <div class="gi-bg-texture"></div>
+    <div id="gi-stage" class="gi-stage"></div>`;
 
   document.body.appendChild(overlay);
 
@@ -157,123 +153,31 @@ export function openGiovanniIntro({
   // ── Giovanni portrait area ────────────────────────────────────
   const portrait = document.createElement('div');
   portrait.id = 'gi-portrait';
-  portrait.style.cssText = `
-    position:absolute;top:0;left:50%;transform:translateX(-50%);
-    width:100%;max-width:560px;
-    display:flex;align-items:flex-start;justify-content:center;
-    padding-top:32px;
-    pointer-events:none;
-    transition:opacity .3s ease;
-  `;
+  portrait.className = 'gi-portrait';
   portrait.innerHTML = `
-    <div style="position:relative;text-align:center">
-      <img src="${_trainerSprite('giovanni')}"
-        style="width:140px;height:140px;image-rendering:pixelated;
-               filter:drop-shadow(0 8px 24px rgba(180,20,20,.45));
-               animation:gi-bob 2.8s ease-in-out infinite"
-        onerror="this.style.opacity='.3'">
-      <div style="position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);
-        width:80px;height:10px;
-        background:radial-gradient(ellipse,rgba(0,0,0,.5) 0%,transparent 70%);
-        filter:blur(3px)"></div>
+    <div class="gi-portrait-inner">
+      <img src="${_trainerSprite('giovanni')}" class="gi-portrait-img" onerror="this.style.opacity='.3'">
+      <div class="gi-portrait-shadow"></div>
     </div>`;
   overlay.appendChild(portrait);
 
   // ── Content zone (choices rendered above dialog) ──────────────
   const contentZone = document.createElement('div');
   contentZone.id = 'gi-content';
-  contentZone.style.cssText = `
-    width:100%;max-width:560px;
-    margin-bottom:8px;
-    min-height:180px;
-    display:flex;align-items:flex-end;justify-content:center;
-    padding:0 8px;
-  `;
+  contentZone.className = 'gi-content';
   stage.appendChild(contentZone);
 
   // ── Dialog box ────────────────────────────────────────────────
   const dialog = document.createElement('div');
   dialog.id = 'gi-dialog';
-  dialog.style.cssText = `
-    width:100%;max-width:560px;
-    background:rgba(6,6,10,.95);
-    border:2px solid rgba(180,30,30,.6);
-    border-radius:8px;
-    padding:16px 18px 18px;
-    margin-bottom:24px;
-    box-shadow:0 -4px 32px rgba(0,0,0,.5),inset 0 0 0 1px rgba(255,255,255,.04);
-    position:relative;
-  `;
+  dialog.className = 'gi-dialog';
   dialog.innerHTML = `
-    <div style="font-family:var(--font-pixel,monospace);font-size:7px;color:rgba(204,60,60,.9);
-      letter-spacing:.8px;text-transform:uppercase;margin-bottom:8px">Giovanni</div>
-    <div id="gi-text" style="font-size:14px;color:#e8e8e8;line-height:1.65;min-height:46px"></div>
-    <div id="gi-input-area" style="margin-top:14px"></div>
-    <div id="gi-cursor" style="position:absolute;bottom:14px;right:16px;
-      font-size:10px;color:rgba(204,60,60,.7);
-      animation:gi-blink 1s ease-in-out infinite;display:none">▶</div>
+    <div class="gi-dialog-label">Giovanni</div>
+    <div id="gi-text" class="gi-text"></div>
+    <div id="gi-input-area" class="gi-input-area"></div>
+    <div id="gi-cursor" class="gi-cursor" style="display:none">▶</div>
   `;
   stage.appendChild(dialog);
-
-  // ── CSS animations ────────────────────────────────────────────
-  const style = document.createElement('style');
-  style.textContent = `
-    @keyframes gi-bob   { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
-    @keyframes gi-blink { 0%,100%{opacity:.7} 50%{opacity:.15} }
-    @keyframes gi-fadein{ from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
-    #gi-dialog { animation:gi-fadein .3s ease }
-    .gi-starter-card {
-      flex:1;min-width:0;
-      background:rgba(255,255,255,.03);
-      border:2px solid rgba(255,255,255,.1);
-      border-radius:8px;padding:12px 8px;
-      cursor:pointer;text-align:center;
-      transition:border-color .15s,background .15s,transform .12s;
-    }
-    .gi-starter-card:hover { border-color:rgba(204,60,60,.6);background:rgba(204,60,60,.07);transform:translateY(-3px) }
-    .gi-starter-card.selected { border-color:var(--gold,#fcc800);background:rgba(200,160,0,.10);transform:translateY(-3px) }
-    .gi-sprite-opt {
-      width:68px;height:68px;
-      background:rgba(255,255,255,.04);
-      border:2px solid rgba(255,255,255,.08);
-      border-radius:6px;
-      cursor:pointer;
-      display:flex;align-items:center;justify-content:center;
-      transition:border-color .15s,background .15s;
-    }
-    .gi-sprite-opt:hover  { border-color:rgba(200,160,0,.5);background:rgba(200,160,0,.07) }
-    .gi-sprite-opt.selected { border-color:var(--gold,#fcc800);background:rgba(200,160,0,.12) }
-    .gi-btn {
-      font-family:var(--font-pixel,monospace);
-      font-size:10px;padding:10px 22px;
-      border-radius:6px;border:none;
-      cursor:pointer;transition:background .15s,transform .1s;
-    }
-    .gi-btn:active { transform:scale(.97) }
-    .gi-btn-primary { background:var(--red,#cc3333);color:#fff }
-    .gi-btn-primary:hover { background:#aa2222 }
-    .gi-btn-ghost {
-      background:transparent;
-      border:1px solid rgba(255,255,255,.15);
-      color:rgba(255,255,255,.5);
-      font-size:9px;padding:8px 14px;
-    }
-    .gi-btn-ghost:hover { border-color:rgba(255,255,255,.35);color:rgba(255,255,255,.8) }
-    .gi-input {
-      width:100%;background:rgba(255,255,255,.05);
-      border:1px solid rgba(180,30,30,.5);
-      border-radius:6px;color:#e8e8e8;
-      padding:10px 14px;font-size:16px;
-      box-sizing:border-box;outline:none;
-      transition:border-color .15s;
-    }
-    .gi-input:focus { border-color:rgba(204,60,60,.9) }
-    .gi-step-dots { display:flex;gap:6px;justify-content:center;margin-bottom:6px }
-    .gi-dot { width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.15);transition:background .3s }
-    .gi-dot.active { background:rgba(204,60,60,.85) }
-    .gi-dot.done   { background:rgba(200,160,0,.6) }
-  `;
-  document.head.appendChild(style);
 
   // ── Step dots ─────────────────────────────────────────────────
   const stepDots = document.createElement('div');
@@ -308,7 +212,6 @@ export function openGiovanniIntro({
     overlay.style.opacity = '0';
     setTimeout(() => {
       overlay.remove();
-      style.remove();
       if (ownsStoryLock) releaseStoryLock(storyOwner);
       if (shouldComplete) onComplete?.(payload);
     }, 400);
@@ -338,11 +241,11 @@ export function openGiovanniIntro({
     _say(LINES.name(identityOnly), () => {
       _fadeTransition(inputArea, () => {
         inputArea.innerHTML = `
-          <div style="display:flex;gap:8px;align-items:center">
+          <div class="gi-input-row">
             <input class="gi-input" id="gi-name-input" maxlength="20" placeholder="${_t('Ton nom de boss…', 'Your boss name…')}" autocomplete="off">
             <button class="gi-btn gi-btn-primary" id="gi-name-next">→</button>
           </div>
-          <div style="font-size:9px;color:rgba(255,255,255,.25);margin-top:6px">${_t('Max. 20 caractères', 'Max. 20 characters')}</div>`;
+          <div class="gi-hint">${_t('Max. 20 caractères', 'Max. 20 characters')}</div>`;
         const input = inputArea.querySelector('#gi-name-input');
         const btn   = inputArea.querySelector('#gi-name-next');
         input.focus();
@@ -374,16 +277,14 @@ export function openGiovanniIntro({
     // Show starter cards above dialog
     _fadeTransition(contentZone, () => {
       contentZone.innerHTML = `
-        <div style="display:flex;gap:10px;width:100%;padding:0 4px;align-items:stretch">
+        <div class="gi-starter-row">
           ${INTRO_STARTERS.map(s => `
             <div class="gi-starter-card" data-en="${s.en}">
-              <img src="${_ctx.pokeSprite?.(s.en, false) || ''}"
-                style="width:72px;height:72px;image-rendering:pixelated;display:block;margin:0 auto 8px"
-                onerror="this.style.opacity='.2'">
-              <div style="font-family:var(--font-pixel,monospace);font-size:9px;color:#e8e8e8;margin-bottom:4px">${_starterName(s)}</div>
-              <div style="font-size:8px;color:rgba(255,255,255,.35);margin-bottom:8px">${_starterTypes(s)}</div>
-              <div style="font-size:10px;color:rgba(255,255,255,.6);line-height:1.5;white-space:pre-line">${_starterDesc(s)}</div>
-              <div style="margin-top:8px;font-size:8px;color:rgba(200,160,0,.7)">${_lvl(15)} · ★★★</div>
+              <img src="${_ctx.pokeSprite?.(s.en, false) || ''}" class="gi-starter-card-img" onerror="this.style.opacity='.2'">
+              <div class="gi-starter-card-name">${_starterName(s)}</div>
+              <div class="gi-starter-card-types">${_starterTypes(s)}</div>
+              <div class="gi-starter-card-desc">${_starterDesc(s)}</div>
+              <div class="gi-starter-card-level">${_lvl(15)} · ★★★</div>
             </div>`).join('')}
         </div>`;
 
@@ -400,7 +301,7 @@ export function openGiovanniIntro({
     setTimeout(() => {
       _say(LINES.starter(bossName), () => {
         _fadeTransition(inputArea, () => {
-          inputArea.innerHTML = `<div style="display:flex;justify-content:flex-end">
+          inputArea.innerHTML = `<div class="gi-actions-end">
             <button class="gi-btn gi-btn-primary" id="gi-starter-next">${_t('Choisir →', 'Choose →')}</button>
           </div>`;
           inputArea.querySelector('#gi-starter-next').addEventListener('click', () => {
@@ -430,11 +331,11 @@ export function openGiovanniIntro({
       _say(LINES.gang(starterName), () => {
         _fadeTransition(inputArea, () => {
           inputArea.innerHTML = `
-            <div style="display:flex;gap:8px;align-items:center">
+            <div class="gi-input-row">
               <input class="gi-input" id="gi-gang-input" maxlength="24" placeholder="${_t('Nom du gang…', 'Gang name…')}" autocomplete="off">
               <button class="gi-btn gi-btn-primary" id="gi-gang-next">→</button>
             </div>
-            <div style="font-size:9px;color:rgba(255,255,255,.25);margin-top:6px">${_t('Max. 24 caractères', 'Max. 24 characters')}</div>`;
+            <div class="gi-hint">${_t('Max. 24 caractères', 'Max. 24 characters')}</div>`;
           const input = inputArea.querySelector('#gi-gang-input');
           const btn   = inputArea.querySelector('#gi-gang-next');
           input.focus();
@@ -459,13 +360,11 @@ export function openGiovanniIntro({
     _fadeTransition(contentZone, () => {
       const spritePool = (BOSS_SPRITES?.length ? BOSS_SPRITES : INTRO_BOSS_SPRITES).slice(0, 20);
       contentZone.innerHTML = `
-        <div style="width:100%;background:rgba(0,0,0,.3);border-radius:8px;padding:12px 8px">
-          <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center">
+        <div class="gi-sprite-pool">
+          <div class="gi-sprite-grid">
             ${spritePool.map(s => `
               <div class="gi-sprite-opt" data-sprite="${s}">
-                <img src="${_trainerSprite(s)}"
-                  style="width:44px;height:44px;image-rendering:pixelated"
-                  onerror="this.closest('.gi-sprite-opt').style.display='none'">
+                <img src="${_trainerSprite(s)}" class="gi-sprite-img" onerror="this.closest('.gi-sprite-opt').style.display='none'">
               </div>`).join('')}
           </div>
         </div>`;
@@ -488,7 +387,7 @@ export function openGiovanniIntro({
     setTimeout(() => {
       _say(LINES.sprite(gangName), () => {
         _fadeTransition(inputArea, () => {
-          inputArea.innerHTML = `<div style="display:flex;justify-content:flex-end">
+          inputArea.innerHTML = `<div class="gi-actions-end">
             <button class="gi-btn gi-btn-primary" id="gi-sprite-next">${_t("C'est moi →", "That's me →")}</button>
           </div>`;
           inputArea.querySelector('#gi-sprite-next').addEventListener('click', stepDone);
@@ -509,23 +408,17 @@ export function openGiovanniIntro({
 
     _fadeTransition(contentZone, () => {
       contentZone.innerHTML = `
-        <div style="width:100%;background:rgba(0,0,0,.3);border:1px solid rgba(200,160,0,.15);
-          border-radius:8px;padding:16px 18px;display:flex;flex-direction:column;gap:10px">
-          <div style="font-family:var(--font-pixel,monospace);font-size:8px;color:rgba(200,160,0,.7);
-            letter-spacing:.6px;margin-bottom:2px">${_t('RÉSUMÉ', 'SUMMARY')}</div>
-          <div style="display:flex;align-items:center;gap:14px">
-            <img src="${_trainerSprite(bossSprite)}"
-              style="width:52px;height:52px;image-rendering:pixelated"
-              onerror="this.style.opacity='.2'">
+        <div class="gi-summary">
+          <div class="gi-summary-label">${_t('RÉSUMÉ', 'SUMMARY')}</div>
+          <div class="gi-summary-row">
+            <img src="${_trainerSprite(bossSprite)}" class="gi-summary-boss-img" onerror="this.style.opacity='.2'">
             <div>
-              <div style="font-size:15px;color:#e8e8e8;font-weight:600">${_esc(bossName)}</div>
-              <div style="font-size:11px;color:rgba(255,255,255,.45);margin-top:2px">${gangName}</div>
+              <div class="gi-summary-name">${_esc(bossName)}</div>
+              <div class="gi-summary-gang">${gangName}</div>
             </div>
-            <div style="margin-left:auto;text-align:center">
-              <img src="${_ctx.pokeSprite?.(starterData.en, false) || ''}"
-                style="width:56px;height:56px;image-rendering:pixelated;display:block;margin:0 auto"
-                onerror="this.style.opacity='.2'">
-              <div style="font-size:9px;color:rgba(255,255,255,.45);margin-top:2px">${_starterName(starterData)}${identityOnly ? '' : ` ${_lvl(15)}`}</div>
+            <div class="gi-summary-starter">
+              <img src="${_ctx.pokeSprite?.(starterData.en, false) || ''}" class="gi-summary-starter-img" onerror="this.style.opacity='.2'">
+              <div class="gi-summary-starter-name">${_starterName(starterData)}${identityOnly ? '' : ` ${_lvl(15)}`}</div>
             </div>
           </div>
         </div>`;
@@ -535,7 +428,7 @@ export function openGiovanniIntro({
       _say(LINES.done(bossName, gangName), () => {
         _fadeTransition(inputArea, () => {
           inputArea.innerHTML = `
-            <div style="display:flex;justify-content:flex-end;gap:10px;align-items:center">
+            <div class="gi-actions-end-gap">
               <button class="gi-btn gi-btn-ghost" id="gi-back-btn">${_t('← Modifier', '← Edit')}</button>
               <button class="gi-btn gi-btn-primary" id="gi-confirm-btn">${_t("C'est parti ! 🚀", "Let's go! 🚀")}</button>
             </div>`;
@@ -636,89 +529,38 @@ function _openStarterGiftPopupNow({ onComplete } = {}) {
   // ── Overlay (same visual language as main intro) ──────────────
   const overlay = document.createElement('div');
   overlay.id = 'starter-gift-overlay';
-  overlay.style.cssText = `
-    position:fixed;inset:0;z-index:8000;
-    background:linear-gradient(160deg,#09090f 0%,#140808 55%,#0a0a0f 100%);
-    display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
-    font-family:var(--font-system,sans-serif);
-    overflow:hidden;
-  `;
+  overlay.className = 'gi-overlay';
   overlay.innerHTML = `
-    <div style="position:absolute;inset:0;pointer-events:none;
-      background:radial-gradient(ellipse at 50% 20%,rgba(180,30,30,.07) 0%,transparent 65%),
-                 radial-gradient(ellipse at 20% 80%,rgba(80,20,80,.05) 0%,transparent 50%)">
-    </div>
-    <div id="sgp-stage" style="position:absolute;inset:0;display:flex;flex-direction:column;
-      align-items:center;justify-content:flex-end;padding:0 16px 0;"></div>`;
+    <div class="gi-bg-texture"></div>
+    <div id="sgp-stage" class="gi-stage"></div>`;
 
   document.body.appendChild(overlay);
   const stage = overlay.querySelector('#sgp-stage');
 
   // ── Giovanni portrait ─────────────────────────────────────────
   const portrait = document.createElement('div');
-  portrait.style.cssText = `
-    position:absolute;top:0;left:50%;transform:translateX(-50%);
-    width:100%;max-width:560px;
-    display:flex;align-items:flex-start;justify-content:center;
-    padding-top:32px;pointer-events:none;
-  `;
+  portrait.className = 'gi-portrait';
   portrait.innerHTML = `
-    <div style="position:relative;text-align:center">
-      <img src="${_trainerSprite('giovanni')}"
-        style="width:140px;height:140px;image-rendering:pixelated;
-               filter:drop-shadow(0 8px 24px rgba(180,20,20,.45));
-               animation:gi-bob 2.8s ease-in-out infinite"
-        onerror="this.style.opacity='.3'">
+    <div class="gi-portrait-inner">
+      <img src="${_trainerSprite('giovanni')}" class="gi-portrait-img" onerror="this.style.opacity='.3'">
     </div>`;
   overlay.appendChild(portrait);
 
   // ── Starter card area ─────────────────────────────────────────
   const contentZone = document.createElement('div');
-  contentZone.style.cssText = `
-    width:100%;max-width:560px;margin-bottom:8px;min-height:180px;
-    display:flex;align-items:flex-end;justify-content:center;padding:0 8px;
-  `;
+  contentZone.className = 'gi-content';
   stage.appendChild(contentZone);
 
   // ── Dialog box ────────────────────────────────────────────────
   const dialog = document.createElement('div');
-  dialog.style.cssText = `
-    width:100%;max-width:560px;
-    background:rgba(6,6,10,.95);
-    border:2px solid rgba(180,30,30,.6);
-    border-radius:8px;padding:16px 18px 18px;
-    margin-bottom:24px;
-    box-shadow:0 -4px 32px rgba(0,0,0,.5),inset 0 0 0 1px rgba(255,255,255,.04);
-    position:relative;
-  `;
+  dialog.className = 'gi-dialog';
   dialog.innerHTML = `
-    <div style="font-family:var(--font-pixel,monospace);font-size:7px;color:rgba(204,60,60,.9);
-      letter-spacing:.8px;text-transform:uppercase;margin-bottom:8px">Giovanni</div>
-    <div id="sgp-text" style="font-size:14px;color:#e8e8e8;line-height:1.65;min-height:46px"></div>
-    <div id="sgp-input" style="margin-top:14px"></div>
-    <div id="sgp-cursor" style="position:absolute;bottom:14px;right:16px;
-      font-size:10px;color:rgba(204,60,60,.7);
-      animation:gi-blink 1s ease-in-out infinite;display:none">▶</div>
+    <div class="gi-dialog-label">Giovanni</div>
+    <div id="sgp-text" class="gi-text"></div>
+    <div id="sgp-input" class="gi-input-area"></div>
+    <div id="sgp-cursor" class="gi-cursor" style="display:none">▶</div>
   `;
   stage.appendChild(dialog);
-
-  // ── Shared CSS (reuse gi-* keyframes if already present) ─────
-  const style = document.createElement('style');
-  style.textContent = `
-    @keyframes gi-bob   { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
-    @keyframes gi-blink { 0%,100%{opacity:.7} 50%{opacity:.15} }
-    .sgp-starter-card {
-      flex:1;min-width:0;
-      background:rgba(255,255,255,.03);
-      border:2px solid rgba(255,255,255,.1);
-      border-radius:8px;padding:12px 8px;
-      cursor:pointer;text-align:center;
-      transition:border-color .15s,background .15s,transform .12s;
-    }
-    .sgp-starter-card:hover  { border-color:rgba(204,60,60,.6);background:rgba(204,60,60,.07);transform:translateY(-3px) }
-    .sgp-starter-card.selected { border-color:var(--gold,#fcc800);background:rgba(200,160,0,.10);transform:translateY(-3px) }
-  `;
-  document.head.appendChild(style);
 
   // ── Helpers ───────────────────────────────────────────────────
   const textEl  = dialog.querySelector('#sgp-text');
@@ -742,7 +584,6 @@ function _openStarterGiftPopupNow({ onComplete } = {}) {
     overlay.style.opacity = '0';
     setTimeout(() => {
       overlay.remove();
-      style.remove();
       releaseStoryLock(storyOwner);
       onComplete?.();
     }, 400);
@@ -771,16 +612,14 @@ function _openStarterGiftPopupNow({ onComplete } = {}) {
 
   // Show starter cards
   contentZone.innerHTML = `
-    <div style="display:flex;gap:10px;width:100%;padding:0 4px;align-items:stretch">
+    <div class="gi-starter-row">
       ${INTRO_STARTERS.map(s => `
         <div class="sgp-starter-card" data-en="${s.en}">
-          <img src="${_ctx.pokeSprite?.(s.en, false) || ''}"
-            style="width:72px;height:72px;image-rendering:pixelated;display:block;margin:0 auto 8px"
-            onerror="this.style.opacity='.2'">
-          <div style="font-family:var(--font-pixel,monospace);font-size:9px;color:#e8e8e8;margin-bottom:4px">${_starterName(s)}</div>
-          <div style="font-size:8px;color:rgba(255,255,255,.35);margin-bottom:8px">${_starterTypes(s)}</div>
-          <div style="font-size:10px;color:rgba(255,255,255,.6);line-height:1.5;white-space:pre-line">${_starterDesc(s)}</div>
-          <div style="margin-top:8px;font-size:8px;color:rgba(200,160,0,.7)">${_lvl(15)} · ★★★</div>
+          <img src="${_ctx.pokeSprite?.(s.en, false) || ''}" class="gi-starter-card-img" onerror="this.style.opacity='.2'">
+          <div class="gi-starter-card-name">${_starterName(s)}</div>
+          <div class="gi-starter-card-types">${_starterTypes(s)}</div>
+          <div class="gi-starter-card-desc">${_starterDesc(s)}</div>
+          <div class="gi-starter-card-level">${_lvl(15)} · ★★★</div>
         </div>`).join('')}
     </div>`;
 
@@ -794,12 +633,8 @@ function _openStarterGiftPopupNow({ onComplete } = {}) {
 
   _say(line, () => {
     inputEl.innerHTML = `
-      <div style="display:flex;justify-content:flex-end">
-        <button style="
-          font-family:var(--font-pixel,monospace);font-size:10px;
-          padding:10px 22px;border-radius:6px;border:none;cursor:pointer;
-          background:var(--red,#cc3333);color:#fff;transition:background .15s"
-          id="sgp-confirm-btn">${_t('Prendre ce Pokémon →', 'Take this Pokémon →')}</button>
+      <div class="gi-actions-end">
+        <button class="gi-btn gi-btn-primary" id="sgp-confirm-btn">${_t('Prendre ce Pokémon →', 'Take this Pokémon →')}</button>
       </div>`;
 
     dialog.querySelector('#sgp-confirm-btn').addEventListener('click', () => {
