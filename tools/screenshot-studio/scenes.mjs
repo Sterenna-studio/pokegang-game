@@ -2,7 +2,6 @@ const ROOT='../..';
 const giovanni=`${ROOT}/assets/trainer_sprite/trainer_giovanni/Sprite_Giovanni_RFVF.png`;
 const trainer=k=>`https://play.pokemonshowdown.com/sprites/trainers/${k}.png`;
 const poke=(n,shiny=false)=>`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${shiny?'shiny/':''}${n}.png`;
-const pokeArt=n=>`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${n}.png`;
 const L=(lang,fr,en)=>lang==='fr'?fr:en;
 const PK={rattata:[19,'Rattata'],pidgey:[16,'Pidgey'],pikachu:[25,'Pikachu'],meowth:[52,'Meowth'],zubat:[41,'Zubat'],gastly:[92,'Gastly'],gengar:[94,'Gengar'],nidoking:[34,'Nidoking'],rhydon:[112,'Rhydon'],alakazam:[65,'Alakazam'],arcanine:[59,'Arcanine'],charizard:[6,'Charizard'],dragonite:[149,'Dragonite'],snorlax:[143,'Snorlax'],lapras:[131,'Lapras'],eevee:[133,'Eevee'],gyarados:[130,'Gyarados'],groudon:[383,'Groudon'],kyogre:[382,'Kyogre']};
 const chip=(key,{level=18,stars=3,shiny=false}={})=>{const[d,n]=PK[key];return `<div class="pg-poke-chip"><img src="${poke(d,shiny)}" alt="${n}"><small>${n} · Lv.${level}</small><div class="pg-stars">${'★'.repeat(stars)}${'☆'.repeat(5-stars)}</div></div>`};
@@ -29,13 +28,14 @@ function legendary(lang,key){const[d,n]=PK[key];const body=`<div class="pg-legen
 function identity(lang){return `<div class="shot-scene"><div class="pg-giovanni"><img class="portrait" src="${giovanni}"><div class="pg-giovanni-content"><div class="pg-team-row">${chip('meowth',{level:10})}${chip('gastly',{level:9,stars:4})}${chip('zubat',{level:8,stars:2})}</div></div><div class="pg-giovanni-dialog"><div class="pg-giovanni-name">GIOVANNI</div><div>${L(lang,"Pas mal. Mais je ne sais même pas encore à qui j'ai affaire…","Not bad. But I don't even know who I'm dealing with yet…")}</div><input class="pg-input" value="Nova"><div class="pg-btn-row"><button class="pg-action-btn primary">${L(lang,'Continuer','Continue')} →</button></div></div></div></div>`}
 function cover(lang){
  const mons=[
-  {d:6,left:'15%',top:'60%',w:'26%'},
-  {d:94,left:'85%',top:'60%',w:'23%'},
-  {d:149,left:'50%',top:'17%',w:'17%'},
+  {d:6,left:'15%',top:'60%',w:192},
+  {d:94,left:'85%',top:'60%',w:192},
+  {d:149,left:'50%',top:'17%',w:96},
  ];
- const monsHtml=mons.map(m=>`<img class="pg-cover-mon" style="left:${m.left};top:${m.top};width:${m.w};height:${m.w};transform:translate(-50%,-50%)" src="${pokeArt(m.d)}">`).join('');
+ const monsHtml=mons.map(m=>`<img class="pg-cover-mon" style="left:${m.left};top:${m.top};width:${m.w}px;height:${m.w}px;transform:translate(-50%,-50%)" src="${poke(m.d)}">`).join('');
  return `<div class="shot-scene"><div class="pg-cover">
   <div class="pg-cover-grid"></div>
+  <img class="pg-cover-logo-neg" src="${ROOT}/assets/pokegang_logo/pokegang_logo_full_B.png">
   <img class="pg-cover-boss" style="left:50%;top:50%;width:30%;transform:translate(-50%,-50%)" src="${trainer('red')}">
   <img class="pg-cover-boss" style="left:22%;top:47%;width:18%;transform:translate(-50%,-50%);opacity:.4" src="${trainer('rocketgrunt')}">
   <img class="pg-cover-boss" style="left:78%;top:47%;width:18%;transform:translate(-50%,-50%);opacity:.4" src="${trainer('rocketgruntf')}">
