@@ -26,8 +26,30 @@ function unlock(lang){const body=`<div class="pg-zone-grid">${[['Route 1','✓']
 function rare(lang){const body=`<div class="pg-zone-grid">${[['Route 1','✓'],[L(lang,'Forêt de Jade','Viridian Forest'),'✓'],[L(lang,'Argenta','Pewter City'),'🔒'],[L(lang,'Mont Sélénite','Mt. Moon'),'🔒']].map(([n,s],i)=>`<div class="pg-zone-card ${i===1?'forest':''}${i>1?' locked':''}"><div class="pg-zone-bg"></div><div class="pg-zone-name">${n}</div><div class="meta"><span>${i*15} rep</span><span>${s}</span></div></div>`).join('')}</div><div class="pg-popup rare"><img src="${poke(25)}"><div><div class="label">⚡ ${L(lang,'Pokémon rare aperçu : Pikachu','Rare sighting: Pikachu')}</div><div class="pg-dim" style="font-size:10px;margin-top:4px">→ ${L(lang,'Forêt de Jade','Viridian Forest')}</div></div></div>`;return shell({lang,rep:64,money:8500,body})}
 function legendary(lang,key){const[d,n]=PK[key];const body=`<div class="pg-legendary-stage"><div class="pg-hpbox enemy"><div class="pg-hpname">${n.toUpperCase()} · Lv.70</div><div class="pg-hpbar"><span style="width:62%"></span></div></div><img class="enemy" src="${poke(d)}"><img class="player" src="${poke(94)}"><div class="pg-hpbox player"><div class="pg-hpname">GENGAR · Lv.58</div><div class="pg-hpbar"><span style="width:73%"></span></div></div><div class="pg-battle-actions"><div class="pg-dialogbox">${L(lang,`${n} apparaît directement dans la zone. Jusqu’à 3 Agents peuvent l’affaiblir avant l’entrée du Boss.`,`${n} appears directly in the zone. Up to 3 Agents can soften it up before the Boss enters.`)}</div><div class="pg-action-grid"><button>${L(lang,'ATTAQUE','FIGHT')}</button><button>${L(lang,'ÉQUIPE','TEAM')}</button><button>${L(lang,'OBJET','ITEM')}</button><button>${L(lang,'FUITE','RUN')}</button></div></div></div>`;return shell({lang,rep:1320,money:420500,body})}
 function identity(lang){return `<div class="shot-scene"><div class="pg-giovanni"><img class="portrait" src="${giovanni}"><div class="pg-giovanni-content"><div class="pg-team-row">${chip('meowth',{level:10})}${chip('gastly',{level:9,stars:4})}${chip('zubat',{level:8,stars:2})}</div></div><div class="pg-giovanni-dialog"><div class="pg-giovanni-name">GIOVANNI</div><div>${L(lang,"Pas mal. Mais je ne sais même pas encore à qui j'ai affaire…","Not bad. But I don't even know who I'm dealing with yet…")}</div><input class="pg-input" value="Nova"><div class="pg-btn-row"><button class="pg-action-btn primary">${L(lang,'Continuer','Continue')} →</button></div></div></div></div>`}
+function cover(lang){
+ const mons=[
+  {d:6,left:'15%',top:'60%',w:'26%'},
+  {d:94,left:'85%',top:'60%',w:'23%'},
+  {d:149,left:'50%',top:'17%',w:'17%'},
+ ];
+ const monsHtml=mons.map(m=>`<img class="pg-cover-mon" style="left:${m.left};top:${m.top};width:${m.w};height:${m.w};transform:translate(-50%,-50%)" src="${poke(m.d)}">`).join('');
+ return `<div class="shot-scene"><div class="pg-cover">
+  <div class="pg-cover-grid"></div>
+  <img class="pg-cover-boss" style="left:50%;top:50%;width:30%;transform:translate(-50%,-50%)" src="${trainer('red')}">
+  <img class="pg-cover-boss" style="left:22%;top:47%;width:18%;transform:translate(-50%,-50%);opacity:.4" src="${trainer('rocketgrunt')}">
+  <img class="pg-cover-boss" style="left:78%;top:47%;width:18%;transform:translate(-50%,-50%);opacity:.4" src="${trainer('rocketgruntf')}">
+  <div class="pg-cover-shade-top"></div>
+  <div class="pg-cover-shade-bottom"></div>
+  <div class="pg-cover-corner" style="left:14px;top:14px">⭐ <b>724</b> REP</div>
+  <div class="pg-cover-corner" style="right:14px;top:14px">₽ <b>184,200</b></div>
+  <div class="pg-cover-head"><div class="pg-cover-title">PokéGang</div><div class="pg-cover-sub">Gotta rule ’em all</div></div>
+  <div class="pg-cover-stage">${monsHtml}<div class="pg-cover-ball"></div></div>
+  <div class="pg-cover-tagwrap">${L(lang,'CAPTURE','CATCH')}<span class="dot">·</span>${L(lang,'RECRUTE','RECRUIT')}<span class="dot">·</span>${L(lang,'ÉTENDS','EXPAND')}</div>
+ </div></div>`;
+}
 
 export const SCENES=[
+['itch-cover','🎴','Marketing',{fr:'Cover itch.io',en:'Itch.io cover'},{fr:'Clé visuelle 630×500',en:'630×500 key art'},{fr:'Composition promo avec les vrais sprites, l’équipe Boss et la Ball du jeu. Choisir 630×500 en format personnalisé puis « Ouvrir clean » pour la capture.',en:'Promo composition using the game’s real sprites, Boss team and Ball. Set 630×500 as a custom size, then “Open clean” for the capture.'},cover],
 ['onboarding-first-catch','🌿','Onboarding',{fr:'Première capture',en:'First capture'},{fr:'Zone inconnue + flèche',en:'Unknown Field + arrow'},{fr:'Première interaction du nouveau tunnel.',en:'First interaction of the new onboarding funnel.'},l=>field(l,'capture')],
 ['onboarding-ambush','🚀','Onboarding',{fr:'Embuscade Team Rocket',en:'Team Rocket ambush'},{fr:'Sbires + popup de défi',en:'Grunts + challenge popup'},{fr:'Les trois sbires et le combat scénarisé.',en:'The three grunts and scripted fight.'},l=>field(l,'ambush')],
 ['onboarding-giovanni','🕴️','Onboarding',{fr:'Giovanni — identité',en:'Giovanni — identity'},{fr:'Création Boss / gang',en:'Boss / gang creation'},{fr:'Écran narratif après l’embuscade.',en:'Narrative identity screen after the ambush.'},identity],

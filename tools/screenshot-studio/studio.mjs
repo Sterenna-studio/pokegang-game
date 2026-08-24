@@ -4,7 +4,7 @@ const params = new URLSearchParams(location.search);
 const cleanView = params.get('clean') === '1';
 const initialSceneId = params.get('scene') || DEFAULT_SCENE_ID;
 const initialLang = params.get('lang') === 'fr' ? 'fr' : 'en';
-const initialWidth = clampInt(params.get('w'), 640, 2560, 1280);
+const initialWidth = clampInt(params.get('w'), 300, 2560, 1280);
 const initialHeight = clampInt(params.get('h'), 480, 2560, 720);
 const initialAnim = params.get('anim') !== '0';
 
@@ -171,7 +171,7 @@ function bindUi() {
     const [w,h] = event.target.value.split('x').map(Number);
     width = w; height = h; renderAll();
   });
-  $('#widthInput').addEventListener('change', event => { width = clampInt(event.target.value,640,2560,width); renderAll(); });
+  $('#widthInput').addEventListener('change', event => { width = clampInt(event.target.value,300,2560,width); renderAll(); });
   $('#heightInput').addEventListener('change', event => { height = clampInt(event.target.value,480,2560,height); renderAll(); });
   $('#fitBtn').addEventListener('click', fitStage);
   $('#animBtn').addEventListener('click', () => { animations = !animations; renderAll(); });
