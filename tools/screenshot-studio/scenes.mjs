@@ -2,6 +2,7 @@ const ROOT='../..';
 const giovanni=`${ROOT}/assets/trainer_sprite/trainer_giovanni/Sprite_Giovanni_RFVF.png`;
 const trainer=k=>`https://play.pokemonshowdown.com/sprites/trainers/${k}.png`;
 const poke=(n,shiny=false)=>`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${shiny?'shiny/':''}${n}.png`;
+const pokeArt=n=>`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${n}.png`;
 const L=(lang,fr,en)=>lang==='fr'?fr:en;
 const PK={rattata:[19,'Rattata'],pidgey:[16,'Pidgey'],pikachu:[25,'Pikachu'],meowth:[52,'Meowth'],zubat:[41,'Zubat'],gastly:[92,'Gastly'],gengar:[94,'Gengar'],nidoking:[34,'Nidoking'],rhydon:[112,'Rhydon'],alakazam:[65,'Alakazam'],arcanine:[59,'Arcanine'],charizard:[6,'Charizard'],dragonite:[149,'Dragonite'],snorlax:[143,'Snorlax'],lapras:[131,'Lapras'],eevee:[133,'Eevee'],gyarados:[130,'Gyarados'],groudon:[383,'Groudon'],kyogre:[382,'Kyogre']};
 const chip=(key,{level=18,stars=3,shiny=false}={})=>{const[d,n]=PK[key];return `<div class="pg-poke-chip"><img src="${poke(d,shiny)}" alt="${n}"><small>${n} · Lv.${level}</small><div class="pg-stars">${'★'.repeat(stars)}${'☆'.repeat(5-stars)}</div></div>`};
@@ -32,7 +33,7 @@ function cover(lang){
   {d:94,left:'85%',top:'60%',w:'23%'},
   {d:149,left:'50%',top:'17%',w:'17%'},
  ];
- const monsHtml=mons.map(m=>`<img class="pg-cover-mon" style="left:${m.left};top:${m.top};width:${m.w};height:${m.w};transform:translate(-50%,-50%)" src="${poke(m.d)}">`).join('');
+ const monsHtml=mons.map(m=>`<img class="pg-cover-mon" style="left:${m.left};top:${m.top};width:${m.w};height:${m.w};transform:translate(-50%,-50%)" src="${pokeArt(m.d)}">`).join('');
  return `<div class="shot-scene"><div class="pg-cover">
   <div class="pg-cover-grid"></div>
   <img class="pg-cover-boss" style="left:50%;top:50%;width:30%;transform:translate(-50%,-50%)" src="${trainer('red')}">
