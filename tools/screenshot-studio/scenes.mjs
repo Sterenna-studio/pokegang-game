@@ -27,19 +27,16 @@ function rare(lang){const body=`<div class="pg-zone-grid">${[['Route 1','✓'],[
 function legendary(lang,key){const[d,n]=PK[key];const body=`<div class="pg-legendary-stage"><div class="pg-hpbox enemy"><div class="pg-hpname">${n.toUpperCase()} · Lv.70</div><div class="pg-hpbar"><span style="width:62%"></span></div></div><img class="enemy" src="${poke(d)}"><img class="player" src="${poke(94)}"><div class="pg-hpbox player"><div class="pg-hpname">GENGAR · Lv.58</div><div class="pg-hpbar"><span style="width:73%"></span></div></div><div class="pg-battle-actions"><div class="pg-dialogbox">${L(lang,`${n} apparaît directement dans la zone. Jusqu’à 3 Agents peuvent l’affaiblir avant l’entrée du Boss.`,`${n} appears directly in the zone. Up to 3 Agents can soften it up before the Boss enters.`)}</div><div class="pg-action-grid"><button>${L(lang,'ATTAQUE','FIGHT')}</button><button>${L(lang,'ÉQUIPE','TEAM')}</button><button>${L(lang,'OBJET','ITEM')}</button><button>${L(lang,'FUITE','RUN')}</button></div></div></div>`;return shell({lang,rep:1320,money:420500,body})}
 function identity(lang){return `<div class="shot-scene"><div class="pg-giovanni"><img class="portrait" src="${giovanni}"><div class="pg-giovanni-content"><div class="pg-team-row">${chip('meowth',{level:10})}${chip('gastly',{level:9,stars:4})}${chip('zubat',{level:8,stars:2})}</div></div><div class="pg-giovanni-dialog"><div class="pg-giovanni-name">GIOVANNI</div><div>${L(lang,"Pas mal. Mais je ne sais même pas encore à qui j'ai affaire…","Not bad. But I don't even know who I'm dealing with yet…")}</div><input class="pg-input" value="Nova"><div class="pg-btn-row"><button class="pg-action-btn primary">${L(lang,'Continuer','Continue')} →</button></div></div></div></div>`}
 function cover(lang){
- const mons=[
-  {d:6,left:'15%',top:'62%',w:192},
-  {d:94,left:'85%',top:'62%',w:192},
-  {d:149,left:'50%',top:'56%',w:240},
- ];
- const monsHtml=mons.map(m=>`<img class="pg-cover-mon" style="left:${m.left};top:${m.top};width:${m.w}px;height:${m.w}px;transform:translate(-50%,-50%)" src="${poke(m.d)}">`).join('');
+ const cols=[8,25,42,58,75,92];
+ const mons=[6,143,149,130,94,59].map((d,i)=>({d,left:`${cols[i]}%`}));
+ const agents=['red','rocketgrunt','scientist','rocketgruntf','burglar','biker'].map((k,i)=>({k,left:`${cols[i]}%`}));
+ const monsHtml=mons.map(m=>`<img class="pg-cover-mon" style="left:${m.left};top:76%;transform:translate(-50%,-50%)" src="${poke(m.d)}">`).join('');
+ const agentsHtml=agents.map((a,i)=>`<img class="pg-cover-boss" style="left:${a.left};top:55%;transform:translate(-50%,-50%)${i?';opacity:.4':''}" src="${trainer(a.k)}">`).join('');
  const words=[[L(lang,'CAPTURE','CATCH'),0],[L(lang,'RECRUTE','RECRUIT'),0.53],[L(lang,'ÉTENDS','EXPAND'),1.06]];
  const tagHtml=words.map(([w,delay],i)=>`${i?'<span class="dot">·</span>':''}<span class="pg-cover-tagword" style="animation-delay:${delay}s">${w}</span>`).join('');
  return `<div class="shot-scene"><div class="pg-cover">
   <div class="pg-cover-grid"></div>
-  <img class="pg-cover-boss" style="left:50%;top:50%;width:30%;transform:translate(-50%,-50%)" src="${trainer('red')}">
-  <img class="pg-cover-boss" style="left:22%;top:47%;width:18%;transform:translate(-50%,-50%);opacity:.4" src="${trainer('rocketgrunt')}">
-  <img class="pg-cover-boss" style="left:78%;top:47%;width:18%;transform:translate(-50%,-50%);opacity:.4" src="${trainer('rocketgruntf')}">
+  ${agentsHtml}
   <div class="pg-cover-shade-top"></div>
   <div class="pg-cover-shade-bottom"></div>
   <div class="pg-cover-corner" style="left:14px;top:14px">⭐ <b>724</b> REP</div>
@@ -49,8 +46,25 @@ function cover(lang){
   <div class="pg-cover-tagwrap">${tagHtml}</div>
  </div></div>`;
 }
+function banner(lang){
+ return `<div class="shot-scene"><div class="pg-banner">
+  <div class="pg-banner-grid"></div>
+  <div class="pg-banner-sector" style="left:6%;top:20%;width:15cqw"></div>
+  <div class="pg-banner-sector" style="left:18%;top:62%;width:12cqw"></div>
+  <div class="pg-banner-sector" style="left:82%;top:24%;width:13cqw"></div>
+  <div class="pg-banner-sector" style="left:90%;top:66%;width:11cqw"></div>
+  <img class="pg-banner-agent" style="left:9%;top:58%" src="${trainer('red')}">
+  <img class="pg-banner-agent" style="left:91%;top:60%;transform:translate(-50%,-50%) scaleX(-1)" src="${trainer('rocketgrunt')}">
+  <div class="pg-banner-ball"></div>
+  <div class="pg-banner-content">
+   <img class="pg-banner-logo" src="${ROOT}/assets/pokegang_logo/pokegang_logo_full_B.png" alt="PokéGang">
+   <div class="pg-banner-sub" data-text="Gotta rule ’em all">Gotta rule ’em all</div>
+  </div>
+ </div></div>`;
+}
 
 export const SCENES=[
+['itch-banner','🏳️','Marketing',{fr:'Bannière itch.io',en:'Itch.io banner'},{fr:'En-tête 1920×480',en:'1920×480 header'},{fr:'Bannière de page (remplace le titre texte sur itch.io). Choisir 1920×480 en format personnalisé.',en:'Page header banner (replaces the text title on itch.io). Set 1920×480 as a custom size.'},banner],
 ['itch-cover','🎴','Marketing',{fr:'Cover itch.io',en:'Itch.io cover'},{fr:'Clé visuelle 630×500',en:'630×500 key art'},{fr:'Composition promo avec les vrais sprites, l’équipe Boss et la Ball du jeu. Choisir 630×500 en format personnalisé puis « Ouvrir clean » pour la capture.',en:'Promo composition using the game’s real sprites, Boss team and Ball. Set 630×500 as a custom size, then “Open clean” for the capture.'},cover],
 ['onboarding-first-catch','🌿','Onboarding',{fr:'Première capture',en:'First capture'},{fr:'Zone inconnue + flèche',en:'Unknown Field + arrow'},{fr:'Première interaction du nouveau tunnel.',en:'First interaction of the new onboarding funnel.'},l=>field(l,'capture')],
 ['onboarding-ambush','🚀','Onboarding',{fr:'Embuscade Team Rocket',en:'Team Rocket ambush'},{fr:'Sbires + popup de défi',en:'Grunts + challenge popup'},{fr:'Les trois sbires et le combat scénarisé.',en:'The three grunts and scripted fight.'},l=>field(l,'ambush')],
