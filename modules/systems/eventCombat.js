@@ -51,11 +51,15 @@ function moveData(name) {
   return (typeof MOVES_DATA !== 'undefined' ? MOVES_DATA[name] : null) || FALLBACK_MOVE;
 }
 
-function buildCombatant(pk, side) {
+function buildCombatant(pk, side, teamIndex) {
   const stats = pk.stats || {};
   const maxHp = calcHp(stats, pk.level);
   return {
     side,
+    teamIndex,
+    trainerIndex: pk.combatMeta?.trainerIndex ?? 0,
+    pokemonIndex: pk.combatMeta?.pokemonIndex ?? teamIndex,
+    trainerKey: pk.combatMeta?.trainerKey ?? null,
     species_en: pk.species_en,
     level: pk.level ?? 1,
     shiny: !!pk.shiny,
@@ -101,7 +105,13 @@ function faster(a, b, random) {
 }
 
 function switchTurn(c) {
-  return { type: 'switch', side: c.side, species_en: c.species_en, level: c.level, shiny: c.shiny, hp: c.hp, maxHp: c.maxHp };
+  return {
+    type: 'switch', side: c.side,
+    teamIndex: c.teamIndex, trainerIndex: c.trainerIndex,
+    pokemonIndex: c.pokemonIndex, trainerKey: c.trainerKey,
+    species_en: c.species_en, level: c.level, shiny: c.shiny,
+    hp: c.hp, maxHp: c.maxHp,
+  };
 }
 
 /**
@@ -113,8 +123,8 @@ function switchTurn(c) {
  * entre à pleins PV ; le survivant en face garde ses PV actuels.
  */
 export function resolveEventBattle({ playerTeam = [], enemyTeam = [], random = Math.random } = {}) {
-  const players = playerTeam.filter(Boolean).map(pk => buildCombatant(pk, 'player'));
-  const enemies = enemyTeam.filter(Boolean).map(pk => buildCombatant(pk, 'enemy'));
+  const players = playerTeam.filter(Boolean).map((pk, index) => buildCombatant(pk, 'player', index));
+  const enemies = enemyTeam.filter(Boolean).map((pk, index) => buildCombatant(pk, 'enemy', index));
 
   const turns = [];
   if (players.length === 0 || enemies.length === 0) {
@@ -140,6 +150,7 @@ export function resolveEventBattle({ playerTeam = [], enemyTeam = [], random = M
       defender.hp = Math.max(0, defender.hp - hit.damage);
       turns.push({
         type: 'attack', side: attacker.side,
+        attackerIndex: attacker.teamIndex, defenderIndex: defender.teamIndex,
         attackerSpecies: attacker.species_en, defenderSpecies: defender.species_en,
         move: hit.move, damage: hit.damage,
         defenderHp: defender.hp, defenderMaxHp: defender.maxHp,
@@ -147,7 +158,11 @@ export function resolveEventBattle({ playerTeam = [], enemyTeam = [], random = M
       });
       if (defender.hp <= 0) {
         defender.fainted = true;
-        turns.push({ type: 'faint', side: defender.side, species_en: defender.species_en });
+        turns.push({
+          type: 'faint', side: defender.side, teamIndex: defender.teamIndex,
+          trainerIndex: defender.trainerIndex, pokemonIndex: defender.pokemonIndex,
+          species_en: defender.species_en,
+        });
         if (defender.side === 'player') pIdx++; else eIdx++;
         const nextTeam = defender.side === 'player' ? players : enemies;
         const nextIdx = defender.side === 'player' ? pIdx : eIdx;

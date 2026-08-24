@@ -130,13 +130,14 @@ function trainerTeamPower(team = [], multiplier = 1) {
   );
 }
 
-function trainerPokemonEntries(spawn) {
+export function getTrainerPokemonEntries(spawn) {
   if ((spawn?.isRaid || spawn?.type === 'raid') && Array.isArray(spawn.raidTrainers) && spawn.raidTrainers.length) {
     return spawn.raidTrainers.flatMap((entry, trainerIdx) =>
       (entry.team || []).filter(Boolean).map((pokemon, pokemonIdx) => ({
         pokemon,
         trainerKey: entry.key ?? spawn.trainerKey ?? `raid-${trainerIdx}`,
         trainerName: trainerName(entry.trainer, entry.key),
+        trainerIndex: trainerIdx,
         index: pokemonIdx,
       })),
     );
@@ -146,12 +147,13 @@ function trainerPokemonEntries(spawn) {
     pokemon,
     trainerKey: spawn?.trainerKey ?? 'trainer',
     trainerName: trainerName(spawn?.trainer, spawn?.trainerKey),
+    trainerIndex: 0,
     index,
   }));
 }
 
 function allTrainerPokemon(spawn) {
-  return trainerPokemonEntries(spawn).map(entry => entry.pokemon).filter(Boolean);
+  return getTrainerPokemonEntries(spawn).map(entry => entry.pokemon).filter(Boolean);
 }
 
 function agentTeamPower(agent, state = getState()) {
