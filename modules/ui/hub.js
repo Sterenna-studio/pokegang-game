@@ -28,13 +28,13 @@ function _stopShowcase() {
 function _startShowcase() {
   const scenes = [
     () => `<div class="intro-scene-title">${_t('Capturez des Pokémon rares', 'Catch rare Pokémon')}</div>
-      <div class="intro-scene-sprites" style="flex-direction:column;gap:8px"><img src="${_ctx.pokeSprite?.('pikachu') || ''}" style="animation:pokeBounce 1s ease-in-out infinite;image-rendering:pixelated;width:64px;height:64px"><div style="font-size:18px;animation:pokeballFall 1.2s ease forwards">⚪</div></div>
+      <div class="intro-scene-sprites intro-scene-sprites-col"><img src="${_ctx.pokeSprite?.('pikachu') || ''}" class="intro-scene-poke-img"><div class="intro-scene-pokeball">⚪</div></div>
       <div class="intro-scene-desc">${_t("Des centaines d'espèces à attraper", 'Hundreds of species to catch')}</div>`,
     () => `<div class="intro-scene-title">${_t('Combattez des Dresseurs', 'Battle Trainers')}</div>
-      <div class="intro-scene-sprites" style="gap:12px;align-items:flex-end"><div><img src="${_trainerSprite('red')}" style="animation:trainerLeft 1.2s ease-in-out infinite;image-rendering:pixelated;width:56px;height:56px"><div class="intro-hp-bar"><div class="intro-hp-fill" style="width:70%;background:#4c4"></div></div></div><div style="font-family:var(--font-pixel);font-size:10px;color:var(--red)">VS</div><div><img src="${_trainerSprite('lance')}" style="animation:trainerRight 1.2s ease-in-out infinite .3s;image-rendering:pixelated;width:56px;height:56px"><div class="intro-hp-bar"><div class="intro-hp-fill" style="width:40%;background:#c44"></div></div></div></div>
+      <div class="intro-scene-sprites intro-scene-vs-row"><div><img src="${_trainerSprite('red')}" class="intro-scene-trainer-img intro-scene-trainer-img-left"><div class="intro-hp-bar"><div class="intro-hp-fill intro-hp-demo-a"></div></div></div><div class="intro-scene-vs-label">VS</div><div><img src="${_trainerSprite('lance')}" class="intro-scene-trainer-img intro-scene-trainer-img-right"><div class="intro-hp-bar"><div class="intro-hp-fill intro-hp-demo-b"></div></div></div></div>
       <div class="intro-scene-desc">${_t('Montez en puissance et dominez', 'Grow stronger and dominate')}</div>`,
     () => `<div class="intro-scene-title">${_t('Développez votre Gang', 'Grow your Gang')}</div>
-      <div class="intro-scene-sprites" style="gap:16px"><img src="${_trainerSprite('giovanni')}" style="image-rendering:pixelated;width:56px;height:56px"><div style="text-align:left"><div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">${_t('RÉPUTATION', 'REPUTATION')}</div><div style="font-size:22px;font-family:var(--font-pixel);color:var(--gold)">1 337</div><div style="font-size:10px;color:var(--text-dim)">${_t('Agents : 5 · Zones : 4', 'Agents: 5 · Zones: 4')}</div></div></div>
+      <div class="intro-scene-sprites intro-scene-gang-row"><img src="${_trainerSprite('giovanni')}" class="intro-scene-gang-img"><div class="intro-scene-gang-stats"><div class="intro-scene-gang-label">${_t('RÉPUTATION', 'REPUTATION')}</div><div class="intro-scene-gang-value">1 337</div><div class="intro-scene-gang-meta">${_t('Agents : 5 · Zones : 4', 'Agents: 5 · Zones: 4')}</div></div></div>
       <div class="intro-scene-desc">${_t('Conquiers Kanto, un territoire à la fois', 'Conquer Kanto, one territory at a time')}</div>`,
   ];
   let sceneIndex = 0;
@@ -94,8 +94,8 @@ function _renderSlots() {
     const preview = _ctx.getSlotPreview?.(index);
     if (!preview) {
       return `<div class="intro-slot-card empty" data-slot="${index}" data-empty="1">
-        <div class="isc-left"><div class="isc-slot-label">SLOT ${index + 1}</div><div style="font-size:22px;opacity:.2">💾</div></div>
-        <div class="isc-info"><div style="font-size:10px;color:#555">${_t('Vide — cliquer pour nouvelle partie', 'Empty — click to start a new game')}</div></div>
+        <div class="isc-left"><div class="isc-slot-label">SLOT ${index + 1}</div><div class="isc-empty-icon">💾</div></div>
+        <div class="isc-info"><div class="isc-empty-hint">${_t('Vide — cliquer pour nouvelle partie', 'Empty — click to start a new game')}</div></div>
         <div class="isc-actions"><button class="isc-btn isc-new" data-slot="${index}" title="${_t('Sélectionner', 'Select')}">✓</button></div>
       </div>`;
     }
@@ -105,14 +105,14 @@ function _renderSlots() {
     const agents = (preview.agentSprites || []).map(url => `<img class="isc-mini" src="${url}" alt="" onerror="this.style.display='none'">`).join('');
     return `<div class="intro-slot-card has-data" data-slot="${index}">
       <div class="isc-left"><div class="isc-slot-label">SLOT ${index + 1}</div><div class="isc-boss-wrap">
-        ${preview.bossSprite ? `<img src="${_trainerSprite(preview.bossSprite)}" class="isc-boss-img" alt="${esc(preview.bossSprite)}" style="width:52px;height:52px;image-rendering:pixelated" onerror="this.src='${FALLBACK_TRAINER_SVG}';this.onerror=null">` : '<div style="width:52px;height:52px;background:var(--bg);border-radius:4px;opacity:.3"></div>'}
+        ${preview.bossSprite ? `<img src="${_trainerSprite(preview.bossSprite)}" class="isc-boss-img" alt="${esc(preview.bossSprite)}" onerror="this.src='${FALLBACK_TRAINER_SVG}';this.onerror=null">` : '<div class="isc-boss-img-placeholder"></div>'}
         <span class="isc-boss-badge"><img src="${LOGO_SMALL_URL}" alt=""></span></div></div>
       <div class="isc-info">
         <div class="isc-gang-name">${inOnboarding ? _t('Opération en cours…', 'Operation in progress…') : esc(preview.name)}</div>
         <div class="isc-boss-name">${inOnboarding ? _t('Reprendre la première mission', 'Resume the first mission') : `${_t('Boss :', 'Boss:')} ${esc(preview.bossName || '—')} · ${preview.agentCount || 0} ${_t('agent' + ((preview.agentCount || 0) > 1 ? 's' : ''), 'agent' + ((preview.agentCount || 0) > 1 ? 's' : ''))}`}</div>
         <div class="isc-meta">${preview.pokemon} Pkm · ₽${(preview.money || 0).toLocaleString()} · ⭐${preview.rep}</div>
         <div class="isc-date">${date}${preview.playtime ? ` · ${_ctx.formatPlaytime?.(preview.playtime) || ''}` : ''}</div>
-        <div class="isc-sprites-row"><div class="isc-sprites-group"><span class="isc-sprites-label">${_t('Équipe', 'Team')}</span>${team || '<span style="font-size:8px;color:#555">—</span>'}</div>${agents ? `<div class="isc-sprites-group" style="opacity:.72"><span class="isc-sprites-label">${_t('Agents', 'Agents')}</span>${agents}</div>` : ''}</div>
+        <div class="isc-sprites-row"><div class="isc-sprites-group"><span class="isc-sprites-label">${_t('Équipe', 'Team')}</span>${team || '<span class="isc-sprites-empty">—</span>'}</div>${agents ? `<div class="isc-sprites-group isc-sprites-group-agents"><span class="isc-sprites-label">${_t('Agents', 'Agents')}</span>${agents}</div>` : ''}</div>
       </div>
       <div class="isc-actions"><button class="isc-btn isc-play" data-slot="${index}" title="${inOnboarding ? _t('Reprendre', 'Resume') : _t('Jouer', 'Play')}">▶</button><button class="isc-btn isc-del" data-slot="${index}" title="${_t('Supprimer', 'Delete')}">🗑</button></div>
     </div>`;
@@ -137,8 +137,8 @@ function _renderSlots() {
     event.stopPropagation();
     const slotIdx = Number(button.dataset.slot);
     _ctx.showConfirm?.(_t(
-      `Supprimer la sauvegarde Slot ${slotIdx + 1} ?<br><span style="color:var(--text-dim);font-size:11px">Cette action est irréversible.</span>`,
-      `Delete the save in Slot ${slotIdx + 1}?<br><span style="color:var(--text-dim);font-size:11px">This action cannot be undone.</span>`,
+      `Supprimer la sauvegarde Slot ${slotIdx + 1} ?<br><span class="isc-confirm-sub">Cette action est irréversible.</span>`,
+      `Delete the save in Slot ${slotIdx + 1}?<br><span class="isc-confirm-sub">This action cannot be undone.</span>`,
     ), () => {
       _ctx.removeSlot?.(slotIdx);
       if (slotIdx === _ctx.getActiveSaveSlot?.()) _ctx.setActiveSaveSlot?.(0);

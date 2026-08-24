@@ -197,6 +197,36 @@
   border-radius: 3px;
   transition: width .5s ease;
 }
+.intro-hp-demo-a { width: 70%; background: var(--green); }
+.intro-hp-demo-b { width: 40%; background: var(--red); }
+
+/* Showcase scene variants (extracted from JS-built inline styles, issue #76) */
+.intro-scene-sprites-col { flex-direction: column; gap: 8px; }
+/* Higher specificity than `.intro-scene-sprites img` (56px default) on
+   purpose — this sprite is deliberately larger than the other showcase
+   images, matching the original inline `width/height:64px` override. */
+.intro-scene-sprites img.intro-scene-poke-img { width: 64px; height: 64px; animation: pokeBounce 1s ease-in-out infinite; }
+.intro-scene-pokeball { font-size: 18px; animation: pokeballFall 1.2s ease forwards; }
+.intro-scene-vs-row { gap: 12px; align-items: flex-end; }
+.intro-scene-trainer-img { width: 56px; height: 56px; }
+.intro-scene-trainer-img-left { animation: trainerLeft 1.2s ease-in-out infinite; }
+.intro-scene-trainer-img-right { animation: trainerRight 1.2s ease-in-out infinite .3s; }
+.intro-scene-vs-label { font-family: var(--font-pixel); font-size: 10px; color: var(--red); }
+.intro-scene-gang-row { gap: 16px; }
+.intro-scene-gang-img { width: 56px; height: 56px; }
+.intro-scene-gang-stats { text-align: left; }
+.intro-scene-gang-label { font-family: var(--font-pixel); font-size: 9px; color: var(--gold); }
+.intro-scene-gang-value { font-size: 22px; font-family: var(--font-pixel); color: var(--gold); }
+.intro-scene-gang-meta { font-size: 10px; color: var(--text-dim); }
+
+/* Slot cards (extracted from JS-built inline styles, issue #76) */
+.isc-empty-icon { font-size: 22px; opacity: .2; }
+.isc-empty-hint { font-size: 10px; color: #555; }
+.isc-boss-img { width: 52px; height: 52px; image-rendering: pixelated; }
+.isc-boss-img-placeholder { width: 52px; height: 52px; background: var(--bg); border-radius: 4px; opacity: .3; }
+.isc-sprites-empty { font-size: 8px; color: #555; }
+.isc-sprites-group-agents { opacity: .72; }
+.isc-confirm-sub { color: var(--text-dim); font-size: 11px; }
 
 /* Start game CTA */
 .intro-start-btn {

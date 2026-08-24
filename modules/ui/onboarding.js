@@ -3,12 +3,14 @@
 // ════════════════════════════════════════════════════════════════
 //  Onboarding V2 — contrôleur du tunnel de première session
 //
-//  Enchaînement : le joueur atterrit sur un terrain inconnu et capture
-//  librement → des sbires Rocket lui tombent dessus → Giovanni révèle que
-//  le terrain est à lui et fonde le gang avec lui → un transfuge Rocket
-//  croisé sur place devient son premier agent ET son guide, qui réclame
-//  successivement un Pokémon, une affectation de zone, puis l'activation
-//  de son option de combat.
+//  Enchaînement : le joueur atterrit sur un terrain inconnu où Miaous,
+//  Nosferapti et Fantominus apparaissent ensemble (choix diégétique du
+//  starter, cf. _spawnStarterChoice) → capture libre jusqu'à
+//  ONBOARDING_CAPTURE_GOAL → des sbires Rocket lui tombent dessus → Giovanni
+//  révèle que le terrain est à lui et fonde le gang avec lui → un transfuge
+//  Rocket croisé sur place devient son premier agent ET son guide, qui
+//  réclame successivement un Pokémon, une affectation de zone, puis
+//  l'activation de son option de combat.
 //
 //  Le contrôleur ne dessine rien lui-même : il tient l'état, écoute
 //  l'EventBus et délègue l'affichage (zone, Giovanni, guide, payoff).
@@ -26,6 +28,7 @@ import {
   ONBOARDING_AMBUSH_GRUNTS,
   ONBOARDING_AMBUSH_TRAINER_KEY,
   ONBOARDING_CAPTURE_GOAL,
+  ONBOARDING_STARTERS,
   ONBOARDING_ZONE_ID,
   buildAmbushRoster,
   pickAmbushSprites,
@@ -210,6 +213,47 @@ function _spawnAmbush() {
 export function ensureOnboardingAmbush() {
   if (_onboarding().step !== ONBOARDING_STEPS.ROCKET_AMBUSH) return false;
   return _spawnAmbush();
+}
+
+// ── Choix diégétique du starter (issue #76) ───────────────────────
+// Positions fixes plutôt que le tirage aléatoire habituel — les trois
+// sprites doivent apparaître côte à côte, immobiles, tant qu'aucun choix
+// n'est fait (cf. _spawnStarterChoice, aucun timeout posé dessus).
+const STARTER_CHOICE_POSITIONS = [{ x: 60, y: 90 }, { x: 150, y: 60 }, { x: 240, y: 90 }];
+
+/**
+ * Plante Miaous/Nosferapti/Fantominus simultanément sur le terrain de départ,
+ * au tout premier affichage de la zone (avant toute capture). Même patron que
+ * _spawnAmbush : spawns synthétiques marqués via spawnCtx, capture déjà
+ * garantie par tryCapture (zoneSystem.js) — rien à changer côté combat.
+ */
+function _spawnStarterChoice() {
+  const onboarding = _onboarding();
+  if (onboarding.starterSpecies || onboarding.fieldCaptures > 0) return false; // déjà résolu
+  const spawns = _ctx.getZoneSpawns?.(ONBOARDING_ZONE_ID);
+  if (!Array.isArray(spawns)) return false;
+  if (spawns.some(spawn => spawn.spawnCtx?.starterChoice)) return true; // déjà planté
+
+  ONBOARDING_STARTERS.forEach((starter, i) => {
+    const spawn = {
+      type: 'pokemon',
+      species_en: starter.en,
+      id: `onboarding-starter-${starter.en}`,
+      position: STARTER_CHOICE_POSITIONS[i],
+      spawnCtx: { onboarding: true, starterChoice: true },
+      // Pas de timeout : ne doit jamais expirer avant qu'un choix soit fait.
+    };
+    spawns.push(spawn);
+    _ctx.renderSpawn?.(ONBOARDING_ZONE_ID, spawn);
+  });
+  _track('starter_choice_shown', { zone: ONBOARDING_ZONE_ID });
+  return true;
+}
+
+/** Replante le trio si le joueur a fermé la fenêtre de zone avant de choisir. */
+export function ensureOnboardingStarterChoice() {
+  if (_onboarding().step !== ONBOARDING_STEPS.FREE_CAPTURE) return false;
+  return _spawnStarterChoice();
 }
 
 /**
@@ -525,15 +569,27 @@ function _bindOnboardingEvents() {
   _eventsBound = true;
 
   // Capture libre : chaque prise sur le terrain compte, la première fixe
-  // l'espèce montrée par Giovanni sur son écran de résumé.
+  // l'espèce montrée par Giovanni sur son écran de résumé. La toute première
+  // est le trio diégétique (Miaous/Nosferapti/Fantominus, cf.
+  // _spawnStarterChoice) plutôt qu'une capture anonyme — les deux non
+  // choisis doivent disparaître dès que l'un d'eux est attrapé.
   EventBus.on(EVENTS.POKEMON_CAPTURED, ({ pokemon, zoneId } = {}) => {
     const state = _state();
     if (!pokemon || !isOnboardingFreeCapture(state, zoneId)) return;
     const onboarding = normalizeOnboardingState(state.onboarding);
+    const wasStarterChoicePending = !onboarding.starterSpecies && onboarding.fieldCaptures === 0;
     const fieldCaptures = onboarding.fieldCaptures + 1;
     const details = { fieldCaptures };
     if (!onboarding.starterSpecies) details.starterSpecies = pokemon.species_en;
     _updateOnboardingDetails(details, { render: false });
+    if (wasStarterChoicePending) {
+      // Le spawn capturé est déjà retiré par doCaptureAttempt avant que cet
+      // handler ne s'exécute — il ne reste que les deux non choisis à purger.
+      for (const spawn of [...(_ctx.getZoneSpawns?.(zoneId) || [])]) {
+        if (spawn.spawnCtx?.starterChoice) _ctx.removeSpawn?.(zoneId, spawn.id);
+      }
+      _track('starter_choice_completed', { species: pokemon.species_en, zone: ONBOARDING_ZONE_ID });
+    }
     if (fieldCaptures === 1) {
       _track('first_wild_capture', { species: pokemon.species_en, zone: ONBOARDING_ZONE_ID });
     }
@@ -655,6 +711,7 @@ async function _runOnboardingV2({ slotIdx = 0, resume = false, onComplete } = {}
       case ONBOARDING_STEPS.FREE_CAPTURE:
         _openField();
         _ctx.notifyFieldIntro?.(state.lang);
+        _spawnStarterChoice();
         break;
       case ONBOARDING_STEPS.ROCKET_AMBUSH:
         _openField();

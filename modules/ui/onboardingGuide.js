@@ -6,8 +6,12 @@
 //  Il est planté sur le terrain de départ via l'ancrage sprite-sur-zone
 //  existant (.zone-quest-encounter, construit pour les légendaires) : le
 //  chaînage `getOnboardingGuideEncounterForZone` dans zoneWindows suffit,
-//  aucun rendu ni CSS spécifique à maintenir. Sa réplique courante est
-//  portée par le libellé sous le sprite — c'est la « bulle » du tutoriel.
+//  aucun rendu ni CSS spécifique à maintenir pour ça. Sa réplique courante
+//  est portée par le libellé sous le sprite — c'est la « bulle » du
+//  tutoriel. La flèche/bandeau d'aide (`.onboarding-guide-help-*`) restent
+//  stylés dans css/game-ui.css ; le sélecteur de recrutement (`obg-*`) est
+//  dans css/onboarding.css — seules les positions calculées (left/top de la
+//  flèche) restent inline, tout le reste y est statique.
 //
 //  Dépendances globalThis : state, saveState, notify, renderAll,
 //    trainerSprite, rollNewAgent, recruitAgent, patchZoneWindow
@@ -241,24 +245,23 @@ function _openSpritePicker() {
 
   const overlay = document.createElement('div');
   overlay.id = PICKER_ID;
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;z-index:9999';
+  overlay.className = 'obg-picker-overlay';
   overlay.innerHTML = `
-    <div style="background:var(--bg-panel);border:2px solid var(--gold-dim);border-radius:var(--radius);padding:22px;max-width:520px;width:94%;display:flex;flex-direction:column;gap:16px">
-      <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold);letter-spacing:.08em">
+    <div class="obg-picker-box">
+      <div class="obg-picker-title">
         ${_t('UN TRANSFUGE', 'A DEFECTOR')}
       </div>
-      <p style="margin:0;font-size:12px;line-height:1.6;color:var(--text-dim)">
+      <p class="obg-picker-desc">
         ${esc(getOnboardingGuideLine(state) || '')}
       </p>
-      <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+      <div class="obg-picker-grid">
         ${_guideCandidates(state).map(entry => `
-          <button data-guide-sprite="${esc(entry.key)}"
-            style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;min-width:96px">
-            <img src="${_spriteUrl(entry.key)}" alt="" style="width:56px;height:56px;image-rendering:pixelated" onerror="this.style.visibility='hidden'">
-            <span style="font-size:9px;color:var(--text-dim)">${esc(_t(entry.fr, entry.en))}</span>
+          <button data-guide-sprite="${esc(entry.key)}" class="obg-picker-option">
+            <img src="${_spriteUrl(entry.key)}" alt="" class="obg-picker-option-img" onerror="this.style.visibility='hidden'">
+            <span class="obg-picker-option-label">${esc(_t(entry.fr, entry.en))}</span>
           </button>`).join('')}
       </div>
-      <div style="font-size:10px;color:var(--text-dim);text-align:center">
+      <div class="obg-picker-hint">
         ${_t('Lequel de tes assaillants déserte ? Il rejoint ton gang gratuitement.', 'Which of your attackers is defecting? He joins your gang for free.')}
       </div>
     </div>`;
