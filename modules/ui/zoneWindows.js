@@ -2359,7 +2359,13 @@ function removeSpawn(zoneId, spawnId) {
   const el = document.querySelector(`[data-spawn-id="${spawnId}"]`);
   if (el) {
     el.classList.add('leaving');
-    setTimeout(() => el.remove(), 300);
+    // Référencé sur l'élément (pas une variable locale perdue à la fin de
+    // cette fonction) : si le TTL déclenche cette suppression au moment
+    // précis où le joueur clique pour lancer un combat, openCombatPopup peut
+    // retrouver cet élément encore attaché (les 300ms ne sont pas écoulées)
+    // et annuler ce timer pour récupérer l'ancre plutôt que de la perdre en
+    // pleine animation de combat — cf. openCombatPopup.
+    el._pendingRemovalTimer = setTimeout(() => el.remove(), 300);
   }
   return true;
 }
@@ -3080,6 +3086,14 @@ function openCombatPopup(zoneId, spawnObj, { mode = 'manual', initiatedBy = 'pla
   let spawnEl = spawnObj.id != null
     ? viewport.querySelector(`[data-spawn-id="${spawnObj.id}"]`)
     : null;
+  // Course avec removeSpawn : son TTL a pu retirer ce spawn de zoneSpawns[]
+  // et programmer sa disparition DOM (300ms) juste avant ce clic. L'élément
+  // est encore attaché — annuler cette disparition plutôt que de laisser le
+  // combat perdre son ancre en pleine animation.
+  if (spawnEl?.classList.contains('leaving')) {
+    clearTimeout(spawnEl._pendingRemovalTimer);
+    spawnEl.classList.remove('leaving');
+  }
   let ownsSpawnEl = false;
   // Les raids d'arène sont ouverts directement depuis le bouton de zone et ne
   // possèdent pas de spawn TTL. Ils ont tout de même besoin d'une vraie ancre
@@ -3157,9 +3171,16 @@ function openCombatPopup(zoneId, spawnObj, { mode = 'manual', initiatedBy = 'pla
   // ── Auto-start + flee ─────────────────────────────────────────
   const sequenceId = sequence.id;
   combatSequences.schedule(sequence, () => executeCombat(sequenceId), 600);
-  document.getElementById(`zchud-flee-${zoneId}`)?.addEventListener('click', () => {
-    closeCombatPopup(sequenceId, { resumeSpawn: true });
-  });
+  // .onclick, pas addEventListener : executeCombat réassigne ce même bouton à
+  // `doClose` une fois le script de combat terminé (cf. plus bas), et .onclick
+  // REMPLACE le handler précédent alors qu'addEventListener l'aurait laissé
+  // actif en plus du nouveau — un clic sur « Fermer » après la fin du combat
+  // déclenchait alors CE handler de fuite (resumeSpawn:true, qui relance le
+  // TTL du spawn déjà vaincu) EN PLUS de doClose, dont le nettoyage
+  // (removeSpawn, COMBAT_SEQUENCE_ENDED) ne s'exécutait alors jamais — la
+  // séquence de combat était déjà annulée par le premier handler.
+  const fleeBtnEl = document.getElementById(`zchud-flee-${zoneId}`);
+  if (fleeBtnEl) fleeBtnEl.onclick = () => closeCombatPopup(sequenceId, { resumeSpawn: true });
 }
 
 function executeCombat(expectedSequenceId = null) {
@@ -3337,7 +3358,11 @@ function executeCombat(expectedSequenceId = null) {
       opacity: t.side === 'enemy' ? enemySpriteEl?.style?.opacity : playerSpriteEl?.style?.opacity,
     };
     if (combatDevDiagnosticsEnabled()) console.debug('[combat] switch', diagnostic);
-    if (t.side === 'enemy') {
+    // isCombatSpriteVisible() force un getComputedStyle (reflow synchrone) —
+    // n'a de sens qu'en dev : le console.warn qu'il déclenche n'est de toute
+    // façon visible que là (cf. combatDevDiagnosticsEnabled ci-dessus), donc
+    // le coût layout est évité pour tous les vrais joueurs.
+    if (combatDevDiagnosticsEnabled() && t.side === 'enemy') {
       warnIfActiveEnemySpriteMissing({
         sequenceId: combat.sequence.id,
         zoneId,
@@ -3561,9 +3586,11 @@ function openEventBattlePopup(zoneId) {
 
   const sequenceId = sequence.id;
   combatSequences.schedule(sequence, () => executeEventBattle(sequenceId), 600);
-  document.getElementById(`zchud-flee-${zoneId}`)?.addEventListener('click', () => {
-    closeEventBattle(sequenceId);
-  });
+  // .onclick, pas addEventListener — même raison que openCombatPopup ci-dessus :
+  // executeEventBattle réassigne ce bouton, et .onclick doit remplacer ce
+  // handler plutôt que s'y ajouter.
+  const fleeBtnEl = document.getElementById(`zchud-flee-${zoneId}`);
+  if (fleeBtnEl) fleeBtnEl.onclick = () => closeEventBattle(sequenceId);
 }
 
 function executeEventBattle(expectedSequenceId = null) {
@@ -3679,12 +3706,18 @@ function executeEventBattle(expectedSequenceId = null) {
         className: 'event-enemy-sprite',
         style: `width:56px;height:56px;image-rendering:pixelated;${t.shiny ? 'filter:drop-shadow(0 0 6px var(--gold))' : ''}`,
       });
-      warnIfActiveEnemySpriteMissing({
-        sequenceId: combat.sequence.id,
-        zoneId,
-        enemy: combat.active.enemy,
-        spriteEl: enemySpriteEl,
-      });
+      // Gaté comme le combat de zone standard — voir le commentaire dans
+      // nextStep (executeCombat) : isCombatSpriteVisible() force un reflow
+      // synchrone, à éviter hors dev où le warn qu'il produit est de toute
+      // façon invisible.
+      if (combatDevDiagnosticsEnabled()) {
+        warnIfActiveEnemySpriteMissing({
+          sequenceId: combat.sequence.id,
+          zoneId,
+          enemy: combat.active.enemy,
+          spriteEl: enemySpriteEl,
+        });
+      }
     }
     if (combatDevDiagnosticsEnabled()) {
       console.debug('[combat] switch', {
