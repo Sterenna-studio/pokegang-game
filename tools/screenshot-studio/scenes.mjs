@@ -43,7 +43,7 @@ function cover(lang){
   <div class="pg-cover-shade-bottom"></div>
   <div class="pg-cover-corner" style="left:14px;top:14px">⭐ <b>724</b> REP</div>
   <div class="pg-cover-corner" style="right:14px;top:14px">₽ <b>184,200</b></div>
-  <div class="pg-cover-head"><div class="pg-cover-title">PokéGang</div><div class="pg-cover-sub">Gotta rule ’em all</div></div>
+  <div class="pg-cover-head"><img class="pg-cover-title-logo" src="${ROOT}/assets/pokegang_logo/pokegang_logo_full_B.png" alt="PokéGang"><div class="pg-cover-sub">Gotta rule ’em all</div></div>
   <div class="pg-cover-stage">${monsHtml}<div class="pg-cover-ball"></div></div>
   <div class="pg-cover-tagwrap">${L(lang,'CAPTURE','CATCH')}<span class="dot">·</span>${L(lang,'RECRUTE','RECRUIT')}<span class="dot">·</span>${L(lang,'ÉTENDS','EXPAND')}</div>
  </div></div>`;
