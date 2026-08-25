@@ -29,6 +29,9 @@
     .card{background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden;display:flex;flex-direction:column}
     .thumb{position:relative;aspect-ratio:630/500;background:repeating-conic-gradient(#0d1118 0% 25%,#11151c 0% 50%) 50%/16px 16px;display:flex;align-items:center;justify-content:center;overflow:hidden}
     .thumb.wide{aspect-ratio:1920/480}
+    .thumb.landscape{aspect-ratio:16/9}
+    .thumb.portrait{aspect-ratio:3/4}
+    .thumb.source{aspect-ratio:300/136}
     .thumb img{width:100%;height:100%;object-fit:contain}
     .badge{position:absolute;top:8px;left:8px;font-family:"Press Start 2P",monospace;font-size:6px;padding:5px 7px;border-radius:5px;background:rgba(10,13,17,.82);border:1px solid rgba(247,201,72,.35);color:var(--gold)}
     .badge.live{color:var(--green);border-color:rgba(105,217,155,.4)}
@@ -51,7 +54,11 @@
       <a class="back" href="./index.html">← Screenshot Studio</a>
     </header>
     <p class="intro">
-      Toutes les versions produites pour la cover et la bannière itch.io — les assets « en service » (référencés tels quels sur la page itch) et l'historique des itérations, gardés pour ne rien perdre du travail. Chaque carte a un lien direct vers le fichier (partage) et un extrait <code>&lt;img&gt;</code> prêt à coller (embed).
+      Les visuels marketing, arrière-plans et sources graphiques du studio — les
+      assets « en service » (référencés tels quels sur la page itch) et
+      l'historique des itérations, gardés pour ne rien perdre du travail. Chaque
+      carte a un lien direct vers le fichier (partage) et un extrait
+      <code>&lt;img&gt;</code> prêt à coller (embed).
     </p>
 
     <section id="cover">
@@ -75,6 +82,23 @@
       <div class="group-label">Historique des itérations</div>
       <div class="grid" id="banner-history"></div>
     </section>
+
+    <section id="backdrops">
+      <div class="section-title">🗺️ ARRIÈRE-PLANS</div>
+      <div class="section-sub">Fonds de composition sans texte, prêts à accueillir une scène ou une accroche.</div>
+
+      <div class="group-label">Paysage 16:9</div>
+      <div class="grid" id="backdrop-landscape"></div>
+
+      <div class="group-label">Portrait 3:4</div>
+      <div class="grid" id="backdrop-portrait"></div>
+    </section>
+
+    <section id="sources">
+      <div class="section-title">🧩 SOURCES PIXEL-ART</div>
+      <div class="section-sub">Planches de référence conservées séparément des compositions finales.</div>
+      <div class="grid" id="source-art"></div>
+    </section>
   </div>
 
   <script>
@@ -83,6 +107,8 @@
         { file: 'album/itch-cover-preview-noball.gif', title: 'Cover — actuelle (2 lignes de 6)', desc: 'Version courante référencée pour le cover itch.io. 39 frames / 3.2s, ~2.9MB.', live: true },
       ],
       'cover-history': [
+        { file: 'album/cover-animated-01-three-pokemon.gif', title: 'Animation — trio de Pokémon', desc: 'Première composition animée : Dracaufeu, Dracolosse et Ectoplasma. 32 frames, 630×500.' },
+        { file: 'album/cover-animated-02-six-pokemon.gif', title: 'Animation — équipe de six', desc: 'Itération animée avec six Pokémon et les six silhouettes de dresseurs. 32 frames, 630×500.' },
         { file: 'album/cover-04-hero-dragonite-noball.png', title: 'V3 — Ball retirée, hero seul', desc: 'Suppression de la ball, un Pokémon central agrandi comme point focal unique.' },
         { file: 'album/cover-05-final-two-rows-of-six.png', title: 'V4 — 2 lignes de 6 (design actuel)', desc: 'Composition finale : 6 Pokémon + 6 agents/Boss alignés sur deux rangées.' },
       ],
@@ -93,9 +119,23 @@
         { file: 'album/banner-01-first-pass.png', title: 'V0 — premier jet', desc: 'Première composition panoramique : logo, agents en silhouette, secteurs de territoire, Ball.' },
         { file: 'album/banner-02-final.png', title: 'V1 — final', desc: 'Halo rouge de fond retiré, glow des silhouettes conservé.' },
       ],
+      'backdrop-landscape': [
+        { file: 'album/backdrop-01-dark-territory-map-landscape.png', title: 'Carte des territoires — nocturne', desc: 'Fond sombre quadrillé avec reliefs cartographiques latéraux et vaste zone centrale libre.', ratio: 'landscape' },
+        { file: 'album/backdrop-02-giovanni-office-parchment-landscape.png', title: 'Bureau de Giovanni — parchemin', desc: 'Composition sépia horizontale avec Giovanni, emblèmes Rocket et accessoires de bureau.', ratio: 'landscape' },
+      ],
+      'backdrop-portrait': [
+        { file: 'album/backdrop-03-giovanni-office-parchment-portrait.png', title: 'Bureau de Giovanni — portrait', desc: 'Déclinaison sépia verticale, pensée pour une affiche ou une publication sociale.', ratio: 'portrait' },
+        { file: 'album/backdrop-04-giovanni-office-noir-portrait.png', title: 'Bureau de Giovanni — noir', desc: 'Déclinaison verticale monochrome à contraste bas, avec espace central pour le texte.', ratio: 'portrait' },
+      ],
+      'source-art': [
+        { file: 'album/source-rocket-hideout-tileset.png', title: 'Planche pixel-art — repaire Rocket', desc: 'Planche source 300×136 : borne Rocket, mobilier, murs, sols et accessoires.', ratio: 'source' },
+      ],
     };
 
-    function isWide(file){ return file.includes('banner'); }
+    function thumbClass(item){
+      if (item.ratio) return ` ${item.ratio}`;
+      return item.file.includes('banner') ? ' wide' : '';
+    }
 
     async function copyText(btn, text){
       let ok = true;
@@ -119,9 +159,9 @@
     function renderGroup(id, list){
       const el = document.getElementById(id);
       el.innerHTML = list.map(item => {
-        const wide = isWide(item.file) ? ' wide' : '';
+        const ratio = thumbClass(item);
         return `<div class="card" data-file="${item.file}">
-          <div class="thumb${wide}">${item.live ? '<span class="badge live">EN SERVICE</span>' : ''}<img loading="lazy" src="${item.file}" alt="${item.title}"></div>
+          <div class="thumb${ratio}">${item.live ? '<span class="badge live">EN SERVICE</span>' : ''}<img loading="lazy" src="${item.file}" alt="${item.title}"></div>
           <div class="card-body">
             <div class="card-title">${item.title}</div>
             <div class="card-desc">${item.desc}</div>

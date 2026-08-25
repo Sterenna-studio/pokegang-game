@@ -44,6 +44,18 @@ Raccourcis : `←` / `→` scène précédente/suivante, `R` rejoue, `F` ouvre l
 
 Les paramètres sont conservés dans l'URL (`scene`, `lang`, `w`, `h`, `anim`) ; `Copier le lien` permet donc de garder un cadrage précis ou de le partager.
 
+## Album marketing
+
+Le lien `Album` du studio ouvre `tools/screenshot-studio/album.html`. Cette page
+réunit les covers, bannières, arrière-plans et sources pixel-art conservés pour
+la communication. Chaque fichier présent dans `tools/screenshot-studio/album/`
+doit être référencé par une carte de l'album.
+
+Les noms suivent la forme `categorie-numero-description.ext`, en minuscules et
+avec des tirets. Les noms automatiques de générateur, timestamps et UUID ne sont
+pas conservés. Avant d'ajouter un export, comparer son hash aux fichiers déjà
+présents afin de ne pas archiver deux copies identiques.
+
 ## Scènes incluses
 
 Le premier pack couvre l'introduction (première capture, embuscade Rocket, Giovanni, transfuge), la révélation progressive des zones et du Pokédex, les principaux écrans de gestion, les feedbacks de capture/déblocage et les nouveaux combats Groudon/Kyogre.
@@ -65,6 +77,8 @@ node tools/test-screenshot-studio.mjs
 ```
 
 Le test vérifie les ids, la scène par défaut et le rendu FR/EN de chaque preset.
+Il contrôle aussi que tous les visuels de l'album sont référencés, correctement
+nommés et sans doublon binaire.
 
 ## Important
 
