@@ -12,6 +12,7 @@
 // ════════════════════════════════════════════════════════════════
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
+import { requestSimulationSave } from '../core/simulationContext.js';
 import {
   BASE_TABS,
   TAB_UNLOCK_COPY,
@@ -163,7 +164,7 @@ export function checkTabUnlocks() {
   if (!pending.length) return [];
   const revealed = revealTabs(state, pending);
   if (!revealed.length) return [];
-  _ctx.saveState?.();
+  requestSimulationSave(() => _ctx.saveState?.());
   EventBus.emit(EVENTS.TABS_REVEALED, { tabs: revealed });
   return revealed;
 }

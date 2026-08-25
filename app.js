@@ -552,10 +552,10 @@ function makeRaidSpawn(zone, zoneId, masteryLevel = 1, options = {}) { return gl
 function spawnInZone(zoneId) { return globalThis._zsys_spawnInZone(zoneId); }
 
 // ── Chest loot resolution ─────────────────────────────────────
-function rollChestLoot(zoneId, passive = false) { return globalThis._zsys_rollChestLoot(zoneId, passive); }
+function rollChestLoot(zoneId, passive = false, context = {}) { return globalThis._zsys_rollChestLoot(zoneId, passive, context); }
 
 // ── Event activation/resolution ───────────────────────────────
-function activateEvent(zoneId, event) { return globalThis._zsys_activateEvent(zoneId, event); }
+function activateEvent(zoneId, event, context = {}) { return globalThis._zsys_activateEvent(zoneId, event, context); }
 
 // ── Zone Investment ───────────────────────────────────────────
 function investInZone(zoneId) { return globalThis._zsys_investInZone(zoneId); }
@@ -584,7 +584,7 @@ function getTeamPower(pokemonIds) {
 
 function resolveCombat(playerTeamIds, trainerData) { return globalThis._zsys_resolveCombat(playerTeamIds, trainerData); }
 
-function applyCombatResult(result, playerTeamIds, trainerData) { return globalThis._zsys_applyCombatResult(result, playerTeamIds, trainerData); }
+function applyCombatResult(result, playerTeamIds, trainerData, context = {}) { return globalThis._zsys_applyCombatResult(result, playerTeamIds, trainerData, context); }
 
 // ── Zone unlock detection ──────────────────────────────────────
 function checkForNewlyUnlockedZones(prevRep) { return globalThis._zsys_checkForNewlyUnlockedZones(prevRep); }

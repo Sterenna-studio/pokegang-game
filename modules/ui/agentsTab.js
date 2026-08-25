@@ -2,6 +2,7 @@
 
 import { BALL_SPRITES, FALLBACK_TRAINER_SVG } from '../../data/assets-data.js';
 import { EventBus, EVENTS } from '../core/eventBus.js';
+import { deferSimulationUi } from '../core/simulationContext.js';
 import { isOnboardingFreeAgentPending } from '../systems/onboardingFlow.js';
 
 const _esc = s => String(s ?? '').replace(/[&<>"']/g, ch => (
@@ -573,6 +574,7 @@ function _registerAgentsTabEvents() {
   });
 
   const _patchIfActive = () => {
+    if (deferSimulationUi('agents')) return;
     if (globalThis.activeTab !== 'tabAgents') return;
     clearTimeout(_agentsPatchTimer);
     _agentsPatchTimer = setTimeout(_patchAgentsTabDynamic, AGENTS_TAB_EVENT_DEBOUNCE_MS);

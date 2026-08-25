@@ -24,6 +24,7 @@ import {
 } from '../../data/power-config-data.js';
 import { BASE_SHINY_RATE, AURA_SHINY_RATE, CHROMA_CHARM_MULT } from '../../data/gameplay-config-data.js';
 import { EventBus, EVENTS } from '../core/eventBus.js';
+import { requestSimulationSave, resolveSimulationContext } from '../core/simulationContext.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
 const _t = (fr, en) => (globalThis.state?.lang === 'en' ? en : fr);
@@ -228,7 +229,8 @@ function checkEvolution(pokemon) {
   return valid[Math.floor(Math.random() * valid.length)];
 }
 
-function evolvePokemon(pokemon, targetEN) {
+function evolvePokemon(pokemon, targetEN, opts = {}) {
+  opts = resolveSimulationContext(opts);
   const state = globalThis.state;
   const sp = SPECIES_BY_EN[targetEN];
   if (!sp) return false;
@@ -242,11 +244,13 @@ function evolvePokemon(pokemon, targetEN) {
     pokemon.history.push({ type: 'evolved', ts: Date.now(), from: oldName, to: globalThis.speciesName?.(sp.en) ?? sp.en });
   }
   registerPokedexCapture(state, pokemon);
-  showPokemonLevelPopup(pokemon, pokemon.level);
+  if (!opts.silent) showPokemonLevelPopup(pokemon, pokemon.level);
   const newName = globalThis.speciesName?.(sp.en) ?? sp.en;
-  _notify(_t(`${oldName} évolue en ${newName} !`, `${oldName} evolved into ${newName}!`), 'gold');
-  globalThis.SFX?.play('evolve');
-  _save();
+  if (!opts.silent) {
+    _notify(_t(`${oldName} évolue en ${newName} !`, `${oldName} evolved into ${newName}!`), 'gold');
+    globalThis.SFX?.play('evolve');
+  }
+  requestSimulationSave(_save, opts);
   return true;
 }
 
@@ -261,7 +265,7 @@ function tryAutoEvolution(pokemon, opts = {}) {
   if (valid.length === 0) return false;
 
   if (valid.length === 1 || opts.autoPick || globalThis.state?.settings?.autoEvoChoice) {
-    evolvePokemon(pokemon, valid[Math.floor(Math.random() * valid.length)].to);
+    evolvePokemon(pokemon, valid[Math.floor(Math.random() * valid.length)].to, opts);
     return true;
   }
 
@@ -285,7 +289,9 @@ function showPokemonLevelPopup(pokemon, newLevel) {
 // opts.autoPick : propagé à tryAutoEvolution pour résoudre les évolutions
 // multi-branches sans popup (level-ups non supervisés : rattrapage hors-ligne).
 function levelUpPokemon(pokemon, xpGain, opts = {}) {
+  opts = resolveSimulationContext(opts);
   const state = globalThis.state;
+  const previousLevel = pokemon.level;
   pokemon.xp += xpGain;
   const xpNeeded = pokemon.level * 20;
   let leveled = false;
@@ -302,10 +308,18 @@ function levelUpPokemon(pokemon, xpGain, opts = {}) {
     tryAutoEvolution(pokemon, opts);
     const isBossTeam   = state.gang.bossTeam.includes(pokemon.id);
     const isInTraining = state.trainingRoom?.pokemon?.includes(pokemon.id);
-    if (isBossTeam || isInTraining) {
+    if (!opts.silent && (isBossTeam || isInTraining)) {
       globalThis.playSE?.('level_up', 0.5);
       showPokemonLevelPopup(pokemon, pokemon.level);
       globalThis.SFX?.play('levelUp');
+    }
+    if (opts.collecting) {
+      globalThis.OfflineReport?.pushLevelUp?.({
+        name: globalThis.speciesName?.(pokemon.species_en) ?? pokemon.species_en,
+        species_en: pokemon.species_en,
+        fromLvl: previousLevel,
+        toLvl: pokemon.level,
+      });
     }
   }
   return leveled;

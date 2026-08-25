@@ -13,6 +13,7 @@ import { TRAINER_TYPES } from '../../data/trainers-data.js';
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
 import { esc as _esc } from '../core/escape.js';
+import { requestSimulationSave, resolveSimulationContext } from '../core/simulationContext.js';
 import { getLv100Data as _getLv100Data } from '../systems/pokemonRating.js';
 import { renderTopPowerView as _renderTopPower } from './pcTopPower.js';
 
@@ -912,7 +913,8 @@ function renderPCTab() {
 }
 
 // Auto-incubation — Infirmière Joëlle corrompue
-function tryAutoIncubate() {
+function tryAutoIncubate(context = {}) {
+  context = resolveSimulationContext(context);
   if (!state.purchases?.autoIncubator) return;
   if (state.purchases?.autoIncubatorEnabled === false) return; // en congé
   const incubatorCount = state.inventory?.incubator || 0;
@@ -928,7 +930,10 @@ function tryAutoIncubate() {
     egg.hatchAt = Date.now() + (egg.hatchMs || 2700000);
     changed = true;
   }
-  if (changed) { saveState(); notify(_t('pc_nurse_incubated_egg'), 'success'); }
+  if (changed) {
+    requestSimulationSave(saveState, context);
+    if (!context.silent) notify(_t('pc_nurse_incubated_egg'), 'success');
+  }
 }
 
 function hatchEgg(eggId) {

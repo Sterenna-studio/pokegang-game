@@ -30,6 +30,13 @@ import {
 } from '../../data/power-config-data.js';
 import { EVENT_EGG_GIFT_SHINY_RATE } from '../../data/gameplay-config-data.js';
 import { EventBus, EVENTS } from '../core/eventBus.js';
+import {
+  createSimulationContext,
+  requestSimulationSave,
+  resolveSimulationContext,
+  withSimulationContext,
+} from '../core/simulationContext.js';
+import { runOfflineCatchupBatch } from './offlineBatch.js';
 
 const _notify = (msg, type = '', category = null) => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type, category });
 const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
@@ -519,7 +526,8 @@ function spawnInZone(zoneId) {
 }
 
 // ── Chest loot resolution ─────────────────────────────────────
-function rollChestLoot(zoneId, passive = false) {
+function rollChestLoot(zoneId, passive = false, context = {}) {
+  context = resolveSimulationContext(context);
   const state = globalThis.state;
   const totalWeight = CHEST_LOOT.reduce((s, l) => s + l.weight, 0);
   let roll = Math.random() * totalWeight;
@@ -530,7 +538,7 @@ function rollChestLoot(zoneId, passive = false) {
   }
   const zone = ZONE_BY_ID[zoneId];
   const name = state.lang === 'en' ? (loot.en || loot.fr) : loot.fr;
-  globalThis.addZoneXP?.(zoneId, 'chest'); // XP de zone v2
+  globalThis.addZoneXP?.(zoneId, 'chest', { silent: !!context.silent }); // XP de zone v2
 
   switch (loot.type) {
     case 'money': {
@@ -543,7 +551,7 @@ function rollChestLoot(zoneId, passive = false) {
         EventBus.emit(EVENTS.MONEY_CHANGED, { delta: amount, newTotal: state.gang.money });
       }
       state.stats.totalMoneyEarned += amount;
-      return { msg: `📦 ${amount}₽`, type: 'gold' };
+      return { msg: `📦 ${amount}₽`, type: 'gold', delta: { money: amount } };
     }
     case 'rare_pokemon': {
       if (zone && zone.pool) {
@@ -565,42 +573,43 @@ function rollChestLoot(zoneId, passive = false) {
           globalThis._unlockFabricBg?.(pokemon.dex, pokemon.shiny);
           const pName = globalThis.speciesName(pokemon.species_en);
           const stars = '★'.repeat(pokemon.potential);
-          return { msg: `📦 ${pName} ${stars}${pokemon.shiny ? ' ✨' : ''}!`, type: 'gold' };
+          return { msg: `📦 ${pName} ${stars}${pokemon.shiny ? ' ✨' : ''}!`, type: 'gold', delta: { capture: pokemon } };
         }
       }
       // Fallback
       state.gang.money += 1000;
       EventBus.emit(EVENTS.MONEY_CHANGED, { delta: 1000, newTotal: state.gang.money });
-      return { msg: `📦 1000₽`, type: 'gold' };
+      return { msg: `📦 1000₽`, type: 'gold', delta: { money: 1000 } };
     }
     case 'item': {
       state.inventory[loot.itemId] = (state.inventory[loot.itemId] || 0) + loot.qty;
       // Premier objet consommable jamais obtenu : le transfuge explique à
       // quoi ça sert avant que ça dorme dans l'inventaire sans être compris.
-      setTimeout(() => globalThis.maybeShowItemsIntro?.(), 300);
-      return { msg: `📦 ${loot.qty}x ${name}`, type: 'gold' };
+      if (!context.silent) setTimeout(() => globalThis.maybeShowItemsIntro?.(), 300);
+      return { msg: `📦 ${loot.qty}x ${name}`, type: 'gold', delta: { items: { [loot.itemId]: loot.qty } } };
     }
     case 'event': {
       // Trigger a random event
       const eligible = getEligibleSpecialEvents(zoneId);
       if (eligible.length > 0 && zone) {
         const event = globalThis.pick(eligible);
-        activateEvent(zoneId, event);
-        return { msg: `📦 ${state.lang === 'en' ? (event.en || event.fr) : event.fr}`, type: 'gold' };
+        const delta = activateEvent(zoneId, event, context);
+        return { msg: `📦 ${state.lang === 'en' ? (event.en || event.fr) : event.fr}`, type: 'gold', delta };
       }
       state.gang.money += 2000;
       EventBus.emit(EVENTS.MONEY_CHANGED, { delta: 2000, newTotal: state.gang.money });
-      return { msg: `📦 2000₽`, type: 'gold' };
+      return { msg: `📦 2000₽`, type: 'gold', delta: { money: 2000 } };
     }
     default:
       state.gang.money += 500;
       EventBus.emit(EVENTS.MONEY_CHANGED, { delta: 500, newTotal: state.gang.money });
-      return { msg: `📦 500₽`, type: 'success' };
+      return { msg: `📦 500₽`, type: 'success', delta: { money: 500 } };
   }
 }
 
 // ── Event activation/resolution ───────────────────────────────
-function activateEvent(zoneId, event) {
+function activateEvent(zoneId, event, context = {}) {
+  context = resolveSimulationContext(context);
   const state = globalThis.state;
   const reward = event.reward;
   const label = state.lang === 'en' ? (event.en || event.fr) : event.fr;
@@ -608,6 +617,7 @@ function activateEvent(zoneId, event) {
 
   // Collect all reward messages before notifying once
   const parts = [];
+  const delta = { money: 0, items: {}, capture: null };
 
   if (reward.shinyBoost) {
     state.activeBoosts.aura = Math.max(state.activeBoosts.aura || 0, Date.now() + reward.shinyBoost);
@@ -626,6 +636,7 @@ function activateEvent(zoneId, event) {
     state.gang.money += amount;
     state.stats.totalMoneyEarned += amount;
     EventBus.emit(EVENTS.MONEY_CHANGED, { delta: amount, newTotal: state.gang.money });
+    delta.money += amount;
     parts.push(`+${amount.toLocaleString()}₽`);
   }
   if (reward.rep) {
@@ -636,10 +647,10 @@ function activateEvent(zoneId, event) {
     // Grant XP to all pokemon in zone agents
     for (const agent of state.agents) {
       if (agent.assignedZone === zoneId) {
-        globalThis.grantAgentXP(agent, reward.xpBonus);
+        globalThis.grantAgentXP(agent, reward.xpBonus, context);
         for (const pkId of agent.team) {
           const p = globalThis.pokemonById?.(pkId) ?? state.pokemons.find(pk => pk.id === pkId);
-          if (p) globalThis.levelUpPokemon(p, reward.xpBonus);
+          if (p) globalThis.levelUpPokemon(p, reward.xpBonus, { autoPick: !!context.silent, ...context });
         }
       }
     }
@@ -654,6 +665,7 @@ function activateEvent(zoneId, event) {
         p.stats = globalThis.calculateStats(p);
         state.pokemons.push(p); _dirty();
         EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: p, zoneId, source: 'event' });
+        delta.capture = p;
         parts.push(_t(
           `${globalThis.speciesName(reward.pokemonGift)} rejoint le gang !`,
           `${globalThis.speciesName(reward.pokemonGift)} joined the gang!`,
@@ -668,7 +680,7 @@ function activateEvent(zoneId, event) {
       const potential = Math.random() < 0.2 ? 3 : 2;
       const shiny = Math.random() < EVENT_EGG_GIFT_SHINY_RATE;
       state.eggs.push({ id: globalThis.uid(), species_en, hatchAt: null, incubating: false, potential, shiny, gifted: true });
-      globalThis.tryAutoIncubate();
+      globalThis.tryAutoIncubate(context);
       parts.push(_t('🥚 Un œuf mystérieux est apparu…', '🥚 A mysterious egg appeared…'));
     }
   }
@@ -682,6 +694,7 @@ function activateEvent(zoneId, event) {
     // Notify quest modules via EventBus (fan-out) + legacy single-handler
     EventBus.emit(EVENTS.ITEM_RECEIVED, { itemId, qty: 1 });
     globalThis.onItemGiftReceived?.(itemId);
+    delta.items[itemId] = (delta.items[itemId] || 0) + 1;
     const itemLabel = {
       meteore:           '☄️ Météore',
       silver_wing:       "🪶 Argent'Aile",
@@ -698,7 +711,7 @@ function activateEvent(zoneId, event) {
 
   // Single notification for the whole event
   const suffix = parts.length > 0 ? ` — ${parts.join(' · ')}` : '';
-  _notify(`${event.icon} ${label}${suffix}`, 'gold');
+  if (!context.silent) _notify(`${event.icon} ${label}${suffix}`, 'gold');
 
   // Événements sans combat : résolus instantanément → zone repasse idle
   // Événements avec combat : setZoneActivity déjà fait dans spawnInZone au moment du spawn,
@@ -706,7 +719,8 @@ function activateEvent(zoneId, event) {
   if (!event.trainerKey) {
     clearZoneActivity(zoneId);
   }
-  _save();
+  requestSimulationSave(_save, context);
+  return delta;
 }
 
 // ── Zone Investment ───────────────────────────────────────────
@@ -881,7 +895,8 @@ function resolveCombat(playerTeamIds, trainerData) {
   return { win, playerPower, enemyPower, reward, repGain };
 }
 
-function applyCombatResult(result, playerTeamIds, trainerData) {
+function applyCombatResult(result, playerTeamIds, trainerData, context = {}) {
+  context = resolveSimulationContext(context);
   const state = globalThis.state;
   state.stats.totalFights++;
   // Mark zone as permanently unlocked (persists even if rep drops later)
@@ -920,7 +935,7 @@ function applyCombatResult(result, playerTeamIds, trainerData) {
       const prevRep = state.gang.reputation;
       state.gang.reputation += result.repGain;
       EventBus.emit(EVENTS.REP_CHANGED, { delta: result.repGain, newTotal: state.gang.reputation });
-      checkForNewlyUnlockedZones(prevRep);
+      checkForNewlyUnlockedZones(prevRep, { silent: !!context.silent });
     }
     if (ROCKET_TRAINER_KEYS.has(trainerData.trainerKey)) {
       state.stats.rocketDefeated = (state.stats.rocketDefeated || 0) + 1;
@@ -930,13 +945,17 @@ function applyCombatResult(result, playerTeamIds, trainerData) {
         const johtoRockets = state.stats.rocketDefeatedJohto;
         if (johtoRockets >= 50 && !state.purchases.rocket_hq_keycard) {
           state.purchases.rocket_hq_keycard = true;
-          _notify('🔑 Badge QG Rocket obtenu ! Le QG Rocket d\'Acajou est accessible.', 'gold');
-          setTimeout(() => globalThis.renderZonesTab?.(), 300);
+          if (!context.silent) {
+            _notify('🔑 Badge QG Rocket obtenu ! Le QG Rocket d\'Acajou est accessible.', 'gold');
+            setTimeout(() => globalThis.renderZonesTab?.(), 300);
+          }
         }
         if (johtoRockets >= 100 && !state.purchases.rocket_uniform) {
           state.purchases.rocket_uniform = true;
-          _notify('👔 Uniforme Rocket obtenu ! La Tour Radio de Doublonville est accessible.', 'gold');
-          setTimeout(() => globalThis.renderZonesTab?.(), 300);
+          if (!context.silent) {
+            _notify('👔 Uniforme Rocket obtenu ! La Tour Radio de Doublonville est accessible.', 'gold');
+            setTimeout(() => globalThis.renderZonesTab?.(), 300);
+          }
         }
       }
     }
@@ -950,36 +969,40 @@ function applyCombatResult(result, playerTeamIds, trainerData) {
       const wasDefeated = zs.gymDefeated;
       zs.gymDefeated = true;
       if (!wasDefeated) {
-        _notify(`🏆 ${combatZone.fr} — Champion vaincu ! La voie est libre.`, 'gold');
+        if (!context.silent) _notify(`🏆 ${combatZone.fr} — Champion vaincu ! La voie est libre.`, 'gold');
         // Déclenche la vérification de nouvelles zones débloquées par la séquence
-        setTimeout(() => checkForNewlyUnlockedZones(state.gang.reputation - 0.001), 600);
+        if (!context.silent) setTimeout(() => checkForNewlyUnlockedZones(state.gang.reputation - 0.001), 600);
         // Vérifie si l'offre Johto doit être déclenchée (après la victoire au Plateau Indigo)
         if (trainerData.zoneId === 'indigo_plateau') {
-          setTimeout(() => globalThis.checkJohtoUnlock?.(), 2500);
+          if (!context.silent) setTimeout(() => globalThis.checkJohtoUnlock?.(), 2500);
           // Darkrai Nightmare — pour les nouveaux joueurs (cinématique non vue)
-          setTimeout(() => globalThis.triggerDarkraiOnLeagueVictory?.(), 4000);
+          if (!context.silent) setTimeout(() => globalThis.triggerDarkraiOnLeagueVictory?.(), 4000);
         }
         // Ligue Johto — vérifier si Hoenn se débloque
         if (trainerData.zoneId === 'indigo_johto') {
-          setTimeout(() => globalThis.checkHoennUnlock?.(), 3000);
+          if (!context.silent) setTimeout(() => globalThis.checkHoennUnlock?.(), 3000);
         }
         // Ligue Hoenn — vérifier si Sinnoh se débloque + quêtes légendaires
         if (trainerData.zoneId === 'ever_grande_hoenn') {
-          setTimeout(() => globalThis.checkSinnohUnlock?.(), 3000);
-          setTimeout(() => globalThis.checkDeoxysMissionUnlock?.(), 5000);
+          if (!context.silent) {
+            setTimeout(() => globalThis.checkSinnohUnlock?.(), 3000);
+            setTimeout(() => globalThis.checkDeoxysMissionUnlock?.(), 5000);
+          }
         }
         // Ligue Johto — déclencher les quêtes Groudon/Kyogre si Hoenn déjà débloqué
         if (trainerData.zoneId === 'indigo_johto') {
-          setTimeout(() => globalThis.checkLegendaryMissionsUnlock?.(), 4500);
-          setTimeout(() => globalThis.checkJohtoMissionsUnlock?.(), 3500);
+          if (!context.silent) {
+            setTimeout(() => globalThis.checkLegendaryMissionsUnlock?.(), 4500);
+            setTimeout(() => globalThis.checkJohtoMissionsUnlock?.(), 3500);
+          }
         }
         // Ligue Indigo (Kanto) — déclencher quêtes Kanto après victoire
         if (trainerData.zoneId === 'indigo_plateau') {
-          setTimeout(() => globalThis.checkKantoMissionsUnlock?.(), 3500);
+          if (!context.silent) setTimeout(() => globalThis.checkKantoMissionsUnlock?.(), 3500);
         }
         // Ligue Sinnoh — déclencher quêtes légendaires Sinnoh
         if (trainerData.zoneId === 'pokemon_league_sinnoh') {
-          setTimeout(() => globalThis.checkSinnohMissionsUnlock?.(), 3500);
+          if (!context.silent) setTimeout(() => globalThis.checkSinnohMissionsUnlock?.(), 3500);
         }
       }
       if (trainerData.isGymRaid) {
@@ -993,7 +1016,7 @@ function applyCombatResult(result, playerTeamIds, trainerData) {
     for (const id of playerTeamIds) {
       const p = globalThis.pokemonById?.(id) ?? state.pokemons.find(pk => pk.id === id);
       if (p) {
-        globalThis.levelUpPokemon(p, xpEach);
+        globalThis.levelUpPokemon(p, xpEach, { autoPick: !!context.silent, ...context });
         if (p.history) p.history.push({ type: 'combat', ts: Date.now(), won: true });
       }
     }
@@ -1023,11 +1046,11 @@ function applyCombatResult(result, playerTeamIds, trainerData) {
       initiatedBy: trainerData.initiatedBy || 'system',
     });
   }
-  _save();
+  requestSimulationSave(_save, context);
 }
 
 // ── Zone unlock detection ──────────────────────────────────────
-function checkForNewlyUnlockedZones(prevRep) {
+function checkForNewlyUnlockedZones(prevRep, { silent = false } = {}) {
   const state = globalThis.state;
   const newZones = ZONES.filter(z => {
     if (!z.rep || z.rep === 0) return false;
@@ -1053,9 +1076,11 @@ function checkForNewlyUnlockedZones(prevRep) {
     }
     return prevRep < z.rep && state.gang.reputation >= z.rep;
   });
-  newZones.forEach((zone, i) => {
-    setTimeout(() => showZoneUnlockPopup(zone), 400 + i * 300);
-  });
+  if (!silent) {
+    newZones.forEach((zone, i) => {
+      setTimeout(() => showZoneUnlockPopup(zone), 400 + i * 300);
+    });
+  }
 
   // ── Déclencher les checks de quêtes légendaires quand la rep franchit leurs seuils ──
   // Ces checks ne sont appelés qu'au boot + après certains combats élites.
@@ -1063,19 +1088,19 @@ function checkForNewlyUnlockedZones(prevRep) {
   const _rep = state.gang.reputation;
 
   // Kanto : Zapdos 700 · Artikodin 800 · Sulfura 950
-  if ([700, 800, 950].some(t => prevRep < t && _rep >= t)) {
+  if (!silent && [700, 800, 950].some(t => prevRep < t && _rep >= t)) {
     setTimeout(() => globalThis.checkKantoMissionsUnlock?.(), 500);
   }
   // Johto : Bêtes Sacrées 800 · Lugia + Ho-Oh 1000
-  if ([800, 1000].some(t => prevRep < t && _rep >= t)) {
+  if (!silent && [800, 1000].some(t => prevRep < t && _rep >= t)) {
     setTimeout(() => globalThis.checkJohtoMissionsUnlock?.(), 600);
   }
   // Hoenn : Groudon + Kyogre 2500 (nécessite aussi hoennUnlocked)
-  if (prevRep < 2500 && _rep >= 2500) {
+  if (!silent && prevRep < 2500 && _rep >= 2500) {
     setTimeout(() => globalThis.checkLegendaryMissionsUnlock?.(), 650);
   }
   // Sinnoh : Trio du Lac 4200 · Team Galaxie 4500
-  if ([4200, 4500].some(t => prevRep < t && _rep >= t)) {
+  if (!silent && [4200, 4500].some(t => prevRep < t && _rep >= t)) {
     setTimeout(() => globalThis.checkSinnohMissionsUnlock?.(), 700);
   }
 }
@@ -1280,16 +1305,10 @@ function syncActiveZones() {
 
 // ── Rattrapage zones au retour du tab ─────────────────────────────────────────
 // Déclenché par le handler visibilitychange ci-dessous.
-function _catchupHiddenZones() {
+async function _catchupHiddenZones({ metrics, simulationContext = null } = {}) {
   const now       = Date.now();
-  const zoneTimers = globalThis.zoneTimers;
-  if (!zoneTimers) return;
-
-  let anyChange = false;
-
-  for (const zoneId of Object.keys(zoneTimers)) {
-    const hiddenSince = _zoneHiddenSince.get(zoneId);
-    if (!hiddenSince) continue;
+  const jobs = [];
+  for (const [zoneId, hiddenSince] of [..._zoneHiddenSince.entries()]) {
     _zoneHiddenSince.delete(zoneId);
 
     // Les zones ouvertes (visuelles) ne nécessitent pas de résolution silencieuse
@@ -1301,18 +1320,16 @@ function _catchupHiddenZones() {
     const interval    = Math.round(1000 / zone.spawnRate);
     const elapsed     = now - hiddenSince;
     const missedTicks = Math.min(Math.floor(elapsed / interval), _ZONE_CATCHUP_CAP);
-
-    for (let i = 0; i < missedTicks; i++) {
-      // resolveBackgroundSpawnForZone retourne false quand il n'y a plus d'agents/balls
-      if (!globalThis.resolveBackgroundSpawnForZone?.(zoneId)) break;
-      anyChange = true;
-    }
+    if (missedTicks > 0) jobs.push({ zoneId, ticks: missedTicks });
   }
-
-  if (anyChange) {
-    _topBar();
-    _save();
-  }
+  const context = simulationContext || createSimulationContext({ metrics });
+  return runOfflineCatchupBatch({
+    jobs,
+    resolveTick: zoneId => withSimulationContext(
+      context,
+      () => globalThis.resolveBackgroundSpawnForZone?.(zoneId, context) ?? false,
+    ),
+  });
 }
 
 // Exposé pour l'orchestrateur offlineReport.js
@@ -1321,8 +1338,8 @@ globalThis._catchupHiddenZones = _catchupHiddenZones;
 // ── Pause / Resume total — zéro CPU en background ────────────────────────────
 // Appelé par offlineReport.js à chaque visibilitychange.
 // Sur masquage : snapshot hiddenSince + clear tous les setInterval.
-// Sur retour   : syncActiveZones() relance exactement les timers nécessaires.
-// Puis _catchupHiddenZones() batch-rattrape les ticks manqués (déjà appelé par offlineReport).
+// Sur retour   : offlineReport rattrape d'abord les ticks manqués par chunks,
+// puis syncActiveZones() relance exactement les timers nécessaires.
 
 function _pauseAllZoneTimers() {
   const now        = Date.now();
@@ -1341,6 +1358,19 @@ function _resumeAllZoneTimers() {
   // syncActiveZones relit openZones + agents et (re)démarre exactement
   // les timers nécessaires — rien de plus.
   syncActiveZones();
+}
+
+function _prepareOfflineCatchupForDev(absentMs, zoneIds = null) {
+  const wanted = zoneIds ? new Set(zoneIds) : null;
+  const now = Date.now();
+  const assigned = globalThis.state?.agents?.map(agent => agent.assignedZone).filter(Boolean) || [];
+  const activeZoneIds = new Set(assigned);
+  for (const zoneId of activeZoneIds) {
+    if (wanted && !wanted.has(zoneId)) continue;
+    if (globalThis.openZones?.has(zoneId)) continue;
+    _zoneHiddenSince.set(zoneId, now - Math.max(0, absentMs || 0));
+  }
+  return [..._zoneHiddenSince.keys()];
 }
 
 globalThis._pauseAllZoneTimers  = _pauseAllZoneTimers;
@@ -1392,6 +1422,7 @@ Object.assign(globalThis, {
   // Pause/resume globaux (utilisés par offlineReport.js)
   _zsys_pauseAllZoneTimers:           _pauseAllZoneTimers,
   _zsys_resumeAllZoneTimers:          _resumeAllZoneTimers,
+  _zsys_prepareOfflineCatchupForDev:  _prepareOfflineCatchupForDev,
   ZONE_DIFFICULTY_SCALING,
 });
 

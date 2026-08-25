@@ -46,10 +46,15 @@
 // ════════════════════════════════════════════════════════════════
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
+import { requestSimulationSave, suppressSimulationNotification } from '../core/simulationContext.js';
 import { defaultEncounterState } from './questCombat.js';
 
-const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type });
-const _save   = ()               => globalThis.saveState?.();
+const _notify = (msg, type = '') => {
+  if (!suppressSimulationNotification()) EventBus.emit(EVENTS.UI_NOTIFY, { msg, type });
+};
+const _save = () => {
+  requestSimulationSave(() => globalThis.saveState?.());
+};
 // Traduction inline légère — même convention que le reste du codebase
 // (state.lang === 'fr' ? ... : ...), enveloppée ici pour éviter de répéter
 // la condition sur les dizaines de chaînes de ce module.
