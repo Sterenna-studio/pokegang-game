@@ -528,6 +528,7 @@ function _registerGangTabEvents() {
   if (_gangTabEventsRegistered) return;
   _gangTabEventsRegistered = true;
   const _refreshIfActive = () => {
+    if (globalThis.OfflineReport?.isBatching?.()) return;
     if (globalThis.activeTab !== 'tabGang') return;
     clearTimeout(_gangTabEventDebounceTimer);
     _gangTabEventDebounceTimer = setTimeout(_patchGangTabDynamic, GANG_TAB_EVENT_DEBOUNCE_MS);

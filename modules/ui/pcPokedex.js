@@ -912,7 +912,7 @@ function renderPCTab() {
 }
 
 // Auto-incubation — Infirmière Joëlle corrompue
-function tryAutoIncubate() {
+function tryAutoIncubate(context = {}) {
   if (!state.purchases?.autoIncubator) return;
   if (state.purchases?.autoIncubatorEnabled === false) return; // en congé
   const incubatorCount = state.inventory?.incubator || 0;
@@ -928,7 +928,11 @@ function tryAutoIncubate() {
     egg.hatchAt = Date.now() + (egg.hatchMs || 2700000);
     changed = true;
   }
-  if (changed) { saveState(); notify(_t('pc_nurse_incubated_egg'), 'success'); }
+  if (changed) {
+    if (context.deferSave) context.metrics && context.metrics.deferredSaveCalls++;
+    else saveState();
+    if (!context.silent) notify(_t('pc_nurse_incubated_egg'), 'success');
+  }
 }
 
 function hatchEgg(eggId) {

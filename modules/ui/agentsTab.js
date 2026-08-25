@@ -573,6 +573,7 @@ function _registerAgentsTabEvents() {
   });
 
   const _patchIfActive = () => {
+    if (globalThis.OfflineReport?.isBatching?.()) return;
     if (globalThis.activeTab !== 'tabAgents') return;
     clearTimeout(_agentsPatchTimer);
     _agentsPatchTimer = setTimeout(_patchAgentsTabDynamic, AGENTS_TAB_EVENT_DEBOUNCE_MS);

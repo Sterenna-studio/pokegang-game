@@ -55,8 +55,12 @@
 import { EventBus, EVENTS } from '../core/eventBus.js';
 import { defaultEncounterState } from './questCombat.js';
 
-const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type });
-const _save   = ()               => globalThis.saveState?.();
+const _notify = (msg, type = '') => {
+  if (!globalThis.OfflineReport?.isBatching?.()) EventBus.emit(EVENTS.UI_NOTIFY, { msg, type });
+};
+const _save = () => {
+  if (!globalThis.OfflineReport?.isBatching?.()) globalThis.saveState?.();
+};
 const _t = (fr, en) => (globalThis.state?.lang === 'en' ? en : fr);
 
 // ── Assets ────────────────────────────────────────────────────

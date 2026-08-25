@@ -115,7 +115,7 @@ function getZoneLevelBonuses(zoneId) {
  * @param {string} source  — clé de ZONE_XP_SOURCES ('capture_common', 'combat_win', etc.)
  * @returns {boolean} true si montée de niveau
  */
-function addZoneXP(zoneId, source) {
+function addZoneXP(zoneId, source, { silent = false } = {}) {
   if (!zoneId || zoneId === 'gang_park') return false;
   const amount = ZONE_XP_SOURCES[source] ?? 1;
   const z = _initZone(zoneId);
@@ -125,7 +125,7 @@ function addZoneXP(zoneId, source) {
   z.zoneXp = (z.zoneXp || 0) + amount;
   const newLevel  = _xpToLevel(z.zoneXp);
 
-  if (newLevel > prevLevel) {
+  if (newLevel > prevLevel && !silent) {
     _notify(_t(`📍 ${_zoneName(zoneId)} → Niveau ${newLevel} !`, `📍 ${_zoneName(zoneId)} → Level ${newLevel}!`), 'gold');
     globalThis.SFX?.play('unlock');
     globalThis.addBattleLogEntry?.(_t(`📍 Zone ${_zoneName(zoneId)} montée au niveau ${newLevel} !`, `📍 Zone ${_zoneName(zoneId)} reached level ${newLevel}!`));
