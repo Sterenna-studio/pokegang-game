@@ -81,6 +81,8 @@
 - [ ] Les sprites des deux camps restent à opacité normale pendant tout le replay
 - [ ] Le résultat pré-calculé ne grise pas le dresseur, le raid ou son Pokémon avant la fin visuelle du combat
 - [ ] L'animation spécifique d'un Pokémon K.O. reste limitée à ce Pokémon
+- [ ] Le bouton vitesse passe de ×1 à ×5, ×100 puis ×1 dans un combat standard et un combat événement
+- [ ] Avant le démarrage, « Fuir » ferme uniquement la séquence courante ; après le replay, « Fermer » remplace ce handler sans le cumuler
 
 ### Hoenn — Deoxys
 - [ ] Bouton ☄️ Deoxys visible après Ever Grande vaincu

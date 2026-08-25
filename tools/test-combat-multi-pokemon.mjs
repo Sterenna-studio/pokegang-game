@@ -290,7 +290,9 @@ function makeFakeAnchor() {
   assert.match(source, /raidTrainerLineupHtml\(spawnObj\)/);
   assert.match(source, /data-raid-trainer-index="\$\{trainerIndex\}"/);
   assert.match(source, /trainerSlot\?\.classList\.add\('is-active'\)/);
-  assert.match(source, /enemySpriteAnchor = pokemonSlot/);
+  assert.match(source, /return trainerSlot\?\.querySelector\('\.raid-trainer-pokemon-slot'\) \|\| spawnEl/);
+  assert.equal((source.match(/const presenter = createZoneCombatReplayPresenter\(\{/g) || []).length, 2);
+  assert.equal((source.match(/createCombatReplayRunner\(\{/g) || []).length, 2);
   assert.match(source, /combatSpeedButtonHtml\(\)/);
   assert.match(source, /scaleCombatDelay\(ms, getCombatSpeed\(\)\)/);
   assert.doesNotMatch(source, /spawnEl\.style\.opacity = result\.attackerWin/);
