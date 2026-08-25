@@ -74,9 +74,10 @@ export async function runOfflineReturnFlow({
   setTimeoutRef = setTimeout,
   clearTimeoutRef = clearTimeout,
   now = () => Date.now(),
+  metrics: providedMetrics = null,
 } = {}) {
   const startedAt = now();
-  const metrics = {
+  const metrics = Object.assign(providedMetrics || {}, {
     absentMs: Math.max(0, startedAt - (absentSince || startedAt)),
     zones: 0,
     ticksPlanned: 0,
@@ -87,7 +88,7 @@ export async function runOfflineReturnFlow({
     deferredSaveCalls: 0,
     deferredUiRefreshes: 0,
     durationMs: 0,
-  };
+  });
   let collectorActive = false;
   let report = null;
   let flowError = null;

@@ -3,6 +3,7 @@
 import { BOSS_TEAM_SLOTS } from '../../data/game-config-data.js';
 import { EventBus, EVENTS } from '../core/eventBus.js';
 import { esc as _esc } from '../core/escape.js';
+import { deferSimulationUi } from '../core/simulationContext.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type });
 const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
@@ -528,7 +529,7 @@ function _registerGangTabEvents() {
   if (_gangTabEventsRegistered) return;
   _gangTabEventsRegistered = true;
   const _refreshIfActive = () => {
-    if (globalThis.OfflineReport?.isBatching?.()) return;
+    if (deferSimulationUi('gang')) return;
     if (globalThis.activeTab !== 'tabGang') return;
     clearTimeout(_gangTabEventDebounceTimer);
     _gangTabEventDebounceTimer = setTimeout(_patchGangTabDynamic, GANG_TAB_EVENT_DEBOUNCE_MS);

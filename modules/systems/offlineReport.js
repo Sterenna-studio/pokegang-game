@@ -12,6 +12,12 @@ import {
   shouldShowOfflineReport,
 } from './offlineReportModel.js';
 import { runOfflineReturnFlow } from './offlineBatch.js';
+import {
+  createSimulationContext,
+  isSimulationBatchActive,
+  snapshotSimulationEffects,
+  withSimulationContext,
+} from '../core/simulationContext.js';
 
 const REPORT_MODAL_ID = 'offlineReportModal';
 const SYNC_SURFACE_ID = 'offlineReportSync';
@@ -307,13 +313,21 @@ function _refreshAfterCatchup() {
 }
 
 export async function runCatchupAndReport(absentSince) {
+  const metrics = {};
+  const simulation = createSimulationContext({ metrics });
   try {
     const result = await runOfflineReturnFlow({
       absentSince,
       startCollecting,
       stopCollecting,
-      applyIdleCatchup: options => globalThis.applyOfflineCatchup?.(options),
-      applyZoneCatchup: options => globalThis._catchupHiddenZones?.(options),
+      applyIdleCatchup: options => withSimulationContext(
+        simulation,
+        () => globalThis.applyOfflineCatchup?.(options),
+      ),
+      applyZoneCatchup: options => globalThis._catchupHiddenZones?.({
+        ...options,
+        simulationContext: simulation,
+      }),
       save: () => globalThis.saveState?.(),
       refreshUi: _refreshAfterCatchup,
       resumeTimers: () => {
@@ -324,11 +338,16 @@ export async function runCatchupAndReport(absentSince) {
       showReport: showOfflineReportModal,
       showSync: _showSyncSurface,
       hideSync: _hideSyncSurface,
+      metrics,
     });
+    result.metrics.effects = snapshotSimulationEffects(simulation);
     _lastDiagnostics = result.metrics;
     if (_diagnosticsEnabled()) console.info('[OfflineReport] catchup completed', result.metrics);
     return result;
   } catch (error) {
+    if (error?.offlineMetrics) {
+      error.offlineMetrics.effects = snapshotSimulationEffects(simulation);
+    }
     _lastDiagnostics = error?.offlineMetrics || null;
     console.warn('[OfflineReport] catchup orchestration failed:', error);
     throw error;
@@ -388,7 +407,7 @@ globalThis.OfflineReport = {
   startCollecting,
   stopCollecting,
   isCollecting,
-  isBatching: isCollecting,
+  isBatching: isSimulationBatchActive,
   pushCapture,
   pushCombat,
   pushChest,
