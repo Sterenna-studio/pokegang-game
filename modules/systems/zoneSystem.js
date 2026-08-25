@@ -30,6 +30,12 @@ import {
 } from '../../data/power-config-data.js';
 import { EVENT_EGG_GIFT_SHINY_RATE } from '../../data/gameplay-config-data.js';
 import { EventBus, EVENTS } from '../core/eventBus.js';
+import {
+  createSimulationContext,
+  requestSimulationSave,
+  resolveSimulationContext,
+  withSimulationContext,
+} from '../core/simulationContext.js';
 import { runOfflineCatchupBatch } from './offlineBatch.js';
 
 const _notify = (msg, type = '', category = null) => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type, category });
@@ -521,6 +527,7 @@ function spawnInZone(zoneId) {
 
 // ── Chest loot resolution ─────────────────────────────────────
 function rollChestLoot(zoneId, passive = false, context = {}) {
+  context = resolveSimulationContext(context);
   const state = globalThis.state;
   const totalWeight = CHEST_LOOT.reduce((s, l) => s + l.weight, 0);
   let roll = Math.random() * totalWeight;
@@ -602,6 +609,7 @@ function rollChestLoot(zoneId, passive = false, context = {}) {
 
 // ── Event activation/resolution ───────────────────────────────
 function activateEvent(zoneId, event, context = {}) {
+  context = resolveSimulationContext(context);
   const state = globalThis.state;
   const reward = event.reward;
   const label = state.lang === 'en' ? (event.en || event.fr) : event.fr;
@@ -711,8 +719,7 @@ function activateEvent(zoneId, event, context = {}) {
   if (!event.trainerKey) {
     clearZoneActivity(zoneId);
   }
-  if (context.deferSave) context.metrics && context.metrics.deferredSaveCalls++;
-  else _save();
+  requestSimulationSave(_save, context);
   return delta;
 }
 
@@ -889,6 +896,7 @@ function resolveCombat(playerTeamIds, trainerData) {
 }
 
 function applyCombatResult(result, playerTeamIds, trainerData, context = {}) {
+  context = resolveSimulationContext(context);
   const state = globalThis.state;
   state.stats.totalFights++;
   // Mark zone as permanently unlocked (persists even if rep drops later)
@@ -1038,8 +1046,7 @@ function applyCombatResult(result, playerTeamIds, trainerData, context = {}) {
       initiatedBy: trainerData.initiatedBy || 'system',
     });
   }
-  if (context.deferSave) context.metrics && context.metrics.deferredSaveCalls++;
-  else _save();
+  requestSimulationSave(_save, context);
 }
 
 // ── Zone unlock detection ──────────────────────────────────────
@@ -1298,7 +1305,7 @@ function syncActiveZones() {
 
 // ── Rattrapage zones au retour du tab ─────────────────────────────────────────
 // Déclenché par le handler visibilitychange ci-dessous.
-async function _catchupHiddenZones({ metrics } = {}) {
+async function _catchupHiddenZones({ metrics, simulationContext = null } = {}) {
   const now       = Date.now();
   const jobs = [];
   for (const [zoneId, hiddenSince] of [..._zoneHiddenSince.entries()]) {
@@ -1315,16 +1322,13 @@ async function _catchupHiddenZones({ metrics } = {}) {
     const missedTicks = Math.min(Math.floor(elapsed / interval), _ZONE_CATCHUP_CAP);
     if (missedTicks > 0) jobs.push({ zoneId, ticks: missedTicks });
   }
-  const context = {
-    deferSave: true,
-    deferUi: true,
-    silent: true,
-    collecting: true,
-    metrics,
-  };
+  const context = simulationContext || createSimulationContext({ metrics });
   return runOfflineCatchupBatch({
     jobs,
-    resolveTick: zoneId => globalThis.resolveBackgroundSpawnForZone?.(zoneId, context) ?? false,
+    resolveTick: zoneId => withSimulationContext(
+      context,
+      () => globalThis.resolveBackgroundSpawnForZone?.(zoneId, context) ?? false,
+    ),
   });
 }
 

@@ -20,6 +20,7 @@
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
 import { esc } from '../core/escape.js';
+import { deferSimulationUi } from '../core/simulationContext.js';
 import {
   ADVISOR_COPY,
   ADVISOR_FALLBACK,
@@ -192,7 +193,7 @@ function _bindAdvisorEvents() {
   // est idempotent et ne rouvre jamais la bulle tout seul, donc un
   // rafraîchissement de trop est sans conséquence.
   const refresh = () => {
-    if (globalThis.OfflineReport?.isBatching?.()) return;
+    if (deferSimulationUi('advisor')) return;
     renderAdvisor();
   };
   EventBus.on(EVENTS.POKEMON_CAPTURED,   refresh);

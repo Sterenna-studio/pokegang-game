@@ -97,4 +97,22 @@ assert.doesNotMatch(agentSource, /_hiddenAgentTicks/);
 assert.match(agentSource, /sold:\s*sale\.sold/);
 assert.match(agentSource, /salePrice:\s*sale\.salePrice/);
 
+const batchConsumers = await Promise.all([
+  'modules/systems/analytics.js',
+  'modules/systems/deoxysMission.js',
+  'modules/systems/johtoMissions.js',
+  'modules/systems/kantoMissions.js',
+  'modules/systems/legendaryMissions.js',
+  'modules/systems/sinnohMissions.js',
+  'modules/systems/tabUnlocks.js',
+  'modules/ui/advisor.js',
+  'modules/ui/agentsTab.js',
+  'modules/ui/gangTab.js',
+  'modules/ui/zoneSelector.js',
+].map(file => readFile(path.join(process.cwd(), file), 'utf8')));
+assert.ok(
+  batchConsumers.every(source => !source.includes('OfflineReport?.isBatching')),
+  'batch consumers depend on SimulationContext rather than the report global',
+);
+
 console.log('offline report tests passed');

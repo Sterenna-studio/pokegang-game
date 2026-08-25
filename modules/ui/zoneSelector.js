@@ -14,6 +14,7 @@
 'use strict';
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
+import { deferSimulationUi } from '../core/simulationContext.js';
 import { isOnboardingActive } from '../systems/onboardingFlow.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
@@ -810,7 +811,7 @@ function _registerZoneSelectorEvents() {
   if (_zoneSelectorEventsRegistered) return;
   _zoneSelectorEventsRegistered = true;
   EventBus.on(EVENTS.REP_CHANGED, () => {
-    if (globalThis.OfflineReport?.isBatching?.()) return;
+    if (deferSimulationUi('zones')) return;
     if (globalThis.activeTab === 'tabZones') renderZoneSelector();
   });
 }

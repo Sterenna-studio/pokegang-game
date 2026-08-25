@@ -16,6 +16,11 @@
 'use strict';
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
+import {
+  deferSimulationUi,
+  requestSimulationSave,
+  resolveSimulationContext,
+} from '../core/simulationContext.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
 const _save   = ()               => globalThis.saveState?.();
@@ -146,7 +151,9 @@ function _catchupTraining(elapsedMs, context = {}) {
  *   classique (utile quand le rapport global prend le relais).
  * @returns {{ elapsed: number, eggsReady: number, trainingTicks: number, xpTicks: number } | null}
  */
-function applyOfflineCatchup({ silent = false, deferSave = false, metrics = null } = {}) {
+function applyOfflineCatchup(options = {}) {
+  const context = resolveSimulationContext(options);
+  const { silent } = context;
   const state = globalThis.state;
   if (!state) return null;
 
@@ -165,17 +172,15 @@ function applyOfflineCatchup({ silent = false, deferSave = false, metrics = null
 
   // Appliquer les rattrapages
   const eggsReady     = _catchupPension(elapsed);
-  const batchContext  = { silent, deferSave, collecting: !!globalThis.OfflineReport?.isCollecting?.(), metrics };
-  const trainingTicks = _catchupTraining(elapsed, batchContext);
-  const xpTicks       = _catchupPassiveXP(elapsed, batchContext);
+  const trainingTicks = _catchupTraining(elapsed, context);
+  const xpTicks       = _catchupPassiveXP(elapsed, context);
 
   // Mettre à jour _savedAt pour éviter un double-rattrapage
   state._savedAt = now;
-  if (deferSave) metrics && metrics.deferredSaveCalls++;
-  else _save();
+  requestSimulationSave(_save, context);
 
   // Alimenter le rapport global si actif
-  const collecting = globalThis.OfflineReport?.isCollecting?.();
+  const collecting = context.collecting;
   if (collecting) {
     globalThis.OfflineReport.pushPensionResult({ eggsReady });
     globalThis.OfflineReport.pushTrainingTicks(trainingTicks);
@@ -205,7 +210,7 @@ function applyOfflineCatchup({ silent = false, deferSave = false, metrics = null
   }
 
   // Rafraîchir l'UI si des œufs sont prêts
-  if (!deferSave && eggsReady > 0 && globalThis.activeTab === 'tabPC') {
+  if (eggsReady > 0 && !deferSimulationUi('pc', context) && globalThis.activeTab === 'tabPC') {
     globalThis.renderPCTab?.();
   }
 

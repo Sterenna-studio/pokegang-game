@@ -24,6 +24,7 @@ import {
 } from '../../data/power-config-data.js';
 import { BASE_SHINY_RATE, AURA_SHINY_RATE, CHROMA_CHARM_MULT } from '../../data/gameplay-config-data.js';
 import { EventBus, EVENTS } from '../core/eventBus.js';
+import { requestSimulationSave, resolveSimulationContext } from '../core/simulationContext.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
 const _t = (fr, en) => (globalThis.state?.lang === 'en' ? en : fr);
@@ -229,6 +230,7 @@ function checkEvolution(pokemon) {
 }
 
 function evolvePokemon(pokemon, targetEN, opts = {}) {
+  opts = resolveSimulationContext(opts);
   const state = globalThis.state;
   const sp = SPECIES_BY_EN[targetEN];
   if (!sp) return false;
@@ -248,8 +250,7 @@ function evolvePokemon(pokemon, targetEN, opts = {}) {
     _notify(_t(`${oldName} évolue en ${newName} !`, `${oldName} evolved into ${newName}!`), 'gold');
     globalThis.SFX?.play('evolve');
   }
-  if (opts.deferSave) opts.metrics && opts.metrics.deferredSaveCalls++;
-  else _save();
+  requestSimulationSave(_save, opts);
   return true;
 }
 
@@ -288,6 +289,7 @@ function showPokemonLevelPopup(pokemon, newLevel) {
 // opts.autoPick : propagé à tryAutoEvolution pour résoudre les évolutions
 // multi-branches sans popup (level-ups non supervisés : rattrapage hors-ligne).
 function levelUpPokemon(pokemon, xpGain, opts = {}) {
+  opts = resolveSimulationContext(opts);
   const state = globalThis.state;
   const previousLevel = pokemon.level;
   pokemon.xp += xpGain;

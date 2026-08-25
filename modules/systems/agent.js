@@ -6,6 +6,11 @@
 import { resolveTrainerCombat } from './zoneCombat.js';
 import { AUTO_COMBAT_VISUAL_MS, AGENT_PRISON_MS } from '../../data/gameplay-config-data.js';
 import { EventBus, EVENTS } from '../core/eventBus.js';
+import {
+  deferSimulationUi,
+  requestSimulationSave,
+  resolveSimulationContext,
+} from '../core/simulationContext.js';
 import { isOnboardingFreeAgentPending } from './onboardingFlow.js';
 
 // ── Convenience shims (progressive migration from globalThis.*) ─
@@ -262,6 +267,7 @@ function assignAgentToZone(agentId, zoneId, { source = 'ui' } = {}) {
 
 // ── Auto-sell on agent capture ────────────────────────────────────
 function _autoSellCaptured(pokemon, context = {}) {
+  context = resolveSimulationContext(context);
   const state = globalThis.state;
   const kept = () => ({ sold: false, salePrice: 0 });
   if (!state.purchases?.autoSellAgent) return kept();
@@ -381,7 +387,7 @@ function checkPromotion(agent, context = {}) {
     promoted = true;
   }
 
-  if (promoted && !context.deferUi) {
+  if (promoted && !deferSimulationUi('agents', context)) {
     if (globalThis.activeTab === 'tabAgents') globalThis.renderAgentsTab?.();
     if (globalThis.activeTab === 'tabGang')   globalThis.renderGangTab?.();
   }
@@ -482,6 +488,7 @@ function _trainerCombatLogLines(result, mainAgentName, trainerName, reward, repG
 }
 
 function _applyResolvedAgentCombat(zoneId, spawnObj, combatAgents, result, context = {}) {
+  context = resolveSimulationContext(context);
   const state = globalThis.state;
   const agentIds   = combatAgents.map(agent => agent.id);
   const teamIds    = _combatTeamIdsForAgents(agentIds, zoneId);
@@ -499,7 +506,7 @@ function _applyResolvedAgentCombat(zoneId, spawnObj, combatAgents, result, conte
   const _bgTier = globalThis._getDifficultyTier?.(result.attackerPower, result.defenderPower);
   globalThis.applyCombatResult({ win: result.attackerWin, reward, repGain, tier: _bgTier }, teamIds, trainerData, context);
 
-  const _collecting = context.collecting || globalThis.OfflineReport?.isCollecting?.();
+  const _collecting = context.collecting;
 
   if (result.attackerWin) {
     const zoneState = state.zones[zoneId];
@@ -561,8 +568,7 @@ function _applyResolvedAgentCombat(zoneId, spawnObj, combatAgents, result, conte
     isAgent: true,
   });
 
-  if (context.deferSave) context.metrics && context.metrics.deferredSaveCalls++;
-  else _save();
+  requestSimulationSave(_save, context);
   return { reward, repGain };
 }
 
@@ -618,6 +624,7 @@ function bailOutAgent(agentId) {
 
 // ── Résolution background d'un spawn pour une zone fermée ────────
 function resolveBackgroundSpawnForZone(zoneId, context = {}) {
+  context = resolveSimulationContext(context);
   const state = globalThis.state;
   if (!state.settings.autoCombat) return false;
 
@@ -678,7 +685,7 @@ function resolveBackgroundSpawnForZone(zoneId, context = {}) {
     const ballName = _localizedBallName(visualBall);
 
     // Pendant le catchup offline : accumuler dans le rapport, pas de notif individuelle
-    const _collecting = context.collecting || globalThis.OfflineReport?.isCollecting?.();
+    const _collecting = context.collecting;
     if (_collecting) {
       globalThis.OfflineReport.pushCapture({
         species_en: pokemon.species_en,
@@ -750,7 +757,7 @@ function resolveBackgroundSpawnForZone(zoneId, context = {}) {
     state.stats.chestsOpened = (state.stats.chestsOpened || 0) + 1;
     const loot      = globalThis.rollChestLoot(zoneId, true, context);
     const mainAgent = agents[0];
-    const _collecting = context.collecting || globalThis.OfflineReport?.isCollecting?.();
+    const _collecting = context.collecting;
     if (_collecting) {
       globalThis.OfflineReport.pushChest();
       // loot.delta peut contenir { money, items } selon rollChestLoot
@@ -778,11 +785,8 @@ function resolveBackgroundSpawnForZone(zoneId, context = {}) {
     // nécessite interaction joueur
   }
 
-  if (changed && context.deferSave) context.metrics && context.metrics.deferredSaveCalls++;
-  else if (changed) _save();
-  if (changed && context.deferUi) {
-    if (context.metrics) context.metrics.deferredUiRefreshes++;
-  } else if (changed) {
+  if (changed) requestSimulationSave(_save, context);
+  if (changed && !deferSimulationUi('agent-zone', context)) {
     _topBar();
     globalThis.refreshZoneIncomeTile?.(zoneId);
     globalThis.updateZoneButtons?.();
@@ -807,6 +811,7 @@ function resolveBackgroundSpawnForZone(zoneId, context = {}) {
 
 // ── Raid hostile sur zone occupée ────────────────────────────────
 function _resolveOccupiedZoneRaid(zoneId, agents, context = {}) {
+  context = resolveSimulationContext(context);
   const state  = globalThis.state;
   const zone   = ZONE_BY_ID[zoneId];
   if (!zone) return;
@@ -842,10 +847,8 @@ function _resolveOccupiedZoneRaid(zoneId, agents, context = {}) {
       globalThis.pushFeedEvent?.({ category: 'raid', title: _t(`Raid subi — ${zoneName}`, `Raid suffered — ${zoneName}`), detail: _t(`Défense ${defensePower} vs Attaque ${attackPower} · −${moneyLoss.toLocaleString()}₽`, `Defense ${defensePower} vs Attack ${attackPower} · −${moneyLoss.toLocaleString()}₽`), win: false });
     }
   }
-  if (context.deferSave) context.metrics && context.metrics.deferredSaveCalls++;
-  else _save();
-  if (context.deferUi) context.metrics && context.metrics.deferredUiRefreshes++;
-  else _topBar();
+  requestSimulationSave(_save, context);
+  if (!deferSimulationUi('topbar', context)) _topBar();
 }
 
 // ── Passive agent tick (toutes les 10s) ──────────────────────────

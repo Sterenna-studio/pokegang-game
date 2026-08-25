@@ -50,12 +50,13 @@
 import { EventBus, EVENTS } from '../core/eventBus.js';
 import { defaultEncounterState } from './questCombat.js';
 import { reconcileHoennStoryUnlocks } from './hoennUnlocks.js';
+import { requestSimulationSave, suppressSimulationNotification } from '../core/simulationContext.js';
 
 const _notify = (msg, type = '') => {
-  if (!globalThis.OfflineReport?.isBatching?.()) EventBus.emit(EVENTS.UI_NOTIFY, { msg, type });
+  if (!suppressSimulationNotification()) EventBus.emit(EVENTS.UI_NOTIFY, { msg, type });
 };
 const _save = () => {
-  if (!globalThis.OfflineReport?.isBatching?.()) globalThis.saveState?.();
+  requestSimulationSave(() => globalThis.saveState?.());
 };
 const _t = (fr, en) => (globalThis.state?.lang === 'en' ? en : fr);
 

@@ -42,8 +42,13 @@ async function prepareAgentModule() {
     .replace("./zoneCombat.js", './zoneCombat.mjs')
     .replace("../../data/gameplay-config-data.js", './gameplay-config-data.mjs')
     .replace("../core/eventBus.js", './eventBus.mjs')
+    .replace("../core/simulationContext.js", './simulationContext.mjs')
     .replace("./onboardingFlow.js", './onboardingFlow.mjs');
   await writeFile(path.join(tmpRoot, 'agent.mjs'), source);
+  await writeFile(
+    path.join(tmpRoot, 'simulationContext.mjs'),
+    await readFile(path.join(root, 'modules', 'core', 'simulationContext.js'), 'utf8'),
+  );
   await writeFile(path.join(tmpRoot, 'zoneCombat.mjs'), 'export function resolveTrainerCombat() { throw new Error("combat not expected"); }\n');
   await writeFile(path.join(tmpRoot, 'gameplay-config-data.mjs'), 'export const AUTO_COMBAT_VISUAL_MS = 1; export const AGENT_PRISON_MS = 3600000;\n');
   await writeFile(path.join(tmpRoot, 'onboardingFlow.mjs'), 'export function isOnboardingFreeAgentPending() { return false; }\n');

@@ -66,6 +66,7 @@ assert.ok(DEFAULT_OFFLINE_CHUNK_SIZE >= 20 && DEFAULT_OFFLINE_CHUNK_SIZE <= 50);
   let loaderHidden = 0;
   let initialYields = 0;
   const report = { captures: [{ species_en: 'zubat' }] };
+  const flowMetrics = {};
 
   const result = await runOfflineReturnFlow({
     absentSince: 1_000,
@@ -91,6 +92,7 @@ assert.ok(DEFAULT_OFFLINE_CHUNK_SIZE >= 20 && DEFAULT_OFFLINE_CHUNK_SIZE <= 50);
     initialYield: async () => { initialYields++; },
     setTimeoutRef: callback => { loaderCallback = callback; return 7; },
     clearTimeoutRef: id => assert.equal(id, 7),
+    metrics: flowMetrics,
   });
 
   assert.equal(saves, 1, 'one final persistence for the whole return flow');
@@ -106,6 +108,7 @@ assert.ok(DEFAULT_OFFLINE_CHUNK_SIZE >= 20 && DEFAULT_OFFLINE_CHUNK_SIZE <= 50);
   assert.equal(result.metrics.ticksProcessed, 600);
   assert.equal(result.metrics.saveCalls, 1);
   assert.equal(result.metrics.uiRefreshes, 1);
+  assert.equal(result.metrics, flowMetrics, 'the orchestrator fills the shared transaction metrics');
 }
 
 {
