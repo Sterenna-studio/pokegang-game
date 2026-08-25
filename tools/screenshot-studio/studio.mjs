@@ -206,6 +206,88 @@ async function copyDirectLink() {
   }
 }
 
+const EXPORT_DURATION_MS = 3200;
+const EXPORT_FPS = 10;
+
+async function exportGif() {
+  const btn = $('#exportGifBtn');
+  if (btn.disabled) return;
+  const originalText = btn.textContent;
+  const setLabel = text => { btn.textContent = text; };
+  let stream = null;
+  try {
+    btn.disabled = true;
+    setLabel('Choisis cet onglet…');
+    try {
+      stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: EXPORT_FPS * 2 } }, preferCurrentTab: true });
+    } catch {
+      // preferCurrentTab is Chrome-only; retry without it so other browsers still get the standard picker.
+      stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: EXPORT_FPS * 2 } } });
+    }
+
+    const video = document.createElement('video');
+    video.srcObject = stream;
+    video.muted = true;
+    await video.play();
+    await new Promise(resolve => setTimeout(resolve, 250)); // let the first real frames arrive
+
+    const rect = viewport.getBoundingClientRect();
+    const scaleX = video.videoWidth / window.innerWidth;
+    const scaleY = video.videoHeight / window.innerHeight;
+    const sx = Math.round(rect.left * scaleX);
+    const sy = Math.round(rect.top * scaleY);
+    const sw = Math.round(rect.width * scaleX);
+    const sh = Math.round(rect.height * scaleY);
+    if (sw <= 0 || sh <= 0) throw new Error('Zone de capture invalide (scène hors écran ?)');
+
+    const canvas = document.createElement('canvas');
+    canvas.width = sw;
+    canvas.height = sh;
+    const ctx = canvas.getContext('2d');
+
+    const gif = new GIF({ workerScript: './vendor/gif.worker.js', workers: 3, quality: 8, width: sw, height: sh, repeat: 0 });
+
+    const frameCount = Math.round(EXPORT_DURATION_MS / 1000 * EXPORT_FPS);
+    const frameDelayMs = Math.round(1000 / EXPORT_FPS);
+    const t0 = performance.now();
+    for (let i = 0; i < frameCount; i++) {
+      const targetT = t0 + i * frameDelayMs;
+      const now = performance.now();
+      if (targetT > now) await new Promise(resolve => setTimeout(resolve, targetT - now));
+      ctx.drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh);
+      gif.addFrame(ctx, { copy: true, delay: frameDelayMs });
+      setLabel(`Capture ${i + 1}/${frameCount}…`);
+    }
+
+    stream.getTracks().forEach(track => track.stop());
+    stream = null;
+    setLabel('Encodage…');
+
+    const blob = await new Promise((resolve, reject) => {
+      gif.on('finished', resolve);
+      gif.on('abort', () => reject(new Error('Encodage annulé')));
+      gif.render();
+    });
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${sceneId}-${sw}x${sh}.gif`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+    setLabel('Exporté ✓');
+  } catch (err) {
+    console.error('GIF export failed', err);
+    setLabel('Échec ✕');
+    if (err?.name !== 'NotAllowedError') alert(`Export GIF impossible : ${err.message || err}`);
+  } finally {
+    stream?.getTracks().forEach(track => track.stop());
+    setTimeout(() => { setLabel(originalText); btn.disabled = false; }, 1600);
+  }
+}
+
 function moveScene(delta) {
   const current = SCENES.findIndex(scene => scene.id === sceneId);
   sceneId = SCENES[(current + delta + SCENES.length) % SCENES.length].id;
@@ -225,6 +307,7 @@ function bindUi() {
   $('#animBtn').addEventListener('click', () => { animations = !animations; renderAll(); });
   $('#reloadBtn').addEventListener('click', () => renderAll({ replay:true }));
   $('#cleanBtn').addEventListener('click', openCleanView);
+  $('#exportGifBtn').addEventListener('click', exportGif);
   $('#copyLinkBtn').addEventListener('click', copyDirectLink);
   $('#glowRimBlur').addEventListener('input', event => { glow.rb = clampFloat(event.target.value,0,20,glow.rb); applyGlowVars(); syncGlowInputs(); persistUrl(); });
   $('#glowRimAlpha').addEventListener('input', event => { glow.ra = clampFloat(event.target.value,0,1,glow.ra); applyGlowVars(); syncGlowInputs(); persistUrl(); });
