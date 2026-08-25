@@ -31,7 +31,7 @@ function cover(lang){
  const mons=[6,143,149,130,94,59].map((d,i)=>({d,left:`${cols[i]}%`}));
  const agents=['red','rocketgrunt','scientist','rocketgruntf','burglar','biker'].map((k,i)=>({k,left:`${cols[i]}%`}));
  const monsHtml=mons.map(m=>`<img class="pg-cover-mon" style="left:${m.left};top:76%;transform:translate(-50%,-50%)" src="${poke(m.d)}">`).join('');
- const agentsHtml=agents.map((a,i)=>`<img class="pg-cover-boss" style="left:${a.left};top:55%;transform:translate(-50%,-50%)${i?';opacity:.4':''}" src="${trainer(a.k)}">`).join('');
+ const agentsHtml=agents.map((a,i)=>`<img class="pg-cover-boss" style="left:${a.left};top:55%;transform:translate(-50%,-50%)${i?';opacity:.52':''}" src="${trainer(a.k)}">`).join('');
  const words=[[L(lang,'CAPTURE','CATCH'),0],[L(lang,'RECRUTE','RECRUIT'),0.53],[L(lang,'ÉTENDS','EXPAND'),1.06]];
  const tagHtml=words.map(([w,delay],i)=>`${i?'<span class="dot">·</span>':''}<span class="pg-cover-tagword" style="animation-delay:${delay}s">${w}</span>`).join('');
  return `<div class="shot-scene"><div class="pg-cover">
