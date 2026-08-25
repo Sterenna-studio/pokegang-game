@@ -85,3 +85,20 @@ les variantes française du site et anglaise d'itch contrôlées.
 
 `tools/test-combat-multi-pokemon.mjs` conserve en parallèle la couverture des
 transitions standard/raid, du fallback de sprite et des gardes de génération.
+
+## Suivi — points précédemment différés
+
+Les deux derniers points marqués `skipped` lors de la revue sont maintenant
+couverts sans fusionner les règles métier propres à chaque rencontre :
+
+- `modules/ui/combatReplayDom.js` centralise le HUD, le remplacement atomique
+  des handlers, le séquenceur de replay et les mutations DOM communes aux tours
+  `switch`, `attack` et `faint` ; les combats standards, raids et événements
+  utilisent tous ce même présentateur ;
+- `tools/test-combat-replay-dom.mjs` fournit un harnais DOM déterministe sans
+  dépendance externe. Il clique réellement sur vitesse et fuite, remplace
+  ensuite fuite par fermeture, et vérifie que l'ancien handler ne survit pas.
+
+Les calculs de récompense, l'activation des événements et le retrait des spawns
+restent volontairement dans leurs chemins respectifs : ce sont des différences
+métier, plus une duplication du pipeline visuel de combat.

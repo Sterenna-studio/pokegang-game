@@ -57,6 +57,12 @@ import {
   suspendCombatSpawnExpiry,
   warnIfActiveEnemySpriteMissing,
 } from './combatSequence.js';
+import {
+  createCombatReplayPresenter,
+  createCombatReplayRunner,
+  mountCombatHud,
+  setCombatHudAction,
+} from './combatReplayDom.js';
 import { AUTO_COMBAT_VISUAL_MS } from '../../data/gameplay-config-data.js';
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
@@ -113,16 +119,12 @@ function combatSpeedButtonHtml() {
   return `<button class="zchud-speed" type="button" title="${title}" aria-label="${title}">×${speed}</button>`;
 }
 
-function bindCombatSpeedButton(hud) {
-  const button = hud?.querySelector('.zchud-speed');
-  if (!button) return;
-  button.addEventListener('click', () => {
-    const state = globalThis.state;
-    state.settings = state.settings || {};
-    state.settings.combatSpeed = nextCombatSpeed(state.settings.combatSpeed);
-    button.textContent = `×${state.settings.combatSpeed}`;
-    _save();
-  });
+function handleCombatSpeedClick({ button }) {
+  const state = globalThis.state;
+  state.settings = state.settings || {};
+  state.settings.combatSpeed = nextCombatSpeed(state.settings.combatSpeed);
+  button.textContent = `×${state.settings.combatSpeed}`;
+  _save();
 }
 
 function _zwActiveRegion() {
@@ -2880,6 +2882,53 @@ function playCombatHitEffect(el, schedule = (fn, ms) => setTimeout(fn, ms)) {
   schedule(() => el.classList.remove('combat-hit'), 340);
 }
 
+function formatCombatAttackTurn(turn) {
+  const effectiveness = turn.effectiveness > 1 ? _t('zone_effective_super')
+    : (turn.effectiveness > 0 && turn.effectiveness < 1) ? _t('zone_effective_low')
+    : turn.effectiveness === 0 ? _t('zone_effective_none') : '';
+  return _t('zone_uses_move', {
+    pokemon: globalThis.speciesName(turn.attackerSpecies),
+    move: turn.move,
+    effectiveness,
+  });
+}
+
+function createZoneCombatReplayPresenter({
+  combat,
+  playerAnchor,
+  enemyOverlayAnchor,
+  resolveEnemySpriteAnchor,
+  enemySpriteClass,
+  enemySpriteSelector,
+  logLine,
+  scheduleVisual,
+  onSwitch,
+}) {
+  return createCombatReplayPresenter({
+    documentRef: document,
+    combat,
+    playerAnchor,
+    enemyOverlayAnchor,
+    resolveEnemySpriteAnchor,
+    makeOverlay: makeCombatOverlay,
+    setHpBar: setCombatHpBar,
+    renderSprite: renderCombatPokemonSprite,
+    speciesName: globalThis.speciesName,
+    playerSpriteUrl: turn => globalThis.pokeSpriteBack(turn.species_en, turn.shiny),
+    enemySpriteUrl: turn => globalThis.pokeSprite(turn.species_en, turn.shiny),
+    playerSpriteStyle: turn => `width:40px;height:40px;image-rendering:pixelated;${turn.shiny ? 'filter:drop-shadow(0 0 4px var(--gold))' : ''}`,
+    enemySpriteStyle: turn => `width:56px;height:56px;image-rendering:pixelated;${turn.shiny ? 'filter:drop-shadow(0 0 6px var(--gold))' : ''}`,
+    enemySpriteClass,
+    enemySpriteSelector,
+    logLine,
+    formatAttack: formatCombatAttackTurn,
+    formatFaint: turn => _t('zone_knocked_out', { pokemon: globalThis.speciesName(turn.species_en) }),
+    playHitEffect: playCombatHitEffect,
+    scheduleVisual,
+    onSwitch,
+  });
+}
+
 // ════════════════════════════════════════════════════════════════
 // Auto-combat visuel (agents) — zone visible uniquement
 // ════════════════════════════════════════════════════════════════
@@ -3218,10 +3267,12 @@ function openCombatPopup(zoneId, spawnObj, { mode = 'manual', initiatedBy = 'pla
   currentCombat.tier = combatTier;
 
   // ── HUD minimal en bas du viewport ─
-  const hud = document.createElement('div');
-  hud.className = 'zone-combat-hud zone-combat-hud-minimal';
-  hud.id = `zchud-${zoneId}`;
-  hud.innerHTML = `
+  const sequenceId = sequence.id;
+  mountCombatHud({
+    documentRef: document,
+    viewport,
+    zoneId,
+    html: `
     <div class="combat-tier-header" style="border-color:${combatTier.color};color:${combatTier.color}">
       <span class="ct-emoji">${combatTier.emoji}</span>
       <span class="ct-label">${combatTier.label}</span>
@@ -3230,23 +3281,21 @@ function openCombatPopup(zoneId, spawnObj, { mode = 'manual', initiatedBy = 'pla
     </div>
     <span class="zchud-vs">⚔ ${_esc(trainerName)} <span style="color:var(--text-dim);font-size:7px">${enemyPool.length} Pok. · ⚡${fmtCombatNum(preview.attackerPower)} / 🛡${fmtCombatNum(preview.defenderPower)}</span></span>
       ${combatSpeedButtonHtml()}
-      <button class="zchud-flee" id="zchud-flee-${zoneId}">${_t('zone_flee')}</button>`;
-  viewport.appendChild(hud);
-  bindCombatSpeedButton(hud);
+      <button class="zchud-flee" id="zchud-flee-${zoneId}">${_t('zone_flee')}</button>`,
+    onSpeed: handleCombatSpeedClick,
+    onAction: () => closeCombatPopup(sequenceId, { resumeSpawn: true }),
+  });
 
   // ── Auto-start + flee ─────────────────────────────────────────
-  const sequenceId = sequence.id;
   combatSequences.schedule(sequence, () => executeCombat(sequenceId), 600);
-  // .onclick, pas addEventListener : executeCombat réassigne ce même bouton à
-  // `doClose` une fois le script de combat terminé (cf. plus bas), et .onclick
+  // combatReplayDom câble .onclick, pas addEventListener : executeCombat
+  // remplace ce même bouton par `doClose` une fois le script terminé. .onclick
   // REMPLACE le handler précédent alors qu'addEventListener l'aurait laissé
   // actif en plus du nouveau — un clic sur « Fermer » après la fin du combat
   // déclenchait alors CE handler de fuite (resumeSpawn:true, qui relance le
   // TTL du spawn déjà vaincu) EN PLUS de doClose, dont le nettoyage
   // (removeSpawn, COMBAT_SEQUENCE_ENDED) ne s'exécutait alors jamais — la
   // séquence de combat était déjà annulée par le premier handler.
-  const fleeBtnEl = document.getElementById(`zchud-flee-${zoneId}`);
-  if (fleeBtnEl) fleeBtnEl.onclick = () => closeCombatPopup(sequenceId, { resumeSpawn: true });
 }
 
 function executeCombat(expectedSequenceId = null) {
@@ -3311,11 +3360,6 @@ function executeCombat(expectedSequenceId = null) {
     ],
   });
 
-  let playerOv = null;
-  let enemyOv = null;
-  let playerSpriteEl = null;
-  let enemySpriteEl = null;
-
   function queueTimer(fn, ms) {
     return combatSequences.schedule(combat.sequence, fn, scaleCombatDelay(ms, getCombatSpeed()));
   }
@@ -3343,120 +3387,52 @@ function executeCombat(expectedSequenceId = null) {
     logEl.scrollTop = logEl.scrollHeight;
   }
 
-  function ensurePlayerOverlay() {
-    if (!playerAnchorEl) return null;
-    if (!playerOv) {
-      playerOv = makeCombatOverlay(playerAnchorEl, 'player');
-      playerSpriteEl = document.createElement('div');
-      playerSpriteEl.className = 'combat-sent-pk';
-      playerAnchorEl.appendChild(playerSpriteEl);
-    }
-    return playerOv;
-  }
-
-  function ensureEnemyOverlay() {
-    if (!spawnEl) return null;
-    if (!enemyOv) enemyOv = makeCombatOverlay(spawnEl, 'enemy');
-    return enemyOv;
-  }
-
-  function playSwitch(t) {
-    const previous = combat.active[t.side];
-    const spriteUrl = t.side === 'player'
-      ? globalThis.pokeSpriteBack(t.species_en, t.shiny)
-      : globalThis.pokeSprite(t.species_en, t.shiny);
-    combat.active[t.side] = {
-      side: t.side,
-      index: t.teamIndex,
-      oldIndex: previous?.index ?? null,
-      trainerIndex: t.trainerIndex ?? 0,
-      pokemonIndex: t.pokemonIndex ?? t.teamIndex,
-      species_en: t.species_en,
-      hp: t.hp,
-      maxHp: t.maxHp,
-      spriteUrl,
-    };
-    if (t.side === 'player') {
-      const ov = ensurePlayerOverlay();
-      if (ov) {
-        ov.name.textContent = `${globalThis.speciesName(t.species_en)} Lv.${t.level}`;
-        setCombatHpBar(ov, t.hp, t.maxHp);
-        if (playerSpriteEl) {
-          renderCombatPokemonSprite({
-            anchor: playerSpriteEl,
-            previous: playerSpriteEl.querySelector('.combat-player-pk'),
-            src: spriteUrl,
-            alt: globalThis.speciesName(t.species_en),
-            className: 'combat-player-pk',
-            style: `width:40px;height:40px;image-rendering:pixelated;${t.shiny ? 'filter:drop-shadow(0 0 4px var(--gold))' : ''}`,
-            insertBefore: false,
-          });
-        }
-      }
-    } else {
-      const ov = ensureEnemyOverlay();
-      if (ov) {
-        ov.name.textContent = `${globalThis.speciesName(t.species_en)} Lv.${t.level}`;
-        setCombatHpBar(ov, t.hp, t.maxHp);
-      }
-      if (spawnEl) {
-        let enemySpriteAnchor = spawnEl;
-        if (isRaidCombat) {
-          const lineup = ensureRaidTrainerLineup(spawnEl, spawnObj);
-          const trainerSlot = lineup?.querySelector(`[data-raid-trainer-index="${t.trainerIndex ?? 0}"]`)
-            || lineup?.querySelector('.raid-trainer-slot');
-          lineup?.querySelectorAll('.raid-trainer-slot').forEach(slot => slot.classList.remove('is-active'));
-          trainerSlot?.classList.add('is-active');
-          const pokemonSlot = trainerSlot?.querySelector('.raid-trainer-pokemon-slot');
-          if (pokemonSlot) {
-            if (enemySpriteEl?.parentNode !== pokemonSlot) enemySpriteEl?.remove();
-            enemySpriteAnchor = pokemonSlot;
-          }
-        }
-        enemySpriteEl = renderCombatPokemonSprite({
-          anchor: enemySpriteAnchor,
-          previous: enemySpriteEl || enemySpriteAnchor.querySelector('.combat-enemy-pk'),
-          src: spriteUrl,
-          alt: globalThis.speciesName(t.species_en),
-          className: 'combat-enemy-pk',
-          style: `width:56px;height:56px;image-rendering:pixelated;${t.shiny ? 'filter:drop-shadow(0 0 6px var(--gold))' : ''}`,
-        });
-      }
-    }
-    const diagnostic = {
-      sequenceId: combat.sequence.id,
-      zoneId,
-      spawnId: spawnObj.id ?? null,
-      raidId: spawnObj.isRaid || spawnObj.type === 'raid' ? (spawnObj.id ?? spawnObj.trainerKey ?? 'raid') : null,
-      side: t.side,
-      oldIndex: previous?.index ?? null,
-      newIndex: t.teamIndex,
-      species: t.species_en,
-      hp: t.hp,
-      spriteUrl,
-      domNodePresent: !!(t.side === 'enemy' ? enemySpriteEl : playerSpriteEl),
-      src: t.side === 'enemy' ? enemySpriteEl?.src : playerSpriteEl?.querySelector('img')?.src,
-      display: t.side === 'enemy' ? enemySpriteEl?.style?.display : playerSpriteEl?.style?.display,
-      visibility: t.side === 'enemy' ? enemySpriteEl?.style?.visibility : playerSpriteEl?.style?.visibility,
-      opacity: t.side === 'enemy' ? enemySpriteEl?.style?.opacity : playerSpriteEl?.style?.opacity,
-    };
-    if (combatDevDiagnosticsEnabled()) console.debug('[combat] switch', diagnostic);
-    // isCombatSpriteVisible() force un getComputedStyle (reflow synchrone) —
-    // n'a de sens qu'en dev : le console.warn qu'il déclenche n'est de toute
-    // façon visible que là (cf. combatDevDiagnosticsEnabled ci-dessus), donc
-    // le coût layout est évité pour tous les vrais joueurs.
-    if (combatDevDiagnosticsEnabled() && t.side === 'enemy') {
-      warnIfActiveEnemySpriteMissing({
+  const presenter = createZoneCombatReplayPresenter({
+    combat,
+    playerAnchor: playerAnchorEl,
+    enemyOverlayAnchor: spawnEl,
+    resolveEnemySpriteAnchor(turn) {
+      if (!isRaidCombat || !spawnEl) return spawnEl;
+      const lineup = ensureRaidTrainerLineup(spawnEl, spawnObj);
+      const trainerSlot = lineup?.querySelector(`[data-raid-trainer-index="${turn.trainerIndex ?? 0}"]`)
+        || lineup?.querySelector('.raid-trainer-slot');
+      lineup?.querySelectorAll('.raid-trainer-slot').forEach(slot => slot.classList.remove('is-active'));
+      trainerSlot?.classList.add('is-active');
+      return trainerSlot?.querySelector('.raid-trainer-pokemon-slot') || spawnEl;
+    },
+    logLine,
+    scheduleVisual: queueVisualTimer,
+    onSwitch({ turn, previous, spriteUrl, playerSpriteHost, enemySprite }) {
+      const diagnostic = {
         sequenceId: combat.sequence.id,
         zoneId,
         spawnId: spawnObj.id ?? null,
-        raidId: diagnostic.raidId,
-        enemy: combat.active.enemy,
-        spriteEl: enemySpriteEl,
-      });
-    }
-    logLine(`${globalThis.speciesName(t.species_en)} entre en jeu !`);
-  }
+        raidId: spawnObj.isRaid || spawnObj.type === 'raid' ? (spawnObj.id ?? spawnObj.trainerKey ?? 'raid') : null,
+        side: turn.side,
+        oldIndex: previous?.index ?? null,
+        newIndex: turn.teamIndex,
+        species: turn.species_en,
+        hp: turn.hp,
+        spriteUrl,
+        domNodePresent: !!(turn.side === 'enemy' ? enemySprite : playerSpriteHost),
+        src: turn.side === 'enemy' ? enemySprite?.src : playerSpriteHost?.querySelector('img')?.src,
+        display: turn.side === 'enemy' ? enemySprite?.style?.display : playerSpriteHost?.style?.display,
+        visibility: turn.side === 'enemy' ? enemySprite?.style?.visibility : playerSpriteHost?.style?.visibility,
+        opacity: turn.side === 'enemy' ? enemySprite?.style?.opacity : playerSpriteHost?.style?.opacity,
+      };
+      if (combatDevDiagnosticsEnabled()) console.debug('[combat] switch', diagnostic);
+      if (combatDevDiagnosticsEnabled() && turn.side === 'enemy') {
+        warnIfActiveEnemySpriteMissing({
+          sequenceId: combat.sequence.id,
+          zoneId,
+          spawnId: spawnObj.id ?? null,
+          raidId: diagnostic.raidId,
+          enemy: combat.active.enemy,
+          spriteEl: enemySprite,
+        });
+      }
+    },
+  });
 
   function doClose() {
     combatSequences.finish(combat.sequence, () => {
@@ -3476,11 +3452,10 @@ function executeCombat(expectedSequenceId = null) {
   }
 
   const hudEl = document.getElementById(`zchud-${zoneId}`);
-  const fleeBtn = hudEl?.querySelector('.zchud-flee');
-  if (fleeBtn) {
-    fleeBtn.disabled = true;
-    fleeBtn.textContent = _t('zone_combat_in_progress');
-  }
+  setCombatHudAction(hudEl, {
+    label: _t('zone_combat_in_progress'),
+    disabled: true,
+  });
 
   const script = [
     ...introLines.map(text => ({ type: 'log', text })),
@@ -3500,7 +3475,6 @@ function executeCombat(expectedSequenceId = null) {
   // c'est précisément là qu'on veut laisser voir chaque Pokémon.
   const isOnboardingAmbush = !!spawnWithZone?.spawnCtx?.ambush;
   const AMBUSH_BUDGET_MS = 14_000;
-  let index = 0;
   const delay = isOnboardingAmbush
     ? Math.min(1400, Math.max(400, Math.round(AMBUSH_BUDGET_MS / Math.max(script.length, 1))))
     : 650;
@@ -3509,56 +3483,29 @@ function executeCombat(expectedSequenceId = null) {
   // d'entrée en scène qui porte la lisibilité. Sur un combat court, le délai
   // remonte jusqu'au plafond et le rythme redevient franchement posé.
   const switchDelay = isOnboardingAmbush ? Math.round(delay * 1.8) : delay;
-  function nextStep() {
-    if (!combatSequences.isActive(combat.sequence) || currentCombat !== combat) return;
-    if (index < script.length) {
-      const item = script[index++];
-      let stepDelay = delay;
+  createCombatReplayRunner({
+    items: script,
+    isActive: () => combatSequences.isActive(combat.sequence) && currentCombat === combat,
+    schedule: queueTimer,
+    initialDelay: isOnboardingAmbush ? 500 : 120,
+    getDelay: item => item.type === 'switch' ? switchDelay : delay,
+    onItem(item) {
       if (item.type === 'log') {
         const text = item.text;
         const kind = text.startsWith('— ') ? 'result' : (text.startsWith('+') || text.includes(_t('zone_no_loot'))) ? 'loot' : '';
         logLine(text, kind);
-      } else if (item.type === 'switch') {
-        playSwitch(item);
-        stepDelay = switchDelay;
-      } else if (item.type === 'attack') {
-        const atkName = globalThis.speciesName(item.attackerSpecies);
-        const effTxt = item.effectiveness > 1 ? _t('zone_effective_super')
-          : (item.effectiveness > 0 && item.effectiveness < 1) ? _t('zone_effective_low')
-          : item.effectiveness === 0 ? _t('zone_effective_none') : '';
-        logLine(_t('zone_uses_move', { pokemon: atkName, move: item.move, effectiveness: effTxt }));
-        const targetOv = item.side === 'player' ? ensureEnemyOverlay() : ensurePlayerOverlay();
-        setCombatHpBar(targetOv, item.defenderHp, item.defenderMaxHp);
-        const activeTarget = item.side === 'player' ? combat.active.enemy : combat.active.player;
-        if (activeTarget && item.defenderIndex === activeTarget.index) activeTarget.hp = item.defenderHp;
-        playCombatHitEffect(
-          item.side === 'player' ? (enemySpriteEl || spawnEl) : (playerSpriteEl || playerAnchorEl),
-          queueVisualTimer,
-        );
-      } else if (item.type === 'faint') {
-        logLine(_t('zone_knocked_out', { pokemon: globalThis.speciesName(item.species_en) }));
-        const active = combat.active[item.side];
-        if (active?.index === item.teamIndex) active.hp = 0;
-        const faintedSprite = item.side === 'enemy'
-          ? enemySpriteEl
-          : playerSpriteEl?.querySelector('.combat-player-pk');
-        faintedSprite?.classList.remove('combat-hit');
-        faintedSprite?.classList.add('fainted');
+        return;
       }
-      queueTimer(nextStep, stepDelay);
-      return;
-    }
-
-    const closeBtn = hudEl?.querySelector('.zchud-flee');
-    if (closeBtn) {
-      closeBtn.disabled = false;
-      closeBtn.textContent = _t('zone_close');
-      closeBtn.onclick = doClose;
-    }
-    queueTimer(doClose, isOnboardingAmbush ? 2600 : 1800);
-  }
-
-  queueTimer(nextStep, isOnboardingAmbush ? 500 : 120);
+      presenter.handle(item);
+    },
+    onComplete() {
+      setCombatHudAction(hudEl, {
+        label: _t('zone_close'),
+        onAction: doClose,
+      });
+      queueTimer(doClose, isOnboardingAmbush ? 2600 : 1800);
+    },
+  }).start();
 }
 
 function closeCombatPopup(expectedSequenceId = null, { resumeSpawn = false } = {}) {
@@ -3661,23 +3608,22 @@ function openEventBattlePopup(zoneId) {
   };
   globalThis.currentCombat = currentCombat;
 
-  const hud = document.createElement('div');
-  hud.className = 'zone-combat-hud zone-combat-hud-minimal';
-  hud.id = `zchud-${zoneId}`;
-  hud.innerHTML = `
+  const sequenceId = sequence.id;
+  mountCombatHud({
+    documentRef: document,
+    viewport,
+    zoneId,
+    html: `
     <span class="zchud-vs">⚔ ${_esc(trainerName)} <span style="color:var(--text-dim);font-size:7px">${enemyTeam.length} Pok.</span></span>
       ${combatSpeedButtonHtml()}
-      <button class="zchud-flee" id="zchud-flee-${zoneId}">${_t('zone_flee')}</button>`;
-  viewport.appendChild(hud);
-  bindCombatSpeedButton(hud);
+      <button class="zchud-flee" id="zchud-flee-${zoneId}">${_t('zone_flee')}</button>`,
+    onSpeed: handleCombatSpeedClick,
+    onAction: () => closeEventBattle(sequenceId),
+  });
 
-  const sequenceId = sequence.id;
   combatSequences.schedule(sequence, () => executeEventBattle(sequenceId), 600);
-  // .onclick, pas addEventListener — même raison que openCombatPopup ci-dessus :
-  // executeEventBattle réassigne ce bouton, et .onclick doit remplacer ce
-  // handler plutôt que s'y ajouter.
-  const fleeBtnEl = document.getElementById(`zchud-flee-${zoneId}`);
-  if (fleeBtnEl) fleeBtnEl.onclick = () => closeEventBattle(sequenceId);
+  // Le même contrat .onclick que le combat standard garantit que la fermeture
+  // finale remplace la fuite au lieu d'empiler un deuxième handler.
 }
 
 function executeEventBattle(expectedSequenceId = null) {
@@ -3696,40 +3642,6 @@ function executeEventBattle(expectedSequenceId = null) {
   const logEl = document.getElementById(`zchud-log-${zoneId}`);
   const battle = resolveEventBattle({ playerTeam: playerPokemon, enemyTeam });
   combat.battle = battle;
-
-  let playerOv = null, enemyOv = null, playerSpriteEl = null, enemySpriteEl = null;
-
-  function setHpBar(ov, hp, maxHp) {
-    if (!ov) return;
-    const pct = Math.max(0, Math.min(100, Math.round(hp / maxHp * 100)));
-    ov.fill.style.width = pct + '%';
-    ov.txt.textContent = `${Math.max(0, hp)}/${maxHp}`;
-  }
-
-  function ensurePlayerOverlay() {
-    if (!anchorPlayerEl) return null;
-    if (!playerOv) {
-      const ov = document.createElement('div');
-      ov.className = 'combat-hp-overlay combat-hp-gang';
-      ov.innerHTML = `<div class="chp-name"></div><div class="chp-bar"><div class="chp-fill" style="width:100%"></div></div><div class="chp-txt"></div>`;
-      anchorPlayerEl.appendChild(ov);
-      playerOv = { name: ov.querySelector('.chp-name'), fill: ov.querySelector('.chp-fill'), txt: ov.querySelector('.chp-txt') };
-      playerSpriteEl = document.createElement('div');
-      playerSpriteEl.className = 'combat-sent-pk';
-      anchorPlayerEl.appendChild(playerSpriteEl);
-    }
-    return playerOv;
-  }
-  function ensureEnemyOverlay() {
-    if (!enemyOv) {
-      const ov = document.createElement('div');
-      ov.className = 'combat-hp-overlay combat-hp-enemy';
-      ov.innerHTML = `<div class="chp-name"></div><div class="chp-bar"><div class="chp-fill chp-fill-red" style="width:100%"></div></div><div class="chp-txt"></div>`;
-      npcEl.appendChild(ov);
-      enemyOv = { name: ov.querySelector('.chp-name'), fill: ov.querySelector('.chp-fill'), txt: ov.querySelector('.chp-txt') };
-    }
-    return enemyOv;
-  }
 
   function logLine(text, kind = '') {
     if (!logEl) return;
@@ -3752,74 +3664,38 @@ function executeEventBattle(expectedSequenceId = null) {
     return combatSequences.schedule(combat.sequence, fn, ms);
   }
 
-  function playSwitch(t) {
-    const previous = combat.active[t.side];
-    const spriteUrl = t.side === 'player'
-      ? globalThis.pokeSpriteBack(t.species_en, t.shiny)
-      : globalThis.pokeSprite(t.species_en, t.shiny);
-    combat.active[t.side] = {
-      side: t.side,
-      index: t.teamIndex,
-      oldIndex: previous?.index ?? null,
-      trainerIndex: t.trainerIndex ?? 0,
-      pokemonIndex: t.pokemonIndex ?? t.teamIndex,
-      species_en: t.species_en,
-      hp: t.hp,
-      maxHp: t.maxHp,
-      spriteUrl,
-    };
-    if (t.side === 'player') {
-      const ov = ensurePlayerOverlay();
-      if (ov) {
-        ov.name.textContent = `${globalThis.speciesName(t.species_en)} Lv.${t.level}`;
-        setHpBar(ov, t.hp, t.maxHp);
-        if (playerSpriteEl) {
-          renderCombatPokemonSprite({
-            anchor: playerSpriteEl,
-            previous: playerSpriteEl.querySelector('.combat-player-pk'),
-            src: spriteUrl,
-            alt: globalThis.speciesName(t.species_en),
-            className: 'combat-player-pk',
-            style: `width:40px;height:40px;image-rendering:pixelated;${t.shiny ? 'filter:drop-shadow(0 0 4px var(--gold))' : ''}`,
-            insertBefore: false,
+  const presenter = createZoneCombatReplayPresenter({
+    combat,
+    playerAnchor: anchorPlayerEl,
+    enemyOverlayAnchor: npcEl,
+    enemySpriteClass: 'event-enemy-sprite',
+    enemySpriteSelector: '.event-enemy-sprite',
+    logLine,
+    scheduleVisual: queueVisualTimer,
+    onSwitch({ turn, previous, spriteUrl, playerSpriteHost, enemySprite }) {
+      if (combatDevDiagnosticsEnabled()) {
+        console.debug('[combat] switch', {
+          sequenceId: combat.sequence.id,
+          zoneId,
+          side: turn.side,
+          oldIndex: previous?.index ?? null,
+          newIndex: turn.teamIndex,
+          species: turn.species_en,
+          hp: turn.hp,
+          spriteUrl,
+          domNodePresent: turn.side === 'enemy' ? !!enemySprite : !!playerSpriteHost,
+        });
+        if (turn.side === 'enemy') {
+          warnIfActiveEnemySpriteMissing({
+            sequenceId: combat.sequence.id,
+            zoneId,
+            enemy: combat.active.enemy,
+            spriteEl: enemySprite,
           });
         }
       }
-    } else {
-      const ov = ensureEnemyOverlay();
-      ov.name.textContent = `${globalThis.speciesName(t.species_en)} Lv.${t.level}`;
-      setHpBar(ov, t.hp, t.maxHp);
-      enemySpriteEl = renderCombatPokemonSprite({
-        anchor: npcEl,
-        previous: enemySpriteEl || npcEl.querySelector('.event-enemy-sprite'),
-        src: spriteUrl,
-        alt: globalThis.speciesName(t.species_en),
-        className: 'event-enemy-sprite',
-        style: `width:56px;height:56px;image-rendering:pixelated;${t.shiny ? 'filter:drop-shadow(0 0 6px var(--gold))' : ''}`,
-      });
-      // Gaté comme le combat de zone standard — voir le commentaire dans
-      // nextStep (executeCombat) : isCombatSpriteVisible() force un reflow
-      // synchrone, à éviter hors dev où le warn qu'il produit est de toute
-      // façon invisible.
-      if (combatDevDiagnosticsEnabled()) {
-        warnIfActiveEnemySpriteMissing({
-          sequenceId: combat.sequence.id,
-          zoneId,
-          enemy: combat.active.enemy,
-          spriteEl: enemySpriteEl,
-        });
-      }
-    }
-    if (combatDevDiagnosticsEnabled()) {
-      console.debug('[combat] switch', {
-        sequenceId: combat.sequence.id, zoneId, side: t.side,
-        oldIndex: previous?.index ?? null, newIndex: t.teamIndex,
-        species: t.species_en, hp: t.hp, spriteUrl,
-        domNodePresent: t.side === 'enemy' ? !!enemySpriteEl : !!playerSpriteEl,
-      });
-    }
-    logLine(`${globalThis.speciesName(t.species_en)} entre en jeu !`);
-  }
+    },
+  });
 
   function finalize() {
     if (combat.finalized || !combatSequences.isActive(combat.sequence)) return;
@@ -3858,47 +3734,23 @@ function executeEventBattle(expectedSequenceId = null) {
     });
 
     const hudEl = document.getElementById(`zchud-${zoneId}`);
-    const fleeBtn = hudEl?.querySelector('.zchud-flee');
-    if (fleeBtn) {
-      fleeBtn.textContent = _t('zone_close');
-      fleeBtn.onclick = () => closeEventBattle(combat.sequence.id);
-    }
+    setCombatHudAction(hudEl, {
+      label: _t('zone_close'),
+      onAction: () => closeEventBattle(combat.sequence.id),
+    });
     queueTimer(() => closeEventBattle(combat.sequence.id), 1800);
   }
 
-  let i = 0;
   const delay = 650;
-  function nextTurn() {
-    if (!combatSequences.isActive(combat.sequence) || currentCombat !== combat) return;
-    if (i >= battle.turns.length) { finalize(); return; }
-    const t = battle.turns[i++];
-    if (t.type === 'switch') {
-      playSwitch(t);
-    } else if (t.type === 'attack') {
-      const atkName = globalThis.speciesName(t.attackerSpecies);
-      const effTxt = t.effectiveness > 1 ? _t('zone_effective_super')
-        : (t.effectiveness > 0 && t.effectiveness < 1) ? _t('zone_effective_low')
-        : t.effectiveness === 0 ? _t('zone_effective_none') : '';
-      logLine(_t('zone_uses_move', { pokemon: atkName, move: t.move, effectiveness: effTxt }));
-      const targetOv = t.side === 'player' ? ensureEnemyOverlay() : ensurePlayerOverlay();
-      setHpBar(targetOv, t.defenderHp, t.defenderMaxHp);
-      const activeTarget = t.side === 'player' ? combat.active.enemy : combat.active.player;
-      if (activeTarget && t.defenderIndex === activeTarget.index) activeTarget.hp = t.defenderHp;
-      playCombatHitEffect(t.side === 'player' ? (enemySpriteEl || npcEl) : (playerSpriteEl || anchorPlayerEl), queueVisualTimer);
-    } else if (t.type === 'faint') {
-      logLine(_t('zone_knocked_out', { pokemon: globalThis.speciesName(t.species_en) }));
-      const active = combat.active[t.side];
-      if (active?.index === t.teamIndex) active.hp = 0;
-      const faintedSprite = t.side === 'enemy'
-        ? enemySpriteEl
-        : playerSpriteEl?.querySelector('.combat-player-pk');
-      faintedSprite?.classList.remove('combat-hit');
-      faintedSprite?.classList.add('fainted');
-    }
-    queueTimer(nextTurn, delay);
-  }
-
-  queueTimer(nextTurn, 120);
+  createCombatReplayRunner({
+    items: battle.turns,
+    isActive: () => combatSequences.isActive(combat.sequence) && currentCombat === combat,
+    schedule: queueTimer,
+    initialDelay: 120,
+    getDelay: () => delay,
+    onItem: turn => presenter.handle(turn),
+    onComplete: finalize,
+  }).start();
 }
 
 function closeEventBattle(expectedSequenceId = null) {
