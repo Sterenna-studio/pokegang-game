@@ -293,6 +293,8 @@ function makeFakeAnchor() {
   assert.match(source, /enemySpriteAnchor = pokemonSlot/);
   assert.match(source, /combatSpeedButtonHtml\(\)/);
   assert.match(source, /scaleCombatDelay\(ms, getCombatSpeed\(\)\)/);
+  assert.doesNotMatch(source, /spawnEl\.style\.opacity = result\.attackerWin/);
+  assert.doesNotMatch(source, /spawnEl\.style\.opacity = win \?/);
   assert.match(css, /\.raid-trainer-pokemon-slot:not\(:empty\) \{ width: 56px; \}/);
   assert.match(css, /\.zone-spawn\.zone-spawn-battle \.raid-trainer-lineup \{ scale: 1 1; \}/);
   assert.match(css, /\.zchud-speed \{/);

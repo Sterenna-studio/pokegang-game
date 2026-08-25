@@ -49,6 +49,7 @@
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
 import { defaultEncounterState } from './questCombat.js';
+import { reconcileHoennStoryUnlocks } from './hoennUnlocks.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type });
 const _save   = ()               => globalThis.saveState?.();
@@ -147,6 +148,51 @@ function _defaultQS(questId) {
   return { ...d, aquaFightsWon: 0, hideoutFightsWon: 0, archieDefeated: false, kyogreOwned: false };
 }
 
+const HOENN_UNLOCK_MESSAGES = {
+  magma_hideout_key: {
+    fr: '🔑 Clé du QG Team Magma obtenue !',
+    en: '🔑 Team Magma Hideout Key obtained!',
+  },
+  aqua_hideout_key: {
+    fr: '🔑 Clé du QG Team Aqua obtenue !',
+    en: '🔑 Team Aqua Hideout Key obtained!',
+  },
+  cave_origin_pass: {
+    fr: '📜 Laissez-passer de la Caverne Originelle obtenu !',
+    en: '📜 Cave of Origin Pass obtained!',
+  },
+  regi_seal: {
+    fr: '🗿 Sceau des Régis obtenu — les Grottes des Régis sont accessibles !',
+    en: '🗿 Regi Seal obtained — the Regi Chambers are accessible!',
+  },
+};
+
+function _refreshZonesForStoryUnlock() {
+  // COMBAT_WON is emitted before the visual replay starts. Re-rendering the
+  // whole Zones tab synchronously here would replace DOM nodes still owned by
+  // that sequence (the exact class of desynchronisation tracked by issue #77).
+  if (globalThis.currentCombat) {
+    EventBus.once(EVENTS.COMBAT_SEQUENCE_ENDED, () => {
+      globalThis.renderZonesTab?.();
+    });
+    return;
+  }
+  globalThis.renderZonesTab?.();
+}
+
+function _grantEarnedStoryUnlocks(state, { notify = true } = {}) {
+  const granted = reconcileHoennStoryUnlocks(state);
+  if (!granted.length) return granted;
+  if (notify) {
+    for (const id of granted) {
+      const message = HOENN_UNLOCK_MESSAGES[id];
+      if (message) _notify(_t(message.fr, message.en), 'gold');
+    }
+  }
+  _refreshZonesForStoryUnlock();
+  return granted;
+}
+
 function _wait(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 function _typewrite(el, text, speed = 24) {
@@ -229,6 +275,8 @@ function _onCombatWon({ zoneId } = {}) {
       dirty = true;
     }
   }
+
+  if (_grantEarnedStoryUnlocks(s).length) dirty = true;
 
   if (dirty) _save();
 }
@@ -844,6 +892,7 @@ function _openChief(questId) {
       if (!result.won) return;
       if (questId === 'groudon') q.maxieDefeated = true; else q.archieDefeated = true;
       q.step = 5;
+      _grantEarnedStoryUnlocks(_state());
       _notify(_t(`${cfg.chief.name} est vaincu. ${cfg.legendary.name} s'est réveillé.`, `${cfg.chief.name} is defeated. ${cfg.legendary.name} has awakened.`), 'gold');
       _save();
       _repatchZone(cfg.hideout);
@@ -873,6 +922,7 @@ function _openLegendary(questId) {
       if (questId === 'groudon') q.groudonOwned = true; else q.kyogreOwned = true;
       q.totalCaptures = (q.totalCaptures || 0) + 1;
       q.step = 6;
+      _grantEarnedStoryUnlocks(_state());
       _notify(_t(`★ ${leg.name} capturé — Niv.${leg.level} / Pot.${leg.pot} !`, `★ ${leg.name} caught — Lv.${leg.level} / Pot.${leg.pot}!`), 'gold');
       _save();
       _repatchZone(leg.zone);
@@ -945,6 +995,7 @@ function _addLegendaryToPC(questId) {
 function checkLegendaryMissionsUnlock() {
   const s = _state();
   if (!s) return;
+  if (_grantEarnedStoryUnlocks(s).length) _save();
   const gm = _qs('groudon');
   const km = _qs('kyogre');
 

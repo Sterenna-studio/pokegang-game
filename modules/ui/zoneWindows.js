@@ -2919,7 +2919,10 @@ function cancelAutoCombatVisual(zoneId) {
   if (!lock) return;
   for (const t of lock.timers) clearTimeout(t);
   lock.spawnEl?.classList.remove('zone-spawn-battle', 'combat-hit');
-  if (lock.spawnEl) lock.spawnEl.style.animation = '';
+  if (lock.spawnEl) {
+    lock.spawnEl.style.animation = '';
+    lock.spawnEl.style.opacity = '';
+  }
   lock.playerSpriteEl?.remove();
   lock.enemySpriteEl?.remove();
   lock.activeTrainerSlot?.classList.remove('is-active');
@@ -3017,13 +3020,13 @@ function playAutoCombatVisual(zoneId, spawnObj, combatAgents, win) {
 
     spawnEl.classList.add('zone-spawn-battle');
     spawnEl.style.animation = 'none';
+    spawnEl.style.opacity = '1';
 
     queueTimer(() => playCombatHitEffect(lock.enemySpriteEl || spawnEl, queueTimer), 320);
     queueTimer(() => playCombatHitEffect(lock.playerSpriteEl || playerAnchorEl, queueTimer), 620);
     queueTimer(() => {
       spawnEl.classList.remove('zone-spawn-battle');
       spawnEl.classList.add(win ? 'caught' : 'failed');
-      spawnEl.style.opacity = win ? '0.45' : '0.75';
     }, 1000);
     queueTimer(() => {
       lock.playerSpriteEl?.remove();
@@ -3205,6 +3208,9 @@ function openCombatPopup(zoneId, spawnObj, { mode = 'manual', initiatedBy = 'pla
   if (spawnEl) {
     spawnEl.classList.add('zone-spawn-battle');
     spawnEl.style.animation = 'none';
+    // Le résultat logique est déjà calculé, mais ne doit pas assombrir le
+    // combattant pendant que son replay est encore en cours.
+    spawnEl.style.opacity = '1';
   }
 
   // ── Tier de difficulté (stocké dans currentCombat pour la résolution) ──
@@ -3467,7 +3473,6 @@ function executeCombat(expectedSequenceId = null) {
 
   if (spawnEl) {
     spawnEl.classList.add(result.attackerWin ? 'caught' : 'failed');
-    spawnEl.style.opacity = result.attackerWin ? '0.45' : '0.75';
   }
 
   const hudEl = document.getElementById(`zchud-${zoneId}`);
@@ -3571,6 +3576,7 @@ function closeCombatPopup(expectedSequenceId = null, { resumeSpawn = false } = {
     if (spawnEl) {
       spawnEl.classList.remove('zone-spawn-battle', 'combat-hit');
       spawnEl.style.animation = '';
+      spawnEl.style.opacity = '';
       spawnEl.querySelectorAll('.combat-enemy-pk').forEach(el => el.remove());
       spawnEl.querySelectorAll('.raid-trainer-slot.is-active').forEach(el => el.classList.remove('is-active'));
     }

@@ -87,15 +87,18 @@ function patchLang() {
 function patchItchUi() {
   const target = path.join(STAGE_DIR, 'modules', 'systems', 'cloudAccount.js');
   const src = fs.readFileSync(target, 'utf8');
-  const needle = `  // ── Section Nitro (couche bonus, toujours affichée) ─────────────\n  _appendNitroSection(tab).catch(e =>\n    console.warn('[PokéGang Nitro] Section render error:', e.message)\n  );\n`;
-  const count = src.split(needle).length - 1;
+  // Les sources du dépôt peuvent être en LF ou CRLF selon la plateforme et
+  // la configuration Git. Le précédent needle littéral LF rendait le build
+  // rouge sous Windows malgré un point de rendu Nitro intact.
+  const nitroRenderPattern = /  \/\/ ── Section Nitro[^\r\n]*\r?\n  _appendNitroSection\(tab\)\.catch\(e =>\r?\n    console\.warn\('\[PokéGang Nitro\] Section render error:', e\.message\)\r?\n  \);\r?\n/g;
+  const count = [...src.matchAll(nitroRenderPattern)].length;
   if (count !== 1) {
     throw new Error(
       `[build-itch] attendu exactement 1 point de rendu Nitro dans cloudAccount.js, trouvé ${count}.`
     );
   }
   const patched = src.replace(
-    needle,
+    nitroRenderPattern,
     `  // Section Nitro / Gwen Ha Star intentionally omitted from the itch.io build.\n`
   );
   fs.writeFileSync(target, patched);

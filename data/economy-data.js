@@ -70,6 +70,23 @@ const SHOP_ITEMS = [
     prereqs:{ gymsKanto: true, gymsJohto: true },
     desc_fr:'Toutes les arènes Kanto + Johto vaincues requis — Accès au sommet du Mont Argenté — Red vous attend',
     desc_en:'All Kanto + Johto gyms required — Access to Mt. Silver Summit — Red awaits' },
+  // ── Accès narratifs Hoenn — accordés par legendaryMissions.js, jamais vendus ──
+  { id:'magma_hideout_key', qty:1, cost:0, hidden:true, icon:'🔑',
+    fr:'Clé du QG Team Magma', en:'Team Magma Hideout Key',
+    desc_fr:'Localisez le QG en remportant 20 combats de l’Opération Magma.',
+    desc_en:'Locate the hideout by winning 20 Operation Magma battles.' },
+  { id:'aqua_hideout_key', qty:1, cost:0, hidden:true, icon:'🔑',
+    fr:'Clé du QG Team Aqua', en:'Team Aqua Hideout Key',
+    desc_fr:'Localisez le QG en remportant 20 combats de l’Opération Aqua.',
+    desc_en:'Locate the hideout by winning 20 Operation Aqua battles.' },
+  { id:'cave_origin_pass', qty:1, cost:0, hidden:true, icon:'📜',
+    fr:'Laissez-passer de la Caverne Originelle', en:'Cave of Origin Pass',
+    desc_fr:'Vainquez Maxie ou Archie au terme de l’infiltration de son QG.',
+    desc_en:'Defeat Maxie or Archie after infiltrating their hideout.' },
+  { id:'regi_seal', qty:1, cost:0, hidden:true, icon:'🗿',
+    fr:'Sceau des Régis', en:'Regi Seal',
+    desc_fr:'Capturez Groudon et Kyogre pour éveiller les trois gardiens antiques.',
+    desc_en:'Capture Groudon and Kyogre to awaken the three ancient guardians.' },
 ];
 // Note: 'scientist' s'achète depuis l'onglet Gang ou Labo (carte avec sprite), pas au Marché.
 

@@ -269,7 +269,7 @@ pokeforge.v6.s3     slot 3
 pokeforge.activeSlot index du slot actif
 ```
 
-- `SAVE_SCHEMA_VERSION = 12` — une migration se déclenche automatiquement au boot si le schéma est inférieur.
+- `SAVE_SCHEMA_VERSION = 17` — une migration se déclenche automatiquement au boot si le schéma est inférieur.
 - Même `localStorage['pokeforge.v6']` (et slots 2/3) partagé nativement avec la page cosmétique séparée `gang/` (même origine) — pas de synchro réseau nécessaire, juste un rechargement à froid avant chaque écriture côté `gang/` pour limiter le risque d'écraser une progression faite entre-temps dans l'autre onglet.
 - Les Pokémon sont "slimifiés" avant sérialisation (champs dérivés supprimés) pour réduire la taille.
 - Cloud save optionnel via Supabase (throttle 1 save/30s, mutex anti-deadlock GoTrue intégré).
@@ -342,7 +342,12 @@ Dialogues de dresseurs générés à la volée. Providers supportés : **Ollama*
 
 ---
 
-## Modifications récentes (juillet 2026)
+## Modifications récentes (juillet–août 2026)
+
+Audit du 25 août 2026 : les quatre accès narratifs Hoenn qui n'avaient aucune
+source d'obtention sont désormais raccordés aux quêtes Groudon/Kyogre, avec
+rattrapage des sauvegardes existantes. Voir
+[`docs/audits/2026-08-25-hoenn-unlocks-combat-opacity.md`](docs/audits/2026-08-25-hoenn-unlocks-combat-opacity.md).
 
 ### Page cosmétique séparée (`gang/`)
 
