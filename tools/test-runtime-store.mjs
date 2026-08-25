@@ -61,7 +61,9 @@ async function prepareModules() {
   await writeModuleCopy('state/migrateSave.js', path.join(tmpRoot, 'state', 'migrateSave.mjs'), [
     ['../data/game-config-data.js', '../data/game-config-data.mjs'],
     ['../data/tab-unlocks-data.js', '../data/tab-unlocks-data.mjs'],
+    ['../modules/systems/hoennUnlocks.js', '../modules/systems/hoennUnlocks.mjs'],
   ]);
+  await writeModuleCopy('modules/systems/hoennUnlocks.js', path.join(tmpRoot, 'modules', 'systems', 'hoennUnlocks.mjs'));
   await writeModuleCopy('data/game-config-data.js', path.join(tmpRoot, 'data', 'game-config-data.mjs'));
   await writeModuleCopy('data/tab-unlocks-data.js', path.join(tmpRoot, 'data', 'tab-unlocks-data.mjs'));
   await writeFile(

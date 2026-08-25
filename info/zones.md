@@ -1,6 +1,7 @@
 # Zones - référence complète
 
-Source principale : `data/zones-data.js`.
+Sources principales : `data/zones-data.js`, `data/zones-johto-data.js`,
+`data/zones-hoenn-data.js` et `data/zones-sinnoh-data.js`.
 
 Sources liées :
 
@@ -168,6 +169,23 @@ Une zone jamais visitée demande :
 Une zone déjà accédée reste visible même si la réputation baisse, mais passe en mode dégradé si la réputation courante est sous `zone.rep`.
 
 Mode dégradé : uniquement des combats contre dresseurs, pas de Pokémon, coffres, raids ou événements.
+
+### Accès narratifs Hoenn
+
+Ces objets ne sont jamais vendus. `modules/systems/legendaryMissions.js`
+accorde les droits dans `state.purchases`; `modules/systems/hoennUnlocks.js`
+porte les mêmes règles pures pour le runtime, les migrations et les tests.
+
+| Zone | Objet requis | Obtention |
+|---|---|---|
+| QG Team Magma | `magma_hideout_key` | 20 combats de l'Opération Magma |
+| QG Team Aqua | `aqua_hideout_key` | 20 combats de l'Opération Aqua |
+| Caverne Originelle | `cave_origin_pass` | Vaincre Maxie ou Archie |
+| Grottes des Régis | `regi_seal` | Capturer Groudon et Kyogre |
+
+La réputation propre à chaque zone reste requise en plus de l'objet. Lors de
+la migration d'une ancienne sauvegarde, les jalons de quête déjà atteints sont
+réconciliés automatiquement et les accès correspondants sont restaurés.
 
 ---
 

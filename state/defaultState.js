@@ -5,7 +5,7 @@ export const APP_VERSION = '2.4.0';
 export const GAME_VERSION = 'v0.5 — open beta';
 
 // Incrémenter à chaque ajout de champ majeur pour déclencher le banner migration.
-export const SAVE_SCHEMA_VERSION = 16;
+export const SAVE_SCHEMA_VERSION = 17;
 
 export const SAVE_KEYS = ['pokeforge.v6', 'pokeforge.v6.s2', 'pokeforge.v6.s3'];
 
@@ -227,6 +227,10 @@ export const DEFAULT_STATE = {
     johtoUnlocked:  false,
     hoennUnlocked:  false,
     sinnohUnlocked: false,
+    magma_hideout_key: false,
+    aqua_hideout_key:  false,
+    cave_origin_pass:  false,
+    regi_seal:         false,
   },
   pension: {
     slots: [],              // array de pokemon IDs (2 base + extra achetés)

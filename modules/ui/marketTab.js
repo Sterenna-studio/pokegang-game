@@ -340,7 +340,7 @@ function renderShopPanel() {
   const ZONE_UNLOCK_ITEM_IDS = new Set(['map_pallet','casino_ticket','silph_keycard','boat_ticket','tourbillon_permit','carillon_permit','rocket_hq_keycard','rocket_uniform','silver_permit']);
   const ONE_OFF_IDS   = new Set(['mysteryegg','incubator','translator']);
   const WING_PERMIT_IDS = new Set(['tourbillon_permit','carillon_permit']);
-  const shopItems = SHOP_ITEMS.filter(item => !ZONE_UNLOCK_ITEM_IDS.has(item.id) && !item.ballSkin);
+  const shopItems = SHOP_ITEMS.filter(item => !item.hidden && !ZONE_UNLOCK_ITEM_IDS.has(item.id) && !item.ballSkin);
 
   const multBar = [1,5,10,100].map(m =>
     `<button class="shop-mult-btn" data-mult="${m}" style="font-family:var(--font-pixel);font-size:9px;padding:4px 10px;border-radius:var(--radius-sm);cursor:pointer;

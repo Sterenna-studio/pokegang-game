@@ -67,10 +67,20 @@
 - [ ] Bouton 🌋🌊 visible dans la barre de zones (Hoenn débloqué + rep 2500)
 - [ ] Étape 1 Groudon : combats zones Magma incrémentent (mt_chimney, jagged_pass…)
 - [ ] Étape 1 Kyogre : combats zones Aqua incrémentent
+- [ ] Au 20e combat Magma : `magma_hideout_key` est accordée et le QG Magma devient accessible à réputation suffisante
+- [ ] Au 20e combat Aqua : `aqua_hideout_key` est accordée et le QG Aqua devient accessible à réputation suffisante
+- [ ] Vaincre Maxie OU Archie accorde `cave_origin_pass` et ouvre la Caverne Originelle à réputation suffisante
+- [ ] Capturer Groudon ET Kyogre accorde `regi_seal` et ouvre les Grottes des Régis à réputation suffisante
+- [ ] Une ancienne save déjà avancée reçoit rétroactivement les accès mérités au chargement
 - [ ] Sigle Magma drope en zone Magma (1,5%)
 - [ ] Sceau Aqua drope en zone Aqua (1,5%)
 - [ ] Combat Groudon disponible à pwr ≥ 4500
 - [ ] Combat Kyogre disponible à pwr ≥ 4500
+
+### Combat — lisibilité des sprites
+- [ ] Les sprites des deux camps restent à opacité normale pendant tout le replay
+- [ ] Le résultat pré-calculé ne grise pas le dresseur, le raid ou son Pokémon avant la fin visuelle du combat
+- [ ] L'animation spécifique d'un Pokémon K.O. reste limitée à ce Pokémon
 
 ### Hoenn — Deoxys
 - [ ] Bouton ☄️ Deoxys visible après Ever Grande vaincu

@@ -2,6 +2,7 @@
 
 import { SHOWCASE_SLOTS } from '../data/game-config-data.js';
 import { UNLOCKABLE_TABS } from '../data/tab-unlocks-data.js';
+import { reconcileHoennStoryUnlocks } from '../modules/systems/hoennUnlocks.js';
 
 // ── Helper ───────────────────────────────────────────────────────────────────
 function ensureObject(value, fallback = {}) {
@@ -340,6 +341,10 @@ export function migrateSave(saved, deps) {
   if (merged.purchases.johtoUnlocked    === undefined) merged.purchases.johtoUnlocked    = false;
   if (merged.purchases.hoennUnlocked    === undefined) merged.purchases.hoennUnlocked    = false;
   if (merged.purchases.sinnohUnlocked   === undefined) merged.purchases.sinnohUnlocked   = false;
+  if (merged.purchases.magma_hideout_key === undefined) merged.purchases.magma_hideout_key = false;
+  if (merged.purchases.aqua_hideout_key  === undefined) merged.purchases.aqua_hideout_key  = false;
+  if (merged.purchases.cave_origin_pass  === undefined) merged.purchases.cave_origin_pass  = false;
+  if (merged.purchases.regi_seal         === undefined) merged.purchases.regi_seal         = false;
 
   // trainingRoom extraSlots
   if (merged.trainingRoom.extraSlots === undefined) merged.trainingRoom.extraSlots = 0;
@@ -383,6 +388,11 @@ export function migrateSave(saved, deps) {
     if (km.kyogreOwned      === undefined) km.kyogreOwned      = false;
     if (km.totalCaptures    === undefined) km.totalCaptures    = 0;
   }
+
+  // Les quatre accès Hoenn existaient dans les données de zones sans aucune
+  // source d'obtention. Régulariser silencieusement les saves qui avaient
+  // déjà franchi les jalons narratifs correspondants avant le correctif.
+  reconcileHoennStoryUnlocks(merged);
 
   // ── Deoxys Mission ─────────────────────────────────────────────────────────────
   if (!merged.deoxysMission || typeof merged.deoxysMission !== 'object') {
@@ -657,6 +667,12 @@ export function getMigrationSummary(saved, deps) {
   if (!saved.purchases?.autoSellAgent) fields.push(_f('Vente auto agents', 'Agent auto-sell'));
   if (!saved.gang?.bossTeamSlots) fields.push(_f("Slots d'équipe boss (×3)", 'Boss team slots (×3)'));
   if (!saved.purchases?.mysteryEggCount) fields.push(_f('Compteur œufs mystère', 'Mystery egg counter'));
+  if (saved.purchases?.hoennUnlocked && (
+    saved.purchases.magma_hideout_key === undefined
+    || saved.purchases.aqua_hideout_key === undefined
+    || saved.purchases.cave_origin_pass === undefined
+    || saved.purchases.regi_seal === undefined
+  )) fields.push(_f('Accès narratifs Hoenn', 'Hoenn story access'));
   if (saved.inventory?.pokeball !== undefined) fields.push(_f('Poké Balls illimitées (stock remboursé en ₽)', 'Unlimited Poké Balls (stock refunded in ₽)'));
 
   return { from: `${_f('schéma', 'schema')} v${fromVersion}`, fields };
