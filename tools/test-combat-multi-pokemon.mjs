@@ -21,12 +21,23 @@ const { getTrainerPokemonEntries } = await import('../modules/systems/zoneCombat
 const {
   createCombatSequenceManager,
   isCombatSpriteVisible,
+  nextCombatSpeed,
+  normalizeCombatSpeed,
   renderCombatPokemonSprite,
   resumeCombatSpawnExpiry,
+  scaleCombatDelay,
   suspendCombatSpawnExpiry,
   warnIfActiveEnemySpriteMissing,
 } = await import('../modules/ui/combatSequence.js');
 const { FALLBACK_POKEMON_SVG } = await import('../data/assets-data.js');
+const { DEFAULT_STATE } = await import('../state/defaultState.js');
+
+assert.equal(DEFAULT_STATE.settings.combatSpeed, 1);
+assert.equal(normalizeCombatSpeed(undefined), 1);
+assert.equal(normalizeCombatSpeed('5'), 5);
+assert.equal(normalizeCombatSpeed(42), 1);
+assert.deepEqual([nextCombatSpeed(1), nextCombatSpeed(5), nextCombatSpeed(100)], [5, 100, 1]);
+assert.deepEqual([scaleCombatDelay(650, 1), scaleCombatDelay(650, 5), scaleCombatDelay(650, 100)], [650, 130, 16]);
 
 function pokemon(species_en, { atk = 100, def = 10, spd = 100 } = {}) {
   return { species_en, level: 1, stats: { atk, def, spd }, moves: ['Impact'] };
@@ -272,9 +283,19 @@ function makeFakeAnchor() {
 // and reject a stale TTL removal while its sequence owns the spawn.
 {
   const source = await readFile(new URL('../modules/ui/zoneWindows.js', import.meta.url), 'utf8');
+  const css = await readFile(new URL('../css/game-ui.css', import.meta.url), 'utf8');
   assert.match(source, /suspendCombatSpawnExpiry\(spawnObj\)/);
   assert.match(source, /combatSequences\.isActive\(currentCombat\.sequence\)/);
   assert.match(source, /EventBus\.emit\(EVENTS\.COMBAT_SEQUENCE_ENDED, \{ zoneId, sequenceId:/);
+  assert.match(source, /raidTrainerLineupHtml\(spawnObj\)/);
+  assert.match(source, /data-raid-trainer-index="\$\{trainerIndex\}"/);
+  assert.match(source, /trainerSlot\?\.classList\.add\('is-active'\)/);
+  assert.match(source, /enemySpriteAnchor = pokemonSlot/);
+  assert.match(source, /combatSpeedButtonHtml\(\)/);
+  assert.match(source, /scaleCombatDelay\(ms, getCombatSpeed\(\)\)/);
+  assert.match(css, /\.raid-trainer-pokemon-slot:not\(:empty\) \{ width: 56px; \}/);
+  assert.match(css, /\.zone-spawn\.zone-spawn-battle \.raid-trainer-lineup \{ scale: 1 1; \}/);
+  assert.match(css, /\.zchud-speed \{/);
 }
 
-console.log('✓ combat multi-Pokémon: standard 3v3, player switch, raid, sprite fallback, TTL and generation guards');
+console.log('✓ combat multi-Pokémon: transitions, raid trainer lineup, speed control, sprite fallback, TTL and generation guards');
