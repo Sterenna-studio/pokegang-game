@@ -49,8 +49,11 @@ import {
 import { resolveEventBattle } from '../systems/eventCombat.js';
 import {
   createCombatSequenceManager,
+  nextCombatSpeed,
+  normalizeCombatSpeed,
   renderCombatPokemonSprite,
   resumeCombatSpawnExpiry,
+  scaleCombatDelay,
   suspendCombatSpawnExpiry,
   warnIfActiveEnemySpriteMissing,
 } from './combatSequence.js';
@@ -96,6 +99,30 @@ function combatDevDiagnosticsEnabled() {
   if (globalThis.__POKEGANG_COMBAT_DEBUG__ === true) return true;
   const host = globalThis.location?.hostname;
   return host === 'localhost' || host === '127.0.0.1';
+}
+
+function getCombatSpeed() {
+  return normalizeCombatSpeed(globalThis.state?.settings?.combatSpeed);
+}
+
+function combatSpeedButtonHtml() {
+  const speed = getCombatSpeed();
+  const title = globalThis.state?.lang === 'en'
+    ? 'Combat speed — click to change'
+    : 'Vitesse du combat — cliquer pour changer';
+  return `<button class="zchud-speed" type="button" title="${title}" aria-label="${title}">×${speed}</button>`;
+}
+
+function bindCombatSpeedButton(hud) {
+  const button = hud?.querySelector('.zchud-speed');
+  if (!button) return;
+  button.addEventListener('click', () => {
+    const state = globalThis.state;
+    state.settings = state.settings || {};
+    state.settings.combatSpeed = nextCombatSpeed(state.settings.combatSpeed);
+    button.textContent = `×${state.settings.combatSpeed}`;
+    _save();
+  });
 }
 
 function _zwActiveRegion() {
@@ -2149,6 +2176,43 @@ function _addVSBadge(el) {
   el.appendChild(badge);
 }
 
+function getRaidTrainerRoster(spawnObj) {
+  if (Array.isArray(spawnObj?.raidTrainers) && spawnObj.raidTrainers.length) {
+    return spawnObj.raidTrainers;
+  }
+  return [{
+    key: spawnObj?.trainerKey || spawnObj?.trainer?.sprite || 'gymleader',
+    trainer: spawnObj?.trainer || {},
+    team: spawnObj?.team || [],
+  }];
+}
+
+function raidTrainerLineupHtml(spawnObj) {
+  const roster = getRaidTrainerRoster(spawnObj);
+  return `<div class="raid-trainer-lineup" data-raid-trainer-count="${roster.length}">
+    ${roster.map((entry, trainerIndex) => {
+      const spriteKey = entry.trainer?.sprite || entry.key || spawnObj?.trainerKey || 'gymleader';
+      return `<div class="raid-trainer-slot" data-raid-trainer-index="${trainerIndex}">
+        ${globalThis.safeTrainerImg(spriteKey, {
+          cls: 'raid-trainer-sprite',
+          style: 'width:44px;height:44px;image-rendering:pixelated',
+        })}
+        <div class="raid-trainer-pokemon-slot"></div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+function ensureRaidTrainerLineup(spawnEl, spawnObj) {
+  if (!spawnEl) return null;
+  let lineup = spawnEl.querySelector('.raid-trainer-lineup');
+  if (!lineup) {
+    spawnEl.insertAdjacentHTML('afterbegin', raidTrainerLineupHtml(spawnObj));
+    lineup = spawnEl.querySelector('.raid-trainer-lineup');
+  }
+  return lineup;
+}
+
 function renderSpawnInWindow(zoneId, spawnObj) {
   const state = globalThis.state;
   const zoneSpawns = globalThis.zoneSpawns;
@@ -2162,7 +2226,8 @@ function renderSpawnInWindow(zoneId, spawnObj) {
   el.dataset.spawnId = spawnObj.id;
 
   // Random position (relative to viewport size)
-  const x = Number.isFinite(spawnObj.position?.x) ? spawnObj.position.x : globalThis.randInt(10, 310);
+  const defaultMaxX = spawnObj.type === 'raid' ? 120 : 310;
+  const x = Number.isFinite(spawnObj.position?.x) ? spawnObj.position.x : globalThis.randInt(10, defaultMaxX);
   const y = Number.isFinite(spawnObj.position?.y) ? spawnObj.position.y : globalThis.randInt(10, 160);
   el.style.left = x + 'px';
   el.style.top = y + 'px';
@@ -2186,17 +2251,13 @@ function renderSpawnInWindow(zoneId, spawnObj) {
       animateCapture(zoneId, spawnObj, el, clickOffset);
     });
   } else if (spawnObj.type === 'raid') {
-    // Raid: show the lead trainer sprite (no more Pokéball)
-    // `key` est une clé TRAINER_TYPES, pas une clé de sprite : les deux
-    // coïncident pour la plupart des types mais pas pour les variantes
-    // régionales (acetrainerGen2 → acetrainer-gen2) ni pour un raid scripté
-    // dont les assaillants portent un visage imposé.
-    const raidLead = spawnObj.raidTrainers?.[0];
-    const raidLeaderKey = raidLead?.trainer?.sprite || raidLead?.key
-      || spawnObj.trainer?.sprite || spawnObj.trainerKey || 'gymleader';
+    // Les dresseurs du raid sont présents avant le clic et restent montés
+    // pendant le combat. Chaque Pokémon sera envoyé dans le slot adjacent au
+    // dresseur identifié par trainerIndex dans le replay partagé.
     const previewR = getTrainerCombatPreview({ ...spawnObj, zoneId }, null);
     const tierR    = getDifficultyTier(previewR.attackerPower, previewR.defenderPower);
-    el.innerHTML = globalThis.safeTrainerImg(raidLeaderKey, { style: 'width:52px;height:52px;image-rendering:pixelated;filter:drop-shadow(0 0 8px #f44)' }) +
+    el.classList.add('zone-raid-spawn');
+    el.innerHTML = raidTrainerLineupHtml(spawnObj) +
       getDifficultyBadgeHtml(tierR) +
       // scale:-1 1 contre le miroir de `float` sur .zone-spawn (même souci que
       // .quest-encounter-name / .zone-speech-bubble, mais ce label n'a pas de
@@ -2837,7 +2898,7 @@ function playCombatHitEffect(el, schedule = (fn, ms) => setTimeout(fn, ms)) {
 // dépendre uniquement du setTimeout final pour se nettoyer lui-même — sinon
 // fermer la fenêtre de zone en plein milieu, ou une exception pendant la
 // construction du visuel, laisse la zone verrouillée indéfiniment.
-const _autoCombatVisualLocks = new Map(); // zoneId -> { timers, spawnEl, playerSpriteEl, raidRow, enemySpriteEl }
+const _autoCombatVisualLocks = new Map(); // zoneId -> { timers, spawnEl, playerSpriteEl, enemySpriteEl, activeTrainerSlot }
 
 // Verrou combiné : le DOM combat de cette zone (agents/boss + spawn ciblé)
 // est-il actuellement revendiqué par L'UN OU L'AUTRE mécanisme — un combat
@@ -2860,8 +2921,8 @@ function cancelAutoCombatVisual(zoneId) {
   lock.spawnEl?.classList.remove('zone-spawn-battle', 'combat-hit');
   if (lock.spawnEl) lock.spawnEl.style.animation = '';
   lock.playerSpriteEl?.remove();
-  lock.raidRow?.remove();
   lock.enemySpriteEl?.remove();
+  lock.activeTrainerSlot?.classList.remove('is-active');
   _autoCombatVisualLocks.delete(zoneId);
 }
 
@@ -2893,7 +2954,7 @@ function playAutoCombatVisual(zoneId, spawnObj, combatAgents, win) {
   // d'empiler deux séquences sur le même DOM.
   if (_autoCombatVisualLocks.has(zoneId)) return;
 
-  const lock = { timers: [], spawnEl, playerSpriteEl: null, raidRow: null, enemySpriteEl: null };
+  const lock = { timers: [], spawnEl, playerSpriteEl: null, enemySpriteEl: null, activeTrainerSlot: null };
   _autoCombatVisualLocks.set(zoneId, lock);
 
   const queueTimer = (fn, ms) => {
@@ -2916,29 +2977,23 @@ function playAutoCombatVisual(zoneId, spawnObj, combatAgents, win) {
       || zoneWin.querySelector('.zone-agent');
 
     const isRaid = spawnObj.type === 'raid' || spawnObj.isRaid;
-    // Seul le sprite du meneur est affiché (le reste du roster apparaît via
-    // raidRow ci-dessous) — pas besoin d'aplatir l'équipe de tous les
-    // dresseurs du raid pour ça.
     const enemyLead = isRaid
       ? spawnObj.raidTrainers?.[0]?.team?.find(Boolean)
       : (spawnObj.team || []).find(Boolean);
     const agentId = combatAgents?.[0]?.team?.find(Boolean);
     const agentPk = agentId != null ? (globalThis.pokemonById?.(agentId) ?? state.pokemons.find(p => p.id === agentId)) : null;
 
-    // Raid : une rangée d'icônes dresseur (en plus du pokémon meneur) pour
-    // rendre visible qu'il y a plusieurs adversaires, pas un seul dresseur.
-    if (isRaid && spawnObj.raidTrainers?.length) {
-      lock.raidRow = document.createElement('div');
-      lock.raidRow.className = 'combat-raid-trainers';
-      lock.raidRow.innerHTML = spawnObj.raidTrainers.map(rt =>
-        globalThis.safeTrainerImg(rt.trainer?.sprite || rt.key, { style: 'width:26px;height:26px;image-rendering:pixelated' })
-      ).join('');
-      spawnEl.appendChild(lock.raidRow);
-    }
-
     if (enemyLead?.species_en) {
+      let enemyAnchor = spawnEl;
+      if (isRaid) {
+        const lineup = ensureRaidTrainerLineup(spawnEl, spawnObj);
+        lock.activeTrainerSlot = lineup?.querySelector('[data-raid-trainer-index="0"]')
+          || lineup?.querySelector('.raid-trainer-slot');
+        lock.activeTrainerSlot?.classList.add('is-active');
+        enemyAnchor = lock.activeTrainerSlot?.querySelector('.raid-trainer-pokemon-slot') || spawnEl;
+      }
       lock.enemySpriteEl = renderCombatPokemonSprite({
-        anchor: spawnEl,
+        anchor: enemyAnchor,
         src: globalThis.pokeSprite(enemyLead.species_en, false),
         alt: globalThis.speciesName(enemyLead.species_en),
         className: 'combat-enemy-pk',
@@ -2972,8 +3027,8 @@ function playAutoCombatVisual(zoneId, spawnObj, combatAgents, win) {
     }, 1000);
     queueTimer(() => {
       lock.playerSpriteEl?.remove();
-      lock.raidRow?.remove();
       lock.enemySpriteEl?.remove();
+      lock.activeTrainerSlot?.classList.remove('is-active');
       _autoCombatVisualLocks.delete(zoneId);
     }, AUTO_COMBAT_VISUAL_MS);
   } catch (err) {
@@ -3020,6 +3075,7 @@ function openCombatPopup(zoneId, spawnObj, { mode = 'manual', initiatedBy = 'pla
   if (!viewport) return; // zone window not open
 
   const isRaid = spawnObj.isRaid || spawnObj.type === 'raid';
+  const isRaidCombat = isRaid || !!spawnObj.isGymRaid;
   const trainerName = state.lang === 'fr'
     ? (spawnObj.trainer?.fr ?? spawnObj.trainerKey ?? '???')
     : (spawnObj.trainer?.en ?? spawnObj.trainerKey ?? '???');
@@ -3107,6 +3163,7 @@ function openCombatPopup(zoneId, spawnObj, { mode = 'manual', initiatedBy = 'pla
     viewport.appendChild(spawnEl);
     ownsSpawnEl = true;
   }
+  if (isRaidCombat) ensureRaidTrainerLineup(spawnEl, spawnObj);
   const playerAnchorEl = gangTrainers.find(t => t.domEl)?.domEl
     || win.querySelector('.zone-boss')
     || win.querySelector('.zone-agent');
@@ -3128,6 +3185,7 @@ function openCombatPopup(zoneId, spawnObj, { mode = 'manual', initiatedBy = 'pla
     viewport,
     spawnEl,
     ownsSpawnEl,
+    isRaidCombat,
     playerAnchorEl,
     playerTeam: battlePlayerTeam,
     enemyTeam,
@@ -3165,8 +3223,10 @@ function openCombatPopup(zoneId, spawnObj, { mode = 'manual', initiatedBy = 'pla
       <span class="ct-reward">×${combatTier.rewardMult}</span>
     </div>
     <span class="zchud-vs">⚔ ${_esc(trainerName)} <span style="color:var(--text-dim);font-size:7px">${enemyPool.length} Pok. · ⚡${fmtCombatNum(preview.attackerPower)} / 🛡${fmtCombatNum(preview.defenderPower)}</span></span>
+      ${combatSpeedButtonHtml()}
       <button class="zchud-flee" id="zchud-flee-${zoneId}">${_t('zone_flee')}</button>`;
   viewport.appendChild(hud);
+  bindCombatSpeedButton(hud);
 
   // ── Auto-start + flee ─────────────────────────────────────────
   const sequenceId = sequence.id;
@@ -3192,7 +3252,7 @@ function executeCombat(expectedSequenceId = null) {
   if (currentCombat.combatStarted) return;
   currentCombat.combatStarted = true;
 
-  const { zoneId, spawnObj, spawnWithZone, spawnEl, playerAnchorEl, playerTeam, enemyTeam, teamIds, enemyPool, summary } = combat;
+  const { zoneId, spawnObj, spawnWithZone, spawnEl, playerAnchorEl, playerTeam, enemyTeam, teamIds, enemyPool, summary, isRaidCombat } = combat;
   EventBus.emit(EVENTS.COMBAT_STARTED, {
     zoneId,
     trainerKey: spawnWithZone.trainerKey ?? null,
@@ -3251,6 +3311,10 @@ function executeCombat(expectedSequenceId = null) {
   let enemySpriteEl = null;
 
   function queueTimer(fn, ms) {
+    return combatSequences.schedule(combat.sequence, fn, scaleCombatDelay(ms, getCombatSpeed()));
+  }
+
+  function queueVisualTimer(fn, ms) {
     return combatSequences.schedule(combat.sequence, fn, ms);
   }
 
@@ -3330,9 +3394,22 @@ function executeCombat(expectedSequenceId = null) {
         setCombatHpBar(ov, t.hp, t.maxHp);
       }
       if (spawnEl) {
+        let enemySpriteAnchor = spawnEl;
+        if (isRaidCombat) {
+          const lineup = ensureRaidTrainerLineup(spawnEl, spawnObj);
+          const trainerSlot = lineup?.querySelector(`[data-raid-trainer-index="${t.trainerIndex ?? 0}"]`)
+            || lineup?.querySelector('.raid-trainer-slot');
+          lineup?.querySelectorAll('.raid-trainer-slot').forEach(slot => slot.classList.remove('is-active'));
+          trainerSlot?.classList.add('is-active');
+          const pokemonSlot = trainerSlot?.querySelector('.raid-trainer-pokemon-slot');
+          if (pokemonSlot) {
+            if (enemySpriteEl?.parentNode !== pokemonSlot) enemySpriteEl?.remove();
+            enemySpriteAnchor = pokemonSlot;
+          }
+        }
         enemySpriteEl = renderCombatPokemonSprite({
-          anchor: spawnEl,
-          previous: enemySpriteEl || spawnEl.querySelector('.combat-enemy-pk'),
+          anchor: enemySpriteAnchor,
+          previous: enemySpriteEl || enemySpriteAnchor.querySelector('.combat-enemy-pk'),
           src: spriteUrl,
           alt: globalThis.speciesName(t.species_en),
           className: 'combat-enemy-pk',
@@ -3451,7 +3528,7 @@ function executeCombat(expectedSequenceId = null) {
         if (activeTarget && item.defenderIndex === activeTarget.index) activeTarget.hp = item.defenderHp;
         playCombatHitEffect(
           item.side === 'player' ? (enemySpriteEl || spawnEl) : (playerSpriteEl || playerAnchorEl),
-          queueTimer,
+          queueVisualTimer,
         );
       } else if (item.type === 'faint') {
         logLine(_t('zone_knocked_out', { pokemon: globalThis.speciesName(item.species_en) }));
@@ -3494,6 +3571,8 @@ function closeCombatPopup(expectedSequenceId = null, { resumeSpawn = false } = {
     if (spawnEl) {
       spawnEl.classList.remove('zone-spawn-battle', 'combat-hit');
       spawnEl.style.animation = '';
+      spawnEl.querySelectorAll('.combat-enemy-pk').forEach(el => el.remove());
+      spawnEl.querySelectorAll('.raid-trainer-slot.is-active').forEach(el => el.classList.remove('is-active'));
     }
     if (ownsSpawnEl) spawnEl?.remove();
     for (const t of combat.gangTrainers || []) {
@@ -3581,8 +3660,10 @@ function openEventBattlePopup(zoneId) {
   hud.id = `zchud-${zoneId}`;
   hud.innerHTML = `
     <span class="zchud-vs">⚔ ${_esc(trainerName)} <span style="color:var(--text-dim);font-size:7px">${enemyTeam.length} Pok.</span></span>
+      ${combatSpeedButtonHtml()}
       <button class="zchud-flee" id="zchud-flee-${zoneId}">${_t('zone_flee')}</button>`;
   viewport.appendChild(hud);
+  bindCombatSpeedButton(hud);
 
   const sequenceId = sequence.id;
   combatSequences.schedule(sequence, () => executeEventBattle(sequenceId), 600);
@@ -3658,6 +3739,10 @@ function executeEventBattle(expectedSequenceId = null) {
   }
 
   function queueTimer(fn, ms) {
+    return combatSequences.schedule(combat.sequence, fn, scaleCombatDelay(ms, getCombatSpeed()));
+  }
+
+  function queueVisualTimer(fn, ms) {
     return combatSequences.schedule(combat.sequence, fn, ms);
   }
 
@@ -3793,7 +3878,7 @@ function executeEventBattle(expectedSequenceId = null) {
       setHpBar(targetOv, t.defenderHp, t.defenderMaxHp);
       const activeTarget = t.side === 'player' ? combat.active.enemy : combat.active.player;
       if (activeTarget && t.defenderIndex === activeTarget.index) activeTarget.hp = t.defenderHp;
-      playCombatHitEffect(t.side === 'player' ? (enemySpriteEl || npcEl) : (playerSpriteEl || anchorPlayerEl), queueTimer);
+      playCombatHitEffect(t.side === 'player' ? (enemySpriteEl || npcEl) : (playerSpriteEl || anchorPlayerEl), queueVisualTimer);
     } else if (t.type === 'faint') {
       logLine(_t('zone_knocked_out', { pokemon: globalThis.speciesName(t.species_en) }));
       const active = combat.active[t.side];

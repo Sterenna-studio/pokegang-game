@@ -160,6 +160,7 @@ export const DEFAULT_STATE = {
     lowSpec: false,
     sfxIndividual: {},
     autoCombat: true,
+    combatSpeed: 1, // vitesse du replay interactif : 1, 5 ou 100
     miniCombatNotifyBackground: true, // popup combat compact pour zones fermées (agent seul)
     miniCombatNotifyUnfocused:  true, // popup combat compact pour zones ouvertes mais onglet Zones pas actif
     offlineReportThreshold: 300, // seuil en s pour afficher le rapport au retour (0 = jamais)

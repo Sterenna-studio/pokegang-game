@@ -6,6 +6,23 @@
 
 import { FALLBACK_POKEMON_SVG } from '../../data/assets-data.js';
 
+export const COMBAT_SPEEDS = Object.freeze([1, 5, 100]);
+
+export function normalizeCombatSpeed(value) {
+  const speed = Number(value);
+  return COMBAT_SPEEDS.includes(speed) ? speed : COMBAT_SPEEDS[0];
+}
+
+export function nextCombatSpeed(value) {
+  const speed = normalizeCombatSpeed(value);
+  const index = COMBAT_SPEEDS.indexOf(speed);
+  return COMBAT_SPEEDS[(index + 1) % COMBAT_SPEEDS.length];
+}
+
+export function scaleCombatDelay(delayMs, speed, minimumMs = 16) {
+  return Math.max(minimumMs, Math.round(Math.max(0, delayMs) / normalizeCombatSpeed(speed)));
+}
+
 export function createCombatSequenceManager({
   setTimeoutRef = globalThis.setTimeout,
   clearTimeoutRef = globalThis.clearTimeout,

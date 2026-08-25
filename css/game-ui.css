@@ -1387,8 +1387,32 @@
       pointer-events: none;
     }
     .zone-combat-hud-minimal .zchud-vs  { pointer-events: none; }
-    .zone-combat-hud-minimal .zchud-flee { pointer-events: auto; }
-    .zchud-vs  { font-family: var(--font-pixel); font-size: 7px; color: var(--gold); white-space: nowrap; }
+    .zone-combat-hud-minimal .zchud-flee,
+    .zone-combat-hud-minimal .zchud-speed { pointer-events: auto; }
+    .zchud-vs  {
+      flex: 1 1 auto;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-family: var(--font-pixel);
+      font-size: 7px;
+      color: var(--gold);
+      white-space: nowrap;
+    }
+    .zchud-speed {
+      flex: 0 0 auto;
+      min-width: 32px;
+      font-family: var(--font-pixel);
+      font-size: 7px;
+      padding: 2px 5px;
+      color: var(--gold);
+      background: rgba(255,204,90,.12);
+      border: 1px solid rgba(255,204,90,.55);
+      border-radius: 2px;
+      cursor: pointer;
+      pointer-events: auto;
+    }
+    .zchud-speed:hover { background: rgba(255,204,90,.25); }
     .zchud-flee {
       font-family: var(--font-pixel);
       font-size: 7px;
@@ -1421,19 +1445,50 @@
       pointer-events: none;
       animation: combatPkAppear .25s ease-out;
     }
-    /* Raid : rangée d'icônes dresseur au-dessus du pokémon meneur — rend
-       visible qu'il y a plusieurs adversaires, pas un seul dresseur. */
-    .combat-raid-trainers {
-      position: absolute;
-      bottom: calc(100% + 2px);
-      left: 50%;
-      transform: translateX(-50%);
+    /* Raid : les dresseurs existent avant le combat et restent à l'écran.
+       Le conteneur contre-miroire `float` pour préserver l'ordre du roster ;
+       seul le Pokémon envoyé est retourné vers le joueur. */
+    .raid-trainer-lineup {
       display: flex;
-      gap: 2px;
+      align-items: flex-end;
+      gap: 6px;
+      scale: -1 1;
       pointer-events: none;
-      animation: combatPkAppear .25s ease-out;
     }
-    .combat-raid-trainers img { width: 26px !important; height: 26px !important; image-rendering: pixelated; }
+    .raid-trainer-slot {
+      position: relative;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 2px;
+      min-height: 48px;
+      padding: 2px;
+      border-radius: 4px;
+      transition: background .18s, filter .18s;
+    }
+    .raid-trainer-slot.is-active {
+      background: rgba(255,70,70,.16);
+      filter: drop-shadow(0 0 5px rgba(255,70,70,.7));
+    }
+    .raid-trainer-sprite {
+      width: 44px !important;
+      height: 44px !important;
+      object-fit: contain;
+      image-rendering: pixelated;
+    }
+    .raid-trainer-pokemon-slot {
+      display: flex;
+      align-items: flex-end;
+      width: 0;
+      min-height: 44px;
+      overflow: visible;
+      transition: width .18s;
+    }
+    .raid-trainer-pokemon-slot:not(:empty) { width: 56px; }
+    /* Hors combat, `float` retourne tout le spawn : le contre-miroir ci-dessus
+       garde les dresseurs à l'endroit. Le replay coupe `float`, donc le
+       contre-miroir doit lui aussi disparaître pendant le combat. */
+    .zone-spawn.zone-spawn-battle .raid-trainer-lineup { scale: 1 1; }
     .combat-hit {
       animation: combatHit .32s ease-out;
       filter: brightness(1.8) drop-shadow(0 0 7px rgba(255,255,255,.9));
