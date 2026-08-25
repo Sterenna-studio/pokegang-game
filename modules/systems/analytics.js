@@ -109,6 +109,7 @@ function trackEvent(name, params = {}) {
 // | quest | chest | event | hatch | starter | cheat. `unknown` signale un
 // chemin d'émission non annoté, à corriger côté émetteur plutôt qu'ici.
 EventBus.on(EVENTS.POKEMON_CAPTURED, ({ pokemon, zoneId, source, agentId, spawnCtx } = {}) => {
+  if (globalThis.OfflineReport?.isBatching?.()) return;
   const state = globalThis.state;
   const resolved = source
     // Repli : l'embuscade et le terrain d'intro portent déjà ce contexte.
@@ -130,6 +131,7 @@ EventBus.on(EVENTS.POKEMON_CAPTURED, ({ pokemon, zoneId, source, agentId, spawnC
 });
 
 EventBus.on(EVENTS.POKEMON_SOLD, ({ pokemonIds, totalPrice } = {}) => {
+  if (globalThis.OfflineReport?.isBatching?.()) return;
   trackEvent('pokemon_sold', {
     count: Array.isArray(pokemonIds) ? pokemonIds.length : 0,
     total_price: totalPrice ?? 0,
@@ -148,6 +150,7 @@ EventBus.on(EVENTS.COMBAT_STARTED, ({ zoneId, trainerKey, mode } = {}) => {
 });
 
 EventBus.on(EVENTS.COMBAT_WON, ({ zoneId, trainerKey, elite, mode, initiatedBy } = {}) => {
+  if (globalThis.OfflineReport?.isBatching?.()) return;
   trackEvent('battle_won', {
     zone: zoneId ?? null, trainer: trainerKey ?? null,
     elite: !!elite, mode: mode ?? null, initiated_by: initiatedBy ?? null,
@@ -155,6 +158,7 @@ EventBus.on(EVENTS.COMBAT_WON, ({ zoneId, trainerKey, elite, mode, initiatedBy }
 });
 
 EventBus.on(EVENTS.COMBAT_LOST, ({ zoneId, trainerKey, mode, initiatedBy } = {}) => {
+  if (globalThis.OfflineReport?.isBatching?.()) return;
   trackEvent('battle_lost', {
     zone: zoneId ?? null, trainer: trainerKey ?? null,
     mode: mode ?? null, initiated_by: initiatedBy ?? null,

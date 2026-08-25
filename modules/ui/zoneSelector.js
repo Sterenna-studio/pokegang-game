@@ -810,6 +810,7 @@ function _registerZoneSelectorEvents() {
   if (_zoneSelectorEventsRegistered) return;
   _zoneSelectorEventsRegistered = true;
   EventBus.on(EVENTS.REP_CHANGED, () => {
+    if (globalThis.OfflineReport?.isBatching?.()) return;
     if (globalThis.activeTab === 'tabZones') renderZoneSelector();
   });
 }

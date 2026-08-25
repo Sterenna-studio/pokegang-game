@@ -163,7 +163,7 @@ export function checkTabUnlocks() {
   if (!pending.length) return [];
   const revealed = revealTabs(state, pending);
   if (!revealed.length) return [];
-  _ctx.saveState?.();
+  if (!globalThis.OfflineReport?.isBatching?.()) _ctx.saveState?.();
   EventBus.emit(EVENTS.TABS_REVEALED, { tabs: revealed });
   return revealed;
 }
