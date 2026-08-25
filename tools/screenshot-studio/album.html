@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PokéGang — Album marketing</title>
+  <link rel="icon" type="image/png" href="../../assets/pokegang_logo/pokegang_logo_little.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    :root{--bg:#090b10;--panel:#10141d;--card:#151a24;--line:rgba(255,255,255,.1);--text:#e8ebf0;--dim:#8c96a8;--gold:#f7c948;--green:#69d99b}
+    *{box-sizing:border-box}
+    html,body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+    a{color:inherit}
+    .wrap{max-width:1180px;margin:0 auto;padding:28px 20px 80px}
+    header.top{display:flex;gap:16px;align-items:center;padding-bottom:22px;border-bottom:1px solid var(--line);margin-bottom:28px}
+    header.top img{width:52px;height:52px;object-fit:contain}
+    .kicker{font-family:"Press Start 2P",monospace;font-size:7px;color:var(--gold);letter-spacing:.08em;line-height:1.6}
+    h1{margin:2px 0 0;font-size:19px}
+    .back{margin-left:auto;font-size:12px;color:var(--dim);text-decoration:none;border:1px solid var(--line);padding:8px 12px;border-radius:7px}
+    .back:hover{color:#fff;border-color:rgba(247,201,72,.4)}
+    .intro{color:var(--dim);font-size:13px;line-height:1.6;max-width:760px;margin-bottom:34px}
+    section{margin-bottom:44px}
+    .section-title{font-family:"Press Start 2P",monospace;font-size:12px;color:var(--gold);letter-spacing:.04em;margin-bottom:4px}
+    .section-sub{color:var(--dim);font-size:12px;margin-bottom:16px}
+    .group-label{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#697488;margin:22px 0 12px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden;display:flex;flex-direction:column}
+    .thumb{position:relative;aspect-ratio:630/500;background:repeating-conic-gradient(#0d1118 0% 25%,#11151c 0% 50%) 50%/16px 16px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+    .thumb.wide{aspect-ratio:1920/480}
+    .thumb img{width:100%;height:100%;object-fit:contain}
+    .badge{position:absolute;top:8px;left:8px;font-family:"Press Start 2P",monospace;font-size:6px;padding:5px 7px;border-radius:5px;background:rgba(10,13,17,.82);border:1px solid rgba(247,201,72,.35);color:var(--gold)}
+    .badge.live{color:var(--green);border-color:rgba(105,217,155,.4)}
+    .card-body{padding:12px 13px 13px;display:flex;flex-direction:column;gap:8px;flex:1}
+    .card-title{font-size:13px;font-weight:600}
+    .card-desc{font-size:11px;color:var(--dim);line-height:1.45;flex:1}
+    .card-meta{font-size:10px;color:#5c6678;font-family:ui-monospace,Consolas,monospace}
+    .btn-row{display:flex;gap:6px;margin-top:2px}
+    .btn{flex:1;height:30px;border-radius:6px;border:1px solid var(--line);background:#0e1218;color:#c4cbd6;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;text-decoration:none}
+    .btn:hover{color:#fff;border-color:rgba(247,201,72,.4)}
+    .btn.copied{color:var(--green);border-color:rgba(105,217,155,.4)}
+    .btn.failed{color:#e26a6a;border-color:rgba(226,106,106,.4)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <img src="../../assets/pokegang_logo/pokegang_logo_full_color_small.png" alt="PokéGang">
+      <div><div class="kicker">INTERNAL TOOL — MARKETING ARCHIVE</div><h1>Album des visuels</h1></div>
+      <a class="back" href="./index.html">← Screenshot Studio</a>
+    </header>
+    <p class="intro">
+      Toutes les versions produites pour la cover et la bannière itch.io — les assets « en service » (référencés tels quels sur la page itch) et l'historique des itérations, gardés pour ne rien perdre du travail. Chaque carte a un lien direct vers le fichier (partage) et un extrait <code>&lt;img&gt;</code> prêt à coller (embed).
+    </p>
+
+    <section id="cover">
+      <div class="section-title">🎴 COVER — 630×500</div>
+      <div class="section-sub">Image statique du slot cover itch.io.</div>
+
+      <div class="group-label">En service</div>
+      <div class="grid" id="cover-live"></div>
+
+      <div class="group-label">Historique des itérations</div>
+      <div class="grid" id="cover-history"></div>
+    </section>
+
+    <section id="banner">
+      <div class="section-title">🏳️ BANNIÈRE — 1920×480</div>
+      <div class="section-sub">En-tête de page itch.io, remplace le titre texte quand elle est présente.</div>
+
+      <div class="group-label">En service</div>
+      <div class="grid" id="banner-live"></div>
+
+      <div class="group-label">Historique des itérations</div>
+      <div class="grid" id="banner-history"></div>
+    </section>
+  </div>
+
+  <script>
+    const items = {
+      'cover-live': [
+        { file: 'itch-cover-preview-noball.gif', title: 'Cover — actuelle (2 lignes de 6)', desc: 'Version courante référencée pour le cover itch.io. 39 frames / 3.2s, ~2.9MB.', live: true },
+        { file: 'itch-cover-preview.gif', title: 'GIF preview — léger', desc: '15 frames, 516×410, ~930KB. Bon compromis poids/fluidité pour Discord.' },
+        { file: 'itch-cover-preview-hifps.gif', title: 'GIF preview — fps+', desc: '36 frames, 453×360, ~1.7MB. Plus fluide, toujours compact.' },
+        { file: 'itch-cover-preview-630x500.gif', title: 'GIF preview — taille exacte 12fps', desc: '44 frames à 630×500 exact, 12.0fps, ~3.9MB. Le plus lourd, taille pixel-perfect.' },
+      ],
+      'cover-history': [
+        { file: 'album/cover-01-concept-illustrated.png', title: 'V0 — concept illustré (abandonné)', desc: 'Première passe : illustration générée de zéro (PIL), avant le pivot vers les vrais assets du jeu.' },
+        { file: 'album/cover-02-real-sprites-ball.png', title: 'V1 — vrais sprites + Ball', desc: 'Premier passage aux vrais sprites Pokémon/dresseurs du studio, avec une capture-ball façon Poké Ball.' },
+        { file: 'album/cover-03-logo-title-watermark.png', title: 'V2 — logo en titre + filigrane', desc: 'Le vrai logo remplace le texte du titre ; filigrane du logo inversé en fond (retiré ensuite).' },
+        { file: 'album/cover-04-hero-dragonite-noball.png', title: 'V3 — Ball retirée, hero seul', desc: 'Suppression de la ball, un Pokémon central agrandi comme point focal unique.' },
+        { file: 'album/cover-05-final-two-rows-of-six.png', title: 'V4 — 2 lignes de 6 (design actuel)', desc: 'Composition finale : 6 Pokémon + 6 agents/Boss alignés sur deux rangées.' },
+      ],
+      'banner-live': [
+        { file: 'itch-banner-preview.png', title: 'Bannière — actuelle', desc: 'Version courante référencée pour la bannière itch.io.', live: true },
+      ],
+      'banner-history': [
+        { file: 'album/banner-01-first-pass.png', title: 'V0 — premier jet', desc: 'Première composition panoramique : logo, agents en silhouette, secteurs de territoire, Ball.' },
+        { file: 'album/banner-02-final.png', title: 'V1 — final', desc: 'Halo rouge de fond retiré, glow des silhouettes conservé.' },
+      ],
+    };
+
+    function isWide(file){ return file.includes('banner'); }
+
+    async function copyText(btn, text){
+      let ok = true;
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        try {
+          const ta = document.createElement('textarea');
+          ta.value = text; document.body.appendChild(ta); ta.select();
+          document.execCommand('copy'); ta.remove();
+        } catch {
+          ok = false;
+        }
+      }
+      const old = btn.textContent;
+      btn.textContent = ok ? 'Copié ✓' : 'Échec ✕';
+      btn.classList.add(ok ? 'copied' : 'failed');
+      setTimeout(() => { btn.textContent = old; btn.classList.remove('copied', 'failed'); }, 1400);
+    }
+
+    function renderGroup(id, list){
+      const el = document.getElementById(id);
+      el.innerHTML = list.map(item => {
+        const wide = isWide(item.file) ? ' wide' : '';
+        return `<div class="card" data-file="${item.file}">
+          <div class="thumb${wide}">${item.live ? '<span class="badge live">EN SERVICE</span>' : ''}<img loading="lazy" src="${item.file}" alt="${item.title}"></div>
+          <div class="card-body">
+            <div class="card-title">${item.title}</div>
+            <div class="card-desc">${item.desc}</div>
+            <div class="card-meta">${item.file.split('/').pop()}</div>
+            <div class="btn-row">
+              <button class="btn btn-link">🔗 Lien</button>
+              <button class="btn btn-embed">&lt;/&gt; Embed</button>
+              <a class="btn" href="${item.file}" target="_blank" rel="noopener">↗ Ouvrir</a>
+            </div>
+          </div>
+        </div>`;
+      }).join('');
+
+      el.querySelectorAll('.card').forEach(card => {
+        const file = card.dataset.file;
+        const url = new URL(file, document.baseURI).href;
+        card.querySelector('.btn-link').addEventListener('click', e => copyText(e.currentTarget, url));
+        card.querySelector('.btn-embed').addEventListener('click', e => {
+          const alt = card.querySelector('.card-title').textContent;
+          copyText(e.currentTarget, `<img src="${url}" alt="${alt}">`);
+        });
+      });
+    }
+
+    Object.entries(items).forEach(([id, list]) => renderGroup(id, list));
+  </script>
+</body>
+</html>
