@@ -8,6 +8,15 @@ const initialWidth = clampInt(params.get('w'), 300, 2560, 1280);
 const initialHeight = clampInt(params.get('h'), 480, 2560, 720);
 const initialAnim = params.get('anim') !== '0';
 
+const GLOW_DEFAULTS = { rb: 6, ra: .35, hb: 14, ha: .5, go: .65 };
+const glow = {
+  rb: clampFloat(params.get('rb'), 0, 20, GLOW_DEFAULTS.rb),
+  ra: clampFloat(params.get('ra'), 0, 1, GLOW_DEFAULTS.ra),
+  hb: clampFloat(params.get('hb'), 0, 40, GLOW_DEFAULTS.hb),
+  ha: clampFloat(params.get('ha'), 0, 1, GLOW_DEFAULTS.ha),
+  go: clampFloat(params.get('go'), 0, 1, GLOW_DEFAULTS.go),
+};
+
 const $ = selector => document.querySelector(selector);
 const viewport = $('#shotViewport');
 const measure = $('#stageMeasure');
@@ -26,6 +35,20 @@ if (cleanView) document.body.classList.add('clean-view');
 function clampInt(value, min, max, fallback) {
   const n = Number.parseInt(value, 10);
   return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback;
+}
+
+function clampFloat(value, min, max, fallback) {
+  const n = Number.parseFloat(value);
+  return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback;
+}
+
+function applyGlowVars() {
+  const root = document.documentElement.style;
+  root.setProperty('--glow-rim-blur', `${glow.rb}px`);
+  root.setProperty('--glow-rim-alpha', glow.ra);
+  root.setProperty('--glow-halo-blur', `${glow.hb}px`);
+  root.setProperty('--glow-halo-alpha', glow.ha);
+  root.setProperty('--glow-opacity', glow.go);
 }
 
 function groupScenes(query = '') {
@@ -105,6 +128,28 @@ function syncInputs() {
   if (exact) $('#sizePreset').value = exact.value;
   $('#animBtn').classList.toggle('active', animations);
   $('#animBtn').setAttribute('aria-pressed', String(animations));
+  syncGlowInputs();
+}
+
+function syncGlowInputs() {
+  $('#glowRimBlur').value = String(glow.rb);
+  $('#glowRimBlurVal').textContent = `${glow.rb}px`;
+  $('#glowRimAlpha').value = String(glow.ra);
+  $('#glowRimAlphaVal').textContent = glow.ra.toFixed(2);
+  $('#glowHaloBlur').value = String(glow.hb);
+  $('#glowHaloBlurVal').textContent = `${glow.hb}px`;
+  $('#glowHaloAlpha').value = String(glow.ha);
+  $('#glowHaloAlphaVal').textContent = glow.ha.toFixed(2);
+  $('#glowOpacity').value = String(glow.go);
+  $('#glowOpacityVal').textContent = glow.go.toFixed(2);
+}
+
+function setGlowParams(url) {
+  url.searchParams.set('rb', glow.rb);
+  url.searchParams.set('ra', glow.ra);
+  url.searchParams.set('hb', glow.hb);
+  url.searchParams.set('ha', glow.ha);
+  url.searchParams.set('go', glow.go);
 }
 
 function persistUrl() {
@@ -115,6 +160,7 @@ function persistUrl() {
   next.searchParams.set('w', width);
   next.searchParams.set('h', height);
   next.searchParams.set('anim', animations ? '1' : '0');
+  setGlowParams(next);
   next.searchParams.delete('clean');
   history.replaceState(null, '', next);
 }
@@ -136,6 +182,7 @@ function openCleanView() {
   url.searchParams.set('w',width);
   url.searchParams.set('h',height);
   url.searchParams.set('anim',animations?'1':'0');
+  setGlowParams(url);
   window.open(url, '_blank', 'noopener');
 }
 
@@ -146,6 +193,7 @@ async function copyDirectLink() {
   url.searchParams.set('w',width);
   url.searchParams.set('h',height);
   url.searchParams.set('anim',animations?'1':'0');
+  setGlowParams(url);
   url.searchParams.delete('clean');
   try {
     await navigator.clipboard.writeText(url.toString());
@@ -178,6 +226,12 @@ function bindUi() {
   $('#reloadBtn').addEventListener('click', () => renderAll({ replay:true }));
   $('#cleanBtn').addEventListener('click', openCleanView);
   $('#copyLinkBtn').addEventListener('click', copyDirectLink);
+  $('#glowRimBlur').addEventListener('input', event => { glow.rb = clampFloat(event.target.value,0,20,glow.rb); applyGlowVars(); syncGlowInputs(); persistUrl(); });
+  $('#glowRimAlpha').addEventListener('input', event => { glow.ra = clampFloat(event.target.value,0,1,glow.ra); applyGlowVars(); syncGlowInputs(); persistUrl(); });
+  $('#glowHaloBlur').addEventListener('input', event => { glow.hb = clampFloat(event.target.value,0,40,glow.hb); applyGlowVars(); syncGlowInputs(); persistUrl(); });
+  $('#glowHaloAlpha').addEventListener('input', event => { glow.ha = clampFloat(event.target.value,0,1,glow.ha); applyGlowVars(); syncGlowInputs(); persistUrl(); });
+  $('#glowOpacity').addEventListener('input', event => { glow.go = clampFloat(event.target.value,0,1,glow.go); applyGlowVars(); syncGlowInputs(); persistUrl(); });
+  $('#glowResetBtn').addEventListener('click', () => { Object.assign(glow, GLOW_DEFAULTS); applyGlowVars(); syncGlowInputs(); persistUrl(); });
   window.addEventListener('resize', fitStage);
   window.addEventListener('keydown', event => {
     if (/INPUT|SELECT|TEXTAREA/.test(document.activeElement?.tagName || '')) return;
@@ -188,5 +242,6 @@ function bindUi() {
   });
 }
 
+applyGlowVars();
 if (!cleanView) bindUi();
 renderAll();
