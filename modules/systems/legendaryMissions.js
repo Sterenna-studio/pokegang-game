@@ -50,9 +50,14 @@
 import { EventBus, EVENTS } from '../core/eventBus.js';
 import { defaultEncounterState } from './questCombat.js';
 import { reconcileHoennStoryUnlocks } from './hoennUnlocks.js';
+import { requestSimulationSave, suppressSimulationNotification } from '../core/simulationContext.js';
 
-const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type });
-const _save   = ()               => globalThis.saveState?.();
+const _notify = (msg, type = '') => {
+  if (!suppressSimulationNotification()) EventBus.emit(EVENTS.UI_NOTIFY, { msg, type });
+};
+const _save = () => {
+  requestSimulationSave(() => globalThis.saveState?.());
+};
 const _t = (fr, en) => (globalThis.state?.lang === 'en' ? en : fr);
 
 // ── Sprites ──────────────────────────────────────────────────────

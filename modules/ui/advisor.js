@@ -20,6 +20,7 @@
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
 import { esc } from '../core/escape.js';
+import { deferSimulationUi } from '../core/simulationContext.js';
 import {
   ADVISOR_COPY,
   ADVISOR_FALLBACK,
@@ -191,7 +192,10 @@ function _bindAdvisorEvents() {
   // Les événements qui peuvent faire basculer l'objectif courant. Le rendu
   // est idempotent et ne rouvre jamais la bulle tout seul, donc un
   // rafraîchissement de trop est sans conséquence.
-  const refresh = () => { renderAdvisor(); };
+  const refresh = () => {
+    if (deferSimulationUi('advisor')) return;
+    renderAdvisor();
+  };
   EventBus.on(EVENTS.POKEMON_CAPTURED,   refresh);
   EventBus.on(EVENTS.TEAM_MEMBER_SET,    refresh);
   EventBus.on(EVENTS.AGENT_RECRUITED,    refresh);

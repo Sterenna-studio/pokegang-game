@@ -1,0 +1,365 @@
+/* Offline return feedback + mission report. Kept separate from game-ui.css
+   because the dialog has its own responsive layout and state hierarchy. */
+
+.offline-sync {
+  position: fixed;
+  z-index: 9997;
+  top: max(14px, env(safe-area-inset-top));
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--bg-panel) 94%, transparent);
+  border: 1px solid var(--red);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .42);
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  line-height: 1.5;
+  transform: translateX(-50%);
+  animation: offline-sync-enter .16s ease-out both;
+}
+
+.offline-sync__spinner {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+  border: 2px solid rgba(255, 255, 255, .22);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: offline-sync-spin .7s linear infinite;
+}
+
+.offline-report-overlay {
+  position: fixed;
+  z-index: 9998;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(4, 5, 8, .88);
+  backdrop-filter: blur(3px);
+  animation: offline-report-fade .18s ease-out both;
+}
+
+.offline-report {
+  width: min(680px, 100%);
+  max-height: min(88vh, 760px);
+  overflow: auto;
+  color: var(--text);
+  background:
+    linear-gradient(145deg, rgba(204, 17, 17, .08), transparent 38%),
+    var(--bg-panel);
+  border: 2px solid var(--red);
+  border-radius: var(--radius);
+  box-shadow: 0 0 42px rgba(204, 17, 17, .28), 0 22px 60px rgba(0, 0, 0, .55);
+  animation: offline-report-enter .22s ease-out both;
+}
+
+.offline-report__header {
+  padding: 22px 24px 20px;
+  text-align: center;
+  border-bottom: 1px solid var(--border);
+}
+
+.offline-report__eyebrow {
+  display: block;
+  margin-bottom: 10px;
+  color: var(--red);
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.offline-report__header h2 {
+  margin: 0;
+  color: var(--text);
+  font-family: var(--font-pixel);
+  font-size: clamp(11px, 2.2vw, 15px);
+  line-height: 1.7;
+  text-transform: uppercase;
+}
+
+.offline-report__header h2 strong {
+  color: var(--gold);
+  white-space: nowrap;
+}
+
+.offline-report__body {
+  display: grid;
+  gap: 18px;
+  padding: 20px 24px 24px;
+}
+
+.offline-report__kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  gap: 9px;
+}
+
+.offline-report__kpi {
+  display: grid;
+  align-content: center;
+  min-height: 92px;
+  padding: 12px;
+  text-align: center;
+  background: rgba(0, 0, 0, .28);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.offline-report__kpi--sales {
+  border-color: rgba(126, 200, 126, .42);
+}
+
+.offline-report__kpi--money {
+  border-color: rgba(232, 190, 74, .5);
+  background: rgba(232, 190, 74, .08);
+}
+
+.offline-report__kpi-label {
+  color: var(--text-dim);
+  font-family: var(--font-pixel);
+  font-size: 7px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.offline-report__kpi-value {
+  margin-top: 8px;
+  color: var(--text);
+  font-family: var(--font-pixel);
+  font-size: 15px;
+  line-height: 1.25;
+}
+
+.offline-report__kpi--sales .offline-report__kpi-value {
+  color: #7ec87e;
+}
+
+.offline-report__kpi--money .offline-report__kpi-value,
+.offline-report__stars,
+.offline-report__shiny {
+  color: var(--gold);
+}
+
+.offline-report__kpi-detail {
+  margin-top: 6px;
+  color: var(--text-dim);
+  font-size: 9px;
+}
+
+.offline-report__economy-note {
+  margin: -8px 0 0;
+  color: var(--text-dim);
+  font-size: 9px;
+  line-height: 1.7;
+  text-align: center;
+}
+
+.offline-report__highlights h3 {
+  margin: 0 0 9px;
+  color: var(--red);
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+.offline-report__highlights ul {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.offline-report__highlight {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  gap: 9px;
+  padding: 7px 10px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, .25);
+  border-left: 3px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.offline-report__highlight--shiny,
+.offline-report__highlight--legendary,
+.offline-report__highlight--potential {
+  border-left-color: var(--gold);
+}
+
+.offline-report__highlight--very_rare {
+  border-left-color: #8ec9ff;
+}
+
+.offline-report__highlight-sprite,
+.offline-report__capture-sprite,
+.offline-report__capture-sprite-placeholder {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.offline-report__highlight-icon {
+  width: 18px;
+  flex: 0 0 auto;
+  color: var(--gold);
+  text-align: center;
+}
+
+.offline-report__details {
+  overflow: hidden;
+  background: rgba(0, 0, 0, .2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.offline-report__details summary {
+  padding: 13px 15px;
+  color: var(--text);
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  line-height: 1.55;
+  cursor: pointer;
+  user-select: none;
+}
+
+.offline-report__details[open] summary {
+  color: var(--red);
+  border-bottom: 1px solid var(--border);
+}
+
+.offline-report__capture-groups {
+  display: grid;
+  gap: 1px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.offline-report__capture-group {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 12px;
+  background: rgba(255, 255, 255, .018);
+}
+
+.offline-report__capture-group + .offline-report__capture-group {
+  border-top: 1px solid rgba(255, 255, 255, .05);
+}
+
+.offline-report__capture-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.offline-report__capture-name {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--text);
+  font-size: 10px;
+}
+
+.offline-report__capture-name span {
+  color: var(--text-dim);
+  font-family: var(--font-pixel);
+  font-size: 8px;
+}
+
+.offline-report__capture-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 11px;
+  margin-top: 5px;
+  color: var(--text-dim);
+  font-size: 8px;
+  line-height: 1.5;
+  text-transform: uppercase;
+}
+
+.offline-report__kept {
+  color: #8ec9ff;
+}
+
+.offline-report__sold {
+  color: #7ec87e;
+}
+
+.offline-report__footer {
+  display: flex;
+  justify-content: center;
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+}
+
+.offline-report__close {
+  padding: 9px 22px;
+  color: var(--red);
+  background: var(--bg);
+  border: 1px solid var(--red);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.offline-report__close:hover,
+.offline-report__close:focus-visible {
+  color: #fff;
+  background: var(--red);
+  outline: none;
+}
+
+@keyframes offline-sync-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes offline-sync-enter {
+  from { opacity: 0; transform: translate(-50%, -8px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+@keyframes offline-report-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes offline-report-enter {
+  from { opacity: 0; transform: translateY(10px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (max-width: 560px) {
+  .offline-report-overlay { padding: 10px; }
+  .offline-report { max-height: 94vh; }
+  .offline-report__header { padding: 18px 16px 16px; }
+  .offline-report__body { gap: 15px; padding: 16px; }
+  .offline-report__kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .offline-report__kpi { min-height: 82px; padding: 10px 7px; }
+  .offline-report__kpi-value { font-size: 12px; }
+  .offline-report__highlights ul { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .offline-sync,
+  .offline-sync__spinner,
+  .offline-report-overlay,
+  .offline-report {
+    animation: none;
+  }
+}

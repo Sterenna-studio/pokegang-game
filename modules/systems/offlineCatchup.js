@@ -16,6 +16,11 @@
 'use strict';
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
+import {
+  deferSimulationUi,
+  requestSimulationSave,
+  resolveSimulationContext,
+} from '../core/simulationContext.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
 const _save   = ()               => globalThis.saveState?.();
@@ -82,7 +87,7 @@ function _catchupPension(elapsedMs) {
 // ── Catchup XP équipes ────────────────────────────────────────────────────────
 // Calcule l'XP passif accumulé (3 XP / 30s) pendant elapsedMs
 
-function _catchupPassiveXP(elapsedMs) {
+function _catchupPassiveXP(elapsedMs, context = {}) {
   const state = globalThis.state;
   if (!state) return 0;
 
@@ -99,7 +104,9 @@ function _catchupPassiveXP(elapsedMs) {
   for (const id of teamIds) {
     const p = state.pokemons?.find(pk => pk.id === id);
     // autoPick : level-ups hors-ligne non supervisés → évolutions sans popup au boot.
-    if (p && globalThis.levelUpPokemon) globalThis.levelUpPokemon(p, totalXP, { autoPick: true });
+    if (p && globalThis.levelUpPokemon) {
+      globalThis.levelUpPokemon(p, totalXP, { autoPick: true, ...context });
+    }
   }
   return ticksOf30s;
 }
@@ -107,7 +114,7 @@ function _catchupPassiveXP(elapsedMs) {
 // ── Catchup salle d'entraînement ──────────────────────────────────────────────
 // Rejoue les ticks de combat (1 tick = 60s)
 
-function _catchupTraining(elapsedMs) {
+function _catchupTraining(elapsedMs, context = {}) {
   const state = globalThis.state;
   const room = state?.trainingRoom;
   if (!room || room.pokemon.length < 2) return 0;
@@ -130,7 +137,7 @@ function _catchupTraining(elapsedMs) {
   // (levelUpPokemon gère déjà l'évolution en interne — pas de second appel redondant.)
   const avgXP = Math.round((winXP + loseXP) / 2);
   for (const p of fighters) {
-    globalThis.levelUpPokemon?.(p, avgXP, { autoPick: true });
+    globalThis.levelUpPokemon?.(p, avgXP, { autoPick: true, ...context });
   }
 
   return ticks;
@@ -144,7 +151,9 @@ function _catchupTraining(elapsedMs) {
  *   classique (utile quand le rapport global prend le relais).
  * @returns {{ elapsed: number, eggsReady: number, trainingTicks: number, xpTicks: number } | null}
  */
-function applyOfflineCatchup({ silent = false } = {}) {
+function applyOfflineCatchup(options = {}) {
+  const context = resolveSimulationContext(options);
+  const { silent } = context;
   const state = globalThis.state;
   if (!state) return null;
 
@@ -163,15 +172,15 @@ function applyOfflineCatchup({ silent = false } = {}) {
 
   // Appliquer les rattrapages
   const eggsReady     = _catchupPension(elapsed);
-  const trainingTicks = _catchupTraining(elapsed);
-  const xpTicks       = _catchupPassiveXP(elapsed);
+  const trainingTicks = _catchupTraining(elapsed, context);
+  const xpTicks       = _catchupPassiveXP(elapsed, context);
 
   // Mettre à jour _savedAt pour éviter un double-rattrapage
   state._savedAt = now;
-  _save();
+  requestSimulationSave(_save, context);
 
   // Alimenter le rapport global si actif
-  const collecting = globalThis.OfflineReport?.isCollecting?.();
+  const collecting = context.collecting;
   if (collecting) {
     globalThis.OfflineReport.pushPensionResult({ eggsReady });
     globalThis.OfflineReport.pushTrainingTicks(trainingTicks);
@@ -201,7 +210,7 @@ function applyOfflineCatchup({ silent = false } = {}) {
   }
 
   // Rafraîchir l'UI si des œufs sont prêts
-  if (eggsReady > 0 && globalThis.activeTab === 'tabPC') {
+  if (eggsReady > 0 && !deferSimulationUi('pc', context) && globalThis.activeTab === 'tabPC') {
     globalThis.renderPCTab?.();
   }
 

@@ -1,60 +1,73 @@
-// ════════════════════════════════════════════════════════════════
-//  OFFLINE REPORT
-//  Collecte ce qui se passe pendant l'absence (tab hidden) et
-//  affiche un "Rapport de Mission" au retour.
-//
-//  Principe :
-//    1. Au retour de tab → startCollecting()
-//    2. Les systèmes catchup poussent les événements via push*()
-//    3. Au bout du catchup → stopCollecting() retourne le rapport
-//    4. Si la durée d'absence ≥ seuil utilisateur → showOfflineReportModal()
-//
-//  Seuils configurables : state.settings.offlineReportThreshold (s)
-//    0    = jamais
-//    60   = 1 min
-//    300  = 5 min (défaut)
-//    900  = 15 min
-//    1800 = 30 min
-//    3600 = 1 h
-// ════════════════════════════════════════════════════════════════
+// Offline return owner: collect business results, coordinate the chunked catchup,
+// then render one concise report. The visual styling lives in offline-report.css.
 
-import { EventBus, EVENTS } from '../core/eventBus.js';
+import {
+  aggregateOfflineReport,
+  buildOfflineHighlights,
+  createOfflineReport,
+  getOfflineReportCopy,
+  recordOfflineCapture,
+  recordOfflineCombat,
+  recordOfflineMoney,
+  shouldShowOfflineReport,
+} from './offlineReportModel.js';
+import { runOfflineReturnFlow } from './offlineBatch.js';
+import {
+  createSimulationContext,
+  isSimulationBatchActive,
+  snapshotSimulationEffects,
+  withSimulationContext,
+} from '../core/simulationContext.js';
 
-const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type });
-const _t = (fr, en) => (globalThis.state?.lang === 'en' ? en : fr);
+const REPORT_MODAL_ID = 'offlineReportModal';
+const SYNC_SURFACE_ID = 'offlineReportSync';
+const REPORT_THRESHOLD_DEFAULT = 300;
 
-// ── Catégorisation d'importance pour le tri ──────────────────────
-const _RARITY_ORDER = {
-  shiny:      0, // chaque shiny = ligne individuelle (clé virtuelle)
-  legendary:  1,
-  very_rare:  2,
-  rare:       3,
-  uncommon:   4,
-  common:     5,
-};
-
-// ── Collecteur (singleton) ───────────────────────────────────────
 let _collector = null;
+let _hiddenSince = null;
+let _visibilityGeneration = 0;
+let _scheduledReturn = null;
+let _catchupQueue = Promise.resolve();
+let _lastDiagnostics = null;
 
-function _newCollector() {
-  return {
-    startedAt:    Date.now(),
-    absentSince:  null,        // timestamp de départ d'absence (fourni par caller)
-    captures:     [],          // { species_en, shiny, potential, rarity, byAgent }
-    combats:      { won: 0, lost: 0, totalReward: 0 },
-    chests:       0,
-    moneyDelta:   0,           // gain net argent (captures + chests + combats)
-    itemsDelta:   {},          // { pokeball: +N, greatball: +N, ... }
-    eggsReady:    0,           // œufs incubés prêts à éclore
-    trainingTicks:0,           // ticks de salle d'entraînement appliqués
-    xpTicks:      0,           // ticks de XP passive appliqués
-    levelUps:     [],          // [{ name, species_en, fromLvl, toLvl }]
-  };
+function _lang() {
+  return globalThis.state?.lang === 'en' ? 'en' : 'fr';
+}
+
+function _copy() {
+  return getOfflineReportCopy(_lang());
+}
+
+function _escape(value) {
+  const raw = String(value ?? '');
+  if (typeof globalThis.escapeHtml === 'function') return globalThis.escapeHtml(raw);
+  return raw.replace(/[&<>'"]/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;',
+  })[char]);
+}
+
+function _formatDuration(ms) {
+  const totalMinutes = Math.floor(Math.max(0, ms) / 60_000);
+  if (totalMinutes < 1) return _lang() === 'en' ? 'less than 1 min' : 'moins d\'1 min';
+  if (totalMinutes < 60) return `${totalMinutes} min`;
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return minutes ? `${hours}h${String(minutes).padStart(2, '0')}` : `${hours}h`;
+}
+
+function _formatMoney(value, { forceSign = false } = {}) {
+  const amount = Number(value) || 0;
+  const sign = amount > 0 && forceSign ? '+' : amount < 0 ? '−' : '';
+  return `${sign}${Math.abs(amount).toLocaleString(_lang() === 'en' ? 'en-US' : 'fr-FR')}₽`;
+}
+
+function _speciesName(speciesEn) {
+  return globalThis.speciesName?.(speciesEn) ?? speciesEn;
 }
 
 export function startCollecting(absentSince = null) {
-  _collector = _newCollector();
-  if (absentSince) _collector.absentSince = absentSince;
+  _collector = createOfflineReport({ absentSince });
+  return _collector;
 }
 
 export function stopCollecting() {
@@ -67,398 +80,334 @@ export function isCollecting() {
   return _collector !== null;
 }
 
-// ── Helpers de push (no-op si pas de collector actif) ────────────
-
 export function pushCapture(data) {
-  if (!_collector) return;
-  _collector.captures.push({
-    species_en: data.species_en,
-    shiny:      !!data.shiny,
-    potential:  data.potential ?? 1,
-    rarity:     data.rarity ?? 'common',
-    byAgent:    data.byAgent ?? '',
-  });
+  if (_collector) recordOfflineCapture(_collector, data);
 }
 
 export function pushCombat(won, reward = 0) {
-  if (!_collector) return;
-  if (won) _collector.combats.won++;
-  else     _collector.combats.lost++;
-  if (reward) _collector.combats.totalReward += reward;
+  if (_collector) recordOfflineCombat(_collector, won, reward);
 }
 
 export function pushChest() {
+  if (_collector) _collector.chests++;
+}
+
+export function pushMoney(delta, source = 'other') {
+  if (_collector) recordOfflineMoney(_collector, delta, source);
+}
+
+export function pushItems(items = {}) {
   if (!_collector) return;
-  _collector.chests++;
-}
-
-export function pushMoney(delta) {
-  if (!_collector || !delta) return;
-  _collector.moneyDelta += delta;
-}
-
-export function pushItems(itemsObj) {
-  if (!_collector || !itemsObj) return;
-  for (const [k, v] of Object.entries(itemsObj)) {
-    if (!v) continue;
-    _collector.itemsDelta[k] = (_collector.itemsDelta[k] || 0) + v;
+  for (const [itemId, quantity] of Object.entries(items)) {
+    if (!quantity) continue;
+    _collector.itemsDelta[itemId] = (_collector.itemsDelta[itemId] || 0) + quantity;
   }
 }
 
 export function pushPensionResult({ eggsReady = 0 } = {}) {
-  if (!_collector) return;
-  _collector.eggsReady += eggsReady;
+  if (_collector) _collector.eggsReady += eggsReady;
 }
 
-export function pushTrainingTicks(n) {
-  if (!_collector || !n) return;
-  _collector.trainingTicks += n;
+export function pushTrainingTicks(count) {
+  if (_collector && count) _collector.trainingTicks += count;
 }
 
-export function pushXPTicks(n) {
-  if (!_collector || !n) return;
-  _collector.xpTicks += n;
+export function pushXPTicks(count) {
+  if (_collector && count) _collector.xpTicks += count;
 }
 
 export function pushLevelUp(data) {
-  if (!_collector) return;
-  _collector.levelUps.push(data);
+  if (_collector && data) _collector.levelUps.push(data);
 }
 
-// ── Utilitaires de mise en forme ─────────────────────────────────
-
-function _formatDuration(ms) {
-  const totalMin = Math.floor(ms / 60000);
-  if (totalMin < 1)  return _t('moins d\'1 min', 'less than 1 min');
-  if (totalMin < 60) return `${totalMin} min`;
-  const h = Math.floor(totalMin / 60);
-  const m = totalMin % 60;
-  return m > 0 ? `${h}h${String(m).padStart(2, '0')}` : `${h}h`;
+export function pushAgentEvent(data) {
+  if (_collector && data) _collector.agentEvents.push(data);
 }
 
-/**
- * Groupe les captures par espèce SAUF les shinies (chaque shiny reste seul).
- * Retourne un tableau trié par importance.
- */
-function _groupCaptures(captures) {
-  const groups = [];
-  const grouped = new Map(); // species_en → { ...fields, count, maxPotential }
-
-  for (const cap of captures) {
-    if (cap.shiny) {
-      // Chaque shiny = entrée individuelle
-      groups.push({ ...cap, count: 1, _sortKey: _RARITY_ORDER.shiny });
-      continue;
-    }
-    const existing = grouped.get(cap.species_en);
-    if (existing) {
-      existing.count++;
-      existing.maxPotential = Math.max(existing.maxPotential, cap.potential);
-    } else {
-      const g = {
-        species_en:   cap.species_en,
-        shiny:        false,
-        rarity:       cap.rarity,
-        count:        1,
-        maxPotential: cap.potential,
-        _sortKey:     _RARITY_ORDER[cap.rarity] ?? _RARITY_ORDER.common,
-      };
-      grouped.set(cap.species_en, g);
-      groups.push(g);
-    }
-  }
-
-  // Tri par importance, puis par count décroissant pour les communs
-  groups.sort((a, b) => {
-    if (a._sortKey !== b._sortKey) return a._sortKey - b._sortKey;
-    return (b.count || 1) - (a.count || 1);
-  });
-
-  return groups;
-}
-
-// ── Seuil utilisateur ────────────────────────────────────────────
-
-const _THRESHOLD_DEFAULT = 300; // 5 min
-
-/** Retourne le seuil (en secondes) en dessous duquel on n'affiche pas le rapport. */
 export function getReportThreshold() {
-  const state = globalThis.state;
-  const v = state?.settings?.offlineReportThreshold;
-  if (typeof v !== 'number') return _THRESHOLD_DEFAULT;
-  return Math.max(0, v);
+  const configured = globalThis.state?.settings?.offlineReportThreshold;
+  return typeof configured === 'number' ? Math.max(0, configured) : REPORT_THRESHOLD_DEFAULT;
 }
 
-/** Indique si le rapport doit être affiché compte tenu du seuil et du contenu. */
 export function shouldShowReport(report) {
-  if (!report) return false;
-  const threshold = getReportThreshold();
-  if (threshold === 0) return false; // utilisateur a désactivé
-
-  const absent = report.absentSince ? Date.now() - report.absentSince : 0;
-  if (absent < threshold * 1000) return false;
-
-  // Pas de contenu pertinent → skip
-  const hasContent =
-    report.captures.length > 0 ||
-    report.combats.won + report.combats.lost > 0 ||
-    report.chests > 0 ||
-    report.eggsReady > 0 ||
-    report.trainingTicks > 0 ||
-    Math.abs(report.moneyDelta) > 0 ||
-    Object.keys(report.itemsDelta).length > 0;
-
-  return hasContent;
+  return shouldShowOfflineReport(report, {
+    thresholdSeconds: getReportThreshold(),
+    now: Date.now(),
+  });
 }
 
-// ── Rendu du modal ───────────────────────────────────────────────
+function _kpiCard(label, value, detail = '', modifier = '') {
+  return `
+    <article class="offline-report__kpi ${modifier}">
+      <span class="offline-report__kpi-label">${_escape(label)}</span>
+      <strong class="offline-report__kpi-value">${_escape(value)}</strong>
+      ${detail ? `<span class="offline-report__kpi-detail">${_escape(detail)}</span>` : ''}
+    </article>`;
+}
 
-const _MODAL_ID = 'offlineReportModal';
+function _buildKpis(report, aggregate, copy) {
+  const cards = [];
+  if (aggregate.capturesTotal > 0) {
+    const shinyDetail = aggregate.shinyTotal > 0 ? `${aggregate.shinyTotal} ✨` : '';
+    cards.push(_kpiCard(copy.captures, aggregate.capturesTotal, shinyDetail));
+  }
+  if (report.sales.count > 0) {
+    cards.push(_kpiCard(copy.sales, report.sales.count, _formatMoney(report.sales.revenue, { forceSign: true }), 'offline-report__kpi--sales'));
+  }
+  if (aggregate.combats.total > 0) {
+    cards.push(_kpiCard(
+      copy.combats,
+      aggregate.combats.total,
+      `${aggregate.combats.won} ${copy.winsShort} / ${aggregate.combats.lost} ${copy.lossesShort}`,
+    ));
+  }
+  if (aggregate.totalEarned !== 0) {
+    cards.push(_kpiCard(copy.money, _formatMoney(aggregate.totalEarned, { forceSign: true }), copy.totalEarned, 'offline-report__kpi--money'));
+  }
+  if (report.eggsReady > 0) cards.push(_kpiCard(copy.eggs, report.eggsReady));
+  if (report.trainingTicks > 0) cards.push(_kpiCard(copy.training, report.trainingTicks));
+  return `<section class="offline-report__kpis" aria-label="${_escape(copy.totalEarned)}">${cards.join('')}</section>`;
+}
+
+function _highlightLabel(highlight, copy) {
+  if (highlight.kind === 'eggs') {
+    return `${highlight.count} ${highlight.count > 1 ? copy.eggsReady : copy.eggReady}`;
+  }
+  if (highlight.kind === 'level_up') {
+    return `${highlight.name || highlight.species_en || ''} · ${copy.levelUp}`;
+  }
+  if (highlight.kind === 'exhausted') {
+    return `${highlight.name || ''} · ${copy.exhausted}`;
+  }
+  if (highlight.kind === 'promotion') {
+    return `${highlight.name || ''} · ${copy.promotion} ${highlight.title || ''}`;
+  }
+  const name = _speciesName(highlight.species_en);
+  if (highlight.kind === 'shiny') return `${name} · ✨ ${copy.shiny}`;
+  if (highlight.kind === 'legendary') return `${name} · 🏆 ${copy.legendary}`;
+  if (highlight.kind === 'very_rare') return `${name} · ⭐ ${copy.veryRare}`;
+  return `${name} · ${'★'.repeat(highlight.potential || 1)}`;
+}
+
+function _buildHighlights(report, copy) {
+  const highlights = buildOfflineHighlights(report, { limit: 4 });
+  if (!highlights.length) return '';
+  const rows = highlights.map(highlight => {
+    const sprite = highlight.species_en
+      ? globalThis.pokeSprite?.(highlight.species_en, !!highlight.shiny)
+      : '';
+    return `
+      <li class="offline-report__highlight offline-report__highlight--${_escape(highlight.kind)}">
+        ${sprite ? `<img class="offline-report__highlight-sprite" src="${_escape(sprite)}" alt="">` : '<span class="offline-report__highlight-icon">◆</span>'}
+        <span>${_escape(_highlightLabel(highlight, copy))}</span>
+      </li>`;
+  }).join('');
+  return `
+    <section class="offline-report__highlights">
+      <h3>${_escape(copy.highlights)}</h3>
+      <ul>${rows}</ul>
+    </section>`;
+}
+
+function _buildCaptureDetails(aggregate, copy) {
+  if (!aggregate.captureGroups.length) return '';
+  const groups = aggregate.captureGroups.map(group => {
+    const name = _speciesName(group.species_en);
+    const sprite = globalThis.pokeSprite?.(group.species_en, group.shinyCount > 0);
+    const facts = [];
+    if (group.keptCount > 0) facts.push(`<span class="offline-report__kept">${_escape(copy.kept)} ×${group.keptCount}</span>`);
+    if (group.soldCount > 0) {
+      facts.push(`<span class="offline-report__sold">${_escape(copy.sold)} ×${group.soldCount} · ${_escape(_formatMoney(group.salesRevenue, { forceSign: true }))}</span>`);
+    }
+    facts.push(`<span>${_escape(copy.best)} : <b class="offline-report__stars">${'★'.repeat(group.maxPotential)}</b></span>`);
+    if (group.shinyCount > 0) facts.push(`<span class="offline-report__shiny">✨ ${_escape(copy.shiny)} ×${group.shinyCount}</span>`);
+    return `
+      <article class="offline-report__capture-group">
+        ${sprite ? `<img class="offline-report__capture-sprite" src="${_escape(sprite)}" alt="">` : '<span class="offline-report__capture-sprite-placeholder"></span>'}
+        <div class="offline-report__capture-copy">
+          <div class="offline-report__capture-name"><strong>${_escape(name)}</strong><span>×${group.count}</span></div>
+          <div class="offline-report__capture-facts">${facts.join('')}</div>
+        </div>
+      </article>`;
+  }).join('');
+  return `
+    <details class="offline-report__details">
+      <summary>${_escape(copy.viewDetails)} (${aggregate.capturesTotal})</summary>
+      <div class="offline-report__capture-groups">${groups}</div>
+    </details>`;
+}
+
+function _buildEconomyFootnote(report, copy) {
+  const parts = [];
+  if (report.sales.revenue) parts.push(`${copy.salesIncome} ${_formatMoney(report.sales.revenue, { forceSign: true })}`);
+  if (report.combats.totalReward) parts.push(`${copy.combatIncome} ${_formatMoney(report.combats.totalReward, { forceSign: true })}`);
+  if (report.moneySources.chest) parts.push(`${copy.chestIncome} ${_formatMoney(report.moneySources.chest, { forceSign: true })}`);
+  for (const [itemId, quantity] of Object.entries(report.itemsDelta)) {
+    const ball = globalThis.BALLS?.[itemId];
+    const label = (_lang() === 'en' ? ball?.en : ball?.fr) || itemId;
+    parts.push(`${quantity > 0 ? '+' : ''}${quantity} ${label}`);
+  }
+  return parts.length ? `<p class="offline-report__economy-note">${parts.map(_escape).join(' · ')}</p>` : '';
+}
+
+export function buildOfflineReportHTML(report) {
+  const copy = _copy();
+  const aggregate = aggregateOfflineReport(report);
+  const absentMs = report.absentSince ? Date.now() - report.absentSince : 0;
+  return `
+    <section class="offline-report" role="dialog" aria-modal="true" aria-labelledby="offlineReportTitle">
+      <header class="offline-report__header">
+        <span class="offline-report__eyebrow">PokéGang · Offline</span>
+        <h2 id="offlineReportTitle">${_escape(copy.workedWhileAway)} <strong>${_escape(_formatDuration(absentMs))}</strong></h2>
+      </header>
+      <div class="offline-report__body">
+        ${_buildKpis(report, aggregate, copy)}
+        ${_buildEconomyFootnote(report, copy)}
+        ${_buildHighlights(report, copy)}
+        ${_buildCaptureDetails(aggregate, copy)}
+      </div>
+      <footer class="offline-report__footer">
+        <button id="offlineReportClose" class="offline-report__close" type="button">${_escape(copy.close)}</button>
+      </footer>
+    </section>`;
+}
 
 export function showOfflineReportModal(report) {
-  // Évite double affichage
-  document.getElementById(_MODAL_ID)?.remove();
-
+  document.getElementById(REPORT_MODAL_ID)?.remove();
   const overlay = document.createElement('div');
-  overlay.id = _MODAL_ID;
-  overlay.style.cssText = `
-    position:fixed;inset:0;z-index:9998;
-    background:rgba(0,0,0,.86);
-    display:flex;align-items:center;justify-content:center;
-    backdrop-filter:blur(2px);
-  `;
-
-  overlay.innerHTML = _buildReportHTML(report);
-
+  overlay.id = REPORT_MODAL_ID;
+  overlay.className = 'offline-report-overlay';
+  overlay.innerHTML = buildOfflineReportHTML(report);
   document.body.appendChild(overlay);
-
-  // Close handlers
-  overlay.querySelector('#orClose')?.addEventListener('click', () => overlay.remove());
-  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  overlay.querySelector('#offlineReportClose')?.addEventListener('click', () => overlay.remove());
+  overlay.addEventListener('click', event => {
+    if (event.target === overlay) overlay.remove();
+  });
 }
 
-function _buildReportHTML(report) {
-  const absentMs = report.absentSince ? Date.now() - report.absentSince : 0;
-  const durationStr = _formatDuration(absentMs);
-
-  return `
-    <div style="background:var(--bg-panel);border:2px solid var(--red);border-radius:var(--radius);
-                max-width:580px;width:94%;max-height:88vh;overflow-y:auto;
-                box-shadow:0 0 32px rgba(204,17,17,.35);display:flex;flex-direction:column">
-      ${_headerHTML(durationStr)}
-      <div style="padding:16px 20px;display:flex;flex-direction:column;gap:14px">
-        ${_captureSectionHTML(report.captures)}
-        ${_combatSectionHTML(report.combats)}
-        ${_economySectionHTML(report)}
-        ${_pensionTrainingSectionHTML(report)}
-      </div>
-      ${_footerHTML()}
-    </div>
-  `;
+function _showSyncSurface() {
+  if (document.getElementById(SYNC_SURFACE_ID)) return;
+  const surface = document.createElement('div');
+  surface.id = SYNC_SURFACE_ID;
+  surface.className = 'offline-sync';
+  surface.setAttribute('role', 'status');
+  surface.setAttribute('aria-live', 'polite');
+  surface.innerHTML = `<span class="offline-sync__spinner" aria-hidden="true"></span><span>${_escape(_copy().syncing)}</span>`;
+  document.body.appendChild(surface);
 }
 
-function _headerHTML(durationStr) {
-  return `
-    <div style="padding:18px 20px;border-bottom:1px solid var(--border);text-align:center">
-      <div style="font-family:var(--font-pixel);font-size:11px;color:var(--red);letter-spacing:2px;margin-bottom:6px">
-        ${_t('▶ RAPPORT DE MISSION ◀', '▶ MISSION REPORT ◀')}
-      </div>
-      <div style="font-size:10px;color:var(--text-dim)">
-        ${_t('Absent', 'Away')} · <span style="color:var(--gold);font-family:var(--font-pixel)">${durationStr}</span>
-      </div>
-    </div>
-  `;
+function _hideSyncSurface() {
+  document.getElementById(SYNC_SURFACE_ID)?.remove();
 }
 
-function _captureSectionHTML(captures) {
-  if (!captures.length) return '';
-  const groups = _groupCaptures(captures);
-  const shinies   = groups.filter(g => g.shiny).length;
-  const totalCaps = captures.length;
-
-  const lines = groups.slice(0, 30).map(g => {
-    const name   = globalThis.speciesName?.(g.species_en) ?? g.species_en;
-    const sprite = globalThis.pokeSprite?.(g.species_en, g.shiny);
-    const stars  = '★'.repeat(g.maxPotential || g.potential || 1);
-    const tag    = g.shiny
-      ? '<span style="color:var(--gold);font-family:var(--font-pixel);font-size:7px">✨ SHINY</span>'
-      : g.rarity === 'legendary' ? `<span style="color:var(--gold);font-family:var(--font-pixel);font-size:7px">🏆 ${_t('LÉGEND.', 'LEGEND.')}</span>`
-      : g.rarity === 'very_rare' ? `<span style="color:#a4d8ff;font-family:var(--font-pixel);font-size:7px">⭐ ${_t('T.RARE', 'V.RARE')}</span>`
-      : '';
-    const countBadge = g.count > 1
-      ? `<span style="color:var(--text);font-family:var(--font-pixel);font-size:9px;margin-left:auto">×${g.count}</span>`
-      : '';
-
-    return `
-      <div style="display:flex;align-items:center;gap:10px;padding:5px 8px;background:rgba(0,0,0,.25);border-radius:var(--radius-sm)">
-        ${sprite ? `<img src="${sprite}" style="width:32px;height:32px;image-rendering:pixelated">` : '<div style="width:32px;height:32px"></div>'}
-        <div style="flex:1;min-width:0">
-          <div style="font-size:10px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
-            ${name} <span style="color:var(--gold);font-size:8px">${stars}</span>
-          </div>
-          ${tag}
-        </div>
-        ${countBadge}
-      </div>
-    `;
-  }).join('');
-
-  const more = groups.length > 30
-    ? `<div style="text-align:center;font-size:8px;color:var(--text-dim);padding:4px">… +${groups.length - 30} ${_t('entrées', 'entries')}</div>`
-    : '';
-
-  return `
-    <div>
-      <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px">
-        <div style="font-family:var(--font-pixel);font-size:9px;color:var(--red);letter-spacing:1px">CAPTURES</div>
-        <div style="font-size:9px;color:var(--text-dim)">${totalCaps} Pokémon${shinies > 0 ? ` · <span style="color:var(--gold)">${shinies} ✨</span>` : ''}</div>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:4px">${lines}${more}</div>
-    </div>
-  `;
+function _diagnosticsEnabled() {
+  if (globalThis.__POKEGANG_OFFLINE_DEBUG__ === true) return true;
+  const host = globalThis.location?.hostname;
+  return host === 'localhost' || host === '127.0.0.1';
 }
 
-function _combatSectionHTML(combats) {
-  const total = combats.won + combats.lost;
-  if (total === 0) return '';
-  return `
-    <div>
-      <div style="font-family:var(--font-pixel);font-size:9px;color:var(--red);letter-spacing:1px;margin-bottom:6px">COMBATS</div>
-      <div style="display:flex;gap:14px;font-size:10px;color:var(--text);background:rgba(0,0,0,.25);padding:8px 10px;border-radius:var(--radius-sm)">
-        <span>✅ <b style="color:#7ec87e">${combats.won}</b> ${_t('victoires', 'wins')}</span>
-        <span>❌ <b style="color:#cc6666">${combats.lost}</b> ${_t('défaites', 'losses')}</span>
-        ${combats.totalReward > 0 ? `<span style="margin-left:auto;color:var(--gold)">+${combats.totalReward.toLocaleString()}₽</span>` : ''}
-      </div>
-    </div>
-  `;
+function _refreshAfterCatchup() {
+  globalThis.invalidateLookupMaps?.();
+  globalThis.resetPcRenderCache?.();
+  globalThis.renderAll?.();
 }
 
-function _economySectionHTML(report) {
-  const lines = [];
-  if (report.moneyDelta) {
-    const color = report.moneyDelta > 0 ? 'var(--gold)' : '#cc6666';
-    lines.push(`<span style="color:${color}">${report.moneyDelta > 0 ? '+' : ''}${report.moneyDelta.toLocaleString()}₽</span>`);
-  }
-  if (report.chests > 0) lines.push(`<span>📦 ${report.chests} ${_t(`coffre${report.chests > 1 ? 's' : ''}`, `chest${report.chests > 1 ? 's' : ''}`)}</span>`);
-
-  const itemKeys = Object.keys(report.itemsDelta);
-  if (itemKeys.length > 0) {
-    for (const k of itemKeys) {
-      const v = report.itemsDelta[k];
-      if (!v) continue;
-      const ball = globalThis.BALLS?.[k];
-      const label = (globalThis.state?.lang === 'en' ? ball?.en : ball?.fr) ?? k;
-      lines.push(`<span>${v > 0 ? '+' : ''}${v} ${label}</span>`);
+export async function runCatchupAndReport(absentSince) {
+  const metrics = {};
+  const simulation = createSimulationContext({ metrics });
+  try {
+    const result = await runOfflineReturnFlow({
+      absentSince,
+      startCollecting,
+      stopCollecting,
+      applyIdleCatchup: options => withSimulationContext(
+        simulation,
+        () => globalThis.applyOfflineCatchup?.(options),
+      ),
+      applyZoneCatchup: options => globalThis._catchupHiddenZones?.({
+        ...options,
+        simulationContext: simulation,
+      }),
+      save: () => globalThis.saveState?.(),
+      refreshUi: _refreshAfterCatchup,
+      resumeTimers: () => {
+        if (document.hidden) globalThis._pauseAllZoneTimers?.();
+        else globalThis._resumeAllZoneTimers?.();
+      },
+      shouldShowReport,
+      showReport: showOfflineReportModal,
+      showSync: _showSyncSurface,
+      hideSync: _hideSyncSurface,
+      metrics,
+    });
+    result.metrics.effects = snapshotSimulationEffects(simulation);
+    _lastDiagnostics = result.metrics;
+    if (_diagnosticsEnabled()) console.info('[OfflineReport] catchup completed', result.metrics);
+    return result;
+  } catch (error) {
+    if (error?.offlineMetrics) {
+      error.offlineMetrics.effects = snapshotSimulationEffects(simulation);
     }
+    _lastDiagnostics = error?.offlineMetrics || null;
+    console.warn('[OfflineReport] catchup orchestration failed:', error);
+    throw error;
   }
-
-  if (lines.length === 0) return '';
-
-  return `
-    <div>
-      <div style="font-family:var(--font-pixel);font-size:9px;color:var(--red);letter-spacing:1px;margin-bottom:6px">${_t('ÉCONOMIE', 'ECONOMY')}</div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;font-size:10px;color:var(--text);background:rgba(0,0,0,.25);padding:8px 10px;border-radius:var(--radius-sm)">
-        ${lines.join('')}
-      </div>
-    </div>
-  `;
 }
 
-function _pensionTrainingSectionHTML(report) {
-  const parts = [];
-  if (report.eggsReady > 0) parts.push(_t(
-    `🥚 <b>${report.eggsReady}</b> œuf${report.eggsReady > 1 ? 's' : ''} prêt${report.eggsReady > 1 ? 's' : ''}`,
-    `🥚 <b>${report.eggsReady}</b> egg${report.eggsReady > 1 ? 's' : ''} ready`,
-  ));
-  if (report.trainingTicks > 0) parts.push(_t(
-    `🎯 <b>${report.trainingTicks}</b> entraînement${report.trainingTicks > 1 ? 's' : ''}`,
-    `🎯 <b>${report.trainingTicks}</b> training session${report.trainingTicks > 1 ? 's' : ''}`,
-  ));
-  if (report.xpTicks > 0)       parts.push(`📈 <b>${report.xpTicks}</b> ticks XP`);
-  if (report.levelUps?.length > 0) parts.push(`⬆ <b>${report.levelUps.length}</b> level-up${report.levelUps.length > 1 ? 's' : ''}`);
-
-  if (parts.length === 0) return '';
-  return `
-    <div>
-      <div style="font-family:var(--font-pixel);font-size:9px;color:var(--red);letter-spacing:1px;margin-bottom:6px">${_t('PENSION & FORMATION', 'DAYCARE & TRAINING')}</div>
-      <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:10px;color:var(--text);background:rgba(0,0,0,.25);padding:8px 10px;border-radius:var(--radius-sm)">
-        ${parts.join('<span style="color:var(--text-dim)"> · </span>')}
-      </div>
-    </div>
-  `;
+function _queueReturn(absentSince, generation) {
+  _catchupQueue = _catchupQueue
+    .catch(() => {})
+    .then(async () => {
+      if (document.hidden || generation !== _visibilityGeneration) return;
+      await runCatchupAndReport(absentSince);
+    });
+  _catchupQueue.catch(() => {});
 }
-
-function _footerHTML() {
-  return `
-    <div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;justify-content:center">
-      <button id="orClose" style="
-        font-family:var(--font-pixel);font-size:9px;letter-spacing:1px;
-        padding:8px 20px;background:var(--bg);color:var(--red);
-        border:1px solid var(--red);border-radius:var(--radius-sm);
-        cursor:pointer">
-        ${_t('FERMER', 'CLOSE')}
-      </button>
-    </div>
-  `;
-}
-
-// ── Orchestrateur visibilitychange ───────────────────────────────
-// Centralise le rattrapage offline : pension + training + XP passif + zones.
-// Capture tout via le collector, puis affiche un seul rapport au lieu de N notifs.
-
-let _hiddenSince = null;
 
 function _onVisibilityChange() {
+  _visibilityGeneration++;
+  if (_scheduledReturn !== null) {
+    clearTimeout(_scheduledReturn);
+    _scheduledReturn = null;
+  }
+
   if (document.hidden) {
-    _hiddenSince = Date.now();
-    // Stopper immédiatement tous les setInterval de zone → zéro CPU en background.
-    // _pauseAllZoneTimers enregistre hiddenSince par zone pour le catchup au retour.
+    if (!_hiddenSince) _hiddenSince = Date.now();
     globalThis._pauseAllZoneTimers?.();
+    _hideSyncSurface();
     return;
   }
-  // Tab redevient visible
-  const absentSince = _hiddenSince ?? null;
+
+  const absentSince = _hiddenSince;
   _hiddenSince = null;
+  if (!absentSince) {
+    globalThis._resumeAllZoneTimers?.();
+    return;
+  }
 
-  // Relancer les timers de zone avant le catchup (syncActiveZones repart proprement)
-  globalThis._resumeAllZoneTimers?.();
-
-  // Si on n'a jamais vu le tab partir hidden (1er focus du jour), inutile de catchup
-  if (!absentSince) return;
-
-  // Petit délai pour laisser le state être prêt
-  setTimeout(() => _runCatchupAndReport(absentSince), 200);
+  const generation = _visibilityGeneration;
+  _scheduledReturn = setTimeout(() => {
+    _scheduledReturn = null;
+    _queueReturn(absentSince, generation);
+  }, 0);
 }
 
-function _runCatchupAndReport(absentSince) {
-  try {
-    startCollecting(absentSince);
-
-    // 1. Pension / training / XP passif (state-based, lit _savedAt)
-    globalThis.applyOfflineCatchup?.({ silent: true });
-
-    // 2. Captures de zone batch (lit _zoneHiddenSince par zone)
-    globalThis._catchupHiddenZones?.();
-
-    const report = stopCollecting();
-
-    if (shouldShowReport(report)) {
-      showOfflineReportModal(report);
-    }
-  } catch (e) {
-    console.warn('[OfflineReport] catchup orchestration failed:', e);
-    // S'assurer que le collector ne reste pas actif si exception
-    stopCollecting();
-  }
+async function _runDevHarness({ absentMs = 5 * 60_000, zoneIds = null } = {}) {
+  if (!_diagnosticsEnabled()) throw new Error('Offline report harness is only available in local DEV mode.');
+  if (isCollecting()) throw new Error('An offline catchup is already running.');
+  globalThis._pauseAllZoneTimers?.();
+  const zones = globalThis._zsys_prepareOfflineCatchupForDev?.(absentMs, zoneIds) || [];
+  const result = await runCatchupAndReport(Date.now() - absentMs);
+  return { ...result, preparedZones: zones };
 }
 
 document.addEventListener('visibilitychange', _onVisibilityChange);
 
-// ── Exposition pour les autres modules ───────────────────────────
 globalThis.OfflineReport = {
   startCollecting,
   stopCollecting,
   isCollecting,
+  isBatching: isSimulationBatchActive,
   pushCapture,
   pushCombat,
   pushChest,
@@ -468,7 +417,11 @@ globalThis.OfflineReport = {
   pushTrainingTicks,
   pushXPTicks,
   pushLevelUp,
+  pushAgentEvent,
   getReportThreshold,
   shouldShowReport,
   showOfflineReportModal,
+  runCatchupAndReport,
+  runDevHarness: _runDevHarness,
+  getLastDiagnostics: () => _lastDiagnostics,
 };
