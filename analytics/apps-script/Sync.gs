@@ -161,17 +161,19 @@ function pgBuildAcquisitionRows_(startDate, endDate) {
 
 function pgBuildEventRows_(startDate, endDate, errors, counter) {
   const rows = [];
-  // Slot + runtime context are global parameters on every game event. Keeping
-  // them in the shared dimensions prevents silent slot=-1 rows in Supabase.
+  // GA4 Data API accepts at most 9 dimensions per runReport. runtime_context
+  // replaces platform in detailed reports: platform is derived losslessly for
+  // all newly instrumented events (itch/public_site/dev contexts).
   const common = [
-    'date', 'eventName', 'customEvent:platform', 'customEvent:runtime_context',
-    'customEvent:game_version', 'customEvent:internal_tester', 'customEvent:slot',
+    'date', 'eventName', 'customEvent:runtime_context', 'customEvent:game_version',
+    'customEvent:internal_tester', 'customEvent:slot',
   ];
   const baseMetrics = ['activeUsers', 'eventCount'];
 
   const collect = (label, eventNames, dimensions, metrics, map) => {
     counter.value++;
     try {
+      if (dimensions.length > 9) throw new Error(`${label}: ${dimensions.length} dimensions exceeds GA4 limit 9`);
       const report = pgRunReport_(dimensions, metrics, startDate, endDate)
         .filter(row => eventNames.includes(row.d.eventName));
       report.forEach(row => rows.push(map(row)));
@@ -193,14 +195,13 @@ function pgBuildEventRows_(startDate, endDate, errors, counter) {
 
   collect(
     'captures', ['pokemon_captured', 'first_capture'],
-    [...common, 'customEvent:capture_source', 'customEvent:zone', 'customEvent:species', 'customEvent:shiny'],
+    [...common, 'customEvent:capture_source', 'customEvent:zone', 'customEvent:species'],
     baseMetrics,
     row => pgBaseEventRow_(row, {
       capture_source: pgText_(row.d['customEvent:capture_source']),
       zone: pgText_(row.d['customEvent:zone']),
       extra_dimensions: {
         species: pgText_(row.d['customEvent:species']),
-        shiny: pgText_(row.d['customEvent:shiny']),
       },
     }),
   );
@@ -230,24 +231,21 @@ function pgBuildEventRows_(startDate, endDate, errors, counter) {
 
   collect(
     'battle_won', ['battle_won'],
-    [...common, 'customEvent:zone', 'customEvent:trainer', 'customEvent:mode', 'customEvent:initiated_by', 'customEvent:elite'],
+    [...common, 'customEvent:zone', 'customEvent:mode', 'customEvent:initiated_by'],
     baseMetrics,
     row => pgBaseEventRow_(row, {
       zone: pgText_(row.d['customEvent:zone']),
-      trainer: pgText_(row.d['customEvent:trainer']),
       mode: pgText_(row.d['customEvent:mode']),
       initiated_by: pgText_(row.d['customEvent:initiated_by']),
-      elite: pgText_(row.d['customEvent:elite']),
     }),
   );
 
   collect(
     'battle_lost', ['battle_lost'],
-    [...common, 'customEvent:zone', 'customEvent:trainer', 'customEvent:mode', 'customEvent:initiated_by'],
+    [...common, 'customEvent:zone', 'customEvent:mode', 'customEvent:initiated_by'],
     baseMetrics,
     row => pgBaseEventRow_(row, {
       zone: pgText_(row.d['customEvent:zone']),
-      trainer: pgText_(row.d['customEvent:trainer']),
       mode: pgText_(row.d['customEvent:mode']),
       initiated_by: pgText_(row.d['customEvent:initiated_by']),
     }),
@@ -268,27 +266,23 @@ function pgBuildEventRows_(startDate, endDate, errors, counter) {
 
   collect(
     'team_member_set', ['team_member_set'],
-    [...common, 'customEvent:team', 'customEvent:team_slot', 'customEvent:source', 'customEvent:has_agent'],
+    [...common, 'customEvent:team', 'customEvent:team_slot', 'customEvent:source'],
     baseMetrics,
     row => pgBaseEventRow_(row, {
       team: pgText_(row.d['customEvent:team']),
       team_slot: pgInt_(row.d['customEvent:team_slot'], -1),
       source: pgText_(row.d['customEvent:source']),
-      has_agent: pgText_(row.d['customEvent:has_agent']),
     }),
   );
 
   collect(
     'agent_assigned', ['agent_assigned'],
-    [...common, 'customEvent:zone', 'customEvent:previous_zone', 'customEvent:source', 'customEvent:unassigned'],
+    [...common, 'customEvent:zone', 'customEvent:source', 'customEvent:unassigned'],
     baseMetrics,
     row => pgBaseEventRow_(row, {
       zone: pgText_(row.d['customEvent:zone']),
       source: pgText_(row.d['customEvent:source']),
       unassigned: pgText_(row.d['customEvent:unassigned']),
-      extra_dimensions: {
-        previous_zone: pgText_(row.d['customEvent:previous_zone']),
-      },
     }),
   );
 
@@ -320,7 +314,7 @@ function pgBuildEventRows_(startDate, endDate, errors, counter) {
   );
 
   collect(
-    'errors', ['save_failed', 'load_failed', 'game_error', 'runtime_error', 'combat_desync'],
+    'errors', ['save_failed', 'load_failed', 'game_error', 'runtime_error', 'combat_desync', 'onboarding_failed'],
     [...common, 'customEvent:fatal', 'customEvent:reason', 'customEvent:source'], baseMetrics,
     row => pgBaseEventRow_(row, {
       fatal: pgText_(row.d['customEvent:fatal']),
@@ -333,9 +327,8 @@ function pgBuildEventRows_(startDate, endDate, errors, counter) {
 }
 
 function pgBuildOnboardingRows_(startDate, endDate) {
-  // Generic state-machine events plus the presentation/choice milestones added
-  // by the polished first-run flow. These were previously visible in GA4 but
-  // silently absent from Supabase.
+  // Counts are the primary funnel signal. Keep the report at the GA4 9-dimension
+  // ceiling and leave species/zone/source details to the generic event reports.
   const eventNames = [
     'onboarding_briefing_started', 'onboarding_briefing_completed', 'onboarding_briefing_skipped',
     'starter_choice_shown', 'starter_choice_completed', 'first_wild_capture',
@@ -346,24 +339,24 @@ function pgBuildOnboardingRows_(startDate, endDate) {
     'onboarding_completed', 'onboarding_failed',
   ];
   const dimensions = [
-    'date', 'eventName', 'customEvent:platform', 'customEvent:runtime_context',
-    'customEvent:game_version', 'customEvent:internal_tester', 'customEvent:onboarding_version',
+    'date', 'eventName', 'customEvent:runtime_context', 'customEvent:game_version',
+    'customEvent:internal_tester', 'customEvent:onboarding_version',
     'customEvent:step', 'customEvent:next_step', 'customEvent:slot',
-    'customEvent:zone', 'customEvent:species', 'customEvent:won',
-    'customEvent:source', 'customEvent:reason',
   ];
+  if (dimensions.length > 9) throw new Error(`onboarding: ${dimensions.length} dimensions exceeds GA4 limit 9`);
   const metrics = ['activeUsers', 'eventCount', 'customEvent:seconds_since_new_game'];
   return pgRunReport_(dimensions, metrics, startDate, endDate)
     .filter(row => eventNames.includes(row.d.eventName))
     .map(row => {
       const eventCount = pgInt_(row.m.eventCount, 0);
       const seconds = pgNum_(row.m['customEvent:seconds_since_new_game'], 0);
+      const runtimeContext = pgText_(row.d['customEvent:runtime_context']);
       return {
         date: pgGaDate_(row.d.date),
         event_name: row.d.eventName,
         step: pgText_(row.d['customEvent:step']),
         next_step: pgText_(row.d['customEvent:next_step']),
-        platform: pgText_(row.d['customEvent:platform']),
+        platform: pgPlatformFromRuntimeContext_(runtimeContext),
         game_version: pgText_(row.d['customEvent:game_version']),
         onboarding_version: pgText_(row.d['customEvent:onboarding_version']),
         audience: pgAudience_(row.d['customEvent:internal_tester']),
@@ -371,14 +364,9 @@ function pgBuildOnboardingRows_(startDate, endDate) {
         event_count: eventCount,
         avg_seconds_since_new_game: eventCount > 0 ? seconds / eventCount : null,
         slot: pgInt_(row.d['customEvent:slot'], -1),
-        zone: pgText_(row.d['customEvent:zone']),
-        outcome: pgText_(row.d['customEvent:won']),
-        extra_dimensions: {
-          runtime_context: pgText_(row.d['customEvent:runtime_context']),
-          species: pgText_(row.d['customEvent:species']),
-          source: pgText_(row.d['customEvent:source']),
-          reason: pgText_(row.d['customEvent:reason']),
-        },
+        zone: PG_UNKNOWN,
+        outcome: PG_UNKNOWN,
+        extra_dimensions: { runtime_context: runtimeContext },
         extra_metrics: {},
       };
     });
@@ -420,10 +408,11 @@ function pgBuildSegmentRows_(startDate, endDate) {
 }
 
 function pgBaseEventRow_(row, overrides) {
+  const runtimeContext = pgText_(row.d['customEvent:runtime_context']);
   const result = Object.assign({
     date: pgGaDate_(row.d.date),
     event_name: row.d.eventName,
-    platform: pgText_(row.d['customEvent:platform']),
+    platform: pgPlatformFromRuntimeContext_(runtimeContext),
     game_version: pgText_(row.d['customEvent:game_version']),
     save_state: PG_UNKNOWN,
     audience: pgAudience_(row.d['customEvent:internal_tester']),
@@ -451,13 +440,16 @@ function pgBaseEventRow_(row, overrides) {
     extra_metrics: {},
   }, overrides || {});
   result.extra_dimensions = {
-    runtime_context: pgText_(row.d['customEvent:runtime_context']),
+    runtime_context: runtimeContext,
     ...(result.extra_dimensions || {}),
   };
   return result;
 }
 
 function pgRunReport_(dimensionNames, metricNames, startDate, endDate) {
+  if (dimensionNames.length > 9) {
+    throw new Error(`GA4 runReport supports at most 9 dimensions; got ${dimensionNames.length}`);
+  }
   const request = AnalyticsData.newRunReportRequest();
   request.dimensions = dimensionNames.map(name => {
     const dimension = AnalyticsData.newDimension();
@@ -529,6 +521,14 @@ function pgAudience_(value) {
   if (text === 'true' || text === '1') return 'internal';
   if (text === 'false' || text === '0') return 'external';
   return 'unknown';
+}
+
+function pgPlatformFromRuntimeContext_(value) {
+  const context = pgText_(value);
+  if (context === 'itch') return 'itch';
+  if (context === 'public_site') return 'web';
+  if (context === 'lab' || context === 'localhost' || context === 'other_dev') return 'dev';
+  return PG_UNKNOWN;
 }
 
 function pgInt_(value, fallback) {
