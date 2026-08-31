@@ -63,7 +63,7 @@ function pgSyncGa4ToSupabase() {
     datasets,
     client_errors: clientErrors,
     metadata: {
-      apps_script_version: 1,
+      apps_script_version: 2,
       lookback_complete_days: 3,
       retention_status: 'deferred_until_core_pipeline_validated',
     },
@@ -161,7 +161,12 @@ function pgBuildAcquisitionRows_(startDate, endDate) {
 
 function pgBuildEventRows_(startDate, endDate, errors, counter) {
   const rows = [];
-  const common = ['date', 'eventName', 'customEvent:platform', 'customEvent:game_version', 'customEvent:internal_tester'];
+  // Slot + runtime context are global parameters on every game event. Keeping
+  // them in the shared dimensions prevents silent slot=-1 rows in Supabase.
+  const common = [
+    'date', 'eventName', 'customEvent:platform', 'customEvent:runtime_context',
+    'customEvent:game_version', 'customEvent:internal_tester', 'customEvent:slot',
+  ];
   const baseMetrics = ['activeUsers', 'eventCount'];
 
   const collect = (label, eventNames, dimensions, metrics, map) => {
@@ -179,10 +184,9 @@ function pgBuildEventRows_(startDate, endDate, errors, counter) {
   };
 
   collect(
-    'game_loaded', ['game_loaded'],
-    [...common, 'customEvent:slot', 'customEvent:save_state'], baseMetrics,
+    'lifecycle', ['game_loaded', 'play_started'],
+    [...common, 'customEvent:save_state'], baseMetrics,
     row => pgBaseEventRow_(row, {
-      slot: pgInt_(row.d['customEvent:slot'], -1),
       save_state: pgText_(row.d['customEvent:save_state']),
     }),
   );
@@ -203,10 +207,9 @@ function pgBuildEventRows_(startDate, endDate, errors, counter) {
 
   collect(
     'sales', ['pokemon_sold'],
-    [...common, 'customEvent:slot'],
+    common,
     [...baseMetrics, 'customEvent:count', 'customEvent:total_price'],
     row => pgBaseEventRow_(row, {
-      slot: pgInt_(row.d['customEvent:slot'], -1),
       extra_metrics: {
         count: pgNum_(row.m['customEvent:count'], 0),
         total_price: pgNum_(row.m['customEvent:total_price'], 0),
@@ -216,10 +219,9 @@ function pgBuildEventRows_(startDate, endDate, errors, counter) {
 
   collect(
     'battle_started', ['battle_started'],
-    [...common, 'customEvent:slot', 'customEvent:zone', 'customEvent:trainer', 'customEvent:mode'],
+    [...common, 'customEvent:zone', 'customEvent:trainer', 'customEvent:mode'],
     baseMetrics,
     row => pgBaseEventRow_(row, {
-      slot: pgInt_(row.d['customEvent:slot'], -1),
       zone: pgText_(row.d['customEvent:zone']),
       trainer: pgText_(row.d['customEvent:trainer']),
       mode: pgText_(row.d['customEvent:mode']),
@@ -228,10 +230,11 @@ function pgBuildEventRows_(startDate, endDate, errors, counter) {
 
   collect(
     'battle_won', ['battle_won'],
-    [...common, 'customEvent:zone', 'customEvent:mode', 'customEvent:initiated_by', 'customEvent:elite'],
+    [...common, 'customEvent:zone', 'customEvent:trainer', 'customEvent:mode', 'customEvent:initiated_by', 'customEvent:elite'],
     baseMetrics,
     row => pgBaseEventRow_(row, {
       zone: pgText_(row.d['customEvent:zone']),
+      trainer: pgText_(row.d['customEvent:trainer']),
       mode: pgText_(row.d['customEvent:mode']),
       initiated_by: pgText_(row.d['customEvent:initiated_by']),
       elite: pgText_(row.d['customEvent:elite']),
@@ -252,10 +255,9 @@ function pgBuildEventRows_(startDate, endDate, errors, counter) {
 
   collect(
     'agent_recruited', ['agent_recruited'],
-    [...common, 'customEvent:slot', 'customEvent:source'],
+    [...common, 'customEvent:source'],
     [...baseMetrics, 'customEvent:cost', 'customEvent:total_agents'],
     row => pgBaseEventRow_(row, {
-      slot: pgInt_(row.d['customEvent:slot'], -1),
       source: pgText_(row.d['customEvent:source']),
       extra_metrics: {
         cost: pgNum_(row.m['customEvent:cost'], 0),
@@ -278,22 +280,23 @@ function pgBuildEventRows_(startDate, endDate, errors, counter) {
 
   collect(
     'agent_assigned', ['agent_assigned'],
-    [...common, 'customEvent:slot', 'customEvent:zone', 'customEvent:source', 'customEvent:unassigned'],
+    [...common, 'customEvent:zone', 'customEvent:previous_zone', 'customEvent:source', 'customEvent:unassigned'],
     baseMetrics,
     row => pgBaseEventRow_(row, {
-      slot: pgInt_(row.d['customEvent:slot'], -1),
       zone: pgText_(row.d['customEvent:zone']),
       source: pgText_(row.d['customEvent:source']),
       unassigned: pgText_(row.d['customEvent:unassigned']),
+      extra_dimensions: {
+        previous_zone: pgText_(row.d['customEvent:previous_zone']),
+      },
     }),
   );
 
   collect(
     'agent_flag_changed', ['agent_flag_changed'],
-    [...common, 'customEvent:slot', 'customEvent:flag', 'customEvent:value', 'customEvent:source'],
+    [...common, 'customEvent:flag', 'customEvent:value', 'customEvent:source'],
     baseMetrics,
     row => pgBaseEventRow_(row, {
-      slot: pgInt_(row.d['customEvent:slot'], -1),
       flag: pgText_(row.d['customEvent:flag']),
       flag_value: pgText_(row.d['customEvent:value']),
       source: pgText_(row.d['customEvent:source']),
@@ -302,28 +305,27 @@ function pgBuildEventRows_(startDate, endDate, errors, counter) {
 
   collect(
     'navigation', ['tab_first_view', 'tab_unlocked'],
-    [...common, 'customEvent:slot', 'customEvent:tab'], baseMetrics,
+    [...common, 'customEvent:tab'], baseMetrics,
     row => pgBaseEventRow_(row, {
-      slot: pgInt_(row.d['customEvent:slot'], -1),
       tab: pgText_(row.d['customEvent:tab']),
     }),
   );
 
   collect(
     'zone_entered', ['zone_entered'],
-    [...common, 'customEvent:slot', 'customEvent:zone'], baseMetrics,
+    [...common, 'customEvent:zone'], baseMetrics,
     row => pgBaseEventRow_(row, {
-      slot: pgInt_(row.d['customEvent:slot'], -1),
       zone: pgText_(row.d['customEvent:zone']),
     }),
   );
 
   collect(
-    'errors', ['save_failed', 'load_failed'],
-    [...common, 'customEvent:slot', 'customEvent:fatal'], baseMetrics,
+    'errors', ['save_failed', 'load_failed', 'game_error', 'runtime_error', 'combat_desync'],
+    [...common, 'customEvent:fatal', 'customEvent:reason', 'customEvent:source'], baseMetrics,
     row => pgBaseEventRow_(row, {
-      slot: pgInt_(row.d['customEvent:slot'], -1),
       fatal: pgText_(row.d['customEvent:fatal']),
+      reason: pgText_(row.d['customEvent:reason']),
+      source: pgText_(row.d['customEvent:source']),
     }),
   );
 
@@ -331,14 +333,24 @@ function pgBuildEventRows_(startDate, endDate, errors, counter) {
 }
 
 function pgBuildOnboardingRows_(startDate, endDate) {
+  // Generic state-machine events plus the presentation/choice milestones added
+  // by the polished first-run flow. These were previously visible in GA4 but
+  // silently absent from Supabase.
   const eventNames = [
+    'onboarding_briefing_started', 'onboarding_briefing_completed', 'onboarding_briefing_skipped',
+    'starter_choice_shown', 'starter_choice_completed', 'first_wild_capture',
+    'free_capture_started', 'ambush_started', 'ambush_resolved',
+    'identity_started', 'identity_completed', 'guide_recruited',
+    'guide_team_set', 'guide_zone_assigned', 'guide_combat_enabled', 'first_battle_won',
     'onboarding_started', 'onboarding_step_completed', 'onboarding_resumed',
     'onboarding_completed', 'onboarding_failed',
   ];
   const dimensions = [
-    'date', 'eventName', 'customEvent:platform', 'customEvent:game_version',
-    'customEvent:internal_tester', 'customEvent:onboarding_version',
+    'date', 'eventName', 'customEvent:platform', 'customEvent:runtime_context',
+    'customEvent:game_version', 'customEvent:internal_tester', 'customEvent:onboarding_version',
     'customEvent:step', 'customEvent:next_step', 'customEvent:slot',
+    'customEvent:zone', 'customEvent:species', 'customEvent:won',
+    'customEvent:source', 'customEvent:reason',
   ];
   const metrics = ['activeUsers', 'eventCount', 'customEvent:seconds_since_new_game'];
   return pgRunReport_(dimensions, metrics, startDate, endDate)
@@ -359,9 +371,14 @@ function pgBuildOnboardingRows_(startDate, endDate) {
         event_count: eventCount,
         avg_seconds_since_new_game: eventCount > 0 ? seconds / eventCount : null,
         slot: pgInt_(row.d['customEvent:slot'], -1),
-        zone: PG_UNKNOWN,
-        outcome: PG_UNKNOWN,
-        extra_dimensions: {},
+        zone: pgText_(row.d['customEvent:zone']),
+        outcome: pgText_(row.d['customEvent:won']),
+        extra_dimensions: {
+          runtime_context: pgText_(row.d['customEvent:runtime_context']),
+          species: pgText_(row.d['customEvent:species']),
+          source: pgText_(row.d['customEvent:source']),
+          reason: pgText_(row.d['customEvent:reason']),
+        },
         extra_metrics: {},
       };
     });
@@ -403,7 +420,7 @@ function pgBuildSegmentRows_(startDate, endDate) {
 }
 
 function pgBaseEventRow_(row, overrides) {
-  return Object.assign({
+  const result = Object.assign({
     date: pgGaDate_(row.d.date),
     event_name: row.d.eventName,
     platform: pgText_(row.d['customEvent:platform']),
@@ -413,7 +430,7 @@ function pgBaseEventRow_(row, overrides) {
     capture_source: PG_UNKNOWN,
     users: pgInt_(row.m.activeUsers, 0),
     event_count: pgInt_(row.m.eventCount, 0),
-    slot: -1,
+    slot: pgInt_(row.d['customEvent:slot'], -1),
     zone: PG_UNKNOWN,
     trainer: PG_UNKNOWN,
     mode: PG_UNKNOWN,
@@ -433,6 +450,11 @@ function pgBaseEventRow_(row, overrides) {
     extra_dimensions: {},
     extra_metrics: {},
   }, overrides || {});
+  result.extra_dimensions = {
+    runtime_context: pgText_(row.d['customEvent:runtime_context']),
+    ...(result.extra_dimensions || {}),
+  };
+  return result;
 }
 
 function pgRunReport_(dimensionNames, metricNames, startDate, endDate) {
