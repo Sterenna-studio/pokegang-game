@@ -17,11 +17,12 @@ assert.match(analytics, /trackEvent\('runtime_error'/);
 assert.match(analytics, /return 'lab';/);
 assert.match(analytics, /return 'localhost';/);
 
-// Slot and runtime context must be requested for every generic gameplay event,
-// otherwise Supabase silently falls back to slot=-1 / unknown context.
+// Slot and runtime context must be requested for every detailed gameplay
+// report; platform is then derived from the low-cardinality runtime context.
 assert.match(sync, /'customEvent:runtime_context',[\s\S]*'customEvent:slot'/);
 assert.match(sync, /slot:\s*pgInt_\(row\.d\['customEvent:slot'\], -1\)/);
-assert.match(sync, /runtime_context:\s*pgText_\(row\.d\['customEvent:runtime_context'\]\)/);
+assert.match(sync, /pgPlatformFromRuntimeContext_/);
+assert.match(sync, /runReport supports at most 9 dimensions/);
 
 for (const eventName of [
   'play_started',
@@ -44,6 +45,5 @@ for (const eventName of [
 }
 
 assert.match(sync, /customEvent:reason/);
-assert.match(sync, /customEvent:previous_zone/);
 
 console.log('✓ analytics readiness coverage');
