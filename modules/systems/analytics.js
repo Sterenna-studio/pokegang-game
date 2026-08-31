@@ -11,6 +11,9 @@
 //  `platform` (web/itch/dev) so both populations land in one GA4
 //  property and can be compared/filtered.
 //
+//  `runtime_context` adds a deliberately low-cardinality second axis so dev
+//  previews can be separated from localhost without sending raw hostnames.
+//
 //  The generic first_capture milestone is gated on persisted lifetime stats.
 //  Onboarding-specific funnel events (including first_battle_won) are emitted
 //  by the V2 controller, which persists each transition before tracking it.
@@ -30,7 +33,23 @@ export function detectPlatform() {
   if (h === 'pokegang.sterenna.fr') return 'web';
   return 'dev';
 }
+
+/**
+ * Contexte de distribution stable et volontairement peu cardinal.
+ * Ne jamais remplacer ceci par location.hostname dans GA4 : le but est de
+ * pouvoir comparer itch / site public / lab / local sans collection inutile.
+ */
+export function detectRuntimeContext() {
+  const h = location.hostname.toLowerCase();
+  if (h.endsWith('.itch.io') || h.includes('itch.zone') || h.endsWith('.hwcdn.st')) return 'itch';
+  if (h === 'pokegang.sterenna.fr') return 'public_site';
+  if (h === 'lab.sterenna.fr') return 'lab';
+  if (h === 'localhost' || h === '127.0.0.1' || h === '::1') return 'localhost';
+  return 'other_dev';
+}
+
 const _platform = detectPlatform();
+const _runtimeContext = detectRuntimeContext();
 
 // ── Testeur interne ───────────────────────────────────────────────
 // `platform` isole déjà localhost, mais PAS nos propres parties jouées sur la
@@ -90,6 +109,7 @@ function trackEvent(name, params = {}) {
   try {
     globalThis.gtag('event', name, {
       platform: _platform,
+      runtime_context: _runtimeContext,
       game_version: GAME_VERSION,
       internal_tester: _internalTester,
       game_instance_id: _gameInstanceId(),
@@ -99,6 +119,33 @@ function trackEvent(name, params = {}) {
   } catch (err) {
     console.warn('[Analytics] trackEvent failed:', name, err);
   }
+}
+
+// ── Cycle de vie du runtime ───────────────────────────────────────
+// `game_loaded` part pendant boot() dans app.js. Ce second jalon n'est émis
+// qu'après l'événement window.load : il prouve que le runtime a atteint une
+// surface jouable complète, ce qui permet de séparer une visite itch d'un vrai
+// lancement de la build sans dépendre du trafic de la page parente.
+let _playStartedTracked = false;
+function _trackPlayStarted() {
+  if (_playStartedTracked) return;
+  _playStartedTracked = true;
+  const state = globalThis.state;
+  trackEvent('play_started', {
+    save_state: state?.gang?.initialized ? 'existing' : 'new',
+  });
+}
+
+if (typeof window !== 'undefined') {
+  const schedulePlayStarted = () => {
+    if (typeof window.requestAnimationFrame === 'function') {
+      window.requestAnimationFrame(() => _trackPlayStarted());
+    } else {
+      setTimeout(() => _trackPlayStarted(), 0);
+    }
+  };
+  if (document.readyState === 'complete') schedulePlayStarted();
+  else window.addEventListener('load', schedulePlayStarted, { once: true });
 }
 
 // ── Captures ───────────────────────────────────────────────────────
@@ -226,6 +273,21 @@ EventBus.on(EVENTS.GAME_ERROR, ({ kind, reason, fatal } = {}) => {
     fatal: !!fatal,
   });
 });
+
+// Les exceptions JS qui échappent aux chemins métier doivent elles aussi être
+// visibles. On garde uniquement un message tronqué : pas de stack, URL ou
+// donnée de save dans GA4.
+if (typeof window !== 'undefined') {
+  window.addEventListener('error', event => {
+    const reason = String(event?.error?.message || event?.message || 'window_error').slice(0, 100);
+    trackEvent('runtime_error', { reason, fatal: false, source: 'window_error' });
+  });
+  window.addEventListener('unhandledrejection', event => {
+    const value = event?.reason;
+    const reason = String(value instanceof Error ? value.message : (value ?? 'unhandled_rejection')).slice(0, 100);
+    trackEvent('runtime_error', { reason, fatal: false, source: 'unhandled_rejection' });
+  });
+}
 
 // ── Onboarding V2 ────────────────────────────────────────────────
 EventBus.on(EVENTS.ONBOARDING_STARTED, ({ version, slotIdx } = {}) => {

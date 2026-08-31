@@ -63,7 +63,7 @@ function pgSyncGa4ToSupabase() {
     datasets,
     client_errors: clientErrors,
     metadata: {
-      apps_script_version: 1,
+      apps_script_version: 2,
       lookback_complete_days: 3,
       retention_status: 'deferred_until_core_pipeline_validated',
     },
@@ -161,15 +161,25 @@ function pgBuildAcquisitionRows_(startDate, endDate) {
 
 function pgBuildEventRows_(startDate, endDate, errors, counter) {
   const rows = [];
-  const common = ['date', 'eventName', 'customEvent:platform', 'customEvent:game_version', 'customEvent:internal_tester'];
+  // GA4 Data API accepts at most 9 dimensions per runReport. Detailed event
+  // reports therefore filter one eventName per request instead of spending a
+  // dimension on eventName. runtime_context replaces platform in these reports;
+  // platform is derived losslessly for newly instrumented events.
+  const common = [
+    'date', 'customEvent:runtime_context', 'customEvent:game_version',
+    'customEvent:internal_tester', 'customEvent:slot',
+  ];
   const baseMetrics = ['activeUsers', 'eventCount'];
 
-  const collect = (label, eventNames, dimensions, metrics, map) => {
+  const collect = (label, eventName, dimensions, metrics, map) => {
     counter.value++;
     try {
-      const report = pgRunReport_(dimensions, metrics, startDate, endDate)
-        .filter(row => eventNames.includes(row.d.eventName));
-      report.forEach(row => rows.push(map(row)));
+      if (dimensions.length > 9) throw new Error(`${label}: ${dimensions.length} dimensions exceeds GA4 limit 9`);
+      const report = pgRunReport_(dimensions, metrics, startDate, endDate, eventName);
+      report.forEach(row => {
+        row.d.eventName = eventName;
+        rows.push(map(row));
+      });
       console.log(`events/${label}: ${report.length} row(s)`);
     } catch (error) {
       const message = `events/${label}: ${error && error.message ? error.message : error}`;
@@ -178,35 +188,31 @@ function pgBuildEventRows_(startDate, endDate, errors, counter) {
     }
   };
 
-  collect(
-    'game_loaded', ['game_loaded'],
-    [...common, 'customEvent:slot', 'customEvent:save_state'], baseMetrics,
-    row => pgBaseEventRow_(row, {
-      slot: pgInt_(row.d['customEvent:slot'], -1),
-      save_state: pgText_(row.d['customEvent:save_state']),
-    }),
-  );
+  const lifecycleMap = row => pgBaseEventRow_(row, {
+    save_state: pgText_(row.d['customEvent:save_state']),
+  });
+  collect('game_loaded', 'game_loaded', [...common, 'customEvent:save_state'], baseMetrics, lifecycleMap);
+  collect('play_started', 'play_started', [...common, 'customEvent:save_state'], baseMetrics, lifecycleMap);
+
+  const captureMap = row => pgBaseEventRow_(row, {
+    capture_source: pgText_(row.d['customEvent:capture_source']),
+    zone: pgText_(row.d['customEvent:zone']),
+    extra_dimensions: {
+      species: pgText_(row.d['customEvent:species']),
+      shiny: pgText_(row.d['customEvent:shiny']),
+    },
+  });
+  const captureDimensions = [
+    ...common, 'customEvent:capture_source', 'customEvent:zone',
+    'customEvent:species', 'customEvent:shiny',
+  ];
+  collect('pokemon_captured', 'pokemon_captured', captureDimensions, baseMetrics, captureMap);
+  collect('first_capture', 'first_capture', captureDimensions, baseMetrics, captureMap);
 
   collect(
-    'captures', ['pokemon_captured', 'first_capture'],
-    [...common, 'customEvent:capture_source', 'customEvent:zone', 'customEvent:species', 'customEvent:shiny'],
-    baseMetrics,
-    row => pgBaseEventRow_(row, {
-      capture_source: pgText_(row.d['customEvent:capture_source']),
-      zone: pgText_(row.d['customEvent:zone']),
-      extra_dimensions: {
-        species: pgText_(row.d['customEvent:species']),
-        shiny: pgText_(row.d['customEvent:shiny']),
-      },
-    }),
-  );
-
-  collect(
-    'sales', ['pokemon_sold'],
-    [...common, 'customEvent:slot'],
+    'pokemon_sold', 'pokemon_sold', common,
     [...baseMetrics, 'customEvent:count', 'customEvent:total_price'],
     row => pgBaseEventRow_(row, {
-      slot: pgInt_(row.d['customEvent:slot'], -1),
       extra_metrics: {
         count: pgNum_(row.m['customEvent:count'], 0),
         total_price: pgNum_(row.m['customEvent:total_price'], 0),
@@ -215,31 +221,21 @@ function pgBuildEventRows_(startDate, endDate, errors, counter) {
   );
 
   collect(
-    'battle_started', ['battle_started'],
-    [...common, 'customEvent:slot', 'customEvent:zone', 'customEvent:trainer', 'customEvent:mode'],
+    'battle_started', 'battle_started',
+    [...common, 'customEvent:zone', 'customEvent:trainer', 'customEvent:mode'],
     baseMetrics,
     row => pgBaseEventRow_(row, {
-      slot: pgInt_(row.d['customEvent:slot'], -1),
       zone: pgText_(row.d['customEvent:zone']),
       trainer: pgText_(row.d['customEvent:trainer']),
       mode: pgText_(row.d['customEvent:mode']),
     }),
   );
 
+  // Five common dimensions leave four detailed dimensions. Trainer is already
+  // preserved on battle_started/lost; for wins we prefer mode + initiator + zone
+  // over the lower-value elite flag to keep the report exact and under limit.
   collect(
-    'battle_won', ['battle_won'],
-    [...common, 'customEvent:zone', 'customEvent:mode', 'customEvent:initiated_by', 'customEvent:elite'],
-    baseMetrics,
-    row => pgBaseEventRow_(row, {
-      zone: pgText_(row.d['customEvent:zone']),
-      mode: pgText_(row.d['customEvent:mode']),
-      initiated_by: pgText_(row.d['customEvent:initiated_by']),
-      elite: pgText_(row.d['customEvent:elite']),
-    }),
-  );
-
-  collect(
-    'battle_lost', ['battle_lost'],
+    'battle_won', 'battle_won',
     [...common, 'customEvent:zone', 'customEvent:trainer', 'customEvent:mode', 'customEvent:initiated_by'],
     baseMetrics,
     row => pgBaseEventRow_(row, {
@@ -251,11 +247,22 @@ function pgBuildEventRows_(startDate, endDate, errors, counter) {
   );
 
   collect(
-    'agent_recruited', ['agent_recruited'],
-    [...common, 'customEvent:slot', 'customEvent:source'],
+    'battle_lost', 'battle_lost',
+    [...common, 'customEvent:zone', 'customEvent:trainer', 'customEvent:mode', 'customEvent:initiated_by'],
+    baseMetrics,
+    row => pgBaseEventRow_(row, {
+      zone: pgText_(row.d['customEvent:zone']),
+      trainer: pgText_(row.d['customEvent:trainer']),
+      mode: pgText_(row.d['customEvent:mode']),
+      initiated_by: pgText_(row.d['customEvent:initiated_by']),
+    }),
+  );
+
+  collect(
+    'agent_recruited', 'agent_recruited',
+    [...common, 'customEvent:source'],
     [...baseMetrics, 'customEvent:cost', 'customEvent:total_agents'],
     row => pgBaseEventRow_(row, {
-      slot: pgInt_(row.d['customEvent:slot'], -1),
       source: pgText_(row.d['customEvent:source']),
       extra_metrics: {
         cost: pgNum_(row.m['customEvent:cost'], 0),
@@ -265,7 +272,7 @@ function pgBuildEventRows_(startDate, endDate, errors, counter) {
   );
 
   collect(
-    'team_member_set', ['team_member_set'],
+    'team_member_set', 'team_member_set',
     [...common, 'customEvent:team', 'customEvent:team_slot', 'customEvent:source', 'customEvent:has_agent'],
     baseMetrics,
     row => pgBaseEventRow_(row, {
@@ -277,81 +284,94 @@ function pgBuildEventRows_(startDate, endDate, errors, counter) {
   );
 
   collect(
-    'agent_assigned', ['agent_assigned'],
-    [...common, 'customEvent:slot', 'customEvent:zone', 'customEvent:source', 'customEvent:unassigned'],
+    'agent_assigned', 'agent_assigned',
+    [...common, 'customEvent:zone', 'customEvent:previous_zone', 'customEvent:source', 'customEvent:unassigned'],
     baseMetrics,
     row => pgBaseEventRow_(row, {
-      slot: pgInt_(row.d['customEvent:slot'], -1),
       zone: pgText_(row.d['customEvent:zone']),
       source: pgText_(row.d['customEvent:source']),
       unassigned: pgText_(row.d['customEvent:unassigned']),
+      extra_dimensions: {
+        previous_zone: pgText_(row.d['customEvent:previous_zone']),
+      },
     }),
   );
 
   collect(
-    'agent_flag_changed', ['agent_flag_changed'],
-    [...common, 'customEvent:slot', 'customEvent:flag', 'customEvent:value', 'customEvent:source'],
+    'agent_flag_changed', 'agent_flag_changed',
+    [...common, 'customEvent:flag', 'customEvent:value', 'customEvent:source'],
     baseMetrics,
     row => pgBaseEventRow_(row, {
-      slot: pgInt_(row.d['customEvent:slot'], -1),
       flag: pgText_(row.d['customEvent:flag']),
       flag_value: pgText_(row.d['customEvent:value']),
       source: pgText_(row.d['customEvent:source']),
     }),
   );
 
-  collect(
-    'navigation', ['tab_first_view', 'tab_unlocked'],
-    [...common, 'customEvent:slot', 'customEvent:tab'], baseMetrics,
-    row => pgBaseEventRow_(row, {
-      slot: pgInt_(row.d['customEvent:slot'], -1),
-      tab: pgText_(row.d['customEvent:tab']),
-    }),
-  );
+  const navigationMap = row => pgBaseEventRow_(row, {
+    tab: pgText_(row.d['customEvent:tab']),
+  });
+  collect('tab_first_view', 'tab_first_view', [...common, 'customEvent:tab'], baseMetrics, navigationMap);
+  collect('tab_unlocked', 'tab_unlocked', [...common, 'customEvent:tab'], baseMetrics, navigationMap);
 
   collect(
-    'zone_entered', ['zone_entered'],
-    [...common, 'customEvent:slot', 'customEvent:zone'], baseMetrics,
+    'zone_entered', 'zone_entered',
+    [...common, 'customEvent:zone'], baseMetrics,
     row => pgBaseEventRow_(row, {
-      slot: pgInt_(row.d['customEvent:slot'], -1),
       zone: pgText_(row.d['customEvent:zone']),
     }),
   );
 
-  collect(
-    'errors', ['save_failed', 'load_failed'],
-    [...common, 'customEvent:slot', 'customEvent:fatal'], baseMetrics,
-    row => pgBaseEventRow_(row, {
-      slot: pgInt_(row.d['customEvent:slot'], -1),
-      fatal: pgText_(row.d['customEvent:fatal']),
-    }),
-  );
+  const errorDimensions = [
+    ...common, 'customEvent:fatal', 'customEvent:reason', 'customEvent:source',
+  ];
+  const errorMap = row => pgBaseEventRow_(row, {
+    fatal: pgText_(row.d['customEvent:fatal']),
+    reason: pgText_(row.d['customEvent:reason']),
+    source: pgText_(row.d['customEvent:source']),
+  });
+  for (const eventName of [
+    'save_failed', 'load_failed', 'game_error', 'runtime_error',
+    'combat_desync', 'onboarding_failed',
+  ]) {
+    collect(eventName, eventName, errorDimensions, baseMetrics, errorMap);
+  }
 
   return rows;
 }
 
 function pgBuildOnboardingRows_(startDate, endDate) {
+  // Counts are the primary funnel signal. This report sits exactly at the GA4
+  // 9-dimension ceiling; fine-grained species/zone/source detail stays in the
+  // generic event reports where relevant.
   const eventNames = [
+    'onboarding_briefing_started', 'onboarding_briefing_completed', 'onboarding_briefing_skipped',
+    'starter_choice_shown', 'starter_choice_completed', 'first_wild_capture',
+    'free_capture_started', 'ambush_started', 'ambush_resolved',
+    'identity_started', 'identity_completed', 'guide_recruited',
+    'guide_team_set', 'guide_zone_assigned', 'guide_combat_enabled', 'first_battle_won',
     'onboarding_started', 'onboarding_step_completed', 'onboarding_resumed',
     'onboarding_completed', 'onboarding_failed',
   ];
   const dimensions = [
-    'date', 'eventName', 'customEvent:platform', 'customEvent:game_version',
+    'date', 'eventName', 'customEvent:runtime_context', 'customEvent:game_version',
     'customEvent:internal_tester', 'customEvent:onboarding_version',
     'customEvent:step', 'customEvent:next_step', 'customEvent:slot',
   ];
+  if (dimensions.length > 9) throw new Error(`onboarding: ${dimensions.length} dimensions exceeds GA4 limit 9`);
   const metrics = ['activeUsers', 'eventCount', 'customEvent:seconds_since_new_game'];
   return pgRunReport_(dimensions, metrics, startDate, endDate)
     .filter(row => eventNames.includes(row.d.eventName))
     .map(row => {
       const eventCount = pgInt_(row.m.eventCount, 0);
       const seconds = pgNum_(row.m['customEvent:seconds_since_new_game'], 0);
+      const runtimeContext = pgText_(row.d['customEvent:runtime_context']);
       return {
         date: pgGaDate_(row.d.date),
         event_name: row.d.eventName,
         step: pgText_(row.d['customEvent:step']),
         next_step: pgText_(row.d['customEvent:next_step']),
-        platform: pgText_(row.d['customEvent:platform']),
+        platform: pgPlatformFromRuntimeContext_(runtimeContext),
         game_version: pgText_(row.d['customEvent:game_version']),
         onboarding_version: pgText_(row.d['customEvent:onboarding_version']),
         audience: pgAudience_(row.d['customEvent:internal_tester']),
@@ -361,7 +381,7 @@ function pgBuildOnboardingRows_(startDate, endDate) {
         slot: pgInt_(row.d['customEvent:slot'], -1),
         zone: PG_UNKNOWN,
         outcome: PG_UNKNOWN,
-        extra_dimensions: {},
+        extra_dimensions: { runtime_context: runtimeContext },
         extra_metrics: {},
       };
     });
@@ -403,17 +423,18 @@ function pgBuildSegmentRows_(startDate, endDate) {
 }
 
 function pgBaseEventRow_(row, overrides) {
-  return Object.assign({
+  const runtimeContext = pgText_(row.d['customEvent:runtime_context']);
+  const result = Object.assign({
     date: pgGaDate_(row.d.date),
     event_name: row.d.eventName,
-    platform: pgText_(row.d['customEvent:platform']),
+    platform: pgPlatformFromRuntimeContext_(runtimeContext),
     game_version: pgText_(row.d['customEvent:game_version']),
     save_state: PG_UNKNOWN,
     audience: pgAudience_(row.d['customEvent:internal_tester']),
     capture_source: PG_UNKNOWN,
     users: pgInt_(row.m.activeUsers, 0),
     event_count: pgInt_(row.m.eventCount, 0),
-    slot: -1,
+    slot: pgInt_(row.d['customEvent:slot'], -1),
     zone: PG_UNKNOWN,
     trainer: PG_UNKNOWN,
     mode: PG_UNKNOWN,
@@ -433,9 +454,17 @@ function pgBaseEventRow_(row, overrides) {
     extra_dimensions: {},
     extra_metrics: {},
   }, overrides || {});
+  result.extra_dimensions = {
+    runtime_context: runtimeContext,
+    ...(result.extra_dimensions || {}),
+  };
+  return result;
 }
 
-function pgRunReport_(dimensionNames, metricNames, startDate, endDate) {
+function pgRunReport_(dimensionNames, metricNames, startDate, endDate, eventName = null) {
+  if (dimensionNames.length > 9) {
+    throw new Error(`GA4 runReport supports at most 9 dimensions; got ${dimensionNames.length}`);
+  }
   const request = AnalyticsData.newRunReportRequest();
   request.dimensions = dimensionNames.map(name => {
     const dimension = AnalyticsData.newDimension();
@@ -447,6 +476,18 @@ function pgRunReport_(dimensionNames, metricNames, startDate, endDate) {
     metric.name = name;
     return metric;
   });
+  if (eventName) {
+    request.dimensionFilter = {
+      filter: {
+        fieldName: 'eventName',
+        stringFilter: {
+          matchType: 'EXACT',
+          value: eventName,
+          caseSensitive: true,
+        },
+      },
+    };
+  }
   const dateRange = AnalyticsData.newDateRange();
   dateRange.startDate = startDate;
   dateRange.endDate = endDate;
@@ -507,6 +548,14 @@ function pgAudience_(value) {
   if (text === 'true' || text === '1') return 'internal';
   if (text === 'false' || text === '0') return 'external';
   return 'unknown';
+}
+
+function pgPlatformFromRuntimeContext_(value) {
+  const context = pgText_(value);
+  if (context === 'itch') return 'itch';
+  if (context === 'public_site') return 'web';
+  if (context === 'lab' || context === 'localhost' || context === 'other_dev') return 'dev';
+  return PG_UNKNOWN;
 }
 
 function pgInt_(value, fallback) {

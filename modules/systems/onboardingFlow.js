@@ -126,9 +126,18 @@ export function advanceOnboarding(value, nextStep, details = {}, now = Date.now(
 
 export function getOnboardingElapsedSeconds(value, now = Date.now()) {
   const current = normalizeOnboardingState(value);
-  if (!Number.isFinite(current.startedAt)) return 0;
-  const end = Number.isFinite(current.completedAt) ? current.completedAt : now;
-  return Math.max(0, Math.floor((end - current.startedAt) / 1000));
+  const startedAt = Number(current.startedAt);
+  const currentNow = Number(now);
+  // Older/test saves can contain 0 (Unix epoch) here. Treat invalid/future
+  // timestamps as missing instead of emitting multi-decade GA4 durations.
+  if (!Number.isFinite(startedAt) || startedAt <= 0) return 0;
+  if (!Number.isFinite(currentNow) || currentNow <= 0 || startedAt > currentNow) return 0;
+  const completedAt = Number(current.completedAt);
+  const end = Number.isFinite(completedAt) && completedAt >= startedAt
+    ? completedAt
+    : currentNow;
+  if (end < startedAt) return 0;
+  return Math.max(0, Math.floor((end - startedAt) / 1000));
 }
 
 export function shouldRunOnboardingV2(state) {
