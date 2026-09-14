@@ -22,7 +22,16 @@ assert.match(analytics, /return 'localhost';/);
 assert.match(sync, /'customEvent:runtime_context',[\s\S]*'customEvent:slot'/);
 assert.match(sync, /slot:\s*pgInt_\(row\.d\['customEvent:slot'\], -1\)/);
 assert.match(sync, /pgPlatformFromRuntimeContext_/);
-assert.match(sync, /runReport supports at most 9 dimensions/);
+
+// GA4 counts the eventName dimensionFilter toward the 9-dimension nested
+// request limit. Wide reports must therefore fall back to per-day queries that
+// remove `date` from the explicit dimension list and restore it afterwards.
+assert.match(sync, /nestedDimensionCount\s*=\s*dimensions\.length \+ 1/);
+assert.match(sync, /nestedDimensionCount === 10 && dimensions\.includes\('date'\)/);
+assert.match(sync, /const compactDimensions = dimensions\.filter\(name => name !== 'date'\)/);
+assert.match(sync, /function pgDateRange_/);
+assert.match(sync, /runReport supports at most 9 nested dimensions/);
+assert.match(sync, /apps_script_version:\s*3/);
 
 for (const eventName of [
   'play_started',
