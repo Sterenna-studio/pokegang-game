@@ -63,7 +63,7 @@ function pgSyncGa4ToSupabase() {
     datasets,
     client_errors: clientErrors,
     metadata: {
-      apps_script_version: 2,
+      apps_script_version: 3,
       lookback_complete_days: 3,
       retention_status: 'deferred_until_core_pipeline_validated',
     },
@@ -161,10 +161,8 @@ function pgBuildAcquisitionRows_(startDate, endDate) {
 
 function pgBuildEventRows_(startDate, endDate, errors, counter) {
   const rows = [];
-  // GA4 Data API accepts at most 9 dimensions per runReport. Detailed event
-  // reports therefore filter one eventName per request instead of spending a
-  // dimension on eventName. runtime_context replaces platform in these reports;
-  // platform is derived losslessly for newly instrumented events.
+  // GA4 Data API accepts at most 9 dimensions in a nested request. The
+  // eventName used by dimensionFilter counts toward that limit as well.
   const common = [
     'date', 'customEvent:runtime_context', 'customEvent:game_version',
     'customEvent:internal_tester', 'customEvent:slot',
@@ -174,8 +172,37 @@ function pgBuildEventRows_(startDate, endDate, errors, counter) {
   const collect = (label, eventName, dimensions, metrics, map) => {
     counter.value++;
     try {
-      if (dimensions.length > 9) throw new Error(`${label}: ${dimensions.length} dimensions exceeds GA4 limit 9`);
-      const report = pgRunReport_(dimensions, metrics, startDate, endDate, eventName);
+      const nestedDimensionCount = dimensions.length + 1;
+      let report = [];
+
+      if (nestedDimensionCount <= 9) {
+        report = pgRunReport_(dimensions, metrics, startDate, endDate, eventName);
+      } else if (nestedDimensionCount === 10 && dimensions.includes('date')) {
+        // Preserve every detailed dimension by querying one complete day at a
+        // time without `date`, then restoring that known date on every row.
+        const compactDimensions = dimensions.filter(name => name !== 'date');
+        const dates = pgDateRange_(startDate, endDate);
+        counter.value += Math.max(0, dates.length - 1);
+
+        for (const date of dates) {
+          const dailyRows = pgRunReport_(
+            compactDimensions,
+            metrics,
+            date,
+            date,
+            eventName,
+          );
+          dailyRows.forEach(row => {
+            row.d.date = date;
+            report.push(row);
+          });
+        }
+      } else {
+        throw new Error(
+          `${label}: ${nestedDimensionCount} nested dimensions exceeds GA4 limit 9`,
+        );
+      }
+
       report.forEach(row => {
         row.d.eventName = eventName;
         rows.push(map(row));
@@ -231,9 +258,6 @@ function pgBuildEventRows_(startDate, endDate, errors, counter) {
     }),
   );
 
-  // Five common dimensions leave four detailed dimensions. Trainer is already
-  // preserved on battle_started/lost; for wins we prefer mode + initiator + zone
-  // over the lower-value elite flag to keep the report exact and under limit.
   collect(
     'battle_won', 'battle_won',
     [...common, 'customEvent:zone', 'customEvent:trainer', 'customEvent:mode', 'customEvent:initiated_by'],
@@ -461,9 +485,32 @@ function pgBaseEventRow_(row, overrides) {
   return result;
 }
 
+function pgDateRange_(startDate, endDate) {
+  const start = new Date(`${startDate}T00:00:00Z`);
+  const end = new Date(`${endDate}T00:00:00Z`);
+  const dates = [];
+
+  if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) {
+    throw new Error(`Invalid GA4 date range: ${startDate} -> ${endDate}`);
+  }
+
+  for (
+    let current = new Date(start);
+    current <= end;
+    current.setUTCDate(current.getUTCDate() + 1)
+  ) {
+    dates.push(Utilities.formatDate(current, 'UTC', 'yyyy-MM-dd'));
+  }
+
+  return dates;
+}
+
 function pgRunReport_(dimensionNames, metricNames, startDate, endDate, eventName = null) {
-  if (dimensionNames.length > 9) {
-    throw new Error(`GA4 runReport supports at most 9 dimensions; got ${dimensionNames.length}`);
+  const nestedDimensionCount = dimensionNames.length + (eventName ? 1 : 0);
+  if (nestedDimensionCount > 9) {
+    throw new Error(
+      `GA4 runReport supports at most 9 nested dimensions; got ${nestedDimensionCount}`,
+    );
   }
   const request = AnalyticsData.newRunReportRequest();
   request.dimensions = dimensionNames.map(name => {
