@@ -59,6 +59,7 @@ jobs:
       - name: Deploy to OVH with rsync
         run: |
           rsync -avz --delete \
+            --exclude='/archive/' \
             --exclude='.git/' \
             --exclude='.github/' \
             --exclude='README.md' \
