@@ -14,6 +14,14 @@ import { TRAINER_TYPES } from '../../data/trainers-data.js';
 import { EventBus, EVENTS } from '../core/eventBus.js';
 import { esc as _esc } from '../core/escape.js';
 import { requestSimulationSave, resolveSimulationContext } from '../core/simulationContext.js';
+import {
+  getEggIncubationAgent,
+  getEggIncubationSummary,
+  recordEggHatched,
+  reconcileEggIncubationAssignments,
+  startEggIncubation,
+  tryAutoIncubateWithAgents,
+} from '../systems/eggIncubation.js';
 import { getLv100Data as _getLv100Data } from '../systems/pokemonRating.js';
 import { renderTopPowerView as _renderTopPower } from './pcTopPower.js';
 
@@ -149,6 +157,7 @@ function getShinySpeciesCount() { return callContext('getShinySpeciesCount') ?? 
 function playSfx(key) {
   return requireContext('playSfx')(key);
 }
+function tr(fr, en) { return state.lang === 'en' ? en : fr; }
 
 const state = new Proxy({}, {
   get(_target, prop) {
@@ -915,22 +924,11 @@ function renderPCTab() {
 // Auto-incubation — Infirmière Joëlle corrompue
 function tryAutoIncubate(context = {}) {
   context = resolveSimulationContext(context);
-  if (!state.purchases?.autoIncubator) return;
-  if (state.purchases?.autoIncubatorEnabled === false) return; // en congé
-  const incubatorCount = state.inventory?.incubator || 0;
-  if (incubatorCount === 0) return;
-  const eggs = state.eggs || [];
-  let changed = false;
-  for (const egg of eggs) {
-    if (egg.incubating) continue;
-    const incubatingNow = eggs.filter(e => e.incubating && e.status !== 'ready').length;
-    if (incubatingNow >= incubatorCount) break;
-    egg.incubating = true;
-    egg.incubatedAt = Date.now();
-    egg.hatchAt = Date.now() + (egg.hatchMs || 2700000);
-    changed = true;
-  }
-  if (changed) {
+  const started = tryAutoIncubateWithAgents({
+    state,
+    baseMsForEgg: egg => egg.hatchMs || 2700000,
+  });
+  if (started > 0) {
     requestSimulationSave(saveState, context);
     if (!context.silent) notify(_t('pc_nurse_incubated_egg'), 'success');
   }
@@ -956,6 +954,7 @@ function hatchEgg(eggId) {
   EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: hatched, zoneId: 'pension', source: 'hatch' });
   state.stats.totalCaught++;
   state.stats.eggsHatched = (state.stats.eggsHatched || 0) + 1;
+  recordEggHatched(egg, state);
   if (hatched.shiny) state.stats.shinyCaught++;
   globalThis.registerPokedexCapture?.(state, hatched);
   // Fabric BG unlock
@@ -1039,9 +1038,10 @@ function hatchEgg(eggId) {
 
 function renderEggsView(container) {
   const eggs = state.eggs || [];
-  const incubatorCount = state.inventory?.incubator || 0;
-  const incubatingCount = eggs.filter(e => e.incubating && e.status !== 'ready').length;
-  const freeIncubators = incubatorCount - incubatingCount;
+  reconcileEggIncubationAssignments(state);
+  const incubationSummary = getEggIncubationSummary(state);
+  const incubatorCount = incubationSummary.capacity;
+  const freeIncubators = incubationSummary.free;
 
   if (eggs.length === 0) {
     container.innerHTML = `<div style="padding:24px;text-align:center;color:var(--text-dim);font-family:var(--font-pixel);font-size:10px">${_t('pc_no_egg_hint')}</div>`;
@@ -1050,6 +1050,10 @@ function renderEggsView(container) {
 
   const now = Date.now();
   container.innerHTML = `
+    <div style="padding:8px 8px 0;color:var(--text-dim);font-size:9px">
+      ${tr(`Slots d’éclosion agents : ${incubationSummary.used}/${incubationSummary.capacity}`, `Agent hatching slots: ${incubationSummary.used}/${incubationSummary.capacity}`)}
+      · ${tr('Joel garde la pension, les agents servent de référents.', 'Joy runs the Daycare; agents act as egg referents.')}
+    </div>
     <div style="display:flex;flex-wrap:wrap;gap:12px;padding:8px">
       ${eggs.map(egg => {
         const isReady = egg.status === 'ready' || (egg.incubating && egg.hatchAt && egg.hatchAt <= now);
@@ -1089,10 +1093,15 @@ function renderEggsView(container) {
           ? _t('pc_egg_ready')
           : isIncubating ? _t('pc_egg_minutes_left', { n: timeLeft })
           : _t('pc_egg_waiting_incubator');
+        const refAgent = getEggIncubationAgent(egg, state);
+        const refHtml = refAgent
+          ? `<div style="font-size:8px;color:var(--text-dim);text-align:center">${tr('Référent', 'Referent')} : ${refAgent.name} · ×${(egg.incubationSpeedMultiplier || 1).toFixed(2)}</div>`
+          : '';
 
         return `<div style="background:var(--bg-card);border:1px solid ${isReady ? 'var(--green)' : 'var(--border)'};border-radius:var(--radius);padding:10px;min-width:130px;max-width:150px;display:flex;flex-direction:column;align-items:center;gap:6px;${isReady ? 'box-shadow:0 0 8px rgba(68,187,85,.3)' : ''}">
           ${eggImgTag(egg, isReady, `width:64px;height:64px;${isReady ? 'filter:drop-shadow(0 0 6px var(--green))' : ''}`)}
           ${parentHtml}
+          ${refHtml}
           <div style="font-size:8px;color:${statusColor};text-align:center;font-family:var(--font-pixel);line-height:1.4">${statusText}</div>
           ${isIncubating && !isReady ? `
             <div style="width:100%;height:4px;background:var(--bg);border-radius:2px;overflow:hidden">
@@ -1102,7 +1111,7 @@ function renderEggsView(container) {
             ${isReady ? `<button class="egg-hatch-btn" data-egg-id="${egg.id}" style="font-family:var(--font-pixel);font-size:7px;padding:4px 8px;background:var(--green);border:none;border-radius:var(--radius-sm);color:#000;cursor:pointer">${_t('pc_hatch')}</button>` : ''}
             ${!isIncubating && freeIncubators > 0 ? `<button class="egg-incubate-btn" data-egg-id="${egg.id}" style="font-family:var(--font-pixel);font-size:7px;padding:4px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">${_t('pc_incubate')}</button>` : ''}
             ${!isIncubating && incubatorCount > 0 && freeIncubators === 0 ? `<span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">${_t('pc_incubators_full')}</span>` : ''}
-            ${!isIncubating && incubatorCount === 0 ? `<span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">${_t('pc_no_incubator')}</span>` : ''}
+            ${!isIncubating && incubatorCount === 0 ? `<span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">${tr('Aucun agent', 'No agent')}</span>` : ''}
             <button class="egg-sell-btn" data-egg-id="${egg.id}" style="font-family:var(--font-pixel);font-size:7px;padding:4px 8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">${_t('pc_sell')}</button>
             ${!egg.scanned && (state.inventory?.egg_scanner || 0) > 0
               ? `<button class="egg-scan-btn" data-egg-id="${egg.id}" style="font-family:var(--font-pixel);font-size:7px;padding:4px 8px;background:var(--bg);border:1px solid #c05be0;border-radius:var(--radius-sm);color:#c05be0;cursor:pointer">🔬 ${_t('pc_scan')}</button>`
@@ -1129,12 +1138,14 @@ function renderEggsView(container) {
     btn.addEventListener('click', () => {
       const egg = state.eggs.find(e => e.id === btn.dataset.eggId);
       if (!egg) return;
-      egg.incubating = true;
-      egg.incubatedAt = Date.now();
-      egg.hatchAt = Date.now() + (egg.hatchMs || 2700000); // 45min default
+      if (!startEggIncubation(egg, { state, baseMs: egg.hatchMs || 2700000 })) {
+        notify(tr('Aucun slot agent disponible.', 'No agent slot available.'), 'error');
+        renderPCTab();
+        return;
+      }
       saveState();
       renderPCTab();
-      notify(_t('pc_egg_incubating_notice'), 'success');
+      notify(tr('Œuf confié à un agent !', 'Egg assigned to an agent!'), 'success');
     });
   });
   container.querySelectorAll('.egg-sell-btn').forEach(btn => {

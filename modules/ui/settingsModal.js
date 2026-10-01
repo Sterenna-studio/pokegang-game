@@ -441,7 +441,7 @@ function renderSettingsPanel() {
         <b style="color:var(--gold)">PokéForge — Gang Wars</b><br>
         ${_t('Capturez des Pokémon, recrutez des agents, combattez des dresseurs et élargissez votre gang.','Catch Pokémon, recruit agents, battle trainers and grow your gang.')}<br><br>
         <b style="color:var(--text)">${_t('Progression :','Progression:')}</b> ${_t('Gagnez de la réputation via les <b>combats spéciaux</b> et les <b>raids</b>.','Earn reputation through <b>special battles</b> and <b>raids</b>.')}<br>
-        <b style="color:var(--text)">${_t('Oeufs :','Eggs:')}</b> ${_t('Élevez des Pokémon à la Pension — achetez un <b>incubateur</b> au Marché.','Raise Pokémon at the Daycare — buy an <b>incubator</b> at the Market.')}<br>
+        <b style="color:var(--text)">${_t('Oeufs :','Eggs:')}</b> ${_t('Élevez des Pokémon à la Pension — chaque agent recruté ajoute un <b>slot d’éclosion</b>.','Raise Pokémon at the Daycare — each recruited agent adds one <b>hatching slot</b>.')}<br>
         <b style="color:var(--text)">${_t('Agents :','Agents:')}</b> ${_t('Recrutez des agents et assignez-les à des zones pour automatiser captures et combats.','Recruit agents and assign them to zones to automate catches and battles.')}<br>
         <b style="color:var(--text)">${_t('Labo :','Lab:')}</b> ${_t('Sacrifiez des doublons pour améliorer le potentiel de vos meilleurs Pokémon.','Sacrifice duplicates to boost the potential of your best Pokémon.')}
       </div>

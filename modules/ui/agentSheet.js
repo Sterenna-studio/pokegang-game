@@ -158,6 +158,9 @@ function _buildSheetHtml(agent) {
     agent.autoRaid    !== false ? '💣' : '',
     agent.autoCapture !== false ? '🎯' : '',
   ].filter(Boolean).join(' ');
+  const eggStats = globalThis.getAgentHatchStats?.(agent) || agent.eggStats || { hatched: 0 };
+  const hatchMult = globalThis.getAgentHatchMultiplier?.(agent) || 1;
+  const hatchTitle = globalThis.getAgentHatchTitle?.(agent, state) || '';
 
   const zoneOptions = unlockedZones.map(z =>
     `<option value="${z.id}" ${zone === z.id ? 'selected' : ''}>${lang === 'fr' ? z.fr : z.en}</option>`
@@ -197,6 +200,7 @@ function _buildSheetHtml(agent) {
     ${_stat(_t('agent_sheet_power'),      power.toLocaleString(), 'var(--red)')}
     ${_stat(_t('agent_sheet_fights_won'), (agent.combatsWon || 0).toLocaleString(), 'var(--gold)')}
     ${_stat(_t('agent_sheet_captures'),   (agent.captureCount || 0).toLocaleString(), 'var(--gold)')}
+    ${_stat(_t('agent_sheet_eggs_hatched'), `${(eggStats.hatched || 0).toLocaleString()} · ×${hatchMult.toFixed(2)}${hatchTitle ? ` · ${hatchTitle}` : ''}`, 'var(--gold)')}
     ${_stat(_t('agent_sheet_behaviours'), bhIcons || '—')}
     ${_stat(_t('agent_sheet_ball'),       agent.ball || 'pokeball')}
   </div>

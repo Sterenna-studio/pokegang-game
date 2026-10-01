@@ -44,6 +44,7 @@ import './modules/systems/bossPower.js';
 import './modules/systems/agent.js';
 import './modules/systems/sessionObjectives.js';
 import './modules/systems/trainingRoom.js';
+import './modules/systems/eggIncubation.js';
 import './modules/systems/pension.js';
 import './modules/systems/zoneSystem.js';
 import './modules/systems/zoneLevels.js';
