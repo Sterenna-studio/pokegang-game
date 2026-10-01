@@ -30,7 +30,7 @@ const PASSIVE_XP_PER_TICK = 3; // XP accordé toutes les 30 s aux Pokémon d'éq
 const MAX_LOG_ENTRIES = 50;
 
 // ── UI defaults ──────────────────────────────────────────────
-const DEFAULT_MUSIC_VOL    = 80;   // valeur 0-1000 (divisée par 1000 pour MusicPlayer)
+const DEFAULT_MUSIC_VOL    = 80;   // valeur 0-100 (divisée par 100 pour MusicPlayer)
 const DEFAULT_UI_SCALE     = 100;  // %
 const DEFAULT_ZONE_SCALE   = 100;  // %
 

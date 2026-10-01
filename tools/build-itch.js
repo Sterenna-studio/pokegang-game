@@ -43,6 +43,7 @@ const ZIP_PATH = path.join(ROOT, RELEASE.uploadFile);
 // Tout ce dont le jeu principal a besoin au runtime — voir docs/itch-build.md
 // pour le détail (notamment gang/, qui n'est PAS que la page compagnon).
 const INCLUDE = ['index.html', 'app.js', 'css', 'data', 'modules', 'state', 'assets', 'gang'];
+const OPTIONAL_INCLUDE = ['music'];
 
 function clean() {
   fs.rmSync(STAGE_DIR, { recursive: true, force: true });
@@ -55,7 +56,15 @@ function stage() {
   for (const entry of INCLUDE) {
     fs.cpSync(path.join(ROOT, entry), path.join(STAGE_DIR, entry), { recursive: true });
   }
-  console.log(`[build-itch] ${INCLUDE.length} entrées copiées dans dist-itch/`);
+  const optionalCopied = [];
+  for (const entry of OPTIONAL_INCLUDE) {
+    const src = path.join(ROOT, entry);
+    if (!fs.existsSync(src)) continue;
+    fs.cpSync(src, path.join(STAGE_DIR, entry), { recursive: true });
+    optionalCopied.push(entry);
+  }
+  const suffix = optionalCopied.length ? ` + optionnel: ${optionalCopied.join(', ')}` : '';
+  console.log(`[build-itch] ${INCLUDE.length} entrées copiées dans dist-itch/${suffix}`);
 }
 
 // itch.io démarre en anglais par défaut — pokegang.sterenna.fr reste en 'fr'.
@@ -216,6 +225,10 @@ function validate() {
     if (!names.some(n => n.startsWith(`${dir}/`))) {
       throw new Error(`[build-itch] aucune entrée sous ${dir}/ — le build est incomplet.`);
     }
+  }
+
+  if (fs.existsSync(path.join(ROOT, 'music')) && !names.some(n => n.startsWith('music/'))) {
+    throw new Error('[build-itch] le dossier music/ existe dans le source mais est absent du zip.');
   }
 
   validateReleaseAlignment();
