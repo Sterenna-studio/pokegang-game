@@ -123,6 +123,10 @@ function rollNewAgent() {
     resting:       false,
     restUntil:     null,
     lastEnergyReset: 0,
+    eggStats: {
+      hatched: 0,
+      lastHatchedAt: null,
+    },
   };
 }
 

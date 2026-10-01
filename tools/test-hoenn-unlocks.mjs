@@ -92,7 +92,7 @@ for (const id of HOENN_STORY_UNLOCK_IDS) {
     SPECIES_BY_EN: {},
     uid: () => 'migration-test',
   });
-  assert.equal(migrated._schemaVersion, 17);
+  assert.equal(migrated._schemaVersion, SAVE_SCHEMA_VERSION);
   for (const id of HOENN_STORY_UNLOCK_IDS) assert.equal(migrated.purchases[id], true);
 }
 
