@@ -33,6 +33,7 @@ const BEHAVIOR_FLAGS = [
   { key:'autoCapture', icon:'🎯', labelFr:'Capture', labelEn:'Capture' },
 ];
 const _bfLabel = f => _t(f.labelFr, f.labelEn);
+const BOSS_TEAM_SLOT_COSTS = [0, 500_000, 1_000_000];
 
 // ── Render guard ───────────────────────────────────────────────────────
 let _agentsTabTimer         = null;
@@ -105,27 +106,100 @@ function _agentEggSlotHtml(agent) {
   </div>`;
 }
 
-function _bossTeamHtml() {
-  const team = state.gang?.bossTeam || [];
-  const count = team.filter(Boolean).length;
-  const slots = Array.from({ length: BOSS_TEAM_SLOTS }, (_, i) => {
-    const pkId = team[i];
-    const pk = pkId ? state.pokemons.find(p => p.id === pkId) : null;
-    if (pk) {
-      const title = `${speciesName(pk.species_en)} Lv.${pk.level}`;
-      return `<div class="agent-boss-team-slot filled" data-boss-team-slot="${i}" title="${_esc(title)}">
-        <img src="${pokeIcon(pk.species_en)}" alt="${_esc(speciesName(pk.species_en))}" onerror="this.src='${pokeSprite(pk.species_en, pk.shiny)}'">
-      </div>`;
-    }
-    return `<div class="agent-boss-team-slot" data-boss-team-slot="${i}" title="${_t('Ajouter un Pokemon', 'Add a Pokemon')}">+</div>`;
+function _bossTeamCompositionsHtml() {
+  const g = state.gang || {};
+  const activeSlot = g.activeBossTeamSlot || 0;
+  const purchased = g.bossTeamSlotsPurchased || [true, false, false];
+  const bossTeamSlots = g.bossTeamSlots || [[...(g.bossTeam || [])], [], []];
+
+  const cards = [0, 1, 2].map(slotIdx => {
+    const isActive = slotIdx === activeSlot;
+    const isPurchased = !!purchased[slotIdx];
+    const teamIds = isActive ? (g.bossTeam || []) : (bossTeamSlots[slotIdx] || []);
+    const count = teamIds.filter(Boolean).length;
+    const cp = Math.round(globalThis.getTeamPower?.(teamIds) || 0);
+    const label = _t(`Compo ${slotIdx + 1}`, `Team ${slotIdx + 1}`);
+    const lockedLabel = _t('Verrouillée', 'Locked');
+    const slots = Array.from({ length: BOSS_TEAM_SLOTS }, (_, i) => {
+      const pkId = teamIds[i];
+      const pk = pkId ? state.pokemons.find(p => p.id === pkId) : null;
+      const slotTitle = pk
+        ? `${speciesName(pk.species_en)} Lv.${pk.level}`
+        : isPurchased
+          ? _t('Ajouter un Pokemon', 'Add a Pokemon')
+          : `${lockedLabel} · ${BOSS_TEAM_SLOT_COSTS[slotIdx].toLocaleString()}₽`;
+      if (pk) {
+        return `<div class="agent-boss-team-slot filled" data-boss-team-slot="${i}" data-boss-comp-slot="${slotIdx}" title="${_esc(slotTitle)}">
+          <img src="${pokeIcon(pk.species_en)}" alt="${_esc(speciesName(pk.species_en))}" onerror="this.src='${pokeSprite(pk.species_en, pk.shiny)}'">
+          <span>${_esc(speciesName(pk.species_en))}</span>
+        </div>`;
+      }
+      return `<div class="agent-boss-team-slot empty" data-boss-team-slot="${i}" data-boss-comp-slot="${slotIdx}" title="${_esc(slotTitle)}">${isPurchased ? '+' : '🔒'}</div>`;
+    }).join('');
+    return `<div class="agent-boss-comp-card${isActive ? ' active' : ''}${!isPurchased ? ' locked' : ''}" data-boss-comp-select="${slotIdx}">
+      <div class="agent-boss-comp-head">
+        <div>
+          <div class="agent-boss-comp-title">${!isPurchased ? '🔒 ' : ''}${label}</div>
+          <div class="agent-boss-comp-sub">${isPurchased ? `${count}/${BOSS_TEAM_SLOTS} ${_t('Pokémon', 'Pokemon')}` : `${lockedLabel} · ${BOSS_TEAM_SLOT_COSTS[slotIdx].toLocaleString()}₽`}</div>
+        </div>
+        <div class="agent-boss-comp-cp">
+          <span>${_t('CP', 'CP')}</span>
+          <strong>${cp.toLocaleString()}</strong>
+        </div>
+      </div>
+      <div class="agent-boss-team-slots">${slots}</div>
+    </div>`;
   }).join('');
-  return `<div class="agent-boss-team-panel">
-    <div class="agent-boss-team-label">
-      <span>${_t('Equipe du boss', 'Boss team')}</span>
-      <span>${count}/${BOSS_TEAM_SLOTS}</span>
+
+  return `<section class="agent-boss-comps-panel">
+    <div class="agent-boss-comps-header">
+      <div>
+        <div class="agent-boss-comps-title">${_t('Compositions du boss', 'Boss team compositions')}</div>
+        <div class="agent-boss-comps-help">${_t('Sélectionne une compo, puis clique un slot pour ajouter ou retirer un Pokémon.', 'Select a team, then click a slot to add or remove a Pokemon.')}</div>
+      </div>
+      <div class="agent-boss-active-pill">${_t('Active', 'Active')} · ${_t(`Compo ${activeSlot + 1}`, `Team ${activeSlot + 1}`)}</div>
     </div>
-    <div class="agent-boss-team-slots">${slots}</div>
-  </div>`;
+    <div class="agent-boss-comps-grid">${cards}</div>
+  </section>`;
+}
+
+function _ensureBossTeamSlots() {
+  const g = state.gang;
+  if (!Array.isArray(g.bossTeamSlots)) g.bossTeamSlots = [[...(g.bossTeam || [])], [], []];
+  if (!Array.isArray(g.bossTeamSlotsPurchased)) g.bossTeamSlotsPurchased = [true, false, false];
+  if (g.activeBossTeamSlot === undefined) g.activeBossTeamSlot = 0;
+}
+
+function _activateBossTeamComposition(slotIdx) {
+  _ensureBossTeamSlots();
+  state.gang.activeBossTeamSlot = slotIdx;
+  state.gang.bossTeam = [...(state.gang.bossTeamSlots[slotIdx] || [])];
+  globalThis.invalidateBossTeamPower?.();
+  saveState();
+  globalThis.renderZoneWindows?.();
+}
+
+function _promptUnlockBossTeamComposition(slotIdx) {
+  _ensureBossTeamSlots();
+  const cost = BOSS_TEAM_SLOT_COSTS[slotIdx] || 0;
+  globalThis.showConfirm?.(
+    _t(`Débloquer la Compo ${slotIdx + 1} pour ${cost.toLocaleString()}₽ ?`, `Unlock Team ${slotIdx + 1} for ${cost.toLocaleString()}₽?`),
+    () => {
+      if ((state.gang.money || 0) < cost) {
+        notify(_t('Fonds insuffisants.', 'Insufficient funds.'), 'error');
+        globalThis.SFX?.play?.('error');
+        return;
+      }
+      state.gang.money -= cost;
+      state.gang.bossTeamSlotsPurchased[slotIdx] = true;
+      _activateBossTeamComposition(slotIdx);
+      globalThis.renderTopBar?.();
+      globalThis.SFX?.play?.('unlock');
+      renderAgentsTab();
+    },
+    null,
+    { confirmLabel: _t('Acheter', 'Buy'), cancelLabel: _t('Annuler', 'Cancel') }
+  );
 }
 
 function _doRenderAgentsTab() {
@@ -149,7 +223,7 @@ const bossRep   = state.gang.reputation || 0;
   const bossTitle = typeof getBossFullTitle === 'function' ? getBossFullTitle() : '';
 
   let html = `
-    <div class="agent-card-full" style="border-color:var(--gold)" id="playerStatCard">
+    <div class="agent-card-full agent-boss-card" id="playerStatCard">
       <div class="agent-header">
         ${state.gang.bossSprite ? `<img src="${trainerSprite(state.gang.bossSprite)}" alt="${_t('Boss','Boss')}" style="width:44px;height:44px;image-rendering:pixelated">` : `<div style="width:44px;height:44px;background:var(--bg-card);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:20px">👤</div>`}
         <div class="agent-meta">
@@ -160,8 +234,8 @@ const bossRep   = state.gang.reputation || 0;
           </div>
         </div>
       </div>
-      ${_bossTeamHtml()}
     </div>`;
+  html += _bossTeamCompositionsHtml();
 
   // ── Global ball setters ────────────────────────────────────────────────
   const availBalls = getUnlockedBallSkins();
@@ -366,12 +440,25 @@ const bossRep   = state.gang.reputation || 0;
   });
 
   grid.querySelectorAll('[data-boss-team-slot]').forEach(slot => {
-    slot.addEventListener('click', () => {
+    slot.addEventListener('click', (event) => {
+      event.stopPropagation();
+      _ensureBossTeamSlots();
+      const compIdx = parseInt(slot.dataset.bossCompSlot, 10);
+      if (!state.gang.bossTeamSlotsPurchased[compIdx]) {
+        _promptUnlockBossTeamComposition(compIdx);
+        return;
+      }
+      if ((state.gang.activeBossTeamSlot || 0) !== compIdx) {
+        _activateBossTeamComposition(compIdx);
+        renderAgentsTab();
+        return;
+      }
       const idx = parseInt(slot.dataset.bossTeamSlot, 10);
       const pkId = state.gang.bossTeam[idx];
       if (pkId) {
         state.gang.bossTeam.splice(idx, 1);
         if (state.gang.bossTeamSlots) state.gang.bossTeamSlots[state.gang.activeBossTeamSlot || 0] = [...state.gang.bossTeam];
+        globalThis.invalidateBossTeamPower?.();
         saveState();
         globalThis.renderZoneWindows?.();
         renderAgentsTab();
@@ -381,6 +468,20 @@ const bossRep   = state.gang.reputation || 0;
           renderAgentsTab();
         });
       }
+    });
+  });
+
+  grid.querySelectorAll('[data-boss-comp-select]').forEach(card => {
+    card.addEventListener('click', () => {
+      const compIdx = parseInt(card.dataset.bossCompSelect, 10);
+      _ensureBossTeamSlots();
+      if (!state.gang.bossTeamSlotsPurchased[compIdx]) {
+        _promptUnlockBossTeamComposition(compIdx);
+        return;
+      }
+      if ((state.gang.activeBossTeamSlot || 0) === compIdx) return;
+      _activateBossTeamComposition(compIdx);
+      renderAgentsTab();
     });
   });
 
