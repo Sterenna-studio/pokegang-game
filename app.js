@@ -1667,7 +1667,7 @@ function applySavedUiSettings() {
   document.documentElement.style.setProperty('--zone-scale', ((state.settings?.zoneScale ?? DEFAULT_ZONE_SCALE) / 100).toFixed(2));
   document.body.classList.toggle('theme-light', state.settings?.lightTheme === true);
   document.body.classList.toggle('low-spec', state.settings?.lowSpec === true);
-  MusicPlayer.setVolume((state.settings?.musicVol ?? DEFAULT_MUSIC_VOL) / 1000);
+  MusicPlayer.setVolume((state.settings?.musicVol ?? DEFAULT_MUSIC_VOL) / 100);
 }
 
 function restoreSessionState() {

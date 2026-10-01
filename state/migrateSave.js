@@ -150,6 +150,7 @@ export function migrateSave(saved, deps) {
   delete merged.behaviourLogs;
   if (merged.settings.uiScale       === undefined) merged.settings.uiScale       = 100;
   if (merged.settings.musicVol      === undefined) merged.settings.musicVol      = 50;
+  if (merged.settings.musicEnabled  === undefined) merged.settings.musicEnabled  = true;
   if (merged.settings.sfxVol        === undefined) merged.settings.sfxVol        = 80;
   if (merged.settings.zoneScale     === undefined) merged.settings.zoneScale     = 100;
   if (merged.settings.lightTheme    === undefined) merged.settings.lightTheme    = false;

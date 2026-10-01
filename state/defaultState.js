@@ -153,7 +153,7 @@ export const DEFAULT_STATE = {
     sfxEnabled: true,
     musicVol: 50,
     uiScale: 100,
-    musicEnabled: false,
+    musicEnabled: true,
     sfxVol: 80,
     zoneScale: 100,
     lightTheme: false,

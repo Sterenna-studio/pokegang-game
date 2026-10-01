@@ -366,8 +366,8 @@
     #gangAdvisor > * { pointer-events: auto; }
     .advisor-avatar {
       position: relative;
-      width: 70px;
-      height: 70px;
+      width: 140px;
+      height: 140px;
       padding: 0;
       border-radius: 50%;
       border: 2px solid var(--border);
@@ -377,7 +377,7 @@
     }
     .advisor-avatar:hover { border-color: var(--gold-dim); transform: translateY(-2px); }
     .advisor-avatar img {
-      width: 60px; height: 60px;
+      width: 120px; height: 120px;
       image-rendering: pixelated;
       filter: drop-shadow(0 2px 4px rgba(0,0,0,.8));
     }
@@ -435,8 +435,8 @@
     body.onboarding-focus #gangAdvisor { display: none; }
     @media (max-width: 720px) {
       #gangAdvisor { left: 8px; bottom: 8px; }
-      .advisor-avatar { width: 56px; height: 56px; }
-      .advisor-avatar img { width: 46px; height: 46px; }
+      .advisor-avatar { width: 112px; height: 112px; }
+      .advisor-avatar img { width: 96px; height: 96px; }
     }
 
     /* ── Mode focus onboarding ──────────────────────────────────
@@ -3087,6 +3087,87 @@
     .agent-card-full .agent-team-slot:hover { border-color: var(--gold); }
     .agent-card-full .agent-team-slot.filled { border-style: solid; border-color: var(--red); }
     .agent-card-full .agent-team-slot img { width: 40px; height: 30px; image-rendering: pixelated; object-fit: contain; }
+    .agent-egg-slot {
+      min-width: 42px;
+      min-height: 30px;
+      display: grid;
+      place-items: center;
+      gap: 1px;
+      padding: 2px 4px;
+      border: 1px dashed var(--border-light);
+      border-radius: var(--radius-sm);
+      background: rgba(255, 255, 255, .025);
+      color: var(--text-dim);
+      font-size: 7px;
+      line-height: 1;
+    }
+    .agent-egg-slot .agent-egg-icon { font-size: 14px; line-height: 1; }
+    .agent-egg-slot .agent-egg-text {
+      font-family: var(--font-pixel);
+      font-size: 6px;
+      max-width: 42px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .agent-egg-slot.filled {
+      border-style: solid;
+      border-color: var(--gold-dim);
+      background: rgba(255, 204, 90, .08);
+      color: var(--gold);
+    }
+    .agent-egg-slot.ready {
+      border-color: var(--green);
+      color: var(--green);
+      box-shadow: 0 0 8px rgba(104, 216, 132, .22);
+    }
+    .agent-boss-team-panel {
+      margin-top: 2px;
+      padding: 7px;
+      border: 1px solid var(--gold-dim);
+      border-radius: var(--radius-sm);
+      background: rgba(255, 204, 90, .06);
+    }
+    .agent-boss-team-label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 5px;
+      font-family: var(--font-pixel);
+      font-size: 7px;
+      color: var(--gold);
+      letter-spacing: .04em;
+    }
+    .agent-boss-team-slots {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 4px;
+    }
+    .agent-boss-team-slot {
+      min-height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px dashed var(--gold-dim);
+      border-radius: var(--radius-sm);
+      background: var(--bg);
+      color: var(--gold);
+      cursor: pointer;
+      transition: border-color .2s, background .2s, transform .12s;
+    }
+    .agent-boss-team-slot:hover {
+      border-color: var(--gold);
+      background: rgba(255, 204, 90, .1);
+      transform: translateY(-1px);
+    }
+    .agent-boss-team-slot.filled { border-style: solid; }
+    .agent-boss-team-slot img {
+      width: 40px;
+      height: 30px;
+      image-rendering: pixelated;
+      object-fit: contain;
+    }
     .agent-card-full .agent-personality {
       font-size: 9px;
       color: var(--text-dim);

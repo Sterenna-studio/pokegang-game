@@ -17,6 +17,7 @@ if ($RemoteLabRoot -notmatch '^/home/[A-Za-z0-9_-]+/lab$') {
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $runtimeEntries = @('index.html', 'app.js', 'css', 'data', 'modules', 'state', 'assets', 'gang')
+$optionalRuntimeEntries = @('music')
 $previewHeaders = Join-Path $PSScriptRoot 'preview.htaccess'
 $webRemote = "$RemoteLabRoot/pokegang-preview"
 $itchRemote = "$RemoteLabRoot/pokegang-itch-preview"
@@ -49,6 +50,9 @@ function Publish-Runtime {
       throw "Runtime incomplet, entrée absente: $source"
     }
   }
+  $optionalSources = $optionalRuntimeEntries |
+    ForEach-Object { Join-Path $SourceRoot $_ } |
+    Where-Object { Test-Path -LiteralPath $_ }
 
   # Poser les règles QA avant le runtime évite qu'une première requête arrivée
   # pendant le transfert soit mise en cache pendant sept jours par l'hôte.
@@ -59,7 +63,7 @@ function Publish-Runtime {
   )
   $scpArguments = @(
     '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=8', '-P', '22', '-r'
-  ) + $sources + @("${SshTarget}:${RemotePath}/")
+  ) + $sources + @($optionalSources) + @("${SshTarget}:${RemotePath}/")
   Invoke-Native -FilePath 'scp' -Arguments $scpArguments
 }
 

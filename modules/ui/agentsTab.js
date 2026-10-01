@@ -1,6 +1,7 @@
 'use strict';
 
 import { BALL_SPRITES, FALLBACK_TRAINER_SVG } from '../../data/assets-data.js';
+import { BOSS_TEAM_SLOTS } from '../../data/game-config-data.js';
 import { EventBus, EVENTS } from '../core/eventBus.js';
 import { deferSimulationUi } from '../core/simulationContext.js';
 import { isOnboardingFreeAgentPending } from '../systems/onboardingFlow.js';
@@ -82,6 +83,51 @@ function _agentEnergyRowHtml(a, agentTeamSlots) {
        <span style="font-size:8px;color:var(--text-dim);margin-left:4px">${agentTeamSlots} slot${agentTeamSlots > 1 ? 's' : ''}</span>`;
 }
 
+function _formatShortDuration(ms) {
+  if (!Number.isFinite(ms)) return '';
+  if (ms <= 0) return _t('pret', 'ready');
+  const minutes = Math.ceil(ms / 60000);
+  if (minutes < 60) return `${minutes}min`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest ? `${hours}h${String(rest).padStart(2, '0')}` : `${hours}h`;
+}
+
+function _agentEggSlotHtml(agent) {
+  const egg = (state.eggs || []).find(e => e?.incubating && e.incubationAgentId === agent.id);
+  const hatched = globalThis.getAgentHatchStats?.(agent)?.hatched ?? 0;
+  const title = egg
+    ? `${_t('Oeuf confie par Joel', 'Egg trusted by Joy')} · ${egg.status === 'ready' ? _t('pret', 'ready') : _formatShortDuration((egg.hatchAt || 0) - Date.now())}`
+    : `${_t('Slot oeuf agent', 'Agent egg slot')} · ${hatched} ${_t('eclos', 'hatched')}`;
+  return `<div class="agent-egg-slot${egg ? ' filled' : ''}${egg?.status === 'ready' ? ' ready' : ''}" title="${_esc(title)}" aria-label="${_esc(title)}">
+    <span class="agent-egg-icon" aria-hidden="true">🥚</span>
+    <span class="agent-egg-text">${egg ? (egg.status === 'ready' ? _t('OK', 'OK') : _formatShortDuration((egg.hatchAt || 0) - Date.now())) : '—'}</span>
+  </div>`;
+}
+
+function _bossTeamHtml() {
+  const team = state.gang?.bossTeam || [];
+  const count = team.filter(Boolean).length;
+  const slots = Array.from({ length: BOSS_TEAM_SLOTS }, (_, i) => {
+    const pkId = team[i];
+    const pk = pkId ? state.pokemons.find(p => p.id === pkId) : null;
+    if (pk) {
+      const title = `${speciesName(pk.species_en)} Lv.${pk.level}`;
+      return `<div class="agent-boss-team-slot filled" data-boss-team-slot="${i}" title="${_esc(title)}">
+        <img src="${pokeIcon(pk.species_en)}" alt="${_esc(speciesName(pk.species_en))}" onerror="this.src='${pokeSprite(pk.species_en, pk.shiny)}'">
+      </div>`;
+    }
+    return `<div class="agent-boss-team-slot" data-boss-team-slot="${i}" title="${_t('Ajouter un Pokemon', 'Add a Pokemon')}">+</div>`;
+  }).join('');
+  return `<div class="agent-boss-team-panel">
+    <div class="agent-boss-team-label">
+      <span>${_t('Equipe du boss', 'Boss team')}</span>
+      <span>${count}/${BOSS_TEAM_SLOTS}</span>
+    </div>
+    <div class="agent-boss-team-slots">${slots}</div>
+  </div>`;
+}
+
 function _doRenderAgentsTab() {
   const grid = document.getElementById('agentsGrid');
   if (!grid) return;
@@ -114,6 +160,7 @@ const bossRep   = state.gang.reputation || 0;
           </div>
         </div>
       </div>
+      ${_bossTeamHtml()}
     </div>`;
 
   // ── Global ball setters ────────────────────────────────────────────────
@@ -210,6 +257,7 @@ const bossRep   = state.gang.reputation || 0;
           ${cosmUnlockedAgent ? `
           <button class="agent-card-rename" data-agent-id="${a.id}" title="${_t('Renommer (2 000₽)', 'Rename (2,000₽)')}" style="font-size:10px;padding:2px 5px;background:var(--bg);border:1px solid var(--border);border-radius:3px;cursor:pointer;color:var(--text-dim)">✏</button>
           <button class="agent-card-sprite" data-agent-id="${a.id}" title="${_t('Changer sprite (5 000₽)', 'Change sprite (5,000₽)')}" style="font-size:10px;padding:2px 5px;background:var(--bg);border:1px solid var(--border);border-radius:3px;cursor:pointer;color:var(--text-dim)">🎨</button>` : ''}
+          ${_agentEggSlotHtml(a)}
         </div>
       </div>
 
@@ -313,6 +361,25 @@ const bossRep   = state.gang.reputation || 0;
         renderAgentsTab();
       } else {
         openTeamPicker('agent', agentId, () => renderAgentsTab());
+      }
+    });
+  });
+
+  grid.querySelectorAll('[data-boss-team-slot]').forEach(slot => {
+    slot.addEventListener('click', () => {
+      const idx = parseInt(slot.dataset.bossTeamSlot, 10);
+      const pkId = state.gang.bossTeam[idx];
+      if (pkId) {
+        state.gang.bossTeam.splice(idx, 1);
+        if (state.gang.bossTeamSlots) state.gang.bossTeamSlots[state.gang.activeBossTeamSlot || 0] = [...state.gang.bossTeam];
+        saveState();
+        globalThis.renderZoneWindows?.();
+        renderAgentsTab();
+      } else {
+        openTeamPicker('boss', null, () => {
+          globalThis.renderZoneWindows?.();
+          renderAgentsTab();
+        });
       }
     });
   });
