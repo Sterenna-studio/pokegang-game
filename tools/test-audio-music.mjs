@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 
 const intervals = [];
 const originalSetInterval = globalThis.setInterval;
@@ -53,6 +54,13 @@ assert.equal(globalThis.state.settings.musicVol, 100);
 MusicPlayer.setVolume(0.25);
 assert.equal(createdAudio[0].volume.toFixed(4), '0.1125', '25% global volume scales the base track volume');
 assert.equal(globalThis.state.settings.musicVol, 25);
+
+const audioSource = fs.readFileSync(new URL('../modules/ui/audio.js', import.meta.url), 'utf8');
+const audioFiles = [...audioSource.matchAll(/['"`](music\/[^'"`]+\.(?:mp3|ogg|wav|WAV|mid))['"`]/g)]
+  .map(match => match[1]);
+const missingAudioFiles = [...new Set(audioFiles)]
+  .filter(file => !fs.existsSync(new URL(`../${file}`, import.meta.url)));
+assert.deepEqual(missingAudioFiles, [], 'every audio.js music path should exist in the repo');
 
 globalThis.setInterval = originalSetInterval;
 globalThis.clearInterval = originalClearInterval;
