@@ -390,8 +390,8 @@ function renderPensionView(container) {
       const lbl     = _eggLabel(egg);
       const refAgent = getEggIncubationAgent(egg, state);
       const refLine = refAgent
-        ? `<div style="font-size:7px;color:var(--text-dim);max-width:82px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_t('Réf.', 'Ref.')} ${refAgent.name} · ×${(egg.incubationSpeedMultiplier || 1).toFixed(2)}</div>`
-        : `<div style="font-size:7px;color:var(--text-dim)">${_t('Réf. Joel', 'Joy ref.')}</div>`;
+        ? `<div style="font-size:7px;color:var(--text-dim);max-width:82px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_t('Réf.', 'Ref.')} ${_esc(refAgent.name)} · ×${(egg.incubationSpeedMultiplier || 1).toFixed(2)}</div>`
+        : `<div style="font-size:7px;color:var(--text-dim)">${_t('Réf. Joëlle', 'Joy ref.')}</div>`;
       _incubSlots.push(`
         <div ${isReady ? `data-hatch-egg="${egg.id}"` : ''} style="position:relative;display:flex;flex-direction:column;align-items:center;padding:10px 6px 8px;gap:5px;border:2px solid ${isReady ? 'var(--green)' : 'var(--gold-dim)'};border-radius:var(--radius-sm);background:var(--bg);${isReady ? 'cursor:pointer;animation:eggReadyGlow .8s ease-in-out infinite alternate;' : ''}">
           ${isReady ? `<div style="position:absolute;top:-9px;right:-9px;font-family:var(--font-pixel);font-size:8px;color:var(--bg);background:var(--green);border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;z-index:2;animation:eggReadyBadge .4s ease-in-out infinite alternate">!</div>` : ''}
@@ -619,7 +619,7 @@ function renderPensionView(container) {
         <div>
           <style>@keyframes eggReadyGlow{from{box-shadow:0 0 0 rgba(110,207,138,0)}to{box-shadow:0 0 12px rgba(110,207,138,.7)}}@keyframes eggReadyBadge{from{transform:scale(1)}to{transform:scale(1.35)}}</style>
           <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold);margin-bottom:8px">${_t('SLOTS D’ÉCLOSION AGENTS', 'AGENT HATCHING SLOTS')} (${allIncubated.length}/${incubationSummary.capacity})</div>
-          <div style="font-size:8px;color:var(--text-dim);margin-bottom:8px">${_t('1 agent recruté = 1 œuf en incubation. Joel reste responsable de la pension.', '1 recruited agent = 1 incubating egg. Joy still runs the Daycare.')}</div>
+          <div style="font-size:8px;color:var(--text-dim);margin-bottom:8px">${_t('1 agent recruté = 1 œuf en incubation. Joëlle reste responsable de la pension.', '1 recruited agent = 1 incubating egg. Joy still runs the Daycare.')}</div>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:8px">${incubatorHtml || `<div style="font-size:9px;color:var(--text-dim);text-align:center;padding:8px">${_t('Aucun slot agent disponible', 'No agent slot available')}</div>`}</div>
         </div>
 

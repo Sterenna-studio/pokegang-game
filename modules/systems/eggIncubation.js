@@ -57,12 +57,12 @@ function getAgentHatchTitle(agent, state = globalThis.state) {
   const key = getAgentHatchMilestone(agent).key;
   const en = state?.lang === 'en';
   const labels = {
-    rookie:  ['Referent in training', 'Referent in training'],
-    trained: ['Referent fiable', 'Reliable referent'],
-    adept:   ['Specialiste des oeufs', 'Egg specialist'],
-    veteran: ['Maitre incubateur', 'Incubation master'],
-    expert:  ['Expert eclosion', 'Hatching expert'],
-    legend:  ['Legende des oeufs', 'Egg legend'],
+    rookie:  ['Référent en formation', 'Referent in training'],
+    trained: ['Référent fiable', 'Reliable referent'],
+    adept:   ['Spécialiste des œufs', 'Egg specialist'],
+    veteran: ['Maître incubateur', 'Incubation master'],
+    expert:  ['Expert éclosion', 'Hatching expert'],
+    legend:  ['Légende des œufs', 'Egg legend'],
   };
   return en ? labels[key]?.[1] : labels[key]?.[0];
 }
@@ -210,18 +210,18 @@ function getAgentEggDialogueLines(agent, state = globalThis.state) {
   if (egg) {
     const remaining = egg.hatchAt ? egg.hatchAt - Date.now() : Infinity;
     if (egg.status === 'ready') {
-      lines.push(_t("L'oeuf que Joel m'a confie est pret !", 'The egg Joel trusted me with is ready!'));
+      lines.push(_t("L'œuf que Joëlle m'a confié est prêt !", 'The egg Joy trusted me with is ready!'));
     } else if (remaining <= 5 * 60 * 1000) {
-      lines.push(_t('Je crois que mon oeuf va bientot eclore !', 'I think my egg will hatch soon!'));
+      lines.push(_t('Je crois que mon œuf va bientôt éclore !', 'I think my egg will hatch soon!'));
     } else if (remaining <= 15 * 60 * 1000) {
-      lines.push(_t('Mon oeuf commence a bouger...', 'My egg is starting to move...'));
+      lines.push(_t('Mon œuf commence à bouger…', 'My egg is starting to move…'));
     } else {
-      lines.push(_t("L'infirmier Joel m'a confie un oeuf.", 'Nurse Joy trusted me with an egg.'));
+      lines.push(_t("L'infirmière Joëlle m'a confié un œuf.", 'Nurse Joy trusted me with an egg.'));
     }
   }
   const hatched = getAgentHatchStats(agent).hatched || 0;
   if (hatched >= 10) {
-    lines.push(_t('Je m y connais de mieux en mieux en oeufs.', 'I am getting better and better with eggs.'));
+    lines.push(_t("Je m'y connais de mieux en mieux en œufs.", 'I am getting better and better with eggs.'));
   }
   return lines;
 }
