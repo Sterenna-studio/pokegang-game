@@ -44,11 +44,11 @@ Aucune dépendance npm n'est nécessaire.
 
 ## Ce que fait le script
 
-1. copie uniquement le runtime : `index.html`, `app.js`, `css/`, `data/`, `modules/`, `state/`, `assets/`, `gang/` ;
+1. copie uniquement le runtime : `index.html`, `app.js`, `css/`, `data/`, `modules/`, `state/`, `assets/`, `gang/`, puis **uniquement les pistes audio référencées** de `music/` (voir plus bas) ;
 2. garde le site principal en français, mais remplace `lang: 'fr'` par `lang: 'en'` dans la copie itch uniquement ;
 3. exclut `config.js`, `docs/`, `tools/`, `supabase/`, `.git/` et les fichiers de développement ;
 4. crée le ZIP avec `index.html` à la racine ;
-5. vérifie les séparateurs ZIP, les dossiers runtime, la langue EN de la copie, la langue FR du source, l'absence de `config.js` et l'alignement de version.
+5. vérifie les séparateurs ZIP, les dossiers runtime, la langue EN de la copie, la langue FR du source, l'absence de `config.js` et l'alignement de version, et que l'archive contient exactement les pistes audio citées par le code — ni moins (silence sur itch), ni plus (Mo inutiles).
 
 Une build saine se termine par un message du type :
 
@@ -67,6 +67,32 @@ Symptôme d'une archive invalide : `index.html` s'ouvre, puis une grande quantit
 ## Pourquoi `gang/` est inclus
 
 Le dossier `gang/` n'est pas seulement la page cosmétique autonome. Le jeu principal importe aussi `gang/environment.js` et charge `gang/gang.css`. Une archive sans ce dossier peut démarrer tout en ayant un Vivarium incomplet et des 404 silencieux.
+
+## Pourquoi `music/` n'est inclus qu'en partie
+
+`music/` est une **bibliothèque** d'assets importée en bloc (945 fichiers, ~43 Mo) :
+des `.mp3`, mais aussi des `.wav`, `.ogg` et `.mid` que le moteur ne lit jamais
+(`MusicPlayer` passe par `HTMLAudioElement`, qui ne joue pas de MIDI). Le jeu n'en
+référence que **24 fichiers**, tous en `.mp3`, via `MUSIC_TRACKS`, `JINGLES` et
+`SE_SOUNDS` dans `modules/ui/audio.js`.
+
+Copier tout le dossier faisait passer l'archive de ~10 Mo à **44 Mo** pour des
+fichiers que le jeu ne demandera jamais. Le script relit donc les sources déjà
+stagées (`collectReferencedMusic()`), en extrait les chemins `music/….mp3` cités
+entre quotes, et ne copie que ceux-là — l'archive retombe à ~31 Mo.
+
+Conséquences à connaître :
+
+- **Ajouter une piste** = la référencer dans `modules/ui/audio.js`. Un fichier
+  simplement déposé dans `music/` ne partira pas dans le build.
+- Le chemin doit être une **chaîne littérale** (`'music/BGM/Route 1.mp3'`). Un
+  chemin construit dynamiquement échapperait au scan, et le build échouerait en
+  prod avec un 404 silencieux plutôt qu'à la validation.
+- La validation refuse une archive où une piste référencée manque **ou** où un
+  fichier audio non référencé s'est glissé.
+- Le déploiement OVH (`.github/workflows/deploy-ovh.yml`) applique la même logique
+  autrement : il exclut `*.wav`, `*.mid` et `*.ogg` du rsync. Le site sert donc
+  tous les `.mp3` mais aucun des formats non lisibles.
 
 ## Pourquoi `config.js` n'est pas inclus
 

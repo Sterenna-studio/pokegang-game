@@ -9,6 +9,8 @@
 //   state, saveState, notify, COSMETIC_BGS, FABRIC_SPECIES, fabricBgUrl,
 //   BOSS_SPRITES, trainerSprite
 
+import { esc as _esc } from '../core/escape.js';
+
 const _t = (...a) => globalThis.t?.(...a) ?? a[0];
 
 function _resolveFabricBgUrl(bgKey) {
@@ -116,9 +118,9 @@ function openNameModal(opts = {}) {
   overlay.style.cssText = 'position:fixed;inset:0;z-index:9600;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;';
   overlay.innerHTML = `
     <div style="background:var(--bg-panel);border:2px solid var(--gold-dim);border-radius:var(--radius);padding:20px;max-width:340px;width:92%;display:flex;flex-direction:column;gap:12px">
-      <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold)">${title}</div>
-      <input id="nameModalInput" type="text" maxlength="${maxLength}" placeholder="${placeholder}"
-        value="${current.replace(/"/g,'&quot;')}"
+      <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold)">${_esc(title)}</div>
+      <input id="nameModalInput" type="text" maxlength="${maxLength}" placeholder="${_esc(placeholder)}"
+        value="${_esc(current)}"
         style="padding:9px 12px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text);font-size:12px;outline:none;width:100%;box-sizing:border-box">
       ${cost ? `<div style="font-size:8px;color:var(--text-dim);font-family:var(--font-pixel)">${_t('cosm_cost')} <span style="color:var(--gold)">${cost.toLocaleString()}₽</span> &nbsp;·&nbsp; ${(state.gang.money||0).toLocaleString()}₽</div>` : ''}
       <div style="display:flex;gap:8px">

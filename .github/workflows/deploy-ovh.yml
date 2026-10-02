@@ -58,6 +58,9 @@ jobs:
 
       - name: Deploy to OVH with rsync
         run: |
+          # music/ est une bibliothèque d'assets : le moteur ne lit que des .mp3.
+          # Les wav/mid/ogg (~15 Mo, 850 fichiers) ne sont référencés nulle part,
+          # inutile donc de les pousser en prod à chaque déploiement.
           rsync -avz --delete \
             --exclude='/archive/' \
             --exclude='.git/' \
@@ -71,6 +74,11 @@ jobs:
             --exclude='info/' \
             --exclude='docs/*.md' \
             --exclude='docs/*.sql' \
+            --exclude='*.wav' \
+            --exclude='*.WAV' \
+            --exclude='*.mid' \
+            --exclude='*.MID' \
+            --exclude='*.ogg' \
             -e "ssh -i ~/.ssh/ovh_key" \
             ./ "${{ secrets.OVH_USER }}@${{ secrets.OVH_HOST }}:~/pokegang/"
 
