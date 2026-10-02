@@ -299,9 +299,9 @@ const bossRep   = state.gang.reputation || 0;
           </button>
         </div>
         <div class="agent-header" style="filter:blur(2px)">
-          <img src="${a.sprite}" alt="${a.name}" onerror="this.src='${FALLBACK_TRAINER_SVG}';this.onerror=null">
+          <img src="${a.sprite}" alt="${_esc(a.name)}" onerror="this.src='${FALLBACK_TRAINER_SVG}';this.onerror=null">
           <div class="agent-meta">
-            <div style="font-family:var(--font-pixel);font-size:9px">${a.name}</div>
+            <div style="font-family:var(--font-pixel);font-size:9px">${_esc(a.name)}</div>
             <div style="font-size:8px;color:var(--text-dim)">Lv.${a.level} · ${getAgentRankLabel(a)}</div>
           </div>
         </div>
@@ -312,12 +312,12 @@ const bossRep   = state.gang.reputation || 0;
     const cosmUnlockedAgent = state.purchases?.cosmeticsPanel;
     html += `<div class="agent-card-full" data-agent-id="${a.id}" data-rank="${a.title || 'grunt'}">
       <div class="agent-header">
-        <img src="${a.sprite}" alt="${a.name}" onerror="this.src='${FALLBACK_TRAINER_SVG}';this.onerror=null"
+        <img src="${a.sprite}" alt="${_esc(a.name)}" onerror="this.src='${FALLBACK_TRAINER_SVG}';this.onerror=null"
           style="cursor:pointer" class="agent-sprite-open-sheet" data-agent-id="${a.id}" title="${_t('Voir la fiche', 'View profile')}">
         <div class="agent-meta">
           <div class="agent-title agent-rank-${a.title}" style="display:flex;align-items:baseline;gap:5px;flex-wrap:nowrap;overflow:hidden">
             <span style="font-size:7px;opacity:.75;flex-shrink:0">[${getAgentRankLabel(a)}]</span>
-            <span style="font-family:var(--font-pixel);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.name}</span>
+            <span style="font-family:var(--font-pixel);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${_esc(a.name)}</span>
             <span class="agent-lv" style="font-size:8px;opacity:.7;flex-shrink:0">Lv.${a.level}</span>
           </div>
           <div class="agent-xp-bar"><div class="agent-xp-fill" style="width:${xpPct}%"></div></div>

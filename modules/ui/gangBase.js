@@ -872,7 +872,7 @@ function renderGangBaseWindowV2() {
         <img src="${agent.sprite || trainerSprite('acetrainer')}" alt="" onerror="this.src='${trainerSprite('acetrainer')}'">
       </div>
       <div class="gb2-agent-body">
-        <div class="gb2-agent-name">${agent.name}</div>
+        <div class="gb2-agent-name">${_esc(agent.name)}</div>
         <div class="gb2-agent-rank-zone">${rank}</div>
         <div class="gb2-agent-team-row">${teamSlots}</div>
       </div>
@@ -889,9 +889,9 @@ function renderGangBaseWindowV2() {
 
   // ── Panneau assignation (bas colonne droite) ──
   const zapSlots = focusAgents.slice(0, 4).map(agent =>
-    `<div class="gb2-zap-slot filled" title="${agent.name}">
+    `<div class="gb2-zap-slot filled" title="${_esc(agent.name)}">
       <img src="${agent.sprite || trainerSprite('acetrainer')}" alt="" onerror="this.src='${trainerSprite('acetrainer')}'">
-      <div class="zsn">${agent.name.split(' ')[0]}</div>
+      <div class="zsn">${_esc(agent.name.split(' ')[0])}</div>
     </div>`
   );
   const maxSlots = Math.min(4, Math.max(focusState.slots || 1, focusAgents.length));
@@ -1207,7 +1207,7 @@ function _openBaseAgentPicker(zoneId) {
     const rank = globalThis.getAgentRankLabel?.(agent) || BASE_RANK_FR[agent.title] || agent.title || 'Agent';
     return `<button class="base-picker-agent${sameZone ? ' active' : ''}" data-pick-agent="${agent.id}">
       <img src="${agent.sprite || globalThis.trainerSprite?.('acetrainer') || ''}" alt="" onerror="this.src='${globalThis.trainerSprite?.('acetrainer') || ''}'">
-      <span><strong>${agent.name}</strong><em>${rank} · ${currentZone}</em></span>
+      <span><strong>${_esc(agent.name)}</strong><em>${rank} · ${currentZone}</em></span>
       <b>${sameZone ? _t('gang_base_remove') : _t('gang_base_assign')}</b>
     </button>`;
   }).join('') || `<div class="base-empty-note">${_t('gang_base_no_recruited_agent')}</div>`;
@@ -2142,7 +2142,7 @@ function renderGangParkWindow(el) {
     return `<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.07)">
       <img src="${agent.sprite || trainerSprite('acetrainer')}" style="width:32px;height:32px;image-rendering:pixelated" alt="" onerror="this.src='${trainerSprite('acetrainer')}'">
       <div style="flex:1;min-width:0">
-        <div style="font-size:9px;color:var(--text)">${agent.name}</div>
+        <div style="font-size:9px;color:var(--text)">${_esc(agent.name)}</div>
         <div style="font-size:7px;color:var(--text-dim)">${zoneName}</div>
       </div>
       <div style="display:flex;gap:2px;flex-wrap:wrap;max-width:100px;justify-content:flex-end">${teamHtml || '<span style="font-size:8px;color:var(--text-dim)">—</span>'}</div>
