@@ -86,7 +86,7 @@ function _agentEnergyRowHtml(a, agentTeamSlots) {
 
 function _formatShortDuration(ms) {
   if (!Number.isFinite(ms)) return '';
-  if (ms <= 0) return _t('pret', 'ready');
+  if (ms <= 0) return _t('prêt', 'ready');
   const minutes = Math.ceil(ms / 60000);
   if (minutes < 60) return `${minutes}min`;
   const hours = Math.floor(minutes / 60);
@@ -98,8 +98,8 @@ function _agentEggSlotHtml(agent) {
   const egg = (state.eggs || []).find(e => e?.incubating && e.incubationAgentId === agent.id);
   const hatched = globalThis.getAgentHatchStats?.(agent)?.hatched ?? 0;
   const title = egg
-    ? `${_t('Oeuf confie par Joel', 'Egg trusted by Joy')} · ${egg.status === 'ready' ? _t('pret', 'ready') : _formatShortDuration((egg.hatchAt || 0) - Date.now())}`
-    : `${_t('Slot oeuf agent', 'Agent egg slot')} · ${hatched} ${_t('eclos', 'hatched')}`;
+    ? `${_t('Œuf confié par Joëlle', 'Egg trusted by Joy')} · ${egg.status === 'ready' ? _t('prêt', 'ready') : _formatShortDuration((egg.hatchAt || 0) - Date.now())}`
+    : `${_t('Slot œuf agent', 'Agent egg slot')} · ${hatched} ${_t('éclos', 'hatched')}`;
   return `<div class="agent-egg-slot${egg ? ' filled' : ''}${egg?.status === 'ready' ? ' ready' : ''}" title="${_esc(title)}" aria-label="${_esc(title)}">
     <span class="agent-egg-icon" aria-hidden="true">🥚</span>
     <span class="agent-egg-text">${egg ? (egg.status === 'ready' ? _t('OK', 'OK') : _formatShortDuration((egg.hatchAt || 0) - Date.now())) : '—'}</span>
@@ -126,7 +126,7 @@ function _bossTeamCompositionsHtml() {
       const slotTitle = pk
         ? `${speciesName(pk.species_en)} Lv.${pk.level}`
         : isPurchased
-          ? _t('Ajouter un Pokemon', 'Add a Pokemon')
+          ? _t('Ajouter un Pokémon', 'Add a Pokémon')
           : `${lockedLabel} · ${BOSS_TEAM_SLOT_COSTS[slotIdx].toLocaleString()}₽`;
       if (pk) {
         return `<div class="agent-boss-team-slot filled" data-boss-team-slot="${i}" data-boss-comp-slot="${slotIdx}" title="${_esc(slotTitle)}">
@@ -140,7 +140,7 @@ function _bossTeamCompositionsHtml() {
       <div class="agent-boss-comp-head">
         <div>
           <div class="agent-boss-comp-title">${!isPurchased ? '🔒 ' : ''}${label}</div>
-          <div class="agent-boss-comp-sub">${isPurchased ? `${count}/${BOSS_TEAM_SLOTS} ${_t('Pokémon', 'Pokemon')}` : `${lockedLabel} · ${BOSS_TEAM_SLOT_COSTS[slotIdx].toLocaleString()}₽`}</div>
+          <div class="agent-boss-comp-sub">${isPurchased ? `${count}/${BOSS_TEAM_SLOTS} ${_t('Pokémon', 'Pokémon')}` : `${lockedLabel} · ${BOSS_TEAM_SLOT_COSTS[slotIdx].toLocaleString()}₽`}</div>
         </div>
         <div class="agent-boss-comp-cp">
           <span>${_t('CP', 'CP')}</span>
@@ -155,7 +155,7 @@ function _bossTeamCompositionsHtml() {
     <div class="agent-boss-comps-header">
       <div>
         <div class="agent-boss-comps-title">${_t('Compositions du boss', 'Boss team compositions')}</div>
-        <div class="agent-boss-comps-help">${_t('Sélectionne une compo, puis clique un slot pour ajouter ou retirer un Pokémon.', 'Select a team, then click a slot to add or remove a Pokemon.')}</div>
+        <div class="agent-boss-comps-help">${_t('Sélectionne une compo, puis clique un slot pour ajouter ou retirer un Pokémon.', 'Select a team, then click a slot to add or remove a Pokémon.')}</div>
       </div>
       <div class="agent-boss-active-pill">${_t('Active', 'Active')} · ${_t(`Compo ${activeSlot + 1}`, `Team ${activeSlot + 1}`)}</div>
     </div>

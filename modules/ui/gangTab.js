@@ -88,7 +88,7 @@ function _buildServicesHtml(state) {
     <img src="${globalThis.trainerSprite('nurse')}" style="width:36px;height:36px;image-rendering:pixelated;flex-shrink:0;${ownN && !enN ? 'opacity:.4;filter:grayscale(1)' : ''}" onerror="this.style.display='none'">
     <div style="flex:1">
       <div style="font-family:var(--font-pixel);font-size:8px;color:${ownN ? (enN ? 'var(--green)' : 'var(--text-dim)') : 'var(--text)'};margin-bottom:3px">${_t('Infirmière Joëlle corrompue', 'Corrupted Nurse Joy')}</div>
-      <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">${_t('Auto-incube les œufs dès qu\'un incubateur est libre.', 'Auto-incubates eggs as soon as an incubator is free.')}</div>
+      <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">${_t('Confie automatiquement les œufs aux agents quand un slot d’éclosion est libre.', 'Automatically assigns eggs to agents when a hatching slot is free.')}</div>
       ${ownN
         ? `<div style="display:flex;align-items:center;gap:8px">
              <span style="font-family:var(--font-pixel);font-size:7px;color:${enN ? 'var(--green)' : 'var(--text-dim)'}">${enN ? _t('✓ EN POSTE', '✓ ON DUTY') : _t('✗ CONGÉ', '✗ OFF DUTY')}</span>

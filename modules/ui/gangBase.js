@@ -537,7 +537,7 @@ function renderGangBaseWindow() {
         const timeLeftMin = (!isReady && egg.hatchAt) ? Math.max(0, Math.ceil((egg.hatchAt - now) / 60000)) : null;
         const eggSrc = globalThis.eggSprite?.(egg, isReady) || '';
         const refAgent = getEggIncubationAgent(egg, state);
-        const refTitle = refAgent ? ` · ${refAgent.name}` : '';
+        const refTitle = refAgent ? ` · ${_esc(refAgent.name)}` : '';
         incSlotsHtml += `
           <div class="base-inc-slot ${isReady ? 'ready' : 'active'}" data-egg-id="${egg.id}"
             title="${egg.species_en}${refTitle}${isReady ? _t('gang_base_egg_ready_suffix') : timeLeftMin !== null ? ` — ${timeLeftMin}min` : ''}">
@@ -676,7 +676,7 @@ function renderGangBaseWindow() {
           ${_baseModuleTitle(`${_t('gang_base_agent_hatching_slots')} ${incubationSummary.used}/${incubationSummary.capacity}`, waitingEggs.length > 0 ? `+${waitingEggs.length}` : '')}
           ${incCount > 0
             ? `<div class="base-inc-slots">${incSlotsHtml}</div>`
-            : `<div class="base-empty-note">${_t('gang_base_no_incubators')}</div>`}
+            : `<div class="base-empty-note">${_t('gang_base_no_agent_slots')}</div>`}
         </div>
       </section>
 
@@ -809,7 +809,7 @@ function renderGangBaseWindowV2() {
         const tlm = (!isReady && egg.hatchAt) ? Math.max(0, Math.ceil((egg.hatchAt - now) / 60000)) : null;
         const eggSrc = globalThis.eggSprite?.(egg, isReady) || '';
         const refAgent = getEggIncubationAgent(egg, state);
-        const refTitle = refAgent ? `${refAgent.name} · ` : '';
+        const refTitle = refAgent ? `${_esc(refAgent.name)} · ` : '';
         incSlotsHtml += `<div class="gb2-inc-slot ${isReady ? 'ready' : 'active'}" data-egg-id="${egg.id}" title="${refTitle}${egg.species_en}">
           <img src="${eggSrc}" alt="">
           <div class="gb2-inc-bar"><div class="gb2-inc-fill${isReady?' done':''}" style="width:${isReady?100:progress}%"></div></div>

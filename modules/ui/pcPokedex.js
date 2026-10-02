@@ -157,7 +157,6 @@ function getShinySpeciesCount() { return callContext('getShinySpeciesCount') ?? 
 function playSfx(key) {
   return requireContext('playSfx')(key);
 }
-function tr(fr, en) { return state.lang === 'en' ? en : fr; }
 
 const state = new Proxy({}, {
   get(_target, prop) {
@@ -1051,8 +1050,8 @@ function renderEggsView(container) {
   const now = Date.now();
   container.innerHTML = `
     <div style="padding:8px 8px 0;color:var(--text-dim);font-size:9px">
-      ${tr(`Slots d’éclosion agents : ${incubationSummary.used}/${incubationSummary.capacity}`, `Agent hatching slots: ${incubationSummary.used}/${incubationSummary.capacity}`)}
-      · ${tr('Joel garde la pension, les agents servent de référents.', 'Joy runs the Daycare; agents act as egg referents.')}
+      ${_t('pc_agent_hatching_slots', { used: incubationSummary.used, cap: incubationSummary.capacity })}
+      · ${_t('pc_agent_hatching_hint')}
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:12px;padding:8px">
       ${eggs.map(egg => {
@@ -1095,7 +1094,7 @@ function renderEggsView(container) {
           : _t('pc_egg_waiting_incubator');
         const refAgent = getEggIncubationAgent(egg, state);
         const refHtml = refAgent
-          ? `<div style="font-size:8px;color:var(--text-dim);text-align:center">${tr('Référent', 'Referent')} : ${refAgent.name} · ×${(egg.incubationSpeedMultiplier || 1).toFixed(2)}</div>`
+          ? `<div style="font-size:8px;color:var(--text-dim);text-align:center">${_t('pc_egg_referent')} ${_esc(refAgent.name)} · ×${(egg.incubationSpeedMultiplier || 1).toFixed(2)}</div>`
           : '';
 
         return `<div style="background:var(--bg-card);border:1px solid ${isReady ? 'var(--green)' : 'var(--border)'};border-radius:var(--radius);padding:10px;min-width:130px;max-width:150px;display:flex;flex-direction:column;align-items:center;gap:6px;${isReady ? 'box-shadow:0 0 8px rgba(68,187,85,.3)' : ''}">
@@ -1111,7 +1110,7 @@ function renderEggsView(container) {
             ${isReady ? `<button class="egg-hatch-btn" data-egg-id="${egg.id}" style="font-family:var(--font-pixel);font-size:7px;padding:4px 8px;background:var(--green);border:none;border-radius:var(--radius-sm);color:#000;cursor:pointer">${_t('pc_hatch')}</button>` : ''}
             ${!isIncubating && freeIncubators > 0 ? `<button class="egg-incubate-btn" data-egg-id="${egg.id}" style="font-family:var(--font-pixel);font-size:7px;padding:4px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">${_t('pc_incubate')}</button>` : ''}
             ${!isIncubating && incubatorCount > 0 && freeIncubators === 0 ? `<span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">${_t('pc_incubators_full')}</span>` : ''}
-            ${!isIncubating && incubatorCount === 0 ? `<span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">${tr('Aucun agent', 'No agent')}</span>` : ''}
+            ${!isIncubating && incubatorCount === 0 ? `<span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">${_t('pc_no_agent')}</span>` : ''}
             <button class="egg-sell-btn" data-egg-id="${egg.id}" style="font-family:var(--font-pixel);font-size:7px;padding:4px 8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">${_t('pc_sell')}</button>
             ${!egg.scanned && (state.inventory?.egg_scanner || 0) > 0
               ? `<button class="egg-scan-btn" data-egg-id="${egg.id}" style="font-family:var(--font-pixel);font-size:7px;padding:4px 8px;background:var(--bg);border:1px solid #c05be0;border-radius:var(--radius-sm);color:#c05be0;cursor:pointer">🔬 ${_t('pc_scan')}</button>`
@@ -1139,13 +1138,13 @@ function renderEggsView(container) {
       const egg = state.eggs.find(e => e.id === btn.dataset.eggId);
       if (!egg) return;
       if (!startEggIncubation(egg, { state, baseMs: egg.hatchMs || 2700000 })) {
-        notify(tr('Aucun slot agent disponible.', 'No agent slot available.'), 'error');
+        notify(_t('pc_no_agent_slot_free'), 'error');
         renderPCTab();
         return;
       }
       saveState();
       renderPCTab();
-      notify(tr('Œuf confié à un agent !', 'Egg assigned to an agent!'), 'success');
+      notify(_t('pc_egg_incubating_notice'), 'success');
     });
   });
   container.querySelectorAll('.egg-sell-btn').forEach(btn => {
