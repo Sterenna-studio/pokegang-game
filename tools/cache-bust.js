@@ -5,6 +5,14 @@
 // file does. Also adds a `?v=` to local tags that don't have one yet.
 // Run manually with `node tools/cache-bust.js`, or automatically via the
 // pre-commit hook (.githooks/pre-commit).
+//
+// Line endings are normalised (CRLF → LF) before hashing. The repository stores
+// these files with LF, but a Windows checkout with core.autocrlf=true rewrites
+// them as CRLF in the working tree. Hashing the raw bytes therefore gave a
+// different hash per machine for identical content, and never the hash of the
+// bytes the CI checkout (LF) actually deploys — every commit from a CRLF checkout
+// flipped the `?v=` values for nothing. With the normalisation the hash is a
+// function of the content alone.
 
 'use strict';
 
@@ -21,10 +29,23 @@ const HTML_FILES = ['index.html', 'gang/index.html', 'gang/live.html', 'gang/car
 // added even if not already present.
 const TAG_RE = /((?:src|href)=")(\.\.?\/[^"?]+\.(?:js|css))(?:\?v=[^"]*)?(")/g;
 
+// CRLF → LF au niveau des octets. Un CR isolé (sans LF derrière) est conservé.
+function stripCR(buf) {
+  const out = Buffer.allocUnsafe(buf.length);
+  let n = 0;
+  for (let i = 0; i < buf.length; i++) {
+    if (buf[i] === 0x0d && buf[i + 1] === 0x0a) continue;
+    out[n++] = buf[i];
+  }
+  return out.subarray(0, n);
+}
+
+function contentHash(buf) {
+  return crypto.createHash('sha1').update(stripCR(buf)).digest('hex').slice(0, 8);
+}
+
 function hashFile(baseDir, relPath) {
-  const abs = path.join(baseDir, relPath);
-  const buf = fs.readFileSync(abs);
-  return crypto.createHash('sha1').update(buf).digest('hex').slice(0, 8);
+  return contentHash(fs.readFileSync(path.join(baseDir, relPath)));
 }
 
 function processFile(htmlPath) {
@@ -62,4 +83,6 @@ function main() {
   HTML_FILES.forEach(processFile);
 }
 
-main();
+if (require.main === module) main();
+
+module.exports = { HTML_FILES, TAG_RE, stripCR, contentHash, hashFile, processFile };
