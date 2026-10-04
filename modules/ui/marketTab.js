@@ -338,7 +338,7 @@ function renderShopPanel() {
   const lang  = state?.lang || 'fr';
 
   const ZONE_UNLOCK_ITEM_IDS = new Set(['map_pallet','casino_ticket','silph_keycard','boat_ticket','tourbillon_permit','carillon_permit','rocket_hq_keycard','rocket_uniform','silver_permit']);
-  const ONE_OFF_IDS   = new Set(['mysteryegg','incubator','translator']);
+  const ONE_OFF_IDS   = new Set(['mysteryegg','translator']);
   const WING_PERMIT_IDS = new Set(['tourbillon_permit','carillon_permit']);
   const shopItems = SHOP_ITEMS.filter(item => !item.hidden && !ZONE_UNLOCK_ITEM_IDS.has(item.id) && !item.ballSkin);
 
@@ -357,13 +357,11 @@ function renderShopPanel() {
     const isOneOff  = ONE_OFF_IDS.has(item.id);
     const mult      = isOneOff ? 1 : shopMultiplier;
     const baseCost  = item.id === 'mysteryegg' ? getMysteryEggCost()
-      : item.id === 'incubator' ? Math.round(15000 * Math.pow(2, owned))
       : item.cost;
     const totalCost = baseCost * mult;
     const totalQty  = item.qty * mult;
     const isUnlockItem  = ZONE_UNLOCK_ITEM_IDS.has(item.id);
     const alreadyOwned  = isUnlockItem && state.purchases?.[item.id];
-    const incubatorMaxed = item.id === 'incubator' && owned >= 10;
     const desc = item.desc_fr
       ? (lang === 'fr' ? item.desc_fr : item.desc_en)
       : `\u00d7${totalQty}`;
@@ -374,8 +372,6 @@ function renderShopPanel() {
       : '';
     const extraInfo = item.id === 'mysteryegg'
       ? `<div style="font-size:9px;color:var(--text-dim)">${_t('market_egg_hint', { n: (state.purchases?.mysteryEggCount||0)+1 })}</div>`
-      : item.id === 'incubator'
-        ? `<div style="font-size:10px;color:var(--text-dim)">${_t('market_incubator_owned', { n: owned })}${incubatorMaxed ? ` <span style="color:var(--red)">${_t('market_incubator_max')}</span>` : ''}</div>`
         : isWingPermit
           ? `<div style="font-size:10px;color:${alreadyOwned?'var(--green)':wingHave>=(item.wingCost?.qty||50)?'var(--gold)':'var(--red)'}">
               ${alreadyOwned ? _t('market_owned') : `${wingName} : ${wingHave}/${item.wingCost?.qty||50}`}
@@ -383,9 +379,9 @@ function renderShopPanel() {
           : isUnlockItem
             ? `<div style="font-size:10px;color:${alreadyOwned?'var(--green)':'var(--text-dim)'}">${alreadyOwned ? _t('market_owned') : _t('market_zone_unlock')}</div>`
             : `<div style="font-size:10px;color:var(--text-dim)">${_t('market_stock', { n: owned })}${!isOneOff && mult>1 ? ` (+${totalQty})` : ''}</div>`;
-    const btnDisabled = alreadyOwned || incubatorMaxed || (isWingPermit && wingHave < (item.wingCost?.qty || 50));
-    const btnLabel = (alreadyOwned || incubatorMaxed)
-      ? (incubatorMaxed ? _t('market_incubator_max') : _t('market_acquired'))
+    const btnDisabled = alreadyOwned || (isWingPermit && wingHave < (item.wingCost?.qty || 50));
+    const btnLabel = alreadyOwned
+      ? _t('market_acquired')
       : isWingPermit
         ? `${item.wingCost?.qty||50}\u00d7 ${wingName}`
         : `${totalCost.toLocaleString()}\u20bd${mult>1&&!isOneOff ? ` \u00d7${mult}` : ''}`;

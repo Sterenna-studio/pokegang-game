@@ -5,7 +5,7 @@ export const APP_VERSION = '2.4.0';
 export const GAME_VERSION = 'v0.5 — open beta';
 
 // Incrémenter à chaque ajout de champ majeur pour déclencher le banner migration.
-export const SAVE_SCHEMA_VERSION = 17;
+export const SAVE_SCHEMA_VERSION = 18;
 
 export const SAVE_KEYS = ['pokeforge.v6', 'pokeforge.v6.s2', 'pokeforge.v6.s3'];
 
@@ -153,7 +153,7 @@ export const DEFAULT_STATE = {
     sfxEnabled: true,
     musicVol: 50,
     uiScale: 100,
-    musicEnabled: false,
+    musicEnabled: true,
     sfxVol: 80,
     zoneScale: 100,
     lightTheme: false,
@@ -236,6 +236,11 @@ export const DEFAULT_STATE = {
     slots: [],              // array de pokemon IDs (2 base + extra achetés)
     extraSlotsPurchased: 0, // 0–4 extra slots
     eggAt: null,
+    eggIncubation: {
+      priorityAgentIds: [],
+      preferAvailable: true,
+      allowFallback: true,
+    },
   },
   eggs: [],
   playtime: 0,

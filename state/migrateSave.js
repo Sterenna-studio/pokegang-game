@@ -150,6 +150,7 @@ export function migrateSave(saved, deps) {
   delete merged.behaviourLogs;
   if (merged.settings.uiScale       === undefined) merged.settings.uiScale       = 100;
   if (merged.settings.musicVol      === undefined) merged.settings.musicVol      = 50;
+  if (merged.settings.musicEnabled  === undefined) merged.settings.musicEnabled  = true;
   if (merged.settings.sfxVol        === undefined) merged.settings.sfxVol        = 80;
   if (merged.settings.zoneScale     === undefined) merged.settings.zoneScale     = 100;
   if (merged.settings.lightTheme    === undefined) merged.settings.lightTheme    = false;
@@ -285,6 +286,9 @@ export function migrateSave(saved, deps) {
     if (agent.resting       === undefined) agent.resting       = false;
     if (agent.restUntil     === undefined) agent.restUntil     = null;
     if (agent.lastEnergyReset === undefined) agent.lastEnergyReset = 0;
+    if (!agent.eggStats || typeof agent.eggStats !== 'object') agent.eggStats = {};
+    if (agent.eggStats.hatched === undefined) agent.eggStats.hatched = 0;
+    if (agent.eggStats.lastHatchedAt === undefined) agent.eggStats.lastHatchedAt = null;
   }
 
   // ── Pokémons ───────────────────────────────────────────────────────────────────
@@ -323,6 +327,32 @@ export function migrateSave(saved, deps) {
     delete merged.pension.slotB;
   }
   if (merged.pension.extraSlotsPurchased === undefined) merged.pension.extraSlotsPurchased = 0;
+  if (!merged.pension.eggIncubation || typeof merged.pension.eggIncubation !== 'object') {
+    merged.pension.eggIncubation = structuredClone(DEFAULT_STATE.pension.eggIncubation);
+  } else {
+    const cfg = merged.pension.eggIncubation;
+    if (!Array.isArray(cfg.priorityAgentIds)) cfg.priorityAgentIds = [];
+    if (cfg.preferAvailable === undefined) cfg.preferAvailable = true;
+    if (cfg.allowFallback === undefined) cfg.allowFallback = true;
+  }
+  {
+    const activeAgents = merged.agents.filter(agent => !agent.legacyLocked);
+    const agentIds = new Set(activeAgents.map(agent => agent.id));
+    const used = new Set();
+    merged.pension.eggIncubation.priorityAgentIds = merged.pension.eggIncubation.priorityAgentIds
+      .filter(id => agentIds.has(id));
+    for (const egg of merged.eggs) {
+      if (!egg.incubating) continue;
+      if (egg.incubationAgentId && agentIds.has(egg.incubationAgentId) && !used.has(egg.incubationAgentId)) {
+        used.add(egg.incubationAgentId);
+        continue;
+      }
+      const next = activeAgents.find(agent => !used.has(agent.id));
+      egg.incubationAgentId = next?.id || null;
+      if (next) used.add(next.id);
+      if (egg.incubationSpeedMultiplier === undefined) egg.incubationSpeedMultiplier = 1;
+    }
+  }
 
   // ── Purchases ───────────────────────────────────────────────────────────────────
   // Purge flag Darkrai/perks (schema v9 → v10)

@@ -143,7 +143,7 @@ function _applySettingsLive() {
 
   const lightTheme  = readTog('lightTheme', false);
   const lowSpec     = readTog('lowSpec',    false);
-  const musicOn     = readTog('music',      false);
+  const musicOn     = readTog('music',      true);
   const sfxOn       = readTog('sfx',        true);
   const musicVol    = parseInt(document.getElementById('sVolMusic')?.value)   || 80;
   const sfxVol      = parseInt(document.getElementById('sVolSFX')?.value)     || 80;
@@ -156,7 +156,7 @@ function _applySettingsLive() {
   document.documentElement.style.setProperty('--zone-scale', (zoneScale / 100).toFixed(2));
 
   if (musicOn) {
-    MusicPlayer.setVolume(musicVol / 1000);
+    MusicPlayer.setVolume(musicVol / 100);
     MusicPlayer.updateFromContext?.();
   } else {
     MusicPlayer.stop();
@@ -179,7 +179,7 @@ function _revertSettings() {
   document.documentElement.style.setProperty('--ui-scale',   ((S.uiScale   ?? 100) / 100).toFixed(2));
   document.documentElement.style.setProperty('--zone-scale', ((S.zoneScale ?? 100) / 100).toFixed(2));
   if (S.musicEnabled) {
-    MusicPlayer.setVolume((S.musicVol ?? 80) / 1000);
+    MusicPlayer.setVolume((S.musicVol ?? 80) / 100);
     MusicPlayer.updateFromContext?.();
   } else {
     MusicPlayer.stop();
@@ -441,7 +441,7 @@ function renderSettingsPanel() {
         <b style="color:var(--gold)">PokéForge — Gang Wars</b><br>
         ${_t('Capturez des Pokémon, recrutez des agents, combattez des dresseurs et élargissez votre gang.','Catch Pokémon, recruit agents, battle trainers and grow your gang.')}<br><br>
         <b style="color:var(--text)">${_t('Progression :','Progression:')}</b> ${_t('Gagnez de la réputation via les <b>combats spéciaux</b> et les <b>raids</b>.','Earn reputation through <b>special battles</b> and <b>raids</b>.')}<br>
-        <b style="color:var(--text)">${_t('Oeufs :','Eggs:')}</b> ${_t('Élevez des Pokémon à la Pension — achetez un <b>incubateur</b> au Marché.','Raise Pokémon at the Daycare — buy an <b>incubator</b> at the Market.')}<br>
+        <b style="color:var(--text)">${_t('Oeufs :','Eggs:')}</b> ${_t('Élevez des Pokémon à la Pension — chaque agent recruté ajoute un <b>slot d’éclosion</b>.','Raise Pokémon at the Daycare — each recruited agent adds one <b>hatching slot</b>.')}<br>
         <b style="color:var(--text)">${_t('Agents :','Agents:')}</b> ${_t('Recrutez des agents et assignez-les à des zones pour automatiser captures et combats.','Recruit agents and assign them to zones to automate catches and battles.')}<br>
         <b style="color:var(--text)">${_t('Labo :','Lab:')}</b> ${_t('Sacrifiez des doublons pour améliorer le potentiel de vos meilleurs Pokémon.','Sacrifice duplicates to boost the potential of your best Pokémon.')}
       </div>
@@ -520,7 +520,7 @@ export function initSettings() {
       state.settings.offlineReportThreshold = Number.isFinite(v) ? v : 300;
     }
     state.settings.autoEvoChoice  = readToggle('autoEvoChoice', false);
-    state.settings.musicEnabled   = readToggle('music',         false);
+    state.settings.musicEnabled   = readToggle('music',         true);
     state.settings.sfxEnabled     = readToggle('sfx',           true);
     state.settings.lightTheme     = readToggle('lightTheme',    false);
     state.settings.lowSpec        = readToggle('lowSpec',        false);
@@ -539,7 +539,7 @@ export function initSettings() {
     document.body.classList.toggle('low-spec',    state.settings.lowSpec    === true);
     document.documentElement.style.setProperty('--ui-scale',   (state.settings.uiScale   / 100).toFixed(2));
     document.documentElement.style.setProperty('--zone-scale', (state.settings.zoneScale / 100).toFixed(2));
-    if (state.settings.musicEnabled) { MusicPlayer.setVolume(state.settings.musicVol / 1000); MusicPlayer.updateFromContext(); }
+    if (state.settings.musicEnabled) { MusicPlayer.setVolume(state.settings.musicVol / 100); MusicPlayer.updateFromContext(); }
     else MusicPlayer.stop();
 
     saveState();

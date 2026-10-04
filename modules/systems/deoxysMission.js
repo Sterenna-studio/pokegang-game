@@ -794,7 +794,11 @@ function _renderTracker() {
 
   const bosspower = globalThis.getBossTeamPower?.() ?? 0;
   const meteores  = s.inventory?.meteore ?? 0;
-  const zoneName  = globalThis.getZoneById?.(LAB_ZONE_ID)?.[s.lang === 'en' ? 'en' : 'fr'] ?? LAB_ZONE_ID;
+  // getZoneById n'a jamais été exposé sur globalThis (il n'existe que comme
+  // dépendance injectée), donc l'ancien globalThis.getZoneById?.() retombait
+  // toujours sur l'id brut. ZONE_HOENN_BY_ID est le bare-name déjà utilisé ici.
+  const _labZone  = typeof ZONE_HOENN_BY_ID !== 'undefined' ? ZONE_HOENN_BY_ID[LAB_ZONE_ID] : null;
+  const zoneName  = _labZone?.[s.lang === 'en' ? 'en' : 'fr'] ?? LAB_ZONE_ID;
 
   const box = _box();
   _label(box, _t('— Quête Légendaire —', '— Legendary Quest —'));

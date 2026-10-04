@@ -44,6 +44,14 @@ const ZIP_PATH = path.join(ROOT, RELEASE.uploadFile);
 // pour le détail (notamment gang/, qui n'est PAS que la page compagnon).
 const INCLUDE = ['index.html', 'app.js', 'css', 'data', 'modules', 'state', 'assets', 'gang'];
 
+// music/ est une bibliotheque d'assets (945 fichiers, ~43 Mo : des mp3, mais
+// aussi des wav/ogg/mid que le moteur ne lit jamais). On n'embarque QUE les
+// pistes reellement referencees par le code -- sinon l'archive itch quadruple
+// de taille pour des fichiers que le jeu ne demandera jamais.
+// Voir docs/itch-build.md.
+const MUSIC_DIR = 'music';
+const MUSIC_REF_RE = /['"`](music\/[^'"`]+\.mp3)['"`]/g;
+
 function clean() {
   fs.rmSync(STAGE_DIR, { recursive: true, force: true });
   fs.rmSync(path.join(ROOT, 'dist-itch.zip'), { force: true }); // ancien nom de build
@@ -55,7 +63,39 @@ function stage() {
   for (const entry of INCLUDE) {
     fs.cpSync(path.join(ROOT, entry), path.join(STAGE_DIR, entry), { recursive: true });
   }
-  console.log(`[build-itch] ${INCLUDE.length} entrées copiées dans dist-itch/`);
+  const music = stageMusic();
+  const suffix = music.length ? ` + ${music.length} pistes audio référencées` : '';
+  console.log(`[build-itch] ${INCLUDE.length} entrées copiées dans dist-itch/${suffix}`);
+}
+
+// Relit les sources déjà stagées pour extraire les chemins `music/…mp3` cités par
+// MUSIC_TRACKS / JINGLES / SE_SOUNDS, puis ne copie que ceux-là.
+function collectReferencedMusic() {
+  const refs = new Set();
+  (function walk(dir) {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) { walk(full); continue; }
+      if (!/\.(js|html|css)$/i.test(entry.name)) continue;
+      for (const m of fs.readFileSync(full, 'utf8').matchAll(MUSIC_REF_RE)) refs.add(m[1]);
+    }
+  })(STAGE_DIR);
+  return [...refs].sort();
+}
+
+function stageMusic() {
+  if (!fs.existsSync(path.join(ROOT, MUSIC_DIR))) return [];
+  const refs = collectReferencedMusic();
+  const missing = refs.filter(rel => !fs.existsSync(path.join(ROOT, rel)));
+  if (missing.length) {
+    throw new Error(`[build-itch] pistes référencées absentes de ${MUSIC_DIR}/ : ${missing.join(', ')}`);
+  }
+  for (const rel of refs) {
+    const dest = path.join(STAGE_DIR, rel);
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
+    fs.copyFileSync(path.join(ROOT, rel), dest);
+  }
+  return refs;
 }
 
 // itch.io démarre en anglais par défaut — pokegang.sterenna.fr reste en 'fr'.
@@ -215,6 +255,21 @@ function validate() {
   for (const dir of ['css', 'data', 'modules', 'state', 'assets', 'gang']) {
     if (!names.some(n => n.startsWith(`${dir}/`))) {
       throw new Error(`[build-itch] aucune entrée sous ${dir}/ — le build est incomplet.`);
+    }
+  }
+
+  // Chaque piste citée par le code doit être dans l'archive, et rien d'autre :
+  // une piste manquante = silence sur itch, un fichier en trop = des Mo inutiles.
+  if (fs.existsSync(path.join(ROOT, MUSIC_DIR))) {
+    const refs = collectReferencedMusic();
+    const zipped = names.filter(n => n.startsWith(`${MUSIC_DIR}/`));
+    const absent = refs.filter(rel => !zipped.includes(rel));
+    if (absent.length) {
+      throw new Error(`[build-itch] pistes référencées absentes du zip : ${absent.join(', ')}`);
+    }
+    const extra = zipped.filter(n => !refs.includes(n));
+    if (extra.length) {
+      throw new Error(`[build-itch] ${extra.length} fichier(s) audio non référencé(s) dans le zip : ${extra.slice(0, 5).join(', ')}…`);
     }
   }
 

@@ -189,11 +189,7 @@ const BOOST_ITEMS = new Set(['incense', 'rarescope', 'aura', 'lure', 'superlure'
 
 function buyItem(itemDef) {
   const state = globalThis.state;
-  // L'incubateur double de prix à chaque exemplaire déjà possédé — même
-  // formule que l'affichage (marketTab.js), sinon le joueur paie toujours
-  // le prix du premier incubateur quel que soit le nombre déjà acquis.
   const actualCost = itemDef.id === 'mysteryegg' ? globalThis.getMysteryEggCost()
-    : itemDef.id === 'incubator' ? Math.round(itemDef.cost * Math.pow(2, state.inventory.incubator || 0))
     : itemDef.cost;
   if (state.gang.money < actualCost) {
     _notify(globalThis.t('not_enough'));
@@ -217,13 +213,6 @@ function buyItem(itemDef) {
     state.purchases[itemDef.id] = true;
     const name = state.lang === 'fr' ? (itemDef.fr || itemDef.id) : (itemDef.en || itemDef.id);
     _notify(_t(`${name} débloqué !`, `${name} unlocked!`), 'gold');
-    _save();
-    return true;
-  }
-
-  if (itemDef.id === 'incubator') {
-    state.inventory.incubator = (state.inventory.incubator || 0) + 1;
-    _notify(_t(`Incubateur obtenu ! Total : ${state.inventory.incubator}`, `Incubator obtained! Total: ${state.inventory.incubator}`), 'gold');
     _save();
     return true;
   }
@@ -366,7 +355,7 @@ function buyItem(itemDef) {
 function buyItemBulk(itemDef, count = 1) {
   const state = globalThis.state;
   const SINGLE_ONLY = new Set([
-    'mysteryegg', 'incubator', 'translator', 'autoSellAgent',
+    'mysteryegg', 'translator', 'autoSellAgent',
     'map_pallet', 'casino_ticket', 'silph_keycard', 'boat_ticket',
     'tourbillon_permit', 'carillon_permit', 'silver_permit',
     'rocket_hq_keycard', 'rocket_uniform',

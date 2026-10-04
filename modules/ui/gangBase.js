@@ -29,6 +29,11 @@ import { BOSS_TEAM_SLOTS, SHOWCASE_SLOTS } from '../../data/game-config-data.js'
 import { TRAINER_TYPES } from '../../data/trainers-data.js';
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
+import {
+  getEggIncubationAgent,
+  getEggIncubationSummary,
+  reconcileEggIncubationAssignments,
+} from '../systems/eggIncubation.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
 const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
@@ -195,6 +200,7 @@ const _KEY_IDS   = ['incubator','map_pallet','casino_ticket','silph_keycard','bo
  */
 function _buildRenderSig(state) {
   if (!state) return '';
+  const incubation = getEggIncubationSummary(state);
   const focusId    = _baseFocusZone(state)?.id || '';
   const openZ      = [...(globalThis.openZones || [])].sort().join(',');
   const agentsSig  = (state.agents || []).map(a => `${a.id}:${a.assignedZone || ''}`).join(',');
@@ -203,7 +209,8 @@ function _buildRenderSig(state) {
   return [
     _gangBaseViewMode, focusId, openZ, agentsSig, bossTeam, patches,
     state.gang.bossSprite || '',
-    state.inventory?.incubator || 0,
+    incubation.capacity,
+    incubation.used,
     (state.eggs || []).length,
     _boostMult,
   ].join('|');
@@ -342,7 +349,7 @@ function _patchGangBaseV1(win, state) {
     }
 
     // 3. Incubator slots — progress fill + time
-    const incCount = state.inventory?.incubator || 0;
+    const incCount = Math.max(getEggIncubationSummary(state).capacity, getEggIncubationSummary(state).used);
     if (incCount > 0) {
       const incubatingEggs = (state.eggs || []).filter(e => e.incubating);
       const now = Date.now();
@@ -510,7 +517,9 @@ function renderGangBaseWindow() {
   const keysHtml   = KEY_IDS.map(makeKeyTile).join('');
 
   // ── Incubator slots
-  const incCount       = state.inventory?.incubator || 0;
+  reconcileEggIncubationAssignments(state);
+  const incubationSummary = getEggIncubationSummary(state);
+  const incCount       = Math.max(incubationSummary.capacity, incubationSummary.used);
   const eggs           = state.eggs || [];
   const incubatingEggs = eggs.filter(e => e.incubating);
   const waitingEggs    = eggs.filter(e => !e.incubating);
@@ -527,9 +536,11 @@ function renderGangBaseWindow() {
           : 0;
         const timeLeftMin = (!isReady && egg.hatchAt) ? Math.max(0, Math.ceil((egg.hatchAt - now) / 60000)) : null;
         const eggSrc = globalThis.eggSprite?.(egg, isReady) || '';
+        const refAgent = getEggIncubationAgent(egg, state);
+        const refTitle = refAgent ? ` · ${_esc(refAgent.name)}` : '';
         incSlotsHtml += `
           <div class="base-inc-slot ${isReady ? 'ready' : 'active'}" data-egg-id="${egg.id}"
-            title="${egg.species_en}${isReady ? _t('gang_base_egg_ready_suffix') : timeLeftMin !== null ? ` — ${timeLeftMin}min` : ''}">
+            title="${egg.species_en}${refTitle}${isReady ? _t('gang_base_egg_ready_suffix') : timeLeftMin !== null ? ` — ${timeLeftMin}min` : ''}">
             <img src="${eggSrc}" class="base-inc-egg" alt="">
             <div class="base-inc-bar">
               <div class="base-inc-fill ${isReady ? 'done' : ''}" style="width:${isReady ? 100 : progress}%"></div>
@@ -539,7 +550,7 @@ function renderGangBaseWindow() {
               : timeLeftMin !== null ? `<span class="base-inc-time">${timeLeftMin}m</span>` : ''}
           </div>`;
       } else {
-        incSlotsHtml += `<div class="base-inc-slot empty"><span class="base-inc-placeholder">🥚</span></div>`;
+        incSlotsHtml += `<div class="base-inc-slot empty"><span class="base-inc-placeholder">AGT</span></div>`;
       }
     }
   }
@@ -662,10 +673,10 @@ function renderGangBaseWindow() {
           <div class="base-inv-row">${craftHtml}${keysHtml}</div>
         </div>
         <div class="base-inv-section base-module-card"${incCount > 0 ? ' data-base-action="pension"' : ''}>
-          ${_baseModuleTitle(_t('gang_base_incubators'), waitingEggs.length > 0 ? `+${waitingEggs.length}` : '')}
+          ${_baseModuleTitle(`${_t('gang_base_agent_hatching_slots')} ${incubationSummary.used}/${incubationSummary.capacity}`, waitingEggs.length > 0 ? `+${waitingEggs.length}` : '')}
           ${incCount > 0
             ? `<div class="base-inc-slots">${incSlotsHtml}</div>`
-            : `<div class="base-empty-note">${_t('gang_base_no_incubators')}</div>`}
+            : `<div class="base-empty-note">${_t('gang_base_no_agent_slots')}</div>`}
         </div>
       </section>
 
@@ -780,7 +791,9 @@ function renderGangBaseWindowV2() {
   const keysHtml   = KEY_IDS.map(id => _v2tile(id, true)).join('');
 
   // ── Incubateurs ──
-  const incCount       = state.inventory?.incubator || 0;
+  reconcileEggIncubationAssignments(state);
+  const incubationSummary = getEggIncubationSummary(state);
+  const incCount       = Math.max(incubationSummary.capacity, incubationSummary.used);
   const eggs           = state.eggs || [];
   const incubatingEggs = eggs.filter(e => e.incubating);
   const waitingEggs    = eggs.filter(e => !e.incubating);
@@ -795,13 +808,15 @@ function renderGangBaseWindowV2() {
           ? Math.min(100, Math.round((now - egg.incubatedAt) / (egg.hatchAt - egg.incubatedAt) * 100)) : 0;
         const tlm = (!isReady && egg.hatchAt) ? Math.max(0, Math.ceil((egg.hatchAt - now) / 60000)) : null;
         const eggSrc = globalThis.eggSprite?.(egg, isReady) || '';
-        incSlotsHtml += `<div class="gb2-inc-slot ${isReady ? 'ready' : 'active'}" data-egg-id="${egg.id}">
+        const refAgent = getEggIncubationAgent(egg, state);
+        const refTitle = refAgent ? `${_esc(refAgent.name)} · ` : '';
+        incSlotsHtml += `<div class="gb2-inc-slot ${isReady ? 'ready' : 'active'}" data-egg-id="${egg.id}" title="${refTitle}${egg.species_en}">
           <img src="${eggSrc}" alt="">
           <div class="gb2-inc-bar"><div class="gb2-inc-fill${isReady?' done':''}" style="width:${isReady?100:progress}%"></div></div>
           <span class="gb2-inc-time">${isReady ? '!' : tlm !== null ? tlm+'m' : ''}</span>
         </div>`;
       } else {
-        incSlotsHtml += `<div class="gb2-inc-slot empty"></div>`;
+        incSlotsHtml += `<div class="gb2-inc-slot empty" title="${_t('gang_base_agent_hatching_free')}"></div>`;
       }
     }
   }
@@ -827,7 +842,7 @@ function renderGangBaseWindowV2() {
               : isFocusOpen ? 'ok' : '',
     } : null,
     readyEggs > 0
-      ? { tag: _t('gang_base_pension'), title: _t('gang_base_ready_eggs', { n: readyEggs }), detail: _t('gang_base_incubators_available'), cls: 'ok' }
+      ? { tag: _t('gang_base_pension'), title: _t('gang_base_ready_eggs', { n: readyEggs }), detail: _t('gang_base_hatching_slots_available'), cls: 'ok' }
       : null,
     focusAgents.length === 0
       ? { tag: _t('gang_base_cell'), title: _t('gang_base_front_without_agent'), detail: _t('gang_base_assign_agent_background_hint'), cls: 'alert' }
@@ -857,7 +872,7 @@ function renderGangBaseWindowV2() {
         <img src="${agent.sprite || trainerSprite('acetrainer')}" alt="" onerror="this.src='${trainerSprite('acetrainer')}'">
       </div>
       <div class="gb2-agent-body">
-        <div class="gb2-agent-name">${agent.name}</div>
+        <div class="gb2-agent-name">${_esc(agent.name)}</div>
         <div class="gb2-agent-rank-zone">${rank}</div>
         <div class="gb2-agent-team-row">${teamSlots}</div>
       </div>
@@ -874,9 +889,9 @@ function renderGangBaseWindowV2() {
 
   // ── Panneau assignation (bas colonne droite) ──
   const zapSlots = focusAgents.slice(0, 4).map(agent =>
-    `<div class="gb2-zap-slot filled" title="${agent.name}">
+    `<div class="gb2-zap-slot filled" title="${_esc(agent.name)}">
       <img src="${agent.sprite || trainerSprite('acetrainer')}" alt="" onerror="this.src='${trainerSprite('acetrainer')}'">
-      <div class="zsn">${agent.name.split(' ')[0]}</div>
+      <div class="zsn">${_esc(agent.name.split(' ')[0])}</div>
     </div>`
   );
   const maxSlots = Math.min(4, Math.max(focusState.slots || 1, focusAgents.length));
@@ -999,7 +1014,7 @@ function renderGangBaseWindowV2() {
           </div>
           ${incCount > 0 ? `<div class="gb2-inv-block" data-base-action="pension">
             <div class="gb2-inv-block-head">
-              <span class="gb2-inv-section-label">${_t('gang_base_incubators')}</span>
+              <span class="gb2-inv-section-label">${_t('gang_base_agent_hatching_slots')} ${incubationSummary.used}/${incubationSummary.capacity}</span>
               ${waitingEggs.length > 0 ? `<span class="gb2-inv-section-label gold">${_t('gang_base_waiting_count', { n: waitingEggs.length })}</span>` : ''}
             </div>
             <div class="gb2-inv-row">${incSlotsHtml}</div>
@@ -1022,7 +1037,7 @@ function renderGangBaseWindowV2() {
           <div class="gb2-zap-title">${_t('gang_base_assigned_cell')}</div>
           <div class="gb2-zap-zone-name">${focusName}</div>
           <div class="gb2-zap-slots">${zapSlots.join('')}</div>
-          <div class="gb2-zap-info">${focusAgents.length > 0 ? focusAgents.map(a => a.name).join(', ') : _t('gang_base_no_agent_on_front')}</div>
+          <div class="gb2-zap-info">${focusAgents.length > 0 ? focusAgents.map(a => _esc(a.name)).join(', ') : _t('gang_base_no_agent_on_front')}</div>
         </div>
       </div>
 
@@ -1192,7 +1207,7 @@ function _openBaseAgentPicker(zoneId) {
     const rank = globalThis.getAgentRankLabel?.(agent) || BASE_RANK_FR[agent.title] || agent.title || 'Agent';
     return `<button class="base-picker-agent${sameZone ? ' active' : ''}" data-pick-agent="${agent.id}">
       <img src="${agent.sprite || globalThis.trainerSprite?.('acetrainer') || ''}" alt="" onerror="this.src='${globalThis.trainerSprite?.('acetrainer') || ''}'">
-      <span><strong>${agent.name}</strong><em>${rank} · ${currentZone}</em></span>
+      <span><strong>${_esc(agent.name)}</strong><em>${rank} · ${currentZone}</em></span>
       <b>${sameZone ? _t('gang_base_remove') : _t('gang_base_assign')}</b>
     </button>`;
   }).join('') || `<div class="base-empty-note">${_t('gang_base_no_recruited_agent')}</div>`;
@@ -2127,7 +2142,7 @@ function renderGangParkWindow(el) {
     return `<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.07)">
       <img src="${agent.sprite || trainerSprite('acetrainer')}" style="width:32px;height:32px;image-rendering:pixelated" alt="" onerror="this.src='${trainerSprite('acetrainer')}'">
       <div style="flex:1;min-width:0">
-        <div style="font-size:9px;color:var(--text)">${agent.name}</div>
+        <div style="font-size:9px;color:var(--text)">${_esc(agent.name)}</div>
         <div style="font-size:7px;color:var(--text-dim)">${zoneName}</div>
       </div>
       <div style="display:flex;gap:2px;flex-wrap:wrap;max-width:100px;justify-content:flex-end">${teamHtml || '<span style="font-size:8px;color:var(--text-dim)">—</span>'}</div>
@@ -2172,7 +2187,7 @@ function renderGangParkWindow(el) {
       <div style="display:flex;align-items:center;gap:8px">
         <span style="font-size:16px">🏛️</span>
         <div>
-          <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">${state.gang.name}</div>
+          <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">${_esc(state.gang.name)}</div>
           <div style="font-size:8px;color:var(--text-dim)">${_t('gang_base_headquarters')}</div>
         </div>
       </div>
