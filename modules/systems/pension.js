@@ -1,11 +1,23 @@
 ﻿import { EventBus, EVENTS } from '../core/eventBus.js';
 import { PENSION_SHINY_RATE_NONE, PENSION_SHINY_RATE_ONE, PENSION_SHINY_RATE_BOTH } from '../../data/gameplay-config-data.js';
+import {
+  getIncubationConfig,
+  getEggIncubationAgent,
+  getEggIncubationSummary,
+  recordEggHatched,
+  reconcileEggIncubationAssignments,
+  setEggIncubationPriority,
+  startEggIncubation,
+} from './eggIncubation.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
 const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
 const _topBar = ()               => EventBus.emit(EVENTS.UI_TOPBAR_UPDATE);
 const _save   = ()               => globalThis.saveState?.();
 const _t      = (fr, en)         => (globalThis.state?.lang === 'en' ? en : fr);
+const _esc    = s => String(s ?? '').replace(/[&<>"']/g, ch => (
+  ch === '&' ? '&amp;' : ch === '<' ? '&lt;' : ch === '>' ? '&gt;' : ch === '"' ? '&quot;' : '&#39;'
+));
 
 // ════════════════════════════════════════════════════════════════
 // pension.js — Pension & Eggs system
@@ -133,6 +145,7 @@ function _hatchEggSilent(egg) {
   EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: hatched, zoneId: 'pension', source: 'hatch' });
   state.stats.totalCaught++;
   state.stats.eggsHatched = (state.stats.eggsHatched || 0) + 1;
+  recordEggHatched(egg, state);
   if (hatched.shiny) state.stats.shinyCaught++;
   globalThis.registerPokedexCapture?.(state, hatched);
   // Fabric BG unlock
@@ -339,12 +352,14 @@ function renderPensionView(container) {
     : '';
 
   // ── Eggs inventory ──────────────────────────────────────────
-  const incubatorCount = state.inventory.incubator || 0;
+  reconcileEggIncubationAssignments(state);
+  const incubationSummary = getEggIncubationSummary(state);
+  const incubatorCount = Math.max(incubationSummary.capacity, incubationSummary.used);
   const allIncubated   = state.eggs.filter(e => e.incubating);   // ready + in-progress
   const readyEggs      = state.eggs.filter(e => e.status === 'ready');
   const waitingEggs    = state.eggs.filter(e => !e.incubating && e.status !== 'ready');
   const incubatingEggs = allIncubated.filter(e => e.status !== 'ready'); // for legacy compat
-  const freeIncubators = Math.max(0, incubatorCount - allIncubated.length);
+  const freeIncubators = incubationSummary.free;
 
   // Egg display helper — hides species/potential until revealed
   function _eggLabel(egg) {
@@ -361,7 +376,7 @@ function renderPensionView(container) {
   // ── Incubator grid cells ────────────────────────────────────
   let incubatorHtml = '';
   if (incubatorCount === 0) {
-    incubatorHtml = `<div style="font-size:9px;color:var(--text-dim);padding:8px;text-align:center;border:1px dashed var(--border);border-radius:var(--radius-sm)">${_t('Aucun incubateur — achetez-en un au Marché (15 000₽)', 'No incubator — buy one at the Market (15,000₽)')}</div>`;
+    incubatorHtml = `<div style="font-size:9px;color:var(--text-dim);padding:8px;text-align:center;border:1px dashed var(--border);border-radius:var(--radius-sm)">${_t('Aucun slot agent — recrute un agent pour lancer une incubation.', 'No agent slot — recruit an agent to start incubating.')}</div>`;
   } else {
     const _incubSlots = [];
     for (const egg of allIncubated) {
@@ -373,12 +388,17 @@ function renderPensionView(container) {
       const remStr  = isReady ? _t('✓ Prêt !', '✓ Ready!') : rem < 60000 ? `${Math.ceil(rem / 1000)}s` : `${Math.ceil(rem / 60000)}min`;
       const imgTag  = globalThis.eggImgTag?.(egg, false, 'width:44px;height:44px;image-rendering:pixelated') || '🥚';
       const lbl     = _eggLabel(egg);
+      const refAgent = getEggIncubationAgent(egg, state);
+      const refLine = refAgent
+        ? `<div style="font-size:7px;color:var(--text-dim);max-width:82px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_t('Réf.', 'Ref.')} ${_esc(refAgent.name)} · ×${(egg.incubationSpeedMultiplier || 1).toFixed(2)}</div>`
+        : `<div style="font-size:7px;color:var(--text-dim)">${_t('Réf. Joëlle', 'Joy ref.')}</div>`;
       _incubSlots.push(`
         <div ${isReady ? `data-hatch-egg="${egg.id}"` : ''} style="position:relative;display:flex;flex-direction:column;align-items:center;padding:10px 6px 8px;gap:5px;border:2px solid ${isReady ? 'var(--green)' : 'var(--gold-dim)'};border-radius:var(--radius-sm);background:var(--bg);${isReady ? 'cursor:pointer;animation:eggReadyGlow .8s ease-in-out infinite alternate;' : ''}">
           ${isReady ? `<div style="position:absolute;top:-9px;right:-9px;font-family:var(--font-pixel);font-size:8px;color:var(--bg);background:var(--green);border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;z-index:2;animation:eggReadyBadge .4s ease-in-out infinite alternate">!</div>` : ''}
           ${imgTag}
           <div style="font-size:8px;text-align:center;line-height:1.2;max-width:72px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${lbl.name}${lbl.shiny}</div>
           <div style="font-size:7px;color:var(--text-dim)">${lbl.pot}</div>
+          ${refLine}
           ${!isReady ? `<div style="background:var(--border);border-radius:2px;height:3px;width:100%;min-width:60px"><div style="background:var(--gold-dim);height:3px;border-radius:2px;width:${pct}%;transition:width .3s"></div></div>` : ''}
           <div style="font-size:8px;color:${isReady ? 'var(--green)' : 'var(--gold)'};font-family:var(--font-pixel)">${remStr}</div>
           ${_revealBtn(egg)}
@@ -387,8 +407,8 @@ function renderPensionView(container) {
     for (let i = allIncubated.length; i < incubatorCount; i++) {
       _incubSlots.push(`
         <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 8px;gap:5px;border:1px dashed var(--border);border-radius:var(--radius-sm);background:var(--bg);min-height:110px">
-          <img src="${globalThis.ITEM_SPRITE_URLS?.incubator || ''}" style="width:28px;height:28px;opacity:.3;image-rendering:pixelated" onerror="this.style.display='none'">
-          <div style="font-size:8px;color:var(--text-dim)">${_t('Libre', 'Free')}</div>
+          <img src="${globalThis.trainerSprite?.('acetrainer') || ''}" style="width:28px;height:28px;opacity:.35;image-rendering:pixelated" onerror="this.style.display='none'">
+          <div style="font-size:8px;color:var(--text-dim)">${_t('Agent libre', 'Free agent')}</div>
         </div>`);
     }
     incubatorHtml = _incubSlots.join('');
@@ -409,6 +429,53 @@ function renderPensionView(container) {
     </div>`;
   }).join('') || '';
 
+  const incubationCfg = getIncubationConfig(state);
+  const eligibleAgents = (state.agents || []).filter(agent => !agent.legacyLocked);
+  const priorityIds = incubationCfg.priorityAgentIds || [];
+  const priorityAgents = priorityIds
+    .map(id => eligibleAgents.find(agent => agent.id === id))
+    .filter(Boolean);
+  const unlistedAgents = eligibleAgents.filter(agent => !priorityIds.includes(agent.id));
+  const priorityRows = priorityAgents.map((agent, idx) => {
+    const activeEgg = allIncubated.find(egg => egg.incubationAgentId === agent.id);
+    const status = activeEgg
+      ? activeEgg.status === 'ready' ? _t('œuf prêt', 'egg ready') : _t('œuf confié', 'egg assigned')
+      : agent.resting ? _t('indisponible', 'unavailable')
+      : agent.assignedZone ? _t('en zone', 'in zone')
+      : _t('disponible', 'available');
+    const hatched = agent.eggStats?.hatched || 0;
+    return `<div class="egg-priority-row" data-agent-id="${agent.id}" style="display:flex;align-items:center;gap:6px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg)">
+      <span style="font-family:var(--font-pixel);font-size:8px;color:var(--gold);width:18px">#${idx + 1}</span>
+      <img src="${agent.sprite || globalThis.trainerSprite?.('acetrainer') || ''}" style="width:24px;height:24px;image-rendering:pixelated" onerror="this.style.display='none'">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${_esc(agent.name)}</div>
+        <div style="font-size:7px;color:var(--text-dim)">${status} · ${hatched} ${_t('éclos', 'hatched')}</div>
+      </div>
+      <button class="egg-priority-up" data-agent-id="${agent.id}" ${idx === 0 ? 'disabled' : ''} style="font-size:8px;padding:2px 5px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);cursor:pointer">↑</button>
+      <button class="egg-priority-down" data-agent-id="${agent.id}" ${idx === priorityAgents.length - 1 ? 'disabled' : ''} style="font-size:8px;padding:2px 5px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);cursor:pointer">↓</button>
+      <button class="egg-priority-remove" data-agent-id="${agent.id}" style="font-size:8px;padding:2px 5px;background:var(--bg);border:1px solid var(--red);border-radius:var(--radius-sm);color:var(--red);cursor:pointer">×</button>
+    </div>`;
+  }).join('');
+  const priorityHtml = `<div>
+    <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold);margin-bottom:8px">${_t('PRIORITÉ D’ÉCLOSION', 'HATCHING PRIORITY')}</div>
+    <div style="font-size:8px;color:var(--text-dim);margin-bottom:8px">${_t('Joël confie les œufs selon cet ordre. Si la liste est vide, l’ordre du roster est utilisé.', 'Joy assigns eggs in this order. If the list is empty, roster order is used.')}</div>
+    <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px">
+      ${priorityRows || `<div style="font-size:9px;color:var(--text-dim);padding:8px;border:1px dashed var(--border);border-radius:var(--radius-sm)">${_t('Aucune priorité personnalisée.', 'No custom priority.')}</div>`}
+    </div>
+    ${unlistedAgents.length ? `<select id="eggPriorityAddSelect" style="width:100%;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:9px;padding:5px 6px;margin-bottom:8px">
+      <option value="">${_t('Ajouter un agent à la priorité…', 'Add an agent to priority…')}</option>
+      ${unlistedAgents.map(agent => `<option value="${agent.id}">${_esc(agent.name)}</option>`).join('')}
+    </select>` : ''}
+    <label style="display:flex;gap:6px;align-items:center;font-size:8px;color:var(--text-dim);margin-bottom:4px">
+      <input id="eggPreferAvailable" type="checkbox" ${incubationCfg.preferAvailable !== false ? 'checked' : ''}>
+      ${_t('Préférer les agents disponibles', 'Prefer currently available agents')}
+    </label>
+    <label style="display:flex;gap:6px;align-items:center;font-size:8px;color:var(--text-dim)">
+      <input id="eggAllowFallback" type="checkbox" ${incubationCfg.allowFallback !== false ? 'checked' : ''}>
+      ${_t('Fallback vers un autre agent si nécessaire', 'Fallback to another agent if needed')}
+    </label>
+  </div>`;
+
   // ── Services section (all in one) ───────────────────────────
   const nurseColor    = nurseOwned    ? (nurseEnabled    ? 'var(--green)' : 'var(--border)') : 'var(--border)';
   const autoSellColor = autoSellOwned ? (autoSellEnabled ? 'var(--green)' : 'var(--border)') : 'var(--border)';
@@ -418,7 +485,7 @@ function renderPensionView(container) {
     <img src="${globalThis.trainerSprite?.('nurse') || ''}" style="width:36px;height:36px;image-rendering:pixelated;flex-shrink:0;${nurseOwned && !nurseEnabled ? 'opacity:.4;filter:grayscale(1)' : ''}" onerror="this.style.display='none'">
     <div style="flex:1">
       <div style="font-family:var(--font-pixel);font-size:8px;color:${nurseOwned ? (nurseEnabled ? 'var(--green)' : 'var(--text-dim)') : 'var(--text)'};margin-bottom:3px">${_t('Infirmière Joëlle corrompue', 'Corrupted Nurse Joy')}</div>
-      <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">${_t("Auto-incube les œufs dès qu'un incubateur est libre.", 'Automatically incubates eggs as soon as an incubator is free.')}</div>
+      <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">${_t("Confie automatiquement les œufs aux agents quand un slot d’éclosion est libre.", 'Automatically assigns eggs to agents when a hatching slot is free.')}</div>
       ${nurseOwned
         ? `<div style="display:flex;align-items:center;gap:8px">
              <span style="font-family:var(--font-pixel);font-size:7px;color:${nurseEnabled ? 'var(--green)' : 'var(--text-dim)'}">${nurseEnabled ? _t('✓ EN POSTE', '✓ ON DUTY') : _t('✗ CONGÉ', '✗ OFF DUTY')}</span>
@@ -551,8 +618,9 @@ function renderPensionView(container) {
         <!-- Incubators -->
         <div>
           <style>@keyframes eggReadyGlow{from{box-shadow:0 0 0 rgba(110,207,138,0)}to{box-shadow:0 0 12px rgba(110,207,138,.7)}}@keyframes eggReadyBadge{from{transform:scale(1)}to{transform:scale(1.35)}}</style>
-          <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold);margin-bottom:8px">INCUBATEURS (${allIncubated.length}/${incubatorCount})</div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:8px">${incubatorHtml || `<div style="font-size:9px;color:var(--text-dim);text-align:center;padding:8px">${_t('Aucun incubateur — achetez-en un au Marché', 'No incubator — buy one at the Market')}</div>`}</div>
+          <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold);margin-bottom:8px">${_t('SLOTS D’ÉCLOSION AGENTS', 'AGENT HATCHING SLOTS')} (${allIncubated.length}/${incubationSummary.capacity})</div>
+          <div style="font-size:8px;color:var(--text-dim);margin-bottom:8px">${_t('1 agent recruté = 1 œuf en incubation. Joëlle reste responsable de la pension.', '1 recruited agent = 1 incubating egg. Joy still runs the Daycare.')}</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:8px">${incubatorHtml || `<div style="font-size:9px;color:var(--text-dim);text-align:center;padding:8px">${_t('Aucun slot agent disponible', 'No agent slot available')}</div>`}</div>
         </div>
 
         <!-- Waiting eggs -->
@@ -561,6 +629,8 @@ function renderPensionView(container) {
           <div style="font-family:var(--font-pixel);font-size:10px;color:var(--text-dim);margin-bottom:8px">${_t("EN ATTENTE D'INCUBATION", 'WAITING FOR INCUBATION')} (${waitingEggs.length})</div>
           <div style="display:flex;flex-direction:column;gap:6px">${waitingEggsHtml}</div>
         </div>` : ''}
+
+        ${eligibleAgents.length > 0 ? priorityHtml : ''}
 
         <!-- Services -->
         <div>
@@ -608,6 +678,45 @@ function renderPensionView(container) {
   });
 
   container.querySelector('#btnHatchAll')?.addEventListener('click', () => openHatchPopup());
+
+  const updatePriority = nextIds => {
+    setEggIncubationPriority(nextIds, state);
+    reconcileEggIncubationAssignments(state);
+    saveState();
+    renderPensionView(container);
+  };
+
+  container.querySelector('#eggPriorityAddSelect')?.addEventListener('change', e => {
+    const id = e.target.value;
+    if (!id) return;
+    updatePriority([...(getIncubationConfig(state).priorityAgentIds || []), id]);
+  });
+
+  container.querySelectorAll('.egg-priority-up, .egg-priority-down, .egg-priority-remove').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const ids = [...(getIncubationConfig(state).priorityAgentIds || [])];
+      const idx = ids.indexOf(btn.dataset.agentId);
+      if (idx === -1) return;
+      if (btn.classList.contains('egg-priority-remove')) ids.splice(idx, 1);
+      else if (btn.classList.contains('egg-priority-up') && idx > 0) [ids[idx - 1], ids[idx]] = [ids[idx], ids[idx - 1]];
+      else if (btn.classList.contains('egg-priority-down') && idx < ids.length - 1) [ids[idx + 1], ids[idx]] = [ids[idx], ids[idx + 1]];
+      updatePriority(ids);
+    });
+  });
+
+  container.querySelector('#eggPreferAvailable')?.addEventListener('change', e => {
+    getIncubationConfig(state).preferAvailable = e.target.checked;
+    reconcileEggIncubationAssignments(state);
+    saveState();
+    renderPensionView(container);
+  });
+
+  container.querySelector('#eggAllowFallback')?.addEventListener('change', e => {
+    getIncubationConfig(state).allowFallback = e.target.checked;
+    reconcileEggIncubationAssignments(state);
+    saveState();
+    renderPensionView(container);
+  });
 
   // Click on ready egg cell in incubator grid → hatch animation
   container.querySelectorAll('[data-hatch-egg]').forEach(el => {
@@ -756,10 +865,17 @@ function renderPensionView(container) {
       const egg = state.eggs.find(e => e.id === el.dataset.eggId);
       if (!egg || egg.incubating) return;
       const rarity = egg.rarity || SPECIES_BY_EN[egg.species_en]?.rarity || 'common';
-      egg.incubating = true;
-      egg.hatchAt = Date.now() + (EGG_HATCH_MS[rarity] || EGG_HATCH_MS.common);
+      const started = startEggIncubation(egg, {
+        state,
+        baseMs: EGG_HATCH_MS[rarity] || EGG_HATCH_MS.common,
+      });
+      if (!started) {
+        notify(_t('Aucun slot agent disponible.', 'No agent slot available.'), 'error');
+        renderPensionView(container);
+        return;
+      }
       saveState();
-      notify(_t("Œuf placé dans l'incubateur !", 'Egg placed in the incubator!'), 'success');
+      notify(_t("Œuf confié à un agent !", 'Egg assigned to an agent!'), 'success');
       renderPensionView(container);
     });
   });

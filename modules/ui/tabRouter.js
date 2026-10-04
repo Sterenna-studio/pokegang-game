@@ -244,8 +244,8 @@ function getTabHint(tabId) {
         `Tu n'as presque plus d'argent. Bats des dresseurs ou vends des Pokémon en double depuis le ${hintLink('PC', 'tabPC')}.`,
         `You're almost out of money. Beat trainers or sell duplicate Pokémon from the ${hintLink('PC', 'tabPC')}.`);
       return _t(
-        `Boutique : objets de boost, incubateurs. Quêtes : missions journalières pour des récompenses.`,
-        `Shop: boost items, incubators. Quests: daily missions for rewards.`);
+        `Boutique : objets de boost. Quêtes : missions journalières pour des récompenses.`,
+        `Shop: boost items. Quests: daily missions for rewards.`);
     case 'tabPC':
       if (pc === 0) return _t(
         `Ton PC est vide. Capture des Pokémon en ${hintLink('Zones', 'tabZones')} pour les voir ici.`,
@@ -310,8 +310,8 @@ const _FIRST_VISIT_HINTS = {
   tabMarket:   {
     icon: '🛒',
     titleFr: 'Marché',                                titleEn: 'Market',
-    bodyFr:  'Achète des Pokéballs pour capturer, des incubateurs pour faire éclore des œufs, et plus encore.',
-    bodyEn:  'Buy Pokéballs to catch, incubators to hatch eggs, and more.',
+    bodyFr:  'Achète des objets de boost et recrute des agents pour augmenter tes slots d’éclosion.',
+    bodyEn:  'Buy boost items and recruit agents to increase your hatching slots.',
   },
   tabPC:       {
     icon: '💾',

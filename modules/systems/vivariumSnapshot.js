@@ -169,6 +169,9 @@ function _buildAgentLines(agent, state) {
     }
   }
 
+  const eggLines = globalThis.getAgentEggDialogueLines?.(agent, state) || [];
+  lines.push(...eggLines);
+
   if (agent.assignedZone) {
     const zone = ZONE_BY_ID[agent.assignedZone];
     const combats = state.zones?.[agent.assignedZone]?.combatsWon || 0;
