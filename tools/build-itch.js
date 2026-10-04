@@ -262,7 +262,9 @@ function validate() {
   // une piste manquante = silence sur itch, un fichier en trop = des Mo inutiles.
   if (fs.existsSync(path.join(ROOT, MUSIC_DIR))) {
     const refs = collectReferencedMusic();
-    const zipped = names.filter(n => n.startsWith(`${MUSIC_DIR}/`));
+    // zip -r (Linux/CI) ajoute une entrée par dossier ("music/", "music/BGM/"…),
+    // PowerShell (Windows) non : on ne compare que les vrais fichiers.
+    const zipped = names.filter(n => n.startsWith(`${MUSIC_DIR}/`) && !n.endsWith("/"));
     const absent = refs.filter(rel => !zipped.includes(rel));
     if (absent.length) {
       throw new Error(`[build-itch] pistes référencées absentes du zip : ${absent.join(', ')}`);
