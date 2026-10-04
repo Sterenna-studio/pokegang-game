@@ -20,7 +20,6 @@ const SHOP_ITEMS = [
   { id:'evostone',  qty:1,  cost:5000,  icon:'EV',  fr:'Pierre Evol.', en:'Evo Stone',       desc_fr:'Evoluer un Pokemon',    desc_en:'Evolve a Pokemon' },
   { id:'translator',qty:1,  cost:1000000,icon:'TR', fr:'Traducteur Pokemon', en:'Pokemon Translator', desc_fr:'Comprend ce que disent les Pokemon en combat', desc_en:'Understand pokemon speech in combat' },
   { id:'mysteryegg', qty:1, cost:0, icon:'EG', fr:'Oeuf Mystère', en:'Mystery Egg', desc_fr:'Contient un Pokemon introuvable — Prix croissant', desc_en:'Contains an uncatchable Pokemon — Scaling price' },
-  { id:'incubator',  qty:1, cost:15000, icon:'INC', fr:'Incubateur', en:'Incubator', desc_fr:'Eclot un oeuf (reutilisable) — 1 a la fois', desc_en:'Hatches an egg (reusable) — 1 at a time' },
   // ── Skins de Ball (cosmétique — appliquer au boss ou aux agents) ──
   { id:'skin_greatball',  qty:1, cost:50000,   ballSkin:'greatball',  icon:'GB',
     fr:'Skin Super Ball',  en:'Great Ball Skin',

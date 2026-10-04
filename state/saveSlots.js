@@ -1,6 +1,7 @@
 'use strict';
 
 import { buildSavePayload } from './serialization.js';
+import { esc as _esc } from '../modules/core/escape.js';
 
 let saveSlotContext = {};
 
@@ -113,7 +114,7 @@ export function openSaveSlotModal() {
     const prev = getSlotPreview(i);
     const isActive = i === getActiveSaveSlot();
     const label = prev
-      ? `<div style="font-family:var(--font-pixel);font-size:9px;color:${isActive ? 'var(--gold)' : 'var(--text)'};margin-bottom:4px">${prev.name}</div>
+      ? `<div style="font-family:var(--font-pixel);font-size:9px;color:${isActive ? 'var(--gold)' : 'var(--text)'};margin-bottom:4px">${_esc(prev.name)}</div>
          <div style="font-size:10px;color:var(--text-dim)">${prev.pokemon} Pokemon  |  ${prev.money.toLocaleString()}P  |  Rep ${prev.rep}</div>
          <div style="font-size:9px;color:var(--text-dim);margin-top:2px">${prev.ts ? new Date(prev.ts).toLocaleString() : ''}${prev.playtime ? ' — ' + formatPlaytime(prev.playtime) : ''}</div>`
       : `<div style="font-size:10px;color:var(--text-dim);font-style:italic">Slot vide</div>`;

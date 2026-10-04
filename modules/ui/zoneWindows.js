@@ -311,7 +311,7 @@ function showCollectionEncounter(zoneId, agentIds, income, items) {
   const pokeSprite = globalThis.pokeSprite;
 
   const agentSpritesHtml = zoneAgents.map(a =>
-    `<img src="${a.sprite}" style="width:44px;height:44px;image-rendering:pixelated" onerror="this.src='${trainerSprite('acetrainer')}'"><span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">${a.name}</span>`
+    `<img src="${a.sprite}" style="width:44px;height:44px;image-rendering:pixelated" onerror="this.src='${trainerSprite('acetrainer')}'"><span style="font-family:var(--font-pixel);font-size:7px;color:var(--text-dim)">${_esc(a.name)}</span>`
   ).join('');
 
   const bossPksHtml = bossPks.slice(0, 6).map(pk =>
@@ -1435,7 +1435,7 @@ function _openZoneContextMenu(zoneId, clientX, clientY) {
         }, 0);
         return `<div style="display:flex;align-items:center;gap:5px;font-size:10px;padding:1px 0">
           <img src="${a.sprite}" style="width:20px;height:20px;image-rendering:pixelated" onerror="this.style.display='none'">
-          <span>${a.name}</span>
+          <span>${_esc(a.name)}</span>
           <span style="color:var(--text-dim);font-size:9px;margin-left:auto">${a.title ?? ''} · PC ${tp}</span>
         </div>`;
       }).join('')
@@ -1758,8 +1758,8 @@ function buildZoneWindowEl(zoneId) {
     <div class="zone-slots-bar">
       ${assignedAgents.map(a => `
         <div class="zone-agent" data-agent-id="${a.id}">
-          <span class="agent-label">${a.name}</span>
-          <img src="${a.sprite}" alt="${a.name}" onerror="this.src='${trainerSprite('acetrainer')}'">
+          <span class="agent-label">${_esc(a.name)}</span>
+          <img src="${a.sprite}" alt="${_esc(a.name)}" onerror="this.src='${trainerSprite('acetrainer')}'">
           <span class="agent-cd-label" style="display:none;font-family:var(--font-pixel);font-size:7px;color:var(--red);background:rgba(0,0,0,.8);border-radius:2px;padding:1px 3px;white-space:nowrap;position:absolute;top:-14px;left:50%;transform:translateX(-50%)"></span>
         </div>
       `).join('')}
@@ -1883,8 +1883,8 @@ function patchZoneWindow(zoneId, win) {
       const agEl = document.createElement('div');
       agEl.className = 'zone-agent';
       agEl.dataset.agentId = a.id;
-      agEl.innerHTML = `<span class="agent-label">${a.name}</span>`
-        + `<img src="${a.sprite}" alt="${a.name}" onerror="this.src='${trainerSprite('acetrainer')}'">`
+      agEl.innerHTML = `<span class="agent-label">${_esc(a.name)}</span>`
+        + `<img src="${a.sprite}" alt="${_esc(a.name)}" onerror="this.src='${trainerSprite('acetrainer')}'">`
         + `<span class="agent-cd-label" style="display:none;font-family:var(--font-pixel);font-size:7px;color:var(--red);background:rgba(0,0,0,.8);border-radius:2px;padding:1px 3px;white-space:nowrap;position:absolute;top:-14px;left:50%;transform:translateX(-50%)"></span>`;
       if (slotsBar && footerRight) slotsBar.insertBefore(agEl, footerRight);
       else slotsBar?.appendChild(agEl);

@@ -414,7 +414,7 @@ export function openGiovanniIntro({
             <img src="${_trainerSprite(bossSprite)}" class="gi-summary-boss-img" onerror="this.style.opacity='.2'">
             <div>
               <div class="gi-summary-name">${_esc(bossName)}</div>
-              <div class="gi-summary-gang">${gangName}</div>
+              <div class="gi-summary-gang">${_esc(gangName)}</div>
             </div>
             <div class="gi-summary-starter">
               <img src="${_ctx.pokeSprite?.(starterData.en, false) || ''}" class="gi-summary-starter-img" onerror="this.style.opacity='.2'">

@@ -55,6 +55,8 @@
 //    patchZoneWindow
 //  Dépendances import :
 //    defaultEncounterState (modules/systems/questCombat.js)
+//  Dépendances bare-name (classic scripts) :
+//    ZONE_SINNOH_BY_ID
 // ════════════════════════════════════════════════════════════════
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
@@ -494,7 +496,11 @@ function openSinnohMissions() {
     </div>`;
   }
 
-  const zoneName = zoneId => globalThis.getZoneById?.(zoneId)?.[s.lang === 'en' ? 'en' : 'fr'] ?? zoneId;
+  // globalThis.getZoneById n'existe pas (dépendance injectée, jamais exposée) :
+  // l'ancien appel retombait toujours sur l'id brut. Toutes les zones visées ici
+  // sont des zones Sinnoh, donc on lit ZONE_SINNOH_BY_ID en bare-name.
+  const zoneName = zoneId => (typeof ZONE_SINNOH_BY_ID !== 'undefined'
+    ? ZONE_SINNOH_BY_ID[zoneId] : null)?.[s.lang === 'en' ? 'en' : 'fr'] ?? zoneId;
 
   function _galaxieStepHtml() {
     if (!gx.active) return `<div class="snm-inactive">${_t('Victoire à la Ligue Sinnoh requise (Rép ≥ 4 500)', 'Sinnoh League victory required (Rep ≥ 4,500)')}</div>`;

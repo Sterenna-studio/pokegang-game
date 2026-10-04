@@ -1,7 +1,7 @@
 /* Asset URL constants extracted from app.js */
 
-const FALLBACK_TRAINER_SVG = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%231a1a1a'/%3E%3Ccircle cx='32' cy='20' r='10' fill='%23444'/%3E%3Cellipse cx='32' cy='50' rx='16' ry='14' fill='%23444'/%3E%3Ctext x='32' y='62' text-anchor='middle' font-size='8' fill='%23666'%3E%3F%3F%3C/text%3E%3C/svg%3E`;
-const FALLBACK_POKEMON_SVG = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%231a1a1a'/%3E%3Cellipse cx='32' cy='36' rx='20' ry='18' fill='%23333'/%3E%3Ccircle cx='32' cy='18' r='10' fill='%23333'/%3E%3Ctext x='32' y='62' text-anchor='middle' font-size='8' fill='%23555'%3E%3F%3C/text%3E%3C/svg%3E`;
+const FALLBACK_TRAINER_SVG = `data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2764%27 height=%2764%27 viewBox=%270 0 64 64%27%3E%3Crect width=%2764%27 height=%2764%27 fill=%27%231a1a1a%27/%3E%3Ccircle cx=%2732%27 cy=%2720%27 r=%2710%27 fill=%27%23444%27/%3E%3Cellipse cx=%2732%27 cy=%2750%27 rx=%2716%27 ry=%2714%27 fill=%27%23444%27/%3E%3Ctext x=%2732%27 y=%2762%27 text-anchor=%27middle%27 font-size=%278%27 fill=%27%23666%27%3E%3F%3F%3C/text%3E%3C/svg%3E`;
+const FALLBACK_POKEMON_SVG = `data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2764%27 height=%2764%27 viewBox=%270 0 64 64%27%3E%3Crect width=%2764%27 height=%2764%27 fill=%27%231a1a1a%27/%3E%3Cellipse cx=%2732%27 cy=%2736%27 rx=%2720%27 ry=%2718%27 fill=%27%23333%27/%3E%3Ccircle cx=%2732%27 cy=%2718%27 r=%2710%27 fill=%27%23333%27/%3E%3Ctext x=%2732%27 y=%2762%27 text-anchor=%27middle%27 font-size=%278%27 fill=%27%23555%27%3E%3F%3C/text%3E%3C/svg%3E`;
 
 // ── Sprite base URLs ─────────────────────────────────────────
 const SHOWDOWN_SPRITE_BASE         = 'https://play.pokemonshowdown.com/sprites/';

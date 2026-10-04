@@ -19,6 +19,7 @@
 import { FALLBACK_TRAINER_SVG } from '../../data/assets-data.js';
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
+import { esc as _esc } from '../core/escape.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
 const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
@@ -158,6 +159,9 @@ function _buildSheetHtml(agent) {
     agent.autoRaid    !== false ? '💣' : '',
     agent.autoCapture !== false ? '🎯' : '',
   ].filter(Boolean).join(' ');
+  const eggStats = globalThis.getAgentHatchStats?.(agent) || agent.eggStats || { hatched: 0 };
+  const hatchMult = globalThis.getAgentHatchMultiplier?.(agent) || 1;
+  const hatchTitle = globalThis.getAgentHatchTitle?.(agent, state) || '';
 
   const zoneOptions = unlockedZones.map(z =>
     `<option value="${z.id}" ${zone === z.id ? 'selected' : ''}>${lang === 'fr' ? z.fr : z.en}</option>`
@@ -167,7 +171,7 @@ function _buildSheetHtml(agent) {
   <!-- HEADER -->
   <div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:14px">
     <div style="position:relative;flex-shrink:0">
-      <img src="${agent.sprite}" alt="${agent.name}"
+      <img src="${agent.sprite}" alt="${_esc(agent.name)}"
         style="width:72px;height:72px;image-rendering:pixelated;border:2px solid ${rankCol};border-radius:4px"
         onerror="this.src='${FALLBACK_TRAINER_SVG}';this.onerror=null">
       <div style="position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);
@@ -197,6 +201,7 @@ function _buildSheetHtml(agent) {
     ${_stat(_t('agent_sheet_power'),      power.toLocaleString(), 'var(--red)')}
     ${_stat(_t('agent_sheet_fights_won'), (agent.combatsWon || 0).toLocaleString(), 'var(--gold)')}
     ${_stat(_t('agent_sheet_captures'),   (agent.captureCount || 0).toLocaleString(), 'var(--gold)')}
+    ${_stat(_t('agent_sheet_eggs_hatched'), `${(eggStats.hatched || 0).toLocaleString()} · ×${hatchMult.toFixed(2)}${hatchTitle ? ` · ${hatchTitle}` : ''}`, 'var(--gold)')}
     ${_stat(_t('agent_sheet_behaviours'), bhIcons || '—')}
     ${_stat(_t('agent_sheet_ball'),       agent.ball || 'pokeball')}
   </div>

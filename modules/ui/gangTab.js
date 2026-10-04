@@ -88,7 +88,7 @@ function _buildServicesHtml(state) {
     <img src="${globalThis.trainerSprite('nurse')}" style="width:36px;height:36px;image-rendering:pixelated;flex-shrink:0;${ownN && !enN ? 'opacity:.4;filter:grayscale(1)' : ''}" onerror="this.style.display='none'">
     <div style="flex:1">
       <div style="font-family:var(--font-pixel);font-size:8px;color:${ownN ? (enN ? 'var(--green)' : 'var(--text-dim)') : 'var(--text)'};margin-bottom:3px">${_t('Infirmière Joëlle corrompue', 'Corrupted Nurse Joy')}</div>
-      <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">${_t('Auto-incube les œufs dès qu\'un incubateur est libre.', 'Auto-incubates eggs as soon as an incubator is free.')}</div>
+      <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">${_t('Confie automatiquement les œufs aux agents quand un slot d’éclosion est libre.', 'Automatically assigns eggs to agents when a hatching slot is free.')}</div>
       ${ownN
         ? `<div style="display:flex;align-items:center;gap:8px">
              <span style="font-family:var(--font-pixel);font-size:7px;color:${enN ? 'var(--green)' : 'var(--text-dim)'}">${enN ? _t('✓ EN POSTE', '✓ ON DUTY') : _t('✗ CONGÉ', '✗ OFF DUTY')}</span>
@@ -251,7 +251,7 @@ function _doRenderGangTab() {
           ${g.bossSprite ? `<img src="${globalThis.trainerSprite(g.bossSprite)}" style="width:72px;height:72px;image-rendering:pixelated">` : '<div style="width:72px;height:72px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm)"></div>'}
         </div>
         <div style="flex:1;min-width:0">
-          <div style="font-family:var(--font-pixel);font-size:15px;color:var(--red);line-height:1.3">${g.name}</div>
+          <div style="font-family:var(--font-pixel);font-size:15px;color:var(--red);line-height:1.3">${_esc(g.name)}</div>
           <div style="font-size:11px;color:var(--text-dim);margin-top:2px">${_t('Boss', 'Boss')} : <span style="color:var(--text)">${_esc(g.bossName)}</span></div>
           <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold-dim);margin-top:2px;letter-spacing:.5px">${globalThis.getBossFullTitle?.() || ''}</div>
           ${(() => {

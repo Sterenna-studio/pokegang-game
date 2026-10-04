@@ -15,6 +15,7 @@ import { EventBus, EVENTS } from '../modules/core/eventBus.js';
 import { createStore } from '../state/store.js';
 import '../modules/ui/cosmetics.js'; // side-effect: expose applyCosmetics() sur globalThis
 import '../modules/core/sprites.js';  // side-effect: expose pokeSprite/pokeIcon/trainerSprite/... sur globalThis
+import '../modules/systems/eggIncubation.js'; // side-effect: agent egg dialogue helpers
 import {
   ZONE_BGS, COSMETIC_BGS, FABRIC_SPECIES, PATCH_PIDS, fabricBgUrl, patchUrl,
 } from '../data/zones-visuals-data.js';

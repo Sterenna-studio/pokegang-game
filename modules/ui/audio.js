@@ -199,15 +199,27 @@ const MusicPlayer = (() => {
   let _trackB = null;   // HTMLAudioElement en fondu entrant
   let _current = null;  // clé du morceau en cours
   let _fadeTimer = null;
+  let _unlockRetryBound = false;
 
   const FADE_DURATION = 2000; // ms
 
-  function _createAudio(src, vol, loop) {
+  function _volumeMultiplier() {
+    const raw = getAudioState()?.settings?.musicVol ?? 80;
+    const n = Number(raw);
+    return Math.max(0, Math.min(1, (Number.isFinite(n) ? n : 80) / 100));
+  }
+
+  function _targetVol(baseVol) {
+    return Math.max(0, Math.min(1, (Number(baseVol) || 0.5) * _volumeMultiplier()));
+  }
+
+  function _createAudio(src, baseVol, loop) {
     const a = new Audio(src);
     a.loop = loop;
     a.volume = 0;
     a.preload = 'auto';
-    a.dataset.targetVol = vol;
+    a.dataset.baseVol = baseVol;
+    a.dataset.targetVol = _targetVol(baseVol);
     return a;
   }
 
@@ -217,6 +229,33 @@ const MusicPlayer = (() => {
 
   function _setVol(el, v) {
     if (el) el.volume = Math.max(0, Math.min(1, v));
+  }
+
+  function _refreshTargetVolume(el) {
+    if (!el) return 0;
+    const target = _targetVol(parseFloat(el.dataset.baseVol) || 0.5);
+    el.dataset.targetVol = target;
+    return target;
+  }
+
+  function _bindUnlockRetry() {
+    if (_unlockRetryBound || typeof document === 'undefined') return;
+    _unlockRetryBound = true;
+    const retry = () => {
+      _unlockRetryBound = false;
+      document.removeEventListener('pointerdown', retry);
+      document.removeEventListener('keydown', retry);
+      document.removeEventListener('touchstart', retry);
+      MusicPlayer.updateFromContext();
+    };
+    document.addEventListener('pointerdown', retry, { once: true });
+    document.addEventListener('keydown', retry, { once: true });
+    document.addEventListener('touchstart', retry, { once: true });
+  }
+
+  function _tryPlay(audio) {
+    const attempt = audio?.play?.();
+    if (attempt?.catch) attempt.catch(() => _bindUnlockRetry());
   }
 
   function _fade(el, fromVol, toVol, durationMs, onDone) {
@@ -248,7 +287,7 @@ const MusicPlayer = (() => {
 
       const def = MUSIC_TRACKS[trackId];
       const newAudio = _createAudio(def.file, def.vol, def.loop);
-      const targetVol = def.vol;
+      const targetVol = parseFloat(newAudio.dataset.targetVol) || _targetVol(def.vol);
 
       _current = trackId;
 
@@ -256,7 +295,7 @@ const MusicPlayer = (() => {
         // Crossfade : fade out A, fade in B
         const oldA = _trackA;
         _trackB = newAudio;
-        _trackB.play().catch(() => {});
+        _tryPlay(_trackB);
         _fade(_trackB, 0, targetVol, FADE_DURATION);
         _fade(oldA, oldA.volume, 0, FADE_DURATION, () => {
           oldA.pause();
@@ -268,7 +307,7 @@ const MusicPlayer = (() => {
         // Pas de piste active — démarre directement avec fade in
         if (_trackA) { _trackA.pause(); _trackA.src = ''; }
         _trackA = newAudio;
-        _trackA.play().catch(() => {});
+        _tryPlay(_trackA);
         _fade(_trackA, 0, targetVol, FADE_DURATION);
       }
     },
@@ -311,7 +350,10 @@ const MusicPlayer = (() => {
 
     /** Volume global 0–1 */
     setVolume(v) {
-      if (_trackA) _setVol(_trackA, Math.max(0, Math.min(1, v)) * (parseFloat(_trackA.dataset.targetVol) || 0.5));
+      const mult = Math.max(0, Math.min(1, Number(v) || 0));
+      if (getAudioState()?.settings) getAudioState().settings.musicVol = Math.round(mult * 100);
+      if (_trackA) _setVol(_trackA, _refreshTargetVolume(_trackA));
+      if (_trackB) _setVol(_trackB, _refreshTargetVolume(_trackB));
     },
 
     get current() { return _current; },

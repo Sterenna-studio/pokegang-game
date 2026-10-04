@@ -3,6 +3,7 @@
 import { BOSS_TEAM_SLOTS, SHOWCASE_SLOTS, MAX_BOSS_NAME_LENGTH, MAX_GANG_NAME_LENGTH } from '../../data/game-config-data.js';
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
+import { esc as _esc } from '../core/escape.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
 const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
@@ -342,10 +343,10 @@ function openBossEditModal(onDone) {
       <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">${_t('MODIFIER LE BOSS', 'EDIT BOSS')}</div>
       <div style="display:flex;flex-direction:column;gap:8px">
         <label style="font-size:9px;color:var(--text-dim)">${_t('Nom du Boss', 'Boss Name')}</label>
-        <input id="bossEditName" type="text" maxlength="${MAX_BOSS_NAME_LENGTH}" value="${state.gang.bossName}"
+        <input id="bossEditName" type="text" maxlength="${MAX_BOSS_NAME_LENGTH}" value="${_esc(state.gang.bossName)}"
           style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);padding:8px 10px;font-size:12px;outline:none;width:100%;box-sizing:border-box">
         <label style="font-size:9px;color:var(--text-dim)">${_t('Nom du Gang', 'Gang Name')}</label>
-        <input id="bossEditGangName" type="text" maxlength="${MAX_GANG_NAME_LENGTH}" value="${state.gang.name}"
+        <input id="bossEditGangName" type="text" maxlength="${MAX_GANG_NAME_LENGTH}" value="${_esc(state.gang.name)}"
           style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);padding:8px 10px;font-size:12px;outline:none;width:100%;box-sizing:border-box">
       </div>
       <button id="bossEditSprite" style="font-family:var(--font-pixel);font-size:8px;padding:8px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">🎨 ${_t('Changer le sprite', 'Change sprite')}</button>

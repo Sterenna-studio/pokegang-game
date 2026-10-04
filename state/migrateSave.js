@@ -4,6 +4,10 @@ import { SHOWCASE_SLOTS } from '../data/game-config-data.js';
 import { UNLOCKABLE_TABS } from '../data/tab-unlocks-data.js';
 import { reconcileHoennStoryUnlocks } from '../modules/systems/hoennUnlocks.js';
 
+// Ancien incubateur du Marché (retiré) : prix de base et plafond, pour rembourser.
+const INCUBATOR_BASE_COST = 15000;
+const INCUBATOR_MAX_OWNED = 10;
+
 // ── Helper ───────────────────────────────────────────────────────────────────
 function ensureObject(value, fallback = {}) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : fallback;
@@ -72,6 +76,18 @@ export function migrateSave(saved, deps) {
     merged.gang.money = (merged.gang.money || 0) + saved.inventory.rarecandy * 3000;
   }
   delete merged.inventory.rarecandy;
+  // ── Incubateurs retirés → remboursement au prix réellement payé ─────────────
+  // Chaque agent recruté fournit désormais un slot d'éclosion (modules/systems/
+  // eggIncubation.js) : l'objet du Marché n'a plus aucun effet. Il se payait
+  // 15 000 × 2^(déjà possédés) — 15 000, 30 000, 60 000… — donc n exemplaires
+  // ont coûté 15 000 × (2^n − 1). Plafonné à 10, l'ancien maximum du Marché : une
+  // valeur plus haute ne pouvait venir que d'un bug ou d'une édition manuelle.
+  // La clé est supprimée juste après : le remboursement ne peut pas se rejouer.
+  if (saved.inventory?.incubator > 0) {
+    const owned = Math.min(Math.floor(saved.inventory.incubator), INCUBATOR_MAX_OWNED);
+    merged.gang.money = (merged.gang.money || 0) + INCUBATOR_BASE_COST * (2 ** owned - 1);
+  }
+  delete merged.inventory.incubator;
   merged.stats        = { ...structuredClone(DEFAULT_STATE.stats),        ...ensureObject(saved.stats) };
   merged.settings     = { ...structuredClone(DEFAULT_STATE.settings),     ...ensureObject(saved.settings) };
   merged.activeBoosts = { ...structuredClone(DEFAULT_STATE.activeBoosts), ...ensureObject(saved.activeBoosts) };
@@ -150,6 +166,7 @@ export function migrateSave(saved, deps) {
   delete merged.behaviourLogs;
   if (merged.settings.uiScale       === undefined) merged.settings.uiScale       = 100;
   if (merged.settings.musicVol      === undefined) merged.settings.musicVol      = 50;
+  if (merged.settings.musicEnabled  === undefined) merged.settings.musicEnabled  = true;
   if (merged.settings.sfxVol        === undefined) merged.settings.sfxVol        = 80;
   if (merged.settings.zoneScale     === undefined) merged.settings.zoneScale     = 100;
   if (merged.settings.lightTheme    === undefined) merged.settings.lightTheme    = false;
@@ -285,6 +302,9 @@ export function migrateSave(saved, deps) {
     if (agent.resting       === undefined) agent.resting       = false;
     if (agent.restUntil     === undefined) agent.restUntil     = null;
     if (agent.lastEnergyReset === undefined) agent.lastEnergyReset = 0;
+    if (!agent.eggStats || typeof agent.eggStats !== 'object') agent.eggStats = {};
+    if (agent.eggStats.hatched === undefined) agent.eggStats.hatched = 0;
+    if (agent.eggStats.lastHatchedAt === undefined) agent.eggStats.lastHatchedAt = null;
   }
 
   // ── Pokémons ───────────────────────────────────────────────────────────────────
@@ -311,7 +331,6 @@ export function migrateSave(saved, deps) {
     }
     if (!egg.rarity) egg.rarity = SPECIES_BY_EN?.[egg.species_en]?.rarity || 'common';
   }
-  if (!merged.inventory.incubator) merged.inventory.incubator = 0;
 
   // ── Pension : migration slotA/slotB → slots[] ──────────────────────────────────────
   if (!Array.isArray(merged.pension.slots)) {
@@ -323,6 +342,32 @@ export function migrateSave(saved, deps) {
     delete merged.pension.slotB;
   }
   if (merged.pension.extraSlotsPurchased === undefined) merged.pension.extraSlotsPurchased = 0;
+  if (!merged.pension.eggIncubation || typeof merged.pension.eggIncubation !== 'object') {
+    merged.pension.eggIncubation = structuredClone(DEFAULT_STATE.pension.eggIncubation);
+  } else {
+    const cfg = merged.pension.eggIncubation;
+    if (!Array.isArray(cfg.priorityAgentIds)) cfg.priorityAgentIds = [];
+    if (cfg.preferAvailable === undefined) cfg.preferAvailable = true;
+    if (cfg.allowFallback === undefined) cfg.allowFallback = true;
+  }
+  {
+    const activeAgents = merged.agents.filter(agent => !agent.legacyLocked);
+    const agentIds = new Set(activeAgents.map(agent => agent.id));
+    const used = new Set();
+    merged.pension.eggIncubation.priorityAgentIds = merged.pension.eggIncubation.priorityAgentIds
+      .filter(id => agentIds.has(id));
+    for (const egg of merged.eggs) {
+      if (!egg.incubating) continue;
+      if (egg.incubationAgentId && agentIds.has(egg.incubationAgentId) && !used.has(egg.incubationAgentId)) {
+        used.add(egg.incubationAgentId);
+        continue;
+      }
+      const next = activeAgents.find(agent => !used.has(agent.id));
+      egg.incubationAgentId = next?.id || null;
+      if (next) used.add(next.id);
+      if (egg.incubationSpeedMultiplier === undefined) egg.incubationSpeedMultiplier = 1;
+    }
+  }
 
   // ── Purchases ───────────────────────────────────────────────────────────────────
   // Purge flag Darkrai/perks (schema v9 → v10)
@@ -609,14 +654,7 @@ export function migrateSave(saved, deps) {
   }
 
   // ── Limites : valeurs hors-limites → MissingNo reward ──────────────────────────────
-  const LIMITS = { incubator: 10 };
   let limitViolation = false;
-  for (const [item, max] of Object.entries(LIMITS)) {
-    if ((merged.inventory[item] || 0) > max) {
-      merged.inventory[item] = max;
-      limitViolation = true;
-    }
-  }
   for (const pk of merged.pokemons) {
     if ((pk.potential || 1) > 5) { pk.potential = 5; limitViolation = true; }
     if ((pk.level     || 1) > 100) { pk.level   = 100; limitViolation = true; }
@@ -674,6 +712,7 @@ export function getMigrationSummary(saved, deps) {
     || saved.purchases.regi_seal === undefined
   )) fields.push(_f('Accès narratifs Hoenn', 'Hoenn story access'));
   if (saved.inventory?.pokeball !== undefined) fields.push(_f('Poké Balls illimitées (stock remboursé en ₽)', 'Unlimited Poké Balls (stock refunded in ₽)'));
+  if (saved.inventory?.incubator > 0) fields.push(_f('Incubateurs remplacés par les slots agents (remboursés en ₽)', 'Incubators replaced by agent slots (refunded in ₽)'));
 
   return { from: `${_f('schéma', 'schema')} v${fromVersion}`, fields };
 }
