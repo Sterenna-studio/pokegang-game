@@ -24,28 +24,27 @@ Les pistes utilisées par PokéGang sont référencées dans `modules/ui/audio.j
 | `BGM/Hall of Fame.mp3` | Tableau d'honneur |
 | `BGM/Title.mp3` | Titre |
 
-## Bibliothèque vs. ce qui est livré
+## Politique : n'y garder que ce qui sert
 
-Ce dossier est une **bibliothèque** (~945 fichiers, ~43 Mo) où l'on pioche : il
-contient des `.mp3`, mais aussi des `.wav`, `.ogg` et `.mid` que le moteur ne lit
-jamais (`MusicPlayer` passe par `HTMLAudioElement`, sans support MIDI).
+Ce dossier ne contient que les **24 pistes `.mp3` référencées par le code** (via
+`MUSIC_TRACKS`, `JINGLES` et `SE_SOUNDS` dans `modules/ui/audio.js`), soit ~25 Mo.
+Il a été élagué : il avait été importé en bloc (945 fichiers, ~43 Mo) depuis
+`C:\DEV\repos\pokeforge\game\music`, dont 920 que le moteur ne charge jamais — des
+`.wav`, `.ogg` et `.mid` qu'un `HTMLAudioElement` ne sait pas jouer (pas de MIDI),
+et des `.mp3` jamais branchés. L'import d'origine et l'historique git les conservent.
 
-Le jeu n'en référence que **24 fichiers**, tous en `.mp3`. Les deux chemins de
-livraison filtrent donc :
+**Ajouter une piste** : déposer le `.mp3` ici *et* le référencer dans
+`modules/ui/audio.js` **sous forme de chaîne littérale** (un chemin construit
+dynamiquement échapperait au scan du build et ne ferait 404 qu'en production).
 
-| Cible | Ce qui part | Mécanisme |
-|---|---|---|
-| itch.io | uniquement les 24 pistes référencées | `collectReferencedMusic()` dans `tools/build-itch.js` |
-| pokegang.sterenna.fr | tous les `.mp3`, aucun wav/mid/ogg | excludes rsync dans `.github/workflows/deploy-ovh.yml` |
+Deux garde-fous empêchent le dossier de regonfler sans qu'on s'en aperçoive :
 
-**Conséquence** : déposer un fichier ici ne suffit pas à l'embarquer. Il faut le
-référencer dans `modules/ui/audio.js` **sous forme de chaîne littérale** (un chemin
-construit dynamiquement échapperait au scan et ne ferait 404 qu'en production).
-Détails et garde-fous dans `docs/itch-build.md`.
+| Cible | Mécanisme |
+|---|---|
+| itch.io | `collectReferencedMusic()` (`tools/build-itch.js`) ne copie que les pistes référencées et la validation refuse une piste manquante ou en trop |
+| pokegang.sterenna.fr | excludes rsync `*.wav`, `*.mid`, `*.ogg` dans `.github/workflows/deploy-ovh.yml` |
 
-Les fichiers non référencés sont conservés volontairement : les supprimer ne
-réduirait pas le dépôt (l'historique git les garde) et ils servent de réserve pour
-les prochaines pistes.
+Détails dans `docs/itch-build.md`.
 
 ## Format recommandé
 - Format : **MP3** (bonne compatibilité navigateur)
