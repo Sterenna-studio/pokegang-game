@@ -24,6 +24,29 @@ Les pistes utilisées par PokéGang sont référencées dans `modules/ui/audio.j
 | `BGM/Hall of Fame.mp3` | Tableau d'honneur |
 | `BGM/Title.mp3` | Titre |
 
+## Bibliothèque vs. ce qui est livré
+
+Ce dossier est une **bibliothèque** (~945 fichiers, ~43 Mo) où l'on pioche : il
+contient des `.mp3`, mais aussi des `.wav`, `.ogg` et `.mid` que le moteur ne lit
+jamais (`MusicPlayer` passe par `HTMLAudioElement`, sans support MIDI).
+
+Le jeu n'en référence que **24 fichiers**, tous en `.mp3`. Les deux chemins de
+livraison filtrent donc :
+
+| Cible | Ce qui part | Mécanisme |
+|---|---|---|
+| itch.io | uniquement les 24 pistes référencées | `collectReferencedMusic()` dans `tools/build-itch.js` |
+| pokegang.sterenna.fr | tous les `.mp3`, aucun wav/mid/ogg | excludes rsync dans `.github/workflows/deploy-ovh.yml` |
+
+**Conséquence** : déposer un fichier ici ne suffit pas à l'embarquer. Il faut le
+référencer dans `modules/ui/audio.js` **sous forme de chaîne littérale** (un chemin
+construit dynamiquement échapperait au scan et ne ferait 404 qu'en production).
+Détails et garde-fous dans `docs/itch-build.md`.
+
+Les fichiers non référencés sont conservés volontairement : les supprimer ne
+réduirait pas le dépôt (l'historique git les garde) et ils servent de réserve pour
+les prochaines pistes.
+
 ## Format recommandé
 - Format : **MP3** (bonne compatibilité navigateur)
 - Bitrate : 128–192 kbps (équilibre qualité/taille)

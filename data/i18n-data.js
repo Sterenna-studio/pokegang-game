@@ -1038,8 +1038,6 @@ const I18N = {
   market_no_access:        { fr:'Aucun accès disponible.', en:'No access available.' },
   market_owned:            { fr:'✓ Possédé',             en:'✓ Owned'             },
   market_stock:            { fr:'Stock: {n}',             en:'Stock: {n}'          },
-  market_incubator_owned:  { fr:'Possédés: {n}/10',       en:'Owned: {n}/10'       },
-  market_incubator_max:    { fr:'MAX',                    en:'MAX'                 },
   market_egg_hint:         { fr:'Achat #{n} — 45min éclosion', en:'Purchase #{n} — 45min hatch' },
 };
 

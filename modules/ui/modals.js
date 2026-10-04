@@ -606,7 +606,7 @@ function openLegacyImportModal(legacyData) {
     ? agents.map(a => `<label style="display:flex;align-items:center;gap:8px;padding:6px;border-bottom:1px solid var(--border);cursor:pointer">
         <input type="radio" name="legacyAgent" value="${a.id}" style="accent-color:var(--gold)">
         <img src="${a.sprite || ''}" style="width:32px;height:32px" onerror="this.style.display='none'">
-        <span style="font-size:10px">${a.name} — Lv.${a.level} (${getAgentRankLabel?.(a) ?? a.title})</span>
+        <span style="font-size:10px">${_esc(a.name)} — Lv.${a.level} (${getAgentRankLabel?.(a) ?? a.title})</span>
       </label>`).join('')
     : `<div style="color:var(--text-dim);font-size:10px;padding:8px">${_t('legacy_no_agent', 'Aucun agent dans cette save')}</div>`;
 
@@ -728,7 +728,7 @@ function openHubImportModal(raw) {
   const slotHtml = [0, 1, 2].map(i => {
     const prev = getSlotPreview(i);
     const label = prev
-      ? `<b style="color:var(--text)">${prev.name}</b> <span style="color:var(--text-dim);font-size:9px">(${prev.pokemon} pkm · ⭐${prev.rep})</span>`
+      ? `<b style="color:var(--text)">${_esc(prev.name)}</b> <span style="color:var(--text-dim);font-size:9px">(${prev.pokemon} pkm · ⭐${prev.rep})</span>`
       : `<span style="color:#555;font-style:italic">${_t('slot_empty', 'Vide')}</span>`;
     return `<label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;background:var(--bg);transition:border-color .15s" id="hubSlotLabel${i}">
       <input type="radio" name="hubTargetSlot" value="${i}" ${i === 0 ? 'checked' : ''} style="accent-color:var(--gold)">
@@ -847,7 +847,7 @@ function openHubImportModal(raw) {
     const doClean    = overlay.querySelector('#chkCleanObsolete')?.checked ?? false;
 
     showConfirm(
-      `${_t('confirm_hub_import_prefix', 'Importer la save de')} <b>${gangName}</b> ${_t('confirm_hub_import_slot', 'dans le Slot')} ${targetSlot + 1} ?<br><span style="color:var(--text-dim);font-size:10px">${_t('confirm_hub_import_warning', 'Le contenu actuel du slot sera effacé.')}</span>`,
+      `${_t('confirm_hub_import_prefix', 'Importer la save de')} <b>${_esc(gangName)}</b> ${_t('confirm_hub_import_slot', 'dans le Slot')} ${targetSlot + 1} ?<br><span style="color:var(--text-dim);font-size:10px">${_t('confirm_hub_import_warning', 'Le contenu actuel du slot sera effacé.')}</span>`,
       () => {
         try {
           // Deep clone before mutation

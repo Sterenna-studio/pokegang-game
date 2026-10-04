@@ -1037,7 +1037,7 @@ function renderGangBaseWindowV2() {
           <div class="gb2-zap-title">${_t('gang_base_assigned_cell')}</div>
           <div class="gb2-zap-zone-name">${focusName}</div>
           <div class="gb2-zap-slots">${zapSlots.join('')}</div>
-          <div class="gb2-zap-info">${focusAgents.length > 0 ? focusAgents.map(a => a.name).join(', ') : _t('gang_base_no_agent_on_front')}</div>
+          <div class="gb2-zap-info">${focusAgents.length > 0 ? focusAgents.map(a => _esc(a.name)).join(', ') : _t('gang_base_no_agent_on_front')}</div>
         </div>
       </div>
 
@@ -2187,7 +2187,7 @@ function renderGangParkWindow(el) {
       <div style="display:flex;align-items:center;gap:8px">
         <span style="font-size:16px">🏛️</span>
         <div>
-          <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">${state.gang.name}</div>
+          <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold)">${_esc(state.gang.name)}</div>
           <div style="font-size:8px;color:var(--text-dim)">${_t('gang_base_headquarters')}</div>
         </div>
       </div>

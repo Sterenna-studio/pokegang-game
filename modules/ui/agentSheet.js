@@ -19,6 +19,7 @@
 import { FALLBACK_TRAINER_SVG } from '../../data/assets-data.js';
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
+import { esc as _esc } from '../core/escape.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
 const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
@@ -170,7 +171,7 @@ function _buildSheetHtml(agent) {
   <!-- HEADER -->
   <div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:14px">
     <div style="position:relative;flex-shrink:0">
-      <img src="${agent.sprite}" alt="${agent.name}"
+      <img src="${agent.sprite}" alt="${_esc(agent.name)}"
         style="width:72px;height:72px;image-rendering:pixelated;border:2px solid ${rankCol};border-radius:4px"
         onerror="this.src='${FALLBACK_TRAINER_SVG}';this.onerror=null">
       <div style="position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);
