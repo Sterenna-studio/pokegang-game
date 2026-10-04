@@ -283,9 +283,60 @@ When touching a system that has both an `app.js` implementation and a `modules/`
 
 ### Available focused tests
 
+`tools/` contient **32 fichiers de test** (`test-*.mjs`), tous exécutables
+directement avec `node`. Ils sont volontairement sans dépendance : pas de runner,
+pas de `package.json`. Lancer la totalité :
+
+```bash
+for f in tools/test-*.mjs; do node "$f" || echo "FAIL $f"; done
+node tools/check-events.js
+```
+
+Ou un test en particulier :
+
+```bash
+node tools/test-advisor.mjs
+node tools/test-agent-capture-xp.mjs
+node tools/test-analytics-readiness.mjs
+node tools/test-audio-music.mjs
+node tools/test-combat-multi-pokemon.mjs
+node tools/test-combat-replay-dom.mjs
+node tools/test-egg-incubation.mjs
+node tools/test-first-run-splash.mjs
+node tools/test-ga4-nested-dimension-limit.mjs
+node tools/test-hoenn-unlocks.mjs
+node tools/test-hub-autostart.mjs
+node tools/test-itch-supabase-config.mjs
+node tools/test-migrate-discovery-progress.mjs
+node tools/test-missions-cosmetic.mjs
+node tools/test-offline-agent-batch.mjs
+node tools/test-offline-batch.mjs
+node tools/test-offline-report.mjs
+node tools/test-onboarding-briefing.mjs
+node tools/test-onboarding-controller.mjs
+node tools/test-onboarding-elapsed-safety.mjs
+node tools/test-onboarding-flashback.mjs
+node tools/test-onboarding-flow.mjs
+node tools/test-onboarding-payoff.mjs
+node tools/test-onboarding-scene.mjs
+node tools/test-onboarding-starter-choice.mjs
+node tools/test-rival-encounter.mjs
+node tools/test-runtime-store.mjs
+node tools/test-save-roundtrip.mjs
+node tools/test-screenshot-studio.mjs
+node tools/test-simulation-context.mjs
+node tools/test-tab-unlocks.mjs
+node tools/test-update-manager.mjs
+node tools/check-events.js
+```
+
+### Available focused tests
+
 ```bash
 node tools/test-runtime-store.mjs
 node tools/test-update-manager.mjs
+node tools/test-save-roundtrip.mjs
+node tools/test-egg-incubation.mjs
 node tools/check-events.js
 
 node tools/test-onboarding-flow.mjs

@@ -16,6 +16,7 @@
 import { EventBus, EVENTS } from '../core/eventBus.js';
 import { deferSimulationUi } from '../core/simulationContext.js';
 import { isOnboardingActive } from '../systems/onboardingFlow.js';
+import { esc as _esc } from '../core/escape.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
 const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
@@ -294,7 +295,7 @@ export function showZoneContextMenu(zoneId, x, y) {
       html += `<div class="zone-ctx-section">${_t('zone_selector_assigned_count', { n: assigned.length }).toUpperCase()}</div>`;
       for (const a of assigned) {
         html += `<button class="zone-ctx-item zone-ctx-agent assigned" data-agent-id="${a.id}">
-          <span class="zone-ctx-icon">✓</span>${a.name}
+          <span class="zone-ctx-icon">✓</span>${_esc(a.name)}
           <small style="color:var(--text-dim);margin-left:4px">${a.title}</small>
         </button>`;
       }
@@ -308,7 +309,7 @@ export function showZoneContextMenu(zoneId, x, y) {
           : _t('zone_selector_without_zone');
         html += `<button class="zone-ctx-item zone-ctx-agent${canAdd ? '' : ' zone-ctx-disabled'}"
           data-agent-id="${a.id}" ${canAdd ? '' : 'disabled'}>
-          <span class="zone-ctx-icon">👤</span>${a.name}
+          <span class="zone-ctx-icon">👤</span>${_esc(a.name)}
           <small style="color:var(--text-dim);margin-left:4px">${curZone}</small>
         </button>`;
       }

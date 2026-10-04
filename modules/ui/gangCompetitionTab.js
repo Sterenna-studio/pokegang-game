@@ -597,7 +597,7 @@ function _openAttackPrepModal(defData, panelEl) {
             ? agentRows
             : `<div style="padding:12px;font-size:9px;color:var(--text-dim)">${_t('competition_no_attack_agent')}</div>`}
         </div>
-        ${fallbackAgent ? `<div style="font-size:8px;color:var(--gold-dim);margin-top:6px">${_t('competition_auto_agent_fallback', { agent: fallbackAgent.name })}</div>` : ''}
+        ${fallbackAgent ? `<div style="font-size:8px;color:var(--gold-dim);margin-top:6px">${_t('competition_auto_agent_fallback', { agent: _esc(fallbackAgent.name) })}</div>` : ''}
       </div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:center;padding:8px 10px;background:var(--bg);border-radius:var(--radius-sm)">

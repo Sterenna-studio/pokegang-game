@@ -135,14 +135,41 @@ function startEggIncubation(egg, {
   const agent = pickEggIncubationAgent(state, egg);
   if (!agent) return false;
   const multiplier = getAgentHatchMultiplier(agent);
-  const duration = Math.max(1000, Math.round(_effectiveBaseMs(egg, baseMs) / multiplier));
+  // Reprise après suspension : on repart du reliquat déjà exprimé en temps de
+  // base, recalculé au multiplicateur du NOUVEAU référent (il peut différer).
+  const remaining = Number(egg.incubationRemainingMs);
+  const base = Number.isFinite(remaining) && remaining > 0 ? remaining : _effectiveBaseMs(egg, baseMs);
+  const duration = Math.max(1000, Math.round(base / multiplier));
   egg.incubating = true;
   egg.status = egg.status === 'ready' ? undefined : egg.status;
   egg.incubatedAt = now;
   egg.hatchAt = now + duration;
   egg.hatchMs = _effectiveBaseMs(egg, baseMs);
+  egg.incubationBaseMs = base;   // base de CE cycle (reliquat compris)
+  delete egg.incubationRemainingMs;
   egg.incubationAgentId = agent.id;
   egg.incubationSpeedMultiplier = multiplier;
+  return true;
+}
+
+// Un œuf dont plus aucun agent ne peut être référent (agents renvoyés, prestige)
+// était laissé incubating:true avec incubationAgentId:null — il continuait son
+// compte à rebours sans référent, personne n'était crédité à l'éclosion, et
+// summary.used dépassait summary.capacity. On le remet en attente en gardant la
+// progression déjà acquise, exprimée en temps de base (donc indépendante du
+// multiplicateur de l'ancien référent).
+function suspendEggIncubation(egg, now = Date.now()) {
+  if (!egg?.incubating || egg.status === 'ready') return false;
+  const mult    = Number(egg.incubationSpeedMultiplier) || 1;
+  const started = Number(egg.incubatedAt);
+  const total   = Number(egg.incubationBaseMs) > 0 ? Number(egg.incubationBaseMs) : _effectiveBaseMs(egg, null);
+  const served  = Number.isFinite(started) ? Math.max(0, now - started) * mult : 0;
+  egg.incubationRemainingMs = Math.max(1000, Math.round(total - served));
+  egg.incubating = false;
+  egg.incubationAgentId = null;
+  delete egg.hatchAt;
+  delete egg.incubatedAt;
+  delete egg.incubationSpeedMultiplier;
   return true;
 }
 
@@ -159,10 +186,12 @@ function reconcileEggIncubationAssignments(state = globalThis.state) {
       continue;
     }
     const next = _orderedCandidates(state, getIncubationConfig(state), used)[0] || null;
-    egg.incubationAgentId = next?.id || null;
     if (next) {
+      egg.incubationAgentId = next.id;
       egg.incubationSpeedMultiplier = getAgentHatchMultiplier(next);
       used.add(next.id);
+    } else {
+      suspendEggIncubation(egg);
     }
     changed = true;
   }
@@ -170,6 +199,8 @@ function reconcileEggIncubationAssignments(state = globalThis.state) {
 }
 
 function recordEggHatched(egg, state = globalThis.state) {
+  delete egg.incubationBaseMs;
+  delete egg.incubationRemainingMs;
   const agent = getEggIncubationAgent(egg, state);
   if (!agent) return null;
   const stats = getAgentHatchStats(agent);
@@ -239,6 +270,7 @@ Object.assign(globalThis, {
   pickEggIncubationAgent,
   startEggIncubation,
   reconcileEggIncubationAssignments,
+  suspendEggIncubation,
   recordEggHatched,
   tryAutoIncubateWithAgents,
   setEggIncubationPriority,
@@ -258,6 +290,7 @@ export {
   pickEggIncubationAgent,
   startEggIncubation,
   reconcileEggIncubationAssignments,
+  suspendEggIncubation,
   recordEggHatched,
   tryAutoIncubateWithAgents,
   setEggIncubationPriority,

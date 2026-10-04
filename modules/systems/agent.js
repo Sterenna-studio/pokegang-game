@@ -12,6 +12,7 @@ import {
   resolveSimulationContext,
 } from '../core/simulationContext.js';
 import { isOnboardingFreeAgentPending } from './onboardingFlow.js';
+import { esc as _esc } from '../core/escape.js';
 
 // ── Convenience shims (progressive migration from globalThis.*) ─
 const _notify     = (msg, type = '', category = null) => EventBus.emit(EVENTS.UI_NOTIFY, { msg, type, category });
@@ -167,7 +168,7 @@ function openAgentRecruitModal(onAfterRecruit, options = {}) {
       display:flex;flex-direction:column;align-items:center;gap:8px;
       cursor:pointer;transition:border-color .15s,box-shadow .15s">
       <img src="${ag.sprite}" style="width:48px;height:48px;image-rendering:pixelated">
-      <div style="font-family:var(--font-pixel);font-size:10px;color:var(--text);text-align:center">${ag.name}</div>
+      <div style="font-family:var(--font-pixel);font-size:10px;color:var(--text);text-align:center">${_esc(ag.name)}</div>
       <div style="font-size:8px;color:var(--text-dim);text-align:center">${ag.personality.map(p => globalThis.state?.lang === 'en' ? (p.en || p.fr || p) : (p.fr || p)).join(' · ')}</div>
       <div style="font-size:8px;color:var(--text-dim);opacity:.7;font-family:var(--font-pixel);text-align:center">Lv.1 · Grunt</div>
       <button class="recruit-pick-btn" data-idx="${i}" style="
@@ -1261,11 +1262,11 @@ function unlockAgent(agentId) {
   }
 
   globalThis.showConfirm?.(
-    _t(`Débloquer <b>${agent.name}</b> pour <b>${cost.toLocaleString()}₽</b> ?<br>
+    _t(`Débloquer <b>${_esc(agent.name)}</b> pour <b>${cost.toLocaleString()}₽</b> ?<br>
      <span style="color:var(--text-dim);font-size:10px">
        De nos jours, le management coûte cher…<br>
        Cet agent rejoindra pleinement votre organisation.
-     </span>`, `Unlock <b>${agent.name}</b> for <b>${cost.toLocaleString()}₽</b>?<br>
+     </span>`, `Unlock <b>${_esc(agent.name)}</b> for <b>${cost.toLocaleString()}₽</b>?<br>
      <span style="color:var(--text-dim);font-size:10px">
        Management is expensive these days…<br>
        This agent will fully join your organization.

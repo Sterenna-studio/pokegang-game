@@ -251,7 +251,7 @@ function _doRenderGangTab() {
           ${g.bossSprite ? `<img src="${globalThis.trainerSprite(g.bossSprite)}" style="width:72px;height:72px;image-rendering:pixelated">` : '<div style="width:72px;height:72px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm)"></div>'}
         </div>
         <div style="flex:1;min-width:0">
-          <div style="font-family:var(--font-pixel);font-size:15px;color:var(--red);line-height:1.3">${g.name}</div>
+          <div style="font-family:var(--font-pixel);font-size:15px;color:var(--red);line-height:1.3">${_esc(g.name)}</div>
           <div style="font-size:11px;color:var(--text-dim);margin-top:2px">${_t('Boss', 'Boss')} : <span style="color:var(--text)">${_esc(g.bossName)}</span></div>
           <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold-dim);margin-top:2px;letter-spacing:.5px">${globalThis.getBossFullTitle?.() || ''}</div>
           ${(() => {
