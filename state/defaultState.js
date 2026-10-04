@@ -88,7 +88,6 @@ export const DEFAULT_STATE = {
     rarescope: 1,
     aura: 0,
     evostone: 0,
-    incubator: 0,
     egg_scanner: 0,
     meteore: 0,         // Fragment météorique — relance le combat contre Deoxys
     sigle_magma: 0,     // Emblème Magma — relance le combat contre Groudon

@@ -11,7 +11,7 @@
 import assert from 'node:assert/strict';
 import { DEFAULT_STATE, SAVE_SCHEMA_VERSION } from '../state/defaultState.js';
 import { buildSavePayload, slimPokemon, MAX_HISTORY } from '../state/serialization.js';
-import { migrateSave } from '../state/migrateSave.js';
+import { migrateSave, getMigrationSummary } from '../state/migrateSave.js';
 
 let uidCounter = 0;
 const deps = {
@@ -126,6 +126,75 @@ check('stock de Poké Balls hérité : remboursé 20₽/unité puis purgé, une 
   assert.ok(!('pokeball' in once.inventory), 'la clé doit être purgée');
   const twice = roundTrip(once);
   assert.equal(twice.gang.money, once.gang.money, 'le remboursement ne doit PAS se redéclencher');
+});
+
+console.log('\n── incubateurs retirés : remboursement au prix payé ──────────────');
+
+// Ancien Marché : le k-ième incubateur coûtait 15 000 × 2^k (k = déjà possédés).
+// On recalcule en les additionnant un par un plutôt qu'avec la forme fermée du code.
+const paidFor = n => Array.from({ length: n }, (_, k) => 15000 * 2 ** k).reduce((a, b) => a + b, 0);
+
+const withIncubators = (n, money = 1000) => {
+  const state = structuredClone(DEFAULT_STATE);
+  state.gang.money = money;
+  state.inventory.incubator = n;   // clé morte, présente dans les saves existantes
+  return state;
+};
+
+check('chaque quantité rembourse exactement ce qu\'elle a coûté', () => {
+  for (const n of [1, 2, 3, 5, 10]) {
+    const out = roundTrip(withIncubators(n));
+    assert.equal(out.gang.money, 1000 + paidFor(n), n + ' incubateur(s) : ' + out.gang.money + ' au lieu de ' + (1000 + paidFor(n)));
+  }
+  assert.equal(paidFor(1), 15000, 'garde-fou sur la formule de référence');
+  assert.equal(paidFor(10), 15345000, 'garde-fou : 10 incubateurs');
+});
+
+check('la clé est purgée et ne revient pas à 0', () => {
+  const out = roundTrip(withIncubators(3));
+  assert.ok(!('incubator' in out.inventory), 'inventory.incubator = ' + out.inventory.incubator);
+});
+
+check('le remboursement ne se rejoue jamais', () => {
+  const once = roundTrip(withIncubators(4));
+  const twice = roundTrip(once);
+  const thrice = roundTrip(twice);
+  assert.equal(twice.gang.money, once.gang.money, '2e chargement');
+  assert.equal(thrice.gang.money, once.gang.money, '3e chargement');
+});
+
+check('zéro incubateur : aucun argent créé', () => {
+  assert.equal(roundTrip(withIncubators(0, 5000)).gang.money, 5000);
+  const noKey = withIncubators(0, 5000); delete noKey.inventory.incubator;
+  assert.equal(roundTrip(noKey).gang.money, 5000, 'save sans la clé');
+});
+
+check('au-delà du plafond de 10 : rembourse 10, pas plus', () => {
+  const out = roundTrip(withIncubators(25));
+  assert.equal(out.gang.money, 1000 + paidFor(10), 'une valeur >10 ne vient que d\'un bug ou d\'une édition');
+});
+
+check('quantité non entière ou invalide : jamais NaN ni négatif', () => {
+  for (const bad of [2.9, '3', -4, NaN, null, 'abc', Infinity]) {
+    const out = roundTrip(withIncubators(bad));
+    assert.ok(Number.isFinite(out.gang.money) && out.gang.money >= 1000, JSON.stringify(bad) + ' → ' + out.gang.money);
+  }
+  assert.equal(roundTrip(withIncubators(2.9)).gang.money, 1000 + paidFor(2), '2.9 est arrondi à 2, pas à 3');
+});
+
+check('la bannière de migration mentionne le remboursement', () => {
+  const saved = { ...withIncubators(2), _schemaVersion: 17 };
+  const fr = getMigrationSummary(saved, deps);
+  assert.ok(fr.fields.some(f => /Incubateurs.*rembours/.test(f)), JSON.stringify(fr.fields));
+  const en = getMigrationSummary({ ...saved, lang: 'en' }, deps);
+  assert.ok(en.fields.some(f => /Incubators.*refunded/.test(f)), JSON.stringify(en.fields));
+  const none = getMigrationSummary({ ...withIncubators(0), _schemaVersion: 17 }, deps);
+  assert.ok(!none.fields.some(f => /ncubat/i.test(f)), 'ne rien annoncer à qui n\'en avait pas');
+});
+
+check('un incubateur ne déclenche plus le cadeau MissingNo', () => {
+  const out = roundTrip(withIncubators(25));
+  assert.ok(!out.pokemons.some(p => p.species_en === 'missingno'), 'MissingNo ne doit plus venir des incubateurs');
 });
 
 check('slimPokemon ne mute pas son entrée', () => {

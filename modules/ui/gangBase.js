@@ -192,7 +192,7 @@ let _lastRenderSig = '';
 const _BALL_IDS  = ['pokeball','greatball','ultraball','duskball','masterball'];
 const _BOOST_IDS = ['lure','superlure','incense','rarescope','aura'];
 const _CRAFT_IDS = ['evostone'];
-const _KEY_IDS   = ['incubator','map_pallet','casino_ticket','silph_keycard','boat_ticket'];
+const _KEY_IDS   = ['map_pallet','casino_ticket','silph_keycard','boat_ticket'];
 
 /**
  * Signature des éléments structurels — si elle change, full render est requis
@@ -474,7 +474,7 @@ function renderGangBaseWindow() {
   const BALL_IDS  = ['pokeball','greatball','ultraball','duskball','masterball'];
   const BOOST_IDS = ['lure','superlure','incense','rarescope','aura'];
   const CRAFT_IDS = ['evostone'];
-  const KEY_IDS   = ['incubator','map_pallet','casino_ticket','silph_keycard','boat_ticket'];
+  const KEY_IDS   = ['map_pallet','casino_ticket','silph_keycard','boat_ticket'];
 
   function makeItemTile(id) {
     const isBall     = BALL_IDS.includes(id);
@@ -760,7 +760,7 @@ function renderGangBaseWindowV2() {
   const BALL_IDS  = ['pokeball','greatball','ultraball','duskball','masterball'];
   const BOOST_IDS = ['lure','superlure','incense','rarescope','aura'];
   const CRAFT_IDS = ['evostone'];
-  const KEY_IDS   = ['incubator','map_pallet','casino_ticket','silph_keycard','boat_ticket'];
+  const KEY_IDS   = ['map_pallet','casino_ticket','silph_keycard','boat_ticket'];
 
   function _v2tile(id, isKey = false) {
     const isBall     = BALL_IDS.includes(id);

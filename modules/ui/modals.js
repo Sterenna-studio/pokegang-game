@@ -21,7 +21,7 @@ const MODAL_EN = {
   info_gang_boss_label:'Boss',
   info_gang_boss_desc:'Your avatar. Assign up to <strong>6 Pokémon</strong> to the Boss team from the PC to strengthen battles.',
   info_gang_bag_label:'Bag',
-  info_gang_bag_desc:'Active Balls, temporary boosts and incubators. Click a Ball to make it the default.',
+  info_gang_bag_desc:'Active Balls and temporary boosts. Click a Ball to make it the default.',
   info_gang_cosmetics_label:'Cosmetics',
   info_gang_cosmetics_desc:'Customize the Boss and gang appearance (unlocked through special purchases).',
   info_gang_tip:'Tip: the higher your reputation, the stronger the available zones and agents.',
@@ -70,7 +70,7 @@ const MODAL_EN = {
   info_pc_evo_label:'Evolution',
   info_pc_evo_desc:'Through the Lab. Some evolutions require a minimum level, others a stone. Stats increase significantly.',
   info_pc_daycare_label:'Daycare',
-  info_pc_daycare_desc:'2 compatible Pokémon produce an Egg (incubator required). The Egg inherits its parents’ potential.',
+  info_pc_daycare_desc:'2 compatible Pokémon produce an Egg (each recruited agent hatches one at a time). The Egg inherits its parents’ potential.',
   info_pc_training_label:'Training room',
   info_pc_training_desc:'Levels up passive Pokémon. ₽ cost increases with level.',
   info_pc_sell_label:'Selling', info_pc_sell_desc:'Price = rarity × potential × nature. No resale penalty.',
@@ -91,7 +91,7 @@ const MODAL_EN = {
   mig_eggs:'Egg system', mig_pension:'Daycare', mig_training:'Training room',
   mig_missions:'Missions', mig_cosmetics:'Cosmetics', mig_titles:'Unlocked titles',
   mig_title_slots:'Title slots (×4)', mig_lab:'Laboratory',
-  mig_purchases:'Special purchases', mig_incubator:'Incubator inventory',
+  mig_purchases:'Special purchases',
   mig_ui_settings:'Advanced UI settings', mig_none:'No migration required — save is up to date',
   badge_legacy:'Old version', badge_compatible:'Compatible format',
   import_modal_title:'📥 Import a Save', import_save_label:'IMPORTED SAVE',
@@ -233,7 +233,7 @@ function showInfoModal(tabId) {
         <strong>${_t('info_gang_rep_label', 'Réputation')}</strong> — ${_t('info_gang_rep_desc', 'Ressource clé. Débloque zones, agents supplémentaires, achats spéciaux. Barre en haut à droite.')}<br><br>
         <strong>${_t('info_gang_money_label', 'Argent (₽)')}</strong> — ${_t('info_gang_money_desc', 'Les récompenses de combat s\'accumulent dans les zones. Collecte via l\'icône ₽ dorée ou automatiquement via tes agents.')}<br><br>
         <strong>${_t('info_gang_boss_label', 'Boss')}</strong> — ${_t('info_gang_boss_desc', 'Ton avatar. Assigne jusqu\'à <strong>6 Pokémon</strong> à son équipe depuis le PC pour renforcer les combats.')}<br><br>
-        <strong>${_t('info_gang_bag_label', 'Sac')}</strong> — ${_t('info_gang_bag_desc', 'Balls actives, boosts temporaires, incubateurs. Clique une Ball pour l\'activer comme Ball par défaut.')}<br><br>
+        <strong>${_t('info_gang_bag_label', 'Sac')}</strong> — ${_t('info_gang_bag_desc', 'Balls actives, boosts temporaires. Clique une Ball pour l\'activer comme Ball par défaut.')}<br><br>
         <strong>${_t('info_gang_cosmetics_label', 'Cosmétiques')}</strong> — ${_t('info_gang_cosmetics_desc', 'Personnalise l\'apparence du boss et du gang (déblocable via achats spéciaux).')}<br><br>
         <span class="dim">${_t('info_gang_tip', 'Conseil : plus ta réputation est haute, plus les zones et agents disponibles sont puissants.')}</span>
       `
@@ -280,7 +280,7 @@ function showInfoModal(tabId) {
         <strong>${_t('info_pc_nature_label', 'Nature')}</strong> — ${_t('info_pc_nature_desc', 'Multiplie 2 stats et en pénalise 1, impactant directement le PC via la formule pondérée.')}<br><br>
         <strong>${_t('info_pc_potential_label', 'Potentiel ★')}</strong> — ${_t('info_pc_potential_desc', 'Permanent. Détermine le plafond de puissance du Pokémon. ★5 = tier S. Tiré aléatoirement à la capture, améliorable temporairement avec l\'Encens Chance.')}<br><br>
         <strong>${_t('info_pc_evo_label', 'Évolution')}</strong> — ${_t('info_pc_evo_desc', 'Via le Labo. Certaines évolutions nécessitent un niveau minimum, d\'autres une pierre. Les stats augmentent significativement.')}<br><br>
-        <strong>${_t('info_pc_daycare_label', 'Pension')}</strong> — ${_t('info_pc_daycare_desc', '2 Pokémon compatibles produisent un œuf (incubateur requis). L\'œuf hérite du potentiel des parents.')}<br><br>
+        <strong>${_t('info_pc_daycare_label', 'Pension')}</strong> — ${_t('info_pc_daycare_desc', '2 Pokémon compatibles produisent un œuf (chaque agent recruté fait éclore un œuf à la fois). L\'œuf hérite du potentiel des parents.')}<br><br>
         <strong>${_t('info_pc_training_label', 'Salle d\'entraînement')}</strong> — ${_t('info_pc_training_desc', 'Monte en niveau des Pokémon passifs. Coût en ₽ croissant avec le niveau.')}<br><br>
         <strong>${_t('info_pc_sell_label', 'Vente')}</strong> — ${_t('info_pc_sell_desc', 'Prix = rareté × potentiel × nature. Pas de malus à la revente.')}<br><br>
         <span class="dim">${_t('info_pc_tip', 'Filtre par rareté, type ou ★ pour retrouver tes meilleurs Pokémon rapidement.')}</span>
@@ -481,7 +481,6 @@ function openImportPreviewModal(raw) {
   if (raw.gang?.titleC === undefined) migrations.push(_t('mig_title_slots', 'Slots de titres (×4)'));
   if (!raw.lab)              migrations.push(_t('mig_lab',            'Laboratoire'));
   if (!raw.purchases)        migrations.push(_t('mig_purchases',      'Achats spéciaux'));
-  if (!raw.eggs && !raw.inventory?.incubator) migrations.push(_t('mig_incubator', 'Inventaire incubateurs'));
   if (raw.settings?.uiScale === undefined) migrations.push(_t('mig_ui_settings', 'Paramètres UI avancés'));
 
   const migHtml = migrations.length
