@@ -44,11 +44,10 @@ const ZIP_PATH = path.join(ROOT, RELEASE.uploadFile);
 // pour le détail (notamment gang/, qui n'est PAS que la page compagnon).
 const INCLUDE = ['index.html', 'app.js', 'css', 'data', 'modules', 'state', 'assets', 'gang'];
 
-// music/ est une bibliotheque d'assets (945 fichiers, ~43 Mo : des mp3, mais
-// aussi des wav/ogg/mid que le moteur ne lit jamais). On n'embarque QUE les
-// pistes reellement referencees par le code -- sinon l'archive itch quadruple
-// de taille pour des fichiers que le jeu ne demandera jamais.
-// Voir docs/itch-build.md.
+// music/ ne contient que les pistes .mp3 utilisees (elle a ete elaguee : importee
+// en bloc, 945 fichiers / ~43 Mo, dont 920 jamais charges). On ne copie malgre tout
+// que les pistes reellement referencees par le code : si une bibliotheque entiere
+// etait reimportee, elle ne gonflerait pas l'archive itch. Voir docs/itch-build.md.
 const MUSIC_DIR = 'music';
 const MUSIC_REF_RE = /['"`](music\/[^'"`]+\.mp3)['"`]/g;
 
