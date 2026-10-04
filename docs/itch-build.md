@@ -68,18 +68,17 @@ Symptôme d'une archive invalide : `index.html` s'ouvre, puis une grande quantit
 
 Le dossier `gang/` n'est pas seulement la page cosmétique autonome. Le jeu principal importe aussi `gang/environment.js` et charge `gang/gang.css`. Une archive sans ce dossier peut démarrer tout en ayant un Vivarium incomplet et des 404 silencieux.
 
-## Pourquoi `music/` n'est inclus qu'en partie
+## Pourquoi le build filtre `music/`
 
-`music/` est une **bibliothèque** d'assets importée en bloc (945 fichiers, ~43 Mo) :
-des `.mp3`, mais aussi des `.wav`, `.ogg` et `.mid` que le moteur ne lit jamais
-(`MusicPlayer` passe par `HTMLAudioElement`, qui ne joue pas de MIDI). Le jeu n'en
-référence que **24 fichiers**, tous en `.mp3`, via `MUSIC_TRACKS`, `JINGLES` et
-`SE_SOUNDS` dans `modules/ui/audio.js`.
+`music/` ne contient que les pistes `.mp3` utilisées (24 fichiers, ~25 Mo). Il avait
+été importé en bloc (945 fichiers, ~43 Mo) puis élagué : le moteur ne lit que ces
+`.mp3` (`MusicPlayer` passe par `HTMLAudioElement`, qui ne joue pas de MIDI), et ils
+sont déclarés dans `MUSIC_TRACKS`, `JINGLES` et `SE_SOUNDS` de `modules/ui/audio.js`.
 
-Copier tout le dossier faisait passer l'archive de ~10 Mo à **44 Mo** pour des
-fichiers que le jeu ne demandera jamais. Le script relit donc les sources déjà
-stagées (`collectReferencedMusic()`), en extrait les chemins `music/….mp3` cités
-entre quotes, et ne copie que ceux-là — l'archive retombe à ~31 Mo.
+Le build conserve néanmoins son filtre, comme garde-fou : il relit les sources déjà
+stagées (`collectReferencedMusic()`), en extrait les chemins `music/….mp3` cités entre
+quotes, et ne copie que ceux-là. Si quelqu'un réimporte une bibliothèque entière, elle
+ne gonflera pas l'archive itch (44 Mo au lieu de ~31 Mo).
 
 Conséquences à connaître :
 
@@ -89,10 +88,10 @@ Conséquences à connaître :
   chemin construit dynamiquement échapperait au scan, et le build échouerait en
   prod avec un 404 silencieux plutôt qu'à la validation.
 - La validation refuse une archive où une piste référencée manque **ou** où un
-  fichier audio non référencé s'est glissé.
-- Le déploiement OVH (`.github/workflows/deploy-ovh.yml`) applique la même logique
-  autrement : il exclut `*.wav`, `*.mid` et `*.ogg` du rsync. Le site sert donc
-  tous les `.mp3` mais aucun des formats non lisibles.
+  fichier audio non référencé s'est glissé. Seules les entrées de **fichiers** sont
+  comparées : `zip -r` (Linux/CI) ajoute une entrée par dossier, PowerShell non.
+- Le déploiement OVH (`.github/workflows/deploy-ovh.yml`) exclut `*.wav`, `*.mid` et
+  `*.ogg` du rsync, par précaution : il n'en reste aucun dans le dépôt.
 
 ## Pourquoi `config.js` n'est pas inclus
 
