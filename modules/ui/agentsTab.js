@@ -9,6 +9,11 @@ import { isOnboardingFreeAgentPending } from '../systems/onboardingFlow.js';
 const _esc = s => String(s ?? '').replace(/[&<>"']/g, ch => (
   ch === '&' ? '&amp;' : ch === '<' ? '&lt;' : ch === '>' ? '&gt;' : ch === '"' ? '&quot;' : '&#39;'));
 
+// Rafraîchit la barre du haut (argent, réputation). Comme partout ailleurs :
+// EVENTS.UI_TOPBAR_UPDATE est écouté dans app.js et appelle updateTopBar().
+// MONEY_CHANGED ne suffit pas — seul gangTab l'écoute, pour son propre rendu.
+const _topBar = () => EventBus.emit(EVENTS.UI_TOPBAR_UPDATE);
+
 const _t = (fr, en) => (globalThis.state?.lang === 'en' ? en : fr);
 
 // ════════════════════════════════════════════════════════════════
@@ -193,7 +198,7 @@ function _promptUnlockBossTeamComposition(slotIdx) {
       state.gang.money -= cost;
       state.gang.bossTeamSlotsPurchased[slotIdx] = true;
       _activateBossTeamComposition(slotIdx);
-      globalThis.renderTopBar?.();
+      _topBar();
       globalThis.SFX?.play?.('unlock');
       renderAgentsTab();
     },
@@ -594,6 +599,7 @@ const bossRep   = state.gang.reputation || 0;
       openNameModal({ title: _t(`Renommer ${agent.name}`, `Rename ${agent.name}`), current: agent.name, cost: 2000, onConfirm: (val) => {
         state.gang.money -= 2000;
         EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -2000, newTotal: state.gang.money });
+        _topBar();
         agent.name = val;
         saveState(); renderAgentsTab();
         notify(_t(`Agent renommé : ${val}`, `Agent renamed: ${val}`), 'gold');
@@ -609,6 +615,7 @@ const bossRep   = state.gang.reputation || 0;
       openSpritePicker(null, (newSprite) => {
         state.gang.money -= 5000;
         EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -5000, newTotal: state.gang.money });
+        _topBar();
         agent.sprite = trainerSprite(newSprite);
         saveState(); renderAgentsTab();
         notify(_t(`Sprite de ${agent.name} mis à jour !`, `${agent.name}'s sprite updated!`), 'gold');
