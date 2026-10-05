@@ -4,6 +4,6 @@ Auto-updated on every commit by .githooks/pre-commit.
 Garantit qu'un marqueur horodaté est présent dans chaque commit
 et que le workflow GitHub Actions se déclenche.
 
-Last update : 2026-10-05 16:44:47 +0200
-Branch      : feat/gangbase-nest-agents
-Previous sha: f8da3dd
+Last update : 2026-10-05 16:46:25 +0200
+Branch      : feat/gangbase-shelf-proto
+Previous sha: 8139040
