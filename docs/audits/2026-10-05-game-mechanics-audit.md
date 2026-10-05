@@ -39,7 +39,7 @@ récente de la même espèce, plafonné à −60 %, retombe de 1 vente par heure
 
 ## 3. Zones, régions, réputation
 
-- **Environ 230 zones** dans 4 fichiers (décompte approximatif des `id:` : Kanto 54, Johto 62, Hoenn 51, Sinnoh 67) + QG + vivarium.
+- **117 zones à apparitions** (Kanto 27, Johto 30, Hoenn 30, Sinnoh 30 ; mesure faite en exécutant les fichiers de données, la première version de ce document en annonçait ~230 à tort) + QG, vivarium et terrain d'onboarding.
 - Chaque zone a un seuil de **réputation**, un `spawnRate`, un pool, des types de dresseurs, un coût
   d'**investissement** (déverrouille élites et événements ; exige une puissance d'agents ≥ `rep × 10`).
 - **Niveaux de zone 1-10** (XP cumulée 0 → 5 500 ; capture 2-15, combat 3, coffre 2). Bonus additifs :
@@ -157,3 +157,27 @@ Décisions à prendre : (1) échelle réelle du chroma de zone, (2) supprimer ou
 (3) trancher `zone.tier` (le renseigner ou retirer la branche), (4) mettre à jour ou archiver la spec alpha.
 Zones d'ombre restantes pour un prochain passage : détail des quêtes légendaires par région, calibrage
 numérique des dresseurs (`trainers-data.js`, `makeTrainerTeam`), raids PvP côté serveur, onboarding V2.
+
+---
+
+## 12. Annexe — chroma : taux mesurés (ajoutée le 5 octobre)
+
+Probabilité de chroma par capture = `(base 0,5 % ou Aura 2,5 %) × Charme (×2) + bonus de zone`. Le bonus de zone
+n'existe qu'aux niveaux 7 à 10 (+5 / +10 / +15 / +20 points) et **n'est pas multiplié par le Charme**.
+
+| Niveau de zone | Base | Charme | Aura | Aura + Charme |
+|---|---|---|---|---|
+| 1 à 6 | 0,5 % | 1,0 % | 2,5 % | 5,0 % |
+| 7 | 5,5 % | 6,0 % | 7,5 % | 10,0 % |
+| 8 | 10,5 % | 11,0 % | 12,5 % | 15,0 % |
+| 9 | 15,5 % | 16,0 % | 17,5 % | 20,0 % |
+| 10 | 20,5 % | 21,0 % | 22,5 % | 25,0 % |
+
+Fréquences d'apparition (mesurées sur les données) : zone médiane 0,06 apparition/s (une toutes les ~17 s,
+soit ~216/h), de 0,03 à 0,08. Environ 65-70 % des apparitions sont des Pokémon. Un agent en capture auto sur
+une seule zone fait donc ≈ 145 captures/h. Niveau 7 de zone = 1 900 XP de zone, soit ≈ 3 h ; niveau 10 =
+5 500 XP, soit ≈ 9 h.
+
+Le bonus de vitesse d'apparition des niveaux de zone (+5 % → +50 %) n'est lui non plus pas appliqué : les
+minuteurs lisent `zone.spawnRate` sans le bonus, malgré le commentaire du code. Les boosts Leurre / Super
+Leurre (×2 / ×3 apparitions) ne sont lus par aucun module d'apparition [à vérifier en jeu].
