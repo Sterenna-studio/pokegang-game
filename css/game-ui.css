@@ -2327,6 +2327,68 @@
       white-space: nowrap;
       font-family: var(--font-pixel);
     }
+    /* ── PROTOTYPE « étagère » — réservé au développement et aux previews QA ──────────────
+       Posé par gangBase.js uniquement si devFeaturesEnabled() (classe .shelf-proto sur la grille).
+       Même langage que les nids d'éclosion : plus de cases ni de cadres, chaque objet repose sur
+       une planche (un tronçon par tuile ; côte à côte ils forment une étagère continue) et son
+       étiquette — quantité, prix, ✓ — est dessous. Balle active : lueur chaude. Boost actif : pulse.
+       Tout est dans le CSS : le balisage des tuiles n'est pas touché. */
+    .base-modules-grid.shelf-proto .base-inv-row { gap: 6px 0; }
+    .base-modules-grid.shelf-proto .base-item-tile {
+      min-width: 40px;
+      padding: 2px 0 0;
+      gap: 0;
+      background: none;
+      border: 0;
+      border-radius: 0;
+      transition: none;
+    }
+    .base-modules-grid.shelf-proto .base-item-tile:hover,
+    .base-modules-grid.shelf-proto .base-item-tile.active,
+    .base-modules-grid.shelf-proto .base-item-tile.boosted,
+    .base-modules-grid.shelf-proto .base-item-tile.locked-key:hover { background: none; border: 0; transform: none; }
+    .base-modules-grid.shelf-proto .base-item-sprite {
+      height: 30px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      filter: drop-shadow(0 2px 0 rgba(0, 0, 0, .5));
+      transition: transform .12s;
+    }
+    .base-modules-grid.shelf-proto .base-item-sprite img { width: 28px; height: 28px; }
+    .base-modules-grid.shelf-proto .base-item-tile:hover .base-item-sprite { transform: translateY(-2px); }
+    /* la planche */
+    .base-modules-grid.shelf-proto .base-item-tile::after {
+      content: '';
+      position: absolute;
+      left: 0; right: 0;
+      top: 30px;
+      height: 5px;
+      background: linear-gradient(#b08a52 0 1px, #7c5a2e 1px 3px, #4d3519 3px 5px);
+      box-shadow: 0 2px 0 rgba(0, 0, 0, .45);
+      transition: box-shadow .3s;
+    }
+    /* l'étiquette sous la planche */
+    .base-modules-grid.shelf-proto .base-item-qty {
+      margin-top: 8px;
+      padding: 1px 3px;
+      border-radius: 2px;
+      background: rgba(0, 0, 0, .55);
+    }
+    .base-modules-grid.shelf-proto .base-item-qty.zero { opacity: .55; }
+    /* balle active : lueur chaude sur l'objet et sur la planche */
+    .base-modules-grid.shelf-proto .base-item-tile.active .base-item-sprite {
+      filter: drop-shadow(0 0 5px rgba(255, 170, 60, .95)) drop-shadow(0 2px 0 rgba(0, 0, 0, .5));
+    }
+    .base-modules-grid.shelf-proto .base-item-tile.active::after { box-shadow: 0 0 10px rgba(255, 170, 60, .7), 0 2px 0 rgba(0, 0, 0, .45); }
+    /* boost actif : l'objet pulse, la planche est dorée */
+    .base-modules-grid.shelf-proto .base-item-tile.boosted .base-item-sprite { animation: shelfPulse 1.2s ease-in-out infinite alternate; }
+    .base-modules-grid.shelf-proto .base-item-tile.boosted::after { box-shadow: 0 0 10px rgba(255, 204, 0, .6), 0 2px 0 rgba(0, 0, 0, .45); }
+    @keyframes shelfPulse {
+      from { filter: drop-shadow(0 0 1px rgba(255, 204, 0, .4)) drop-shadow(0 2px 0 rgba(0, 0, 0, .5)); }
+      to   { filter: drop-shadow(0 0 6px rgba(255, 204, 0, .95)) drop-shadow(0 2px 0 rgba(0, 0, 0, .5)); }
+    }
+    .base-modules-grid.shelf-proto .base-item-tile.locked-key { opacity: .6; }
     /* Incubator slots */
     /* ── Jukebox ─── */
     .base-jukebox {
