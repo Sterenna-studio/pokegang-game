@@ -26,6 +26,13 @@ Génère `dist-itch/` + `dist-itch.zip` (gitignorés) prêts à uploader sur itc
 
 Every local `<script src="...">`/`<link href="...">` in `index.html` carries a `?v=<hash>` query string. That hash is a content hash of the referenced file (`sha1`, first 8 hex chars), regenerated automatically by `tools/cache-bust.js` from the `pre-commit` git hook (`.githooks/pre-commit`, enable once via `git config core.hooksPath .githooks`). This means the version tag only ever changes when the file's content actually changes — no more manually incrementing `?v=N` and no risk of forgetting to bump it, which used to allow browsers to serve stale cached assets after a deploy.
 
+The hash is computed on the file with **CRLF normalised to LF**, so it depends on the content alone.
+The repository stores these files with LF, but a Windows checkout (`core.autocrlf=true`) rewrites them as
+CRLF in the working tree: hashing raw bytes gave a different `?v=` per machine for identical content, and
+never the hash of the bytes the Linux CI actually deploys. The tool covers four pages (`index.html`,
+`gang/index.html`, `gang/live.html`, `gang/card.html`) and the pre-commit hook stages all four.
+`node tools/test-cache-bust.mjs` checks both the LF/CRLF invariance and that the committed hashes are current.
+
 To regenerate manually: `node tools/cache-bust.js`. Safe to run anytime; it's a no-op if nothing changed.
 
 ### Remote previews
@@ -283,7 +290,7 @@ When touching a system that has both an `app.js` implementation and a `modules/`
 
 ### Available focused tests
 
-`tools/` contient **32 fichiers de test** (`test-*.mjs`), tous exécutables
+`tools/` contient **33 fichiers de test** (`test-*.mjs`), tous exécutables
 directement avec `node`. Ils sont volontairement sans dépendance : pas de runner,
 pas de `package.json`. Lancer la totalité :
 
@@ -306,6 +313,7 @@ node tools/test-advisor.mjs
 node tools/test-agent-capture-xp.mjs
 node tools/test-analytics-readiness.mjs
 node tools/test-audio-music.mjs
+node tools/test-cache-bust.mjs
 node tools/test-combat-multi-pokemon.mjs
 node tools/test-combat-replay-dom.mjs
 node tools/test-egg-incubation.mjs
