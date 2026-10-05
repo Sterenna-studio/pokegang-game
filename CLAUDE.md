@@ -269,6 +269,8 @@ Object.assign(globalThis, { myNewFunction });
 
 **Rendering**: there is no virtual DOM. Functions directly set `.innerHTML` or build/replace DOM nodes. Prefer targeted updates over full re-renders where possible (e.g. `_refreshZoneTile()` instead of full `renderZoneSelector()`).
 
+**Experimental visuals / dev-only features**: anything that is a trial rather than something to publish (e.g. the base's V2 view, `gb-view-toggle`) is gated by `devFeaturesEnabled()` from `modules/core/devFeatures.js`. It is true only on `localhost`, `127.0.0.1`, `[::1]`, `*.localhost` and the QA previews (`lab.sterenna.fr`, see `docs/preview-testing.md`), and false on `pokegang.sterenna.fr`, itch.io and any unknown host (an allow-list of dev hosts, so an unrecognised host falls back to the published behaviour). Gate the entry point **and** whatever the save may have persisted — a player who already switched the feature on must be brought back, without erasing their setting. The itch build needs no special case.
+
 **Notifications**: `notify(message, type)` — types: `''` (default), `'success'`, `'error'`, `'gold'`.
 
 **Save schema version**: increment `SAVE_SCHEMA_VERSION` when adding a new required state field, to trigger the migration banner for users.
@@ -290,7 +292,7 @@ When touching a system that has both an `app.js` implementation and a `modules/`
 
 ### Available focused tests
 
-`tools/` contient **33 fichiers de test** (`test-*.mjs`), tous exécutables
+`tools/` contient **34 fichiers de test** (`test-*.mjs`), tous exécutables
 directement avec `node`. Ils sont volontairement sans dépendance : pas de runner,
 pas de `package.json`. Lancer la totalité :
 
@@ -316,6 +318,7 @@ node tools/test-audio-music.mjs
 node tools/test-cache-bust.mjs
 node tools/test-combat-multi-pokemon.mjs
 node tools/test-combat-replay-dom.mjs
+node tools/test-dev-features.mjs
 node tools/test-egg-incubation.mjs
 node tools/test-first-run-splash.mjs
 node tools/test-ga4-nested-dimension-limit.mjs
