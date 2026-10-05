@@ -29,6 +29,7 @@ import { BOSS_TEAM_SLOTS, SHOWCASE_SLOTS } from '../../data/game-config-data.js'
 import { TRAINER_TYPES } from '../../data/trainers-data.js';
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
+import { devFeaturesEnabled } from '../core/devFeatures.js';
 import {
   getEggIncubationAgent,
   getEggIncubationSummary,
@@ -241,10 +242,14 @@ function _renderGangBasePanelImpl({ force = false } = {}) {
     return;
   }
 
-  // Sync view mode from settings (persisted across reloads)
+  // Sync view mode from settings (persisted across reloads).
+  // La V2 n'est qu'un essai d'un autre visuel : hors développement et previews QA, on reste en
+  // V1 même si la save a gardé 'v2' d'avant. Le réglage n'est volontairement pas effacé : il
+  // reprend effet là où la V2 est disponible.
   const state = globalThis.state;
   const savedView = state?.settings?.gangBaseView;
-  if (savedView && savedView !== _gangBaseViewMode) _gangBaseViewMode = savedView;
+  if (!devFeaturesEnabled()) _gangBaseViewMode = 'v1';
+  else if (savedView && savedView !== _gangBaseViewMode) _gangBaseViewMode = savedView;
 
   _applyGangBaseViewMode();
 
@@ -622,7 +627,7 @@ function renderGangBaseWindow() {
       <div class="base-header-stats">
         <span>₽${(state.gang.money || 0).toLocaleString()}</span>
         <span>⭐${(state.gang.reputation || 0).toLocaleString()}</span>
-        <button class="gb-view-toggle" data-gb-view="v2" title="${_t('gang_base_view_v2')}">V2</button>
+        ${devFeaturesEnabled() ? `<button class="gb-view-toggle" data-gb-view="v2" title="${_t('gang_base_view_v2')}">V2</button>` : ''}
         <button class="base-export-btn" title="${_t('gang_base_export')}">📷</button>
       </div>
     </div>
@@ -1303,6 +1308,7 @@ function _bindViewToggle(container) {
   container.querySelectorAll('[data-gb-view]').forEach(btn => {
     btn.addEventListener('click', e => {
       e.stopPropagation();
+      if (!devFeaturesEnabled()) return;
       _gangBaseViewMode = btn.dataset.gbView;
       const st = globalThis.state;
       if (st) { st.settings = st.settings || {}; st.settings.gangBaseView = _gangBaseViewMode; }
