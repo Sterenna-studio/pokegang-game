@@ -2328,11 +2328,6 @@
       font-family: var(--font-pixel);
     }
     /* Incubator slots */
-    .base-inc-slots {
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-    }
     /* ── Jukebox ─── */
     .base-jukebox {
       display: flex;
@@ -2375,68 +2370,100 @@
       border-color: var(--red) !important;
     }
 
-    .base-inc-slot {
-      width: 52px;
-      min-height: 62px;
-      background: rgba(0,0,0,.5);
-      border: 1px dashed rgba(255,255,255,.15);
-      border-radius: 4px;
+    /* ── Couveuse : les œufs posés dans leur nid, côte à côte ────────────────────
+       Plus de cases ni de barres : chaque slot agent est un nid de paille, l'œuf y est posé.
+       La progression se lit à la chaleur du nid (--warmth, 0 → 1, posée par le JS) ; un œuf
+       prêt se met à remuer. Un nid vide est un nid sans œuf, rien d'autre. */
+    .base-nest-row {
       display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 3px;
-      padding: 4px 2px;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      gap: 2px 4px;
+      padding: 6px 2px 0;
+    }
+    .base-nest {
+      --warmth: 0;
       position: relative;
-      cursor: pointer;
-      transition: border-color .2s;
+      width: 42px;
+      height: 62px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      cursor: default;
     }
-    .base-inc-slot.active { border-color: var(--gold-dim); border-style: solid; }
-    .base-inc-slot.ready {
-      border-color: var(--green);
-      border-style: solid;
-      cursor: pointer;
-      animation: incReady .8s ease-in-out infinite alternate;
+    .base-nest-pad {
+      position: absolute;
+      left: 0; right: 0; bottom: 9px;
+      height: 18px;
+      border-radius: 50%;
+      background: radial-gradient(ellipse at 50% 30%, #8a6a3a 0%, #5e4524 55%, #38281a 100%);
+      box-shadow:
+        inset 0 -3px 0 rgba(0, 0, 0, .35),
+        0 0 calc(2px + 10px * var(--warmth)) rgba(255, 160, 60, calc(.10 + .55 * var(--warmth)));
+      transition: box-shadow .6s;
     }
-    .base-inc-slot.empty { cursor: default; }
-    @keyframes incReady { from { box-shadow: none; } to { box-shadow: 0 0 8px rgba(90,230,90,.5); } }
-    .base-inc-egg { width: 34px; height: 34px; image-rendering: pixelated; }
-    .base-inc-placeholder { font-size: 18px; opacity: .25; }
-    .base-inc-bar {
-      width: 90%;
-      height: 3px;
-      background: rgba(255,255,255,.1);
-      border-radius: 2px;
-      overflow: hidden;
+    /* Les deux familles de sprites n'ont pas la même toile : l'œuf Noir/Blanc fait 28×30 px
+       sur 96×96 (29 px de vide sous lui), les œufs GO 68×83 sur 128×128 (6 px de vide). Chaque
+       famille est mise à l'échelle pour que l'œuf VISIBLE fasse la même hauteur (32 px), puis
+       calée pour que son pied s'enfonce de 7 px dans le nid. --foot = vide sous l'œuf, une fois
+       mis à l'échelle ; --origin = hauteur du pied dans la toile, pour que l'œuf pivote sur lui. */
+    .base-nest-egg {
+      --s: 49px; --foot: 2.3px; --origin: 95%;
+      position: absolute;
+      z-index: 1;
+      left: 50%;
+      width: var(--s);
+      height: var(--s);
+      margin-left: calc(var(--s) / -2);
+      bottom: calc(16px - var(--foot));
+      object-fit: contain;
+      image-rendering: pixelated;
+      filter: drop-shadow(0 2px 0 rgba(0, 0, 0, .45));
+      transform-origin: 50% var(--origin);
+      pointer-events: none;
     }
-    .base-inc-fill {
-      height: 100%;
-      background: var(--gold);
-      border-radius: 2px;
-      transition: width .5s;
+    .base-nest-egg.art-nb { --s: 102px; --foot: 30.9px; --origin: 70%; }
+    .base-nest.empty .base-nest-pad { opacity: .3; box-shadow: none; }
+    .base-nest.ready { cursor: pointer; }
+    .base-nest.ready .base-nest-pad { box-shadow: inset 0 -3px 0 rgba(0, 0, 0, .35), 0 0 12px rgba(90, 230, 90, .65); }
+    .base-nest.ready .base-nest-egg { animation: nestWobble 1.2s ease-in-out infinite; }
+    @keyframes nestWobble {
+      0%, 55%, 100% { transform: rotate(0); }
+      65% { transform: rotate(-8deg); }
+      75% { transform: rotate(8deg); }
+      85% { transform: rotate(-4deg); }
     }
-    .base-inc-fill.done { background: var(--green); }
-    .base-inc-time {
+    .base-nest-time {
+      position: absolute;
+      left: 50%;
+      bottom: 0;
+      z-index: 2;
+      transform: translateX(-50%);
       font-size: 6px;
       font-family: var(--font-pixel);
-      color: var(--text-dim);
+      color: #f3dcb0;
+      text-shadow: 0 1px 0 #000;
+      white-space: nowrap;
     }
-    .base-inc-ready {
+    .base-nest-alert {
       position: absolute;
-      top: -5px;
-      right: -5px;
+      top: 0;
+      right: 3px;
+      z-index: 3;
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
       background: var(--green);
       color: #000;
       font-size: 7px;
       font-family: var(--font-pixel);
       font-weight: bold;
-      width: 13px;
-      height: 13px;
-      border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
+      animation: nestAlert .9s ease-in-out infinite alternate;
     }
+    @keyframes nestAlert { from { transform: translateY(0); } to { transform: translateY(-3px); } }
 
     .base-command-header {
       padding: 8px 10px;

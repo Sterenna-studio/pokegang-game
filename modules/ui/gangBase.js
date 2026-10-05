@@ -353,7 +353,7 @@ function _patchGangBaseV1(win, state) {
     if (incCount > 0) {
       const incubatingEggs = (state.eggs || []).filter(e => e.incubating);
       const now = Date.now();
-      const slots = win.querySelectorAll('.base-inc-slot[data-egg-id]');
+      const slots = win.querySelectorAll('.base-nest[data-egg-id]');
       for (const slot of slots) {
         const eggId = slot.dataset.eggId;
         const egg = incubatingEggs.find(e => e.id === eggId);
@@ -364,13 +364,13 @@ function _patchGangBaseV1(win, state) {
           : 0;
         slot.classList.toggle('ready',  isReady);
         slot.classList.toggle('active', !isReady);
-        const fill = slot.querySelector('.base-inc-fill');
-        if (fill) {
-          fill.style.width = (isReady ? 100 : progress) + '%';
-          fill.style.background = isReady ? 'var(--green)' : 'var(--gold)';
-        }
-        const timeEl = slot.querySelector('.base-inc-time');
-        if (!isReady && egg.hatchAt && timeEl) {
+        slot.style.setProperty('--warmth', isReady ? 1 : progress / 100);
+        const timeEl = slot.querySelector('.base-nest-time');
+        if (isReady) {
+          // le minuteur laisse la place à l'alerte quand l'œuf devient prêt en cours d'affichage
+          timeEl?.remove();
+          if (!slot.querySelector('.base-nest-alert')) slot.insertAdjacentHTML('beforeend', '<span class="base-nest-alert">!</span>');
+        } else if (egg.hatchAt && timeEl) {
           const tm = Math.max(0, Math.ceil((egg.hatchAt - now) / 60000));
           timeEl.textContent = `${tm}m`;
         }
@@ -536,21 +536,23 @@ function renderGangBaseWindow() {
           : 0;
         const timeLeftMin = (!isReady && egg.hatchAt) ? Math.max(0, Math.ceil((egg.hatchAt - now) / 60000)) : null;
         const eggSrc = globalThis.eggSprite?.(egg, isReady) || '';
+        // Deux familles de sprites aux toiles très différentes (voir .base-nest-egg en CSS).
+        const eggArt = /_NB\.png/.test(eggSrc) ? 'nb' : 'go';
         const refAgent = getEggIncubationAgent(egg, state);
         const refTitle = refAgent ? ` · ${_esc(refAgent.name)}` : '';
+        // Même règle que la Pension : l'espèce reste secrète tant que l'œuf n'est pas révélé.
+        const eggName  = egg.revealed ? (globalThis.speciesName?.(egg.species_en) || egg.species_en) : '???';
         incSlotsHtml += `
-          <div class="base-inc-slot ${isReady ? 'ready' : 'active'}" data-egg-id="${egg.id}"
-            title="${egg.species_en}${refTitle}${isReady ? _t('gang_base_egg_ready_suffix') : timeLeftMin !== null ? ` — ${timeLeftMin}min` : ''}">
-            <img src="${eggSrc}" class="base-inc-egg" alt="">
-            <div class="base-inc-bar">
-              <div class="base-inc-fill ${isReady ? 'done' : ''}" style="width:${isReady ? 100 : progress}%"></div>
-            </div>
+          <div class="base-nest ${isReady ? 'ready' : 'active'}" data-egg-id="${egg.id}" style="--warmth:${isReady ? 1 : progress / 100}"
+            title="${_esc(eggName)}${refTitle}${isReady ? _t('gang_base_egg_ready_suffix') : timeLeftMin !== null ? ` — ${timeLeftMin}min` : ''}">
+            <span class="base-nest-pad"></span>
+            <img src="${eggSrc}" class="base-nest-egg art-${eggArt}" alt="">
             ${isReady
-              ? `<span class="base-inc-ready">!</span>`
-              : timeLeftMin !== null ? `<span class="base-inc-time">${timeLeftMin}m</span>` : ''}
+              ? `<span class="base-nest-alert">!</span>`
+              : timeLeftMin !== null ? `<span class="base-nest-time">${timeLeftMin}m</span>` : ''}
           </div>`;
       } else {
-        incSlotsHtml += `<div class="base-inc-slot empty"><span class="base-inc-placeholder">AGT</span></div>`;
+        incSlotsHtml += `<div class="base-nest empty" title="${_t('gang_base_agent_hatching_free')}"><span class="base-nest-pad"></span></div>`;
       }
     }
   }
@@ -675,7 +677,7 @@ function renderGangBaseWindow() {
         <div class="base-inv-section base-module-card"${incCount > 0 ? ' data-base-action="pension"' : ''}>
           ${_baseModuleTitle(`${_t('gang_base_agent_hatching_slots')} ${incubationSummary.used}/${incubationSummary.capacity}`, waitingEggs.length > 0 ? `+${waitingEggs.length}` : '')}
           ${incCount > 0
-            ? `<div class="base-inc-slots">${incSlotsHtml}</div>`
+            ? `<div class="base-nest-row">${incSlotsHtml}</div>`
             : `<div class="base-empty-note">${_t('gang_base_no_agent_slots')}</div>`}
         </div>
       </section>
@@ -1364,16 +1366,17 @@ function bindGangBase(container) {
     globalThis.switchTab('tabPC');
   });
 
-  // Ready egg slots in gang base → hatch animation directly
-  container.querySelectorAll('.base-inc-slot.ready[data-egg-id]').forEach(slot => {
-    slot.addEventListener('click', e => {
-      e.stopPropagation();
-      const eggId = slot.dataset.eggId;
-      const egg = state.eggs.find(egg => egg.id === eggId);
-      if (!egg) return;
-      globalThis.openHatchAnimation?.(egg, () => {
-        renderGangBasePanel();
-      });
+  // Œuf prêt dans son nid → animation d'éclosion directement. Délégué sur la rangée : la
+  // classe 'ready' est aussi posée par la mise à jour en direct, après le rendu, donc un
+  // gestionnaire attaché œuf par œuf à ce moment-là raterait ceux qui deviennent prêts ensuite.
+  container.querySelector('.base-nest-row')?.addEventListener('click', e => {
+    const nest = e.target.closest('.base-nest.ready[data-egg-id]');
+    if (!nest) return;
+    e.stopPropagation();
+    const egg = state.eggs.find(x => x.id === nest.dataset.eggId);
+    if (!egg) return;
+    globalThis.openHatchAnimation?.(egg, () => {
+      renderGangBasePanel();
     });
   });
 
