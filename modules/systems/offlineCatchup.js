@@ -16,6 +16,8 @@
 'use strict';
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
+import { markEggsReady } from './eggIncubation.js';
+import { reconcilePensionPairs } from './pensionPairs.js';
 import {
   deferSimulationUi,
   requestSimulationSave,
@@ -54,34 +56,22 @@ function _catchupPension(elapsedMs) {
   const now = Date.now();
   let eggsGenerated = 0;
 
-  const slots = p.slots || [];
-  const hasPair = slots.length >= 2;
-
-  // Avancer la génération d'œufs : combien d'œufs auraient dû être produits ?
-  if (hasPair && p.eggAt) {
-    while (p.eggAt <= now) {
-      if (eggsGenerated > 10) break; // cap sécurité anti-spam
-      if (eggsGenerated === 0) p.eggAt = now; // forcé prêt pour le prochain tick
+  // Chaque couple complet dont l'œuf est dû est forcé prêt pour le prochain tick (un œuf par couple).
+  reconcilePensionPairs(state, now);
+  for (const pair of p.pairs || []) {
+    if (pair.a && pair.b && pair.eggAt && pair.eggAt <= now) {
+      pair.eggAt = now;
       eggsGenerated++;
-      break;
     }
   }
 
-  // Avancer l'incubation : réduire hatchAt des œufs en cours
-  const eggs = state.eggs || [];
-  let eggsReady = 0;
-  for (const egg of eggs) {
+  // Avancer l'incubation : réduire hatchAt des œufs en cours, puis les agents les déposent à la base
+  for (const egg of state.eggs || []) {
     if (!egg.incubating || egg.status === 'ready') continue;
-    if (egg.hatchAt) {
-      egg.hatchAt = Math.max(egg.hatchAt - elapsedMs, Date.now());
-      if (egg.hatchAt <= now) {
-        egg.status = 'ready';
-        eggsReady++;
-      }
-    }
+    if (egg.hatchAt) egg.hatchAt = Math.max(egg.hatchAt - elapsedMs, now);
   }
 
-  return eggsReady;
+  return markEggsReady(state, now);
 }
 
 // ── Catchup XP équipes ────────────────────────────────────────────────────────

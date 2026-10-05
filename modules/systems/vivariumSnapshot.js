@@ -197,7 +197,7 @@ function _buildNurseLines(state) {
   const lines = [...(_isEn(state) ? NURSE_LINES_EN : NURSE_LINES_FR)];
   const pensionCount = state.pension?.slots?.filter(Boolean).length || 0;
   if (pensionCount > 0) {
-    const max = 2 + (state.pension?.extraSlotsPurchased || 0);
+    const max = 2 * (1 + (state.pension?.extraPairsPurchased || 0));
     lines.push(_t(state, `La pension compte ${pensionCount}/${max} Pokémon en ce moment.`, `The Daycare currently has ${pensionCount}/${max} Pokémon.`));
   }
   return lines;

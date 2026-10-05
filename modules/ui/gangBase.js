@@ -218,7 +218,7 @@ function _buildRenderSig(state) {
     incubation.capacity,
     incubation.used,
     (state.eggs || []).length,
-    (state.eggs || []).map(e => `${e.id}:${e.incubating ? 1 : 0}:${e.incubationAgentId || ''}`).join(','),
+    (state.eggs || []).map(e => `${e.id}:${e.incubating ? 1 : 0}:${e.status === 'ready' ? 'r' : ''}:${e.incubationAgentId || ''}`).join(','),
     _boostMult,
   ].join('|');
 }
@@ -534,7 +534,8 @@ function renderGangBaseWindow() {
   const incCount       = Math.max(incubationSummary.capacity, incubationSummary.used);
   const eggs           = state.eggs || [];
   const incubatingEggs = eggs.filter(e => e.incubating);
-  const waitingEggs    = eggs.filter(e => !e.incubating);
+  const waitingEggs    = eggs.filter(e => !e.incubating && e.status !== 'ready');
+  const readyEggList   = eggs.filter(e => e.status === 'ready');
   const now            = Date.now();
 
   // Un nid par agent, dans l'ordre du roster : chaque agent veille sur son œuf, ou attend, libre,
@@ -585,6 +586,17 @@ function renderGangBaseWindow() {
     return `<div class="base-nest-pile" title="${_esc(title)}">${eggsHtml}${list.length > 1 ? `<span class="base-pile-count">×${list.length}</span>` : ''}</div>`;
   };
 
+  // Les œufs prêts : déposés à la base par leurs agents, le joueur les ouvre quand il veut.
+  const readyPileHtml = list => {
+    const eggsHtml = list.slice(0, 3).map((egg, i) => {
+      const src = globalThis.eggSprite?.(egg, true) || '';
+      const art = /_NB\.png/.test(src) ? 'nb' : 'go';
+      return `<img src="${src}" class="base-pile-egg art-${art}" style="--i:${i}" alt="">`;
+    }).join('');
+    const title = _t('gang_base_eggs_ready_title', { n: list.length });
+    return `<div class="base-nest-pile ready" title="${_esc(title)}" style="cursor:pointer">${eggsHtml}<span class="base-nest-alert">!</span>${list.length > 1 ? `<span class="base-pile-count">×${list.length}</span>` : ''}</div>`;
+  };
+
   let incSlotsHtml = '';
   if (incCount > 0) {
     for (const agent of getIncubationAgents(state)) {
@@ -593,6 +605,7 @@ function renderGangBaseWindow() {
     }
     if (waitingEggs.length > 0) incSlotsHtml += pileHtml(waitingEggs);
   }
+  if (readyEggList.length > 0) incSlotsHtml += readyPileHtml(readyEggList);
 
   const focusZone = _baseFocusZone(state);
   const focusZoneId = focusZone?.id || '';
@@ -841,7 +854,7 @@ function renderGangBaseWindowV2() {
   const incCount       = Math.max(incubationSummary.capacity, incubationSummary.used);
   const eggs           = state.eggs || [];
   const incubatingEggs = eggs.filter(e => e.incubating);
-  const waitingEggs    = eggs.filter(e => !e.incubating);
+  const waitingEggs    = eggs.filter(e => !e.incubating && e.status !== 'ready');
   const now            = Date.now();
   let   incSlotsHtml   = '';
   if (incCount > 0) {
@@ -868,7 +881,7 @@ function renderGangBaseWindowV2() {
 
   // ── Feed ──
   const pendingIncome = focusState?.pendingIncome || 0;
-  const readyEggs     = incubatingEggs.filter(e => e.status === 'ready').length;
+  const readyEggs     = eggs.filter(e => e.status === 'ready').length;
   // Pas de repli sur le nom de la zone : il sert déjà de titre à la ligne de
   // feed juste en dessous, et la plupart des routes n'ont pas de description —
   // on affichait donc « Route 1 » deux fois. À défaut de description, le

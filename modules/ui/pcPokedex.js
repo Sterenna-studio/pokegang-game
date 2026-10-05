@@ -920,17 +920,14 @@ function renderPCTab() {
   renderPokemonDetail();
 }
 
-// Auto-incubation — Infirmière Joëlle corrompue
+// Auto-incubation — chaque agent sans œuf va en chercher un à la pension.
 function tryAutoIncubate(context = {}) {
   context = resolveSimulationContext(context);
   const started = tryAutoIncubateWithAgents({
     state,
-    baseMsForEgg: egg => egg.hatchMs || 2700000,
+    baseMsForEgg: egg => egg.hatchMs || globalThis.EGG_HATCH_MS?.[egg.rarity] || 2700000,
   });
-  if (started > 0) {
-    requestSimulationSave(saveState, context);
-    if (!context.silent) notify(_t('pc_nurse_incubated_egg'), 'success');
-  }
+  if (started > 0) requestSimulationSave(saveState, context);
 }
 
 function hatchEgg(eggId) {
@@ -1129,15 +1126,14 @@ function renderEggsView(container) {
   container.querySelectorAll('.egg-hatch-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const egg = state.eggs.find(e => e.id === btn.dataset.eggId);
-      if (egg) hatchEgg(egg.id);
-      renderPCTab();
+      if (egg) globalThis.openHatchAnimation?.(egg, () => renderPCTab());
     });
   });
   container.querySelectorAll('.egg-incubate-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const egg = state.eggs.find(e => e.id === btn.dataset.eggId);
       if (!egg) return;
-      if (!startEggIncubation(egg, { state, baseMs: egg.hatchMs || 2700000 })) {
+      if (!startEggIncubation(egg, { state, baseMs: egg.hatchMs || globalThis.EGG_HATCH_MS?.[egg.rarity] || 2700000 })) {
         notify(_t('pc_no_agent_slot_free'), 'error');
         renderPCTab();
         return;
@@ -2070,7 +2066,7 @@ function renderPokemonDetail() {
     })()}
     ${(() => {
       const pensionSlots = state.pension?.slots || [];
-      const maxPensionSlots = 2 + (state.pension?.extraSlotsPurchased || 0);
+      const maxPensionSlots = 2 * (1 + (state.pension?.extraPairsPurchased || 0));
       const inPension = pensionSlots.includes(p.id);
       const inTraining = state.trainingRoom?.pokemon?.includes(p.id);
       const inTeam = state.gang.bossTeam.includes(p.id) || state.agents.some(a => a.team.includes(p.id));
@@ -2207,7 +2203,7 @@ function renderPokemonDetail() {
 
   document.getElementById('btnSendPension')?.addEventListener('click', () => {
     removePokemonFromAllAssignments(p.id);
-    const maxSlots = 2 + (state.pension?.extraSlotsPurchased || 0);
+    const maxSlots = 2 * (1 + (state.pension?.extraPairsPurchased || 0));
     if ((state.pension.slots || []).length >= maxSlots) { notify('Pension pleine'); return; }
     if (!state.pension.slots.includes(p.id)) state.pension.slots.push(p.id);
     saveState();

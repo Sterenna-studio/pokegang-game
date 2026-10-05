@@ -103,7 +103,7 @@ function _agentEggSlotHtml(agent) {
   const egg = (state.eggs || []).find(e => e?.incubating && e.incubationAgentId === agent.id);
   const hatched = globalThis.getAgentHatchStats?.(agent)?.hatched ?? 0;
   const title = egg
-    ? `${_t('Œuf confié par Joëlle', 'Egg trusted by Joy')} · ${egg.status === 'ready' ? _t('prêt', 'ready') : _formatShortDuration((egg.hatchAt || 0) - Date.now())}`
+    ? `${_t('Œuf récupéré à la pension', 'Egg picked up at the Daycare')} · ${egg.status === 'ready' ? _t('prêt', 'ready') : _formatShortDuration((egg.hatchAt || 0) - Date.now())}`
     : `${_t('Slot œuf agent', 'Agent egg slot')} · ${hatched} ${_t('éclos', 'hatched')}`;
   return `<div class="agent-egg-slot${egg ? ' filled' : ''}${egg?.status === 'ready' ? ' ready' : ''}" title="${_esc(title)}" aria-label="${_esc(title)}">
     <span class="agent-egg-icon" aria-hidden="true">🥚</span>
