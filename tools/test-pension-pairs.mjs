@@ -74,7 +74,9 @@ function stateOf({ slots = [], extraPairs = 0, pokemons = null } = {}) {
   state.agents = [agent];
   state.eggs = [{ id: 'e1', hatchMs: 60000 }, { id: 'e2', hatchMs: 60000 }];
 
-  // Aucun achat de Joëlle n'est requis : un agent sans œuf va en chercher un.
+  // Sans Joëlle la pension est fermée : aucun agent ne va chercher d'œuf.
+  assert.equal(tryAutoIncubateWithAgents({ state, baseMsForEgg: e => e.hatchMs, now: 0 }), 0);
+  state.purchases.autoIncubator = true;
   assert.equal(tryAutoIncubateWithAgents({ state, baseMsForEgg: e => e.hatchMs, now: 0 }), 1);
   assert.equal(getEggIncubationSummary(state).free, 0);
 
@@ -130,6 +132,17 @@ function migrate(extraSlotsPurchased, money = 0) {
     { DEFAULT_STATE, SAVE_SCHEMA_VERSION, SPECIES_BY_EN: {}, uid: () => 'uid' });
   assert.equal(again.gang.money, 300000);
   assert.equal(again.pension.extraPairsPurchased, 1);
+}
+
+// ── Joëlle passe de 300 000₽ à 100 000₽ : 200 000₽ rendus une seule fois ─────
+{
+  const opts = { DEFAULT_STATE, SAVE_SCHEMA_VERSION, SPECIES_BY_EN: {}, uid: () => 'uid' };
+  const old = migrateSave({ _schemaVersion: 19, gang: { money: 10 }, purchases: { autoIncubator: true } }, opts);
+  assert.equal(old.gang.money, 200010);
+  const never = migrateSave({ _schemaVersion: 19, gang: { money: 10 }, purchases: {} }, opts);
+  assert.equal(never.gang.money, 10, 'no refund without the purchase');
+  const again = migrateSave({ ...old, _schemaVersion: SAVE_SCHEMA_VERSION }, opts);
+  assert.equal(again.gang.money, 200010, 'already at the new schema: no second refund');
 }
 
 console.log('test-pension-pairs: OK');

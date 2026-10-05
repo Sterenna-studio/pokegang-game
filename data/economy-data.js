@@ -129,4 +129,7 @@ function getMysteryEggCost(state) {
   return Math.round(MYSTERY_EGG_BASE_COST + MYSTERY_EGG_COST_LOG_SCALE * Math.log10(n + 1));
 }
 
-export { BALLS, SHOP_ITEMS, MYSTERY_EGG_BASE_COST, MYSTERY_EGG_POOL, MYSTERY_EGG_HATCH_MS, MYSTERY_EGG_COST_LOG_SCALE, POTENTIAL_MULT, BASE_PRICE, getMysteryEggCost };
+// Infirmière Joëlle : ouvre la pension (élevage + récupération des œufs par les agents).
+const NURSE_JOY_PRICE = 100000;
+
+export { NURSE_JOY_PRICE, BALLS, SHOP_ITEMS, MYSTERY_EGG_BASE_COST, MYSTERY_EGG_POOL, MYSTERY_EGG_HATCH_MS, MYSTERY_EGG_COST_LOG_SCALE, POTENTIAL_MULT, BASE_PRICE, getMysteryEggCost };
