@@ -181,3 +181,17 @@ une seule zone fait donc ≈ 145 captures/h. Niveau 7 de zone = 1 900 XP de zone
 Le bonus de vitesse d'apparition des niveaux de zone (+5 % → +50 %) n'est lui non plus pas appliqué : les
 minuteurs lisent `zone.spawnRate` sans le bonus, malgré le commentaire du code. Les boosts Leurre / Super
 Leurre (×2 / ×3 apparitions) ne sont lus par aucun module d'apparition [à vérifier en jeu].
+
+### Correctif appliqué le 5 octobre (taux de base inchangé)
+
+- Bonus de zone remplacé par l'échelle de la région (`levelBonusScale.shinyBonus`), plafonné à 2,5 points
+  (`ZONE_SHINY_BONUS_CAP`) : Kanto 0,1 → 2,0 %, Johto 0,2 → 2,5 %, Hoenn et Sinnoh plafonnés à 2,5 %.
+- Le Charme multiplie maintenant le total : `(base ou Aura + bonus de zone) × Charme`.
+- Taux obtenus au niveau 10 : Kanto 2,5 % · Johto/Hoenn/Sinnoh 3,0 % (6,0 % avec Charme). Niveaux 1 à 6 : 0,5 %.
+  La base (0,5 %), l'Aura (2,5 %) et le Charme (×2) ne changent pas.
+- Le bonus de vitesse d'apparition des niveaux de zone (+5 % → +50 %) est appliqué, et le Leurre / Super
+  Leurre (×2 / ×3) aussi : apparitions supplémentaires tirées à chaque tick du minuteur
+  (`_extraSpawnTicks`, `zoneSystem.js`). Rattrapage hors-ligne : seul le bonus de niveau compte.
+- Reste inutilisé : `levelBonusScale.moneyMult` (argent ×1 → ×3-4) ; l'argent réel suit toujours
+  `zones-v2-config.js` (+50 % max).
+- Garde-fou : `tools/test-shiny-rates.mjs`.

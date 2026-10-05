@@ -18,12 +18,14 @@ import {
   ZONE_MAX_LEVEL,
   ZONE_XP_SOURCES,
   ZONE_LEVEL_BONUSES,
+  ZONE_SHINY_BONUS_CAP,
   ZONE_EVENT_INTERVAL_MS,
   ZONE_EVENT_DURATION_MS,
   ZONE_EVENT_POOLS,
   ZONE_EVENT_DEFINITIONS,
 } from '../../data/zones-v2-config.js';
 import { EventBus, EVENTS } from '../core/eventBus.js';
+import { zoneShinyBonus } from './shinyRates.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
 const _save   = ()               => globalThis.saveState?.();
@@ -104,9 +106,22 @@ function getZoneXPProgress(zoneId) {
   };
 }
 
+/** Région d'une zone (Kanto si non précisée) — cherche dans toutes les tables de zones chargées. */
+function _zoneRegionId(zoneId) {
+  const z = _zonedef(zoneId)
+    ?? (typeof ZONE_HOENN_BY_ID !== 'undefined' ? ZONE_HOENN_BY_ID[zoneId] : null)
+    ?? (typeof ZONE_SINNOH_BY_ID !== 'undefined' ? ZONE_SINNOH_BY_ID[zoneId] : null);
+  return z?.region || 'kanto';
+}
+
 /** Bonus actifs pour le niveau de la zone. */
 function getZoneLevelBonuses(zoneId) {
-  return ZONE_LEVEL_BONUSES[getZoneLevel(zoneId)] || {};
+  const level = getZoneLevel(zoneId);
+  const base  = ZONE_LEVEL_BONUSES[level] || {};
+  // Bonus chroma : échelle de la région de la zone (Kanto si non précisée), plafonnée.
+  const region = typeof REGION_BY_ID !== 'undefined' ? REGION_BY_ID[_zoneRegionId(zoneId)] : null;
+  const shinyBonus = zoneShinyBonus(region, level, ZONE_SHINY_BONUS_CAP);
+  return shinyBonus > 0 ? { ...base, shinyBonus } : base;
 }
 
 /**
