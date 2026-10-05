@@ -10,6 +10,7 @@ import {
   setEggIncubationPriority,
   startEggIncubation,
 } from './eggIncubation.js';
+import { NURSE_JOY_PRICE } from '../../data/economy-data.js';
 import { EGG_GEN_MS, EGG_STOCK_CAP, PAIR_PRICES, MAX_PAIRS, getMaxPensionPairs, getNextPairPrice, reconcilePensionPairs, removeFromPension } from './pensionPairs.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
@@ -100,7 +101,8 @@ function pensionTick() {
   let produced = 0;
   let dirty = false;
 
-  for (const pair of p.pairs) {
+  const nurseHired = !!state.purchases?.autoIncubator;
+  for (const pair of nurseHired ? p.pairs : []) {
     if (!pair.a || !pair.b || !pair.eggAt || now < pair.eggAt) continue;
     // Stock plein : la production attend (l'œuf est dû, il sort dès qu'une place se libère).
     if (state.eggs.length >= EGG_STOCK_CAP) break;
@@ -442,6 +444,7 @@ function renderPensionView(container) {
     const left = complete && pair.eggAt ? Math.max(0, pair.eggAt - now) : null;
     const timer = !complete
       ? _t('Il faut 2 Pokémon pour former un couple.', 'Two Pokémon are needed to form a pair.')
+      : !nurseOwned ? _t('Pension fermée — Joëlle requise.', 'Daycare closed — Nurse Joy required.')
       : stockFull ? _t('Stock d’œufs plein — production en pause.', 'Egg stock full — production paused.')
       : `${_t('Prochain œuf dans :', 'Next egg in:')} <b style="color:var(--gold)">${_fmtMs(left)}</b>`;
     return `<div style="border:1px solid ${complete ? 'var(--gold-dim)' : 'var(--border)'};border-radius:var(--radius-sm);padding:8px;background:var(--bg-card)">
@@ -595,13 +598,13 @@ function renderPensionView(container) {
     <img src="${globalThis.trainerSprite?.('nurse') || ''}" style="width:36px;height:36px;image-rendering:pixelated;flex-shrink:0;${nurseOwned && !nurseEnabled ? 'opacity:.4;filter:grayscale(1)' : ''}" onerror="this.style.display='none'">
     <div style="flex:1">
       <div style="font-family:var(--font-pixel);font-size:8px;color:${nurseOwned ? (nurseEnabled ? 'var(--green)' : 'var(--text-dim)') : 'var(--text)'};margin-bottom:3px">${_t('Infirmière Joëlle corrompue', 'Corrupted Nurse Joy')}</div>
-      <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">${_t("Option « éclosion auto » : ouvre elle-même les œufs déposés à la base. Désactivée, c'est toi qui les ouvres quand tu veux.", 'Hatch option: opens the eggs dropped at the base herself. When off, you open them whenever you like.')}</div>
+      <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">${_t("Ouvre la pension : sans elle, aucun couple ne produit d'œuf et les agents n'en récupèrent pas. Option « éclosion auto » : elle ouvre elle-même les œufs déposés à la base (sinon, tu les ouvres quand tu veux).", 'Opens the Daycare: without her no pair lays eggs and agents fetch none. "Auto-hatch" option: she opens the eggs dropped at the base herself (otherwise you open them whenever you like).')}</div>
       ${nurseOwned
         ? `<div style="display:flex;align-items:center;gap:8px">
              <span style="font-family:var(--font-pixel);font-size:7px;color:${nurseEnabled ? 'var(--green)' : 'var(--text-dim)'}">${nurseEnabled ? _t('✓ ÉCLOSION AUTO', '✓ AUTO-HATCH') : _t('✗ ÉCLOSION MANUELLE', '✗ MANUAL HATCH')}</span>
              <button id="btnToggleNurse" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid ${nurseEnabled ? 'var(--red)' : 'var(--green)'};border-radius:var(--radius-sm);color:${nurseEnabled ? 'var(--red)' : 'var(--green)'};cursor:pointer">${nurseEnabled ? _t('Désactiver', 'Disable') : _t('Activer', 'Enable')}</button>
            </div>`
-        : `<button id="btnBuyNurse" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">${_t('Embaucher', 'Hire')} — 300 000₽</button>`}
+        : `<button id="btnBuyNurse" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">${_t('Embaucher', 'Hire')} — ${NURSE_JOY_PRICE.toLocaleString()}₽</button>`}
     </div>
   </div>`;
 
@@ -699,6 +702,7 @@ function renderPensionView(container) {
             ${buySlotBtn}
             ${slots.length > 0 ? `<button id="btnPensionClearAll" style="margin-left:auto;font-family:var(--font-pixel);font-size:8px;padding:4px 8px;background:var(--bg);border:1px solid var(--red);border-radius:var(--radius-sm);color:var(--red);cursor:pointer">${_t('Tout retirer', 'Remove all')}</button>` : ''}
           </div>
+          ${nurseOwned ? '' : `<div style="font-size:9px;color:var(--gold);padding:8px;margin-bottom:8px;border:1px dashed var(--gold-dim);border-radius:var(--radius-sm)">🔒 ${_t(`La pension est fermée : embauche l'Infirmière Joëlle (${NURSE_JOY_PRICE.toLocaleString()}₽, section Services plus bas) pour lancer l'élevage.`, `The Daycare is closed: hire Nurse Joy (${NURSE_JOY_PRICE.toLocaleString()}₽, Services section below) to start breeding.`)}</div>`}
           <div style="font-size:9px;color:var(--text-dim);margin-bottom:8px">${_t(`Chaque couple produit un œuf toutes les ${EGG_GEN_MS / 60000} min. Les agents sans œuf vont en chercher un ici, le couvent gratuitement et le déposent à la base une fois prêt.`, `Each pair produces an egg every ${EGG_GEN_MS / 60000} min. Agents without an egg pick one up here, incubate it for free and drop it at the base once ready.`)} (${state.eggs.length}/${EGG_STOCK_CAP})</div>
           <div style="display:flex;flex-direction:column;gap:8px">${slotsHtml.join('')}</div>
         </div>
@@ -864,10 +868,10 @@ function renderPensionView(container) {
   });
 
   container.querySelector('#btnBuyNurse')?.addEventListener('click', () => {
-    if (state.gang.money < 300000) { notify(_t('Fonds insuffisants.', 'Insufficient funds.'), 'error'); return; }
-    globalThis.showConfirm?.(_t("Embaucher l'Infirmière Joëlle corrompue pour 300 000₽ ? (permanent)", 'Hire Corrupted Nurse Joy for 300,000₽? (permanent)'), () => {
-      state.gang.money -= 300000;
-      EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -300000, newTotal: state.gang.money });
+    if (state.gang.money < NURSE_JOY_PRICE) { notify(_t('Fonds insuffisants.', 'Insufficient funds.'), 'error'); return; }
+    globalThis.showConfirm?.(_t(`Embaucher l'Infirmière Joëlle corrompue pour ${NURSE_JOY_PRICE.toLocaleString()}₽ ? (permanent)`, `Hire Corrupted Nurse Joy for ${NURSE_JOY_PRICE.toLocaleString()}₽? (permanent)`), () => {
+      state.gang.money -= NURSE_JOY_PRICE;
+      EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -NURSE_JOY_PRICE, newTotal: state.gang.money });
       state.purchases.autoIncubator = true;
       state.purchases.autoHatchEggs = false;
       saveState();

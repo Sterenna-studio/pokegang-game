@@ -234,6 +234,8 @@ function tryAutoIncubateWithAgents({
   baseMsForEgg = null,
   now = Date.now(),
 } = {}) {
+  // La pension n'ouvre qu'avec l'Infirmière Joëlle : sans elle, les agents ne vont pas chercher d'œufs.
+  if (!state?.purchases?.autoIncubator) return 0;
   reconcileEggIncubationAssignments(state);
   let started = 0;
   for (const egg of state.eggs || []) {

@@ -7,6 +7,9 @@ import { reconcileHoennStoryUnlocks } from '../modules/systems/hoennUnlocks.js';
 // Ancien incubateur du Marché (retiré) : prix de base et plafond, pour rembourser.
 const INCUBATOR_BASE_COST = 15000;
 const INCUBATOR_MAX_OWNED = 10;
+// Joëlle coûtait 300 000₽ avant de passer à 100 000₽ (schéma 20) : la différence est remboursée.
+const NURSE_JOY_OLD_PRICE = 300000;
+const NURSE_JOY_NEW_PRICE = 100000;
 // Ancienne grille de prix des slots de pension (index = nombre de slots déjà possédés), pour rembourser.
 const LEGACY_PENSION_SLOT_PRICES = [0, 0, 50000, 150000, 300000, 500000];
 
@@ -343,6 +346,9 @@ export function migrateSave(saved, deps) {
     merged.pension.slots = [a, b].filter(id => typeof id === 'string' && id.length > 0);
     delete merged.pension.slotA;
     delete merged.pension.slotB;
+  }
+  if (saved.purchases?.autoIncubator && (Number(saved._schemaVersion) || 0) < 20) {
+    merged.gang.money = (merged.gang.money || 0) + (NURSE_JOY_OLD_PRICE - NURSE_JOY_NEW_PRICE);
   }
   // ── Pension : slots achetés un par un → couples ───────────────────────────────
   // 2 sièges de base = 1 couple offert. Les slots 3-4 (50 k + 150 k) font le couple 2
@@ -727,6 +733,7 @@ export function getMigrationSummary(saved, deps) {
     || saved.purchases.regi_seal === undefined
   )) fields.push(_f('Accès narratifs Hoenn', 'Hoenn story access'));
   if (saved.inventory?.pokeball !== undefined) fields.push(_f('Poké Balls illimitées (stock remboursé en ₽)', 'Unlimited Poké Balls (stock refunded in ₽)'));
+  if (saved.purchases?.autoIncubator && (Number(saved._schemaVersion) || 0) < 20) fields.push(_f('Infirmière Joëlle moins chère (200 000₽ remboursés)', 'Nurse Joy price cut (200,000₽ refunded)'));
   if (saved.pension && saved.pension.extraPairsPurchased === undefined) fields.push(_f('Pension par couples (slots impairs remboursés en ₽)', 'Daycare bought in pairs (odd slot refunded in ₽)'));
   if (saved.inventory?.incubator > 0) fields.push(_f('Incubateurs remplacés par les slots agents (remboursés en ₽)', 'Incubators replaced by agent slots (refunded in ₽)'));
 

@@ -1,6 +1,7 @@
 ﻿'use strict';
 
 import { BOSS_TEAM_SLOTS } from '../../data/game-config-data.js';
+import { NURSE_JOY_PRICE } from '../../data/economy-data.js';
 import { EventBus, EVENTS } from '../core/eventBus.js';
 import { esc as _esc } from '../core/escape.js';
 import { deferSimulationUi } from '../core/simulationContext.js';
@@ -83,18 +84,18 @@ function _buildServicesHtml(state) {
 
   // Nurse
   const ownN = !!state.purchases.autoIncubator;
-  const enN  = state.purchases.autoIncubatorEnabled !== false;
+  const enN  = state.purchases.autoHatchEggs === true;
   parts.push(`<div style="background:var(--bg);border:1px solid ${ownN ? (enN ? 'var(--green)' : 'var(--border)') : 'var(--border)'};border-radius:var(--radius-sm);padding:10px;display:flex;gap:10px;align-items:flex-start">
     <img src="${globalThis.trainerSprite('nurse')}" style="width:36px;height:36px;image-rendering:pixelated;flex-shrink:0;${ownN && !enN ? 'opacity:.4;filter:grayscale(1)' : ''}" onerror="this.style.display='none'">
     <div style="flex:1">
       <div style="font-family:var(--font-pixel);font-size:8px;color:${ownN ? (enN ? 'var(--green)' : 'var(--text-dim)') : 'var(--text)'};margin-bottom:3px">${_t('Infirmière Joëlle corrompue', 'Corrupted Nurse Joy')}</div>
-      <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">${_t('Confie automatiquement les œufs aux agents quand un slot d’éclosion est libre.', 'Automatically assigns eggs to agents when a hatching slot is free.')}</div>
+      <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">${_t('Ouvre la pension (élevage et récupération des œufs par les agents). Option « éclosion auto » pour ouvrir les œufs à ta place.', 'Opens the Daycare (breeding and egg pickup by agents). "Auto-hatch" option opens eggs for you.')}</div>
       ${ownN
         ? `<div style="display:flex;align-items:center;gap:8px">
-             <span style="font-family:var(--font-pixel);font-size:7px;color:${enN ? 'var(--green)' : 'var(--text-dim)'}">${enN ? _t('✓ EN POSTE', '✓ ON DUTY') : _t('✗ CONGÉ', '✗ OFF DUTY')}</span>
-             <button id="btnToggleNurse" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid ${enN ? 'var(--red)' : 'var(--green)'};border-radius:var(--radius-sm);color:${enN ? 'var(--red)' : 'var(--green)'};cursor:pointer">${enN ? _t('Mettre en congé', 'Send on leave') : _t('Rappeler', 'Recall')}</button>
+             <span style="font-family:var(--font-pixel);font-size:7px;color:${enN ? 'var(--green)' : 'var(--text-dim)'}">${enN ? _t('✓ ÉCLOSION AUTO', '✓ AUTO-HATCH') : _t('✗ ÉCLOSION MANUELLE', '✗ MANUAL HATCH')}</span>
+             <button id="btnToggleNurse" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid ${enN ? 'var(--red)' : 'var(--green)'};border-radius:var(--radius-sm);color:${enN ? 'var(--red)' : 'var(--green)'};cursor:pointer">${enN ? _t('Désactiver', 'Disable') : _t('Activer', 'Enable')}</button>
            </div>`
-        : `<button id="btnBuyNurse" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">${_t('Embaucher — 300 000₽', 'Hire — 300,000₽')}</button>`}
+        : `<button id="btnBuyNurse" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">${_t(`Embaucher — ${NURSE_JOY_PRICE.toLocaleString()}₽`, `Hire — ${NURSE_JOY_PRICE.toLocaleString()}₽`)}</button>`}
     </div>
   </div>`);
 
@@ -398,18 +399,18 @@ function _doRenderGangTab() {
 
   tab.querySelector('#btnBuyNurse')?.addEventListener('click', () => {
     const st = globalThis.state;
-    if (st.gang.money < 300_000) { _notify(_t('Fonds insuffisants.', 'Insufficient funds.'), 'error'); return; }
-    globalThis.showConfirm(_t("Embaucher l'<b>Infirmière Joëlle</b> pour <b>300 000₽</b> ?", 'Hire <b>Nurse Joy</b> for <b>300,000₽</b>?'), () => {
-      st.gang.money -= 300_000; st.purchases.autoIncubator = true; st.purchases.autoIncubatorEnabled = true;
+    if (st.gang.money < NURSE_JOY_PRICE) { _notify(_t('Fonds insuffisants.', 'Insufficient funds.'), 'error'); return; }
+    globalThis.showConfirm(_t(`Embaucher l'<b>Infirmière Joëlle</b> pour <b>${NURSE_JOY_PRICE.toLocaleString()}₽</b> ?`, `Hire <b>Nurse Joy</b> for <b>${NURSE_JOY_PRICE.toLocaleString()}₽</b>?`), () => {
+      st.gang.money -= NURSE_JOY_PRICE; st.purchases.autoIncubator = true; st.purchases.autoHatchEggs = false;
       _save(); _topBar(); globalThis.SFX.play('unlock');
       _notify(_t('💉 Joëlle est en poste !', '💉 Nurse Joy is on duty!'), 'gold'); renderGangTab();
     }, null, { confirmLabel: _t('Embaucher', 'Hire'), cancelLabel: _t('Annuler', 'Cancel') });
   });
   tab.querySelector('#btnToggleNurse')?.addEventListener('click', () => {
     const st = globalThis.state;
-    st.purchases.autoIncubatorEnabled = st.purchases.autoIncubatorEnabled === false;
+    st.purchases.autoHatchEggs = st.purchases.autoHatchEggs !== true;
     _save();
-    _notify(st.purchases.autoIncubatorEnabled !== false ? _t('💉 Joëlle est de retour !', '💉 Nurse Joy is back!') : _t('💤 Joëlle en congé.', '💤 Nurse Joy on leave.'), '');
+    _notify(st.purchases.autoHatchEggs ? _t('💉 Joëlle ouvrira les œufs à ta place.', '💉 Nurse Joy will open eggs for you.') : _t('🥚 Tu ouvres les œufs toi-même.', '🥚 You open the eggs yourself.'), '');
     renderGangTab();
   });
 
