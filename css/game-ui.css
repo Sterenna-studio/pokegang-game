@@ -2374,16 +2374,67 @@
        Plus de cases ni de barres : chaque slot agent est un nid de paille, l'œuf y est posé.
        La progression se lit à la chaleur du nid (--warmth, 0 → 1, posée par le JS) ; un œuf
        prêt se met à remuer. Un nid vide est un nid sans œuf, rien d'autre. */
-    .base-nest-row {
+    .base-nest-carousel {
       display: flex;
-      flex-wrap: wrap;
+      align-items: center;
+      gap: 3px;
+    }
+    /* Une seule ligne, qui défile : scrollbar masquée, les flèches font le travail (de deux en deux). */
+    .base-nest-track {
+      position: relative;
+      flex: 1 1 auto;
+      min-width: 0;
+      display: flex;
+      flex-wrap: nowrap;
       align-items: flex-end;
-      gap: 2px 4px;
+      gap: 4px;
       padding: 6px 2px 0;
+      overflow-x: auto;
+      overflow-y: hidden;
+      scrollbar-width: none;
+    }
+    .base-nest-track::-webkit-scrollbar { display: none; }
+    .base-nest-arrow {
+      position: relative;
+      flex: 0 0 auto;
+      align-self: center;
+      width: 16px;
+      height: 32px;
+      padding: 0;
+      border-radius: 3px;
+      cursor: pointer;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+    }
+    .base-nest-arrow[hidden] { display: none; }
+    .base-nest-arrow:hover:not(:disabled) { color: var(--gold); border-color: var(--gold-dim); }
+    .base-nest-arrow:disabled { opacity: .3; cursor: default; }
+    .base-nest-arrow::before {            /* le triangle, en CSS : la police pixel n'a pas ◀ ▶ */
+      content: '';
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      border-top: 4px solid transparent;
+      border-bottom: 4px solid transparent;
+    }
+    .base-nest-arrow.prev::before { margin-left: -1px; border-right: 5px solid currentColor; }
+    .base-nest-arrow.next::before { margin-left:  1px; border-left:  5px solid currentColor; }
+    /* un œuf prêt est hors champ de ce côté-là */
+    .base-nest-arrow.has-ready { border-color: var(--green); color: var(--green); }
+    .base-nest-arrow.has-ready::after {
+      content: '';
+      position: absolute;
+      top: -3px; right: -3px;
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: nestAlert .9s ease-in-out infinite alternate;
     }
     .base-nest {
       --warmth: 0;
       position: relative;
+      flex: 0 0 42px;
       width: 42px;
       height: 62px;
       display: flex;
