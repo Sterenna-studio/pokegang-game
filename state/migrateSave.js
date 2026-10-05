@@ -7,6 +7,8 @@ import { reconcileHoennStoryUnlocks } from '../modules/systems/hoennUnlocks.js';
 // Ancien incubateur du Marché (retiré) : prix de base et plafond, pour rembourser.
 const INCUBATOR_BASE_COST = 15000;
 const INCUBATOR_MAX_OWNED = 10;
+// Ancienne grille de prix des slots de pension (index = nombre de slots déjà possédés), pour rembourser.
+const LEGACY_PENSION_SLOT_PRICES = [0, 0, 50000, 150000, 300000, 500000];
 
 // ── Helper ───────────────────────────────────────────────────────────────────
 function ensureObject(value, fallback = {}) {
@@ -329,6 +331,7 @@ export function migrateSave(saved, deps) {
       egg.incubating = false;
       egg.hatchAt = null;
     }
+    if (egg.status === 'ready') egg.incubating = false;   // l'agent dépose l'œuf prêt à la base, il libère son slot
     if (!egg.rarity) egg.rarity = SPECIES_BY_EN?.[egg.species_en]?.rarity || 'common';
   }
 
@@ -341,7 +344,18 @@ export function migrateSave(saved, deps) {
     delete merged.pension.slotA;
     delete merged.pension.slotB;
   }
-  if (merged.pension.extraSlotsPurchased === undefined) merged.pension.extraSlotsPurchased = 0;
+  // ── Pension : slots achetés un par un → couples ───────────────────────────────
+  // 2 sièges de base = 1 couple offert. Les slots 3-4 (50 k + 150 k) font le couple 2
+  // (200 k), les slots 5-6 (300 k + 500 k) le couple 3 (800 k) : les totaux sont
+  // identiques. Un nombre impair laisse un siège sans partenaire : son prix est
+  // remboursé, et le Pokémon qui l'occupait retourne au PC (voir reconcilePensionPairs).
+  if (saved.pension?.extraPairsPurchased === undefined) {
+    const extra = Math.max(0, Math.min(4, Math.floor(Number(saved.pension?.extraSlotsPurchased) || 0)));
+    merged.pension.extraPairsPurchased = Math.floor(extra / 2);
+    if (extra % 2 === 1) merged.gang.money = (merged.gang.money || 0) + LEGACY_PENSION_SLOT_PRICES[extra + 1];
+  }
+  delete merged.pension.extraSlotsPurchased;
+  if (!Array.isArray(merged.pension.pairs)) merged.pension.pairs = [];
   if (!merged.pension.eggIncubation || typeof merged.pension.eggIncubation !== 'object') {
     merged.pension.eggIncubation = structuredClone(DEFAULT_STATE.pension.eggIncubation);
   } else {
@@ -382,6 +396,7 @@ export function migrateSave(saved, deps) {
   if (merged.purchases.autoSellAgent     === undefined) merged.purchases.autoSellAgent     = false;
   if (merged.purchases.autoSellAgentEnabled === undefined) merged.purchases.autoSellAgentEnabled = true;
   if (merged.purchases.autoSellEggs      === undefined) merged.purchases.autoSellEggs      = false;
+  if (merged.purchases.autoHatchEggs     === undefined) merged.purchases.autoHatchEggs     = false;
   if (merged.purchases.mysteryEggCount  === undefined) merged.purchases.mysteryEggCount  = 0;
   if (merged.purchases.johtoUnlocked    === undefined) merged.purchases.johtoUnlocked    = false;
   if (merged.purchases.hoennUnlocked    === undefined) merged.purchases.hoennUnlocked    = false;
@@ -712,6 +727,7 @@ export function getMigrationSummary(saved, deps) {
     || saved.purchases.regi_seal === undefined
   )) fields.push(_f('Accès narratifs Hoenn', 'Hoenn story access'));
   if (saved.inventory?.pokeball !== undefined) fields.push(_f('Poké Balls illimitées (stock remboursé en ₽)', 'Unlimited Poké Balls (stock refunded in ₽)'));
+  if (saved.pension && saved.pension.extraPairsPurchased === undefined) fields.push(_f('Pension par couples (slots impairs remboursés en ₽)', 'Daycare bought in pairs (odd slot refunded in ₽)'));
   if (saved.inventory?.incubator > 0) fields.push(_f('Incubateurs remplacés par les slots agents (remboursés en ₽)', 'Incubators replaced by agent slots (refunded in ₽)'));
 
   return { from: `${_f('schéma', 'schema')} v${fromVersion}`, fields };

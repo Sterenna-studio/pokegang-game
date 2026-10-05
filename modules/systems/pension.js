@@ -4,11 +4,13 @@ import {
   getIncubationConfig,
   getEggIncubationAgent,
   getEggIncubationSummary,
+  markEggsReady,
   recordEggHatched,
   reconcileEggIncubationAssignments,
   setEggIncubationPriority,
   startEggIncubation,
 } from './eggIncubation.js';
+import { EGG_GEN_MS, EGG_STOCK_CAP, PAIR_PRICES, MAX_PAIRS, getMaxPensionPairs, getNextPairPrice, reconcilePensionPairs, removeFromPension } from './pensionPairs.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
 const _dirty  = ()               => EventBus.emit(EVENTS.STATE_DIRTY);
@@ -39,19 +41,54 @@ const EGG_HATCH_MS = {
   very_rare: 45 * 60 * 1000,
   legendary: 60 * 60 * 1000,
 };
-const EGG_GEN_MS = 5 * 60 * 1000;
-
-// ── Random breeding pair: any 2 non-legendary in pension slots ──
-function _getBreedingPair() {
+// ── Œufs : un minuteur par couple, stock plafonné ───────────────
+function _createEgg(pkA, pkB, now) {
   const state = globalThis.state;
-  const slots = state.pension?.slots || [];
-  const candidates = slots
-    .map(id => state.pokemons.find(p => p.id === id))
-    .filter(Boolean);
-  if (candidates.length < 2) return [];
-  // Shuffle and pick first two (stays deterministic within a tick, varies each egg cycle)
-  const shuffled = [...candidates].sort(() => Math.random() - 0.5);
-  return [shuffled[0], shuffled[1]];
+  const isLegA = SPECIES_BY_EN[pkA.species_en]?.rarity === 'legendary';
+  const isLegB = SPECIES_BY_EN[pkB.species_en]?.rarity === 'legendary';
+  if (isLegA && isLegB) return null;
+  const parent = isLegA ? pkB : isLegB ? pkA : (Math.random() < 0.5 ? pkA : pkB);
+  const baseSpeciesEn = getBaseSpecies(parent.species_en);
+  const sp = SPECIES_BY_EN[baseSpeciesEn];
+  if (!sp || EGG_HATCH_MS[sp.rarity] === null) return null;
+  const avgPot = Math.floor((pkA.potential + pkB.potential) / 2);
+  const potential = Math.min(5, avgPot + (Math.random() < 0.2 ? 1 : 0));
+  const shinyChance = (pkA.shiny && pkB.shiny) ? PENSION_SHINY_RATE_BOTH : (pkA.shiny || pkB.shiny) ? PENSION_SHINY_RATE_ONE : PENSION_SHINY_RATE_NONE;
+  const egg = {
+    id: `egg_${now}_${Math.random().toString(36).slice(2, 7)}`,
+    species_en: baseSpeciesEn,
+    hatchAt: null,
+    // Durée de couvaison fixée par la rareté : sans elle, l'auto-incubation retombait sur 45 min.
+    hatchMs: EGG_HATCH_MS[sp.rarity],
+    incubating: false,
+    rarity: sp.rarity,
+    potential,
+    shiny: Math.random() < shinyChance,
+    parentA: pkA.species_en,
+    parentB: pkB.species_en,
+  };
+  state.eggs.push(egg);
+  return egg;
+}
+
+// Joëlle (option « éclosion auto ») ouvre elle-même les œufs déposés à la base.
+function _autoHatchReadyEggs() {
+  const state = globalThis.state;
+  if (!state.purchases?.autoIncubator || state.purchases.autoHatchEggs !== true) return;
+  const ready = state.eggs.filter(e => e.status === 'ready');
+  if (!ready.length) return;
+  let hatched = 0, sold = 0;
+  for (const egg of ready) {
+    const pk = _hatchEggSilent(egg);
+    if (!pk) continue;
+    hatched++;
+    if (_autoSellHatched(pk)) sold++;
+  }
+  if (!hatched) return;
+  _save();
+  if (sold > 0) _topBar();
+  _notify(_t(`💉 Joëlle a fait éclore ${hatched} œuf${hatched > 1 ? 's' : ''}${sold ? ` (${sold} vendu${sold > 1 ? 's' : ''})` : ''}.`,
+    `💉 Joy hatched ${hatched} egg${hatched > 1 ? 's' : ''}${sold ? ` (${sold} sold)` : ''}.`), 'gold');
 }
 
 function pensionTick() {
@@ -59,71 +96,47 @@ function pensionTick() {
   const p = state.pension;
   const now = Date.now();
 
-  // Pick a random pair fresh each tick (varies each egg cycle)
-  const pair = _getBreedingPair();
-  const [pkA, pkB] = pair;
-  const hasPair = pair.length >= 2;
+  reconcilePensionPairs(state, now);
+  let produced = 0;
+  let dirty = false;
 
-  // Generate egg when ≥2 pokemon in pension and timer elapsed
-  if (hasPair && p.eggAt && now >= p.eggAt) {
-    const isLegA = SPECIES_BY_EN[pkA.species_en]?.rarity === 'legendary';
-    const isLegB = SPECIES_BY_EN[pkB.species_en]?.rarity === 'legendary';
-    if (isLegA && isLegB) {
-      p.eggAt = now + EGG_GEN_MS;
-      saveState();
-      return;
-    }
-    const parent = isLegA ? pkB : isLegB ? pkA : (Math.random() < 0.5 ? pkA : pkB);
-    const baseSpeciesEn = getBaseSpecies(parent.species_en);
-    const sp = SPECIES_BY_EN[baseSpeciesEn];
-    if (sp && EGG_HATCH_MS[sp.rarity] !== null) {
-      const avgPot = Math.floor((pkA.potential + pkB.potential) / 2);
-      const potential = Math.min(5, avgPot + (Math.random() < 0.2 ? 1 : 0));
-      const shinyChance = (pkA.shiny && pkB.shiny) ? PENSION_SHINY_RATE_BOTH : (pkA.shiny || pkB.shiny) ? PENSION_SHINY_RATE_ONE : PENSION_SHINY_RATE_NONE;
-      const egg = {
-        id: `egg_${now}_${Math.random().toString(36).slice(2, 7)}`,
-        species_en: baseSpeciesEn,
-        hatchAt: null,
-        incubating: false,
-        rarity: sp.rarity,
-        potential,
-        shiny: Math.random() < shinyChance,
-        parentA: pkA.species_en,
-        parentB: pkB.species_en,
-      };
-      state.eggs.push(egg);
-      tryAutoIncubate();
-      p.eggAt = now + EGG_GEN_MS;
-      notify(_t(
-        `Un œuf mystérieux est apparu à la pension !${state.purchases?.autoIncubator ? ' (auto-incubé)' : ' Placez-le dans un incubateur.'}`,
-        `A mysterious egg appeared at the Daycare!${state.purchases?.autoIncubator ? ' (auto-incubated)' : ' Place it in an incubator.'}`,
-      ), 'gold');
-      saveState();
-      if (activeTab === 'tabPC') renderPCTab();
-    }
+  for (const pair of p.pairs) {
+    if (!pair.a || !pair.b || !pair.eggAt || now < pair.eggAt) continue;
+    // Stock plein : la production attend (l'œuf est dû, il sort dès qu'une place se libère).
+    if (state.eggs.length >= EGG_STOCK_CAP) break;
+    const pkA = state.pokemons.find(pk => pk.id === pair.a);
+    const pkB = state.pokemons.find(pk => pk.id === pair.b);
+    pair.eggAt = now + EGG_GEN_MS;
+    dirty = true;
+    if (pkA && pkB && _createEgg(pkA, pkB, now)) produced++;
   }
-
-  // Start timer when pension first reaches ≥2 pokemon
-  if (hasPair && !p.eggAt) {
-    p.eggAt = now + EGG_GEN_MS;
-    saveState();
-  }
-
-  // Clear timer when fewer than 2 pokemon in pension
-  if (!hasPair) p.eggAt = null;
-
-  // Mark eggs as ready (status = 'ready') when hatchAt elapsed — don't auto-hatch
-  // Keep incubating: true so the incubator count stays correct until the player hatches
-  const justReady = state.eggs.filter(e => e.incubating && e.hatchAt && e.hatchAt <= now && e.status !== 'ready');
-  if (justReady.length > 0) {
-    for (const egg of justReady) egg.status = 'ready';
-    saveState();
+  if (produced > 0) {
     notify(_t(
-      `${justReady.length > 1 ? `${justReady.length} œufs sont` : 'Un œuf est'} prêt${justReady.length > 1 ? 's' : ''} à éclore !`,
-      `${justReady.length > 1 ? `${justReady.length} eggs are` : 'One egg is'} ready to hatch!`,
+      produced > 1 ? `${produced} œufs sont apparus à la pension !` : 'Un œuf est apparu à la pension !',
+      produced > 1 ? `${produced} eggs appeared at the Daycare!` : 'An egg appeared at the Daycare!',
     ), 'gold');
-    if (activeTab === 'tabPC') renderPCTab();
   }
+  reconcilePensionPairs(state, now);   // met à jour le miroir p.eggAt
+
+  // Les œufs arrivés à terme sont déposés à la base par leur agent.
+  const delivered = markEggsReady(state, now);
+  if (delivered > 0) {
+    dirty = true;
+    notify(_t(
+      `${delivered > 1 ? `${delivered} œufs ont été déposés` : 'Un œuf a été déposé'} à la base !`,
+      `${delivered > 1 ? `${delivered} eggs were` : 'An egg was'} dropped off at the base!`,
+    ), 'gold');
+  }
+
+  // Les agents sans œuf vont en chercher un à la pension.
+  const before = getEggIncubationSummary(state).used;
+  globalThis.tryAutoIncubate?.({ silent: true });
+  if (getEggIncubationSummary(state).used !== before) dirty = true;
+
+  _autoHatchReadyEggs();
+
+  if (dirty) saveState();
+  if ((produced > 0 || delivered > 0) && activeTab === 'tabPC') renderPCTab();
 }
 
 // ── Silent batch-hatch helper (no animation — used by multi-hatch popup) ──
@@ -242,66 +255,148 @@ function openHatchPopup() {
   });
 }
 
-// ── Single-egg hatch animation popup ────────────────────────────
-// onDone(hatched|null) is called after dismiss
-function openHatchAnimation(egg, onDone) {
+// ── Egg-opening popup ───────────────────────────────────────────
+// Centred over the whole game. The player taps the egg to crack it: tap 1 shows
+// its type, tap 2 its grade (potential), tap 3 opens it and reveals whether it is
+// shiny. Progress is kept on the egg (crackStage), so closing early loses nothing.
+const _EGG_TYPE_META = {
+  Normal: ['Normal', 'Normal', '#a8a878'], Fire: ['Feu', 'Fire', '#f08030'], Water: ['Eau', 'Water', '#6890f0'],
+  Grass: ['Plante', 'Grass', '#78c850'], Electric: ['Électrik', 'Electric', '#f8d030'], Ice: ['Glace', 'Ice', '#98d8d8'],
+  Fighting: ['Combat', 'Fighting', '#c03028'], Poison: ['Poison', 'Poison', '#a040a0'], Ground: ['Sol', 'Ground', '#e0c068'],
+  Flying: ['Vol', 'Flying', '#a890f0'], Psychic: ['Psy', 'Psychic', '#f85888'], Bug: ['Insecte', 'Bug', '#a8b820'],
+  Rock: ['Roche', 'Rock', '#b8a038'], Ghost: ['Spectre', 'Ghost', '#705898'], Dragon: ['Dragon', 'Dragon', '#7038f8'],
+  Dark: ['Ténèbres', 'Dark', '#705848'], Steel: ['Acier', 'Steel', '#b8b8d0'], Fairy: ['Fée', 'Fairy', '#ee99ac'],
+};
+
+function _eggTypeChips(egg) {
+  const types = SPECIES_BY_EN[getBaseSpecies(egg.species_en)]?.types || [];
+  if (!types.length) return '<span style="color:var(--text-dim)">?</span>';
+  return types.map(tp => {
+    const meta = _EGG_TYPE_META[tp] || [tp, tp, '#888'];
+    return `<span style="display:inline-block;padding:3px 9px;border-radius:10px;background:${meta[2]};color:#111;font-family:var(--font-pixel);font-size:8px">${_t(meta[0], meta[1])}</span>`;
+  }).join(' ');
+}
+
+const _EGG_CRACKS = [
+  '',
+  '<polyline points="52,16 46,30 56,40 48,56" />',
+  '<polyline points="52,16 46,30 56,40 48,56" /><polyline points="56,38 72,44 78,60" /><polyline points="46,26 30,34 24,52" />',
+];
+
+function openEggCrackPopup(egg, { remaining = 0, onNext = null, onDone = null } = {}) {
+  const state = globalThis.state;
+  if (!egg || egg.status !== 'ready') { onDone?.(); return; }
+  document.getElementById('_eggCrackOverlay')?.remove();
+
   const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:9600;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center;cursor:pointer';
-
+  overlay.id = '_eggCrackOverlay';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:9600;background:rgba(0,0,0,.9);display:flex;align-items:center;justify-content:center;user-select:none';
   const eggSrc = globalThis.eggSprite?.(egg, false) || '';
+  // Le sprite NB est une petite toile à marges larges : on l'agrandit pour que l'œuf remplisse le cadre des fissures.
+  const eggArtScale = /_NB\.png/.test(eggSrc) ? 2.3 : 1;
+  let stage = Math.max(0, Math.min(2, egg.crackStage || 0));
+  let hatched = null;
+  let sold = false;
+  let busy = false;
 
-  overlay.innerHTML = `
-    <div id="_hatchAnimRoot" style="display:flex;flex-direction:column;align-items:center;gap:16px;pointer-events:none">
+  const slot = (label, content, on) => `<div style="flex:1;min-width:84px;text-align:center;padding:8px 6px;border:1px solid ${on ? 'var(--gold)' : 'var(--border)'};border-radius:var(--radius-sm);background:var(--bg-card);opacity:${on ? 1 : .55}">
+    <div style="font-size:7px;color:var(--text-dim);margin-bottom:5px;font-family:var(--font-pixel)">${label}</div>
+    <div style="min-height:18px;font-size:10px;color:var(--gold)">${on ? content : '?'}</div>
+  </div>`;
+
+  function paint(shake) {
+    const grade = '★'.repeat(egg.potential || 0) || '–';
+    const rarity = egg.rarity || SPECIES_BY_EN[egg.species_en]?.rarity || 'common';
+    const shinySlot = hatched
+      ? (hatched.shiny ? `<span style="color:#ffcc5a">✨ ${_t('Chromatique !', 'Shiny!')}</span>` : `<span style="color:var(--text-dim)">${_t('Pas chromatique', 'Not shiny')}</span>`)
+      : '';
+    overlay.innerHTML = `
       <style>
-        @keyframes _eggWobble{0%,100%{transform:rotate(-18deg) scale(1.08)}50%{transform:rotate(18deg) scale(1.08)}}
-        @keyframes _eggCrack{0%{transform:scale(1);opacity:1}40%{transform:scale(1.4);filter:brightness(3) saturate(0);opacity:.8}100%{transform:scale(0.2);opacity:0}}
-        @keyframes _pokeReveal{0%{transform:scale(0) rotate(-10deg);opacity:0}65%{transform:scale(1.15) rotate(3deg);opacity:1}100%{transform:scale(1) rotate(0);opacity:1}}
+        @keyframes _ecIdle{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(3deg)}}
+        @keyframes _ecShake{0%{transform:rotate(0) scale(1)}20%{transform:rotate(-9deg) scale(1.08)}45%{transform:rotate(8deg) scale(1.1)}70%{transform:rotate(-5deg) scale(1.05)}100%{transform:rotate(0) scale(1)}}
+        @keyframes _ecPop{0%{transform:scale(0) rotate(-12deg);opacity:0}65%{transform:scale(1.18) rotate(3deg);opacity:1}100%{transform:scale(1) rotate(0);opacity:1}}
+        @keyframes _ecFlash{0%{opacity:.95}100%{opacity:0}}
       </style>
-      <div style="font-family:var(--font-pixel);font-size:9px;color:var(--gold);letter-spacing:2px">${_t('ÉCLOSION !', 'HATCHING!')}</div>
-      <img id="_hatchEggImg" src="${eggSrc}" style="width:88px;height:88px;image-rendering:pixelated;animation:_eggWobble .35s ease-in-out infinite">
-      <div style="font-size:8px;color:var(--text-dim);animation:none">${_t('Tap pour continuer…', 'Tap to continue…')}</div>
-    </div>`;
+      <div style="position:relative;display:flex;flex-direction:column;align-items:center;gap:18px;padding:24px 20px;max-width:420px;width:94%">
+        <button id="_ecClose" style="position:absolute;top:0;right:4px;background:none;border:none;color:var(--text-dim);font-size:16px;cursor:pointer" aria-label="${_t('Fermer', 'Close')}">✕</button>
+        <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold);letter-spacing:2px">${hatched ? _t('ÉCLOS !', 'HATCHED!') : _t('ŒUF PRÊT', 'EGG READY')}${remaining > 0 ? ` · +${remaining}` : ''}</div>
+        ${hatched ? `
+          <div style="position:relative;display:flex;flex-direction:column;align-items:center;gap:8px">
+            ${hatched.shiny ? '<div style="position:absolute;inset:-60px;background:radial-gradient(circle,#ffe58a 0%,transparent 65%);animation:_ecFlash 1.4s ease-out forwards;pointer-events:none"></div>' : ''}
+            <img src="${globalThis.pokeSprite?.(hatched.species_en, hatched.shiny) || ''}" style="width:128px;height:128px;image-rendering:pixelated;animation:_ecPop .55s ease-out forwards;${hatched.shiny ? 'filter:drop-shadow(0 0 12px #ffcc5a)' : ''}">
+            <div style="font-family:var(--font-pixel);font-size:11px;color:var(--text)">${globalThis.speciesName?.(hatched.species_en) || hatched.species_en}</div>
+            ${sold ? `<div style="font-size:8px;color:var(--text-dim)">${_t('Vendu automatiquement !', 'Automatically sold!')}</div>` : ''}
+          </div>` : `
+          <div id="_ecEggWrap" style="position:relative;width:176px;height:176px;cursor:pointer">
+            <div style="width:100%;height:100%;transform:scale(${eggArtScale})"><img id="_ecEgg" src="${eggSrc}" style="width:100%;height:100%;object-fit:contain;image-rendering:pixelated;animation:${shake ? '_ecShake .45s ease-out' : '_ecIdle 1.6s ease-in-out infinite'}"></div>
+            <svg viewBox="0 0 100 100" style="position:absolute;inset:0;pointer-events:none;fill:none;stroke:#fff8c8;stroke-width:2.2;stroke-linejoin:round;filter:drop-shadow(0 0 2px #000)">${_EGG_CRACKS[stage]}</svg>
+          </div>
+          <div style="font-size:9px;color:var(--text-dim)">${_t('Clique sur l’œuf pour le craqueler…', 'Tap the egg to crack it…')}</div>`}
+        <div style="display:flex;gap:8px;width:100%">
+          ${slot(_t('TYPE', 'TYPE'), _eggTypeChips(egg), stage >= 1 || !!hatched)}
+          ${slot(_t('GRADE', 'GRADE'), `${grade}<div style="font-size:7px;color:var(--text-dim);margin-top:2px">${rarity}</div>`, stage >= 2 || !!hatched)}
+          ${slot(_t('CHROMA', 'SHINY'), shinySlot, !!hatched)}
+        </div>
+        ${hatched ? `<div style="display:flex;gap:8px">
+          ${remaining > 0 ? `<button id="_ecNext" style="font-family:var(--font-pixel);font-size:9px;padding:8px 16px;background:var(--bg);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--green);cursor:pointer">${_t('Œuf suivant', 'Next egg')} ▶</button>` : ''}
+          <button id="_ecDone" style="font-family:var(--font-pixel);font-size:9px;padding:8px 16px;background:var(--bg);border:1px solid var(--gold);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">${_t('Fermer', 'Close')}</button>
+        </div>` : ''}
+      </div>`;
+    overlay.querySelector('#_ecClose')?.addEventListener('click', () => finish(false));
+    overlay.querySelector('#_ecDone')?.addEventListener('click', () => finish(false));
+    overlay.querySelector('#_ecNext')?.addEventListener('click', () => finish(true));
+    overlay.querySelector('#_ecEggWrap')?.addEventListener('click', crack);
+  }
+
+  function crack() {
+    if (busy || hatched) return;
+    if (stage < 2) {
+      stage++;
+      egg.crackStage = stage;
+      _dirty();
+      paint(true);
+      return;
+    }
+    // 3rd tap: the egg opens
+    busy = true;
+    const img = overlay.querySelector('#_ecEgg');
+    if (img) img.style.animation = '_ecShake .45s ease-out';
+    setTimeout(() => {
+      delete egg.crackStage;
+      hatched = _hatchEggSilent(egg);
+      if (hatched) {
+        sold = _autoSellHatched(hatched);
+        _save();
+        _topBar();
+      }
+      busy = false;
+      if (!hatched) { finish(false); return; }
+      paint(false);
+    }, 450);
+  }
+
+  function finish(next) {
+    overlay.remove();
+    if (next && onNext) onNext(); else onDone?.();
+  }
 
   document.body.appendChild(overlay);
+  paint(false);
+}
 
-  let _phase = 'wobble'; // wobble → crack → reveal → done
-  function advance() {
-    if (_phase === 'wobble') {
-      _phase = 'crack';
-      const img = overlay.querySelector('#_hatchEggImg');
-      if (img) img.style.animation = '_eggCrack .45s ease-out forwards';
-      setTimeout(doReveal, 450);
-    } else if (_phase === 'done') {
-      overlay.remove();
-      if (typeof onDone === 'function') onDone();
-    }
-  }
+// Opens every ready egg one after the other.
+function openEggCrackQueue(onDone) {
+  const step = () => {
+    const ready = globalThis.state.eggs.filter(e => e.status === 'ready');
+    if (!ready.length) { onDone?.(); return; }
+    openEggCrackPopup(ready[0], { remaining: ready.length - 1, onNext: step, onDone });
+  };
+  step();
+}
 
-  function doReveal() {
-    _phase = 'reveal';
-    const pk = _hatchEggSilent(egg);
-    const sold = pk ? _autoSellHatched(pk) : false;
-    if (pk) {
-      _save();
-      _topBar();
-    }
-    const root = overlay.querySelector('#_hatchAnimRoot');
-    if (!root) return;
-    const pokeImg = pk ? (globalThis.pokeSprite?.(pk.species_en, pk.shiny) || '') : '';
-    root.innerHTML = `
-      ${pk
-        ? `<div style="font-family:var(--font-pixel);font-size:11px;color:${pk.shiny ? '#ffcc5a' : 'var(--green)'};letter-spacing:2px">${pk.shiny ? '✨ ' : ''}${_t('ÉCLOS !', 'HATCHED!')}</div>
-           <img src="${pokeImg}" style="width:96px;height:96px;image-rendering:pixelated;animation:_pokeReveal .5s ease-out forwards;${pk.shiny ? 'filter:drop-shadow(0 0 10px #ffcc5a)' : ''}">
-           <div style="font-family:var(--font-pixel);font-size:10px;color:var(--text)">${globalThis.speciesName?.(pk.species_en) || pk.species_en}</div>
-           <div style="font-size:9px;color:var(--gold)">${'★'.repeat(pk.potential)}${pk.shiny ? ' ✨' : ''}</div>
-           ${sold ? `<div style="font-size:8px;color:var(--text-dim);margin-top:2px">${_t('Vendu automatiquement !', 'Automatically sold!')}</div>` : ''}
-           <div style="font-size:8px;color:var(--text-dim);margin-top:8px">${_t('Tap pour fermer', 'Tap to close')}</div>`
-        : `<div style="font-size:9px;color:var(--red)">${_t('Erreur — œuf invalide', 'Error — invalid egg')}</div>
-           <div style="font-size:8px;color:var(--text-dim)">${_t('Tap pour fermer', 'Tap to close')}</div>`}`;
-    _phase = 'done';
-  }
-
-  overlay.addEventListener('click', advance);
+// Single-egg entry point kept for the base, the PC egg list and the Daycare.
+function openHatchAnimation(egg, onDone) {
+  openEggCrackPopup(egg, { onDone });
 }
 
 // ── renderPensionView — merged pension + eggs view ──────────────
@@ -310,45 +405,60 @@ function renderPensionView(container) {
   const p = state.pension;
   const now = Date.now();
 
-  const SLOT_PRICES = [0, 0, 50000, 150000, 300000, 500000];
-  const maxSlots = globalThis.getMaxPensionSlots();
+  reconcilePensionPairs(state, now);
+  const maxPairs = getMaxPensionPairs(state);
+  const maxSlots = maxPairs * 2;
   const slots = p.slots || [];
-  const hasPair = slots.length >= 2;
+  const hasPair = p.pairs.some(pair => pair.a && pair.b);
 
   const hasScientist = !!state.purchases?.scientist;
   const nurseOwned   = !!state.purchases?.autoIncubator;
-  const nurseEnabled = state.purchases?.autoIncubatorEnabled !== false;
+  const nurseEnabled = state.purchases?.autoHatchEggs === true;   // option « éclosion auto » de Joëlle
   const autoSellOwned   = !!state.purchases?.autoSellEggs;
   const autoSellEnabled = state.purchases?.autoSellEggsEnabled !== false;
   const scEnabled = state.purchases?.scientistEnabled !== false;
 
-  const nextEggMs = (hasPair && p.eggAt) ? Math.max(0, p.eggAt - now) : null;
-  const nextEggStr = nextEggMs !== null
-    ? (nextEggMs < 60000 ? `${Math.ceil(nextEggMs / 1000)}s` : `${Math.ceil(nextEggMs / 60000)}min`)
-    : '--';
+  const _fmtMs = ms => ms < 60000 ? `${Math.ceil(ms / 1000)}s` : `${Math.ceil(ms / 60000)}min`;
+  const stockFull = state.eggs.length >= EGG_STOCK_CAP;
 
-  // ── Pension slots grid — tous les slots sont des reproducteurs potentiels ──
-  const slotsHtml = slots.map(id => {
-    const pk = state.pokemons.find(p2 => p2.id === id);
-    if (!pk) return '';
+  const seatHtml = id => {
+    const pk = id ? state.pokemons.find(p2 => p2.id === id) : null;
+    if (!pk) {
+      return `<div class="pension-slot empty" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 6px;background:var(--bg);border:1px dashed var(--border);border-radius:var(--radius-sm);min-height:100px;gap:4px">
+        <div style="font-size:20px;opacity:.3">+</div>
+        <div style="font-size:8px;color:var(--text-dim);text-align:center">${_t('Siège libre', 'Free seat')}</div>
+      </div>`;
+    }
     return `<div class="pension-slot filled" style="position:relative;display:flex;flex-direction:column;align-items:center;padding:10px 6px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);gap:4px">
       <img src="${pokeSprite(pk.species_en, pk.shiny)}" style="width:48px;height:48px;image-rendering:pixelated">
       <div style="font-size:8px;text-align:center;line-height:1.3">${speciesName(pk.species_en)}</div>
       <div style="font-size:8px;color:var(--text-dim)">Lv.${pk.level} ${'★'.repeat(pk.potential)}</div>
-      <button class="pension-remove-btn" data-pk-id="${pk.id}" style="margin-top:2px;font-size:7px;padding:2px 6px;background:var(--bg);border:1px solid var(--red);border-radius:var(--radius-sm);color:var(--red);cursor:pointer">Retirer</button>
+      <button class="pension-remove-btn" data-pk-id="${pk.id}" style="margin-top:2px;font-size:7px;padding:2px 6px;background:var(--bg);border:1px solid var(--red);border-radius:var(--radius-sm);color:var(--red);cursor:pointer">${_t('Retirer', 'Remove')}</button>
     </div>`;
-  }).filter(Boolean);
+  };
 
-  for (let i = slots.length; i < maxSlots; i++) {
-    slotsHtml.push(`<div class="pension-slot empty" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 6px;background:var(--bg);border:1px dashed var(--border);border-radius:var(--radius-sm);min-height:100px;gap:4px">
-      <div style="font-size:20px;opacity:.3">+</div>
-      <div style="font-size:8px;color:var(--text-dim);text-align:center">Slot libre</div>
-    </div>`);
-  }
+  const pairsHtml = p.pairs.map((pair, i) => {
+    const complete = !!(pair.a && pair.b);
+    const left = complete && pair.eggAt ? Math.max(0, pair.eggAt - now) : null;
+    const timer = !complete
+      ? _t('Il faut 2 Pokémon pour former un couple.', 'Two Pokémon are needed to form a pair.')
+      : stockFull ? _t('Stock d’œufs plein — production en pause.', 'Egg stock full — production paused.')
+      : `${_t('Prochain œuf dans :', 'Next egg in:')} <b style="color:var(--gold)">${_fmtMs(left)}</b>`;
+    return `<div style="border:1px solid ${complete ? 'var(--gold-dim)' : 'var(--border)'};border-radius:var(--radius-sm);padding:8px;background:var(--bg-card)">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+        <div style="font-family:var(--font-pixel);font-size:8px;color:var(--gold)">${_t('COUPLE', 'PAIR')} ${i + 1}</div>
+        <div style="font-size:8px;color:var(--text-dim);margin-left:auto">${timer}</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 18px 1fr;align-items:center;gap:6px">
+        ${seatHtml(pair.a)}<div style="text-align:center;color:var(--red);font-size:12px">♥</div>${seatHtml(pair.b)}
+      </div>
+    </div>`;
+  });
+  const slotsHtml = pairsHtml;
 
-  const nextSlotCost = SLOT_PRICES[maxSlots] || null;
-  const buySlotBtn = (maxSlots < 6 && nextSlotCost !== null)
-    ? `<button id="btnBuyPensionSlot" style="font-family:var(--font-pixel);font-size:8px;padding:5px 10px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">+ Slot (${nextSlotCost.toLocaleString()}₽)</button>`
+  const nextPairCost = getNextPairPrice(state);
+  const buySlotBtn = nextPairCost !== null
+    ? `<button id="btnBuyPensionSlot" style="font-family:var(--font-pixel);font-size:8px;padding:5px 10px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">+ ${_t('Couple', 'Pair')} (${nextPairCost.toLocaleString()}₽)</button>`
     : '';
 
   // ── Eggs inventory ──────────────────────────────────────────
@@ -391,7 +501,7 @@ function renderPensionView(container) {
       const refAgent = getEggIncubationAgent(egg, state);
       const refLine = refAgent
         ? `<div style="font-size:7px;color:var(--text-dim);max-width:82px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_t('Réf.', 'Ref.')} ${_esc(refAgent.name)} · ×${(egg.incubationSpeedMultiplier || 1).toFixed(2)}</div>`
-        : `<div style="font-size:7px;color:var(--text-dim)">${_t('Réf. Joëlle', 'Joy ref.')}</div>`;
+        : '';
       _incubSlots.push(`
         <div ${isReady ? `data-hatch-egg="${egg.id}"` : ''} style="position:relative;display:flex;flex-direction:column;align-items:center;padding:10px 6px 8px;gap:5px;border:2px solid ${isReady ? 'var(--green)' : 'var(--gold-dim)'};border-radius:var(--radius-sm);background:var(--bg);${isReady ? 'cursor:pointer;animation:eggReadyGlow .8s ease-in-out infinite alternate;' : ''}">
           ${isReady ? `<div style="position:absolute;top:-9px;right:-9px;font-family:var(--font-pixel);font-size:8px;color:var(--bg);background:var(--green);border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;z-index:2;animation:eggReadyBadge .4s ease-in-out infinite alternate">!</div>` : ''}
@@ -439,7 +549,7 @@ function renderPensionView(container) {
   const priorityRows = priorityAgents.map((agent, idx) => {
     const activeEgg = allIncubated.find(egg => egg.incubationAgentId === agent.id);
     const status = activeEgg
-      ? activeEgg.status === 'ready' ? _t('œuf prêt', 'egg ready') : _t('œuf confié', 'egg assigned')
+      ? _t('couve un œuf', 'incubating an egg')
       : agent.resting ? _t('indisponible', 'unavailable')
       : agent.assignedZone ? _t('en zone', 'in zone')
       : _t('disponible', 'available');
@@ -458,7 +568,7 @@ function renderPensionView(container) {
   }).join('');
   const priorityHtml = `<div>
     <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold);margin-bottom:8px">${_t('PRIORITÉ D’ÉCLOSION', 'HATCHING PRIORITY')}</div>
-    <div style="font-size:8px;color:var(--text-dim);margin-bottom:8px">${_t('Joël confie les œufs selon cet ordre. Si la liste est vide, l’ordre du roster est utilisé.', 'Joy assigns eggs in this order. If the list is empty, roster order is used.')}</div>
+    <div style="font-size:8px;color:var(--text-dim);margin-bottom:8px">${_t('Les agents vont chercher les œufs selon cet ordre. Si la liste est vide, l’ordre du roster est utilisé.', 'Agents pick up eggs in this order. If the list is empty, roster order is used.')}</div>
     <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px">
       ${priorityRows || `<div style="font-size:9px;color:var(--text-dim);padding:8px;border:1px dashed var(--border);border-radius:var(--radius-sm)">${_t('Aucune priorité personnalisée.', 'No custom priority.')}</div>`}
     </div>
@@ -485,11 +595,11 @@ function renderPensionView(container) {
     <img src="${globalThis.trainerSprite?.('nurse') || ''}" style="width:36px;height:36px;image-rendering:pixelated;flex-shrink:0;${nurseOwned && !nurseEnabled ? 'opacity:.4;filter:grayscale(1)' : ''}" onerror="this.style.display='none'">
     <div style="flex:1">
       <div style="font-family:var(--font-pixel);font-size:8px;color:${nurseOwned ? (nurseEnabled ? 'var(--green)' : 'var(--text-dim)') : 'var(--text)'};margin-bottom:3px">${_t('Infirmière Joëlle corrompue', 'Corrupted Nurse Joy')}</div>
-      <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">${_t("Confie automatiquement les œufs aux agents quand un slot d’éclosion est libre.", 'Automatically assigns eggs to agents when a hatching slot is free.')}</div>
+      <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px">${_t("Option « éclosion auto » : ouvre elle-même les œufs déposés à la base. Désactivée, c'est toi qui les ouvres quand tu veux.", 'Hatch option: opens the eggs dropped at the base herself. When off, you open them whenever you like.')}</div>
       ${nurseOwned
         ? `<div style="display:flex;align-items:center;gap:8px">
-             <span style="font-family:var(--font-pixel);font-size:7px;color:${nurseEnabled ? 'var(--green)' : 'var(--text-dim)'}">${nurseEnabled ? _t('✓ EN POSTE', '✓ ON DUTY') : _t('✗ CONGÉ', '✗ OFF DUTY')}</span>
-             <button id="btnToggleNurse" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid ${nurseEnabled ? 'var(--red)' : 'var(--green)'};border-radius:var(--radius-sm);color:${nurseEnabled ? 'var(--red)' : 'var(--green)'};cursor:pointer">${nurseEnabled ? _t('Congé', 'Dismiss') : _t('Rappeler', 'Recall')}</button>
+             <span style="font-family:var(--font-pixel);font-size:7px;color:${nurseEnabled ? 'var(--green)' : 'var(--text-dim)'}">${nurseEnabled ? _t('✓ ÉCLOSION AUTO', '✓ AUTO-HATCH') : _t('✗ ÉCLOSION MANUELLE', '✗ MANUAL HATCH')}</span>
+             <button id="btnToggleNurse" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid ${nurseEnabled ? 'var(--red)' : 'var(--green)'};border-radius:var(--radius-sm);color:${nurseEnabled ? 'var(--red)' : 'var(--green)'};cursor:pointer">${nurseEnabled ? _t('Désactiver', 'Disable') : _t('Activer', 'Enable')}</button>
            </div>`
         : `<button id="btnBuyNurse" style="font-family:var(--font-pixel);font-size:7px;padding:3px 8px;background:var(--bg);border:1px solid var(--gold-dim);border-radius:var(--radius-sm);color:var(--gold);cursor:pointer">${_t('Embaucher', 'Hire')} — 300 000₽</button>`}
     </div>
@@ -585,13 +695,12 @@ function renderPensionView(container) {
         <!-- Pension slots -->
         <div>
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-            <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold)">PENSION (${slots.length}/${maxSlots})</div>
+            <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold)">PENSION (${p.pairs.filter(x => x.a && x.b).length}/${maxPairs} ${_t('couples', 'pairs')})</div>
             ${buySlotBtn}
             ${slots.length > 0 ? `<button id="btnPensionClearAll" style="margin-left:auto;font-family:var(--font-pixel);font-size:8px;padding:4px 8px;background:var(--bg);border:1px solid var(--red);border-radius:var(--radius-sm);color:var(--red);cursor:pointer">${_t('Tout retirer', 'Remove all')}</button>` : ''}
           </div>
-          <div style="font-size:9px;color:var(--text-dim);margin-bottom:8px">${_t(`Accouplement aléatoire entre tous les pensionnaires — un œuf toutes les ${EGG_GEN_MS / 60000} min. (min. 2 Pokémon)`, `Random breeding among all Daycare residents — one egg every ${EGG_GEN_MS / 60000} min. (min. 2 Pokémon)`)}</div>
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">${slotsHtml.join('')}</div>
-          ${hasPair ? `<div style="margin-top:8px;font-size:9px;color:var(--text-dim);padding:6px 8px;background:var(--bg);border-radius:var(--radius-sm)">${_t('Prochain œuf dans :', 'Next egg in:')} <b style="color:var(--gold)">${nextEggStr}</b></div>` : ''}
+          <div style="font-size:9px;color:var(--text-dim);margin-bottom:8px">${_t(`Chaque couple produit un œuf toutes les ${EGG_GEN_MS / 60000} min. Les agents sans œuf vont en chercher un ici, le couvent gratuitement et le déposent à la base une fois prêt.`, `Each pair produces an egg every ${EGG_GEN_MS / 60000} min. Agents without an egg pick one up here, incubate it for free and drop it at the base once ready.`)} (${state.eggs.length}/${EGG_STOCK_CAP})</div>
+          <div style="display:flex;flex-direction:column;gap:8px">${slotsHtml.join('')}</div>
         </div>
 
         <!-- Ready eggs -->
@@ -599,13 +708,14 @@ function renderPensionView(container) {
         <div>
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
             <div style="font-family:var(--font-pixel);font-size:10px;color:var(--green)">🥚 ${_t('PRÊTS À ÉCLORE', 'READY TO HATCH')} (${readyEggs.length})</div>
-            <button id="btnHatchAll" style="margin-left:auto;font-family:var(--font-pixel);font-size:8px;padding:4px 10px;background:var(--bg);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--green);cursor:pointer">${_t('Faire éclore', 'Hatch')} ▶</button>
+            <button id="btnHatchQuick" style="margin-left:auto;font-family:var(--font-pixel);font-size:7px;padding:4px 8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);cursor:pointer">${_t('Éclosion rapide', 'Quick hatch')}</button>
+            <button id="btnHatchAll" style="font-family:var(--font-pixel);font-size:8px;padding:4px 10px;background:var(--bg);border:1px solid var(--green);border-radius:var(--radius-sm);color:var(--green);cursor:pointer">${_t('Ouvrir les œufs', 'Open eggs')} ▶</button>
           </div>
           <div style="display:flex;flex-wrap:wrap;gap:8px">
             ${readyEggs.map(egg => {
               const lbl = _eggLabel(egg);
               const imgTag = globalThis.eggImgTag?.(egg, false, 'width:40px;height:40px;image-rendering:pixelated') || '🥚';
-              return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px;background:var(--bg);border:1px solid var(--green);border-radius:var(--radius-sm);min-width:70px;position:relative">
+              return `<div data-open-egg="${egg.id}" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px;background:var(--bg);border:1px solid var(--green);border-radius:var(--radius-sm);min-width:70px;position:relative;cursor:pointer;animation:eggReadyGlow .8s ease-in-out infinite alternate">
                 ${imgTag}
                 <div style="font-size:8px;text-align:center">${lbl.name}</div>
                 <div style="font-size:8px;color:var(--text-dim)">${lbl.pot}${lbl.shiny}</div>
@@ -619,7 +729,7 @@ function renderPensionView(container) {
         <div>
           <style>@keyframes eggReadyGlow{from{box-shadow:0 0 0 rgba(110,207,138,0)}to{box-shadow:0 0 12px rgba(110,207,138,.7)}}@keyframes eggReadyBadge{from{transform:scale(1)}to{transform:scale(1.35)}}</style>
           <div style="font-family:var(--font-pixel);font-size:10px;color:var(--gold);margin-bottom:8px">${_t('SLOTS D’ÉCLOSION AGENTS', 'AGENT HATCHING SLOTS')} (${allIncubated.length}/${incubationSummary.capacity})</div>
-          <div style="font-size:8px;color:var(--text-dim);margin-bottom:8px">${_t('1 agent recruté = 1 œuf en incubation. Joëlle reste responsable de la pension.', '1 recruited agent = 1 incubating egg. Joy still runs the Daycare.')}</div>
+          <div style="font-size:8px;color:var(--text-dim);margin-bottom:8px">${_t('1 agent recruté = 1 œuf couvé à la fois, gratuitement. Prêt, l’œuf est déposé à la base et l’agent repart en chercher un autre.', '1 recruited agent = 1 egg incubating at a time, for free. When ready the egg is dropped at the base and the agent fetches another.')}</div>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:8px">${incubatorHtml || `<div style="font-size:9px;color:var(--text-dim);text-align:center;padding:8px">${_t('Aucun slot agent disponible', 'No agent slot available')}</div>`}</div>
         </div>
 
@@ -659,25 +769,38 @@ function renderPensionView(container) {
 
   container.querySelector('#btnPensionClearAll')?.addEventListener('click', () => {
     state.pension.slots = [];
-    state.pension.eggAt = null;
+    reconcilePensionPairs(state);
     saveState();
     notify(_t('Pension vidée.', 'Daycare cleared.'), 'success');
     renderPensionView(container);
   });
 
   container.querySelector('#btnBuyPensionSlot')?.addEventListener('click', () => {
-    const cost = SLOT_PRICES[maxSlots];
+    const cost = getNextPairPrice(state);
+    if (cost === null) return;
     if (state.gang.money < cost) { notify(_t('Fonds insuffisants.', 'Insufficient funds.'), 'error'); return; }
     state.gang.money -= cost;
     EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -cost, newTotal: state.gang.money });
-    state.pension.extraSlotsPurchased = (state.pension.extraSlotsPurchased || 0) + 1;
+    state.pension.extraPairsPurchased = (state.pension.extraPairsPurchased || 0) + 1;
+    reconcilePensionPairs(state);
     saveState();
     _topBar();
-    notify(_t(`Slot de pension débloqué ! (${globalThis.getMaxPensionSlots()} slots)`, `Daycare slot unlocked! (${globalThis.getMaxPensionSlots()} slots)`), 'gold');
+    notify(_t(`Nouveau couple débloqué ! (${getMaxPensionPairs(state)} couples)`, `New pair unlocked! (${getMaxPensionPairs(state)} pairs)`), 'gold');
     renderPensionView(container);
   });
 
-  container.querySelector('#btnHatchAll')?.addEventListener('click', () => openHatchPopup());
+  container.querySelector('#btnHatchAll')?.addEventListener('click', () => {
+    openEggCrackQueue(() => { if (globalThis.activeTab === 'tabPC') renderPensionView(container); });
+  });
+  container.querySelector('#btnHatchQuick')?.addEventListener('click', () => openHatchPopup());
+  container.querySelectorAll('[data-open-egg]').forEach(el => {
+    el.addEventListener('click', ev => {
+      if (ev.target.closest?.('.egg-reveal-btn')) return;
+      const egg = state.eggs.find(e => e.id === el.dataset.openEgg);
+      if (!egg || egg.status !== 'ready') return;
+      openHatchAnimation(egg, () => { if (globalThis.activeTab === 'tabPC') renderPensionView(container); });
+    });
+  });
 
   const updatePriority = nextIds => {
     setEggIncubationPriority(nextIds, state);
@@ -732,11 +855,11 @@ function renderPensionView(container) {
   });
 
   container.querySelector('#btnToggleNurse')?.addEventListener('click', () => {
-    state.purchases.autoIncubatorEnabled = !nurseEnabled;
+    state.purchases.autoHatchEggs = !nurseEnabled;
     saveState();
-    notify(state.purchases.autoIncubatorEnabled
-      ? _t('💉 Joëlle est de retour !', '💉 Joy is back!')
-      : _t('😴 Joëlle est en congé.', '😴 Joy is off duty.'), 'success');
+    notify(state.purchases.autoHatchEggs
+      ? _t('💉 Joëlle ouvrira les œufs à ta place.', '💉 Joy will open the eggs for you.')
+      : _t('🥚 Tu ouvres les œufs toi-même.', '🥚 You open the eggs yourself.'), 'success');
     renderPensionView(container);
   });
 
@@ -746,11 +869,10 @@ function renderPensionView(container) {
       state.gang.money -= 300000;
       EventBus.emit(EVENTS.MONEY_CHANGED, { delta: -300000, newTotal: state.gang.money });
       state.purchases.autoIncubator = true;
-      state.purchases.autoIncubatorEnabled = true;
+      state.purchases.autoHatchEggs = false;
       saveState();
       _topBar();
       notify(_t('💉 Joëlle est en poste !', '💉 Joy is on duty!'), 'gold');
-      globalThis.tryAutoIncubate?.();
       renderPensionView(container);
     }, null, { confirmLabel: _t('Embaucher', 'Hire'), cancelLabel: _t('Annuler', 'Cancel') });
   });
@@ -835,9 +957,7 @@ function renderPensionView(container) {
     btn.addEventListener('click', e => {
       e.stopPropagation();
       const id = btn.dataset.pkId;
-      const before = state.pension.slots.length;
-      state.pension.slots = state.pension.slots.filter(sid => sid !== id);
-      if (state.pension.slots.length < before) state.pension.eggAt = null;
+      removeFromPension(id, state);
       saveState();
       renderPensionView(container);
     });
@@ -850,6 +970,7 @@ function renderPensionView(container) {
       removePokemonFromAllAssignments(pkId);
       if (!state.pension.slots.includes(pkId)) {
         state.pension.slots.push(pkId);
+        reconcilePensionPairs(state);
         saveState();
         renderPensionView(container);
       }
@@ -899,5 +1020,5 @@ function renderPensionView(container) {
   });
 }
 
-Object.assign(globalThis, { EGG_HATCH_MS, EGG_GEN_MS, pensionTick, renderPensionView, openHatchPopup, openHatchAnimation });
+Object.assign(globalThis, { EGG_HATCH_MS, EGG_GEN_MS, pensionTick, renderPensionView, openHatchPopup, openHatchAnimation, openEggCrackPopup, openEggCrackQueue });
 export {};

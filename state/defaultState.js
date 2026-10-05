@@ -5,7 +5,7 @@ export const APP_VERSION = '2.4.0';
 export const GAME_VERSION = 'v0.5 — open beta';
 
 // Incrémenter à chaque ajout de champ majeur pour déclencher le banner migration.
-export const SAVE_SCHEMA_VERSION = 18;
+export const SAVE_SCHEMA_VERSION = 19;
 
 export const SAVE_KEYS = ['pokeforge.v6', 'pokeforge.v6.s2', 'pokeforge.v6.s3'];
 
@@ -223,6 +223,7 @@ export const DEFAULT_STATE = {
     autoSellAgent: false,
     autoSellAgentEnabled: true,
     autoSellEggs: false,
+    autoHatchEggs: false,   // Joëlle (autoIncubator) ouvre les œufs prêts à la place du joueur
     johtoUnlocked:  false,
     hoennUnlocked:  false,
     sinnohUnlocked: false,
@@ -232,9 +233,10 @@ export const DEFAULT_STATE = {
     regi_seal:         false,
   },
   pension: {
-    slots: [],              // array de pokemon IDs (2 base + extra achetés)
-    extraSlotsPurchased: 0, // 0–4 extra slots
-    eggAt: null,
+    slots: [],              // array de pokemon IDs résidents (dérivé de `pairs`, voir pensionPairs.js)
+    pairs: [],              // [{ a, b, eggAt }] — un couple = 2 sièges + son propre minuteur d'œuf
+    extraPairsPurchased: 0, // 0–2 couples supplémentaires (1 couple offert)
+    eggAt: null,            // miroir : prochain œuf, tous couples confondus (affichage)
     eggIncubation: {
       priorityAgentIds: [],
       preferAvailable: true,

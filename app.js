@@ -437,8 +437,8 @@ function uid(...a)          { return globalThis.uid?.(...a); }
 function clamp(...a)        { return globalThis.clamp?.(...a); }
 
 // ── Pension helpers ──────────────────────────────────────────────
-/** Max pension slots (2 base + purchased extras). */
-function getMaxPensionSlots() { return 2 + (state.pension?.extraSlotsPurchased || 0); }
+/** Max pension slots (1 free pair + purchased pairs, 2 seats each). */
+function getMaxPensionSlots() { return 2 * (1 + (state.pension?.extraPairsPurchased || 0)); }
 /** Set of pokemon IDs currently in pension. */
 function getPensionSlotIds() { return new Set(state.pension?.slots || []); }
 

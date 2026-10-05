@@ -1,7 +1,8 @@
 'use strict';
 
-// Agent-bound egg incubation. The Daycare/Nurse still owns egg care; agents
-// provide referent slots and specialised hatch experience.
+// Agent-bound egg incubation. Each agent fetches one egg from the Daycare when
+// it has none, incubates it for free, then drops it at the base once it is ready
+// (the agent is free again; the player opens the egg whenever they like).
 
 const HATCH_MILESTONES = [
   { eggs: 1000, multiplier: 1.35, key: 'legend' },
@@ -71,13 +72,12 @@ function getEggIncubationSummary(state = globalThis.state) {
   const eggs = state?.eggs || [];
   const capacity = getIncubationAgents(state).length;
   const active = eggs.filter(isEggIncubating);
-  const inProgress = active.filter(egg => egg.status !== 'ready');
   const waiting = eggs.filter(egg => !egg.incubating && egg.status !== 'ready');
   return {
     capacity,
     used: active.length,
-    inProgress: inProgress.length,
-    ready: active.length - inProgress.length,
+    inProgress: active.length,
+    ready: eggs.filter(egg => egg.status === 'ready').length,
     waiting: waiting.length,
     free: Math.max(0, capacity - active.length),
   };
@@ -173,6 +173,26 @@ function suspendEggIncubation(egg, now = Date.now()) {
   return true;
 }
 
+// Œufs arrivés à terme : l'agent les dépose à la base (status 'ready',
+// incubating false) et redevient libre pour aller chercher le suivant. Le
+// référent reste mémorisé sur l'œuf pour être crédité à l'ouverture. Normalise
+// aussi les anciennes sauvegardes où un œuf prêt gardait son slot.
+function markEggsReady(state = globalThis.state, now = Date.now()) {
+  let delivered = 0;
+  for (const egg of state?.eggs || []) {
+    if (egg.status === 'ready') {
+      egg.incubating = false;
+      continue;
+    }
+    if (!egg.incubating || !egg.hatchAt || egg.hatchAt > now) continue;
+    egg.status = 'ready';
+    egg.incubating = false;
+    egg.deliveredAt = now;
+    delivered++;
+  }
+  return delivered;
+}
+
 function reconcileEggIncubationAssignments(state = globalThis.state) {
   let changed = false;
   const agents = getIncubationAgents(state);
@@ -214,8 +234,6 @@ function tryAutoIncubateWithAgents({
   baseMsForEgg = null,
   now = Date.now(),
 } = {}) {
-  if (!state?.purchases?.autoIncubator) return 0;
-  if (state.purchases?.autoIncubatorEnabled === false) return 0;
   reconcileEggIncubationAssignments(state);
   let started = 0;
   for (const egg of state.eggs || []) {
@@ -238,16 +256,17 @@ function getAgentEggDialogueLines(agent, state = globalThis.state) {
   const eggs = state?.eggs || [];
   const egg = eggs.find(e => e.incubating && e.incubationAgentId === agent?.id);
   const lines = [];
+  if (!egg && eggs.some(e => e.status === 'ready' && e.incubationAgentId === agent?.id)) {
+    lines.push(_t("J'ai déposé un œuf à la base, il n'attend que toi !", 'I left an egg at the base, it is waiting for you!'));
+  }
   if (egg) {
     const remaining = egg.hatchAt ? egg.hatchAt - Date.now() : Infinity;
-    if (egg.status === 'ready') {
-      lines.push(_t("L'œuf que Joëlle m'a confié est prêt !", 'The egg Joy trusted me with is ready!'));
-    } else if (remaining <= 5 * 60 * 1000) {
+    if (remaining <= 5 * 60 * 1000) {
       lines.push(_t('Je crois que mon œuf va bientôt éclore !', 'I think my egg will hatch soon!'));
     } else if (remaining <= 15 * 60 * 1000) {
       lines.push(_t('Mon œuf commence à bouger…', 'My egg is starting to move…'));
     } else {
-      lines.push(_t("L'infirmière Joëlle m'a confié un œuf.", 'Nurse Joy trusted me with an egg.'));
+      lines.push(_t("J'ai récupéré un œuf à la pension.", 'I picked up an egg from the Daycare.'));
     }
   }
   const hatched = getAgentHatchStats(agent).hatched || 0;
@@ -270,6 +289,7 @@ Object.assign(globalThis, {
   pickEggIncubationAgent,
   startEggIncubation,
   reconcileEggIncubationAssignments,
+  markEggsReady,
   suspendEggIncubation,
   recordEggHatched,
   tryAutoIncubateWithAgents,
@@ -290,6 +310,7 @@ export {
   pickEggIncubationAgent,
   startEggIncubation,
   reconcileEggIncubationAssignments,
+  markEggsReady,
   suspendEggIncubation,
   recordEggHatched,
   tryAutoIncubateWithAgents,
