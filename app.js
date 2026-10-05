@@ -345,8 +345,18 @@ const runtimeStore = createRuntimeStore({
   speciesByEn: SPECIES_BY_EN,
   uid,
   now: () => Date.now(),
+  // saveState() est appelé depuis ~140 sites ; écrire 2,4 Mo à chaque appel gelait
+  // l'interface ~55 ms (grosse save). On regroupe, l'autosave et les évènements
+  // de cycle de vie ci-dessous garantissent que rien n'est perdu.
+  saveDeferMs: 1500,
 });
 let state = runtimeStore.getState();
+
+// Vide l'écriture différée quand la page part ou passe en arrière-plan.
+window.addEventListener('pagehide', () => runtimeStore.flushSave());
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') runtimeStore.flushSave();
+});
 
 function _syncStateRef() {
   state = runtimeStore.getState();
@@ -1839,7 +1849,10 @@ function configureEntryFlows() {
     loadSlot,
     openHubSlotRepairModal,
     openHubImportModal,
-    removeSlot: slotIdx => localStorage.removeItem(SAVE_KEYS[slotIdx]),
+    removeSlot: slotIdx => {
+      runtimeStore.flushSave(); // sinon une écriture différée ressusciterait le slot supprimé
+      localStorage.removeItem(SAVE_KEYS[slotIdx]);
+    },
     // Resuming must go through resumeOnboardingV2, which reconciles milestones
     // already reached in the save (a full boss team at step team_setup, an
     // agent already assigned…) before showing an objective the player can no
