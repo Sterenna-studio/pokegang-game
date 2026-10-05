@@ -693,7 +693,7 @@ function renderGangBaseWindow() {
         <div class="base-status-strip">${territoryCards}</div>
       </section>
 
-      <section class="base-modules-grid">
+      <section class="base-modules-grid${devFeaturesEnabled() ? ' shelf-proto' : ''}">
         <div class="base-inv-section base-module-card">
           ${_baseModuleTitle(_t('gang_base_balls'), state.activeBall || '')}
           <div class="base-inv-row">${ballsHtml}</div>
