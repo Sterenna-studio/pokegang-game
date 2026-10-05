@@ -192,6 +192,6 @@ Leurre (×2 / ×3 apparitions) ne sont lus par aucun module d'apparition [à vé
 - Le bonus de vitesse d'apparition des niveaux de zone (+5 % → +50 %) est appliqué, et le Leurre / Super
   Leurre (×2 / ×3) aussi : apparitions supplémentaires tirées à chaque tick du minuteur
   (`_extraSpawnTicks`, `zoneSystem.js`). Rattrapage hors-ligne : seul le bonus de niveau compte.
-- Reste inutilisé : `levelBonusScale.moneyMult` (argent ×1 → ×3-4) ; l'argent réel suit toujours
+- `levelBonusScale.moneyMult` (argent ×1 → ×3 à ×8 selon la région, jamais lu) supprimé : l'argent suit uniquement
   `zones-v2-config.js` (+50 % max).
 - Garde-fou : `tools/test-shiny-rates.mjs`.

@@ -89,11 +89,11 @@ const REGIONS_CONFIG = [
     maxZoneLevel: 10,
 
     // Bonus de zone par palier (appliqués en plus des bonus de zones-v2-config.js)
-    // shinyBonus : additif à rollShiny  |  moneyMult : multiplicateur income combat
+    // shinyBonus : additif à rollShiny (plafonné par ZONE_SHINY_BONUS_CAP). L'argent, lui, ne dépend
+    // que de zones-v2-config.js (ZONE_LEVEL_BONUSES.moneyMult).
     levelBonusScale: {
       //        lv1    lv2    lv3    lv4    lv5    lv6    lv7    lv8    lv9   lv10
       shinyBonus: [0, 0.001, 0.002, 0.003, 0.005, 0.007, 0.009, 0.012, 0.015, 0.020],
-      moneyMult:  [1,   1.1,   1.2,   1.3,   1.5,   1.7,   2.0,   2.3,   2.7,  3.0],
     },
 
     // Musique par défaut si zone non mappée
@@ -136,7 +136,6 @@ const REGIONS_CONFIG = [
 
     levelBonusScale: {
       shinyBonus: [0, 0.002, 0.003, 0.005, 0.007, 0.010, 0.013, 0.016, 0.020, 0.025],
-      moneyMult:  [1,   1.2,   1.4,   1.6,   1.9,   2.2,   2.6,   3.0,   3.5,  4.0],
     },
 
     defaultMusic: 'forest',
@@ -172,7 +171,6 @@ const REGIONS_CONFIG = [
 
     levelBonusScale: {
       shinyBonus: [0, 0.003, 0.005, 0.007, 0.010, 0.013, 0.017, 0.021, 0.026, 0.032],
-      moneyMult:  [1,   1.3,   1.6,   2.0,   2.4,   2.9,   3.4,   4.0,   4.7,  5.5],
     },
 
     defaultMusic: 'sea',
@@ -208,7 +206,6 @@ const REGIONS_CONFIG = [
 
     levelBonusScale: {
       shinyBonus: [0, 0.004, 0.007, 0.010, 0.014, 0.018, 0.023, 0.028, 0.034, 0.042],
-      moneyMult:  [1,   1.5,   1.9,   2.4,   3.0,   3.7,   4.5,   5.4,   6.5,  8.0],
     },
 
     defaultMusic: 'cave',
