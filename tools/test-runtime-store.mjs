@@ -80,7 +80,7 @@ function makeSpeciesMap() {
   };
 }
 
-function makeRuntime(createRuntimeStore, storage, nowRef = { value: 1_000 }) {
+function makeRuntime(createRuntimeStore, storage, nowRef = { value: 1_000 }, extra = {}) {
   let uidCounter = 0;
   return createRuntimeStore({
     localStorageRef: storage,
@@ -88,6 +88,7 @@ function makeRuntime(createRuntimeStore, storage, nowRef = { value: 1_000 }) {
     uid: () => `uid-${++uidCounter}`,
     now: () => nowRef.value,
     notify: () => {},
+    ...extra,
   });
 }
 
@@ -192,6 +193,28 @@ try {
   assert.equal(migrated.pokemons.find(p => p.id === 'old-pk').level, 100, 'migration clamps level');
   assert.equal(migrated.pokemons.find(p => p.id === 'old-pk').potential, 5, 'migration clamps potential');
   assert.ok(migrated.pokemons.some(p => p.species_en === 'missingno'), 'migration reward is preserved');
+
+  // Sauvegarde différée : saveState() planifie, flushSave()/autoSave() écrivent.
+  const deferStorage = new FakeStorage();
+  const deferred = makeRuntime(createRuntimeStore, deferStorage, undefined, { saveDeferMs: 20 });
+  deferred.createStoreInstance();
+  deferred.autoSave();
+  const baseline = deferStorage.setCalls.length;
+  deferred.saveState(); deferred.saveState(); deferred.saveState();
+  assert.equal(deferStorage.setCalls.length, baseline, 'deferred saveState does not write synchronously');
+  assert.equal(deferred.isDirty(), true, 'deferred save keeps state dirty');
+  await new Promise(r => setTimeout(r, 60));
+  assert.equal(deferStorage.setCalls.length, baseline + 1, 'burst of saves coalesces into one write');
+  assert.equal(deferred.isDirty(), false, 'write clears dirty');
+  deferred.saveState();
+  assert.equal(deferred.flushSave(), true, 'flush writes the pending save');
+  assert.equal(deferStorage.setCalls.length, baseline + 2, 'flush wrote immediately');
+  assert.equal(deferred.flushSave(), false, 'flush is a no-op when nothing is pending');
+  deferred.saveState();
+  deferred.setActiveSaveSlotValue(1);
+  assert.ok(deferStorage.getItem(SAVE_KEYS[0]), 'pending save is flushed to the old slot before switching');
+  deferred.saveState({ immediate: true });
+  assert.equal(deferStorage.setCalls.length, baseline + 4, 'immediate bypasses deferral');
 
   console.log('runtimeStore tests passed');
 } finally {

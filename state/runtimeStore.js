@@ -37,6 +37,10 @@ export function createRuntimeStore(options = {}) {
     now = () => Date.now(),
     globalRef = globalThis,
     initialState = createDefaultState(),
+    // Délai de regroupement des sauvegardes explicites. 0 = écriture synchrone
+    // (comportement historique, utilisé par les tests). > 0 : saveState() ne
+    // fait que planifier l'écriture, qui coûte ~55 ms avec 7 000 Pokémon.
+    saveDeferMs = 0,
   } = options;
 
   let state = structuredClone(initialState || DEFAULT_STATE);
@@ -45,6 +49,8 @@ export function createRuntimeStore(options = {}) {
   let playerWasActive = false;
   let activeSaveSlot = getInitialSaveSlot(localStorageRef);
   let saveKey = SAVE_KEYS[activeSaveSlot];
+  let pendingSaveTimer = null;
+  let savePending = false;
 
   function syncGlobalState() {
     if (globalRef) globalRef.state = state;
@@ -98,6 +104,8 @@ export function createRuntimeStore(options = {}) {
   }
 
   function setActiveSaveSlotValue(slotIdx, opts = {}) {
+    // Une écriture en attente appartient au slot courant : la vider avant de changer de clé.
+    if (savePending && clampSlot(slotIdx) !== activeSaveSlot) flushSave();
     activeSaveSlot = clampSlot(slotIdx);
     saveKey = SAVE_KEYS[activeSaveSlot];
     if (opts?.persist) localStorageRef?.setItem?.('pokeforge.activeSlot', String(activeSaveSlot));
@@ -136,17 +144,34 @@ export function createRuntimeStore(options = {}) {
     return stateDirty;
   }
 
-  function saveState({ markActivity = true } = {}) {
+  function writeNow() {
+    if (pendingSaveTimer !== null) { clearTimeout(pendingSaveTimer); pendingSaveTimer = null; }
+    savePending = false;
     stateDirty = false;
     syncGlobalState();
-    if (markActivity) playerWasActive = true;
     ensureStore().setState(state, { emit: false });
     return ensureStore().save();
   }
 
+  function saveState({ markActivity = true, immediate = false } = {}) {
+    if (markActivity) playerWasActive = true;
+    if (immediate || saveDeferMs <= 0) return writeNow();
+    // Différée : l'état reste « sale » jusqu'à l'écriture réelle, que l'autosave
+    // ou flushSave (évènements de cycle de vie) rattrapent si le timer saute.
+    stateDirty = true;
+    savePending = true;
+    if (pendingSaveTimer === null) pendingSaveTimer = setTimeout(writeNow, saveDeferMs);
+    return true;
+  }
+
+  /** Écrit tout de suite si une sauvegarde différée est en attente. */
+  function flushSave() {
+    return savePending ? writeNow() : false;
+  }
+
   function autoSave() {
     if (!stateDirty) return false;
-    return saveState();
+    return writeNow();
   }
 
   function migrate(saved) {
@@ -204,6 +229,7 @@ export function createRuntimeStore(options = {}) {
     markDirty,
     isDirty,
     saveState,
+    flushSave,
     autoSave,
     migrate,
     getMigrationResult,
