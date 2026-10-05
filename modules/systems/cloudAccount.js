@@ -212,38 +212,6 @@ function _supaFetch(url, options = {}) {
     .finally(() => clearTimeout(timer));
 }
 
-// ── Mutex réentrant JS — remplace le Web Locks API pour GoTrue ───────
-// Raison : GoTrue appelle _recoverAndRefresh() DEPUIS l'intérieur du lock
-// courant quand une requête échoue (504). Le Web Locks API ne supporte pas la
-// réentrance → deadlock de 5s → vol de lock → "Uncaught (in promise)".
-// Un mutex JS simple est réentrant par nature (même thread) et évite tout ça.
-function _makeSupaLock() {
-  let _promise = Promise.resolve(); // chaîne de promesses sérialisées
-  let _depth   = 0;                 // compteur de réentrance
-  return async function supaLock(_name, _acquireTimeout, fn) {
-    if (_depth > 0) {
-      // Réentrant : exécuter fn directement sans attendre le mutex
-      _depth++;
-      try { return await fn(); } finally { _depth--; }
-    }
-    // Première acquisition : sérialiser derrière les appels précédents
-    let release;
-    const next = new Promise(r => (release = r));
-    const prev = _promise;
-    _promise    = next;
-    await prev;
-    _depth = 1;
-    try {
-      return await fn();
-    } catch (err) {
-      throw err;
-    } finally {
-      _depth = 0;
-      release();
-    }
-  };
-}
-
 // ── Init ──────────────────────────────────────────────────────────
 function initSupabase() {
   if (_supabase) return; // idempotent : déjà initialisé
@@ -260,7 +228,10 @@ function initSupabase() {
         persistSession:     true,
         autoRefreshToken:   true,
         detectSessionInUrl: false,
-        lock: _makeSupaLock(), // mutex JS réentrant, pas de Web Locks API
+        // Pas d'option `lock` : depuis supabase-js 2.107 la coordination des
+        // sessions se fait sans verrou (plus de Web Locks, donc plus le deadlock
+        // de réentrance qu'un mutex maison contournait) ; l'option est dépréciée
+        // et disparaît en v3.
       },
       global: { fetch: _supaFetch },
     });
