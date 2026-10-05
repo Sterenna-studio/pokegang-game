@@ -277,3 +277,26 @@ Le seuil de 2 500 de la quête Hoenn est redondant : le déblocage de la région
 (a) Rendre les chromas de quête possibles (par exemple 2 % partout, comme Sinnoh, ou le taux de base) ou retirer les
 titres impossibles ; (b) harmoniser les seuils de réputation ; (c) retirer ou renommer le champ `power` ; (d) décider
 si les doublons de légendaires doivent rester vendables.
+
+### 13.6 Correctif appliqué le 5 octobre (taux de chasse inchangé)
+
+Découverte en préparant le correctif : **les objets de quête ne tombaient jamais.** Les événements « objet »
+(Argent'Aile, Arcenci'Aile, Météore, Plume Sacrée, Rapport Sylphe de zone, Cristal Bête, Fragment Temporel, Onde
+Distorsion, Cristal du Lac) ne figurent pas dans `ACTIVE_EVENT_IDS` (`zoneSystem.js`, seuls 4 événements y sont) et
+leur champ `chance` n'est de toute façon jamais lu. Lugia, Ho-Oh et Deoxys, ainsi que les Permis Tourbillon /
+Carillon, ne pouvaient donc pas être terminés (seuls le Rapport Sylphe sur un Rocket, et les Sigles Magma/Aqua,
+avaient une autre source).
+
+- **Capture garantie** après la victoire (`rollQuestCapture`) : plus de « s'échappe » ni de `catchBase`. L'affaiblissement
+  agit désormais sur la qualité.
+- **Potentiel en fourchette** (`rollQuestPotential`) : plancher ★3 (le ★ de base s'il est plus haut), plafond ★5.
+  Sans affaiblissement 60 / 30 / 10 % ; à −60 % : 30 / 30 / 40 %. Mewtwo, Ho-Oh et Deoxys (★5) restent ★5.
+- **Chroma de quête à 2 %** partout (`finalizeQuestPokemon`, comme Sinnoh) ; notification dédiée. Les titres
+  chromatiques d'Articuno, Zapdos et Moltres deviennent atteignables. **Le taux de chasse en zone (0,5 %) n'a aucune
+  pitié et n'a pas bougé.**
+- **Drops d'objets de quête** (`modules/systems/questDrops.js`) : tirés à chaque victoire de combat dans leurs zones,
+  avec les `chance` / `minRep` / `zoneIds` des données, et **pitié** (drop garanti au tirage qui suit ⌈1,5 ÷ chance⌉
+  ratés : 75 pour les ailes, 150 pour la Plume, 100 pour les Sigles…). La pitié couvre aussi le Rapport Sylphe sur
+  Rocket et les Sigles Magma / Aqua. Compteurs dans `state.dropPity` (schéma 21).
+- Météore : 0,5 % → 2 % (3 requis pour Deoxys) ; Permis Tourbillon / Carillon : 50 → 15 ailes.
+- Garde-fou : `tools/test-quest-rewards.mjs`.

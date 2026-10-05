@@ -43,14 +43,14 @@ const SHOP_ITEMS = [
   { id:'silph_keycard', qty:1, cost:50000, icon:'🔑', fr:'Badge Sylphe',     en:'Silph Keycard',   desc_fr:'Accès à Sylphe SARL',                   desc_en:'Access to Silph Co.' },
   { id:'boat_ticket',   qty:1, cost:15000, icon:'⚓', fr:'Ticket Bateau',    en:'Boat Ticket',     desc_fr:'Monte à bord du Bateau St. Anne',        desc_en:'Board the S.S. Anne' },
   // ── Zones légendaires Gen 2 (débloquables avec ailes) ──
-  { id:'tourbillon_permit', qty:1, cost:0, wingCost:{ item:'silver_wing', qty:50 }, icon:'🌊',
+  { id:'tourbillon_permit', qty:1, cost:0, wingCost:{ item:'silver_wing', qty:15 }, icon:'🌊',
     fr:'Permis Tourbillon', en:'Whirlpool Permit',
-    desc_fr:'50× Argent\'Aile requis → Îles Tourbillon (Lugia)',
-    desc_en:'50× Silver Wing required → Whirl Islands (Lugia)' },
-  { id:'carillon_permit',   qty:1, cost:0, wingCost:{ item:'rainbow_wing', qty:50 }, icon:'🔔',
+    desc_fr:'15× Argent\'Aile requis → Îles Tourbillon (Lugia)',
+    desc_en:'15× Silver Wing required → Whirl Islands (Lugia)' },
+  { id:'carillon_permit',   qty:1, cost:0, wingCost:{ item:'rainbow_wing', qty:15 }, icon:'🔔',
     fr:'Permis Carillon',   en:'Bell Tower Permit',
-    desc_fr:'50× Arcenci\'Aile requis → Tour Carillon (Ho-Oh)',
-    desc_en:'50× Rainbow Wing required → Bell Tower (Ho-Oh)' },
+    desc_fr:'15× Arcenci\'Aile requis → Tour Carillon (Ho-Oh)',
+    desc_en:'15× Rainbow Wing required → Bell Tower (Ho-Oh)' },
   // ── Zones Johto spéciales ──
   // rocket_hq_keycard : pas dans le shop — obtenu automatiquement à 50 Rockets Johto vaincus
   { id:'rocket_hq_keycard', qty:1, cost:0, hidden:true, icon:'🔑',

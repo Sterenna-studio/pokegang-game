@@ -5,7 +5,7 @@ export const APP_VERSION = '2.4.0';
 export const GAME_VERSION = 'v0.5 — open beta';
 
 // Incrémenter à chaque ajout de champ majeur pour déclencher le banner migration.
-export const SAVE_SCHEMA_VERSION = 20;
+export const SAVE_SCHEMA_VERSION = 21;
 
 export const SAVE_KEYS = ['pokeforge.v6', 'pokeforge.v6.s2', 'pokeforge.v6.s3'];
 
@@ -244,6 +244,7 @@ export const DEFAULT_STATE = {
     },
   },
   eggs: [],
+  dropPity: {},           // compteurs de pitié des objets de quête (modules/systems/questDrops.js)
   playtime: 0,
   sessionStart: 0,
   openZoneOrder: [],

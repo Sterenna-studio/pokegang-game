@@ -47,7 +47,8 @@
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
 import { requestSimulationSave, suppressSimulationNotification } from '../core/simulationContext.js';
-import { defaultEncounterState } from './questCombat.js';
+import { defaultEncounterState, finalizeQuestPokemon } from './questCombat.js';
+import { pityRoll } from './questDrops.js';
 
 const _notify = (msg, type = '') => {
   if (!suppressSimulationNotification()) EventBus.emit(EVENTS.UI_NOTIFY, { msg, type });
@@ -101,7 +102,7 @@ const BIRDS = {
         { species_en: 'lapras', level: 56 },
       ],
     },
-    power: 3500, catchBase: 0.50, level: 54, pot: 3,
+    power: 3500, level: 54, pot: 3,
     team: [{ species_en: 'articuno', level: 54, potential: 3 }], statMult: 1.6,
   },
   zapdos: {
@@ -116,7 +117,7 @@ const BIRDS = {
         { species_en: 'electrode', level: 52 }, { species_en: 'magneton', level: 53 },
       ],
     },
-    power: 3500, catchBase: 0.50, level: 50, pot: 3,
+    power: 3500, level: 50, pot: 3,
     team: [{ species_en: 'zapdos', level: 50, potential: 3 }], statMult: 1.6,
   },
   moltres: {
@@ -131,7 +132,7 @@ const BIRDS = {
         { species_en: 'rapidash', level: 52 }, { species_en: 'arcanine', level: 54 },
       ],
     },
-    power: 3500, catchBase: 0.50, level: 50, pot: 3,
+    power: 3500, level: 50, pot: 3,
     team: [{ species_en: 'moltres', level: 50, potential: 3 }], statMult: 1.6,
   },
 };
@@ -148,7 +149,7 @@ const GIOVANNI_CFG = {
 const MEWTWO_CFG = {
   name: 'Mewtwo', species: 'mewtwo', zone: 'unknown_cave',
   sprite: MEWTWO_STATIC, accent: '#cc2222', icon: '🧬',
-  power: 6000, catchBase: 0.30, level: 70, pot: 5,
+  power: 6000, level: 70, pot: 5,
   team: [{ species_en: 'mewtwo', level: 70, potential: 5 }], statMult: 1.9,
 };
 
@@ -187,7 +188,7 @@ function _onCombatWon({ zoneId, trainerKey, elite } = {}) {
   // de réputation que le drop de zone pour rester cohérent entre les deux.
   if (_ROCKET_TRAINER_KEYS.has(trainerKey) && (s.gang?.reputation || 0) >= 700) {
     const chance = elite ? 0.05 : 0.01;
-    if (Math.random() < chance) {
+    if (pityRoll(s, elite ? 'rapport_sylphe_elite' : 'rapport_sylphe_rocket', chance)) {
       s.inventory.rapport_sylphe = (s.inventory.rapport_sylphe || 0) + 1;
       EventBus.emit(EVENTS.ITEM_RECEIVED, { itemId: 'rapport_sylphe', qty: 1 });
       _notify(_t(
@@ -593,22 +594,15 @@ function _openBirdLegendary(key) {
   globalThis.openQuestEncounterPopup?.({
     id: `ktm-leg-${key}`, kind: 'legendary',
     name: _birdName(bird), icon: bird.icon, spriteUrl: bird.static,
-    team: bird.team, statMult: bird.statMult ?? 1, catchBase: bird.catchBase,
+    team: bird.team, statMult: bird.statMult ?? 1,
     potential: bird.pot, zoneId: bird.zone,
     encounterState: b.legendEncounter,
     onResolved: (result) => {
       if (!result.won) return;
-      if (!result.captured) {
-        _notify(_t(`⚡ ${_birdName(bird)} s'échappe !`, `⚡ ${_birdName(bird)} escapes!`), '');
-        return;
-      }
       const s = _state();
       const pk = globalThis.makePokemon?.(bird.species, null, 'pokeball');
       if (!pk) return;
-      pk.level = bird.level;
-      pk.shiny = false;
-      pk.potential = bird.pot;
-      if (globalThis.calculateStats) pk.stats = globalThis.calculateStats(pk);
+      finalizeQuestPokemon(pk, { level: bird.level, potential: result.potential ?? bird.pot });
       b.owned = true; b.step = 6; b.captures = (b.captures || 0) + 1;
       s.pokemons.push(pk);
       EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: pk, zoneId: bird.zone, source: 'quest' });
@@ -651,22 +645,15 @@ function _openMewtwo() {
   globalThis.openQuestEncounterPopup?.({
     id: 'ktm-mewtwo', kind: 'legendary',
     name: MEWTWO_CFG.name, icon: MEWTWO_CFG.icon, spriteUrl: MEWTWO_CFG.sprite,
-    team: MEWTWO_CFG.team, statMult: MEWTWO_CFG.statMult, catchBase: MEWTWO_CFG.catchBase,
+    team: MEWTWO_CFG.team, statMult: MEWTWO_CFG.statMult,
     potential: MEWTWO_CFG.pot, zoneId: MEWTWO_CFG.zone,
     encounterState: mm.mewtwoEncounter,
     onResolved: (result) => {
       if (!result.won) return;
-      if (!result.captured) {
-        _notify(_t('⚡ Mewtwo s\'échappe !', '⚡ Mewtwo escapes!'), '');
-        return;
-      }
       const s = _state();
       const pk = globalThis.makePokemon?.(MEWTWO_CFG.species, null, 'pokeball');
       if (!pk) return;
-      pk.level = MEWTWO_CFG.level;
-      pk.shiny = false;
-      pk.potential = MEWTWO_CFG.pot;
-      if (globalThis.calculateStats) pk.stats = globalThis.calculateStats(pk);
+      finalizeQuestPokemon(pk, { level: MEWTWO_CFG.level, potential: result.potential ?? MEWTWO_CFG.pot });
       mm.mewtwoOwned = true; mm.step = 6; mm.totalCaptures = (mm.totalCaptures || 0) + 1;
       s.pokemons.push(pk);
       EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: pk, zoneId: MEWTWO_CFG.zone, source: 'quest' });
