@@ -212,6 +212,21 @@ function makeFakeAnchor() {
   assert.equal(isCombatSpriteVisible(img), true);
 }
 
+// D'. Computed opacity 0 is a missing sprite only when no entrance animation
+// is playing: right after insertion, combatPkAppear starts from opacity 0.
+{
+  const makeImg = (opacity, animations) => ({
+    isConnected: true,
+    style: {},
+    ownerDocument: { defaultView: { getComputedStyle: () => ({ display: 'block', visibility: 'visible', opacity }) } },
+    getAnimations: () => animations,
+  });
+  assert.equal(isCombatSpriteVisible(makeImg('0', [{ playState: 'running' }])), true);
+  assert.equal(isCombatSpriteVisible(makeImg('0', [{ playState: 'finished' }])), false);
+  assert.equal(isCombatSpriteVisible(makeImg('0', [])), false);
+  assert.equal(isCombatSpriteVisible(makeImg('0.4', [])), true);
+}
+
 // E. Old timer callbacks are harmless after a newer combat generation starts,
 // and completion can only happen once.
 {
