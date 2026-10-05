@@ -1248,6 +1248,16 @@ function isZoneActive(zoneId) {
 const _ZONE_CATCHUP_CAP  = 500;
 const _zoneHiddenSince   = new Map(); // zoneId → timestamp
 
+// Apparitions supplémentaires par tick : bonus de vitesse du niveau de zone (+5 % → +50 %) et
+// boosts Leurre (×2) / Super Leurre (×3). Un bonus fractionnaire se tire au sort à chaque tick,
+// sans toucher à l'intervalle du minuteur (les boosts démarrent et expirent en cours de route).
+function _extraSpawnTicks(zoneId) {
+  const bonuses = globalThis.getZoneLevelBonuses?.(zoneId) || {};
+  const lure = globalThis.isBoostActive?.('superlure') ? 2 : globalThis.isBoostActive?.('lure') ? 1 : 0;
+  const extra = (bonuses.spawnRate || 0) + lure;
+  return Math.floor(extra) + (Math.random() < extra % 1 ? 1 : 0);
+}
+
 function startActiveZone(zoneId) {
   const zoneTimers = globalThis.zoneTimers;
   if (zoneTimers[zoneId]) return; // déjà actif
@@ -1263,10 +1273,13 @@ function startActiveZone(zoneId) {
     // Tab visible — effacer la marque hidden (le catchup est géré par visibilitychange)
     _zoneHiddenSince.delete(zoneId);
 
-    if (globalThis.openZones?.has(zoneId)) {
-      globalThis.tickZoneSpawn?.(zoneId);                  // mode visuel
-    } else {
-      globalThis.resolveBackgroundSpawnForZone?.(zoneId);  // mode silencieux
+    const ticks = 1 + _extraSpawnTicks(zoneId);
+    for (let i = 0; i < ticks; i++) {
+      if (globalThis.openZones?.has(zoneId)) {
+        globalThis.tickZoneSpawn?.(zoneId);                  // mode visuel
+      } else {
+        globalThis.resolveBackgroundSpawnForZone?.(zoneId);  // mode silencieux
+      }
     }
   }, interval);
 }
@@ -1319,7 +1332,8 @@ async function _catchupHiddenZones({ metrics, simulationContext = null } = {}) {
 
     const interval    = Math.round(1000 / zone.spawnRate);
     const elapsed     = now - hiddenSince;
-    const missedTicks = Math.min(Math.floor(elapsed / interval), _ZONE_CATCHUP_CAP);
+    const speed       = 1 + (globalThis.getZoneLevelBonuses?.(zoneId)?.spawnRate || 0);
+    const missedTicks = Math.min(Math.floor(elapsed / interval * speed), _ZONE_CATCHUP_CAP);
     if (missedTicks > 0) jobs.push({ zoneId, ticks: missedTicks });
   }
   const context = simulationContext || createSimulationContext({ metrics });

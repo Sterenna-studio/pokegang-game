@@ -45,7 +45,7 @@ const ZONE_XP_SOURCES = {
 //   spawnRate  : +X% taux de spawn de la zone
 //   moneyMult  : +X% argent gagné dans la zone
 //   rareChance : +X% chance de spawn rare dans le pool
-//   shinyBonus : +X% chance shiny dans la zone
+//   shinyBonus : (retiré) le bonus chroma vient de l'échelle de la région — voir getZoneLevelBonuses()
 const ZONE_LEVEL_BONUSES = {
   1:  {},
   2:  { spawnRate: 0.05 },
@@ -53,15 +53,19 @@ const ZONE_LEVEL_BONUSES = {
   4:  { spawnRate: 0.15, moneyMult: 0.10, rareChance: 0.05 },
   5:  { spawnRate: 0.20, moneyMult: 0.15, rareChance: 0.10 },
   6:  { spawnRate: 0.25, moneyMult: 0.20, rareChance: 0.15 },
-  7:  { spawnRate: 0.30, moneyMult: 0.25, rareChance: 0.20, shinyBonus: 0.05 },
-  8:  { spawnRate: 0.35, moneyMult: 0.30, rareChance: 0.25, shinyBonus: 0.10 },
-  9:  { spawnRate: 0.40, moneyMult: 0.35, rareChance: 0.30, shinyBonus: 0.15 },
-  10: { spawnRate: 0.50, moneyMult: 0.50, rareChance: 0.40, shinyBonus: 0.20 },
+  7:  { spawnRate: 0.30, moneyMult: 0.25, rareChance: 0.20 },
+  8:  { spawnRate: 0.35, moneyMult: 0.30, rareChance: 0.25 },
+  9:  { spawnRate: 0.40, moneyMult: 0.35, rareChance: 0.30 },
+  10: { spawnRate: 0.50, moneyMult: 0.50, rareChance: 0.40 },
 };
 
 // ── Zone events ───────────────────────────────────────────────
 // Délai entre deux événements par zone (en ms).
 // Chaque niveau de zone réduit le délai maximum de levelReduction.
+// Plafond du bonus chroma de zone (points de probabilité, par capture). L'échelle des régions
+// (regions-config.js, levelBonusScale.shinyBonus) monte jusqu'à 4,2 % à Sinnoh : on la coupe ici.
+const ZONE_SHINY_BONUS_CAP = 0.025;
+
 const ZONE_EVENT_INTERVAL_MS = {
   min:            25 * 60 * 1000, // 25 min
   max:            90 * 60 * 1000, // 90 min
@@ -161,6 +165,7 @@ export {
   ZONE_MAX_LEVEL,
   ZONE_XP_SOURCES,
   ZONE_LEVEL_BONUSES,
+  ZONE_SHINY_BONUS_CAP,
   ZONE_EVENT_INTERVAL_MS,
   ZONE_EVENT_DURATION_MS,
   ZONE_EVENT_POOLS,

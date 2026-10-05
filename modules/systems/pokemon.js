@@ -23,6 +23,7 @@ import {
   POWER_VAR_MIN, POWER_VAR_MAX,
 } from '../../data/power-config-data.js';
 import { BASE_SHINY_RATE, AURA_SHINY_RATE, CHROMA_CHARM_MULT } from '../../data/gameplay-config-data.js';
+import { shinyRate } from './shinyRates.js';
 import { EventBus, EVENTS } from '../core/eventBus.js';
 import { requestSimulationSave, resolveSimulationContext } from '../core/simulationContext.js';
 
@@ -90,9 +91,15 @@ function rollPotential() {
  * @param {number} [bonusRate=0] — bonus additif au taux de base (ex: 0.05 pour +5% zone niveau 10)
  */
 function rollShiny(bonusRate = 0) {
-  let rate = globalThis.isBoostActive?.('aura') ? AURA_SHINY_RATE : BASE_SHINY_RATE;
-  if (globalThis.state?.purchases?.chromaCharm) rate *= CHROMA_CHARM_MULT;
-  rate += bonusRate;
+  // (base ou Aura + bonus de zone) × Charme — le Charme joue aussi sur le bonus de zone.
+  const rate = shinyRate({
+    base: BASE_SHINY_RATE,
+    aura: !!globalThis.isBoostActive?.('aura'),
+    auraRate: AURA_SHINY_RATE,
+    charm: !!globalThis.state?.purchases?.chromaCharm,
+    charmMult: CHROMA_CHARM_MULT,
+    zoneBonus: bonusRate,
+  });
   return Math.random() < rate;
 }
 
