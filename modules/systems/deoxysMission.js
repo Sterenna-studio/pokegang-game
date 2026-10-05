@@ -54,7 +54,7 @@
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
 import { requestSimulationSave, suppressSimulationNotification } from '../core/simulationContext.js';
-import { defaultEncounterState } from './questCombat.js';
+import { defaultEncounterState, finalizeQuestPokemon } from './questCombat.js';
 
 const _notify = (msg, type = '') => {
   if (!suppressSimulationNotification()) EventBus.emit(EVENTS.UI_NOTIFY, { msg, type });
@@ -85,7 +85,6 @@ const DIRECTOR_TEAM = [
 const DEOXYS_SPECIES = 'deoxys';
 const DEOXYS_LEVEL = 80;   // valeur déjà explicite dans l'ancien système — conservée
 const DEOXYS_POT   = 5;    // idem
-const DEOXYS_CATCH_BASE = 0.45; // idem
 const DEOXYS_STAT_MULT  = 1.5;
 
 // ── Helpers ───────────────────────────────────────────────────
@@ -609,20 +608,17 @@ function _openDeoxysFight() {
     id: 'dxq-deoxys', kind: 'legendary',
     name: 'Deoxys', icon: '☄️', spriteUrl: DEOXYS_SPRITE,
     team: [{ species_en: DEOXYS_SPECIES, level: DEOXYS_LEVEL, potential: DEOXYS_POT }],
-    statMult: DEOXYS_STAT_MULT, catchBase: DEOXYS_CATCH_BASE,
+    statMult: DEOXYS_STAT_MULT,
     potential: DEOXYS_POT, zoneId: LAB_ZONE_ID,
     encounterState: q.deoxysEncounter,
     onResolved: (result) => {
       if (!result.won) return;
-      if (!result.captured) {
-        _notify(_t('☄️ Deoxys s\'échappe !', '☄️ Deoxys escapes!'), '');
-        return;
-      }
-      _addDeoxysToPC();
+      const pot = result.potential ?? DEOXYS_POT;
+      _addDeoxysToPC(pot);
       q.deoxysOwned = true;
       q.totalCaptures = (q.totalCaptures || 0) + 1;
       q.step = 6;
-      _notify(_t(`★ Deoxys capturé — Niv.${DEOXYS_LEVEL} / Pot.${DEOXYS_POT} !`, `★ Deoxys caught — Lv.${DEOXYS_LEVEL} / Pot.${DEOXYS_POT}!`), 'gold');
+      _notify(_t(`★ Deoxys capturé — Niv.${DEOXYS_LEVEL} / Pot.${pot} !`, `★ Deoxys caught — Lv.${DEOXYS_LEVEL} / Pot.${pot}!`), 'gold');
       _save();
       _repatchZone(LAB_ZONE_ID);
     },
@@ -746,21 +742,18 @@ export function getDeoxysQuestEncounterForZone(zoneId) {
   return null;
 }
 
-function _addDeoxysToPC() {
+function _addDeoxysToPC(potential) {
   const s = _state();
   if (!s) return;
   try {
     const p = globalThis.makePokemon?.(DEOXYS_SPECIES, LAB_ZONE_ID, 'pokeball');
     if (p) {
-      p.level     = DEOXYS_LEVEL;
-      p.shiny     = false;
-      p.potential = DEOXYS_POT;
-      if (globalThis.calculateStats) p.stats = globalThis.calculateStats(p);
+      finalizeQuestPokemon(p, { level: DEOXYS_LEVEL, potential: potential ?? DEOXYS_POT });
       s.pokemons.push(p);
       EventBus.emit(EVENTS.STATE_DIRTY);
       EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: p, zoneId: LAB_ZONE_ID, source: 'quest' });
       globalThis.registerPokedexCapture?.(s, p);
-      _notify(_t(`⭐ Deoxys (Niv.${DEOXYS_LEVEL} / Pot.${DEOXYS_POT}) a rejoint le Gang !`, `⭐ Deoxys (Lv.${DEOXYS_LEVEL} / Pot.${DEOXYS_POT}) has joined the Gang!`), 'gold');
+      _notify(_t(`⭐ Deoxys (Niv.${DEOXYS_LEVEL} / Pot.${p.potential}) a rejoint le Gang !`, `⭐ Deoxys (Lv.${DEOXYS_LEVEL} / Pot.${p.potential}) has joined the Gang!`), 'gold');
     }
   } catch (e) {
     console.warn('[deoxysMission] makePokemon failed:', e);

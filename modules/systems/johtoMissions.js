@@ -57,7 +57,7 @@
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
 import { requestSimulationSave, suppressSimulationNotification } from '../core/simulationContext.js';
-import { defaultEncounterState } from './questCombat.js';
+import { defaultEncounterState, finalizeQuestPokemon } from './questCombat.js';
 
 const _notify = (msg, type = '') => {
   if (!suppressSimulationNotification()) EventBus.emit(EVENTS.UI_NOTIFY, { msg, type });
@@ -161,14 +161,14 @@ const BOSSES = {
 const LEGENDARIES = {
   lugia: {
     name: 'Lugia', species: 'lugia', static: LUGIA_STATIC,
-    zone: _WHIRL_ZONE, icon: '🌊', catchBase: 0.35, level: 70, pot: 4, statMult: 1.7,
+    zone: _WHIRL_ZONE, icon: '🌊', level: 70, pot: 4, statMult: 1.7,
     team: [{ species_en: 'lugia', level: 70, potential: 4 }],
     onWin: lm => { lm.lugiaOwned = true; lm.step = 6; },
     getMission: _qLugia,
   },
   hooh: {
     name: 'Ho-Oh', species: 'ho-oh', static: HOOH_STATIC,
-    zone: _TIN_ZONE, icon: '🌈', catchBase: 0.30, level: 70, pot: 5, statMult: 1.8,
+    zone: _TIN_ZONE, icon: '🌈', level: 70, pot: 5, statMult: 1.8,
     team: [{ species_en: 'ho-oh', level: 70, potential: 5 }],
     onWin: hm => { hm.hoohOwned = true; hm.step = 6; },
     getMission: _qHooh,
@@ -813,22 +813,15 @@ function _openLegendary(key) {
   globalThis.openQuestEncounterPopup?.({
     id: `jhm-leg-${key}`, kind: 'legendary',
     name: cfg.name, icon: cfg.icon, spriteUrl: cfg.static,
-    team: cfg.team, statMult: cfg.statMult, catchBase: cfg.catchBase,
+    team: cfg.team, statMult: cfg.statMult,
     potential: cfg.pot, zoneId: cfg.zone,
     encounterState: mission.legendEncounter,
     onResolved: (result) => {
       if (!result.won) return;
-      if (!result.captured) {
-        _notify(_t(`⚡ ${cfg.name} s'échappe !`, `⚡ ${cfg.name} escapes!`), '');
-        return;
-      }
       const s = _state();
       const pk = globalThis.makePokemon?.(cfg.species, null, 'pokeball');
       if (!pk) return;
-      pk.level = cfg.level;
-      pk.shiny = false;
-      pk.potential = cfg.pot;
-      if (globalThis.calculateStats) pk.stats = globalThis.calculateStats(pk);
+      finalizeQuestPokemon(pk, { level: cfg.level, potential: result.potential ?? cfg.pot });
       cfg.onWin(mission);
       mission.totalCaptures = (mission.totalCaptures || 0) + 1;
       s.pokemons.push(pk);
@@ -851,22 +844,15 @@ function _openBeast() {
   globalThis.openQuestEncounterPopup?.({
     id: 'jhm-beast', kind: 'legendary',
     name: names[beast], icon: icons[beast], spriteUrl: _beastStatic(beast),
-    team: [{ species_en: beast, level: 60, potential: 3 }], statMult: 1.5, catchBase: 0.50,
+    team: [{ species_en: beast, level: 60, potential: 3 }], statMult: 1.5,
     potential: 3, zoneId: _BEAST_ZONE,
     encounterState: bm.beastEncounter,
     onResolved: (result) => {
       if (!result.won) return;
-      if (!result.captured) {
-        _notify(_t(`⚡ ${names[beast]} s'échappe !`, `⚡ ${names[beast]} escapes!`), '');
-        return;
-      }
       const s = _state();
       const pk = globalThis.makePokemon?.(beast, null, 'pokeball');
       if (!pk) return;
-      pk.level = 60;
-      pk.shiny = false;
-      pk.potential = 3;
-      if (globalThis.calculateStats) pk.stats = globalThis.calculateStats(pk);
+      finalizeQuestPokemon(pk, { level: 60, potential: result.potential ?? 3 });
       bm.beastOwned = true; bm.step = 6; bm.totalCaptures = (bm.totalCaptures || 0) + 1;
       s.pokemons.push(pk);
       EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: pk, zoneId: _BEAST_ZONE, source: 'quest' });

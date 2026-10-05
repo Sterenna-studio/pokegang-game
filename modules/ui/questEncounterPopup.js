@@ -17,7 +17,7 @@
 import { EventBus, EVENTS } from '../core/eventBus.js';
 import { esc as _esc } from '../core/escape.js';
 import {
-  runAgentWeakenAttempt, runFinalConfrontation, rollQuestCapture, defaultEncounterState,
+  runAgentWeakenAttempt, runFinalConfrontation, rollQuestCapture, rollQuestPotential, defaultEncounterState,
 } from '../systems/questCombat.js';
 
 const _notify = (msg, type = '') => EventBus.emit(EVENTS.UI_NOTIFY,        { msg, type });
@@ -36,8 +36,7 @@ const _t      = (fr, en)         => (globalThis.state?.lang === 'en' ? en : fr);
  * @param {string}   [cfg.lore]        texte d'ambiance court
  * @param {Array}    cfg.team          [{species_en, level, potential?}]
  * @param {number}   [cfg.statMult=1]  buff de difficulté (combat spécial)
- * @param {number}   [cfg.catchBase]   requis si kind==='legendary'
- * @param {number}   [cfg.potential]   requis si kind==='legendary' — pour l'effet visuel de capture
+ * @param {number}   [cfg.potential]   ★ de base du légendaire (plancher du tirage, ★3 minimum)
  * @param {string}   [cfg.zoneId]      requis si kind==='legendary' — pour animer la capture dans la zone
  * @param {object}   [cfg.encounterState] état d'affaiblissement persistant, muté en place
  * @param {(result: object) => void} cfg.onResolved
@@ -173,9 +172,9 @@ export function openQuestEncounterPopup(cfg) {
         if (lastOutcome.pendingCapture) {
           globalThis.animateQuestCapture?.({
             zoneId: cfg.zoneId, encounterId: cfg.id,
-            caught: lastOutcome.captured, potential: cfg.potential ?? 3,
+            caught: lastOutcome.captured, potential: lastOutcome.potential ?? cfg.potential ?? 3,
             onDone: () => {
-              cfg.onResolved?.({ won: true, isFinal: true, captured: lastOutcome.captured, weakenPctAtStart: lastOutcome.weakenPctAtStart });
+              cfg.onResolved?.({ won: true, isFinal: true, captured: lastOutcome.captured, potential: lastOutcome.potential, weakenPctAtStart: lastOutcome.weakenPctAtStart });
               _dirty(); _save();
             },
           });
@@ -231,8 +230,9 @@ export function openQuestEncounterPopup(cfg) {
       // révélation (texte + onResolved) est différée à la fermeture du popup
       // — voir bind()'s #qepDone — pour laisser place à l'animation de balle
       // dans la zone au lieu d'un texte "capturé !"/"s'échappe" ici.
-      const cap = rollQuestCapture({ catchBase: cfg.catchBase ?? 0.5, weakenPctAtStart: result.weakenPctAtStart });
-      lastOutcome = { won: true, isFinal: true, pendingCapture: true, captured: cap.caught, chance: cap.chance, weakenPctAtStart: result.weakenPctAtStart };
+      const cap = rollQuestCapture();
+      const potential = rollQuestPotential({ minPot: cfg.potential, weakenPct: result.weakenPctAtStart });
+      lastOutcome = { won: true, isFinal: true, pendingCapture: true, captured: cap.caught, chance: cap.chance, potential, weakenPctAtStart: result.weakenPctAtStart };
     } else {
       lastOutcome = { won: true, isFinal: true };
       cfg.onResolved?.({ won: true, isFinal: true });

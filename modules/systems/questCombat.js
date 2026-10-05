@@ -19,7 +19,8 @@
 // ════════════════════════════════════════════════════════════════
 
 import { resolveEventBattle } from './eventCombat.js';
-import { AGENT_PRISON_MS } from '../../data/gameplay-config-data.js';
+import { AGENT_PRISON_MS, MISSION_REWARD_SHINY_RATE } from '../../data/gameplay-config-data.js';
+import { EventBus, EVENTS } from '../core/eventBus.js';
 
 // Affaiblissement cumulatif max : l'adversaire ne descend jamais sous 40% de
 // ses stats de base, quel que soit le nombre d'agents envoyés.
@@ -130,18 +131,42 @@ export function runFinalConfrontation({ opponentTeam, baseStatMult = 1, encounte
   return { battle, playerTeam, win: battle.win, weakenPctAtStart };
 }
 
-/** Jet de capture post-victoire pour un légendaire — le bonus lié à
- *  l'affaiblissement préalable est la récompense mécanique d'avoir envoyé
- *  des agents avant l'affrontement direct. */
-export function rollQuestCapture({ catchBase = 0.5, weakenPctAtStart = 0, maxChance = 0.95 }) {
-  const chance = Math.min(maxChance, catchBase + weakenPctAtStart * 0.5);
-  return { caught: Math.random() < chance, chance };
+/** Capture post-victoire d'un légendaire : GARANTIE. Plus de « s'échappe » ni de combat à refaire — le
+ *  gain d'avoir affaibli l'adversaire passe par la qualité du légendaire (voir rollQuestPotential). */
+export function rollQuestCapture() {
+  return { caught: true, chance: 1 };
+}
+
+// Potentiel d'un légendaire de quête : plancher ★3 (ou son ★ de base s'il est plus haut), plafond ★5.
+// Sans affaiblissement : 60 % plancher, 30 % +1★, 10 % +2★. Chaque point d'affaiblissement décale le tirage
+// de 0,5 (à −60 % : 30 % plancher, 30 % +1★, 40 % +2★). Les légendaires déjà ★5 restent ★5.
+export const QUEST_MIN_POTENTIAL = 3;
+export function rollQuestPotential({ minPot = QUEST_MIN_POTENTIAL, weakenPct = 0, random = Math.random } = {}) {
+  const floor = Math.min(5, Math.max(QUEST_MIN_POTENTIAL, Math.floor(minPot) || QUEST_MIN_POTENTIAL));
+  const r = random() + Math.max(0, weakenPct) * 0.5;
+  const steps = r >= 0.9 ? 2 : r >= 0.6 ? 1 : 0;
+  return Math.min(5, floor + steps);
+}
+
+/** Fixe niveau, potentiel et chroma d'un légendaire de quête fraîchement créé (chroma 2 %, comme les autres
+ *  récompenses de quête — le taux de chasse en zone n'est pas touché), puis recalcule ses stats. */
+export function finalizeQuestPokemon(pokemon, { level, potential }, random = Math.random) {
+  pokemon.level = level;
+  pokemon.potential = potential;
+  pokemon.shiny = random() < MISSION_REWARD_SHINY_RATE;
+  if (globalThis.calculateStats) pokemon.stats = globalThis.calculateStats(pokemon);
+  if (pokemon.shiny) {
+    EventBus.emit(EVENTS.UI_NOTIFY, { msg: globalThis.state?.lang === 'en' ? '✨ SHINY legendary!' : '✨ Légendaire CHROMATIQUE !', type: 'gold' });
+  }
+  return pokemon;
 }
 
 Object.assign(globalThis, {
   runAgentWeakenAttempt,
   runFinalConfrontation,
   rollQuestCapture,
+  rollQuestPotential,
+  finalizeQuestPokemon,
   defaultEncounterState,
 });
 

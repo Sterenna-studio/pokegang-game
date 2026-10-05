@@ -42,6 +42,7 @@ import {
 import './modules/systems/market.js';
 import './modules/systems/bossPower.js';
 import './modules/systems/agent.js';
+import './modules/systems/questDrops.js';
 import './modules/systems/sessionObjectives.js';
 import './modules/systems/trainingRoom.js';
 import './modules/systems/eggIncubation.js';

@@ -268,7 +268,7 @@ function renderSpecialItemPanel() {
       ? [...kantoGyms, ...johtoGyms].every(id => state.zones?.[id]?.gymDefeated)
       : true;
     const btnDisabled = alreadyOwned
-      || (isWingPermit && wingHave < (item.wingCost?.qty || 50))
+      || (isWingPermit && wingHave < (item.wingCost?.qty || 15))
       || isAchievement
       || (isSilverPermit && !allGymsOk);
     const btnLabel = alreadyOwned
@@ -276,7 +276,7 @@ function renderSpecialItemPanel() {
       : isAchievement
         ? _t('market_achievement')
         : isWingPermit
-          ? `${item.wingCost?.qty||50}\u00d7 ${wingName}`
+          ? `${item.wingCost?.qty||15}\u00d7 ${wingName}`
           : `${item.cost.toLocaleString()}\u20bd`;
     const desc = lang === 'fr' ? item.desc_fr : item.desc_en;
     let statusHtml;
@@ -292,8 +292,8 @@ function renderSpecialItemPanel() {
         <div style="height:3px;background:var(--border);border-radius:2px;margin-top:4px;overflow:hidden">
           <div style="width:${pct}%;height:100%;background:var(--red);transition:width .3s"></div></div>`;
     } else if (isWingPermit) {
-      statusHtml = `<div style="font-size:10px;color:${wingHave>=(item.wingCost?.qty||50)?'var(--gold)':'var(--red)'}">
-            ${wingName} : ${wingHave}/${item.wingCost?.qty||50}</div>`;
+      statusHtml = `<div style="font-size:10px;color:${wingHave>=(item.wingCost?.qty||15)?'var(--gold)':'var(--red)'}">
+            ${wingName} : ${wingHave}/${item.wingCost?.qty||15}</div>`;
     } else if (isSilverPermit) {
       statusHtml = allGymsOk
         ? `<div style="font-size:10px;color:var(--gold)">${_t('market_gyms_ok')}</div>`
@@ -373,17 +373,17 @@ function renderShopPanel() {
     const extraInfo = item.id === 'mysteryegg'
       ? `<div style="font-size:9px;color:var(--text-dim)">${_t('market_egg_hint', { n: (state.purchases?.mysteryEggCount||0)+1 })}</div>`
         : isWingPermit
-          ? `<div style="font-size:10px;color:${alreadyOwned?'var(--green)':wingHave>=(item.wingCost?.qty||50)?'var(--gold)':'var(--red)'}">
-              ${alreadyOwned ? _t('market_owned') : `${wingName} : ${wingHave}/${item.wingCost?.qty||50}`}
+          ? `<div style="font-size:10px;color:${alreadyOwned?'var(--green)':wingHave>=(item.wingCost?.qty||15)?'var(--gold)':'var(--red)'}">
+              ${alreadyOwned ? _t('market_owned') : `${wingName} : ${wingHave}/${item.wingCost?.qty||15}`}
              </div>`
           : isUnlockItem
             ? `<div style="font-size:10px;color:${alreadyOwned?'var(--green)':'var(--text-dim)'}">${alreadyOwned ? _t('market_owned') : _t('market_zone_unlock')}</div>`
             : `<div style="font-size:10px;color:var(--text-dim)">${_t('market_stock', { n: owned })}${!isOneOff && mult>1 ? ` (+${totalQty})` : ''}</div>`;
-    const btnDisabled = alreadyOwned || (isWingPermit && wingHave < (item.wingCost?.qty || 50));
+    const btnDisabled = alreadyOwned || (isWingPermit && wingHave < (item.wingCost?.qty || 15));
     const btnLabel = alreadyOwned
       ? _t('market_acquired')
       : isWingPermit
-        ? `${item.wingCost?.qty||50}\u00d7 ${wingName}`
+        ? `${item.wingCost?.qty||15}\u00d7 ${wingName}`
         : `${totalCost.toLocaleString()}\u20bd${mult>1&&!isOneOff ? ` \u00d7${mult}` : ''}`;
     return `<div style="display:flex;align-items:center;gap:8px;padding:8px 4px;border-bottom:1px solid var(--border);opacity:${btnDisabled?'0.6':'1'}">
       ${itemSprite(item.id)}

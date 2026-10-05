@@ -48,7 +48,8 @@
 // ════════════════════════════════════════════════════════════════
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
-import { defaultEncounterState } from './questCombat.js';
+import { defaultEncounterState, finalizeQuestPokemon } from './questCombat.js';
+import { pityRoll } from './questDrops.js';
 import { reconcileHoennStoryUnlocks } from './hoennUnlocks.js';
 import { requestSimulationSave, suppressSimulationNotification } from '../core/simulationContext.js';
 
@@ -90,7 +91,7 @@ const QUESTS = {
     chief:       { key: 'maxieGen3', name: 'Maxie',
                    team: [{ species_en: 'camerupt', level: 58 }, { species_en: 'crobat', level: 58 }, { species_en: 'claydol', level: 60 }], power: 3000 },
     legendary:   { name: 'Groudon', static: GROUDON_STATIC,
-                   species: 'groudon', power: 4500, catchBase: 0.40, level: 70, pot: 4,
+                   species: 'groudon', power: 4500, level: 70, pot: 4,
                    zone: 'cave_of_origin', statMult: 1.7,
                    team: [{ species_en: 'groudon', level: 70, potential: 4 }] },
     theme:       { accent: '#e63535', glow: 'rgba(230,53,53,.4)', bg: '#110606', label: '🌋 MAGMA',
@@ -115,7 +116,7 @@ const QUESTS = {
     chief:       { key: 'archieGen3',name: 'Archie',
                    team: [{ species_en: 'sharpedo', level: 58 }, { species_en: 'mantine', level: 58 }, { species_en: 'crobat', level: 60 }], power: 3000 },
     legendary:   { name: 'Kyogre', static: KYOGRE_STATIC,
-                   species: 'kyogre', power: 4500, catchBase: 0.40, level: 70, pot: 4,
+                   species: 'kyogre', power: 4500, level: 70, pot: 4,
                    zone: 'cave_of_origin', statMult: 1.7,
                    team: [{ species_en: 'kyogre', level: 70, potential: 4 }] },
     theme:       { accent: '#2299ff', glow: 'rgba(34,153,255,.4)', bg: '#040b11', label: '🌊 AQUA',
@@ -247,7 +248,7 @@ function _onCombatWon({ zoneId } = {}) {
       dirty = true;
     }
     // Drop Sigle Magma (1,5 % dans toutes zones Magma pendant la quête active)
-    if (_MAGMA_ZONES.has(zoneId) && Math.random() < 0.015) {
+    if (_MAGMA_ZONES.has(zoneId) && pityRoll(s, 'sigle_magma', 0.015)) {
       s.inventory.sigle_magma = (s.inventory.sigle_magma || 0) + 1;
       _notify(_t('🔴 Sigle Magma récupéré ! (relance combat Groudon)', '🔴 Magma Emblem recovered! (retry the Groudon fight)'), 'gold');
       dirty = true;
@@ -274,7 +275,7 @@ function _onCombatWon({ zoneId } = {}) {
       dirty = true;
     }
     // Drop Sceau Aqua (1,5 %)
-    if (_AQUA_ZONES.has(zoneId) && Math.random() < 0.015) {
+    if (_AQUA_ZONES.has(zoneId) && pityRoll(s, 'sceau_aqua', 0.015)) {
       s.inventory.sceau_aqua = (s.inventory.sceau_aqua || 0) + 1;
       _notify(_t('🔵 Sceau Aqua récupéré ! (relance combat Kyogre)', '🔵 Aqua Seal recovered! (retry the Kyogre fight)'), 'gold');
       dirty = true;
@@ -914,21 +915,18 @@ function _openLegendary(questId) {
   globalThis.openQuestEncounterPopup?.({
     id: `lgm-leg-${questId}`, kind: 'legendary',
     name: leg.name, icon: cfg.theme.label, spriteUrl: leg.static,
-    team: leg.team, statMult: leg.statMult ?? 1, catchBase: leg.catchBase,
+    team: leg.team, statMult: leg.statMult ?? 1,
     potential: leg.pot, zoneId: leg.zone,
     encounterState: q.legendEncounter,
     onResolved: (result) => {
       if (!result.won) return;
-      if (!result.captured) {
-        _notify(_t(`⚡ ${leg.name} s'échappe !`, `⚡ ${leg.name} escapes!`), '');
-        return;
-      }
-      _addLegendaryToPC(questId);
+      const pot = result.potential ?? leg.pot;
+      _addLegendaryToPC(questId, pot);
       if (questId === 'groudon') q.groudonOwned = true; else q.kyogreOwned = true;
       q.totalCaptures = (q.totalCaptures || 0) + 1;
       q.step = 6;
       _grantEarnedStoryUnlocks(_state());
-      _notify(_t(`★ ${leg.name} capturé — Niv.${leg.level} / Pot.${leg.pot} !`, `★ ${leg.name} caught — Lv.${leg.level} / Pot.${leg.pot}!`), 'gold');
+      _notify(_t(`★ ${leg.name} capturé — Niv.${leg.level} / Pot.${pot} !`, `★ ${leg.name} caught — Lv.${leg.level} / Pot.${pot}!`), 'gold');
       _save();
       _repatchZone(leg.zone);
     },
@@ -971,7 +969,7 @@ export function getHoennQuestEncounterForZone(zoneId) {
 
 
 
-function _addLegendaryToPC(questId) {
+function _addLegendaryToPC(questId, potential) {
   const s   = _state();
   const cfg = QUESTS[questId];
   const leg = cfg.legendary;
@@ -979,10 +977,7 @@ function _addLegendaryToPC(questId) {
   try {
     const p = globalThis.makePokemon?.(leg.species, 'cave_of_origin', 'pokeball');
     if (p) {
-      p.level     = leg.level;
-      p.shiny     = false;
-      p.potential = leg.pot;
-      if (globalThis.calculateStats) p.stats = globalThis.calculateStats(p);
+      finalizeQuestPokemon(p, { level: leg.level, potential: potential ?? leg.pot });
       s.pokemons.push(p);
       EventBus.emit(EVENTS.STATE_DIRTY);
       EventBus.emit(EVENTS.POKEMON_CAPTURED, { pokemon: p, zoneId: 'cave_of_origin', source: 'quest' });

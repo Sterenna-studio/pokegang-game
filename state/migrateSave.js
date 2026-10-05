@@ -350,6 +350,7 @@ export function migrateSave(saved, deps) {
   if (saved.purchases?.autoIncubator && (Number(saved._schemaVersion) || 0) < 20) {
     merged.gang.money = (merged.gang.money || 0) + (NURSE_JOY_OLD_PRICE - NURSE_JOY_NEW_PRICE);
   }
+  if (!merged.dropPity || typeof merged.dropPity !== 'object') merged.dropPity = {};
   // ── Pension : slots achetés un par un → couples ───────────────────────────────
   // 2 sièges de base = 1 couple offert. Les slots 3-4 (50 k + 150 k) font le couple 2
   // (200 k), les slots 5-6 (300 k + 500 k) le couple 3 (800 k) : les totaux sont

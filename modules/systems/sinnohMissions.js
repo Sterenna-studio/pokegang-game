@@ -60,8 +60,7 @@
 // ════════════════════════════════════════════════════════════════
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
-import { defaultEncounterState } from './questCombat.js';
-import { MISSION_REWARD_SHINY_RATE } from '../../data/gameplay-config-data.js';
+import { defaultEncounterState, finalizeQuestPokemon } from './questCombat.js';
 import { requestSimulationSave, suppressSimulationNotification } from '../core/simulationContext.js';
 
 const _notify = (msg, type = '') => {
@@ -135,13 +134,13 @@ const GALAXIE_LEGENDS = {
     name: 'Dialga', species: 'dialga', static: DIALGA_STATIC,
     accent: '#4060d0', icon: '💎',
     desc: () => _t('Maître du Temps — son rugissement fait vibrer le passé et le futur.', 'Master of Time — its roar makes the past and future tremble.'),
-    catchBase: 0.45, level: 72, pot: 3, statMult: 1.7,
+    level: 72, pot: 3, statMult: 1.7,
   },
   palkia: {
     name: 'Palkia', species: 'palkia', static: PALKIA_STATIC,
     accent: '#c050a0', icon: '🌀',
     desc: () => _t("Maître de l'Espace — il distord les dimensions à sa guise.", 'Master of Space — it warps dimensions at will.'),
-    catchBase: 0.45, level: 72, pot: 3, statMult: 1.7,
+    level: 72, pot: 3, statMult: 1.7,
   },
 };
 
@@ -153,14 +152,14 @@ const GIRATINA = {
   // giratinaOwned=true). `static` reste le sprite Forme Originelle : c'est
   // purement l'apparence visuelle du combat, sans lien avec la clé espèce.
   name: 'Giratina', species: 'giratina', static: GIRATINA_STATIC,
-  catchBase: 0.42, level: 72, pot: 3, statMult: 1.75,
+  level: 72, pot: 3, statMult: 1.75,
 };
 
 // ── Config Trio du Lac ─────────────────────────────────────────────
 const LAKES = {
-  uxie:    { name: 'Uxie',    species: 'uxie',    static: UXIE_STATIC,    accent: '#f0d040', icon: '💛', catchBase: 0.45, level: 50, pot: 2, statMult: 1.3 },
-  mesprit: { name: 'Mesprit', species: 'mesprit', static: MESPRIT_STATIC, accent: '#ff80b0', icon: '🩷', catchBase: 0.45, level: 50, pot: 2, statMult: 1.3 },
-  azelf:   { name: 'Azelf',   species: 'azelf',   static: AZELF_STATIC,   accent: '#6080ff', icon: '💙', catchBase: 0.45, level: 50, pot: 2, statMult: 1.3 },
+  uxie:    { name: 'Uxie',    species: 'uxie',    static: UXIE_STATIC,    accent: '#f0d040', icon: '💛', level: 50, pot: 2, statMult: 1.3 },
+  mesprit: { name: 'Mesprit', species: 'mesprit', static: MESPRIT_STATIC, accent: '#ff80b0', icon: '🩷', level: 50, pot: 2, statMult: 1.3 },
+  azelf:   { name: 'Azelf',   species: 'azelf',   static: AZELF_STATIC,   accent: '#6080ff', icon: '💙', level: 50, pot: 2, statMult: 1.3 },
 };
 
 // ── State accessor ────────────────────────────────────────────────
@@ -178,10 +177,7 @@ function _addLegendToPC(species, level, pot, zoneId) {
   try {
     const p = globalThis.makePokemon?.(species, zoneId ?? null, 'pokeball');
     if (!p) return null;
-    p.level     = level;
-    p.shiny     = Math.random() < MISSION_REWARD_SHINY_RATE;
-    p.potential = pot;
-    if (globalThis.calculateStats) p.stats = globalThis.calculateStats(p);
+    finalizeQuestPokemon(p, { level, potential: pot });
     if (!s.pokemons) s.pokemons = [];
     s.pokemons.push(p);
     EventBus.emit(EVENTS.STATE_DIRTY);
@@ -282,20 +278,17 @@ function _openGalaxieLegend() {
     id: 'snm-galaxie-legend', kind: 'legendary',
     name: leg.name, icon: leg.icon, spriteUrl: leg.static,
     team: [{ species_en: leg.species, level: leg.level, potential: leg.pot }],
-    statMult: leg.statMult, catchBase: leg.catchBase,
+    statMult: leg.statMult,
     potential: leg.pot, zoneId: _SPEAR_PILLAR_ZONE,
     encounterState: gx.legendEncounter,
     onResolved: (result) => {
       if (!result.won) return;
-      if (!result.captured) {
-        _notify(_t(`⚡ ${leg.name} s'échappe !`, `⚡ ${leg.name} escapes!`), '');
-        return;
-      }
-      _addLegendToPC(leg.species, leg.level, leg.pot, _SPEAR_PILLAR_ZONE);
+      const pot = result.potential ?? leg.pot;
+      _addLegendToPC(leg.species, leg.level, pot, _SPEAR_PILLAR_ZONE);
       gx.legendOwned = true;
       gx.totalCaptures = (gx.totalCaptures || 0) + 1;
       gx.step = 6;
-      _notify(_t(`★ ${leg.name} capturé — Niv.${leg.level} / Pot.${leg.pot} !`, `★ ${leg.name} caught — Lv.${leg.level} / Pot.${leg.pot}!`), 'gold');
+      _notify(_t(`★ ${leg.name} capturé — Niv.${leg.level} / Pot.${pot} !`, `★ ${leg.name} caught — Lv.${leg.level} / Pot.${pot}!`), 'gold');
       _save();
       _repatchZone(_SPEAR_PILLAR_ZONE);
     },
@@ -311,16 +304,12 @@ function _openGiratina() {
     id: 'snm-giratina', kind: 'legendary',
     name: GIRATINA.name, icon: '👁️', spriteUrl: GIRATINA.static,
     team: [{ species_en: GIRATINA.species, level: GIRATINA.level, potential: GIRATINA.pot }],
-    statMult: GIRATINA.statMult, catchBase: GIRATINA.catchBase,
+    statMult: GIRATINA.statMult,
     potential: GIRATINA.pot, zoneId: _SENDOFF_SPRING_ZONE,
     encounterState: gt.legendEncounter,
     onResolved: (result) => {
       if (!result.won) return;
-      if (!result.captured) {
-        _notify(_t('⚡ Giratina s\'échappe !', '⚡ Giratina escapes!'), '');
-        return;
-      }
-      _addLegendToPC(GIRATINA.species, GIRATINA.level, GIRATINA.pot, _SENDOFF_SPRING_ZONE);
+      _addLegendToPC(GIRATINA.species, GIRATINA.level, result.potential ?? GIRATINA.pot, _SENDOFF_SPRING_ZONE);
       gt.giratinaOwned = true;
       gt.totalCaptures = (gt.totalCaptures || 0) + 1;
       gt.step = 4;
@@ -341,16 +330,12 @@ function _openLake(key) {
     id: `snm-lake-${key}`, kind: 'legendary',
     name: cfg.name, icon: cfg.icon, spriteUrl: cfg.static,
     team: [{ species_en: cfg.species, level: cfg.level, potential: cfg.pot }],
-    statMult: cfg.statMult, catchBase: cfg.catchBase,
+    statMult: cfg.statMult,
     potential: cfg.pot, zoneId: _LAKE_SHORES_ZONE,
     encounterState: m.encounter,
     onResolved: (result) => {
       if (!result.won) return;
-      if (!result.captured) {
-        _notify(_t(`⚡ ${cfg.name} s'échappe !`, `⚡ ${cfg.name} escapes!`), '');
-        return;
-      }
-      _addLegendToPC(cfg.species, cfg.level, cfg.pot, _LAKE_SHORES_ZONE);
+      _addLegendToPC(cfg.species, cfg.level, result.potential ?? cfg.pot, _LAKE_SHORES_ZONE);
       m.owned = true;
       m.captures = (m.captures || 0) + 1;
       m.step = 3;

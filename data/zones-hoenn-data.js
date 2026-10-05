@@ -494,7 +494,7 @@ const SPECIAL_EVENTS_HOENN = [
   // ── Fabuleux ──────────────────────────────────────────────────
   // ── Météore (drop → utilisé pour relancer le combat Deoxys) ──────
   { id:'meteore_crash', fr:'Pluie de Météores', en:'Meteor Shower', icon:'☄️',
-    trainerKey:null, chance:0.005, minRep:3500,
+    trainerKey:null, chance:0.02, minRep:3500,
     zoneIds:['sky_pillar','mt_chimney','ever_grande_hoenn','laboratoire_spatial','cave_of_origin'],
     reward:{ itemGift:'meteore' },
     desc_fr:"Une météorite s'écrase aux alentours. Un fragment lumineux reste dans le cratère...",
