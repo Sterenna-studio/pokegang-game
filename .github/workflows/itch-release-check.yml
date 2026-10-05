@@ -5,6 +5,7 @@ on:
     paths:
       - 'release/**'
       - 'tools/build-itch.js'
+      - 'tools/check-dead-calls.mjs'
       - 'docs/itch-build.md'
       - 'docs/devlogs/**'
       - 'index.html'
@@ -56,6 +57,7 @@ jobs:
         run: |
           set -e
           node tools/check-events.js
+          node tools/check-dead-calls.mjs
           for test in tools/test-*.mjs; do
             echo "── $test"
             node "$test"
