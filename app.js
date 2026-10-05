@@ -1445,6 +1445,8 @@ configureSettingsModal({
 //   3. Absorber le bruit GoTrue (locks Supabase)
 
 window.onerror = function(msg, src, line, col, err) {
+  // Avertissement bénin du navigateur (boucle de layout), pas une erreur du jeu.
+  if (String(msg).includes('ResizeObserver loop')) return true;
   const context = {
     tab:    globalThis.activeTab ?? '?',
     schema: globalThis.state?._schemaVersion ?? '?',

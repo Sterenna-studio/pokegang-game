@@ -4,6 +4,7 @@
   "version": "6.0.0",
   "gang": {
     "name": "Test Gang",
+    "initialized": true,
     "bossName": "TestBoss",
     "bossSprite": "red",
     "reputation": 800,
@@ -16,19 +17,20 @@
     "vivariumSources": ["showcase", "team", "pension", "training"]
   },
   "pokemons": [
-    { "id": "pk-1", "species_en": "pikachu",   "level": 20, "nature": "jolly",   "potential": 5, "shiny": true,  "favorite": true },
-    { "id": "pk-2", "species_en": "charizard", "level": 34, "nature": "adamant", "potential": 4, "shiny": false },
-    { "id": "pk-3", "species_en": "eevee",     "level": 12, "nature": "timid",   "potential": 3, "shiny": true },
-    { "id": "pk-4", "species_en": "snorlax",   "level": 28, "nature": "bold",    "potential": 4, "shiny": false, "nick": "Gros Dodo" },
-    { "id": "pk-5", "species_en": "gengar",    "level": 30, "nature": "timid",   "potential": 5, "shiny": false },
-    { "id": "pk-6", "species_en": "dragonite", "level": 40, "nature": "adamant", "potential": 5, "shiny": false, "favorite": true },
-    { "id": "pk-7", "species_en": "bulbasaur", "level": 8,  "nature": "calm",    "potential": 2, "shiny": false },
-    { "id": "pk-8", "species_en": "squirtle",  "level": 10, "nature": "naive",  "potential": 3, "shiny": false }
+    { "id": "pk-1", "species_en": "pikachu",   "level": 20, "nature": "jolly",   "potential": 5, "shiny": true,  "favorite": true, "stats": { "atk": 99, "def": 65, "spd": 178 } },
+    { "id": "pk-2", "species_en": "charizard", "level": 34, "nature": "adamant", "potential": 4, "shiny": false, "stats": { "atk": 173, "def": 146, "spd": 169 } },
+    { "id": "pk-3", "species_en": "eevee",     "level": 12, "nature": "timid",   "potential": 3, "shiny": true, "stats": { "atk": 72, "def": 73, "spd": 88 } },
+    { "id": "pk-4", "species_en": "snorlax",   "level": 28, "nature": "bold",    "potential": 4, "shiny": false, "nick": "Gros Dodo", "stats": { "atk": 177, "def": 128, "spd": 54 } },
+    { "id": "pk-5", "species_en": "gengar",    "level": 30, "nature": "timid",   "potential": 5, "shiny": false, "stats": { "atk": 114, "def": 117, "spd": 236 } },
+    { "id": "pk-6", "species_en": "dragonite", "level": 40, "nature": "adamant", "potential": 5, "shiny": false, "favorite": true, "stats": { "atk": 310, "def": 200, "spd": 151 } },
+    { "id": "pk-7", "species_en": "bulbasaur", "level": 8,  "nature": "calm",    "potential": 2, "shiny": false, "stats": { "atk": 64, "def": 70, "spd": 52 } },
+    { "id": "pk-8", "species_en": "squirtle",  "level": 10, "nature": "naive",  "potential": 3, "shiny": false, "stats": { "atk": 69, "def": 84, "spd": 68 } }
   ],
   "agents": [
     {
       "id": "ag-1",
       "name": "Sacha",
+      "sprite": "https://play.pokemonshowdown.com/sprites/trainers/acetrainer.png",
       "spriteKey": "acetrainer",
       "title": "sergent",
       "level": 5,

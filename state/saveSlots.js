@@ -80,7 +80,7 @@ export function getSlotPreview(slotIdx) {
       const pk = (s.pokemons || []).find(p => p.id === id);
       return pk ? pk.species_en : null;
     }).filter(Boolean);
-    const agentSprites = (s.agents || []).slice(0, 3).map(a => a.sprite);
+    const agentSprites = (s.agents || []).slice(0, 3).map(a => a.sprite).filter(Boolean);
     return {
       name: s.gang?.name || '???',
       initialized: !!s.gang?.initialized,

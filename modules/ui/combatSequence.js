@@ -177,7 +177,12 @@ export function isCombatSpriteVisible(img) {
   const view = img.ownerDocument?.defaultView;
   const computed = view?.getComputedStyle?.(img);
   if (!computed) return true;
-  return computed.display !== 'none' && computed.visibility !== 'hidden' && Number(computed.opacity) !== 0;
+  if (computed.display === 'none' || computed.visibility === 'hidden') return false;
+  if (Number(computed.opacity) !== 0) return true;
+  // L'opacité calculée inclut l'animation : juste après l'insertion, l'entrée
+  // (combatPkAppear) part de 0 — transitoire, pas un sprite manquant.
+  const animations = typeof img.getAnimations === 'function' ? img.getAnimations() : [];
+  return animations.some(anim => anim.playState === 'running' || anim.playState === 'pending');
 }
 
 export function warnIfActiveEnemySpriteMissing({
