@@ -195,3 +195,85 @@ Leurre (×2 / ×3 apparitions) ne sont lus par aucun module d'apparition [à vé
 - `levelBonusScale.moneyMult` (argent ×1 → ×3 à ×8 selon la région, jamais lu) supprimé : l'argent suit uniquement
   `zones-v2-config.js` (+50 % max).
 - Garde-fou : `tools/test-shiny-rates.mjs`.
+
+---
+
+## 13. Quêtes légendaires par région
+
+Modules : `kantoMissions.js` (Oiseaux, Mewtwo), `johtoMissions.js` (Bêtes, Lugia, Ho-Oh), `legendaryMissions.js`
+(Groudon/Kyogre, Hoenn), `sinnohMissions.js` (Dialga/Palkia, Giratina, Trio du Lac), `deoxysMission.js`.
+Toutes suivent le même patron : une série de **combats de grind** dans des zones dédiées, un ou plusieurs
+**dresseurs de quête**, puis un **légendaire qui apparaît comme sprite persistant dans sa zone**. Un clic ouvre un
+vrai combat tour par tour (`questCombat.js`, `eventCombat.js`).
+
+### 13.1 Déblocage
+
+| Quête | Seuil de réputation | Autres conditions |
+|---|---|---|
+| Zapdos / Articuno / Moltres | 700 / 800 / 950 | alignés sur le seuil de leur zone |
+| Mewtwo | 900 | — |
+| Bêtes Sacrées | 800 | Johto débloqué (1 000 rép) |
+| Lugia, Ho-Oh | 1 000 | Johto débloqué |
+| Groudon / Kyogre (Magma / Aqua) | 2 500 | Hoenn débloqué (3 500 rép + Ligue + 5 000 PC) |
+| Deoxys | 4 000 | Hoenn débloqué + Arène Ever Grande battue |
+| Trio du Lac (Uxie, Mesprit, Azelf) | 4 200 | Sinnoh |
+| Dialga / Palkia (Galaxie) | 4 500 | Sinnoh |
+| Giratina | — | après avoir vaincu Cyrus |
+
+Le seuil de 2 500 de la quête Hoenn est redondant : le déblocage de la région exige déjà 3 500.
+
+### 13.2 Étapes
+
+| Quête | Grind | Dresseurs | Légendaire |
+|---|---|---|---|
+| Oiseaux (×3, parallèles) | 10 combats dans la zone de l'oiseau | Lorelei / Lt. Surge / Blaine | Articuno Nv 54, Zapdos et Moltres Nv 50 (★3) |
+| Mewtwo | 20 Rockets Kanto + 3 Rapports Sylphe + 15 combats au Manoir | Giovanni | Mewtwo Nv 70 (★5) |
+| Bêtes Sacrées | 30 Rockets Johto + 15 combats au QG | Petrel, Ariana | une Bête au choix, Nv 60 (★3) |
+| Lugia | 20 combats marins + 5 Argent'Ailes + 15 combats aux Îles Tourbillon | Eusine | Lugia Nv 70 (★4) |
+| Ho-Oh | 20 combats ruraux + 5 Arcenci'Ailes + 15 combats à la Tour Carillon | Filles Kimono | Ho-Oh Nv 70 (★5) |
+| Magma / Aqua | 20 membres + 12 combats au QG | Tabitha → Maxie / Matt → Archie | Groudon / Kyogre Nv 70 (★4) |
+| Deoxys | 20 dresseurs Hoenn + 3 Météores + 10 combats au Laboratoire | Directeur du Laboratoire | Deoxys (statMult 1,5) |
+| Galaxie | 20 membres + 12 combats au Pilier Axial | Mars + Jupiter, Cyrus | Dialga ou Palkia Nv 72 (★3) |
+| Giratina | 10 combats à la Grotte Retour | Saturne | Giratina Nv 72 (★3) |
+| Trio du Lac | 8 combats aux Rives du Lac | — | Nv 50 (★2) |
+
+### 13.3 Combat et capture
+
+- Les légendaires sont **boostés** : `statMult` de 1,3 (Trio du Lac) à 1,9 (Mewtwo), 1,5 à 1,6 pour les Bêtes
+  et les Oiseaux, 1,7 à 1,8 pour Lugia, Ho-Oh, Groudon, Kyogre et Dialga/Palkia.
+- Le joueur peut envoyer des **agents affaiblir** l'adversaire : −22 % (victoire) ou −9 % (défaite) de stats par
+  tentative, cumulable jusqu'à −60 %. Une défaite d'agent coûte 3 d'énergie (prison 1 h à zéro).
+- Après la victoire du boss, **jet de capture** : `catchBase + 0,5 × affaiblissement`, plafonné à 95 %.
+  `catchBase` : 0,50 (Oiseaux, Bêtes), 0,45 (Dialga/Palkia, Lac, Deoxys), 0,42 (Giratina), 0,40 (Groudon/Kyogre),
+  0,35 (Lugia), 0,30 (Ho-Oh, Mewtwo). Un échec (« s'échappe ») se rejoue gratuitement, sans objet.
+  Ho-Oh et Mewtwo non affaiblis : environ 3 combats gagnés pour une capture ; à −60 %, 60 %.
+- **Rejouer** après capture (pour un doublon) consomme un objet : Plume Sacrée (1 % de chance, 5 zones), Rapport
+  Sylphe (3 % + 1-5 % sur un Rocket), Cristal Bête (1,5 %), Argent'Aile / Arcenci'Aile (2 % chacune), Sigle Magma
+  / Sceau Aqua (1,5 %), Météore (0,5 %).
+- Les ailes servent aussi au **Permis Tourbillon / Carillon** (50 pièces chacun) : le besoin total est donc de
+  55 ailes de chaque type pour les débloquer toutes.
+
+### 13.4 Écarts constatés
+
+1. **Titres chromatiques inaccessibles [vérifié dans le code].** Les captures de quête forcent `shiny = false`
+   dans Kanto, Johto, Hoenn et Deoxys ; seule Sinnoh applique 2 % (`MISSION_REWARD_SHINY_RATE`). Articuno, Zapdos,
+   Moltres n'existent dans aucun pool sauvage : leurs titres « Voile de Givre », « Éclair Doré », « Cendres de
+   Phénix » et la collection « Triumvirat Céleste » ne peuvent donc pas être obtenus. Mewtwo, Lugia, Ho-Oh, les Bêtes
+   et Celebi apparaissent dans des pools de zones spéciales [à confirmer en jeu]. Mew passe par un œuf d'événement
+   (1 % de chroma).
+2. **Incohérence entre régions :** Sinnoh peut donner un légendaire chromatique, pas les autres.
+3. **Légendaires de niveau et de ★ fixes** (Nv 50-72, ★2 à ★5, nature aléatoire) : un légendaire de quête est donc
+   souvent inférieur à un ★5 sauvage ; pas de moyen de le « re-roller » sans objet de rejeu.
+4. **Les champs `power` (3 500 à 6 000)** sont affichés dans les trackers mais ne bloquent plus rien ; leur
+   sens est trompeur pour le joueur.
+5. **Choix des Bêtes Sacrées :** le joueur n'en choisit qu'une pour la quête ; les deux autres passent par la zone
+   sauvage ou le rejeu (le Cristal Bête relance la Bête déjà choisie). La collection « Maître des Bêtes » dépend
+   donc de la chance.
+6. **Équilibrage de rejeu :** les objets de rejeu sont rares (0,5 à 3 %), mais rien ne limite le nombre de
+   doublons légendaires qu'ils produisent, qui se revendent à un prix de base de 5 000 ₽ × multiplicateur ★.
+
+### 13.5 Décisions proposées
+
+(a) Rendre les chromas de quête possibles (par exemple 2 % partout, comme Sinnoh, ou le taux de base) ou retirer les
+titres impossibles ; (b) harmoniser les seuils de réputation ; (c) retirer ou renommer le champ `power` ; (d) décider
+si les doublons de légendaires doivent rester vendables.
