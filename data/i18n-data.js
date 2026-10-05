@@ -870,6 +870,7 @@ const I18N = {
   gang_base_agent_hatching_free:{ fr:'Slot agent libre',  en:'Free agent slot'     },
   gang_base_nests_prev:    { fr:'Œufs précédents',        en:'Previous eggs'       },
   gang_base_nests_next:    { fr:'Œufs suivants',          en:'Next eggs'           },
+  gang_base_eggs_waiting_title:{ fr:"{n} œuf(s) en attente d'un agent libre", en:'{n} egg(s) waiting for a free agent' },
   gang_base_no_incubators: { fr:'Aucun incubateur',       en:'No incubators'       },
   gang_base_no_agent_slots:{ fr:'Aucun slot agent',       en:'No agent slot'       },
   gang_base_key_obtained:  { fr:'Obtenu',                 en:'Obtained'            },
