@@ -33,6 +33,7 @@ import { devFeaturesEnabled } from '../core/devFeatures.js';
 import {
   getEggIncubationAgent,
   getEggIncubationSummary,
+  getIncubationAgents,
   reconcileEggIncubationAssignments,
 } from '../systems/eggIncubation.js';
 
@@ -217,6 +218,7 @@ function _buildRenderSig(state) {
     incubation.capacity,
     incubation.used,
     (state.eggs || []).length,
+    (state.eggs || []).map(e => `${e.id}:${e.incubating ? 1 : 0}:${e.incubationAgentId || ''}`).join(','),
     _boostMult,
   ].join('|');
 }
@@ -535,36 +537,61 @@ function renderGangBaseWindow() {
   const waitingEggs    = eggs.filter(e => !e.incubating);
   const now            = Date.now();
 
+  // Un nid par agent, dans l'ordre du roster : chaque agent veille sur son œuf, ou attend, libre,
+  // à côté d'un nid vide. Les positions restent stables quand un œuf démarre ou éclot (avant, les
+  // œufs se décalaient et les nids vides allaient toujours en fin de ligne).
+  const eggsByAgent = new Map(incubatingEggs.filter(e => e.incubationAgentId).map(e => [e.incubationAgentId, e]));
+
+  const agentFigure = agent => agent
+    ? `<img src="${_esc(agent.sprite || trainerSprite('acetrainer'))}" class="base-nest-agent${agent.resting ? ' resting' : ''}" alt="" onerror="this.src='${FALLBACK_TRAINER_SVG}';this.onerror=null">`
+    : '';
+
+  const nestHtml = (egg, agent) => {
+    const who = agent ? _esc(agent.name) : '';
+    if (!egg) {
+      return `<div class="base-nest empty" title="${who ? who + ' · ' : ''}${_t('gang_base_agent_hatching_free')}">${agentFigure(agent)}<span class="base-nest-pad"></span></div>`;
+    }
+    const isReady   = egg.status === 'ready';
+    const progress  = (egg.hatchAt && egg.incubatedAt)
+      ? Math.min(100, Math.round((now - egg.incubatedAt) / (egg.hatchAt - egg.incubatedAt) * 100))
+      : 0;
+    const timeLeftMin = (!isReady && egg.hatchAt) ? Math.max(0, Math.ceil((egg.hatchAt - now) / 60000)) : null;
+    const eggSrc = globalThis.eggSprite?.(egg, isReady) || '';
+    // Deux familles de sprites aux toiles très différentes (voir .base-nest-egg en CSS).
+    const eggArt = /_NB\.png/.test(eggSrc) ? 'nb' : 'go';
+    // Même règle que la Pension : l'espèce reste secrète tant que l'œuf n'est pas révélé.
+    const eggName = egg.revealed ? (globalThis.speciesName?.(egg.species_en) || egg.species_en) : '???';
+    return `
+      <div class="base-nest ${isReady ? 'ready' : 'active'}" data-egg-id="${egg.id}" style="--warmth:${isReady ? 1 : progress / 100}"
+        title="${_esc(eggName)}${who ? ' · ' + who : ''}${isReady ? _t('gang_base_egg_ready_suffix') : timeLeftMin !== null ? ` — ${timeLeftMin}min` : ''}">
+        ${agentFigure(agent)}
+        <span class="base-nest-pad"></span>
+        <img src="${eggSrc}" class="base-nest-egg art-${eggArt}" alt="">
+        ${isReady
+          ? `<span class="base-nest-alert">!</span>`
+          : timeLeftMin !== null ? `<span class="base-nest-time">${timeLeftMin}m</span>` : ''}
+      </div>`;
+  };
+
+  // Les œufs qui attendent un agent libre : une pile en bout de ligne, avec leur nombre.
+  // Sans nid ni agent, ternes ; un clic ouvre la Pension (clic de fond de la carte).
+  const pileHtml = list => {
+    const eggsHtml = list.slice(0, 3).map((egg, i) => {
+      const src = globalThis.eggSprite?.(egg, false) || '';
+      const art = /_NB\.png/.test(src) ? 'nb' : 'go';
+      return `<img src="${src}" class="base-pile-egg art-${art}" style="--i:${i}" alt="">`;
+    }).join('');
+    const title = _t('gang_base_eggs_waiting_title', { n: list.length });
+    return `<div class="base-nest-pile" title="${_esc(title)}">${eggsHtml}${list.length > 1 ? `<span class="base-pile-count">×${list.length}</span>` : ''}</div>`;
+  };
+
   let incSlotsHtml = '';
   if (incCount > 0) {
-    for (let i = 0; i < incCount; i++) {
-      const egg = incubatingEggs[i];
-      if (egg) {
-        const isReady   = egg.status === 'ready';
-        const progress  = (egg.hatchAt && egg.incubatedAt)
-          ? Math.min(100, Math.round((now - egg.incubatedAt) / (egg.hatchAt - egg.incubatedAt) * 100))
-          : 0;
-        const timeLeftMin = (!isReady && egg.hatchAt) ? Math.max(0, Math.ceil((egg.hatchAt - now) / 60000)) : null;
-        const eggSrc = globalThis.eggSprite?.(egg, isReady) || '';
-        // Deux familles de sprites aux toiles très différentes (voir .base-nest-egg en CSS).
-        const eggArt = /_NB\.png/.test(eggSrc) ? 'nb' : 'go';
-        const refAgent = getEggIncubationAgent(egg, state);
-        const refTitle = refAgent ? ` · ${_esc(refAgent.name)}` : '';
-        // Même règle que la Pension : l'espèce reste secrète tant que l'œuf n'est pas révélé.
-        const eggName  = egg.revealed ? (globalThis.speciesName?.(egg.species_en) || egg.species_en) : '???';
-        incSlotsHtml += `
-          <div class="base-nest ${isReady ? 'ready' : 'active'}" data-egg-id="${egg.id}" style="--warmth:${isReady ? 1 : progress / 100}"
-            title="${_esc(eggName)}${refTitle}${isReady ? _t('gang_base_egg_ready_suffix') : timeLeftMin !== null ? ` — ${timeLeftMin}min` : ''}">
-            <span class="base-nest-pad"></span>
-            <img src="${eggSrc}" class="base-nest-egg art-${eggArt}" alt="">
-            ${isReady
-              ? `<span class="base-nest-alert">!</span>`
-              : timeLeftMin !== null ? `<span class="base-nest-time">${timeLeftMin}m</span>` : ''}
-          </div>`;
-      } else {
-        incSlotsHtml += `<div class="base-nest empty" title="${_t('gang_base_agent_hatching_free')}"><span class="base-nest-pad"></span></div>`;
-      }
+    for (const agent of getIncubationAgents(state)) {
+      const egg = eggsByAgent.get(agent.id) || null;
+      incSlotsHtml += nestHtml(egg, agent);
     }
+    if (waitingEggs.length > 0) incSlotsHtml += pileHtml(waitingEggs);
   }
 
   const focusZone = _baseFocusZone(state);

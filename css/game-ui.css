@@ -2434,8 +2434,8 @@
     .base-nest {
       --warmth: 0;
       position: relative;
-      flex: 0 0 42px;
-      width: 42px;
+      flex: 0 0 60px;     /* 18px pour l'agent + 42px de nid */
+      width: 60px;
       height: 62px;
       display: flex;
       align-items: flex-end;
@@ -2444,7 +2444,7 @@
     }
     .base-nest-pad {
       position: absolute;
-      left: 0; right: 0; bottom: 9px;
+      left: 18px; right: 0; bottom: 9px;
       height: 18px;
       border-radius: 50%;
       background: radial-gradient(ellipse at 50% 30%, #8a6a3a 0%, #5e4524 55%, #38281a 100%);
@@ -2462,7 +2462,7 @@
       --s: 49px; --foot: 2.3px; --origin: 95%;
       position: absolute;
       z-index: 1;
-      left: 50%;
+      left: 39px;          /* centre de la paille : 18 + 42/2 */
       width: var(--s);
       height: var(--s);
       margin-left: calc(var(--s) / -2);
@@ -2486,7 +2486,7 @@
     }
     .base-nest-time {
       position: absolute;
-      left: 50%;
+      left: 39px;
       bottom: 0;
       z-index: 2;
       transform: translateX(-50%);
@@ -2513,6 +2513,49 @@
       align-items: center;
       justify-content: center;
       animation: nestAlert .9s ease-in-out infinite alternate;
+    }
+    /* L'agent qui veille sur le nid : debout à gauche, les pieds dans la paille (la paille est
+       après lui dans le DOM, elle le recouvre donc légèrement). En prison, il est grisé. */
+    .base-nest-agent {
+      position: absolute;
+      left: 0;
+      bottom: 12px;
+      width: 28px;
+      height: 28px;
+      object-fit: contain;
+      image-rendering: pixelated;
+      filter: drop-shadow(0 2px 0 rgba(0, 0, 0, .45));
+      pointer-events: none;
+    }
+    .base-nest-agent.resting { filter: grayscale(1) brightness(.7); }
+    /* Les œufs qui attendent un agent libre : une pile ternie, sans nid ni agent. */
+    .base-nest-pile {
+      position: relative;
+      flex: 0 0 46px;
+      width: 46px;
+      height: 62px;
+      margin-left: 6px;
+    }
+    .base-pile-egg {
+      --s: 34px; --foot: 1.6px;      /* même principe que .base-nest-egg, œuf visible de 22px */
+      position: absolute;
+      bottom: calc(14px - var(--foot));
+      left: calc(11px + var(--i) * 10px - var(--s) / 2);
+      width: var(--s);
+      height: var(--s);
+      object-fit: contain;
+      image-rendering: pixelated;
+      filter: saturate(.45) brightness(.75) drop-shadow(0 2px 0 rgba(0, 0, 0, .45));
+    }
+    .base-pile-egg.art-nb { --s: 70px; --foot: 21.3px; }
+    .base-pile-count {
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      font-size: 6px;
+      font-family: var(--font-pixel);
+      color: #f3dcb0;
+      text-shadow: 0 1px 0 #000;
     }
     @keyframes nestAlert { from { transform: translateY(0); } to { transform: translateY(-3px); } }
 

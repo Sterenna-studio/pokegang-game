@@ -4,6 +4,6 @@ Auto-updated on every commit by .githooks/pre-commit.
 Garantit qu'un marqueur horodaté est présent dans chaque commit
 et que le workflow GitHub Actions se déclenche.
 
-Last update : 2026-10-05 03:14:06 +0200
-Branch      : fix/gangbase-v2-dev-only
-Previous sha: b6c1b5b
+Last update : 2026-10-05 16:23:26 +0200
+Branch      : feat/gangbase-nest-agents
+Previous sha: de90f5e
