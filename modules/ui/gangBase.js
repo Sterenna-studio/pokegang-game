@@ -57,6 +57,10 @@ const itemSprite    = (...a) => globalThis.itemSprite?.(...a)     ?? '';
 // ── Gang Base Window ──────────────────────────────────────────
 
 let _boostMult = 1; // multiplicateur actif pour les boosts (x1/x5/x10)
+// Position de défilement de la ligne d'œufs : le rendu complet remplace le DOM, sans ça la
+// ligne repartirait du début à chaque changement de capacité ou d'œuf.
+let _nestScroll = 0;
+let _nestResizeObs = null;
 let _gangBaseViewMode = 'v1'; // 'v1' | 'v2' — persisté dans state.settings.gangBaseView
 
 const BASE_RARITY_ORDER = ['common', 'uncommon', 'rare', 'very_rare', 'legendary'];
@@ -375,6 +379,7 @@ function _patchGangBaseV1(win, state) {
           timeEl.textContent = `${tm}m`;
         }
       }
+      _updateNestCarousel(win);
     }
 
     // 4. Territory cards — danger, rareté, état. L'ordre doit rester aligné
@@ -677,7 +682,13 @@ function renderGangBaseWindow() {
         <div class="base-inv-section base-module-card"${incCount > 0 ? ' data-base-action="pension"' : ''}>
           ${_baseModuleTitle(`${_t('gang_base_agent_hatching_slots')} ${incubationSummary.used}/${incubationSummary.capacity}`, waitingEggs.length > 0 ? `+${waitingEggs.length}` : '')}
           ${incCount > 0
-            ? `<div class="base-nest-row">${incSlotsHtml}</div>`
+            ? `<div class="base-nest-carousel">
+              <button type="button" class="base-nest-arrow prev" data-nest-dir="-1" hidden
+                aria-label="${_t('gang_base_nests_prev')}" title="${_t('gang_base_nests_prev')}"></button>
+              <div class="base-nest-track">${incSlotsHtml}</div>
+              <button type="button" class="base-nest-arrow next" data-nest-dir="1" hidden
+                aria-label="${_t('gang_base_nests_next')}" title="${_t('gang_base_nests_next')}"></button>
+            </div>`
             : `<div class="base-empty-note">${_t('gang_base_no_agent_slots')}</div>`}
         </div>
       </section>
@@ -1301,6 +1312,83 @@ function _bindViewToggle(container) {
   });
 }
 
+// ── Carrousel des nids ───────────────────────────────────────────────────────
+// Une seule ligne d'œufs qui défile (natif : tactile, molette, glisser), et deux flèches qui
+// décalent de deux nids à la fois. Les flèches n'existent que s'il y a débordement.
+
+/** Met à jour l'état des flèches. remeasure : recalcule aussi le débordement (rendu, redimensionnement). */
+function _updateNestCarousel(root, remeasure = false) {
+  const track = root.querySelector('.base-nest-track');
+  if (!track) return;
+  const arrows = root.querySelectorAll('.base-nest-arrow');
+  if (arrows.length !== 2) return;
+  const [prev, next] = arrows;
+
+  if (remeasure) {
+    // on mesure flèches cachées : c'est la place maximale. S'il déborde même ainsi, les
+    // flèches sont nécessaires, et elles ne font que réduire encore la piste.
+    arrows.forEach(a => { a.hidden = true; });
+    const overflow = track.scrollWidth > track.clientWidth + 1;
+    arrows.forEach(a => { a.hidden = !overflow; });
+  }
+  if (prev.hidden) return;
+
+  const max = track.scrollWidth - track.clientWidth;
+  prev.disabled = track.scrollLeft <= 1;
+  next.disabled = track.scrollLeft >= max - 1;
+
+  // Un œuf prêt hors champ ne doit pas passer inaperçu : sa flèche s'allume.
+  const view = track.getBoundingClientRect();
+  let before = false, after = false;
+  for (const nest of track.querySelectorAll('.base-nest.ready')) {
+    const r = nest.getBoundingClientRect();
+    if (r.right <= view.left + 1) before = true;
+    else if (r.left >= view.right - 1) after = true;
+  }
+  prev.classList.toggle('has-ready', before);
+  next.classList.toggle('has-ready', after);
+}
+
+function _bindNestCarousel(container) {
+  const track = container.querySelector('.base-nest-track');
+  _nestResizeObs?.disconnect();
+  _nestResizeObs = null;
+  if (!track) return;
+
+  const lowMotion = () => document.body.classList.contains('low-spec')
+    || globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  // largeur d'un nid + l'espace entre deux nids, mesurée plutôt que codée en dur
+  const stepOf = () => {
+    const nests = track.querySelectorAll('.base-nest');
+    return nests.length > 1 ? nests[1].offsetLeft - nests[0].offsetLeft : 46;
+  };
+
+  container.querySelectorAll('.base-nest-arrow').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation(); // ne pas remonter vers la carte (clic de fond → Pension)
+      const step = stepOf();
+      const max = track.scrollWidth - track.clientWidth;
+      // on se recale d'abord sur la grille des nids, puis on décale de deux
+      const here = Math.round(track.scrollLeft / step) * step;
+      const target = Math.max(0, Math.min(max, here + Number(btn.dataset.nestDir) * 2 * step));
+      track.scrollTo({ left: target, behavior: lowMotion() ? 'auto' : 'smooth' });
+    });
+  });
+
+  track.addEventListener('scroll', () => {
+    _nestScroll = track.scrollLeft;
+    _updateNestCarousel(container);
+  }, { passive: true });
+
+  track.scrollLeft = _nestScroll;
+  _updateNestCarousel(container, true);
+
+  if (typeof ResizeObserver !== 'undefined') {
+    _nestResizeObs = new ResizeObserver(() => _updateNestCarousel(container, true));
+    _nestResizeObs.observe(track);
+  }
+}
+
 function bindGangBase(container) {
   const state = globalThis.state;
   const BALL_IDS  = ['pokeball','greatball','ultraball','duskball','masterball'];
@@ -1369,7 +1457,8 @@ function bindGangBase(container) {
   // Œuf prêt dans son nid → animation d'éclosion directement. Délégué sur la rangée : la
   // classe 'ready' est aussi posée par la mise à jour en direct, après le rendu, donc un
   // gestionnaire attaché œuf par œuf à ce moment-là raterait ceux qui deviennent prêts ensuite.
-  container.querySelector('.base-nest-row')?.addEventListener('click', e => {
+  _bindNestCarousel(container);
+  container.querySelector('.base-nest-track')?.addEventListener('click', e => {
     const nest = e.target.closest('.base-nest.ready[data-egg-id]');
     if (!nest) return;
     e.stopPropagation();
