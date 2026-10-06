@@ -172,7 +172,12 @@ function _pickEvoFamilyHead() {
   const targets = new Set(Object.values(evo).flat().map(e => e.to));
   const heads = Object.keys(evo).filter(sp => !targets.has(sp));
   if (!heads.length) return _pickSpeciesFromOwned();
-  return heads[Math.floor(Math.random() * heads.length)];
+  // Une lignée dont le joueur ne possède aucun membre ne lui sert à rien :
+  // on tire d'abord parmi celles qu'il peut vendre.
+  const owned = new Set((globalThis.state?.pokemons || []).map(p => p.species_en));
+  const ownedHeads = heads.filter(head => getEvoFamilyMembers(head).some(sp => owned.has(sp)));
+  const pool = ownedHeads.length ? ownedHeads : heads;
+  return pool[Math.floor(Math.random() * pool.length)];
 }
 
 export function getEvoFamilyMembers(headEN) {

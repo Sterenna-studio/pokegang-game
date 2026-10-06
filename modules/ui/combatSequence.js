@@ -173,7 +173,7 @@ export function renderCombatPokemonSprite({
 export function isCombatSpriteVisible(img) {
   if (!img || img.isConnected === false || img.hidden) return false;
   const inline = img.style || {};
-  if (inline.display === 'none' || inline.visibility === 'hidden' || Number(inline.opacity) === 0) return false;
+  if (inline.display === 'none' || inline.visibility === 'hidden' || (inline.opacity !== '' && inline.opacity != null && Number(inline.opacity) === 0)) return false;
   const view = img.ownerDocument?.defaultView;
   const computed = view?.getComputedStyle?.(img);
   if (!computed) return true;
@@ -182,7 +182,8 @@ export function isCombatSpriteVisible(img) {
   // L'opacité calculée inclut l'animation : juste après l'insertion, l'entrée
   // (combatPkAppear) part de 0 — transitoire, pas un sprite manquant.
   const animations = typeof img.getAnimations === 'function' ? img.getAnimations() : [];
-  return animations.some(anim => anim.playState === 'running' || anim.playState === 'pending');
+  return animations.some(anim => anim.animationName === 'combatPkAppear'
+    && (anim.playState === 'running' || anim.playState === 'pending'));
 }
 
 export function warnIfActiveEnemySpriteMissing({

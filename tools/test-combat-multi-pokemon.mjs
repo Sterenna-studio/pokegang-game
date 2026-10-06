@@ -221,10 +221,15 @@ function makeFakeAnchor() {
     ownerDocument: { defaultView: { getComputedStyle: () => ({ display: 'block', visibility: 'visible', opacity }) } },
     getAnimations: () => animations,
   });
-  assert.equal(isCombatSpriteVisible(makeImg('0', [{ playState: 'running' }])), true);
-  assert.equal(isCombatSpriteVisible(makeImg('0', [{ playState: 'finished' }])), false);
+  assert.equal(isCombatSpriteVisible(makeImg('0', [{ animationName: 'combatPkAppear', playState: 'running' }])), true);
+  assert.equal(isCombatSpriteVisible(makeImg('0', [{ animationName: 'combatPkAppear', playState: 'finished' }])), false);
+  // Another animation (a hit flash) must not hide a sprite that is really invisible.
+  assert.equal(isCombatSpriteVisible(makeImg('0', [{ animationName: 'combatHit', playState: 'running' }])), false);
   assert.equal(isCombatSpriteVisible(makeImg('0', [])), false);
   assert.equal(isCombatSpriteVisible(makeImg('0.4', [])), true);
+  // A browser reports an unset inline opacity as '' — Number('') is 0, not "hidden".
+  assert.equal(isCombatSpriteVisible({ ...makeImg('1', []), style: { opacity: '' } }), true);
+  assert.equal(isCombatSpriteVisible({ ...makeImg('1', []), style: { opacity: '0' } }), false);
 }
 
 // E. Old timer callbacks are harmless after a newer combat generation starts,
