@@ -29,6 +29,7 @@ import {
   RAID_GOLD_MAX,
   PVP_AGENT_SLOTS,
   PVP_BOSS_TEAM_SLOTS,
+  clampRaidPenalty,
 } from '../systems/gangCompetition.js';
 
 import { EventBus, EVENTS } from '../core/eventBus.js';
@@ -377,7 +378,7 @@ async function _renderPendingRaidsPanel(el) {
       const won  = r.result === 'defender_win';
       const ts   = new Date(r.executed_at).toLocaleString(_t('competition_locale'), { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
       const delta = won
-        ? `<span style="color:var(--green)">+${_fmtNum(r.money_penalty)} ₽</span>`
+        ? `<span style="color:var(--green)">+${_fmtNum(clampRaidPenalty(r.money_penalty))} ₽</span>`
         : `<span style="color:var(--gold-dim)">${_t('competition_rep_unchanged_short')}</span>`;
       return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
         <span style="font-size:16px">${won ? '🛡' : '💀'}</span>
@@ -465,7 +466,7 @@ async function _loadAndRenderGangs(panelEl) {
     const powerInfo = `<span style="font-size:8px;color:var(--gold-dim)">🛡 ${_fmtNum(preview.defenderPower)}</span>`;
 
     const agentInfo = defenseAgents.length
-      ? `<span style="font-size:8px;color:var(--text-dim)">🧑‍✈️ ${defenseAgents.map(a => `${_esc(a.name)} Lv.${a.level}${a.defaulted ? ' AUTO' : ''}`).join(' · ')}</span>`
+      ? `<span style="font-size:8px;color:var(--text-dim)">🧑‍✈️ ${defenseAgents.map(a => `${_esc(a.name)} Lv.${_esc(a.level)}${a.defaulted ? ' AUTO' : ''}`).join(' · ')}</span>`
       : '';
 
     const zoneInfo = g.defense_zone

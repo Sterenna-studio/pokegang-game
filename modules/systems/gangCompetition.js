@@ -592,6 +592,12 @@ export async function loadPendingRaids() {
   }
 }
 
+export function clampRaidPenalty(value) {
+  const n = Math.floor(Number(value));
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return Math.min(n, RAID_PENALTY * RAID_NO_DEFENSE_PENALTY_MULT);
+}
+
 // ── Reconnaître les raids (appliquer malus + crédits) ────────────
 export async function acknowledgeRaids() {
   const db      = getSupabaseClient();
@@ -620,7 +626,10 @@ export async function acknowledgeRaids() {
     if (raid.result === 'attacker_win') {
       defLosses++;
     } else {
-      totalGoldGain += raid.money_penalty ?? 0;
+      // money_penalty est écrit par le client de l'attaquant : on n'accepte
+      // que ce qu'un raid légitime peut produire (une valeur négative
+      // viderait la caisse du défenseur à l'acquittement).
+      totalGoldGain += clampRaidPenalty(raid.money_penalty);
       defWins++;
     }
   }

@@ -345,6 +345,15 @@ alter table public.pokegang_gang_raids add column if not exists defender_snap_re
 alter table public.pokegang_gang_raids add column if not exists executed_at timestamptz not null default now();
 alter table public.pokegang_gang_raids add column if not exists seen_by_defender boolean not null default false;
 
+-- money_penalty is written by the attacker's client and credited to the
+-- defender on acknowledgement: bound it to what a real raid can produce
+-- (RAID_PENALTY × RAID_NO_DEFENSE_PENALTY_MULT in gangCompetition.js), so a
+-- forged row can neither drain a defender (negative) nor mint money.
+-- NOT VALID: existing rows are left alone, every new insert is checked.
+alter table public.pokegang_gang_raids drop constraint if exists gang_raids_money_penalty_check;
+alter table public.pokegang_gang_raids add constraint gang_raids_money_penalty_check
+  check (money_penalty between 0 and 200000) not valid;
+
 alter table public.pokegang_gang_raids enable row level security;
 
 -- Defenders only need to acknowledge raids from the browser. Keep other raid

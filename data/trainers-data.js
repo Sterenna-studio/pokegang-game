@@ -112,6 +112,7 @@ const TRAINER_TYPES = {
   dragontamer:     { fr:'Dompteur Dragon',en:'Dragon Tamer',   sprite:'dragontamer',       diff:4, reward:[100,280],  rep:8  },
   birdkeeperGen3:  { fr:'Dresseur',       en:'Bird Keeper',    sprite:'birdkeeper',        diff:2, reward:[25,75],    rep:3  },
   collectorGen3:   { fr:'Collectionneur', en:'Collector',      sprite:'collector',         diff:2, reward:[30,90],    rep:3  },
+  engineerGen3:    { fr:'Ingénieur',      en:'Engineer',       sprite:'engineer-gen3',     diff:3, reward:[50,150],   rep:5  },
   // Gen 3 — variantes visuelles
   acetrainerGen3:  { fr:'Topdresseur',   en:'Ace Trainer',    sprite:'cooltrainer',       diff:3, reward:[60,180],   rep:6  },
   acetrainerFGen3: { fr:'Topdresseuse',  en:'Ace Trainer♀',   sprite:'cooltrainerf',      diff:3, reward:[60,180],   rep:6  },
