@@ -34,6 +34,7 @@ import {
   getEggIncubationAgent,
   getEggIncubationSummary,
   getIncubationAgents,
+  groupReadyEggsByAgent,
   reconcileEggIncubationAssignments,
 } from '../systems/eggIncubation.js';
 
@@ -535,7 +536,8 @@ function renderGangBaseWindow() {
   const eggs           = state.eggs || [];
   const incubatingEggs = eggs.filter(e => e.incubating);
   const waitingEggs    = eggs.filter(e => !e.incubating && e.status !== 'ready');
-  const readyEggList   = eggs.filter(e => e.status === 'ready');
+  // Œufs « à éclore » : arrivés à terme, restés rattachés à leur agent (pile à côté de son nid).
+  const { byAgent: readyByAgent, orphans: orphanReady } = groupReadyEggsByAgent(state);
   const now            = Date.now();
 
   // Un nid par agent, dans l'ordre du roster : chaque agent veille sur son œuf, ou attend, libre,
@@ -587,25 +589,41 @@ function renderGangBaseWindow() {
   };
 
   // Les œufs prêts : déposés à la base par leurs agents, le joueur les ouvre quand il veut.
-  const readyPileHtml = list => {
+  // Chaque agent garde SA pile « à éclore » à côté de son nid : son sprite passe en ombre derrière
+  // les œufs, avec un « ! ». L'agent n'est pas bloqué pour autant : son nid se remplit d'un
+  // nouvel œuf pendant que les prêts s'empilent, et un clic les ouvre à la suite.
+  const hatchStackHtml = (list, agent) => {
     const eggsHtml = list.slice(0, 3).map((egg, i) => {
       const src = globalThis.eggSprite?.(egg, true) || '';
       const art = /_NB\.png/.test(src) ? 'nb' : 'go';
-      return `<img src="${src}" class="base-pile-egg art-${art}" style="--i:${i}" alt="">`;
+      return `<img src="${src}" class="base-hatch-egg art-${art}" style="--i:${i}" alt="">`;
     }).join('');
-    const title = _t('gang_base_eggs_ready_title', { n: list.length });
-    return `<div class="base-nest-pile ready" title="${_esc(title)}" style="cursor:pointer">${eggsHtml}<span class="base-nest-alert">!</span>${list.length > 1 ? `<span class="base-pile-count">×${list.length}</span>` : ''}</div>`;
+    const shadow = agent
+      ? `<img src="${_esc(agent.sprite || trainerSprite('acetrainer'))}" class="base-hatch-shadow" alt="" onerror="this.style.display='none'">`
+      : '';
+    const who = agent ? `${_esc(agent.name)} · ` : '';
+    const title = who + _t('gang_base_eggs_ready_title', { n: list.length });
+    const owner = agent ? `data-hatch-agent="${_esc(agent.id)}"` : `data-hatch-eggs="${_esc(list.map(e => e.id).join(','))}"`;
+    return `<div class="base-hatch${agent ? '' : ' orphan'}" ${owner} title="${_esc(title)}">${shadow}${eggsHtml}<span class="base-nest-alert">!</span>${list.length > 1 ? `<span class="base-pile-count">×${list.length}</span>` : ''}</div>`;
   };
 
   let incSlotsHtml = '';
+  const shownAgentIds = new Set();
   if (incCount > 0) {
     for (const agent of getIncubationAgents(state)) {
       const egg = eggsByAgent.get(agent.id) || null;
       incSlotsHtml += nestHtml(egg, agent);
+      shownAgentIds.add(agent.id);
+      const toHatch = readyByAgent.get(agent.id);
+      if (toHatch?.length) incSlotsHtml += hatchStackHtml(toHatch, agent);
     }
     if (waitingEggs.length > 0) incSlotsHtml += pileHtml(waitingEggs);
   }
-  if (readyEggList.length > 0) incSlotsHtml += readyPileHtml(readyEggList);
+  // Œufs prêts dont l'agent n'a plus de nid à l'écran (renvoyé, verrouillé par prestige…) :
+  // un tas commun, pour qu'ils restent ouvrables.
+  const strayReady = [...orphanReady];
+  for (const [id, list] of readyByAgent) if (!shownAgentIds.has(id)) strayReady.push(...list);
+  if (strayReady.length > 0) incSlotsHtml += hatchStackHtml(strayReady, null);
 
   const focusZone = _baseFocusZone(state);
   const focusZoneId = focusZone?.id || '';
@@ -1386,7 +1404,7 @@ function _updateNestCarousel(root, remeasure = false) {
   // Un œuf prêt hors champ ne doit pas passer inaperçu : sa flèche s'allume.
   const view = track.getBoundingClientRect();
   let before = false, after = false;
-  for (const nest of track.querySelectorAll('.base-nest.ready')) {
+  for (const nest of track.querySelectorAll('.base-nest.ready, .base-hatch')) {
     const r = nest.getBoundingClientRect();
     if (r.right <= view.left + 1) before = true;
     else if (r.left >= view.right - 1) after = true;
@@ -1505,6 +1523,15 @@ function bindGangBase(container) {
   // gestionnaire attaché œuf par œuf à ce moment-là raterait ceux qui deviennent prêts ensuite.
   _bindNestCarousel(container);
   container.querySelector('.base-nest-track')?.addEventListener('click', e => {
+    // Pile « à éclore » d'un agent : on craquelle ses œufs à la suite.
+    const stack = e.target.closest('.base-hatch');
+    if (stack) {
+      e.stopPropagation();
+      globalThis.openEggCrackQueue?.(() => renderGangBasePanel(), stack.dataset.hatchEggs
+        ? { eggIds: stack.dataset.hatchEggs.split(',') }
+        : { agentId: stack.dataset.hatchAgent });
+      return;
+    }
     const nest = e.target.closest('.base-nest.ready[data-egg-id]');
     if (!nest) return;
     e.stopPropagation();

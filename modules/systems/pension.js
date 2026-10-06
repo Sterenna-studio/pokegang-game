@@ -139,6 +139,8 @@ function pensionTick() {
 
   if (dirty) saveState();
   if ((produced > 0 || delivered > 0) && activeTab === 'tabPC') renderPCTab();
+  // La pile « à éclore » de l'agent apparaît dès la livraison.
+  if (delivered > 0 && activeTab === 'tabAgents') globalThis.renderAgentsTab?.();
 }
 
 // ── Silent batch-hatch helper (no animation — used by multi-hatch popup) ──
@@ -386,10 +388,18 @@ function openEggCrackPopup(egg, { remaining = 0, onNext = null, onDone = null } 
   paint(false);
 }
 
-// Opens every ready egg one after the other.
-function openEggCrackQueue(onDone) {
+// Opens every ready egg one after the other. `agentId` restreint la file aux œufs
+// « à éclore » d'un agent, `eggIds` à une liste précise (le tas des œufs sans nid).
+// Sans option : tous les œufs prêts.
+function openEggCrackQueue(onDone, { agentId = null, eggIds = null } = {}) {
+  const pick = () => {
+    const state = globalThis.state;
+    if (agentId) return state.eggs.filter(e => e.status === 'ready' && (e.incubationAgentId || e.agentId) === agentId);
+    if (eggIds) return state.eggs.filter(e => e.status === 'ready' && eggIds.includes(e.id));
+    return state.eggs.filter(e => e.status === 'ready');
+  };
   const step = () => {
-    const ready = globalThis.state.eggs.filter(e => e.status === 'ready');
+    const ready = pick();
     if (!ready.length) { onDone?.(); return; }
     openEggCrackPopup(ready[0], { remaining: ready.length - 1, onNext: step, onDone });
   };

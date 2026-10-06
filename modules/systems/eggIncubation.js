@@ -89,6 +89,39 @@ function getEggIncubationAgent(egg, state = globalThis.state) {
   return (state?.agents || []).find(agent => agent.id === id) || null;
 }
 
+// ── « À éclore » : œufs arrivés à terme, restés rattachés à leur agent ──────
+// Un œuf prêt n'occupe plus de slot (l'agent repart en chercher un autre), mais il
+// garde `incubationAgentId` : c'est ce qui permet de l'afficher auprès de son agent
+// et de les empiler, plutôt que de les faire disparaître dans un tas anonyme.
+function getReadyEggs(state = globalThis.state) {
+  return (state?.eggs || [])
+    .filter(egg => egg?.status === 'ready')
+    .sort((a, b) => (a.deliveredAt || 0) - (b.deliveredAt || 0));
+}
+
+function getAgentReadyEggs(agent, state = globalThis.state) {
+  if (!agent) return [];
+  return getReadyEggs(state).filter(egg => (egg.incubationAgentId || egg.agentId) === agent.id);
+}
+
+// Répartition des œufs prêts : par agent, + les « orphelins » (agent renvoyé, ancienne
+// sauvegarde sans référent) qui restent dans un tas commun.
+function groupReadyEggsByAgent(state = globalThis.state) {
+  const agentIds = new Set((state?.agents || []).map(agent => agent.id));
+  const byAgent = new Map();
+  const orphans = [];
+  for (const egg of getReadyEggs(state)) {
+    const id = egg.incubationAgentId || egg.agentId || null;
+    if (id && agentIds.has(id)) {
+      if (!byAgent.has(id)) byAgent.set(id, []);
+      byAgent.get(id).push(egg);
+    } else {
+      orphans.push(egg);
+    }
+  }
+  return { byAgent, orphans };
+}
+
 function isAgentAvailableForPriority(agent) {
   return !!agent && !agent.resting && !agent.assignedZone;
 }
@@ -257,9 +290,12 @@ function setEggIncubationPriority(agentIds = [], state = globalThis.state) {
 function getAgentEggDialogueLines(agent, state = globalThis.state) {
   const eggs = state?.eggs || [];
   const egg = eggs.find(e => e.incubating && e.incubationAgentId === agent?.id);
+  const readyCount = getAgentReadyEggs(agent, state).length;
   const lines = [];
-  if (!egg && eggs.some(e => e.status === 'ready' && e.incubationAgentId === agent?.id)) {
-    lines.push(_t("J'ai déposé un œuf à la base, il n'attend que toi !", 'I left an egg at the base, it is waiting for you!'));
+  if (readyCount > 0) {
+    lines.push(readyCount > 1
+      ? _t(`J'ai déposé ${readyCount} œufs à la base, ils n'attendent que toi !`, `I left ${readyCount} eggs at the base, they are waiting for you!`)
+      : _t("J'ai déposé un œuf à la base, il n'attend que toi !", 'I left an egg at the base, it is waiting for you!'));
   }
   if (egg) {
     const remaining = egg.hatchAt ? egg.hatchAt - Date.now() : Infinity;
@@ -288,6 +324,9 @@ Object.assign(globalThis, {
   getAgentHatchTitle,
   getEggIncubationSummary,
   getEggIncubationAgent,
+  getReadyEggs,
+  getAgentReadyEggs,
+  groupReadyEggsByAgent,
   pickEggIncubationAgent,
   startEggIncubation,
   reconcileEggIncubationAssignments,
@@ -309,6 +348,9 @@ export {
   getAgentHatchTitle,
   getEggIncubationSummary,
   getEggIncubationAgent,
+  getReadyEggs,
+  getAgentReadyEggs,
+  groupReadyEggsByAgent,
   pickEggIncubationAgent,
   startEggIncubation,
   reconcileEggIncubationAssignments,

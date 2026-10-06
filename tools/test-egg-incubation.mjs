@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 
 import {
+  getAgentReadyEggs,
+  getAgentEggDialogueLines,
   getEggIncubationSummary,
+  getReadyEggs,
+  groupReadyEggsByAgent,
+  markEggsReady,
   getAgentHatchMultiplier,
   pickEggIncubationAgent,
   reconcileEggIncubationAssignments,
@@ -179,6 +184,53 @@ function stateOf({ agents = [], eggs = [], auto = true } = {}) {
   recordEggHatched(state.eggs[0], state);
   assert.equal(state.eggs[0].incubationBaseMs, undefined);
   assert.equal(state.eggs[0].incubationRemainingMs, undefined);
+}
+
+// « À éclore » : l'œuf prêt reste rattaché à son agent (pile), sans bloquer son slot —
+// l'agent couve le suivant pendant que les prêts s'empilent.
+{
+  const MIN = 60000;
+  const state = stateOf({
+    agents: [agent('a1'), agent('a2')],
+    eggs: [{ id: 'e1' }, { id: 'e2' }, { id: 'e3' }, { id: 'e4' }],
+  });
+  const a1 = state.agents[0];
+  let t = 1000;
+
+  // a1 et a2 couvent e1 / e2 ; e3 et e4 attendent un slot libre.
+  assert.equal(tryAutoIncubateWithAgents({ state, baseMsForEgg: 10 * MIN, now: t }), 2);
+  const owner = id => state.eggs.find(e => e.id === id).incubationAgentId;
+  assert.equal(owner('e1'), 'a1');
+
+  // e1 arrive à terme : prêt, rattaché à a1, et le slot de a1 est libre.
+  t += 10 * MIN;
+  assert.equal(markEggsReady(state, t), 2, 'e1 et e2 livrés');
+  assert.equal(getEggIncubationSummary(state).used, 0, 'les œufs prêts ne tiennent plus de slot');
+  assert.deepEqual(getAgentReadyEggs(a1, state).map(e => e.id), ['e1']);
+  assert.equal(owner('e1'), 'a1', 'le référent reste mémorisé sur l’œuf prêt');
+
+  // a1 repart chercher un œuf PENDANT que le sien attend d'être ouvert : ça s'empile.
+  assert.equal(tryAutoIncubateWithAgents({ state, baseMsForEgg: 10 * MIN, now: t }), 2);
+  assert.equal(owner('e3'), 'a1');
+  t += 10 * MIN;
+  markEggsReady(state, t);
+  assert.deepEqual(getAgentReadyEggs(a1, state).map(e => e.id), ['e1', 'e3'], 'pile triée par livraison');
+  assert.equal(getReadyEggs(state).length, 4);
+
+  const { byAgent, orphans } = groupReadyEggsByAgent(state);
+  assert.equal(byAgent.get('a1').length, 2);
+  assert.equal(byAgent.get('a2').length, 2);
+  assert.equal(orphans.length, 0);
+
+  // L'agent annonce sa pile même s'il couve déjà autre chose.
+  const lines = getAgentEggDialogueLines(a1, state);
+  assert.ok(lines.some(l => /2 œufs/.test(l) || /2 eggs/.test(l)), 'la pile est annoncée avec son nombre');
+
+  // Un agent renvoyé : ses œufs prêts restent ouvrables, en « orphelins ».
+  state.agents = state.agents.filter(a => a.id !== 'a2');
+  const regrouped = groupReadyEggsByAgent(state);
+  assert.equal(regrouped.byAgent.has('a2'), false);
+  assert.deepEqual(regrouped.orphans.map(e => e.id).sort(), ['e2', 'e4']);
 }
 
 console.log('egg incubation tests passed');
