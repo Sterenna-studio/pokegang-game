@@ -103,12 +103,28 @@ function _agentEggSlotHtml(agent) {
   const egg = (state.eggs || []).find(e => e?.incubating && e.incubationAgentId === agent.id);
   const hatched = globalThis.getAgentHatchStats?.(agent)?.hatched ?? 0;
   const title = egg
-    ? `${_t('Œuf récupéré à la pension', 'Egg picked up at the Daycare')} · ${egg.status === 'ready' ? _t('prêt', 'ready') : _formatShortDuration((egg.hatchAt || 0) - Date.now())}`
+    ? `${_t('Œuf récupéré à la pension', 'Egg picked up at the Daycare')} · ${_formatShortDuration((egg.hatchAt || 0) - Date.now())}`
     : `${_t('Slot œuf agent', 'Agent egg slot')} · ${hatched} ${_t('éclos', 'hatched')}`;
-  return `<div class="agent-egg-slot${egg ? ' filled' : ''}${egg?.status === 'ready' ? ' ready' : ''}" title="${_esc(title)}" aria-label="${_esc(title)}">
+  const slot = `<div class="agent-egg-slot${egg ? ' filled' : ''}" title="${_esc(title)}" aria-label="${_esc(title)}">
     <span class="agent-egg-icon" aria-hidden="true">🥚</span>
-    <span class="agent-egg-text">${egg ? (egg.status === 'ready' ? _t('OK', 'OK') : _formatShortDuration((egg.hatchAt || 0) - Date.now())) : '—'}</span>
+    <span class="agent-egg-text">${egg ? _formatShortDuration((egg.hatchAt || 0) - Date.now()) : '—'}</span>
   </div>`;
+  return slot + _agentHatchStackHtml(agent);
+}
+
+// « À éclore » : les œufs arrivés à terme restent rattachés à l'agent (son sprite passe en
+// ombre derrière l'œuf, avec un « ! »). L'agent n'est pas bloqué : son slot ci-dessus se remplit
+// d'un nouvel œuf pendant que les prêts s'empilent ; un clic les craquelle à la suite.
+function _agentHatchStackHtml(agent) {
+  const ready = globalThis.getAgentReadyEggs?.(agent, state) || [];
+  if (!ready.length) return '';
+  const title = `${_t('À éclore', 'To hatch')} · ${ready.length} ${_t('œuf(s) — clique pour les craqueler', 'egg(s) — click to crack them')}`;
+  return `<button class="agent-hatch-stack" data-hatch-agent="${_esc(agent.id)}" title="${_esc(title)}" aria-label="${_esc(title)}">
+    <img class="agent-hatch-shadow" src="${_esc(agent.sprite || '')}" alt="" onerror="this.style.display='none'">
+    <span class="agent-hatch-egg" aria-hidden="true">🥚</span>
+    <span class="agent-hatch-alert" aria-hidden="true">!</span>
+    ${ready.length > 1 ? `<span class="agent-hatch-count">×${ready.length}</span>` : ''}
+  </button>`;
 }
 
 function _bossTeamCompositionsHtml() {
@@ -412,6 +428,12 @@ const bossRep   = state.gang.reputation || 0;
 
   document.getElementById('btnRecruitAgentFull')?.addEventListener('click', () => {
     openAgentRecruitModal(() => renderAgentsTab());
+  });
+
+  grid.querySelectorAll('.agent-hatch-stack').forEach(btn => {
+    btn.addEventListener('click', () => {
+      globalThis.openEggCrackQueue?.(() => renderAgentsTab(), { agentId: btn.dataset.hatchAgent });
+    });
   });
 
   grid.querySelectorAll('.agent-open-sheet, .agent-sprite-open-sheet').forEach(btn => {

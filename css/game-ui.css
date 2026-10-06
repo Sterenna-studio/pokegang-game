@@ -2621,6 +2621,48 @@
     }
     @keyframes nestAlert { from { transform: translateY(0); } to { transform: translateY(-3px); } }
 
+    /* « À éclore » : la pile d'œufs prêts d'un agent, à côté de son nid. Son sprite passe en
+       ombre derrière les œufs (silhouette), avec un « ! ». Le nid voisin reste libre : l'agent
+       couve déjà le suivant. Un clic craquelle les œufs de la pile à la suite. */
+    .base-hatch {
+      position: relative;
+      flex: 0 0 46px;
+      width: 46px;
+      height: 62px;
+      margin-left: 2px;
+      cursor: pointer;
+    }
+    .base-hatch:hover .base-hatch-egg { filter: brightness(1.15) drop-shadow(0 2px 0 rgba(0, 0, 0, .45)); }
+    .base-hatch-shadow {
+      position: absolute;
+      left: 50%;
+      bottom: 12px;
+      width: 38px;
+      height: 38px;
+      margin-left: -19px;
+      object-fit: contain;
+      image-rendering: pixelated;
+      filter: brightness(0);
+      opacity: .45;
+      pointer-events: none;
+    }
+    .base-hatch-egg {
+      --s: 34px; --foot: 1.6px; --origin: 95%;   /* même toile que .base-pile-egg, en couleurs */
+      position: absolute;
+      bottom: calc(14px - var(--foot));
+      left: calc(17px + var(--i) * 8px - var(--s) / 2);
+      width: var(--s);
+      height: var(--s);
+      object-fit: contain;
+      image-rendering: pixelated;
+      filter: drop-shadow(0 2px 0 rgba(0, 0, 0, .45));
+      transform-origin: 50% var(--origin);
+      animation: nestWobble 1.2s ease-in-out infinite;
+      animation-delay: calc(var(--i) * .25s);
+      pointer-events: none;
+    }
+    .base-hatch-egg.art-nb { --s: 70px; --foot: 21.3px; --origin: 70%; }
+
     .base-command-header {
       padding: 8px 10px;
       gap: 10px;
@@ -3299,10 +3341,65 @@
       background: rgba(255, 204, 90, .08);
       color: var(--gold);
     }
-    .agent-egg-slot.ready {
-      border-color: var(--green);
-      color: var(--green);
+    /* « À éclore » sur la carte agent : même idée que dans la base — l'œuf prêt reste auprès de
+       son agent (sprite en ombre derrière), avec un « ! » ; les suivants s'empilent (×N). */
+    .agent-hatch-stack {
+      position: relative;
+      min-width: 42px;
+      height: 34px;
+      padding: 0;
+      border: 1px solid var(--green);
+      border-radius: var(--radius-sm);
+      background: rgba(104, 216, 132, .08);
       box-shadow: 0 0 8px rgba(104, 216, 132, .22);
+      cursor: pointer;
+      overflow: visible;
+    }
+    .agent-hatch-stack:hover { background: rgba(104, 216, 132, .18); }
+    .agent-hatch-shadow {
+      position: absolute;
+      inset: 2px 0 0;
+      margin: auto;
+      width: 28px;
+      height: 28px;
+      object-fit: contain;
+      image-rendering: pixelated;
+      filter: brightness(0);
+      opacity: .4;
+      pointer-events: none;
+    }
+    .agent-hatch-egg {
+      position: relative;
+      font-size: 16px;
+      line-height: 1;
+      display: inline-block;
+      animation: nestWobble 1.2s ease-in-out infinite;
+    }
+    .agent-hatch-alert {
+      position: absolute;
+      top: -6px;
+      right: -4px;
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      background: var(--green);
+      color: #000;
+      font-size: 7px;
+      font-family: var(--font-pixel);
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: nestAlert .9s ease-in-out infinite alternate;
+    }
+    .agent-hatch-count {
+      position: absolute;
+      right: 2px;
+      bottom: 1px;
+      font-size: 6px;
+      font-family: var(--font-pixel);
+      color: var(--green);
+      text-shadow: 0 1px 0 #000;
     }
     .agent-boss-card {
       grid-column: 1 / -1;
