@@ -134,7 +134,7 @@ const EVENT_TEMPLATES = {
     durationMs: () => (2 + Math.random() * 3) * 3600000, // 2-5h
     pickTarget: () => _pickEvoFamilyHead(),
     generate(targetEN) {
-      const family = _getEvoFamilyMembers(targetEN);
+      const family = getEvoFamilyMembers(targetEN);
       const mult = 1.25 + Math.random() * 0.5;
       const head = globalThis.speciesName?.(targetEN) ?? targetEN;
       return {
@@ -164,18 +164,26 @@ function _pickSpeciesFromOwned() {
   return uniq[Math.floor(Math.random() * uniq.length)];
 }
 
+// EVO_BY_SPECIES (data/evolutions-data.js, exposé par app.js) : espèce →
+// [{ to, req }]. Une tête de lignée est une espèce qui évolue sans être
+// elle-même l'évolution d'une autre.
 function _pickEvoFamilyHead() {
-  const evoChains = globalThis.EVOLUTION_CHAINS || {};
-  const keys = Object.keys(evoChains);
-  if (!keys.length) return _pickSpeciesFromOwned();
-  return keys[Math.floor(Math.random() * keys.length)];
+  const evo = globalThis.EVO_BY_SPECIES || {};
+  const targets = new Set(Object.values(evo).flat().map(e => e.to));
+  const heads = Object.keys(evo).filter(sp => !targets.has(sp));
+  if (!heads.length) return _pickSpeciesFromOwned();
+  return heads[Math.floor(Math.random() * heads.length)];
 }
 
-function _getEvoFamilyMembers(headEN) {
-  const chains = globalThis.EVOLUTION_CHAINS || {};
-  const chain = chains[headEN];
-  if (!chain || !Array.isArray(chain)) return [headEN];
-  return [headEN, ...chain.flatMap(c => c.to ? [c.to] : [])];
+export function getEvoFamilyMembers(headEN) {
+  const evo = globalThis.EVO_BY_SPECIES || {};
+  const members = [headEN];
+  for (let i = 0; i < members.length; i++) {
+    for (const { to } of evo[members[i]] || []) {
+      if (to && !members.includes(to)) members.push(to);
+    }
+  }
+  return members;
 }
 
 // ── API publique ───────────────────────────────────────────────────
