@@ -292,7 +292,7 @@ When touching a system that has both an `app.js` implementation and a `modules/`
 
 ### Available focused tests
 
-`tools/` contient **38 fichiers de test** (`test-*.mjs`), tous exécutables
+`tools/` contient **39 fichiers de test** (`test-*.mjs`), tous exécutables
 directement avec `node`. Ils sont volontairement sans dépendance : pas de runner,
 pas de `package.json`. Lancer la totalité :
 
@@ -316,6 +316,7 @@ node tools/test-agent-capture-xp.mjs
 node tools/test-analytics-readiness.mjs
 node tools/test-audio-music.mjs
 node tools/test-cache-bust.mjs
+node tools/test-combat-hit-css.mjs
 node tools/test-combat-multi-pokemon.mjs
 node tools/test-combat-replay-dom.mjs
 node tools/test-data-integrity.mjs
