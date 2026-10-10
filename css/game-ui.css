@@ -1493,6 +1493,15 @@
       animation: combatHit .32s ease-out;
       filter: brightness(1.8) drop-shadow(0 0 7px rgba(255,255,255,.9));
     }
+    /* Les sprites de combat portent déjà combatPkAppear : si .combat-hit
+       remplaçait la liste d'animations, son retrait relancerait l'apparition
+       (opacité 0) après chaque coup et le Pokémon clignoterait jusqu'à
+       paraître absent aux vitesses ×5/×100 (#93). Garder combatPkAppear au
+       même rang : déjà terminée, elle n'est pas rejouée. */
+    .combat-enemy-pk.combat-hit,
+    .combat-sent-pk.combat-hit {
+      animation: combatPkAppear .25s ease-out, combatHit .32s ease-out;
+    }
     /* Posée sur le sprite d'un Pokémon K.O. (nextStep/nextTurn dans
        zoneWindows.js) — reste affichée jusqu'au switch suivant, qui remplace
        le sprite via renderCombatPokemonSprite (combatSequence.js). */
