@@ -113,6 +113,43 @@
       transition: border-color .2s;
     }
 
+    /* Bilan de fin de combat / raid (showCombatResultBanner) : bandeau centré dans le
+       viewport pendant la pause de fin, et liseré sur la fenêtre qui s'estompe après. */
+    .zone-combat-result {
+      position: absolute;
+      left: 50%;
+      top: 38%;
+      z-index: 40;
+      transform: translate(-50%, -50%);
+      min-width: 150px;
+      max-width: 88%;
+      padding: 8px 14px 9px;
+      text-align: center;
+      border: 2px solid currentColor;
+      border-radius: var(--radius-sm);
+      background: rgba(8, 6, 4, .88);
+      box-shadow: 0 0 18px currentColor;
+      pointer-events: none;
+      animation: zoneResultIn .35s cubic-bezier(.2, 1.4, .4, 1) both;
+    }
+    .zone-combat-result.win  { color: var(--gold); }
+    .zone-combat-result.loss { color: var(--red); }
+    .zcr-title { font-family: var(--font-pixel); font-size: 12px; letter-spacing: 1px; text-shadow: 0 2px 0 #000; }
+    .zcr-vs    { margin-top: 4px; font-size: 8px; color: var(--text-dim); }
+    .zcr-loot  { margin-top: 4px; font-family: var(--font-pixel); font-size: 8px; }
+    .zone-combat-result.loss .zcr-loot { color: var(--text-dim); }
+    @keyframes zoneResultIn {
+      from { opacity: 0; transform: translate(-50%, -50%) scale(.6); }
+      to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    }
+    .zone-window.zone-result-win  { animation: zoneResultGlowWin 3.2s ease-out; }
+    .zone-window.zone-result-loss { animation: zoneResultGlowLoss 3.2s ease-out; }
+    @keyframes zoneResultGlowWin  { 0%, 55% { box-shadow: 0 0 0 2px var(--gold), 0 0 16px var(--gold); } 100% { box-shadow: none; } }
+    @keyframes zoneResultGlowLoss { 0%, 55% { box-shadow: 0 0 0 2px var(--red),  0 0 16px var(--red);  } 100% { box-shadow: none; } }
+    @media (prefers-reduced-motion: reduce) {
+      .zone-combat-result { animation: none; }
+    }
+
     .zone-spawn {
       position: absolute;
       cursor: pointer;
@@ -2630,9 +2667,7 @@
     }
     @keyframes nestAlert { from { transform: translateY(0); } to { transform: translateY(-3px); } }
 
-    /* « À éclore » : la pile d'œufs prêts d'un agent, à côté de son nid. Son sprite passe en
-       ombre derrière les œufs (silhouette), avec un « ! ». Le nid voisin reste libre : l'agent
-       couve déjà le suivant. Un clic craquelle les œufs de la pile à la suite. */
+    /* « À éclore » : la pile des œufs prêts, avec un « ! ». Un clic les craquelle à la suite. */
     .base-hatch {
       position: relative;
       flex: 0 0 46px;
@@ -2642,19 +2677,6 @@
       cursor: pointer;
     }
     .base-hatch:hover .base-hatch-egg { filter: brightness(1.15) drop-shadow(0 2px 0 rgba(0, 0, 0, .45)); }
-    .base-hatch-shadow {
-      position: absolute;
-      left: 50%;
-      bottom: 12px;
-      width: 38px;
-      height: 38px;
-      margin-left: -19px;
-      object-fit: contain;
-      image-rendering: pixelated;
-      filter: brightness(0);
-      opacity: .45;
-      pointer-events: none;
-    }
     .base-hatch-egg {
       --s: 34px; --foot: 1.6px; --origin: 95%;   /* même toile que .base-pile-egg, en couleurs */
       position: absolute;
@@ -2671,6 +2693,37 @@
       pointer-events: none;
     }
     .base-hatch-egg.art-nb { --s: 70px; --foot: 21.3px; --origin: 70%; }
+
+    /* Tous les œufs prêts regroupés en un tas, à gauche du carrousel des nids : il ne défile
+       pas avec eux, pour rester visible même quand les nids débordent. */
+    .base-nest-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 6px;
+    }
+    .base-nest-row > .base-nest-carousel,
+    .base-nest-row > .base-empty-note { flex: 1 1 auto; min-width: 0; }
+    .base-hatch-all {
+      flex: 0 0 56px;
+      width: 56px;
+      height: 68px;
+      margin-left: 0;
+      border: 1px solid var(--green);
+      border-radius: var(--radius-sm);
+      background: radial-gradient(ellipse at 50% 85%, rgba(90, 230, 90, .22), transparent 70%);
+    }
+    .base-hatch-all .base-hatch-egg { left: calc(20px + var(--i) * 8px - var(--s) / 2); bottom: calc(18px - var(--foot)); }
+    .base-hatch-all .base-pile-count { right: 3px; bottom: 11px; }
+    .base-hatch-label {
+      position: absolute;
+      left: 0; right: 0; bottom: 2px;
+      text-align: center;
+      font-size: 6px;
+      font-family: var(--font-pixel);
+      color: var(--green);
+      text-shadow: 0 1px 0 #000;
+      white-space: nowrap;
+    }
 
     .base-command-header {
       padding: 8px 10px;
