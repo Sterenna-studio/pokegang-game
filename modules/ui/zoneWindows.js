@@ -3503,9 +3503,46 @@ function executeCombat(expectedSequenceId = null) {
         label: _t('zone_close'),
         onAction: doClose,
       });
-      queueTimer(doClose, isOnboardingAmbush ? 2600 : 1800);
+      showCombatResultBanner({
+        viewport: combat.viewport,
+        zoneWin: document.getElementById(`zw-${zoneId}`),
+        win: result.attackerWin,
+        isRaid: isRaidCombat,
+        trainerName: trainerCombatName(spawnWithZone),
+        reward,
+        repGain,
+      });
+      // Pause de fin non accélérée : à ×5/×100 le bilan doit rester lisible avant la fermeture.
+      queueVisualTimer(doClose, isOnboardingAmbush ? 2600 : 1800);
     },
   }).start();
+}
+
+// Bilan affiché dans la fenêtre de la zone à la fin du replay (combat ou raid) : un
+// bandeau victoire/défaite avec le butin, et un liseré coloré sur la fenêtre qui
+// persiste un instant après la fermeture du combat.
+function showCombatResultBanner({ viewport, zoneWin, win, isRaid, trainerName, reward, repGain }) {
+  if (!viewport) return;
+  viewport.querySelector('.zone-combat-result')?.remove();
+  const title = isRaid
+    ? _t(win ? 'zone_result_raid_win' : 'zone_result_raid_loss')
+    : _t(win ? 'zone_result_win' : 'zone_result_loss');
+  const loot = win && reward > 0
+    ? _t('zone_reward_line', { reward: fmtCombatNum(reward), rep: fmtCombatNum(repGain) })
+    : (win ? '' : _t('zone_no_loot'));
+  const el = document.createElement('div');
+  el.className = `zone-combat-result ${win ? 'win' : 'loss'}`;
+  el.innerHTML = `<div class="zcr-title">${title}</div>
+    <div class="zcr-vs">${_esc(_t('zone_result_vs', { trainer: trainerName }))}</div>
+    ${loot ? `<div class="zcr-loot">${_esc(loot)}</div>` : ''}`;
+  viewport.appendChild(el);
+  if (zoneWin) {
+    const cls = win ? 'zone-result-win' : 'zone-result-loss';
+    zoneWin.classList.remove('zone-result-win', 'zone-result-loss');
+    void zoneWin.offsetWidth;
+    zoneWin.classList.add(cls);
+    setTimeout(() => zoneWin.classList.remove(cls), 3200);
+  }
 }
 
 function closeCombatPopup(expectedSequenceId = null, { resumeSpawn = false } = {}) {
@@ -3517,7 +3554,7 @@ function closeCombatPopup(expectedSequenceId = null, { resumeSpawn = false } = {
     const win = document.getElementById(`zw-${zoneId}`);
     win?.classList.remove('zone-window-battle');
     document.getElementById(`zchud-${zoneId}`)?.remove();
-    viewport?.querySelectorAll('.combat-hp-overlay').forEach(el => el.remove());
+    viewport?.querySelectorAll('.combat-hp-overlay, .zone-combat-result').forEach(el => el.remove());
     win?.querySelectorAll('.combat-hp-overlay').forEach(el => el.remove());
     win?.querySelectorAll('.combat-sent-pk').forEach(el => el.remove());
     if (spawnEl) {
