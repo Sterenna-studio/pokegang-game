@@ -281,6 +281,9 @@ function _eggTypeChips(egg) {
   }).join(' ');
 }
 
+// Délai entre l'apparition du sprite éclos (_ecPop, .55s) et le verdict chromatique.
+const _EGG_SHINY_REVEAL_DELAY_S = 1.1;
+
 const _EGG_CRACKS = [
   '',
   '<polyline points="52,16 46,30 56,40 48,56" />',
@@ -311,8 +314,10 @@ function openEggCrackPopup(egg, { remaining = 0, onNext = null, onDone = null } 
   function paint(shake) {
     const grade = '★'.repeat(egg.potential || 0) || '–';
     const rarity = egg.rarity || SPECIES_BY_EN[egg.species_en]?.rarity || 'common';
+    // Le verdict chromatique n'arrive qu'après le sprite : le joueur doit d'abord
+    // le lire sur le Pokémon lui-même, pas dans le texte affiché en même temps.
     const shinySlot = hatched
-      ? (hatched.shiny ? `<span style="color:#ffcc5a">✨ ${_t('Chromatique !', 'Shiny!')}</span>` : `<span style="color:var(--text-dim)">${_t('Pas chromatique', 'Not shiny')}</span>`)
+      ? `<span style="display:inline-block;animation:_ecReveal .3s ease-out ${_EGG_SHINY_REVEAL_DELAY_S}s both">${hatched.shiny ? `<span style="color:#ffcc5a">✨ ${_t('Chromatique !', 'Shiny!')}</span>` : `<span style="color:var(--text-dim)">${_t('Pas chromatique', 'Not shiny')}</span>`}</span>`
       : '';
     overlay.innerHTML = `
       <style>
@@ -320,6 +325,7 @@ function openEggCrackPopup(egg, { remaining = 0, onNext = null, onDone = null } 
         @keyframes _ecShake{0%{transform:rotate(0) scale(1)}20%{transform:rotate(-9deg) scale(1.08)}45%{transform:rotate(8deg) scale(1.1)}70%{transform:rotate(-5deg) scale(1.05)}100%{transform:rotate(0) scale(1)}}
         @keyframes _ecPop{0%{transform:scale(0) rotate(-12deg);opacity:0}65%{transform:scale(1.18) rotate(3deg);opacity:1}100%{transform:scale(1) rotate(0);opacity:1}}
         @keyframes _ecFlash{0%{opacity:.95}100%{opacity:0}}
+        @keyframes _ecReveal{0%{opacity:0;transform:scale(.6)}100%{opacity:1;transform:scale(1)}}
       </style>
       <div style="position:relative;display:flex;flex-direction:column;align-items:center;gap:18px;padding:24px 20px;max-width:420px;width:94%">
         <button id="_ecClose" style="position:absolute;top:0;right:4px;background:none;border:none;color:var(--text-dim);font-size:16px;cursor:pointer" aria-label="${_t('Fermer', 'Close')}">✕</button>
@@ -388,15 +394,16 @@ function openEggCrackPopup(egg, { remaining = 0, onNext = null, onDone = null } 
   paint(false);
 }
 
-// Opens every ready egg one after the other. `agentId` restreint la file aux œufs
-// « à éclore » d'un agent, `eggIds` à une liste précise (le tas des œufs sans nid).
-// Sans option : tous les œufs prêts.
+// Opens every ready egg one after the other, as a single queue whatever the entry
+// point. `agentId` (la pile « à éclore » d'un agent) et `eggIds` (un œuf cliqué, ou
+// le tas des œufs sans nid) ne font que passer ces œufs en tête de file : les autres
+// œufs prêts suivent, pour ne pas devoir rouvrir chaque pile une à une.
 function openEggCrackQueue(onDone, { agentId = null, eggIds = null } = {}) {
+  const isFirst = egg => (agentId && (egg.incubationAgentId || egg.agentId) === agentId)
+    || (eggIds && eggIds.includes(egg.id));
   const pick = () => {
-    const state = globalThis.state;
-    if (agentId) return state.eggs.filter(e => e.status === 'ready' && (e.incubationAgentId || e.agentId) === agentId);
-    if (eggIds) return state.eggs.filter(e => e.status === 'ready' && eggIds.includes(e.id));
-    return state.eggs.filter(e => e.status === 'ready');
+    const ready = globalThis.state.eggs.filter(e => e.status === 'ready');
+    return [...ready.filter(isFirst), ...ready.filter(e => !isFirst(e))];
   };
   const step = () => {
     const ready = pick();
@@ -406,9 +413,11 @@ function openEggCrackQueue(onDone, { agentId = null, eggIds = null } = {}) {
   step();
 }
 
-// Single-egg entry point kept for the base, the PC egg list and the Daycare.
+// Single-egg entry point kept for the base, the PC egg list and the Daycare: the
+// clicked egg opens first, then the rest of the shared queue.
 function openHatchAnimation(egg, onDone) {
-  openEggCrackPopup(egg, { onDone });
+  if (!egg) { onDone?.(); return; }
+  openEggCrackQueue(onDone, { eggIds: [egg.id] });
 }
 
 // ── renderPensionView — merged pension + eggs view ──────────────

@@ -72,7 +72,7 @@ const _t = (fr, en) => (globalThis.state?.lang === 'en' ? en : fr);
 // de combat de quête) — pas de variante animée conservée ici (cf. suppression
 // équivalente de MEWTWO_SPRITE côté kantoMissions.js).
 const LUGIA_STATIC    = 'https://play.pokemonshowdown.com/sprites/gen2/lugia.png';
-const HOOH_STATIC     = 'https://play.pokemonshowdown.com/sprites/gen2/ho-oh.png';
+const HOOH_STATIC     = 'https://play.pokemonshowdown.com/sprites/gen2/hooh.png';
 const RAIKOU_STATIC   = 'https://play.pokemonshowdown.com/sprites/gen2/raikou.png';
 const ENTEI_STATIC    = 'https://play.pokemonshowdown.com/sprites/gen2/entei.png';
 const SUICUNE_STATIC  = 'https://play.pokemonshowdown.com/sprites/gen2/suicune.png';
