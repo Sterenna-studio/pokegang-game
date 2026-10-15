@@ -9,6 +9,13 @@ Idle et Walk : douze PNG, 143 054 octets, hébergés localement.
 Les autres espèces conservent automatiquement leur sprite habituel. L'activation
 est limitée au renderer du vivarium local et distant ; aucun sprite de PC,
 combat, zone ou carte n'est modifié. Aucun déplacement de caméra n'est ajouté.
+
+Le bouton **Sprites : Donjon Mystère / Sprites : 2D** en haut du vivarium permet
+de basculer entre les deux rendus sans recréer les résidents ni interrompre leurs
+déplacements ou interactions. Le choix est mémorisé dans le champ cosmétique
+optionnel `vivariumSpriteMode` (`pmd` par défaut pour les anciennes sauvegardes).
+Il concerne la page locale `/gang/`, indépendamment du réglage général des
+sprites. La vue distante OBS conserve son rendu PMD et ses anciens snapshots.
 Voir [l'audit des droits et crédits](../assets/pokemon_pmd/CREDITS.md).
 Le prototype avec les images originales a été vérifié dans Chromium puis
 validé par le propriétaire avant l'activation. L'historique de la préparation
