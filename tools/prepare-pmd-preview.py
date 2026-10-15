@@ -148,6 +148,7 @@ def main():
     (assets / "CREDITS.md").write_text(
         "# Prototype Lab : trois espèces, normal et shiny\n\n"
         "Cette copie de test contient douze PNG SpriteCollab, sans recompression.\n"
+        "Le propriétaire a explicitement confirmé la publication de test sur le Lab après information sur les droits incertains.\n"
         "La décision de diffusion pour le test ne constitue pas une nouvelle autorisation des ayants droit.\n"
         "Crédits exacts et XML : auprès des PNG ; licence publiée : SPRITECOLLAB-LICENSE.md.\n"
         "Empreintes et sources : provenance.json. Le rapport historique ci-dessous décrit la livraison initiale sans assets.\n\n"

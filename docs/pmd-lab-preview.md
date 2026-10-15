@@ -8,10 +8,11 @@ chacun en normal et shiny, Idle et Walk. Les douze PNG représentent 143 054 oct
 Les ressources ne sont pas ajoutées à Git. Leurs droits restent documentés dans
 [`assets/pokemon_pmd/CREDITS.md`](../assets/pokemon_pmd/CREDITS.md).
 
-Le préparateur n'effectue aucun déploiement. La publication de ce prototype
-public exige la clarification de la restriction initiale du propriétaire sur
-les ressources aux droits incertains. Une décision de test ne constitue pas
-une autorisation supplémentaire des ayants droit.
+Le préparateur n'effectue aucun déploiement. Le propriétaire a explicitement
+confirmé la publication de test sur le Lab après information sur les droits
+incertains des bases officielles. Cette confirmation concerne uniquement cette
+preview publique non commerciale ; elle ne constitue pas une autorisation
+supplémentaire des ayants droit.
 
 ## Préparation et contrôle local
 
@@ -51,7 +52,7 @@ les positions relatives plutôt que de rabattre les résidents au même bord.
 
 ## Publication de la copie préparée
 
-Après clarification de la restriction de diffusion :
+Commande autorisée pour cette publication de test :
 
 ```powershell
 .\tools\deploy-ovh-previews.ps1 -Target web -WebSourceRoot .\coverage\pmd-preview-runtime
@@ -71,3 +72,25 @@ seules les trois espèces du prototype utilisent PMD ; les autres gardent leur
 fallback. Les règles de cache désactivé et noindex existantes sont conservées.
 La seule préparation locale ne rend pas ces URL actives : vérifier HTTP et le
 rendu dans un navigateur après tout transfert avant d'annoncer la publication.
+
+## Publication vérifiée le 15 octobre 2026
+
+La copie de test a été publiée sur le Lab avec l'accord explicite du propriétaire.
+Le transfert a utilisé `-Target web -WebSourceRoot coverage/pmd-preview-runtime`.
+Aucune fusion sur main, publication itch ou modification de la production.
+
+Contrôles après transfert :
+
+- HTTP 200 pour le jeu, `/gang/`, la page OBS, la démonstration, les modules,
+  le catalogue et les crédits ; en-têtes `no-store` et `noindex` présents.
+- Les douze PNG distants correspondent aux SHA-256 du manifeste local.
+- Chromium sur l'URL publique : six canvas normal/shiny, frames animées,
+  marche, badge au clic, changement de fond et limites mobiles vérifiés.
+- Douze requêtes de PNG, aucune répétition, aucune erreur JavaScript ou requête
+  échouée pendant le parcours. L'accès au localStorage était interdit dans le
+  navigateur du test de la démonstration.
+- Captures : `coverage/pmd-lab-live-desktop.png` et
+  `coverage/pmd-lab-live-mobile.png`, conservées localement et ignorées par Git.
+
+La vérification de la page OBS établit sa disponibilité HTTP ; elle ne constitue
+pas un essai du flux Supabase réel dans OBS/CEF.

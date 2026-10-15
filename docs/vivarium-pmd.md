@@ -3,12 +3,15 @@
 ## État
 
 L'infrastructure est implémentée mais l'intégration artistique reste bloquée.
-**Aucun sprite PMD n'est distribué ou activé**, y compris dans la build itch.
+**Aucun sprite PMD n'est ajouté au catalogue versionné ni activé en production
+ou dans la build itch.** Une copie de test distincte a été publiée sur le Lab
+avec l'accord explicite du propriétaire, pour les trois espèces du prototype.
 Voir [l'audit des droits et crédits](../assets/pokemon_pmd/CREDITS.md).
 La PR doit rester en brouillon tant que les ressources ne sont pas validées,
 importées et vérifiées visuellement. Il ne s'agit pas d'une intégration PMD
 terminée. Un prototype local séparé utilise désormais les images originales,
-sans les ajouter à Git ni au catalogue de production : voir
+sans les ajouter à Git ni au catalogue de production, et a été vérifié après
+publication sur le Lab : voir
 [la préparation de la preview Lab](pmd-lab-preview.md).
 
 ## Modifications
