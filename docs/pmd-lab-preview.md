@@ -1,11 +1,14 @@
 # Prototype PMD réservé au Lab
 
-Le catalogue versionné `assets/pokemon_pmd/metadata.js` reste vide. La production
-et la build itch continuent donc d'utiliser les sprites ordinaires.
+Ce document conserve l'historique de la préparation et de la validation Lab.
+Après cette validation, le propriétaire a demandé l'activation en production des
+trois espèces ci-dessous dans le vrai vivarium. Le catalogue est désormais
+versionné avec ses douze PNG : voir [l'état actuel](vivarium-pmd.md).
+Lors de la phase Lab décrite ici, le catalogue versionné était encore vide.
 La copie locale préparée dans `coverage/pmd-preview-runtime/` contient un
 catalogue distinct pour le test : Miaouss #52, Nosferapti #41 et Fantominus #92,
 chacun en normal et shiny, Idle et Walk. Les douze PNG représentent 143 054 octets.
-Les ressources ne sont pas ajoutées à Git. Leurs droits restent documentés dans
+Pendant cette phase, les ressources n'étaient pas ajoutées à Git. Leurs droits restent documentés dans
 [`assets/pokemon_pmd/CREDITS.md`](../assets/pokemon_pmd/CREDITS.md).
 
 Le préparateur n'effectue aucun déploiement. Le propriétaire a explicitement

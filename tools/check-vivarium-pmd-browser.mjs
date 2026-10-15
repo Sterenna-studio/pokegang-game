@@ -11,7 +11,7 @@ const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.POKEGANG_PLAYWRIGHT_PATH || 'playwright-core');
 const repoRoot = path.resolve(import.meta.dirname, '..');
 const root = process.env.POKEGANG_RUNTIME_ROOT ? path.resolve(process.env.POKEGANG_RUNTIME_ROOT) : repoRoot;
-const realAssets = root !== repoRoot;
+const realAssets = process.env.POKEGANG_PMD_REAL_ASSETS === '1' || root !== repoRoot;
 const server = http.createServer(async (req, res) => {
   try {
     const urlPath = decodeURIComponent(new URL(req.url, 'http://local').pathname);
@@ -147,7 +147,15 @@ try {
 
   const local = await context.newPage();
   local.on('pageerror', error => errors.push(error.message));
-  const seed = await fs.readFile(path.join(repoRoot, 'tools/dev-seed-save.json'), 'utf8');
+  let seed = await fs.readFile(path.join(repoRoot, 'tools/dev-seed-save.json'), 'utf8');
+  if (realAssets) {
+    const fixture = JSON.parse(seed);
+    const species = { 'pk-1': 'meowth', 'pk-3': 'zubat', 'pk-6': 'gastly' };
+    for (const pokemon of fixture.pokemons) {
+      if (species[pokemon.id]) pokemon.species_en = species[pokemon.id];
+    }
+    seed = JSON.stringify(fixture);
+  }
   await local.addInitScript(json => {
     localStorage.setItem('pokeforge.v6', json);
     const pending = new Set(), later = window.setTimeout, cancel = window.clearTimeout;
@@ -157,6 +165,7 @@ try {
   }, seed);
   await local.goto(origin + '/gang/index.html');
   await local.waitForFunction(() => document.querySelectorAll('.gang-env-clickable').length === 7);
+  if (realAssets) await local.waitForFunction(() => document.querySelectorAll('canvas:not([hidden])').length === 3);
   await local.locator('#gangZoneSrcBtn').click();
   for (const key of ['showcase', 'team', 'pension', 'training']) {
     await local.locator(`[data-source-key="${key}"]`).uncheck();
@@ -173,7 +182,7 @@ try {
   assert.equal(await local.evaluate(() => testPending.size), 0, 'Panel navigation releases vivarium timers');
   assert.deepEqual(errors, []);
   console.log('PASS local /gang/: existing seed save, 7 deduplicated residents, source picker, background picker, panel navigation with zero timers');
-  if (realAssets) {
+  if (realAssets && root !== repoRoot) {
     await page.setViewportSize({ width: 1100, height: 800 });
     await page.emulateMedia({ reducedMotion: 'no-preference' });
     await page.goto(origin + '/gang/pmd-preview.html');

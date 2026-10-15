@@ -2,17 +2,17 @@
 
 ## État
 
-L'infrastructure est implémentée mais l'intégration artistique reste bloquée.
-**Aucun sprite PMD n'est ajouté au catalogue versionné ni activé en production
-ou dans la build itch.** Une copie de test distincte a été publiée sur le Lab
-avec l'accord explicite du propriétaire, pour les trois espèces du prototype.
+Après validation du prototype Lab, le propriétaire a demandé la publication en
+production dans le vrai vivarium. **Le catalogue versionné contient uniquement
+Miaouss #52, Nosferapti #41 et Fantominus #92, chacun en normal et shiny**, pour
+Idle et Walk : douze PNG, 143 054 octets, hébergés localement.
+Les autres espèces conservent automatiquement leur sprite habituel. L'activation
+est limitée au renderer du vivarium local et distant ; aucun sprite de PC,
+combat, zone ou carte n'est modifié. Aucun déplacement de caméra n'est ajouté.
 Voir [l'audit des droits et crédits](../assets/pokemon_pmd/CREDITS.md).
-La PR doit rester en brouillon tant que les ressources ne sont pas validées,
-importées et vérifiées visuellement. Il ne s'agit pas d'une intégration PMD
-terminée. Un prototype local séparé utilise désormais les images originales,
-sans les ajouter à Git ni au catalogue de production, et a été vérifié après
-publication sur le Lab : voir
-[la préparation de la preview Lab](pmd-lab-preview.md).
+Le prototype avec les images originales a été vérifié dans Chromium puis
+validé par le propriétaire avant l'activation. L'historique de la préparation
+et de la publication Lab reste dans [la documentation QA](pmd-lab-preview.md).
 
 ## Modifications
 
@@ -29,7 +29,8 @@ publication sur le Lab : voir
   `shiny`, en conservant `spriteUrl`, nom, niveau, nature et déduplication.
 - `gang/gang.css` : positionnement des canvas, pixel art, réaction au clic et
   réduction des animations décoratives selon la préférence système.
-- `assets/pokemon_pmd/metadata.js` : catalogue vide, sans import non validé.
+- `assets/pokemon_pmd/` : catalogue des trois espèces validées, PNG, crédits,
+  XML sources, licence publiée et manifeste de provenance avec SHA-256.
 - Deux tests ciblés dans `tools/`.
 
 Les points d'entrée local et OBS restent identiques. Le producteur cloud et
@@ -73,8 +74,9 @@ elles ne constituent pas un import du catalogue PokéSurvivor.
 | #92 | 48×56, 6 frames | 48×64, 12 frames | six fois `10` / douze fois `6` |
 
 Les XML shiny examinés ont les mêmes dimensions et durées pour ces animations.
-Les nombres de lignes, les pixels et les ancrages des images originales n'ont
-pas été validés visuellement. Aucun offset original n'a été importé.
+Les huit lignes et dimensions PNG sont vérifiées par les tests du catalogue.
+Les ancrages ont été régénérés depuis les ombres sources et le rendu original
+a été testé sur le Lab, puis validé visuellement par le propriétaire.
 Sources : `sprite/{0041,0052,0092}/AnimData.xml`, ainsi que leurs variantes
 `0000/0001`, à la révision SpriteCollab donnée dans les crédits.
 
@@ -117,13 +119,18 @@ $env:POKEGANG_CHROMIUM_PATH = 'CHEMIN_VERS/chrome-headless-shell.exe'
 node tools/check-vivarium-pmd-browser.mjs
 ```
 
+Pour vérifier les vrais assets du catalogue versionné plutôt que les feuilles
+synthétiques, définir `$env:POKEGANG_PMD_REAL_ASSETS = '1'` avant cette commande.
+Le parcours local injecte alors les trois espèces dans une copie isolée de la
+sauvegarde de développement et vérifie leur rendu dans le vrai `/gang/`.
+
 Le serveur et les intercepts de ce test ne servent que des formes géométriques
 générées en mémoire. Ils ne modifient aucun fichier du catalogue.
 
 | Scénario demandé | Preuve / limite |
 | --- | --- |
-| 1–3. Miaouss, Nosferapti, Fantominus Idle/Walk | Géométries vérifiées ; animation et directions testées avec des feuilles synthétiques ; vrais dessins bloqués |
-| 4. Shiny | Variante synthétique distincte, chargement et dimensions testés ; art original bloqué |
+| 1–3. Miaouss, Nosferapti, Fantominus Idle/Walk | Géométries et PNG vérifiés ; tests synthétiques puis vrais assets ; validation visuelle Lab par le propriétaire |
+| 4. Shiny | Variantes originales distinctes, chargement et dimensions testés |
 | 5. Espèce indisponible | Fallback testé dans Chromium et en test déterministe |
 | 6. Plusieurs Pokémon | Quatre canvas simultanés + fallback dans Chromium, boucle unique en test déterministe |
 | 7. Rencontre | Rencontre provoquée, badge affiché et reprise des déplacements dans Chromium |
@@ -136,22 +143,21 @@ générées en mémoire. Ils ne modifient aucun fichier du catalogue.
 | 14. Changement de panneau | Navigation locale vers Musique et primitive d'arrêt distante testées : aucun timer/RAF restant |
 | 15. Sauvegardes | Tests round-trip existants + vérification que la construction du snapshot ne mute pas l'état |
 
-Avant activation : importer uniquement les ressources autorisées avec leurs
-crédits et métadonnées générées, vérifier les quinze scénarios avec les vraies
-images, notamment pieds/ombres, huit directions de Nosferapti, passage
-Idle/Walk de Fantominus, changements de sources avec les images PMD et caméos,
-puis réaliser les essais sur mobile physique et OBS réel.
+Les tests Chromium avec les vraies feuilles passent pour le catalogue validé,
+y compris le vrai `/gang/` et le changement de sources. La validation visuelle
+du prototype Lab a été confirmée par le propriétaire. L'extension à d'autres
+espèces, le mobile physique et OBS réel restent hors de cette publication.
 
 ### Résultats de cette livraison
 
 - Suite complète : **40 fichiers `tools/test-*.mjs` passent**, dont le test PMD
   et le round-trip des sauvegardes.
 - Chromium réel : `tools/check-vivarium-pmd-browser.mjs` passe avec le catalogue
-  synthétique décrit ci-dessus. Ce contrôle reste séparé de la suite sans
+  synthétique et les vrais assets versionnés. Ce contrôle reste séparé de la suite sans
   dépendances utilisée en CI.
 - `node tools/check-events.js`, `node tools/check-dead-calls.mjs` et
   `node tools/test-data-integrity.mjs` passent.
 - `node tools/cache-bust.js` exécuté, puis `node tools/test-cache-bust.mjs` passe.
-- `node tools/build-itch.js` passe : v0.5.2, 569 entrées, 30,67 Mo,
+- `node tools/build-itch.js` passe : v0.5.2, 596 entrées, 30,82 Mo,
   séparateurs ZIP corrects, configuration privée exclue, FR web / EN itch.
   L'archive générée n'est ni commitée ni publiée.

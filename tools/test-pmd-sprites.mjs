@@ -1,5 +1,8 @@
-// Deterministic renderer tests; synthetic images, no third-party assets/network.
+// Deterministic renderer tests use synthetic images; the shipped PNG catalog
+// is also checked against its provenance hashes and geometry, without network.
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import crypto from 'node:crypto';
 import { createPmdRenderer, directionFromVector, frameAt } from '../gang/pmdSprites.js';
 import { PMD_METADATA } from '../assets/pokemon_pmd/metadata.js';
 import { buildVivariumResidents, buildVivariumCameoPool } from '../modules/systems/vivariumSnapshot.js';
@@ -11,7 +14,21 @@ assert.equal(directionFromVector(0, 0, 7), 7);
 assert.equal(frameAt([6, 10, 6, 10], 99), 0);
 assert.equal(frameAt([6, 10, 6, 10], 100), 1);
 assert.equal(frameAt([6, 10, 6, 10], 534), 0);
-assert.deepEqual(PMD_METADATA, {}, 'Uncleared art must not enter the runtime catalog');
+assert.deepEqual(Object.keys(PMD_METADATA).sort(), ['41', '52', '92']);
+const assetRoot = new URL('../assets/pokemon_pmd/', import.meta.url);
+const provenance = JSON.parse(fs.readFileSync(new URL('provenance.json', assetRoot), 'utf8'));
+assert.equal(provenance.resources.length, 12);
+for (const resource of provenance.resources) {
+  const bytes = fs.readFileSync(new URL(resource.file, assetRoot));
+  assert.equal(crypto.createHash('sha256').update(bytes).digest('hex'), resource.sha256, resource.file);
+  const a = PMD_METADATA[resource.dex][resource.variant][resource.animation];
+  assert.equal(a.file, resource.file);
+  assert.equal(a.d.length, a.n);
+  assert.ok(a.d.every(d => d > 0));
+  assert.equal(bytes.readUInt32BE(16), a.w * a.n, 'PNG width matches frame geometry');
+  assert.equal(bytes.readUInt32BE(20), a.h * a.r, 'PNG height matches direction rows');
+  assert.equal(a.r, 8);
+}
 
 const anim = (file, w = 24, h = 32, d = [6, 10, 6, 10]) => ({ file, w, h, n: d.length, r: 8, d, ax: w / 2, ay: 20 });
 const normal = { Idle: anim('52/Idle.png', 32), Walk: anim('52/Walk.png') };
