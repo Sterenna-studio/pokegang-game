@@ -4,6 +4,6 @@ Auto-updated on every commit by .githooks/pre-commit.
 Garantit qu'un marqueur horodaté est présent dans chaque commit
 et que le workflow GitHub Actions se déclenche.
 
-Last update : 2026-10-11 01:28:16 +0200
-Branch      : main
-Previous sha: 2e7ef51
+Last update : 2026-10-15 23:08:45 +0200
+Branch      : feat/vivarium-pmd
+Previous sha: f1d0e62
