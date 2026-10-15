@@ -2,6 +2,7 @@
 param(
   [ValidateSet('web', 'itch', 'all')]
   [string]$Target = 'all',
+  [string]$WebSourceRoot = '',
   [string]$SshTarget = 'sterenn@ssh.cluster129.hosting.ovh.net',
   [string]$RemoteLabRoot = '/home/sterenn/lab'
 )
@@ -16,6 +17,8 @@ if ($RemoteLabRoot -notmatch '^/home/[A-Za-z0-9_-]+/lab$') {
 }
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
+if (-not $WebSourceRoot) { $WebSourceRoot = $repoRoot }
+$WebSourceRoot = (Resolve-Path -LiteralPath $WebSourceRoot).Path
 $runtimeEntries = @('index.html', 'app.js', 'css', 'data', 'modules', 'state', 'assets', 'gang')
 $optionalRuntimeEntries = @('music')
 $previewHeaders = Join-Path $PSScriptRoot 'preview.htaccess'
@@ -80,7 +83,7 @@ Invoke-Native -FilePath 'ssh' -Arguments @(
 
 if ($Target -in @('web', 'all')) {
   Write-Host '[preview] Publication du runtime web FR...'
-  Publish-Runtime -SourceRoot $repoRoot -RemotePath $webRemote
+  Publish-Runtime -SourceRoot $WebSourceRoot -RemotePath $webRemote
 }
 
 if ($Target -in @('itch', 'all')) {

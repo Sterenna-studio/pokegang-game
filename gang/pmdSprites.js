@@ -114,7 +114,13 @@ export function createPmdRenderer({ metadata = PMD_METADATA, doc = document,
     // A species keeps the same scale across both animations; no square stretching.
     const largest = Math.max(...Object.values(variant).flatMap(a => [a.w, a.h]));
     const scale = Math.min(2, 88 / largest);
-    const actor = { host, sheets: new Set(), elapsed: 0, direction: 0, animation: '',
+    const animations = Object.values(variant);
+    const insets = {
+      left: Math.max(0, ...animations.map(a => a.ax * scale - 24)),
+      right: Math.max(0, ...animations.map(a => 24 + (a.w - a.ax) * scale - 48)),
+      bottom: Math.max(0, ...animations.map(a => 40 + (a.h - a.ay) * scale - 48)),
+    };
+    const actor = { host, insets, sheets: new Set(), elapsed: 0, direction: 0, animation: '',
       sheet: null, meta: null, disposed: false, drawn: '',
       draw() {
         const a = actor.meta, sheet = actor.sheet;
