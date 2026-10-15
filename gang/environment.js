@@ -32,6 +32,7 @@ import {
   buildVivariumCameoPool,
   buildVivariumBackgroundData,
 } from '../modules/systems/vivariumSnapshot.js';
+import { attachPmdSprite, directionFromVector, stopPmdSprites } from './pmdSprites.js';
 
 const _t = (fr, en) => (globalThis.state?.lang === 'en' ? en : fr);
 
@@ -80,28 +81,30 @@ const CLICK_REACTION_ICONS    = ['💫', '✨', '⭐', '❤️', '😊', '🎵']
 const CLICK_REACTION_COOLDOWN_MS = 700;
 const CLICK_PAUSE_MS          = 900;
 
-let _timers    = [];
+const _timers = new Set();
 let _residents = [];
 let _zoneEl    = null;
 let _liveCameoPool = [];
+let _resizeObserver = null;
+let _bounds = null;
 
-function _track(id) { _timers.push(id); return id; }
+function _later(fn, delay) {
+  const id = globalThis.setTimeout(() => { _timers.delete(id); fn(); }, delay);
+  _timers.add(id);
+  return id;
+}
+function _cancel(id) { globalThis.clearTimeout(id); _timers.delete(id); }
 
 export function stopEnvironmentZone() {
-  _timers.forEach(clearTimeout);
-  _timers = [];
+  _timers.forEach(id => globalThis.clearTimeout(id));
+  _timers.clear();
+  _resizeObserver?.disconnect();
+  _resizeObserver = null;
+  _bounds = null;
+  stopPmdSprites();
   _residents = [];
   _zoneEl = null;
   _liveCameoPool = [];
-}
-
-function _clearResidents(viewportEl) {
-  for (const r of _residents) {
-    clearTimeout(r.timer);
-    r.el.remove();
-  }
-  _residents = [];
-  viewportEl.querySelector('.gang-env-empty-hint')?.remove();
 }
 
 function _applyBackgroundData(viewportEl, bgData) {
@@ -146,11 +149,11 @@ function _applyAmbiance(viewportEl) {
 }
 
 function _scheduleAmbianceRefresh(viewportEl) {
-  _track(setTimeout(() => {
+  _later(() => {
     if (!viewportEl.isConnected) return;
     _applyAmbiance(viewportEl);
     _scheduleAmbianceRefresh(viewportEl);
-  }, AMBIANCE_REFRESH_MS));
+  }, AMBIANCE_REFRESH_MS);
 }
 
 let _currentWeather = 'clear';
@@ -193,11 +196,11 @@ function _applyWeather(viewportEl) {
 
 function _scheduleWeatherReroll(viewportEl) {
   const delay = WEATHER_REROLL_MIN_MS + Math.random() * (WEATHER_REROLL_MAX_MS - WEATHER_REROLL_MIN_MS);
-  _track(setTimeout(() => {
+  _later(() => {
     if (!viewportEl.isConnected) return;
     _applyWeather(viewportEl);
     _scheduleWeatherReroll(viewportEl);
-  }, delay));
+  }, delay);
 }
 
 function _openZoneBgPicker(viewportEl) {
@@ -263,7 +266,55 @@ function _setPosition(el, x, y) {
 
 function _flip(el, movingLeft) {
   const inner = el.querySelector('.gang-env-sprite-inner') || el;
+  if (el._pmdAnimator) {
+    // A loading/failed PMD sheet still displays the ordinary sprite. Only that
+    // fallback may be mirrored; the directional canvas must never be mirrored.
+    const fallback = inner.querySelector('img');
+    if (fallback) fallback.style.scale = movingLeft ? '-1 1' : '1 1';
+    return;
+  }
   inner.style.transform = movingLeft ? 'scaleX(-1)' : 'scaleX(1)';
+}
+
+function _animate(entry, animation, dx = 0, dy = 0) {
+  entry.direction = directionFromVector(dx, dy, entry.direction || 0);
+  entry.animator?.set(animation, entry.direction);
+  if (dx || dy) _flip(entry.el, dx < 0);
+}
+
+function _freeze(entry) {
+  const pos = _currentPos(entry.el);
+  entry.el.style.transition = 'none';
+  entry.x = pos.x; entry.y = pos.y;
+  _setPosition(entry.el, pos.x, pos.y);
+  _animate(entry, 'Idle');
+}
+
+function _watchBounds(viewportEl, bounds) {
+  _bounds = bounds;
+  if (typeof ResizeObserver === 'undefined') return;
+  _resizeObserver = new ResizeObserver(() => {
+    const rect = viewportEl.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const previousBounds = { ...bounds };
+    bounds.width = rect.width;
+    bounds.groundTop = rect.height * 0.35;
+    bounds.groundHeight = rect.height * 0.55;
+    for (const entry of _residents) {
+      _freeze(entry);
+      const before = _residentRange(entry, previousBounds), after = _residentRange(entry, bounds);
+      const rx = Math.max(0, Math.min(1, (entry.x - before.minX) / Math.max(1, before.maxX - before.minX)));
+      const ry = Math.max(0, Math.min(1, (entry.y - before.minY) / Math.max(1, before.maxY - before.minY)));
+      entry.x = after.minX + rx * (after.maxX - after.minX);
+      entry.y = after.minY + ry * (after.maxY - after.minY);
+      _setPosition(entry.el, entry.x, entry.y);
+      if (!entry.interacting) {
+        _cancel(entry.timer);
+        entry.timer = _later(() => _wanderStep(entry, bounds), 250);
+      }
+    }
+  });
+  _resizeObserver.observe(viewportEl);
 }
 
 function _dist(ax, ay, bx, by) {
@@ -279,29 +330,36 @@ function _currentPos(el) {
   return { x: parts[4] || 0, y: parts[5] || 0 };
 }
 
+function _residentRange(entry, bounds) {
+  const inset = entry.animator?.insets || { left: 0, right: 0, bottom: 0 };
+  const minX = Math.min(inset.left, Math.max(0, bounds.width - entry.w));
+  return { minX, maxX: Math.max(minX, bounds.width - entry.w - inset.right),
+    minY: bounds.groundTop,
+    maxY: bounds.groundTop + Math.max(0, bounds.groundHeight - entry.h - inset.bottom) };
+}
+
 function _pickTarget(entry, bounds) {
-  const maxX = Math.max(0, bounds.width - entry.w);
-  const maxY = Math.max(0, bounds.groundHeight - entry.h);
+  const { minX, maxX, minY, maxY } = _residentRange(entry, bounds);
   const others = _residents.filter(r => r !== entry);
 
   if (others.length > 0 && Math.random() < SEEK_OTHER_CHANCE) {
     const target = others[Math.floor(Math.random() * others.length)];
     const angle = Math.random() * Math.PI * 2;
     const approachDist = MIN_SPRITE_DIST + Math.random() * 20;
-    const x = Math.min(maxX, Math.max(0, target.x + Math.cos(angle) * approachDist));
-    const y = Math.min(bounds.groundTop + maxY, Math.max(bounds.groundTop, target.y + Math.sin(angle) * approachDist));
+    const x = Math.min(maxX, Math.max(minX, target.x + Math.cos(angle) * approachDist));
+    const y = Math.min(maxY, Math.max(minY, target.y + Math.sin(angle) * approachDist));
     return { x, y };
   }
 
   let best = null;
   for (let i = 0; i < TARGET_RETRY_COUNT; i++) {
-    const x = Math.random() * maxX;
-    const y = bounds.groundTop + Math.random() * maxY;
+    const x = minX + Math.random() * (maxX - minX);
+    const y = minY + Math.random() * (maxY - minY);
     const tooClose = others.some(o => _dist(x, y, o.x, o.y) < MIN_SPRITE_DIST);
     if (!tooClose) return { x, y };
     best = { x, y };
   }
-  return best || { x: Math.random() * maxX, y: bounds.groundTop + Math.random() * maxY };
+  return best || { x: minX, y: minY };
 }
 
 function _wanderStep(entry, bounds) {
@@ -315,18 +373,19 @@ function _wanderStep(entry, bounds) {
   const duration = Math.max(0.5, dist / speed);
 
   entry.el.classList.remove('idle');
-  _flip(entry.el, targetX < entry.x);
+  _animate(entry, 'Walk', targetX - entry.x, targetY - entry.y);
   entry.el.style.transition = `transform ${duration}s ease-in-out`;
   entry.x = targetX;
   entry.y = targetY;
   _setPosition(entry.el, targetX, targetY);
 
-  entry.timer = _track(setTimeout(() => {
+  entry.timer = _later(() => {
     if (!entry.el.isConnected) return;
     entry.el.classList.add('idle');
+    _animate(entry, 'Idle');
     const pause = (WANDER_MIN_PAUSE_MS + Math.random() * (WANDER_MAX_PAUSE_MS - WANDER_MIN_PAUSE_MS)) * pauseMult;
-    entry.timer = _track(setTimeout(() => _wanderStep(entry, bounds), pause));
-  }, duration * 1000));
+    entry.timer = _later(() => _wanderStep(entry, bounds), pause);
+  }, duration * 1000);
 }
 
 function _spawnResident(viewportEl, imgUrl, label, bounds, meta = {}) {
@@ -340,12 +399,19 @@ function _spawnResident(viewportEl, imgUrl, label, bounds, meta = {}) {
   viewportEl.appendChild(el);
 
   const entry = {
+    data: meta,
     el, x, y, w: 48, h: 48, label, level: meta.level, natureLabel: meta.natureLabel,
     interacting: false, lastPartner: null, lastInteractionAt: 0, lastClickAt: 0, timer: null,
   };
+  entry.animator = attachPmdSprite(el.querySelector('.gang-env-sprite-inner'), meta);
+  el._pmdAnimator = entry.animator;
+  const range = _residentRange(entry, bounds);
+  entry.x = range.minX + Math.random() * (range.maxX - range.minX);
+  entry.y = range.minY + Math.random() * (range.maxY - range.minY);
+  _setPosition(el, entry.x, entry.y);
   el.addEventListener('click', () => _onResidentClick(viewportEl, entry, bounds));
   _residents.push(entry);
-  entry.timer = _track(setTimeout(() => _wanderStep(entry, bounds), 200 + Math.random() * 2000));
+  entry.timer = _later(() => _wanderStep(entry, bounds), 200 + Math.random() * 2000);
   return entry;
 }
 
@@ -358,7 +424,7 @@ function _showClickBadge(entry) {
   badge.className = 'gang-env-click-badge';
   badge.textContent = [icon, entry.label, info].filter(Boolean).join(' ');
   entry.el.appendChild(badge);
-  _track(setTimeout(() => badge.remove(), 2400));
+  _later(() => badge.remove(), 2400);
 }
 
 function _onResidentClick(viewportEl, entry, bounds) {
@@ -367,18 +433,19 @@ function _onResidentClick(viewportEl, entry, bounds) {
   if (now - (entry.lastClickAt || 0) < CLICK_REACTION_COOLDOWN_MS) return;
   entry.lastClickAt = now;
 
-  clearTimeout(entry.timer);
+  _cancel(entry.timer);
+  _freeze(entry);
   entry.interacting = true;
   entry.el.classList.add('idle', 'gang-env-clicked');
 
   _showClickBadge(entry);
 
-  entry.timer = _track(setTimeout(() => {
+  entry.timer = _later(() => {
     entry.el.classList.remove('gang-env-clicked');
     entry.interacting = false;
     if (!entry.el.isConnected) return;
-    entry.timer = _track(setTimeout(() => _wanderStep(entry, bounds), 200 + Math.random() * 500));
-  }, CLICK_PAUSE_MS));
+    entry.timer = _later(() => _wanderStep(entry, bounds), 200 + Math.random() * 500);
+  }, CLICK_PAUSE_MS);
 }
 
 function _pickInteractionKind() {
@@ -396,15 +463,16 @@ function _showInteractionBadge(entryA, kind) {
   badge.className = `gang-env-interact ${kind.hostile ? 'enemy' : 'friend'}`;
   badge.textContent = kind.icon;
   entryA.el.appendChild(badge);
-  _track(setTimeout(() => badge.remove(), INTERACTION_BADGE_MS));
+  _later(() => badge.remove(), INTERACTION_BADGE_MS);
 }
 
 function _endInteraction(entry, bounds) {
+  if (!_residents.includes(entry)) return;
   entry.interacting = false;
   entry.lastInteractionAt = Date.now();
   entry.el.classList.remove('gang-env-clicked');
   const pause = 300 + Math.random() * 800;
-  entry.timer = _track(setTimeout(() => _wanderStep(entry, bounds), pause));
+  entry.timer = _later(() => _wanderStep(entry, bounds), pause);
 }
 
 function _triggerInteraction(viewportEl, entryA, entryB, bounds) {
@@ -414,7 +482,8 @@ function _triggerInteraction(viewportEl, entryA, entryB, bounds) {
 
   const kind = _pickInteractionKind();
   [entryA, entryB].forEach(e => {
-    clearTimeout(e.timer);
+    _cancel(e.timer);
+    _freeze(e);
     e.interacting = true;
     e.el.classList.add('idle');
     if (kind.bounce) e.el.classList.add('gang-env-clicked');
@@ -422,19 +491,19 @@ function _triggerInteraction(viewportEl, entryA, entryB, bounds) {
   entryA.lastPartner = entryB;
   entryB.lastPartner = entryA;
 
-  _flip(entryA.el, entryA.x > entryB.x);
-  _flip(entryB.el, entryB.x > entryA.x);
+  _animate(entryA, 'Idle', entryB.x - entryA.x, entryB.y - entryA.y);
+  _animate(entryB, 'Idle', entryA.x - entryB.x, entryA.y - entryB.y);
 
   _showInteractionBadge(entryA, kind);
 
-  _track(setTimeout(() => {
+  _later(() => {
     _endInteraction(entryA, bounds);
     _endInteraction(entryB, bounds);
-  }, kind.pauseMs));
+  }, kind.pauseMs);
 }
 
 function _scheduleProximityScan(viewportEl, bounds) {
-  _track(setTimeout(() => {
+  _later(() => {
     if (!viewportEl.isConnected) return;
     for (let i = 0; i < _residents.length; i++) {
       for (let j = i + 1; j < _residents.length; j++) {
@@ -447,10 +516,10 @@ function _scheduleProximityScan(viewportEl, bounds) {
       }
     }
     _scheduleProximityScan(viewportEl, bounds);
-  }, PROXIMITY_SCAN_MS));
+  }, PROXIMITY_SCAN_MS);
 }
 
-function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl, dialogueLine, hostile = false) {
+function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl, dialogueLine, hostile = false, pokemon = null) {
   const el = document.createElement('div');
   el.className = 'gang-env-sprite gang-env-cameo';
   el.title = label || '';
@@ -462,6 +531,9 @@ function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl, dialogueLi
   _setPosition(el, startX, baseY);
   _flip(el, !fromLeft);
   viewportEl.appendChild(el);
+  const cameo = { el, animator: pokemon ? attachPmdSprite(el.querySelector('.gang-env-sprite-inner'), pokemon) : null };
+  el._pmdAnimator = cameo.animator;
+  if (cameo.animator) el.querySelector('.gang-env-sprite-inner').style.transform = '';
 
   const bubble = dialogueLine ? document.createElement('div') : null;
   if (bubble) {
@@ -488,17 +560,19 @@ function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl, dialogueLi
     const duration = Math.max(0.8, dist / speed);
 
     el.classList.remove('idle');
+    _animate(cameo, 'Walk', x - cur.x, y - cur.y);
     el.style.transition = `transform ${duration}s ease-in-out`;
     _setPosition(el, x, y);
 
-    _track(setTimeout(() => {
+    _later(() => {
       if (!el.isConnected) return;
+      _animate(cameo, 'Idle');
       if (leg === bubbleLeg) {
         el.classList.add('idle');
         el.appendChild(bubble);
       }
       if (leg >= legs) {
-        _track(setTimeout(() => el.remove(), 300));
+        _later(() => { cameo.animator?.destroy(); el.remove(); }, 300);
         return;
       }
       const shouldPause = leg === bubbleLeg || Math.random() < CAMEO_PAUSE_CHANCE;
@@ -506,27 +580,28 @@ function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl, dialogueLi
       const pause = shouldPause
         ? CAMEO_PAUSE_MIN_MS + Math.random() * (CAMEO_PAUSE_MAX_MS - CAMEO_PAUSE_MIN_MS)
         : 80 + Math.random() * 200;
-      _track(setTimeout(nextLeg, pause));
-    }, duration * 1000));
+      _later(nextLeg, pause);
+    }, duration * 1000);
   }
 
-  requestAnimationFrame(nextLeg);
+  _later(nextLeg, 0);
 }
 
 function _fireCameoFromPool(viewportEl, bounds, pool) {
   if (!pool || pool.length === 0) return;
   const entry = pool[Math.floor(Math.random() * pool.length)];
   const line = entry.lines?.length ? entry.lines[Math.floor(Math.random() * entry.lines.length)] : null;
-  _spawnCameo(viewportEl, entry.spriteUrl, entry.label, bounds, entry.followIconUrl || null, line, !!entry.hostile);
+  _spawnCameo(viewportEl, entry.spriteUrl, entry.label, bounds, entry.followIconUrl || null, line, !!entry.hostile,
+    entry.type === 'favorite' ? entry : null);
 }
 
 function _scheduleCameos(viewportEl, bounds, poolProvider) {
   const delay = CAMEO_MIN_DELAY_MS + Math.random() * (CAMEO_MAX_DELAY_MS - CAMEO_MIN_DELAY_MS);
-  _track(setTimeout(() => {
+  _later(() => {
     if (!viewportEl.isConnected) return;
     if (Math.random() < CAMEO_SPAWN_CHANCE) _fireCameoFromPool(viewportEl, bounds, poolProvider());
     _scheduleCameos(viewportEl, bounds, poolProvider);
-  }, delay));
+  }, delay);
 }
 
 function _openZoneSourcesPicker(rootContainer) {
@@ -599,9 +674,10 @@ export function renderEnvironmentZone(rootContainer) {
     groundHeight: (rect.height || 320) * 0.55,
   };
 
+  _watchBounds(viewportEl, bounds);
   const residents = buildVivariumResidents(state);
   for (const r of residents) {
-    _spawnResident(viewportEl, r.spriteUrl, r.label, bounds, { level: r.level, natureLabel: r.natureLabel });
+    _spawnResident(viewportEl, r.spriteUrl, r.label, bounds, r);
   }
 
   if (residents.length === 0) {
@@ -612,9 +688,8 @@ export function renderEnvironmentZone(rootContainer) {
       'Add Pokémon to an active zone (👁) to see them roam here.'
     );
     viewportEl.appendChild(empty);
-  } else {
-    _scheduleProximityScan(viewportEl, bounds);
   }
+  _scheduleProximityScan(viewportEl, bounds);
 
   _scheduleCameos(viewportEl, bounds, () => buildVivariumCameoPool(globalThis.state));
 }
@@ -624,7 +699,7 @@ export function renderEnvironmentZone(rootContainer) {
 //  `globalThis.state`. Aucun picker (fond/sources) : lecture seule, rien à
 //  écrire nulle part. Appelée par gang/live-app.js.
 //
-//  blob attendu : { residents: [{spriteUrl,label,level,natureLabel}],
+//  blob attendu : { residents: [{id?,dex?,shiny?,spriteUrl,label,level,natureLabel}],
 //                    cameoPool: [{type,spriteUrl,label,followIconUrl?,
 //                                 lines,hostile?}], backgroundData }
 // ════════════════════════════════════════════════════════════════
@@ -651,9 +726,10 @@ export function renderEnvironmentZoneFromSnapshot(rootContainer, blob) {
     groundHeight: (rect.height || 320) * 0.55,
   };
 
+  _watchBounds(viewportEl, bounds);
   const residents = blob?.residents || [];
   for (const r of residents) {
-    _spawnResident(viewportEl, r.spriteUrl, r.label, bounds, { level: r.level, natureLabel: r.natureLabel });
+    _spawnResident(viewportEl, r.spriteUrl, r.label, bounds, r);
   }
 
   if (residents.length === 0) {
@@ -662,9 +738,8 @@ export function renderEnvironmentZoneFromSnapshot(rootContainer, blob) {
     // Rendu distant (OBS) : pas de state disponible — EN par défaut.
     empty.textContent = 'No residents to display for now.';
     viewportEl.appendChild(empty);
-  } else {
-    _scheduleProximityScan(viewportEl, bounds);
   }
+  _scheduleProximityScan(viewportEl, bounds);
 
   _scheduleCameos(viewportEl, bounds, () => _liveCameoPool);
 }
@@ -677,18 +752,29 @@ export function updateEnvironmentSnapshot(blob) {
   _liveCameoPool = blob?.cameoPool || [];
   if (blob?.backgroundData) _applyBackgroundData(viewportEl, blob.backgroundData);
 
-  const rect = viewportEl.getBoundingClientRect();
-  const bounds = {
-    width: rect.width || 600,
-    groundTop: (rect.height || 320) * 0.35,
-    groundHeight: (rect.height || 320) * 0.55,
-  };
-
-  _clearResidents(viewportEl);
+  // Reconcile by stable Pokémon id; older snapshots use display identity + index.
+  // Preserve DOM, position, direction and animation phase across identical polls.
   const residents = blob?.residents || [];
-  for (const r of residents) {
-    _spawnResident(viewportEl, r.spriteUrl, r.label, bounds, { level: r.level, natureLabel: r.natureLabel });
+  const key = (data, index) => data.id != null ? `id:${data.id}` : `legacy:${index}:${data.spriteUrl}:${data.label}`;
+  const existing = new Map(_residents.map((entry, i) => [key(entry.data, i), entry]));
+  const next = [];
+  viewportEl.querySelector('.gang-env-empty-hint')?.remove();
+  for (const [i, data] of residents.entries()) {
+    let entry = existing.get(key(data, i));
+    existing.delete(key(data, i));
+    if (entry && (entry.data.dex !== data.dex || entry.data.shiny !== data.shiny || entry.data.spriteUrl !== data.spriteUrl)) {
+      _cancel(entry.timer); entry.animator?.destroy(); entry.el.remove(); entry = null;
+    }
+    if (!entry) entry = _spawnResident(viewportEl, data.spriteUrl, data.label, _bounds, data);
+    entry.data = data;
+    entry.label = data.label; entry.level = data.level; entry.natureLabel = data.natureLabel;
+    entry.el.title = data.label || '';
+    next.push(entry);
   }
+  for (const entry of existing.values()) {
+    _cancel(entry.timer); entry.animator?.destroy(); entry.el.remove();
+  }
+  _residents = next;
   if (residents.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'gang-env-empty-hint';
