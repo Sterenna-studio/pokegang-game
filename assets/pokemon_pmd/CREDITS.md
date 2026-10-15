@@ -55,13 +55,14 @@ pas une autorisation. CHUNSOFT : https://www.spike-chunsoft.com/.
 
 ## Distribution web, itch.io, dons et publicité
 
-Le dépôt confirme une distribution web et itch.io ; les réglages de prix, dons
-et publicité du compte ne sont pas établis par cet audit. Une page accessible
-gratuitement ne suffit pas à établir le caractère non commercial de tous les
-usages. La définition CC BY-NC 1.i porte sur la finalité commerciale et la
-compensation financière. Dons facultatifs et publicité nécessitent un examen
-du contexte ; ils ne sont pas automatiquement approuvés ici. Il faut aussi
-examiner l'usage des assets dans un stream OBS monétisé.
+Le dépôt confirme une distribution web et itch.io. Le propriétaire a confirmé
+le 15 octobre 2026 : **aucun revenu ni don lié au jeu**. Cette déclaration
+répond au point de compatibilité non commerciale de la distribution actuelle ;
+elle ne fournit pas l'autorisation manquante sur les bases officielles.
+La définition CC BY-NC 1.i porte sur la finalité commerciale et la compensation
+financière. En cas de changement futur, dons facultatifs et publicité devront
+être examinés dans leur contexte. L'usage par des tiers dans un stream OBS
+monétisé n'est pas couvert par la déclaration du propriétaire.
 
 La licence du code PokéSurvivor est distincte de celle des images :
 [LICENSE](https://github.com/JPTER78/pokesurvivor/blob/5bbc3b29288d6af4596f21188fb8b54e0e9b739f/LICENSE)
