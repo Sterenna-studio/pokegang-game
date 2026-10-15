@@ -1,8 +1,15 @@
-# Ressources PMD — import suspendu
+# Ressources PMD — vivarium
 
-Audit du 15 octobre 2026. **Aucun PNG de Pokémon Donjon Mystère n'est inclus
-dans ce répertoire.** `metadata.js` expose intentionnellement un catalogue vide.
-Le vivarium conserve donc les images renvoyées par `pokeSprite()`.
+Audit du 15 octobre 2026. Après validation du prototype Lab, le propriétaire a
+explicitement demandé l'activation dans le vrai vivarium et la publication en
+production. Ce répertoire contient les douze PNG Idle/Walk de Miaouss #52,
+Nosferapti #41 et Fantominus #92, en normal et shiny, copiés sans recompression
+depuis la révision SpriteCollab ci-dessous (143 054 octets de PNG).
+`provenance.json` conserve les sources et SHA-256 ; les XML et crédits originaux
+accompagnent chaque variante. La licence publiée est dans
+`SPRITECOLLAB-LICENSE.md`, les noms des contributeurs dans `credit_names.txt`.
+Cette décision du propriétaire ne constitue pas une autorisation supplémentaire
+des ayants droit et ne modifie pas les incertitudes relevées dans cet audit.
 
 ## Sources examinées
 
@@ -11,7 +18,7 @@ Le vivarium conserve donc les images renvoyées par `pokeSprite()`.
 - [PokéSurvivor](https://github.com/JPTER78/pokesurvivor/tree/5bbc3b29288d6af4596f21188fb8b54e0e9b739f),
   révision `5bbc3b29288d6af4596f21188fb8b54e0e9b739f` : inspection des chemins,
   `js/data/sprites-meta.js`, `js/core/sprites.js` et `LICENSE`.
-  Aucun moteur, fichier de métadonnées ou PNG n'a été copié de ce projet.
+  Aucun moteur, fichier de métadonnées ou PNG n'a été copié de PokéSurvivor.
 - [Politique de soumission et de réutilisation SpriteCollab](https://github.com/PMDCollab/SpriteCollab/blob/e7868e9a7f6b931d1fb826756a490d4633879d03/README.md),
   [licence publiée](https://github.com/PMDCollab/SpriteCollab/blob/e7868e9a7f6b931d1fb826756a490d4633879d03/LICENSE.md)
   et [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/legalcode.en).
@@ -34,7 +41,7 @@ Crédits normaux :
 [#92](https://github.com/PMDCollab/SpriteCollab/blob/e7868e9a7f6b931d1fb826756a490d4633879d03/sprite/0092/credits.txt).
 Crédits shiny : mêmes répertoires suivis de `/0000/0001/credits.txt`.
 
-## Blocage de redistribution
+## Droits examinés et décision de diffusion
 
 La politique SpriteCollab autorise les contributions soumises avec attribution
 et pour un usage non commercial. Elle décrit aussi la conservation de sprites
@@ -46,8 +53,10 @@ Les recolorations shiny ne prouvent pas une autorisation de redistribuer la base
 CC BY-NC ne concède que les droits que le donneur de licence peut accorder
 (section 1 et préambule), exclut les marques (2.b.2) et ne garantit pas l'absence
 de droits tiers (5.a). La présence des fichiers dans un dépôt public ne résout
-donc pas cette incertitude. Cette conclusion est une décision de ne pas importer
-en présence de droits non établis, pas une affirmation d'illégalité du projet.
+donc pas cette incertitude. L'import a d'abord été suspendu, puis le propriétaire
+a confirmé la diffusion de test et, après validation visuelle, l'activation
+en production dans le seul vivarium. Les autres parties du jeu conservent leurs
+sprites. Cette décision ne prétend pas établir des droits absents des sources.
 
 Pokémon et les personnages concernés relèvent également des droits de Nintendo,
 Creatures, GAME FREAK et The Pokémon Company ; créditer ces sociétés ne constitue
@@ -71,7 +80,7 @@ Noncommercial aux versions suivantes. Reprendre un ancien moteur MIT ne
 résoudrait pas les droits des PNG. Le renderer PokéGang est une implémentation
 originale.
 
-## Pour reprendre l'import
+## Pour étendre l'import
 
 Établir les autorisations nécessaires sur les bases officielles et les
 contributions, ainsi que la compatibilité avec la distribution réelle, ou

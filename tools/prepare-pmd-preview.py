@@ -151,7 +151,7 @@ def main():
         "Le propriétaire a explicitement confirmé la publication de test sur le Lab après information sur les droits incertains.\n"
         "La décision de diffusion pour le test ne constitue pas une nouvelle autorisation des ayants droit.\n"
         "Crédits exacts et XML : auprès des PNG ; licence publiée : SPRITECOLLAB-LICENSE.md.\n"
-        "Empreintes et sources : provenance.json. Le rapport historique ci-dessous décrit la livraison initiale sans assets.\n\n"
+        "Empreintes et sources : provenance.json. Rapport de provenance et décision de diffusion ci-dessous.\n\n"
         + credits, encoding="utf-8")
     for name in ("pmd-preview.html", "pmd-preview.js"):
         shutil.copy2(ROOT / "tools/pmd-preview" / name, output / "gang" / name)
