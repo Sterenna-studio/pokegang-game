@@ -87,6 +87,8 @@ let _zoneEl    = null;
 let _liveCameoPool = [];
 let _resizeObserver = null;
 let _bounds = null;
+let _spriteMode = 'pmd';
+const _pokemonCameos = new Set();
 
 function _later(fn, delay) {
   const id = globalThis.setTimeout(() => { _timers.delete(id); fn(); }, delay);
@@ -102,6 +104,7 @@ export function stopEnvironmentZone() {
   _resizeObserver = null;
   _bounds = null;
   stopPmdSprites();
+  _pokemonCameos.clear();
   _residents = [];
   _zoneEl = null;
   _liveCameoPool = [];
@@ -277,9 +280,45 @@ function _flip(el, movingLeft) {
 }
 
 function _animate(entry, animation, dx = 0, dy = 0) {
+  entry.animation = animation;
   entry.direction = directionFromVector(dx, dy, entry.direction || 0);
   entry.animator?.set(animation, entry.direction);
   if (dx || dy) _flip(entry.el, dx < 0);
+}
+
+// Swap the renderer only: preserve the resident, position, movement and badges.
+function _applySpriteMode(entry) {
+  entry.animator?.destroy();
+  const inner = entry.el.querySelector('.gang-env-sprite-inner');
+  inner.style.transform = '';
+  const fallback = inner.querySelector('img');
+  if (fallback) fallback.style.scale = '';
+  entry.animator = _spriteMode === 'pmd' ? attachPmdSprite(inner, entry.data) : null;
+  entry.el._pmdAnimator = entry.animator;
+  entry.animator?.set(entry.animation || 'Idle', entry.direction || 0);
+  _flip(entry.el, entry.direction >= 5 && entry.direction <= 7);
+}
+
+function _bindSpriteModeButton(zoneEl) {
+  const button = zoneEl.querySelector('#gangSpriteModeBtn');
+  const refresh = () => {
+    const pmd = _spriteMode === 'pmd';
+    button.textContent = pmd ? _t('Sprites : Donjon Mystère', 'Sprites: Mystery Dungeon') : _t('Sprites : 2D', 'Sprites: 2D');
+    button.title = pmd ? _t('Passer aux sprites 2D', 'Switch to 2D sprites')
+      : _t('Passer aux sprites Donjon Mystère', 'Switch to Mystery Dungeon sprites');
+    button.setAttribute('aria-label', button.title);
+    button.setAttribute('aria-pressed', String(pmd));
+  };
+  refresh();
+  button.addEventListener('click', () => {
+    _spriteMode = _spriteMode === 'pmd' ? '2d' : 'pmd';
+    const state = globalThis.state;
+    state.cosmetics ||= {};
+    state.cosmetics.vivariumSpriteMode = _spriteMode;
+    globalThis.saveState();
+    for (const entry of [..._residents, ..._pokemonCameos]) _applySpriteMode(entry);
+    refresh();
+  });
 }
 
 function _freeze(entry) {
@@ -403,8 +442,7 @@ function _spawnResident(viewportEl, imgUrl, label, bounds, meta = {}) {
     el, x, y, w: 48, h: 48, label, level: meta.level, natureLabel: meta.natureLabel,
     interacting: false, lastPartner: null, lastInteractionAt: 0, lastClickAt: 0, timer: null,
   };
-  entry.animator = attachPmdSprite(el.querySelector('.gang-env-sprite-inner'), meta);
-  el._pmdAnimator = entry.animator;
+  _applySpriteMode(entry);
   const range = _residentRange(entry, bounds);
   entry.x = range.minX + Math.random() * (range.maxX - range.minX);
   entry.y = range.minY + Math.random() * (range.maxY - range.minY);
@@ -531,9 +569,11 @@ function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl, dialogueLi
   _setPosition(el, startX, baseY);
   _flip(el, !fromLeft);
   viewportEl.appendChild(el);
-  const cameo = { el, animator: pokemon ? attachPmdSprite(el.querySelector('.gang-env-sprite-inner'), pokemon) : null };
-  el._pmdAnimator = cameo.animator;
-  if (cameo.animator) el.querySelector('.gang-env-sprite-inner').style.transform = '';
+  const cameo = { el, data: pokemon, direction: fromLeft ? 2 : 6, animation: 'Walk' };
+  if (pokemon) {
+    _applySpriteMode(cameo);
+    _pokemonCameos.add(cameo);
+  }
 
   const bubble = dialogueLine ? document.createElement('div') : null;
   if (bubble) {
@@ -572,7 +612,7 @@ function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl, dialogueLi
         el.appendChild(bubble);
       }
       if (leg >= legs) {
-        _later(() => { cameo.animator?.destroy(); el.remove(); }, 300);
+        _later(() => { cameo.animator?.destroy(); _pokemonCameos.delete(cameo); el.remove(); }, 300);
         return;
       }
       const shouldPause = leg === bubbleLeg || Math.random() < CAMEO_PAUSE_CHANCE;
@@ -649,14 +689,17 @@ export function renderEnvironmentZone(rootContainer) {
   const zoneEl = rootContainer.querySelector('#gangEnvironmentZone');
   if (!zoneEl) return;
   stopEnvironmentZone();
+  _spriteMode = globalThis.state?.cosmetics?.vivariumSpriteMode === '2d' ? '2d' : 'pmd';
   _zoneEl = zoneEl;
 
   zoneEl.innerHTML = `
+    <button type="button" class="gang-sprite-mode-btn" id="gangSpriteModeBtn"></button>
     <button class="gang-zonebg-btn" id="gangZoneBgBtn" title="${_t('Changer le fond', 'Change background')}">🎨</button>
     <button class="gang-zonesrc-btn" id="gangZoneSrcBtn" title="${_t('Choisir les zones affichées', 'Choose displayed zones')}">👁</button>
     <div class="gang-env-viewport" id="gangEnvViewport"></div>`;
 
   const viewportEl = zoneEl.querySelector('#gangEnvViewport');
+  _bindSpriteModeButton(zoneEl);
   _applyZoneBackground(viewportEl);
   zoneEl.querySelector('#gangZoneBgBtn').addEventListener('click', () => _openZoneBgPicker(viewportEl));
   zoneEl.querySelector('#gangZoneSrcBtn').addEventListener('click', () => _openZoneSourcesPicker(rootContainer));
@@ -707,6 +750,7 @@ export function renderEnvironmentZoneFromSnapshot(rootContainer, blob) {
   const zoneEl = rootContainer.querySelector('#gangEnvironmentZone');
   if (!zoneEl) return;
   stopEnvironmentZone();
+  _spriteMode = 'pmd'; // OBS stays independent of the local page's preference.
   _zoneEl = zoneEl;
   _liveCameoPool = blob?.cameoPool || [];
 

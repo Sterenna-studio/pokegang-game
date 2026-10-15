@@ -117,6 +117,17 @@ check('état global non-pokémon préservé', () => {
   assert.equal(out.stats.totalCaught, 42, 'totalCaught');
 });
 
+check('mode de sprites du vivarium indépendant et compatible avec les anciennes saves', () => {
+  const state = structuredClone(DEFAULT_STATE);
+  state.cosmetics.vivariumSpriteMode = '2d';
+  state.settings.spriteMode = 'gen4';
+  const saved = roundTrip(state);
+  assert.equal(saved.cosmetics.vivariumSpriteMode, '2d');
+  assert.equal(saved.settings.spriteMode, 'gen4');
+  delete state.cosmetics.vivariumSpriteMode;
+  assert.equal(roundTrip(state).cosmetics.vivariumSpriteMode, 'pmd');
+});
+
 check('stock de Poké Balls hérité : remboursé 20₽/unité puis purgé, une seule fois', () => {
   const state = structuredClone(DEFAULT_STATE);
   state.gang.money = 1000;

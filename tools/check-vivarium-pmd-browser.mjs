@@ -157,7 +157,7 @@ try {
     seed = JSON.stringify(fixture);
   }
   await local.addInitScript(json => {
-    localStorage.setItem('pokeforge.v6', json);
+    if (!localStorage.getItem('pokeforge.v6')) localStorage.setItem('pokeforge.v6', json);
     const pending = new Set(), later = window.setTimeout, cancel = window.clearTimeout;
     window.setTimeout = (fn, ms, ...args) => { const id = later(() => { pending.delete(id); fn(...args); }, ms); pending.add(id); return id; };
     window.clearTimeout = id => { pending.delete(id); cancel(id); };
@@ -166,6 +166,36 @@ try {
   await local.goto(origin + '/gang/index.html');
   await local.waitForFunction(() => document.querySelectorAll('.gang-env-clickable').length === 7);
   if (realAssets) await local.waitForFunction(() => document.querySelectorAll('canvas:not([hidden])').length === 3);
+  await local.waitForSelector('.gang-env-sprite:not(.idle)');
+  await local.evaluate(() => {
+    window.modeNodes = [...document.querySelectorAll('.gang-env-clickable')];
+    window.originalSpriteSetting = state.settings.spriteMode;
+  });
+  await local.locator('#gangSpriteModeBtn').click();
+  assert.equal(await local.locator('canvas').count(), 0, '2D removes PMD actors');
+  assert.equal(await local.locator('#gangSpriteModeBtn').getAttribute('aria-pressed'), 'false');
+  assert.ok(await local.evaluate(() => modeNodes.every((node, i) => node === document.querySelectorAll('.gang-env-clickable')[i])), 'Mode switch keeps resident nodes');
+  assert.ok(await local.evaluate(() => state.settings.spriteMode === originalSpriteSetting), 'General sprite preference unchanged');
+  assert.equal(await local.evaluate(() => JSON.parse(localStorage.getItem('pokeforge.v6')).cosmetics.vivariumSpriteMode), '2d');
+  await local.reload();
+  await local.waitForSelector('#gangSpriteModeBtn[aria-pressed="false"]');
+  assert.equal(await local.locator('canvas').count(), 0, '2D preference survives reload');
+  await local.setViewportSize({ width: 390, height: 844 });
+  await local.waitForTimeout(100);
+  if (realAssets) {
+    assert.equal(await local.locator('.gang-env-clickable').count(), 7);
+    assert.equal(await local.locator('#gangSpriteModeBtn').evaluate(button => {
+      const b = button.getBoundingClientRect();
+      return b.right <= document.querySelector('#gangZoneSrcBtn').getBoundingClientRect().left;
+    }), true, 'Mode button does not overlap source picker');
+  }
+  await local.locator('#gangSpriteModeBtn').click();
+  assert.equal(await local.locator('#gangSpriteModeBtn').getAttribute('aria-pressed'), 'true');
+  if (realAssets) await local.waitForFunction(() => document.querySelectorAll('canvas:not([hidden])').length === 3);
+  await local.evaluate(() => { for (let i = 0; i < 10; i++) document.querySelector('#gangSpriteModeBtn').click(); });
+  if (realAssets) await local.waitForFunction(() => document.querySelectorAll('canvas:not([hidden])').length === 3);
+  await local.screenshot({ path: path.join(repoRoot, 'coverage/vivarium-mode-toggle-mobile.png'), fullPage: true });
+  console.log('PASS mode toggle: 2D/PMD in place during movement, saved across reload, rapid toggles, mobile button layout, general sprite setting unchanged');
   await local.locator('#gangZoneSrcBtn').click();
   for (const key of ['showcase', 'team', 'pension', 'training']) {
     await local.locator(`[data-source-key="${key}"]`).uncheck();
