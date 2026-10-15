@@ -1,6 +1,7 @@
 // Real Chromium checks. Requires an existing playwright-core installation:
 // POKEGANG_PLAYWRIGHT_PATH=/path/to/playwright-core node tools/check-vivarium-pmd-browser.mjs
-// All PMD sheets served here are test-only geometric drawings, never Pokémon art.
+// By default all sheets are test-only drawings. Set POKEGANG_RUNTIME_ROOT to
+// coverage/pmd-preview-runtime to test a prepared local runtime with real sheets.
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import fs from 'node:fs/promises';
@@ -8,7 +9,9 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.POKEGANG_PLAYWRIGHT_PATH || 'playwright-core');
-const root = path.resolve(import.meta.dirname, '..');
+const repoRoot = path.resolve(import.meta.dirname, '..');
+const root = process.env.POKEGANG_RUNTIME_ROOT ? path.resolve(process.env.POKEGANG_RUNTIME_ROOT) : repoRoot;
+const realAssets = root !== repoRoot;
 const server = http.createServer(async (req, res) => {
   try {
     const urlPath = decodeURIComponent(new URL(req.url, 'http://local').pathname);
@@ -63,11 +66,13 @@ try {
     }
     return { metadata, pngs };
   });
-  await context.route('**/assets/pokemon_pmd/metadata.js', route => route.fulfill({
+  if (!realAssets) {
+    await context.route('**/assets/pokemon_pmd/metadata.js', route => route.fulfill({
     contentType: 'text/javascript', body: `export const PMD_METADATA = ${JSON.stringify(fixtures.metadata)};`,
-  }));
-  await context.route('**/assets/pokemon_pmd/**/*.png', route => route.fulfill({ contentType: 'image/png',
-    body: Buffer.from(fixtures.pngs[new URL(route.request().url()).pathname], 'base64') }));
+    }));
+    await context.route('**/assets/pokemon_pmd/**/*.png', route => route.fulfill({ contentType: 'image/png',
+      body: Buffer.from(fixtures.pngs[new URL(route.request().url()).pathname], 'base64') }));
+  }
   // Reload modules with the synthetic catalog, instrument timers before import.
   await page.reload();
   await page.evaluate(async () => {
@@ -101,7 +106,7 @@ try {
     return nodes.every((node, i) => node === document.querySelectorAll('.gang-env-sprite')[i]);
   });
   assert.ok(preserved, 'OBS polling preserves resident nodes');
-  await page.locator('.gang-env-sprite').first().click({ force: true });
+  await page.locator('.gang-env-sprite:not(.idle)').first().click({ force: true });
   assert.match(await page.locator('.gang-env-click-badge').first().textContent(), /Lv\.12.*Hardy/);
   // Force an encounter using actual CSS position, then let the existing scan run.
   await page.evaluate(() => {
@@ -137,12 +142,12 @@ try {
   assert.deepEqual(await page.evaluate(() => [testResources.pending.size, testResources.frames.size]), [0, 0]);
   assert.ok([...requests].filter(([url]) => url.endsWith('.png') && url.includes('pokemon_pmd')).every(([, count]) => count === 1), 'No duplicate sheet downloads');
   assert.deepEqual(errors, []);
-  console.log('PASS Chromium: 5 residents, normal/shiny synthetic Idle/Walk, fallback, encounter, click, OBS reconciliation, background, mobile resize, reduced motion, source changes, legacy snapshots, zero remaining timers/RAF');
+  console.log(`PASS Chromium: 5 residents, normal/shiny ${realAssets ? 'original PMD' : 'synthetic'} Idle/Walk, fallback, encounter, click, OBS reconciliation, background, mobile resize, reduced motion, source changes, legacy snapshots, zero remaining timers/RAF`);
   console.log('PMD sheet requests:', [...requests].filter(([url]) => url.endsWith('.png') && url.includes('pokemon_pmd')).length);
 
   const local = await context.newPage();
   local.on('pageerror', error => errors.push(error.message));
-  const seed = await fs.readFile(path.join(root, 'tools/dev-seed-save.json'), 'utf8');
+  const seed = await fs.readFile(path.join(repoRoot, 'tools/dev-seed-save.json'), 'utf8');
   await local.addInitScript(json => {
     localStorage.setItem('pokeforge.v6', json);
     const pending = new Set(), later = window.setTimeout, cancel = window.clearTimeout;
@@ -168,6 +173,18 @@ try {
   assert.equal(await local.evaluate(() => testPending.size), 0, 'Panel navigation releases vivarium timers');
   assert.deepEqual(errors, []);
   console.log('PASS local /gang/: existing seed save, 7 deduplicated residents, source picker, background picker, panel navigation with zero timers');
+  if (realAssets) {
+    await page.setViewportSize({ width: 1100, height: 800 });
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await page.goto(origin + '/gang/pmd-preview.html');
+    await page.waitForFunction(() => document.querySelectorAll('canvas:not([hidden])').length === 6);
+    await page.screenshot({ path: path.join(repoRoot, 'coverage/pmd-lab-desktop.png'), fullPage: true });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.waitForTimeout(350);
+    await page.screenshot({ path: path.join(repoRoot, 'coverage/pmd-lab-mobile.png'), fullPage: true });
+    assert.deepEqual(errors, []);
+    console.log('PASS staged demo: six original PMD sprites, desktop/mobile screenshots saved in coverage/');
+  }
 } finally {
   await browser.close();
   await new Promise(resolve => server.close(resolve));

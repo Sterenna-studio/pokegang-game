@@ -296,13 +296,17 @@ function _watchBounds(viewportEl, bounds) {
   _resizeObserver = new ResizeObserver(() => {
     const rect = viewportEl.getBoundingClientRect();
     if (!rect.width || !rect.height) return;
+    const previousBounds = { ...bounds };
     bounds.width = rect.width;
     bounds.groundTop = rect.height * 0.35;
     bounds.groundHeight = rect.height * 0.55;
     for (const entry of _residents) {
       _freeze(entry);
-      entry.x = Math.max(0, Math.min(entry.x, bounds.width - entry.w));
-      entry.y = Math.max(bounds.groundTop, Math.min(entry.y, bounds.groundTop + bounds.groundHeight - entry.h));
+      const before = _residentRange(entry, previousBounds), after = _residentRange(entry, bounds);
+      const rx = Math.max(0, Math.min(1, (entry.x - before.minX) / Math.max(1, before.maxX - before.minX)));
+      const ry = Math.max(0, Math.min(1, (entry.y - before.minY) / Math.max(1, before.maxY - before.minY)));
+      entry.x = after.minX + rx * (after.maxX - after.minX);
+      entry.y = after.minY + ry * (after.maxY - after.minY);
       _setPosition(entry.el, entry.x, entry.y);
       if (!entry.interacting) {
         _cancel(entry.timer);
@@ -326,29 +330,36 @@ function _currentPos(el) {
   return { x: parts[4] || 0, y: parts[5] || 0 };
 }
 
+function _residentRange(entry, bounds) {
+  const inset = entry.animator?.insets || { left: 0, right: 0, bottom: 0 };
+  const minX = Math.min(inset.left, Math.max(0, bounds.width - entry.w));
+  return { minX, maxX: Math.max(minX, bounds.width - entry.w - inset.right),
+    minY: bounds.groundTop,
+    maxY: bounds.groundTop + Math.max(0, bounds.groundHeight - entry.h - inset.bottom) };
+}
+
 function _pickTarget(entry, bounds) {
-  const maxX = Math.max(0, bounds.width - entry.w);
-  const maxY = Math.max(0, bounds.groundHeight - entry.h);
+  const { minX, maxX, minY, maxY } = _residentRange(entry, bounds);
   const others = _residents.filter(r => r !== entry);
 
   if (others.length > 0 && Math.random() < SEEK_OTHER_CHANCE) {
     const target = others[Math.floor(Math.random() * others.length)];
     const angle = Math.random() * Math.PI * 2;
     const approachDist = MIN_SPRITE_DIST + Math.random() * 20;
-    const x = Math.min(maxX, Math.max(0, target.x + Math.cos(angle) * approachDist));
-    const y = Math.min(bounds.groundTop + maxY, Math.max(bounds.groundTop, target.y + Math.sin(angle) * approachDist));
+    const x = Math.min(maxX, Math.max(minX, target.x + Math.cos(angle) * approachDist));
+    const y = Math.min(maxY, Math.max(minY, target.y + Math.sin(angle) * approachDist));
     return { x, y };
   }
 
   let best = null;
   for (let i = 0; i < TARGET_RETRY_COUNT; i++) {
-    const x = Math.random() * maxX;
-    const y = bounds.groundTop + Math.random() * maxY;
+    const x = minX + Math.random() * (maxX - minX);
+    const y = minY + Math.random() * (maxY - minY);
     const tooClose = others.some(o => _dist(x, y, o.x, o.y) < MIN_SPRITE_DIST);
     if (!tooClose) return { x, y };
     best = { x, y };
   }
-  return best || { x: Math.random() * maxX, y: bounds.groundTop + Math.random() * maxY };
+  return best || { x: minX, y: minY };
 }
 
 function _wanderStep(entry, bounds) {
@@ -394,6 +405,10 @@ function _spawnResident(viewportEl, imgUrl, label, bounds, meta = {}) {
   };
   entry.animator = attachPmdSprite(el.querySelector('.gang-env-sprite-inner'), meta);
   el._pmdAnimator = entry.animator;
+  const range = _residentRange(entry, bounds);
+  entry.x = range.minX + Math.random() * (range.maxX - range.minX);
+  entry.y = range.minY + Math.random() * (range.maxY - range.minY);
+  _setPosition(el, entry.x, entry.y);
   el.addEventListener('click', () => _onResidentClick(viewportEl, entry, bounds));
   _residents.push(entry);
   entry.timer = _later(() => _wanderStep(entry, bounds), 200 + Math.random() * 2000);

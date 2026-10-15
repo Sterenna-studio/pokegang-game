@@ -45,6 +45,7 @@ assert.equal(frames.size, 0);
 const firstHost = host(), secondHost = host();
 const a = renderer.attach(firstHost, { dex: 52 });
 const b = renderer.attach(secondHost, { dex: 52 });
+assert.deepEqual(a.insets, { left: 8, right: 8, bottom: 16 }, 'Full animation envelope protects viewport edges');
 assert.equal(images.length, 1, 'Shared sheet must download once');
 assert.equal(frames.size, 1, 'One loop for every actor');
 assert.equal(firstHost.fallback.hidden, false, 'Fallback visible while loading');

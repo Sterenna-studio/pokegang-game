@@ -7,7 +7,9 @@ L'infrastructure est implémentée mais l'intégration artistique reste bloquée
 Voir [l'audit des droits et crédits](../assets/pokemon_pmd/CREDITS.md).
 La PR doit rester en brouillon tant que les ressources ne sont pas validées,
 importées et vérifiées visuellement. Il ne s'agit pas d'une intégration PMD
-terminée et il n'existe pas de démonstration avec les images originales.
+terminée. Un prototype local séparé utilise désormais les images originales,
+sans les ajouter à Git ni au catalogue de production : voir
+[la préparation de la preview Lab](pmd-lab-preview.md).
 
 ## Modifications
 
