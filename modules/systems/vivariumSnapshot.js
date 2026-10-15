@@ -33,6 +33,12 @@ export const VIVARIUM_SOURCES = [
   { key: 'training', icon: '💪', label: 'Formation',     label_en: 'Training',    ids: state => state.trainingRoom?.pokemon || [] },
 ];
 
+// Derived display data only: no save schema or general sprite preference change.
+function _pokemonAnimationData(pk) {
+  const species = typeof SPECIES_BY_EN !== 'undefined' ? SPECIES_BY_EN[pk.species_en] : null;
+  return { id: pk.id, dex: species?.dex ?? pk.dex ?? null, shiny: !!pk.shiny };
+}
+
 // Petits événements narratifs — un agent en patrouille (ou tout juste sorti
 // de prison), l'infirmière qui passe pour la pension, un chercheur qui
 // observe — chaque passage porte une bulle de dialogue contextuelle.
@@ -235,6 +241,7 @@ export function buildVivariumResidents(state) {
       const pk = state.pokemons.find(p => p.id === id);
       if (!pk) continue;
       residents.push({
+        ..._pokemonAnimationData(pk),
         spriteUrl:   globalThis.pokeSprite(pk.species_en, pk.shiny),
         label:       globalThis.pokemonDisplayName?.(pk) || pk.species_en,
         level:       pk.level,
@@ -274,6 +281,7 @@ export function buildVivariumCameoPool(state) {
     const pk = favs[Math.floor(Math.random() * favs.length)];
     pool.push({
       type: 'favorite',
+      ..._pokemonAnimationData(pk),
       spriteUrl: globalThis.pokeSprite(pk.species_en, pk.shiny),
       label: globalThis.pokemonDisplayName?.(pk) || pk.species_en,
       lines: [],

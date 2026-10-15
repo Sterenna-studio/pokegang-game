@@ -1,0 +1,137 @@
+{
+  "revision": "e7868e9a7f6b931d1fb826756a490d4633879d03",
+  "resources": [
+    {
+      "dex": 41,
+      "variant": "normal",
+      "animation": "Idle",
+      "source": "https://github.com/PMDCollab/SpriteCollab/blob/e7868e9a7f6b931d1fb826756a490d4633879d03/sprite/0041/Idle-Anim.png",
+      "file": "41/Idle.png",
+      "sha256": "28ea4512a68af47ba46e29ab48febbb726201a0f3d34fb400618e245cddbce09",
+      "xml_sha256": "9fdfe264ac506077420070b16f797bdac35b14945d07ae06e21bff5ba0e3e125",
+      "shadow_sha256": "d61852f67638bac98fee99f030acd6ed4c47f5e0d679d3fe93fdb8d751258220",
+      "anchor_method": "median of shadow bounding-box pixel centres across all frames/directions"
+    },
+    {
+      "dex": 41,
+      "variant": "normal",
+      "animation": "Walk",
+      "source": "https://github.com/PMDCollab/SpriteCollab/blob/e7868e9a7f6b931d1fb826756a490d4633879d03/sprite/0041/Walk-Anim.png",
+      "file": "41/Walk.png",
+      "sha256": "37323d0e60074800f58a896d0d7ce9ad940ae9e34357fd10c472cb8b571db139",
+      "xml_sha256": "9fdfe264ac506077420070b16f797bdac35b14945d07ae06e21bff5ba0e3e125",
+      "shadow_sha256": "1b6a69c06e982a1999685b59a65f4a11a63deac997048ad8dc6576295cb1cad9",
+      "anchor_method": "median of shadow bounding-box pixel centres across all frames/directions"
+    },
+    {
+      "dex": 41,
+      "variant": "shiny",
+      "animation": "Idle",
+      "source": "https://github.com/PMDCollab/SpriteCollab/blob/e7868e9a7f6b931d1fb826756a490d4633879d03/sprite/0041/0000/0001/Idle-Anim.png",
+      "file": "41/s/Idle.png",
+      "sha256": "59d35383afddb043926c7b0aea9c131849463a1a3ab6cce665909e418f6d09dc",
+      "xml_sha256": "9fdfe264ac506077420070b16f797bdac35b14945d07ae06e21bff5ba0e3e125",
+      "shadow_sha256": "d61852f67638bac98fee99f030acd6ed4c47f5e0d679d3fe93fdb8d751258220",
+      "anchor_method": "median of shadow bounding-box pixel centres across all frames/directions"
+    },
+    {
+      "dex": 41,
+      "variant": "shiny",
+      "animation": "Walk",
+      "source": "https://github.com/PMDCollab/SpriteCollab/blob/e7868e9a7f6b931d1fb826756a490d4633879d03/sprite/0041/0000/0001/Walk-Anim.png",
+      "file": "41/s/Walk.png",
+      "sha256": "ce6f109a7d536373ed638e14fd3f56a21f3f4abd08c74da5a2bc0e73437e7593",
+      "xml_sha256": "9fdfe264ac506077420070b16f797bdac35b14945d07ae06e21bff5ba0e3e125",
+      "shadow_sha256": "1b6a69c06e982a1999685b59a65f4a11a63deac997048ad8dc6576295cb1cad9",
+      "anchor_method": "median of shadow bounding-box pixel centres across all frames/directions"
+    },
+    {
+      "dex": 52,
+      "variant": "normal",
+      "animation": "Idle",
+      "source": "https://github.com/PMDCollab/SpriteCollab/blob/e7868e9a7f6b931d1fb826756a490d4633879d03/sprite/0052/Idle-Anim.png",
+      "file": "52/Idle.png",
+      "sha256": "df1b0115a3fbf15518f3a95eb8f0f48071da8d0715646e1f3f2d26f17d74a8e7",
+      "xml_sha256": "353fcd0cc6fcf64654574e043c2e7cda04611da24dc237135d355cbb5785b70b",
+      "shadow_sha256": "986ed7e027135db592e146107bff26dac9ab00e787f7e4002bcca92696fc54b3",
+      "anchor_method": "median of shadow bounding-box pixel centres across all frames/directions"
+    },
+    {
+      "dex": 52,
+      "variant": "normal",
+      "animation": "Walk",
+      "source": "https://github.com/PMDCollab/SpriteCollab/blob/e7868e9a7f6b931d1fb826756a490d4633879d03/sprite/0052/Walk-Anim.png",
+      "file": "52/Walk.png",
+      "sha256": "c58d87c7bc111288963f7df341e7c38f444908104859810bc505107212cc6eb9",
+      "xml_sha256": "353fcd0cc6fcf64654574e043c2e7cda04611da24dc237135d355cbb5785b70b",
+      "shadow_sha256": "cb86f32dd498beb9b30b1552e1197aacf34220d6066e68af2abfd90ef2394cb4",
+      "anchor_method": "median of shadow bounding-box pixel centres across all frames/directions"
+    },
+    {
+      "dex": 52,
+      "variant": "shiny",
+      "animation": "Idle",
+      "source": "https://github.com/PMDCollab/SpriteCollab/blob/e7868e9a7f6b931d1fb826756a490d4633879d03/sprite/0052/0000/0001/Idle-Anim.png",
+      "file": "52/s/Idle.png",
+      "sha256": "3a42ca1d60edeb0aa15b496c2878f1e818bf1c0e617358657581426d238fff2f",
+      "xml_sha256": "353fcd0cc6fcf64654574e043c2e7cda04611da24dc237135d355cbb5785b70b",
+      "shadow_sha256": "986ed7e027135db592e146107bff26dac9ab00e787f7e4002bcca92696fc54b3",
+      "anchor_method": "median of shadow bounding-box pixel centres across all frames/directions"
+    },
+    {
+      "dex": 52,
+      "variant": "shiny",
+      "animation": "Walk",
+      "source": "https://github.com/PMDCollab/SpriteCollab/blob/e7868e9a7f6b931d1fb826756a490d4633879d03/sprite/0052/0000/0001/Walk-Anim.png",
+      "file": "52/s/Walk.png",
+      "sha256": "e4ddd841ed9a5d9e8117581ad217ba418e9ab0581aab51927064ed03a58cd935",
+      "xml_sha256": "353fcd0cc6fcf64654574e043c2e7cda04611da24dc237135d355cbb5785b70b",
+      "shadow_sha256": "cb86f32dd498beb9b30b1552e1197aacf34220d6066e68af2abfd90ef2394cb4",
+      "anchor_method": "median of shadow bounding-box pixel centres across all frames/directions"
+    },
+    {
+      "dex": 92,
+      "variant": "normal",
+      "animation": "Idle",
+      "source": "https://github.com/PMDCollab/SpriteCollab/blob/e7868e9a7f6b931d1fb826756a490d4633879d03/sprite/0092/Idle-Anim.png",
+      "file": "92/Idle.png",
+      "sha256": "fab0e9c1c3c5444b03bdbd570c7a24d73f2e25fb35f27b407a6c9f53dc63cd11",
+      "xml_sha256": "9e294db4b4b11f63e9de09237cbf376786b697511719e9d323053d0a40ffb72f",
+      "shadow_sha256": "0309d197bccbe4d75f6d8e2cc5cf54a993baaf5b4f4f7305a3e1a3ce472d5457",
+      "anchor_method": "median of shadow bounding-box pixel centres across all frames/directions"
+    },
+    {
+      "dex": 92,
+      "variant": "normal",
+      "animation": "Walk",
+      "source": "https://github.com/PMDCollab/SpriteCollab/blob/e7868e9a7f6b931d1fb826756a490d4633879d03/sprite/0092/Walk-Anim.png",
+      "file": "92/Walk.png",
+      "sha256": "d60535fae6d2d131c6ba5d75a776446753eef826d956a3827172631d4ed5878f",
+      "xml_sha256": "9e294db4b4b11f63e9de09237cbf376786b697511719e9d323053d0a40ffb72f",
+      "shadow_sha256": "1a1daaf35bf26cc68bcc61495fa9c098d279530f8d5045a65e97378eae19f516",
+      "anchor_method": "median of shadow bounding-box pixel centres across all frames/directions"
+    },
+    {
+      "dex": 92,
+      "variant": "shiny",
+      "animation": "Idle",
+      "source": "https://github.com/PMDCollab/SpriteCollab/blob/e7868e9a7f6b931d1fb826756a490d4633879d03/sprite/0092/0000/0001/Idle-Anim.png",
+      "file": "92/s/Idle.png",
+      "sha256": "45dcdb839c97576c39366408e5ad5314289471f011716d1e98802602bf3f7d87",
+      "xml_sha256": "9e294db4b4b11f63e9de09237cbf376786b697511719e9d323053d0a40ffb72f",
+      "shadow_sha256": "0309d197bccbe4d75f6d8e2cc5cf54a993baaf5b4f4f7305a3e1a3ce472d5457",
+      "anchor_method": "median of shadow bounding-box pixel centres across all frames/directions"
+    },
+    {
+      "dex": 92,
+      "variant": "shiny",
+      "animation": "Walk",
+      "source": "https://github.com/PMDCollab/SpriteCollab/blob/e7868e9a7f6b931d1fb826756a490d4633879d03/sprite/0092/0000/0001/Walk-Anim.png",
+      "file": "92/s/Walk.png",
+      "sha256": "86397bdc1066461507bd23bbc0a39df807536757086e520e4e1ac7ac469d39c0",
+      "xml_sha256": "9e294db4b4b11f63e9de09237cbf376786b697511719e9d323053d0a40ffb72f",
+      "shadow_sha256": "1a1daaf35bf26cc68bcc61495fa9c098d279530f8d5045a65e97378eae19f516",
+      "anchor_method": "median of shadow bounding-box pixel centres across all frames/directions"
+    }
+  ]
+}

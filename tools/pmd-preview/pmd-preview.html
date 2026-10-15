@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>PokéGang — prototype PMD</title>
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="./gang.css">
+  <style>
+    body { margin:0; background:#10151c; color:#e8e8ed; font:16px system-ui,sans-serif; }
+    main { max-width:1100px; margin:auto; padding:20px; }
+    h1 { font-size:24px; margin:0 0 10px; }
+    p { line-height:1.5; }
+    a { color:#9dddff; }
+    .gang-environment-zone { height:min(65vh,580px); min-height:320px; }
+    button { padding:10px 16px; margin:4px; cursor:pointer; background:#293748; color:inherit; border:1px solid #6a8098; border-radius:6px; }
+    #status { font-size:14px; color:#bac8d7; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Vivarium — prototype Donjon Mystère</h1>
+  <p>Miaouss, Nosferapti et Fantominus, chacun en normal et shiny.
+    Cliquez sur un Pokémon pour afficher son badge. Les rencontres restent actives.</p>
+  <div id="previewRoot"><div id="gangEnvironmentZone" class="gang-environment-zone"></div></div>
+  <p><button id="restart">Nouvelle promenade</button><button id="background">Changer le fond</button></p>
+  <p id="status">Chargement du prototype…</p>
+  <p>Cette démonstration ne lit ni ne modifie votre sauvegarde.
+    <a href="./index.html">Ouvrir mon vivarium</a> · <a href="../index.html">Ouvrir le jeu de test</a> ·
+    <a href="../assets/pokemon_pmd/CREDITS.md">Sources et crédits</a></p>
+</main>
+<script type="module" src="./pmd-preview.js"></script>
+</body>
+</html>
