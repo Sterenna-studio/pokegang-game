@@ -27,7 +27,8 @@ try {
   const seed = await fs.readFile(path.join(root, 'tools/dev-seed-save.json'), 'utf8');
   await page.addInitScript(json => { if (!localStorage.getItem('pokeforge.v6')) localStorage.setItem('pokeforge.v6', json); }, seed);
   await page.goto(base + '/gang/index.html');
-  await page.waitForSelector('#gangSceneSelect');
+  await page.waitForSelector('#gangSpriteModeSelect');
+  await page.locator('.gang-scene-options summary').click();
   await page.locator('#gangSceneSelect').selectOption('hq');
   await page.waitForSelector('.gang-hq-labels');
   assert.equal(await page.locator('.gang-hq-labels span').count(), 4);
@@ -54,11 +55,23 @@ try {
     return nodes.every((n, i) => n === document.querySelectorAll('.gang-env-clickable')[i])
       && labels.every((n, i) => n === document.querySelectorAll('.gang-hq-labels span')[i]);
   }, base), 'Identical OBS updates preserve actors and area labels');
+  const beforeSize = await page.locator('.gang-env-clickable canvas').first().evaluate(el => el.style.height);
+  await page.locator('.gang-scene-options summary').click();
+  await page.locator('#gangSizeModeSelect').selectOption('true');
+  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('pokeforge.v6')).cosmetics.vivariumTrueSize), true);
+  assert.notEqual(await page.locator('.gang-env-clickable canvas').first().evaluate(el => el.style.height), beforeSize);
+  assert.ok(await page.evaluate(async base => {
+    const data = await import(base + '/modules/systems/vivariumSnapshot.js');
+    return data.buildVivariumResidents(state).every(r => r.display.trueSize);
+  }, base), 'Size preference travels with public resident data');
+  await page.locator('#gangSizeModeSelect').selectOption('standard');
+  await page.locator('.gang-scene-options summary').click();
   await page.screenshot({ path: path.join(root, 'coverage/vivarium-qg-desktop.png'), fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForTimeout(200);
-  assert.ok(await page.locator('#gangSceneSelect').evaluate(el => { const r = el.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth; }));
+  assert.ok(await page.locator('#gangSpriteModeSelect').evaluate(el => { const r = el.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth; }));
   await page.screenshot({ path: path.join(root, 'coverage/vivarium-qg-mobile.png'), fullPage: true });
+  await page.locator('.gang-scene-options summary').click();
   await page.locator('#gangSceneSelect').selectOption('classic');
   assert.equal(await page.locator('.gang-hq-labels').count(), 0);
   assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('pokeforge.v6')).cosmetics.vivariumScene), 'classic');

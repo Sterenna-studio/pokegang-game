@@ -32,6 +32,7 @@ import {
   buildVivariumBackgroundData,
 } from '../modules/systems/vivariumSnapshot.js';
 import { attachPmdSprite, directionFromVector, stopPmdSprites } from './pmdSprites.js';
+import { pokemonDisplayHeight } from './pokemonSize.js';
 import { attachCharacterSprite } from './characterSprites.js';
 import { HQ_AREAS, wantsHq, hqRange, cameoLocation } from '../modules/systems/vivariumZones.js';
 import { devFeaturesEnabled } from '../modules/core/devFeatures.js';
@@ -89,6 +90,7 @@ let _liveCameoPool = [];
 let _resizeObserver = null;
 let _bounds = null;
 let _spriteMode = 'pmd';
+let _trueSize = false;
 const _pokemonCameos = new Set();
 let _layout = null, _devPanel = null;
 
@@ -343,7 +345,20 @@ function _applySpriteMode(entry) {
   inner.style.transform = '';
   const fallback = inner.querySelector('img');
   if (fallback) fallback.style.scale = '';
-  entry.animator = _spriteMode === 'pmd' ? attachPmdSprite(inner, entry.data) : null;
+  entry.animator = _spriteMode === 'pmd' ? attachPmdSprite(inner, { ...entry.data, trueSize: _trueSize }) : null;
+  const size = !entry.animator && pokemonDisplayHeight(entry.data?.dex, _trueSize);
+  entry.fallbackMetrics = size ? {
+    footprint: { rx: Math.max(12, Math.min(26, size / 3)), ry: Math.max(6, Math.min(12, size / 8)) },
+    insets: { left: Math.max(0, size / 2 - 24), right: Math.max(0, size / 2 - 24), bottom: 0 },
+    visualBounds: { x: 24 - size / 2, y: 40 - size, w: size, h: size },
+  } : null;
+  if (fallback) {
+    fallback.style.width = size ? `${size}px` : '';
+    fallback.style.height = size ? `${size}px` : '';
+    fallback.style.position = size ? 'absolute' : '';
+    fallback.style.left = size ? `${24 - size / 2}px` : '';
+    fallback.style.top = size ? `${40 - size}px` : '';
+  }
   entry.el._pmdAnimator = entry.animator;
   entry.animator?.set(entry.animation || 'Idle', entry.direction || 0);
   _flip(entry.el, entry.direction >= 5 && entry.direction <= 7);
@@ -377,6 +392,27 @@ function _bindSpriteModeSelector(zoneEl) {
     for (const entry of [..._residents, ..._pokemonCameos]) _applySpriteMode(entry);
     _refreshSpriteModeHint();
   });
+}
+
+function _resizePokemon() {
+  for (const entry of [..._residents, ..._pokemonCameos]) _applySpriteMode(entry);
+  // Reuse the bounded placement routine after a user-controlled size change.
+  for (const entry of _residents) {
+    _cancel(entry.timer); _freeze(entry);
+    const position = _pickTarget(entry, _bounds, false);
+    entry.x = position.x; entry.y = position.y;
+    _setPosition(entry.el, entry.x, entry.y); _layout?.refresh(entry);
+    if (!entry.interacting) entry.timer = _later(() => _wanderStep(entry, _bounds), 400);
+  }
+}
+
+function _snapshotDisplay(blob) {
+  const display = blob?.residents?.[0]?.display || blob?.cameoPool?.[0]?.display;
+  const mode = ['2d', 'pmd', 'hgss'].includes(display?.spriteMode) ? display.spriteMode : 'pmd';
+  const trueSize = display?.trueSize === true;
+  const changed = mode !== _spriteMode || trueSize !== _trueSize;
+  _spriteMode = mode; _trueSize = trueSize;
+  return changed;
 }
 
 function _freeze(entry) {
@@ -414,7 +450,7 @@ function _watchBounds(viewportEl, bounds) {
     }
     // Repack only where a narrower viewport actually made feet overlap.
     for (const entry of _residents) {
-      const footprint = entry.animator?.footprint || DEFAULT_FOOTPRINT;
+      const footprint = entry.animator?.footprint || entry.fallbackMetrics?.footprint || DEFAULT_FOOTPRINT;
       const foot = { x: entry.x + 24, y: entry.y + 40, ...footprint };
       if (!_layout?.occupied(entry).some(other => groundClearance(foot, other) < 1)) continue;
       const next = _pickTarget(entry, bounds, false);
@@ -435,18 +471,18 @@ function _currentPos(el) {
 }
 
 function _residentRange(entry, bounds) {
-  const inset = entry.animator?.insets || { left: 0, right: 0, bottom: 0 };
+  const inset = entry.animator?.insets || entry.fallbackMetrics?.insets || { left: 0, right: 0, bottom: 0 };
   const minX = Math.min(inset.left, Math.max(0, bounds.width - entry.w));
   const envelope = { minX, maxX: Math.max(minX, bounds.width - entry.w - inset.right),
     minY: bounds.groundTop,
     maxY: bounds.groundTop + Math.max(0, bounds.groundHeight - entry.h - inset.bottom) };
   return bounds.scene === 'hq'
-    ? hqRange(entry.data?.location || 'pc', bounds, entry.animator?.footprint || DEFAULT_FOOTPRINT, envelope)
+    ? hqRange(entry.data?.location || 'pc', bounds, entry.animator?.footprint || entry.fallbackMetrics?.footprint || DEFAULT_FOOTPRINT, envelope)
     : envelope;
 }
 
 function _pickTarget(entry, bounds, seek = true) {
-  return pickGroundTarget(_residentRange(entry, bounds), entry.animator?.footprint || DEFAULT_FOOTPRINT,
+  return pickGroundTarget(_residentRange(entry, bounds), entry.animator?.footprint || entry.fallbackMetrics?.footprint || DEFAULT_FOOTPRINT,
     _layout?.occupied(entry) || [], { seek });
 }
 
@@ -771,6 +807,7 @@ export function renderEnvironmentZone(rootContainer) {
   if (!zoneEl) return;
   stopEnvironmentZone();
   _spriteMode = globalThis.state?.cosmetics?.vivariumSpriteMode === '2d' ? '2d' : 'pmd';
+  _trueSize = globalThis.state?.cosmetics?.vivariumTrueSize === true;
   _zoneEl = zoneEl;
 
   zoneEl.innerHTML = `
@@ -781,8 +818,12 @@ export function renderEnvironmentZone(rootContainer) {
         <option value="pmd">${_t('Donjon Mystère', 'Mystery Dungeon')}</option>
       </select>
       <span class="gang-sprite-mode-hint" id="gangSpriteModeHint" hidden></span>
+      <details class="gang-scene-options"><summary>${_t('Décor et taille', 'Scene and size')}</summary><div>
       <label for="gangSceneSelect">${_t('Décor', 'Scene')}</label>
       <select id="gangSceneSelect"><option value="hq">QG</option><option value="classic">${_t('Fond personnalisé', 'Custom background')}</option></select>
+      <label for="gangSizeModeSelect">${_t('Taille', 'Size')}</label>
+      <select id="gangSizeModeSelect" title="${_t('Tailles du Pokédex, limitées pour garder la scène lisible.', 'Pokédex sizes, capped to keep the scene readable.')}"><option value="standard">Standard</option><option value="true">True size</option></select>
+      </div></details>
     </div>
     <button class="gang-zonebg-btn" id="gangZoneBgBtn" title="${_t('Changer le fond', 'Change background')}">🎨</button>
     <button class="gang-zonesrc-btn" id="gangZoneSrcBtn" title="${_t('Choisir les zones affichées', 'Choose displayed zones')}">👁</button>
@@ -791,6 +832,13 @@ export function renderEnvironmentZone(rootContainer) {
 
   const viewportEl = zoneEl.querySelector('#gangEnvViewport');
   _bindSpriteModeSelector(zoneEl);
+  const sizeSelect = zoneEl.querySelector('#gangSizeModeSelect');
+  sizeSelect.value = _trueSize ? 'true' : 'standard';
+  sizeSelect.addEventListener('change', () => {
+    _trueSize = sizeSelect.value === 'true';
+    globalThis.state.cosmetics.vivariumTrueSize = _trueSize;
+    globalThis.saveState(); _resizePokemon();
+  });
   _applyZoneBackground(viewportEl);
   const sceneSelect = zoneEl.querySelector('#gangSceneSelect');
   sceneSelect.value = wantsHq(globalThis.state) ? 'hq' : 'classic';
@@ -851,7 +899,7 @@ export function renderEnvironmentZoneFromSnapshot(rootContainer, blob) {
   const zoneEl = rootContainer.querySelector('#gangEnvironmentZone');
   if (!zoneEl) return;
   stopEnvironmentZone();
-  _spriteMode = 'pmd'; // OBS stays independent of the local page's preference.
+  _snapshotDisplay(blob); // Old snapshots retain PMD and standard sizes.
   _zoneEl = zoneEl;
   _liveCameoPool = blob?.cameoPool || [];
 
@@ -898,6 +946,7 @@ export function updateEnvironmentSnapshot(blob) {
 
   _liveCameoPool = blob?.cameoPool || [];
   const sceneChanged = !!blob?.backgroundData && ((blob.backgroundData.scene === 'hq') !== (viewportEl.dataset.scene === 'hq'));
+  const displayChanged = _snapshotDisplay(blob);
   if (blob?.backgroundData) _applyBackgroundData(viewportEl, blob.backgroundData);
 
   // Reconcile by stable Pokémon id; older snapshots use display identity + index.
@@ -931,6 +980,7 @@ export function updateEnvironmentSnapshot(blob) {
     _cancel(entry.timer); _layout?.unregister(entry); entry.animator?.destroy(); entry.el.remove();
   }
   _residents = next;
+  if (displayChanged) _resizePokemon();
   if (residents.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'gang-env-empty-hint';
