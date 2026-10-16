@@ -35,7 +35,7 @@ import { attachPmdSprite, directionFromVector, stopPmdSprites } from './pmdSprit
 import { pokemonDisplayHeight } from './pokemonSize.js';
 import { attachHgssPokemon } from './hgssPokemon.js';
 import { attachCharacterSprite } from './characterSprites.js';
-import { HQ_AREAS, wantsHq, hqRange, cameoLocation } from '../modules/systems/vivariumZones.js';
+import { HQ_AREAS, wantsHq, hqRange, cameoLocation, vivariumDisplay } from '../modules/systems/vivariumZones.js';
 import { devFeaturesEnabled } from '../modules/core/devFeatures.js';
 import { EventBus, EVENTS } from '../modules/core/eventBus.js';
 import { collectVivariumWing } from '../modules/systems/vivariumRewards.js';
@@ -95,6 +95,7 @@ let _bounds = null;
 let _spriteMode = 'pmd';
 let _trueSize = false;
 let _readOnly = true;
+let _closeTour = null, _tourRequest = 0;
 const _pokemonCameos = new Set();
 let _layout = null, _devPanel = null;
 
@@ -106,6 +107,8 @@ function _later(fn, delay) {
 function _cancel(id) { globalThis.clearTimeout(id); _timers.delete(id); }
 
 export function stopEnvironmentZone() {
+  _tourRequest++;
+  _closeTour?.(); _closeTour = null;
   _devPanel?.dispose(); _devPanel = null;
   _layout?.dispose(); _layout = null;
   _timers.forEach(id => globalThis.clearTimeout(id));
@@ -875,9 +878,9 @@ export function renderEnvironmentZone(rootContainer) {
   if (!zoneEl) return;
   stopEnvironmentZone();
   _readOnly = false;
-  const savedMode = globalThis.state?.cosmetics?.vivariumSpriteMode;
-  _spriteMode = ['2d', 'pmd', 'hgss'].includes(savedMode) ? savedMode : 'pmd';
-  _trueSize = globalThis.state?.cosmetics?.vivariumTrueSize === true;
+  const display = vivariumDisplay(globalThis.state);
+  _spriteMode = display.spriteMode;
+  _trueSize = display.trueSize;
   _zoneEl = zoneEl;
 
   zoneEl.innerHTML = `
@@ -898,6 +901,7 @@ export function renderEnvironmentZone(rootContainer) {
     </div>
     <button class="gang-zonebg-btn" id="gangZoneBgBtn" title="${_t('Changer le fond', 'Change background')}">🎨</button>
     <button class="gang-zonesrc-btn" id="gangZoneSrcBtn" title="${_t('Choisir les zones affichées', 'Choose displayed zones')}">👁</button>
+    <button class="gang-vivarium-help" id="gangVivariumHelp" aria-label="${_t('Comprendre le vivarium', 'Vivarium guide')}" title="${_t('Comprendre le vivarium', 'Vivarium guide')}">?</button>
     <div class="gang-env-viewport" id="gangEnvViewport"></div>
     <a class="gang-env-credits" href="https://eeveeexpo.com/resources/609/" target="_blank" rel="noopener noreferrer">Sprites HGSS : PurpleZaffre</a>`;
 
@@ -920,6 +924,19 @@ export function renderEnvironmentZone(rootContainer) {
   });
   zoneEl.querySelector('#gangZoneBgBtn').addEventListener('click', () => _openZoneBgPicker(viewportEl));
   zoneEl.querySelector('#gangZoneSrcBtn').addEventListener('click', () => _openZoneSourcesPicker(rootContainer));
+  const help = zoneEl.querySelector('#gangVivariumHelp');
+  help.addEventListener('click', async () => {
+    const request = ++_tourRequest;
+    help.disabled = true;
+    try {
+      const { openVivariumTour } = await import('./vivariumTour.js');
+      if (request !== _tourRequest || _zoneEl !== zoneEl || !help.isConnected) return;
+      _closeTour?.();
+      _closeTour = openVivariumTour(zoneEl, { en: globalThis.state?.lang === 'en', onClose() { _closeTour = null; } });
+    } catch {
+      globalThis.notify?.(_t('Impossible de charger l’aide. Réessayez.', 'Could not load the guide. Please retry.'));
+    } finally { help.disabled = false; }
+  });
 
   _applyAmbiance(viewportEl);
   _scheduleAmbianceRefresh(viewportEl);

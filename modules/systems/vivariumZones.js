@@ -16,7 +16,7 @@ export function wantsHq(state) {
 
 export function vivariumDisplay(state) {
   const cosmetics = state?.cosmetics || {};
-  return { trueSize: cosmetics.vivariumTrueSize === true,
+  return { trueSize: cosmetics.vivariumTrueSize !== false,
     spriteMode: ['2d', 'pmd', 'hgss'].includes(cosmetics.vivariumSpriteMode) ? cosmetics.vivariumSpriteMode : 'pmd' };
 }
 

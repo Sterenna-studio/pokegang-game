@@ -511,6 +511,33 @@
 }
 .gang-zonesrc-btn:hover { border-color: var(--gold); }
 
+.gang-vivarium-help {
+  position: absolute; top: 50px; right: 10px; z-index: 5;
+  width: 32px; height: 32px; border-radius: 50%;
+  border: 1px solid var(--border-light); background: #000b;
+  color: var(--text); font-weight: bold; cursor: pointer;
+}
+.gang-vivarium-help:hover, .gang-vivarium-help:focus-visible { border-color: var(--gold); }
+.gang-tour { position: fixed; inset: 0; z-index: 25000; isolation: isolate; }
+.gang-tour-spot { position: fixed; border: 2px solid #ffcf70; border-radius: 6px;
+  box-sizing: border-box; box-shadow: 0 0 0 9999px #000b; pointer-events: none; }
+.gang-tour-arrow { position: fixed; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.gang-tour-arrow path[marker-end] { stroke: #ffcf70; stroke-width: 2; fill: none; }
+.gang-tour-arrow marker path { fill: #ffcf70; }
+.gang-tour-card { position: fixed; width: min(340px, calc(100vw - 24px)); max-height: calc(100dvh - 24px);
+  overflow-y: auto; box-sizing: border-box; padding: 20px; border: 1px solid #ffcf70;
+  border-radius: 10px; background: #172019; color: #f4f0e8; box-shadow: 0 8px 30px #0008;
+  font-family: var(--font-body, sans-serif); font-size: 14px; line-height: 1.6; }
+.gang-tour-card h2 { margin: 8px 20px 8px 0; font-size: 17px; line-height: 1.4; }
+.gang-tour-card p { margin: 0 0 16px; }
+.gang-tour-progress { color: #ffcf70; }
+.gang-tour-close { position: absolute; top: 6px; right: 6px; border: 0; background: transparent;
+  color: inherit; font-size: 24px; width: 36px; height: 36px; cursor: pointer; }
+.gang-tour-actions { display: flex; justify-content: space-between; gap: 12px; }
+.gang-tour-actions button { min-height: 36px; padding: 6px 12px; border-radius: 5px;
+  border: 1px solid #72816c; background: #283a2b; color: inherit; cursor: pointer; }
+.gang-tour-actions button:disabled { opacity: .4; cursor: default; }
+
 .gang-sprite-mode-control {
   position: absolute;
   top: 10px;
