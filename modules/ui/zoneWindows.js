@@ -3101,19 +3101,35 @@ function playAutoCombatVisual(zoneId, spawnObj, combatAgents, win) {
 // Combat Popup
 // ════════════════════════════════════════════════════════════════
 
+function prepareBossForCombat(zoneId) {
+  const state = globalThis.state;
+  const previousZone = state.gang.bossZone;
+  // An auto replay may still own the previous boss DOM anchor.
+  if (previousZone !== zoneId && isZoneCombatBusy(previousZone)) return false;
+  if (!document.getElementById(`zw-${zoneId}`)) globalThis.openZoneWindow?.(zoneId);
+  const target = document.getElementById(`zw-${zoneId}`);
+  if (!target?.querySelector('.zone-viewport')) return false;
+  state.gang.bossZone = zoneId;
+  if (previousZone !== zoneId) {
+    globalThis.syncBackgroundZones?.();
+    const previous = document.getElementById(`zw-${previousZone}`);
+    if (previous) patchZoneWindow(previousZone, previous);
+    _save();
+  }
+  // Patch synchronously BEFORE the combat lock prevents replacing actor nodes.
+  // This also repairs a missing boss when the assigned zone was already right.
+  if (!target.querySelector('.zone-boss')) patchZoneWindow(zoneId, target);
+  return !state.gang.bossSprite || !!target.querySelector('.zone-boss');
+}
+
 function openCombatPopup(zoneId, spawnObj, { mode = 'manual', initiatedBy = 'player' } = {}) {
   const state = globalThis.state;
   // currentCombat est un verrou global (un seul combat joueur interactif à
   // la fois, où qu'il soit) ; isZoneCombatBusy couvre en plus l'auto-combat
   // visuel de CETTE zone (playAutoCombatVisual) — éviter que les deux
   // séquences visuelles se marchent dessus sur le même DOM.
-  if (currentCombat || isZoneCombatBusy(zoneId)) return;
-
-  // Le joueur initie un combat → le boss se déplace dans cette zone
-  if (state.gang.bossZone !== zoneId) {
-    state.gang.bossZone = zoneId;
-    globalThis.syncBackgroundZones?.();
-  }
+  if (currentCombat || isZoneCombatBusy(zoneId)) return false;
+  if (!prepareBossForCombat(zoneId)) return false;
 
   const agentIds = getZoneCombatAgentIds(zoneId);
   const available = buildPlayerTeamForZone(zoneId);
@@ -3296,6 +3312,7 @@ function openCombatPopup(zoneId, spawnObj, { mode = 'manual', initiatedBy = 'pla
   // TTL du spawn déjà vaincu) EN PLUS de doClose, dont le nettoyage
   // (removeSpawn, COMBAT_SEQUENCE_ENDED) ne s'exécutait alors jamais — la
   // séquence de combat était déjà annulée par le premier handler.
+  return true;
 }
 
 function executeCombat(expectedSequenceId = null) {
@@ -3523,6 +3540,7 @@ function executeCombat(expectedSequenceId = null) {
 // persiste un instant après la fermeture du combat.
 function showCombatResultBanner({ viewport, zoneWin, win, isRaid, trainerName, reward, repGain }) {
   if (!viewport) return;
+  viewport.querySelector('.zone-combat-hud .combat-tier-header')?.remove();
   viewport.querySelector('.zone-combat-result')?.remove();
   const title = isRaid
     ? _t(win ? 'zone_result_raid_win' : 'zone_result_raid_loss')
