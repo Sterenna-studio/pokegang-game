@@ -3105,7 +3105,7 @@ function prepareBossForCombat(zoneId) {
   const state = globalThis.state;
   const previousZone = state.gang.bossZone;
   // An auto replay may still own the previous boss DOM anchor.
-  if (previousZone !== zoneId && isZoneCombatBusy(previousZone)) return false;
+  if (previousZone && previousZone !== zoneId && isZoneCombatBusy(previousZone)) return false;
   if (!document.getElementById(`zw-${zoneId}`)) globalThis.openZoneWindow?.(zoneId);
   const target = document.getElementById(`zw-${zoneId}`);
   if (!target?.querySelector('.zone-viewport')) return false;

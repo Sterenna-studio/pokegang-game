@@ -75,6 +75,15 @@ try {
   });
   assert.equal(await page.locator('#zw-pewter_gym .zone-boss').count(), 1, 'Already assigned boss is repaired if its DOM was missing');
   await page.evaluate(() => closeCombatPopup());
+  assert.ok(await page.evaluate(() => {
+    delete state.gang.bossZone;
+    document.querySelectorAll('.zone-boss').forEach(el => el.remove());
+    const opened = triggerGymRaid('cerulean_gym');
+    const boss = document.querySelector('#zw-cerulean_gym .zone-boss');
+    const ready = opened && boss?.isConnected && currentCombat.playerAnchorEl === boss;
+    closeCombatPopup();
+    return ready;
+  }), 'An unassigned boss can arrive for its first raid');
   assert.deepEqual(errors, []);
   console.log('PASS Chromium combat: boss arrives before raid anchor, old sprite removed, busy/cooldown guard, missing anchor repaired, bottom HUD/result desktop/mobile, speed/close controls');
 } finally { await browser.close(); await new Promise(resolve => server.close(resolve)); }
