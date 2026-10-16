@@ -46,3 +46,37 @@ Les animations partagent la boucle et le cache LRU de 64 planches du renderer
 existant. Une seule planche par variante, demandée uniquement à son affichage.
 Le repos est une pose fixe et ne maintient pas seul une boucle d’animation.
 True size fonctionne aussi dans ce mode. Les autres écrans du jeu sont inchangés.
+
+## Validation et livraison
+
+Branche `feat/vivarium-qg-modes`, empilée sur `feat/vivarium-layout-debug`
+(PR #100, elle-même dépendante de #99). Étapes poussées séparément :
+`c8d03e3` décor, `fe43a10` activités, `a44a354` True size, `ae34848` Pokémon HGSS.
+
+- 45 suites `tools/test-*.mjs` passent, dont le cache-busting et les SHA des assets.
+- `node tools/check-events.js` passe.
+- Quatre parcours Chromium locaux passent : PMD, personnages, placement/debug,
+  QG/tailles/HGSS. Ils utilisent des PNG réels, une sauvegarde de test isolée,
+  des scénarios OBS sans accès localStorage et des viewports desktop/mobile.
+- Parcours QG et placement/debug exécutés aussi sur la preview publique.
+- `node tools/build-itch.js` : build valide, 51,01 Mo, 2639 entrées. Pas d’upload
+  itch. La limite de fichiers HTML5 itch déjà signalée pour le catalogue PMD
+  reste à résoudre avant une publication sur cette plateforme.
+- Pas de benchmark sur téléphone physique ni validation d’une connexion OBS
+  réelle à Supabase sur le lab : les snapshots publics sont exercés directement.
+
+Preview : https://lab.sterenna.fr/pokegang-preview/gang/.
+Patch ciblé de 44 fichiers runtime vérifié par SHA-256 après transfert.
+Pas de fusion automatique ni publication en production.
+Captures QA générées sous `coverage/vivarium-qg-{desktop,mobile}.png` et
+`coverage/vivarium-hgss-mobile.png` (non versionnées).
+
+Le décor ne fait aucun calcul par frame. Les tailles sont des constantes
+locales et l’échelle est fixée à l’attachement/changement de mode. Les nouveaux
+PNG HGSS totalisent 60 906 octets. Aucun chargement global du catalogue et
+aucune boucle supplémentaire par Pokémon. Les empreintes et la profondeur
+réutilisent le gestionnaire 8 Hz existant, suspendu lorsque la scène est inactive.
+
+Les bilans tokens ont été communiqués après chaque étape : le compteur de
+consommation exact n’est pas exposé par cette session, aucun total chiffré
+fiable n’est donc annoncé.
