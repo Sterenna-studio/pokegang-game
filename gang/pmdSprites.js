@@ -68,6 +68,11 @@ export function createPmdRenderer({ metadata = PMD_METADATA, doc = document,
     request = null; lastTime = null;
   }
   function schedule() {
+    // Character Idle is a fixed pose. With 2D Pokémon selected, a paused
+    // character must not keep an otherwise unnecessary RAF alive.
+    let animated = false;
+    for (const actor of actors) { if (!actor.meta?.static) { animated = true; break; } }
+    if (!animated) { cancel(); return; }
     if (request === null && actors.size && !doc.hidden && !motion?.matches) request = raf(tick);
   }
   function tick(time) {
@@ -171,6 +176,7 @@ export function createPmdRenderer({ metadata = PMD_METADATA, doc = document,
           });
         }
         actor.draw();
+        schedule();
       },
       destroy() {
         if (actor.disposed) return;
