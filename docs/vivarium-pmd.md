@@ -3,19 +3,24 @@
 ## État
 
 Après validation du prototype Lab, le propriétaire a demandé la publication en
-production dans le vrai vivarium. **Le catalogue versionné contient uniquement
-Miaouss #52, Nosferapti #41 et Fantominus #92, chacun en normal et shiny**, pour
-Idle et Walk : douze PNG, 143 054 octets, hébergés localement.
-Les autres espèces conservent automatiquement leur sprite habituel. L'activation
+production dans le vrai vivarium, puis le catalogue complet du jeu. **Les 494
+entrées de #0 à #493 sont couvertes, chacune en normal et shiny**, pour Idle
+et Walk : 1 976 PNG, 21 524 146 octets, hébergés localement. Toutes les variantes
+de la révision choisie disposent des ressources nécessaires. Une espèce ou forme
+hors catalogue, une ressource indisponible ou une erreur de chargement conserve
+automatiquement le sprite habituel. L'activation
 est limitée au renderer du vivarium local et distant ; aucun sprite de PC,
 combat, zone ou carte n'est modifié. Aucun déplacement de caméra n'est ajouté.
 
-Le bouton **Sprites : Donjon Mystère / Sprites : 2D** en haut du vivarium permet
+Le sélecteur **Sprites du vivarium : 2D / Donjon Mystère** en haut du vivarium permet
 de basculer entre les deux rendus sans recréer les résidents ni interrompre leurs
 déplacements ou interactions. Le choix est mémorisé dans le champ cosmétique
 optionnel `vivariumSpriteMode` (`pmd` par défaut pour les anciennes sauvegardes).
 Il concerne la page locale `/gang/`, indépendamment du réglage général des
 sprites. La vue distante OBS conserve son rendu PMD et ses anciens snapshots.
+En mode Donjon Mystère, une indication affiche combien de résidents disposent
+de ces animations ; si aucun n'est compatible, elle le signale explicitement.
+La couverture complète est vérifiable dans `assets/pokemon_pmd/coverage.json`.
 Voir [l'audit des droits et crédits](../assets/pokemon_pmd/CREDITS.md).
 Le prototype avec les images originales a été vérifié dans Chromium puis
 validé par le propriétaire avant l'activation. L'historique de la préparation
@@ -36,8 +41,8 @@ et de la publication Lab reste dans [la documentation QA](pmd-lab-preview.md).
   `shiny`, en conservant `spriteUrl`, nom, niveau, nature et déduplication.
 - `gang/gang.css` : positionnement des canvas, pixel art, réaction au clic et
   réduction des animations décoratives selon la préférence système.
-- `assets/pokemon_pmd/` : catalogue des trois espèces validées, PNG, crédits,
-  XML sources, licence publiée et manifeste de provenance avec SHA-256.
+- `assets/pokemon_pmd/` : catalogue complet du jeu, PNG, crédits par variante,
+  licence publiée, couverture et manifeste de provenance avec SHA-256.
 - Deux tests ciblés dans `tools/`.
 
 Les points d'entrée local et OBS restent identiques. Le producteur cloud et
@@ -128,8 +133,20 @@ node tools/check-vivarium-pmd-browser.mjs
 
 Pour vérifier les vrais assets du catalogue versionné plutôt que les feuilles
 synthétiques, définir `$env:POKEGANG_PMD_REAL_ASSETS = '1'` avant cette commande.
-Le parcours local injecte alors les trois espèces dans une copie isolée de la
-sauvegarde de développement et vérifie leur rendu dans le vrai `/gang/`.
+Le parcours local utilise une copie isolée de la sauvegarde de développement :
+ses sept résidents sont rendus en PMD dans le vrai `/gang/`. Le sélecteur, sa
+persistance, les changements de sources et le nettoyage sont vérifiés.
+
+`node tools/check-pmd-catalog-browser.mjs` vérifie séparément les 988 variantes
+et 1 976 feuilles dans Chromium, par lots de seize acteurs, en Idle et Walk et
+dans les huit directions. Ce test contrôle le décodage réel, les dimensions,
+le cache borné et l'arrêt de la RAF ; il ne remplace pas une revue artistique
+de chaque Pokémon.
+
+`python tools/import-pmd-catalog.py` régénère uniquement les ressources des
+espèces présentes dans `data/species-data.js`, en résolvant les alias XML et
+en préservant les crédits. Les fichiers sources téléchargés restent en cache
+dans `coverage/pmd-source-cache/`, sans être ajoutés en bloc au runtime.
 
 Le serveur et les intercepts de ce test ne servent que des formes géométriques
 générées en mémoire. Ils ne modifient aucun fichier du catalogue.
@@ -152,8 +169,9 @@ générées en mémoire. Ils ne modifient aucun fichier du catalogue.
 
 Les tests Chromium avec les vraies feuilles passent pour le catalogue validé,
 y compris le vrai `/gang/` et le changement de sources. La validation visuelle
-du prototype Lab a été confirmée par le propriétaire. L'extension à d'autres
-espèces, le mobile physique et OBS réel restent hors de cette publication.
+du prototype Lab a été confirmée par le propriétaire. Le catalogue est ensuite
+étendu à toutes les espèces du jeu ; le mobile physique et OBS réel restent
+hors de cette validation.
 
 ### Résultats de cette livraison
 
@@ -165,6 +183,13 @@ espèces, le mobile physique et OBS réel restent hors de cette publication.
 - `node tools/check-events.js`, `node tools/check-dead-calls.mjs` et
   `node tools/test-data-integrity.mjs` passent.
 - `node tools/cache-bust.js` exécuté, puis `node tools/test-cache-bust.mjs` passe.
-- `node tools/build-itch.js` passe : v0.5.2, 596 entrées, 30,82 Mo,
+- `node tools/build-itch.js` passe ses contrôles d'archive : v0.5.2,
+  2 562 entrées, 50,82 Mo,
   séparateurs ZIP corrects, configuration privée exclue, FR web / EN itch.
   L'archive générée n'est ni commitée ni publiée.
+
+Cette archive complète dépasse la limite standard itch.io de 1 000 fichiers
+HTML5 ([documentation itch.io](https://itch.io/docs/creators/html5#zip-file-requirements)).
+La validation du ZIP ne vaut donc pas validation d'un upload HTML5 itch.io :
+un empaquetage adapté ou une limite relevée sera nécessaire avant une telle
+publication. Le déploiement web OVH utilise les fichiers locaux directement.
