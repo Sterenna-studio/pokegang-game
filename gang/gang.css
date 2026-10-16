@@ -262,8 +262,8 @@
   50%      { transform: translateY(-3px); }
 }
 
-/* Résidents (vitrine + équipe boss) cliquables — les cameos (agents/favoris
-   de passage) restent pointer-events:none, aucune interaction prévue dessus. */
+/* Residents and passing visitors share a 48px mouse/touch target. */
+.gang-env-clickable:focus-visible { outline: 2px solid var(--gold); border-radius: 6px; }
 .gang-env-sprite.gang-env-clickable {
   pointer-events: auto;
   cursor: pointer;
@@ -329,11 +329,8 @@
   animation: gang-env-pop 2.3s ease forwards;
 }
 
-/* Bulle de dialogue des événements narratifs (agent/infirmière/chercheur).
-   Enfant direct de .gang-env-sprite (pas de .gang-env-sprite-inner, qui
-   porte le flip scaleX() — sinon le texte serait inversé en marche arrière),
-   hérite donc de la position (transform translate()) sans hériter du sens
-   de marche. */
+/* Speech follows the actor's exact transform timeline in the overlay layer,
+   independently of sprite direction; reading time depends on text length. */
 .gang-env-speech-bubble {
   position: absolute;
   bottom: 100%;
@@ -345,17 +342,17 @@
   background: rgba(255,255,255,.95);
   color: #16161c;
   font-family: var(--font-pixel);
-  font-size: 6px;
+  font-size: 7px;
   line-height: 1.6;
   padding: 5px 8px;
   border-radius: 8px;
   width: max-content;
-  max-width: 130px;
+  max-width: 170px;
   text-align: center;
   pointer-events: none;
   z-index: 6;
   box-shadow: 0 2px 6px rgba(0,0,0,.35);
-  animation: gang-env-bubble-pop 3.2s ease forwards;
+  animation: gang-env-bubble-pop var(--speech-duration, 6500ms) ease forwards;
 }
 .gang-env-speech-bubble::after {
   content: '';
@@ -370,7 +367,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  max-width: 170px;
+  max-width: 200px;
 }
 .gang-env-speech-bubble .gang-env-speech-portrait {
   width: 32px;
@@ -393,8 +390,8 @@
 }
 @keyframes gang-env-bubble-pop {
   0%   { opacity: 0; scale: .6; }
-  10%  { opacity: 1; scale: 1; }
-  85%  { opacity: 1; }
+  3%   { opacity: 1; scale: 1; }
+  97%  { opacity: 1; }
   100% { opacity: 0; }
 }
 
@@ -510,6 +507,33 @@
   cursor: pointer;
 }
 .gang-zonesrc-btn:hover { border-color: var(--gold); }
+
+.gang-vivarium-help {
+  position: absolute; top: 50px; right: 10px; z-index: 5;
+  width: 32px; height: 32px; border-radius: 50%;
+  border: 1px solid var(--border-light); background: #000b;
+  color: var(--text); font-weight: bold; cursor: pointer;
+}
+.gang-vivarium-help:hover, .gang-vivarium-help:focus-visible { border-color: var(--gold); }
+.gang-tour { position: fixed; inset: 0; z-index: 25000; isolation: isolate; }
+.gang-tour-spot { position: fixed; border: 2px solid #ffcf70; border-radius: 6px;
+  box-sizing: border-box; box-shadow: 0 0 0 9999px #000b; pointer-events: none; }
+.gang-tour-arrow { position: fixed; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.gang-tour-arrow path[marker-end] { stroke: #ffcf70; stroke-width: 2; fill: none; }
+.gang-tour-arrow marker path { fill: #ffcf70; }
+.gang-tour-card { position: fixed; width: min(340px, calc(100vw - 24px)); max-height: calc(100dvh - 24px);
+  overflow-y: auto; box-sizing: border-box; padding: 20px; border: 1px solid #ffcf70;
+  border-radius: 10px; background: #172019; color: #f4f0e8; box-shadow: 0 8px 30px #0008;
+  font-family: var(--font-body, sans-serif); font-size: 14px; line-height: 1.6; }
+.gang-tour-card h2 { margin: 8px 20px 8px 0; font-size: 17px; line-height: 1.4; }
+.gang-tour-card p { margin: 0 0 16px; }
+.gang-tour-progress { color: #ffcf70; }
+.gang-tour-close { position: absolute; top: 6px; right: 6px; border: 0; background: transparent;
+  color: inherit; font-size: 24px; width: 36px; height: 36px; cursor: pointer; }
+.gang-tour-actions { display: flex; justify-content: space-between; gap: 12px; }
+.gang-tour-actions button { min-height: 36px; padding: 6px 12px; border-radius: 5px;
+  border: 1px solid #72816c; background: #283a2b; color: inherit; cursor: pointer; }
+.gang-tour-actions button:disabled { opacity: .4; cursor: default; }
 
 .gang-sprite-mode-control {
   position: absolute;

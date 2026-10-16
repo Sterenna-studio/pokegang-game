@@ -8,21 +8,27 @@ auparavant reste sélectionné ; le sélecteur Décor permet d’opter pour le Q
 Pension et formation suivent les identifiants déjà présents dans l’état du jeu,
 même pour un Pokémon aussi présent en vitrine. Les autres résidents sont à
 l’accueil/PC. L’infirmière passe à la pension, le scientifique à la formation,
-les agents au repos dans leur espace. Les autres visiteurs passent à l’accueil.
+les agents, même affectés à une zone, visitent la salle d’événements. Leur
+affectation et leurs activités réelles continuent sans modification. Les autres visiteurs passent à l’accueil.
 Le jeu conserve sa simulation et ses données. Aucun appel serveur supplémentaire.
 Les compteurs sont calculés lors de la construction du snapshot uniquement.
 
 ## True size
 
-Préférence facultative `cosmetics.vivariumTrueSize`, absente = taille standard.
+Préférence `cosmetics.vivariumTrueSize`, activée par défaut ; un choix explicite
+`false` conserve la taille standard. Un ancien snapshot OBS sans préférences
+reste en taille standard pour préserver sa présentation.
 Table locale des 493 espèces : hauteurs PokéAPI en décimètres, révision et SHA
 documentés dans `assets/vivarium/sizes-provenance.json`. Licence de PokéAPI et
 attribution conservées dans `assets/vivarium/PokeAPI-LICENSE.md` (Paul Hallett
 et contributeurs). Unités : https://pokeapi.co/docs/v2#pokemon.
 Régénération : `python tools/build-vivarium-sizes.py chemin/pokemon.csv` (Pillow).
 
-Référence visuelle 28 pixels/mètre, hauteur visible limitée à 16–88 pixels,
-enveloppe de frame limitée à 128 pixels pour éviter les grandes marges vides.
+Référence visuelle 28 pixels/mètre, hauteur visible limitée à 16–144 pixels,
+enveloppe de frame limitée à 192 pixels pour éviter les grandes marges vides.
+L’ancien plafond de 88/128 pixels comprimait trop les grandes espèces :
+Groudon vise désormais 98 pixels et Rayquaza 144 pixels, avant application
+de la limite de frame. Ce plafond n’est pas réservé aux légendaires.
 Les limites privilégient la lisibilité ; les longueurs du Pokédex, notamment
 les Pokémon serpentins, ne constituent pas une simulation anatomique.
 Les mesures alpha des sprites PMD sont calculées hors ligne. L’échelle reste

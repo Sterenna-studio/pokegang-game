@@ -30,6 +30,7 @@ import '../modules/systems/bossPower.js'; // side-effect: expose getBossTeamPowe
 
 import { renderMusicPanel, renderAppearancePanel, renderTitrePanel, renderVitrinePanel } from './panels.js';
 import { renderEnvironmentZone, stopEnvironmentZone } from './environment.js';
+import { collectVivariumWing } from '../modules/systems/vivariumRewards.js';
 
 // sprites.js expose ses fonctions via Object.assign(globalThis, {...}) plutôt
 // que des exports nommés (même patron que cosmetics.js) — on les relit ici.
@@ -166,7 +167,21 @@ function updateTopbar() {
 // ════════════════════════════════════════════════════════════════
 //  Exposition globale — même convention que app.js (Object.assign)
 // ════════════════════════════════════════════════════════════════
+function claimVivariumWing() {
+  // Re-read immediately: never replace concurrent game progress with the
+  // cosmetic page's old inventory/quest state.
+  const fresh = store.load();
+  if (!fresh) return false;
+  collectVivariumWing(fresh);
+  state = fresh;
+  globalThis.state = fresh;
+  store.save();
+  updateTopbar();
+  return true;
+}
+
 Object.assign(globalThis, {
+  claimVivariumWing,
   state, EventBus, EVENTS, notify, showConfirm, SFX, saveState, isZoneUnlocked,
   pokeSprite, pokeIcon, trainerSprite, speciesName, pokemonDisplayName,
   ZONE_BGS, COSMETIC_BGS, FABRIC_SPECIES, PATCH_PIDS, fabricBgUrl, patchUrl,

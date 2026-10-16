@@ -4,7 +4,7 @@ export const HQ_BACKGROUND = { type: 'image', scene: 'hq',
 export const HQ_AREAS = [
   { id: 'pc', fr: 'Accueil · PC', en: 'Lobby · PC', x: .065, y: .30, w: .35, h: .13 },
   { id: 'pension', fr: 'Pension', en: 'Daycare', x: .585, y: .30, w: .35, h: .13 },
-  { id: 'rest', fr: 'Repos des agents', en: 'Agent lounge', x: .065, y: .80, w: .35, h: .16 },
+  { id: 'rest', fr: 'Salle d’événements', en: 'Event lounge', x: .065, y: .80, w: .35, h: .16 },
   { id: 'training', fr: 'Formation', en: 'Training', x: .585, y: .80, w: .35, h: .16 },
 ];
 
@@ -16,7 +16,7 @@ export function wantsHq(state) {
 
 export function vivariumDisplay(state) {
   const cosmetics = state?.cosmetics || {};
-  return { trueSize: cosmetics.vivariumTrueSize === true,
+  return { trueSize: cosmetics.vivariumTrueSize !== false,
     spriteMode: ['2d', 'pmd', 'hgss'].includes(cosmetics.vivariumSpriteMode) ? cosmetics.vivariumSpriteMode : 'pmd' };
 }
 
@@ -29,7 +29,7 @@ export function residentLocation(id, state) {
 export function cameoLocation(entry) {
   if (entry.type === 'nurse') return 'pension';
   if (entry.type === 'scientist') return 'training';
-  if (entry.type === 'agent' && entry.resting) return 'rest';
+  if (entry.type === 'agent') return 'rest';
   return 'pc';
 }
 

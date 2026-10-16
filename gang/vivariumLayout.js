@@ -86,9 +86,29 @@ export function createVivariumLayout(viewport, { onBlocked = () => {}, doc = doc
     state.rx = state.footprint.rx; state.ry = state.footprint.ry;
   }
   function annotations(state) {
+    if (!state.overlays.size) return;
+    const source = state.entry.el.getAnimations?.().find(a => a.transitionProperty === 'transform');
     for (const wrapper of state.overlays) {
-      wrapper.style.transition = state.entry.el.style.transition;
+      // Starting a second CSS transition mid-walk makes a bubble lag behind
+      // its actor. Mirror the original transition's keyframes AND timeline.
+      wrapper.style.transition = 'none';
       wrapper.style.transform = state.entry.el.style.transform;
+      if (wrapper._followSource === source) continue;
+      wrapper._followAnimation?.cancel();
+      wrapper._followSource = source;
+      wrapper._followAnimation = null;
+      if (source?.effect && wrapper.animate) {
+        const animation = wrapper.animate(source.effect.getKeyframes(), source.effect.getTiming());
+        wrapper._followAnimation = animation;
+        animation.playbackRate = source.playbackRate;
+        const syncTime = () => {
+          if (wrapper._followAnimation !== animation || wrapper._followSource !== source) return;
+          if (source.startTime != null) animation.startTime = source.startTime;
+          else if (source.currentTime != null) animation.currentTime = source.currentTime;
+        };
+        syncTime();
+        source.ready.then(syncTime).catch(() => {});
+      }
     }
   }
   function depth() {
@@ -156,7 +176,7 @@ export function createVivariumLayout(viewport, { onBlocked = () => {}, doc = doc
     unregister(entry) {
       const state = actors.get(entry);
       if (!state) return;
-      for (const wrapper of state.overlays) wrapper.remove();
+      for (const wrapper of state.overlays) { wrapper._followAnimation?.cancel(); wrapper.remove(); }
       actors.delete(entry); elements.delete(entry.el); depth(); schedule();
     },
     refresh(entry) {
@@ -190,7 +210,7 @@ export function createVivariumLayout(viewport, { onBlocked = () => {}, doc = doc
       wrapper.style.width = `${entry.w || 48}px`; wrapper.style.height = `${entry.h || 48}px`;
       wrapper.appendChild(content); overlayLayer.appendChild(wrapper);
       state.overlays.add(wrapper); annotations(state);
-      return () => { state.overlays.delete(wrapper); wrapper.remove(); };
+      return () => { state.overlays.delete(wrapper); wrapper._followAnimation?.cancel(); wrapper.remove(); };
     },
     inspect(callback) { inspector = callback; inspector?.(); schedule(); },
     view: () => [...actors.values()],
@@ -201,6 +221,9 @@ export function createVivariumLayout(viewport, { onBlocked = () => {}, doc = doc
       if (timer !== null) cancel(timer);
       timer = null; inspector = null;
       doc.removeEventListener('visibilitychange', visibility);
+      for (const state of actors.values()) {
+        for (const wrapper of state.overlays) wrapper._followAnimation?.cancel();
+      }
       actors.clear(); elements.clear(); actorLayer.remove(); overlayLayer.remove();
     },
   };
