@@ -1,12 +1,16 @@
 # Ressources PMD — vivarium
 
-Audit du 15 octobre 2026. Après validation du prototype Lab, le propriétaire a
-explicitement demandé l'activation dans le vrai vivarium et la publication en
-production. Ce répertoire contient les douze PNG Idle/Walk de Miaouss #52,
-Nosferapti #41 et Fantominus #92, en normal et shiny, copiés sans recompression
-depuis la révision SpriteCollab ci-dessous (143 054 octets de PNG).
-`provenance.json` conserve les sources et SHA-256 ; les XML et crédits originaux
-accompagnent chaque variante. La licence publiée est dans
+Audit initial du 15 octobre 2026, étendu le 16 octobre 2026 à la demande du
+propriétaire. Après validation du prototype Lab et demande de publication en
+production, le propriétaire a demandé le catalogue complet du jeu : **494
+entrées (#0 à #493), normales et shiny, Idle et Walk**, soit 1 976 PNG et
+21 524 146 octets de PNG, copiés sans recompression depuis la révision ci-dessous.
+`coverage.json` recense toutes les espèces couvertes (aucune variante manquante).
+`provenance.json` conserve les sources et SHA-256 des PNG, XML, ombres et crédits.
+`credits.json` préserve le texte intégral des crédits originaux de chaque variante.
+Les XML et ombres nécessaires à la régénération sont dans le cache local ignoré
+du générateur ; leurs URL et empreintes sont conservées dans le manifeste.
+La licence publiée est dans
 `SPRITECOLLAB-LICENSE.md`, les noms des contributeurs dans `credit_names.txt`.
 Cette décision du propriétaire ne constitue pas une autorisation supplémentaire
 des ayants droit et ne modifie pas les incertitudes relevées dans cet audit.
@@ -24,6 +28,12 @@ des ayants droit et ne modifie pas les incertitudes relevées dans cet audit.
   et [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/legalcode.en).
 
 ## Auteurs relevés pour le prototype
+
+Le tableau ci-dessous conserve l'audit initial des trois espèces du prototype.
+Pour le catalogue complet, consulter les crédits par espèce et variante dans
+[`credits.json`](credits.json), et la correspondance des noms dans
+[`credit_names.txt`](credit_names.txt). Chaque entrée du manifeste indique aussi
+l'URL épinglée de son fichier `credits.txt` original et son empreinte SHA-256.
 
 Les crédits ont été lus directement depuis les fichiers publics `credits.txt` ;
 les identifiants des contributeurs ont été résolus avec
@@ -55,7 +65,8 @@ CC BY-NC ne concède que les droits que le donneur de licence peut accorder
 de droits tiers (5.a). La présence des fichiers dans un dépôt public ne résout
 donc pas cette incertitude. L'import a d'abord été suspendu, puis le propriétaire
 a confirmé la diffusion de test et, après validation visuelle, l'activation
-en production dans le seul vivarium. Les autres parties du jeu conservent leurs
+en production dans le seul vivarium, puis l'extension au catalogue du jeu.
+Les autres parties du jeu conservent leurs
 sprites. Cette décision ne prétend pas établir des droits absents des sources.
 
 Pokémon et les personnages concernés relèvent également des droits de Nintendo,
@@ -81,6 +92,12 @@ résoudrait pas les droits des PNG. Le renderer PokéGang est une implémentatio
 originale.
 
 ## Pour étendre l'import
+
+`python tools/import-pmd-catalog.py` régénère le catalogue depuis la liste réelle
+de `data/species-data.js`. Douze alias d'animations `CopyOf` sont résolus vers
+leur source originale ; les PNG restent inchangés. Seuls Idle et Walk, des
+espèces prises en charge, sont distribués ; les autres animations et formes
+inutilisées ne sont pas importées.
 
 Établir les autorisations nécessaires sur les bases officielles et les
 contributions, ainsi que la compatibilité avec la distribution réelle, ou

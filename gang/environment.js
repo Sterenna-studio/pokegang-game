@@ -299,25 +299,32 @@ function _applySpriteMode(entry) {
   _flip(entry.el, entry.direction >= 5 && entry.direction <= 7);
 }
 
-function _bindSpriteModeButton(zoneEl) {
-  const button = zoneEl.querySelector('#gangSpriteModeBtn');
-  const refresh = () => {
-    const pmd = _spriteMode === 'pmd';
-    button.textContent = pmd ? _t('Sprites : Donjon Mystère', 'Sprites: Mystery Dungeon') : _t('Sprites : 2D', 'Sprites: 2D');
-    button.title = pmd ? _t('Passer aux sprites 2D', 'Switch to 2D sprites')
-      : _t('Passer aux sprites Donjon Mystère', 'Switch to Mystery Dungeon sprites');
-    button.setAttribute('aria-label', button.title);
-    button.setAttribute('aria-pressed', String(pmd));
-  };
-  refresh();
-  button.addEventListener('click', () => {
-    _spriteMode = _spriteMode === 'pmd' ? '2d' : 'pmd';
+function _refreshSpriteModeHint() {
+  const hint = _zoneEl?.querySelector('#gangSpriteModeHint');
+  if (!hint) return;
+  const count = _residents.filter(entry => entry.animator).length;
+  const total = _residents.length;
+  hint.hidden = _spriteMode !== 'pmd' || total === 0;
+  hint.textContent = count
+    ? _t(`${count}/${total} Pokémon compatibles Donjon Mystère`, `${count}/${total} Pokémon support Mystery Dungeon`)
+    : _t('Pas de sprites Donjon Mystère pour ces Pokémon.', 'No Mystery Dungeon sprites for these Pokémon.');
+  hint.title = _t('Les Pokémon sans animations Donjon Mystère disponibles conservent leurs sprites 2D.',
+    'Pokémon without available Mystery Dungeon animations keep their 2D sprites.');
+}
+
+function _bindSpriteModeSelector(zoneEl) {
+  const select = zoneEl.querySelector('#gangSpriteModeSelect');
+  select.value = _spriteMode;
+  select.addEventListener('change', () => {
+    const nextMode = select.value === '2d' ? '2d' : 'pmd';
+    if (nextMode === _spriteMode) return;
+    _spriteMode = nextMode;
     const state = globalThis.state;
     state.cosmetics ||= {};
     state.cosmetics.vivariumSpriteMode = _spriteMode;
     globalThis.saveState();
     for (const entry of [..._residents, ..._pokemonCameos]) _applySpriteMode(entry);
-    refresh();
+    _refreshSpriteModeHint();
   });
 }
 
@@ -693,13 +700,20 @@ export function renderEnvironmentZone(rootContainer) {
   _zoneEl = zoneEl;
 
   zoneEl.innerHTML = `
-    <button type="button" class="gang-sprite-mode-btn" id="gangSpriteModeBtn"></button>
+    <div class="gang-sprite-mode-control">
+      <label for="gangSpriteModeSelect">${_t('Sprites du vivarium', 'Vivarium sprites')}</label>
+      <select id="gangSpriteModeSelect">
+        <option value="2d">2D</option>
+        <option value="pmd">${_t('Donjon Mystère', 'Mystery Dungeon')}</option>
+      </select>
+      <span class="gang-sprite-mode-hint" id="gangSpriteModeHint" hidden></span>
+    </div>
     <button class="gang-zonebg-btn" id="gangZoneBgBtn" title="${_t('Changer le fond', 'Change background')}">🎨</button>
     <button class="gang-zonesrc-btn" id="gangZoneSrcBtn" title="${_t('Choisir les zones affichées', 'Choose displayed zones')}">👁</button>
     <div class="gang-env-viewport" id="gangEnvViewport"></div>`;
 
   const viewportEl = zoneEl.querySelector('#gangEnvViewport');
-  _bindSpriteModeButton(zoneEl);
+  _bindSpriteModeSelector(zoneEl);
   _applyZoneBackground(viewportEl);
   zoneEl.querySelector('#gangZoneBgBtn').addEventListener('click', () => _openZoneBgPicker(viewportEl));
   zoneEl.querySelector('#gangZoneSrcBtn').addEventListener('click', () => _openZoneSourcesPicker(rootContainer));
@@ -722,6 +736,7 @@ export function renderEnvironmentZone(rootContainer) {
   for (const r of residents) {
     _spawnResident(viewportEl, r.spriteUrl, r.label, bounds, r);
   }
+  _refreshSpriteModeHint();
 
   if (residents.length === 0) {
     const empty = document.createElement('div');
