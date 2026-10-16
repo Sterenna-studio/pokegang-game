@@ -20,7 +20,7 @@ function validAnimation(a) {
   return a && ['w', 'h', 'n', 'r'].every(k => Number.isInteger(a[k]) && a[k] > 0)
     && a.r <= 8 && a.d?.length === a.n && a.d.every(d => Number.isFinite(d) && d > 0)
     && Number.isFinite(a.ax) && Number.isFinite(a.ay)
-    && /^\d+\/(?:s\/)?(?:Idle|Walk)\.png$/.test(a.file);
+    && /^(?:\d+\/(?:s\/)?|[a-z][a-z0-9_-]*\/)(?:Idle|Walk)\.png$/.test(a.file);
 }
 
 // One scheduler and bounded decoded-sheet cache shared by all residents/cameos.
@@ -44,8 +44,9 @@ export function createPmdRenderer({ metadata = PMD_METADATA, doc = document,
       if (!sheet.users.size) { release(sheet); cache.delete(key); }
     }
   }
-  function sheetFor(file, actor) {
-    let sheet = cache.get(file);
+  function sheetFor(file, actor, assetBaseUrl) {
+    const key = new URL(file, assetBaseUrl).href;
+    let sheet = cache.get(key);
     if (!sheet) {
       const img = makeImage();
       sheet = { img, users: new Set(), ready: false, failed: false };
@@ -53,11 +54,11 @@ export function createPmdRenderer({ metadata = PMD_METADATA, doc = document,
         img.onload = () => { sheet.ready = true; img.onload = img.onerror = null; resolve(sheet); };
         img.onerror = () => { sheet.failed = true; img.onload = img.onerror = null; resolve(sheet); };
       });
-      cache.set(file, sheet);
-      img.src = new URL(file, baseUrl).href;
+      cache.set(key, sheet);
+      img.src = key;
     }
     // Touch LRU order; active users are never evicted.
-    cache.delete(file); cache.set(file, sheet);
+    cache.delete(key); cache.set(key, sheet);
     sheet.users.add(actor); actor.sheets.add(sheet);
     trim();
     return sheet;
@@ -102,6 +103,11 @@ export function createPmdRenderer({ metadata = PMD_METADATA, doc = document,
   function attach(host, { dex, shiny = false } = {}) {
     // Never silently turn a shiny into its normal variant.
     const variant = metadata[dex]?.[shiny ? 'shiny' : 'normal'];
+    return attachAnimation(host, variant);
+  }
+
+  // Trusted local character metadata shares this scheduler/cache with Pokémon.
+  function attachAnimation(host, variant, { assetBaseUrl = baseUrl } = {}) {
     if (!validAnimation(variant?.Idle) || !validAnimation(variant?.Walk)) return null;
     const fallback = host.querySelector('img');
     const canvas = doc.createElement('canvas');
@@ -128,7 +134,7 @@ export function createPmdRenderer({ metadata = PMD_METADATA, doc = document,
         if (sheet.img.naturalWidth !== a.w * a.n || sheet.img.naturalHeight !== a.h * a.r) {
           actor.useFallback(); return;
         }
-        const frame = motion?.matches ? 0 : frameAt(a.d, actor.elapsed);
+        const frame = motion?.matches || a.static ? 0 : frameAt(a.d, actor.elapsed);
         const row = a.r === 1 ? 0 : Math.round(actor.direction * a.r / 8) % a.r;
         const key = `${actor.animation}/${row}/${frame}`;
         if (key === actor.drawn) return;
@@ -156,7 +162,7 @@ export function createPmdRenderer({ metadata = PMD_METADATA, doc = document,
           actor.animation = animation === 'Walk' ? 'Walk' : 'Idle';
           actor.meta = variant[actor.animation];
           actor.elapsed = 0; actor.drawn = '';
-          const sheet = sheetFor(actor.meta.file, actor);
+          const sheet = sheetFor(actor.meta.file, actor, assetBaseUrl);
           actor.sheet = sheet;
           actor.useFallback();
           sheet.promise.then(() => {
@@ -179,7 +185,7 @@ export function createPmdRenderer({ metadata = PMD_METADATA, doc = document,
     actors.add(actor); listen(); actor.set('Idle'); schedule();
     return actor;
   }
-  return { attach, dispose() {
+  return { attach, attachAnimation, dispose() {
     for (const actor of [...actors]) actor.destroy();
     for (const sheet of cache.values()) release(sheet);
     cache.clear(); cancel();
@@ -190,6 +196,10 @@ let shared;
 export function attachPmdSprite(host, pokemon) {
   shared ||= createPmdRenderer();
   return shared.attach(host, pokemon);
+}
+export function attachVivariumAnimation(host, animations, assetBaseUrl) {
+  shared ||= createPmdRenderer();
+  return shared.attachAnimation(host, animations, { assetBaseUrl });
 }
 export function stopPmdSprites() {
   shared?.dispose(); shared = null;
