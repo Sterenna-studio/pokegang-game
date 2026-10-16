@@ -74,7 +74,7 @@ export function mountVivariumDev({ zone, viewport, layout, bounds }) {
         ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); ctx.stroke();
       }
       if (toggles.visual.checked) {
-        const box = entry.animator?.visualBounds || { x: 0, y: 0, w: entry.w, h: entry.h };
+        const box = entry.animator?.visualBounds || entry.fallbackMetrics?.visualBounds || { x: 0, y: 0, w: entry.w, h: entry.h };
         ctx.strokeStyle = '#60cfff'; ctx.strokeRect(position.x + box.x, position.y + box.y, box.w, box.h);
       }
       if (toggles.click.checked && entry.el.classList.contains('gang-env-clickable')) {

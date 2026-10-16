@@ -1,5 +1,7 @@
 // Vivarium-only renderer. Original implementation; no PokéSurvivor engine code.
 import { PMD_METADATA } from '../assets/pokemon_pmd/metadata.js';
+import { PMD_BODY_HEIGHT } from '../assets/vivarium/sizes.js';
+import { pokemonDisplayHeight, pokemonScale } from './pokemonSize.js';
 
 export function directionFromVector(dx, dy, previous = 0) {
   if (!dx && !dy) return previous;
@@ -105,14 +107,15 @@ export function createPmdRenderer({ metadata = PMD_METADATA, doc = document,
     motion?.removeEventListener('change', visibility);
   }
 
-  function attach(host, { dex, shiny = false } = {}) {
+  function attach(host, { dex, shiny = false, trueSize = false } = {}) {
     // Never silently turn a shiny into its normal variant.
     const variant = metadata[dex]?.[shiny ? 'shiny' : 'normal'];
-    return attachAnimation(host, variant);
+    return attachAnimation(host, variant, { displayHeight: pokemonDisplayHeight(dex, trueSize),
+      bodyHeight: PMD_BODY_HEIGHT[`${dex}/${shiny ? 'shiny' : 'normal'}`] });
   }
 
   // Trusted local character metadata shares this scheduler/cache with Pokémon.
-  function attachAnimation(host, variant, { assetBaseUrl = baseUrl } = {}) {
+  function attachAnimation(host, variant, { assetBaseUrl = baseUrl, displayHeight, bodyHeight } = {}) {
     if (!validAnimation(variant?.Idle) || !validAnimation(variant?.Walk)) return null;
     const fallback = host.querySelector('img');
     const canvas = doc.createElement('canvas');
@@ -124,7 +127,7 @@ export function createPmdRenderer({ metadata = PMD_METADATA, doc = document,
     if (!ctx) { canvas.remove(); return null; }
     // A species keeps the same scale across both animations; no square stretching.
     const largest = Math.max(...Object.values(variant).flatMap(a => [a.w, a.h]));
-    const scale = Math.min(2, 88 / largest);
+    const scale = pokemonScale(displayHeight, bodyHeight, largest, Math.min(2, 88 / largest));
     const animations = Object.values(variant);
     const width = Math.max(...animations.map(a => a.w * scale));
     const height = Math.max(...animations.map(a => a.h * scale));
@@ -212,9 +215,9 @@ export function attachPmdSprite(host, pokemon) {
   shared ||= createPmdRenderer();
   return shared.attach(host, pokemon);
 }
-export function attachVivariumAnimation(host, animations, assetBaseUrl) {
+export function attachVivariumAnimation(host, animations, assetBaseUrl, sizing = {}) {
   shared ||= createPmdRenderer();
-  return shared.attachAnimation(host, animations, { assetBaseUrl });
+  return shared.attachAnimation(host, animations, { assetBaseUrl, ...sizing });
 }
 export function stopPmdSprites() {
   shared?.dispose(); shared = null;

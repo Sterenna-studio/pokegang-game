@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import { HEIGHT_DM, PMD_BODY_HEIGHT } from '../assets/vivarium/sizes.js';
+import { pokemonDisplayHeight, pokemonScale } from '../gang/pokemonSize.js';
+import { vivariumDisplay } from '../modules/systems/vivariumZones.js';
+assert.equal(Object.keys(HEIGHT_DM).length, 493);
+assert.equal(HEIGHT_DM[52], 4);
+assert.equal(HEIGHT_DM[321], 145);
+assert.equal(pokemonDisplayHeight(52, true), 16);
+assert.equal(pokemonDisplayHeight(321, true), 88);
+assert.equal(pokemonDisplayHeight(9999, true), null);
+assert.equal(pokemonDisplayHeight(52, false), null);
+assert.equal(pokemonScale(null, 20, 48, 2), 2);
+assert.equal(pokemonScale(28, 14, 48, 1), 2);
+assert.equal(pokemonScale(88, 1, 64, 1), 2, 'Oversized padded sheets remain bounded');
+for (const height of Object.values(PMD_BODY_HEIGHT)) assert.ok(height > 0);
+assert.deepEqual(vivariumDisplay({}), { trueSize: false, spriteMode: 'pmd' });
+assert.deepEqual(vivariumDisplay({ cosmetics: { vivariumTrueSize: true, vivariumSpriteMode: '2d' } }), { trueSize: true, spriteMode: '2d' });
+console.log('PASS local sizes: 493 species, visible PMD bounds, tiny/large/unknown species, scale limits and backwards-compatible preferences');
