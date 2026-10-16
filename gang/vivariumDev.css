@@ -1,0 +1,29 @@
+.vivarium-dev-panel {
+  position: fixed;
+  top: 78px;
+  right: 10px;
+  z-index: 10020;
+  max-width: calc(100vw - 20px);
+  color: #edf7f2;
+  background: #11241ff5;
+  border: 1px solid #64d6a5;
+  border-radius: 8px;
+  box-shadow: 0 6px 24px #0008;
+  font: 13px/1.5 system-ui, sans-serif;
+}
+.vivarium-dev-panel summary { padding: 8px 12px; cursor: pointer; font-weight: 650; }
+.vivarium-dev-panel[open] { width: 280px; }
+.vivarium-dev-body { max-height: calc(100dvh - 145px); overflow: auto; padding: 0 12px 10px; }
+.vivarium-dev-body p { margin: 8px 0; font-size: 11px; }
+.vivarium-dev-body fieldset { border: 1px solid #527568; border-radius: 4px; margin: 10px 0; padding: 8px; }
+.vivarium-dev-body label { display: flex; align-items: center; gap: 7px; margin: 5px 0; }
+.vivarium-dev-body input { accent-color: #64d6a5; width: 16px; height: 16px; }
+.vivarium-dev-select { flex-direction: column; align-items: stretch !important; }
+.vivarium-dev-body select { max-width: 100%; background: #0c1915; color: #fff; padding: 7px; border: 1px solid #527568; }
+.vivarium-dev-body output { display: block; white-space: pre-line; margin: 10px 0; font: 11px/1.6 monospace; }
+.vivarium-dev-legend { color: #bacfc4; }
+.vivarium-dev-overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 11; }
+@media (max-width: 500px) {
+  .vivarium-dev-panel { top: 66px; right: 6px; max-width: calc(100vw - 12px); }
+  .vivarium-dev-body { max-height: calc(100dvh - 125px); }
+}

@@ -203,6 +203,10 @@
   inset: 0;
   overflow: hidden;
 }
+.gang-env-actors, .gang-env-overlays { position: absolute; inset: 0; pointer-events: none; }
+.gang-env-actors { z-index: 1; }
+.gang-env-overlays { z-index: 4; }
+.gang-env-annotation { position: absolute; left: 0; top: 0; pointer-events: none; }
 /* Trois niveaux de transform indépendants (jamais le même sur le même
    élément, sinon l'un écrase l'autre) :
    - .gang-env-sprite (position) : translate() en JS, transitionné — évite
@@ -359,13 +363,13 @@
   border: 5px solid transparent;
   border-top-color: rgba(255,255,255,.95);
 }
-.gang-env-character .gang-env-speech-bubble {
+.gang-env-speech-bubble.with-portrait {
   display: flex;
   align-items: center;
   gap: 6px;
   max-width: 170px;
 }
-.gang-env-sprite .gang-env-speech-portrait {
+.gang-env-speech-bubble .gang-env-speech-portrait {
   width: 32px;
   height: 40px;
   flex: 0 0 32px;
