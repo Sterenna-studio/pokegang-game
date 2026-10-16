@@ -5,10 +5,9 @@
 //  baladent les Pokémon de la vitrine, l'équipe active du boss, et
 //  occasionnellement un agent ou un Pokémon favori du Pokédex.
 //
-//  v1 volontairement simple (explicitement "test") : pas de canvas,
-//  pas de pathfinding — juste des sprites positionnés en absolu dont
-//  la position cible change périodiquement via une transition CSS.
-//  Les résidents (vitrine + équipe boss) évitent de se superposer et
+//  Déplacements par transitions CSS, sprites animés dans des canvas.
+//  Placement et profondeur suivent les pieds à faible fréquence, sans
+//  pathfinding. Les résidents évitent les destinations occupées et
 //  peuvent occasionnellement se rencontrer (mini-interaction ami/
 //  ennemi) quand ils passent près l'un de l'autre.
 //
@@ -34,6 +33,9 @@ import {
 } from '../modules/systems/vivariumSnapshot.js';
 import { attachPmdSprite, directionFromVector, stopPmdSprites } from './pmdSprites.js';
 import { attachCharacterSprite } from './characterSprites.js';
+import { devFeaturesEnabled } from '../modules/core/devFeatures.js';
+import { createVivariumLayout, pickGroundTarget, readSpritePosition, DEFAULT_FOOTPRINT,
+  groundIndex, groundClearance } from './vivariumLayout.js';
 
 const _t = (fr, en) => (globalThis.state?.lang === 'en' ? en : fr);
 
@@ -62,9 +64,6 @@ const WANDER_MAX_PAUSE_MS = 5500;
 const WANDER_SPEED_MIN    = 26;
 const WANDER_SPEED_MAX    = 70;
 
-const MIN_SPRITE_DIST      = 46;
-const TARGET_RETRY_COUNT   = 5;
-const SEEK_OTHER_CHANCE    = 0.35;
 const INTERACTION_DIST_PX  = 44;
 const INTERACTION_COOLDOWN_MS = 20_000;
 const PROXIMITY_SCAN_MS    = 1200;
@@ -90,6 +89,7 @@ let _resizeObserver = null;
 let _bounds = null;
 let _spriteMode = 'pmd';
 const _pokemonCameos = new Set();
+let _layout = null, _devPanel = null;
 
 function _later(fn, delay) {
   const id = globalThis.setTimeout(() => { _timers.delete(id); fn(); }, delay);
@@ -99,6 +99,8 @@ function _later(fn, delay) {
 function _cancel(id) { globalThis.clearTimeout(id); _timers.delete(id); }
 
 export function stopEnvironmentZone() {
+  _devPanel?.dispose(); _devPanel = null;
+  _layout?.dispose(); _layout = null;
   _timers.forEach(id => globalThis.clearTimeout(id));
   _timers.clear();
   _resizeObserver?.disconnect();
@@ -266,6 +268,33 @@ function _openZoneBgPicker(viewportEl) {
 
 function _setPosition(el, x, y) {
   el.style.transform = `translate(${x}px, ${y}px)`;
+  _layout?.sync(el);
+}
+
+function _initLayout(viewport, bounds) {
+  _layout = createVivariumLayout(viewport, { onBlocked(entry, position) {
+    if (entry.interacting || !_residents.includes(entry)) return;
+    _cancel(entry.timer);
+    entry.el.style.transition = 'none';
+    entry.x = position.x; entry.y = position.y;
+    _setPosition(entry.el, entry.x, entry.y);
+    _animate(entry, 'Idle');
+    entry.el.classList.add('idle');
+    entry.timer = _later(() => _wanderStep(entry, bounds), 600 + Math.random() * 700);
+  } });
+  if (devFeaturesEnabled()) {
+    const layout = _layout, zone = _zoneEl;
+    import('./vivariumDev.js').then(({ mountVivariumDev }) => {
+      if (_layout !== layout || _zoneEl !== zone) return;
+      _devPanel = mountVivariumDev({ zone, viewport, layout, bounds });
+    }).catch(error => console.warn('[vivarium dev]', error));
+  }
+}
+
+function _annotate(entry, node) {
+  if (_layout) return _layout.annotate(entry, node);
+  entry.el.appendChild(node);
+  return () => node.remove();
 }
 
 function _flip(el, movingLeft) {
@@ -284,6 +313,7 @@ function _animate(entry, animation, dx = 0, dy = 0) {
   entry.animation = animation;
   entry.direction = directionFromVector(dx, dy, entry.direction || 0);
   entry.animator?.set(animation, entry.direction);
+  _layout?.moving(entry, animation === 'Walk');
   if (dx || dy) _flip(entry.el, dx < 0);
 }
 
@@ -298,6 +328,7 @@ function _applySpriteMode(entry) {
   entry.el._pmdAnimator = entry.animator;
   entry.animator?.set(entry.animation || 'Idle', entry.direction || 0);
   _flip(entry.el, entry.direction >= 5 && entry.direction <= 7);
+  _layout?.refresh(entry);
 }
 
 function _refreshSpriteModeHint() {
@@ -355,10 +386,21 @@ function _watchBounds(viewportEl, bounds) {
       entry.x = after.minX + rx * (after.maxX - after.minX);
       entry.y = after.minY + ry * (after.maxY - after.minY);
       _setPosition(entry.el, entry.x, entry.y);
+      _layout?.refresh(entry);
       if (!entry.interacting) {
         _cancel(entry.timer);
         entry.timer = _later(() => _wanderStep(entry, bounds), 250);
       }
+    }
+    // Repack only where a narrower viewport actually made feet overlap.
+    for (const entry of _residents) {
+      const footprint = entry.animator?.footprint || DEFAULT_FOOTPRINT;
+      const foot = { x: entry.x + 24, y: entry.y + 40, ...footprint };
+      if (!_layout?.occupied(entry).some(other => groundClearance(foot, other) < 1)) continue;
+      const next = _pickTarget(entry, bounds, false);
+      entry.x = next.x; entry.y = next.y;
+      _setPosition(entry.el, entry.x, entry.y);
+      _layout.refresh(entry);
     }
   });
   _resizeObserver.observe(viewportEl);
@@ -369,12 +411,7 @@ function _dist(ax, ay, bx, by) {
 }
 
 function _currentPos(el) {
-  const t = getComputedStyle(el).transform;
-  if (!t || t === 'none') return { x: 0, y: 0 };
-  const m = t.match(/matrix\(([^)]+)\)/);
-  if (!m) return { x: 0, y: 0 };
-  const parts = m[1].split(',').map(parseFloat);
-  return { x: parts[4] || 0, y: parts[5] || 0 };
+  return readSpritePosition(el);
 }
 
 function _residentRange(entry, bounds) {
@@ -385,28 +422,9 @@ function _residentRange(entry, bounds) {
     maxY: bounds.groundTop + Math.max(0, bounds.groundHeight - entry.h - inset.bottom) };
 }
 
-function _pickTarget(entry, bounds) {
-  const { minX, maxX, minY, maxY } = _residentRange(entry, bounds);
-  const others = _residents.filter(r => r !== entry);
-
-  if (others.length > 0 && Math.random() < SEEK_OTHER_CHANCE) {
-    const target = others[Math.floor(Math.random() * others.length)];
-    const angle = Math.random() * Math.PI * 2;
-    const approachDist = MIN_SPRITE_DIST + Math.random() * 20;
-    const x = Math.min(maxX, Math.max(minX, target.x + Math.cos(angle) * approachDist));
-    const y = Math.min(maxY, Math.max(minY, target.y + Math.sin(angle) * approachDist));
-    return { x, y };
-  }
-
-  let best = null;
-  for (let i = 0; i < TARGET_RETRY_COUNT; i++) {
-    const x = minX + Math.random() * (maxX - minX);
-    const y = minY + Math.random() * (maxY - minY);
-    const tooClose = others.some(o => _dist(x, y, o.x, o.y) < MIN_SPRITE_DIST);
-    if (!tooClose) return { x, y };
-    best = { x, y };
-  }
-  return best || { x: minX, y: minY };
+function _pickTarget(entry, bounds, seek = true) {
+  return pickGroundTarget(_residentRange(entry, bounds), entry.animator?.footprint || DEFAULT_FOOTPRINT,
+    _layout?.occupied(entry) || [], { seek });
 }
 
 function _wanderStep(entry, bounds) {
@@ -443,7 +461,7 @@ function _spawnResident(viewportEl, imgUrl, label, bounds, meta = {}) {
   const x = Math.random() * Math.max(0, bounds.width - 48);
   const y = bounds.groundTop + Math.random() * bounds.groundHeight;
   _setPosition(el, x, y);
-  viewportEl.appendChild(el);
+  (_layout?.actorLayer || viewportEl).appendChild(el);
 
   const entry = {
     data: meta,
@@ -451,12 +469,12 @@ function _spawnResident(viewportEl, imgUrl, label, bounds, meta = {}) {
     interacting: false, lastPartner: null, lastInteractionAt: 0, lastClickAt: 0, timer: null,
   };
   _applySpriteMode(entry);
-  const range = _residentRange(entry, bounds);
-  entry.x = range.minX + Math.random() * (range.maxX - range.minX);
-  entry.y = range.minY + Math.random() * (range.maxY - range.minY);
+  const position = _pickTarget(entry, bounds, false);
+  entry.x = position.x; entry.y = position.y;
   _setPosition(el, entry.x, entry.y);
   el.addEventListener('click', () => _onResidentClick(viewportEl, entry, bounds));
   _residents.push(entry);
+  _layout?.register(entry, { yieldable: true });
   entry.timer = _later(() => _wanderStep(entry, bounds), 200 + Math.random() * 2000);
   return entry;
 }
@@ -469,8 +487,8 @@ function _showClickBadge(entry) {
   const badge = document.createElement('div');
   badge.className = 'gang-env-click-badge';
   badge.textContent = [icon, entry.label, info].filter(Boolean).join(' ');
-  entry.el.appendChild(badge);
-  _later(() => badge.remove(), 2400);
+  const remove = _annotate(entry, badge);
+  _later(remove, 2400);
 }
 
 function _onResidentClick(viewportEl, entry, bounds) {
@@ -508,8 +526,8 @@ function _showInteractionBadge(entryA, kind) {
   const badge = document.createElement('div');
   badge.className = `gang-env-interact ${kind.hostile ? 'enemy' : 'friend'}`;
   badge.textContent = kind.icon;
-  entryA.el.appendChild(badge);
-  _later(() => badge.remove(), INTERACTION_BADGE_MS);
+  const remove = _annotate(entryA, badge);
+  _later(remove, INTERACTION_BADGE_MS);
 }
 
 function _endInteraction(entry, bounds) {
@@ -551,12 +569,15 @@ function _triggerInteraction(viewportEl, entryA, entryB, bounds) {
 function _scheduleProximityScan(viewportEl, bounds) {
   _later(() => {
     if (!viewportEl.isConnected) return;
-    for (let i = 0; i < _residents.length; i++) {
-      for (let j = i + 1; j < _residents.length; j++) {
-        const a = _residents[i], b = _residents[j];
+    // Read each actual CSS position once, then examine only nearby actors.
+    const points = _residents.map((entry, order) => ({ ..._currentPos(entry.el), entry, order }));
+    const index = groundIndex(points);
+    for (const point of points) {
+      for (const other of index.neighbors(point)) {
+        if (other.order <= point.order) continue;
+        const a = point.entry, b = other.entry;
         if (a.interacting || b.interacting) continue;
-        const posA = _currentPos(a.el), posB = _currentPos(b.el);
-        if (_dist(posA.x, posA.y, posB.x, posB.y) < INTERACTION_DIST_PX) {
+        if (_dist(point.x, point.y, other.x, other.y) < INTERACTION_DIST_PX) {
           _triggerInteraction(viewportEl, a, b, bounds);
         }
       }
@@ -576,8 +597,9 @@ function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl, dialogueLi
   const baseY  = bounds.groundTop + Math.random() * bounds.groundHeight;
   _setPosition(el, startX, baseY);
   _flip(el, !fromLeft);
-  viewportEl.appendChild(el);
-  const cameo = { el, data: pokemon, direction: fromLeft ? 2 : 6, animation: 'Walk' };
+  (_layout?.actorLayer || viewportEl).appendChild(el);
+  const cameo = { el, x: startX, y: baseY, w: 44, h: 44, label,
+    data: pokemon || character, direction: fromLeft ? 2 : 6, animation: 'Walk' };
   if (pokemon) {
     _applySpriteMode(cameo);
     _pokemonCameos.add(cameo);
@@ -592,10 +614,13 @@ function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl, dialogueLi
     }
   }
 
+  _layout?.register(cameo);
+
   const bubble = dialogueLine ? document.createElement('div') : null;
   if (bubble) {
     bubble.className = `gang-env-speech-bubble${hostile ? ' hostile' : ''}`;
     if (character && cameo.animator) {
+      bubble.classList.add('with-portrait');
       const portrait = document.createElement('img');
       portrait.className = 'gang-env-speech-portrait';
       portrait.src = imgUrl;
@@ -625,6 +650,7 @@ function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl, dialogueLi
     const dist = Math.max(1, _dist(cur.x, cur.y, x, y));
     const speed = CAMEO_SPEED_PX_PER_S * (0.7 + Math.random() * 0.6);
     const duration = Math.max(0.8, dist / speed);
+    cameo.x = x; cameo.y = y;
 
     el.classList.remove('idle');
     _animate(cameo, 'Walk', x - cur.x, y - cur.y);
@@ -636,10 +662,10 @@ function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl, dialogueLi
       _animate(cameo, 'Idle');
       if (leg === bubbleLeg) {
         el.classList.add('idle');
-        el.appendChild(bubble);
+        _annotate(cameo, bubble);
       }
       if (leg >= legs) {
-        _later(() => { cameo.animator?.destroy(); _pokemonCameos.delete(cameo); el.remove(); }, 300);
+        _later(() => { _layout?.unregister(cameo); cameo.animator?.destroy(); _pokemonCameos.delete(cameo); el.remove(); }, 300);
         return;
       }
       const shouldPause = leg === bubbleLeg || Math.random() < CAMEO_PAUSE_CHANCE;
@@ -753,6 +779,7 @@ export function renderEnvironmentZone(rootContainer) {
   };
 
   _watchBounds(viewportEl, bounds);
+  _initLayout(viewportEl, bounds);
   const residents = buildVivariumResidents(state);
   for (const r of residents) {
     _spawnResident(viewportEl, r.spriteUrl, r.label, bounds, r);
@@ -807,6 +834,7 @@ export function renderEnvironmentZoneFromSnapshot(rootContainer, blob) {
   };
 
   _watchBounds(viewportEl, bounds);
+  _initLayout(viewportEl, bounds);
   const residents = blob?.residents || [];
   for (const r of residents) {
     _spawnResident(viewportEl, r.spriteUrl, r.label, bounds, r);
@@ -843,7 +871,7 @@ export function updateEnvironmentSnapshot(blob) {
     let entry = existing.get(key(data, i));
     existing.delete(key(data, i));
     if (entry && (entry.data.dex !== data.dex || entry.data.shiny !== data.shiny || entry.data.spriteUrl !== data.spriteUrl)) {
-      _cancel(entry.timer); entry.animator?.destroy(); entry.el.remove(); entry = null;
+      _cancel(entry.timer); _layout?.unregister(entry); entry.animator?.destroy(); entry.el.remove(); entry = null;
     }
     if (!entry) entry = _spawnResident(viewportEl, data.spriteUrl, data.label, _bounds, data);
     entry.data = data;
@@ -852,7 +880,7 @@ export function updateEnvironmentSnapshot(blob) {
     next.push(entry);
   }
   for (const entry of existing.values()) {
-    _cancel(entry.timer); entry.animator?.destroy(); entry.el.remove();
+    _cancel(entry.timer); _layout?.unregister(entry); entry.animator?.destroy(); entry.el.remove();
   }
   _residents = next;
   if (residents.length === 0) {

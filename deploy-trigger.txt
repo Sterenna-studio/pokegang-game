@@ -4,6 +4,6 @@ Auto-updated on every commit by .githooks/pre-commit.
 Garantit qu'un marqueur horodaté est présent dans chaque commit
 et que le workflow GitHub Actions se déclenche.
 
-Last update : 2026-10-16 04:13:32 +0200
-Branch      : feat/vivarium-hgss-characters
-Previous sha: 70d8e92
+Last update : 2026-10-16 05:37:35 +0200
+Branch      : feat/vivarium-layout-debug
+Previous sha: d686ab0
