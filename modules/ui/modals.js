@@ -11,6 +11,7 @@
 
 import { SFX } from './audio.js';
 import { esc as _esc } from '../core/escape.js';
+import { getObsoleteSaveZoneIds } from '../../state/zoneCatalog.js';
 
 const MODAL_EN = {
   confirm_label:'Confirm', cancel_label:'Cancel',
@@ -204,6 +205,7 @@ function showConfirm(message, onConfirm, onCancel = null, opts = {}) {
   const modal = document.createElement('div');
   modal.id = 'confirmModal';
   modal.style.cssText = 'position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,.82);display:flex;align-items:center;justify-content:center;';
+  if (Number.isFinite(opts.zIndex)) modal.style.zIndex = String(opts.zIndex);
 
   const danger = opts.danger ? 'var(--red)' : 'var(--gold-dim)';
   const confirmLabel = opts.confirmLabel || _t('confirm_label', 'Confirmer');
@@ -582,7 +584,7 @@ function openImportPreviewModal(raw) {
         }
       },
       null,
-      { confirmLabel: _t('btn_import_confirm', 'Importer'), cancelLabel: _t('btn_cancel', 'Annuler') }
+      { zIndex: 21000, confirmLabel: _t('btn_import_confirm', 'Importer'), cancelLabel: _t('btn_cancel', 'Annuler') }
     );
   });
 
@@ -720,8 +722,7 @@ function openHubImportModal(raw) {
   const schemaVer   = raw._schemaVersion ?? raw.version ?? '?';
 
   // Detect potential orphan zones
-  const validIds = new Set(ZONES.map(z => z.id));
-  const orphanZones = Object.keys(raw.zones || {}).filter(id => !validIds.has(id));
+  const orphanZones = getObsoleteSaveZoneIds(raw);
 
   // ── Slot picker HTML ─────────────────────────────────────────────────────
   const slotHtml = [0, 1, 2].map(i => {
@@ -893,7 +894,7 @@ function openHubImportModal(raw) {
         }
       },
       null,
-      { confirmLabel: _t('btn_import_confirm', 'Importer'), cancelLabel: _t('btn_cancel', 'Annuler') }
+      { zIndex: 21000, confirmLabel: _t('btn_import_confirm', 'Importer'), cancelLabel: _t('btn_cancel', 'Annuler') }
     );
   });
 }
