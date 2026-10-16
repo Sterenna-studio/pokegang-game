@@ -29,6 +29,7 @@ export function mountVivariumDev({ zone, viewport, layout, bounds }) {
         Les empreintes limitent les regroupements ; elles ne sont pas des collisions rigides.
         Les enveloppes peuvent inclure du transparent.</p>
       <p>Fermer ce panneau coupe les dessins de debug. Échap pour replier.</p>
+      <p><a href="${new URL('../tools/gang-base-history/index.html', import.meta.url).href}" target="_blank" rel="noopener noreferrer">Comparer les anciennes bases du gang ↗</a></p>
     </div>`;
   document.body.appendChild(panel);
   const canvas = document.createElement('canvas');

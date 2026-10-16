@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>PokéGang · Histoire de la base</title>
+  <link rel="stylesheet" href="gallery.css">
+</head>
+<body>
+  <header>
+    <nav><a href="../../index.html">← Jeu en preview</a><a href="../../gang/">Vivarium</a></nav>
+    <p class="eyebrow">PokéGang · laboratoire</p>
+    <h1>Les versions de la base</h1>
+    <p>Du premier panneau aux essais de QG, de V3 et d’étagères : comparer les dispositions réalisées entre avril et octobre 2026.</p>
+    <p class="notice">Rendus reconstitués depuis les commits Git avec une même sauvegarde de démonstration et les résolveurs de sprites actuels. Ce ne sont pas des captures d’époque. Images fixes : les boutons représentés ne sont pas interactifs. Aucun accès à ta sauvegarde.</p>
+  </header>
+  <main>
+    <p id="status" role="status">Chargement du catalogue…</p>
+    <form id="controls" hidden>
+      <label>Version principale<select id="version" aria-label="Version principale"></select></label>
+      <label class="check"><input id="compare" type="checkbox"> Comparer deux versions</label>
+      <label id="compareChoice" hidden>Deuxième version<select id="otherVersion" aria-label="Deuxième version"></select></label>
+    </form>
+    <div id="views">
+      <figure id="primary"></figure>
+      <figure id="secondary" hidden></figure>
+    </div>
+  </main>
+  <footer>Captures du code PokéGang. Graphismes Pokémon : crédits et provenance du projet conservés. <a href="README.md">Méthode et limites</a>.</footer>
+  <script type="module" src="gallery.js"></script>
+</body>
+</html>
