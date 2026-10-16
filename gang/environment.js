@@ -39,6 +39,7 @@ import { HQ_AREAS, wantsHq, hqRange, cameoLocation, vivariumDisplay } from '../m
 import { devFeaturesEnabled } from '../modules/core/devFeatures.js';
 import { EventBus, EVENTS } from '../modules/core/eventBus.js';
 import { collectVivariumWing } from '../modules/systems/vivariumRewards.js';
+import { vivariumSpeechDuration } from './vivariumSpeech.js';
 import { createVivariumLayout, pickGroundTarget, readSpritePosition, DEFAULT_FOOTPRINT,
   groundIndex, groundClearance } from './vivariumLayout.js';
 
@@ -719,7 +720,19 @@ function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl, dialogueLi
   let leg = 0;
   let legTimer = null, arrival = null, moving = false, speedFactor = 1;
   let legSpeed = CAMEO_SPEED_PX_PER_S;
-  let removeClickBubble = null, clickBubbleTimer = null;
+  let removeSpeech = null, speechTimer = null, continueAfterSpeech = null;
+
+  function speak(node) {
+    removeSpeech?.();
+    _cancel(speechTimer);
+    const duration = vivariumSpeechDuration(node.textContent);
+    node.style.setProperty('--speech-duration', `${duration}ms`);
+    const visual = cameo.animator?.visualBounds || cameo.fallbackMetrics?.visualBounds;
+    node.style.bottom = `${Math.max(cameo.h, cameo.h - (visual?.y || 0))}px`;
+    removeSpeech = _annotate(cameo, node);
+    speechTimer = _later(() => { removeSpeech?.(); removeSpeech = null; }, duration);
+    return duration;
+  }
 
   function moveToTarget() {
     const cur = _currentPos(el);
@@ -735,8 +748,6 @@ function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl, dialogueLi
 
   function react() {
     if (!el.isConnected) return;
-    removeClickBubble?.();
-    _cancel(clickBubbleTimer);
     const reaction = document.createElement('div');
     reaction.className = 'gang-env-speech-bubble';
     const hooh = pokemon?.dex === 250;
@@ -751,8 +762,7 @@ function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl, dialogueLi
     }
     reaction.textContent = hooh ? (rewarded ? _t('🪶 +1 Arcenci’Aile !', '🪶 +1 Rainbow Wing!') : '🌈 Ho-Oh !')
       : dialogueLine || _t(`${label} vous salue !`, `${label} greets you!`);
-    removeClickBubble = _annotate(cameo, reaction);
-    clickBubbleTimer = _later(() => { removeClickBubble?.(); removeClickBubble = null; }, 2200);
+    const readingTime = speak(reaction);
     if (hooh) {
       speedFactor = Math.min(8, speedFactor * 1.4);
       el.dataset.speedFactor = String(speedFactor);
@@ -767,6 +777,24 @@ function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl, dialogueLi
         _cancel(legTimer);
         nextLeg();
       }
+    } else if (leg < legs) {
+      // Hold a talking character long enough to read, then resume the same
+      // movement leg (or the next leg if it was already resting).
+      _cancel(legTimer);
+      if (moving) {
+        continueAfterSpeech = moveToTarget;
+        const position = _currentPos(el);
+        el.style.transition = 'none';
+        _setPosition(el, position.x, position.y);
+        _animate(cameo, 'Idle');
+        moving = false;
+      } else continueAfterSpeech ||= nextLeg;
+      el.classList.add('idle');
+      legTimer = _later(() => {
+        const resume = continueAfterSpeech;
+        continueAfterSpeech = null;
+        resume?.();
+      }, readingTime);
     }
   }
   el.addEventListener('click', react);
@@ -793,9 +821,10 @@ function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl, dialogueLi
     arrival = () => {
       if (!el.isConnected) return;
       _animate(cameo, 'Idle');
+      let readingTime = 0;
       if (leg === bubbleLeg) {
         el.classList.add('idle');
-        _annotate(cameo, bubble);
+        readingTime = speak(bubble);
       }
       if (leg >= legs) {
         _later(() => { _layout?.unregister(cameo); cameo.animator?.destroy(); _pokemonCameos.delete(cameo); el.remove(); }, 300);
@@ -806,7 +835,7 @@ function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl, dialogueLi
       const pause = shouldPause
         ? CAMEO_PAUSE_MIN_MS + Math.random() * (CAMEO_PAUSE_MAX_MS - CAMEO_PAUSE_MIN_MS)
         : 80 + Math.random() * 200;
-      legTimer = _later(nextLeg, pause / speedFactor);
+      legTimer = _later(nextLeg, Math.max(isHooh ? 0 : readingTime, pause / speedFactor));
     };
     moveToTarget();
   }

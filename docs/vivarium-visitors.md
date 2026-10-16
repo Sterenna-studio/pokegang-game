@@ -13,8 +13,17 @@ Un Ho-Oh résident conserve ses interactions de résident et ne donne pas d’ai
 Chaque activation d’un Ho-Oh visiteur accorde une Arcenci’Aile dans l’inventaire
 et multiplie sa vitesse par 1,4, jusqu’à ×8. Le trajet CSS est repris depuis la
 position courante, sans téléportation et sans empiler des timers. Les bulles
-répétées se remplacent. Le personnage continue sa traversée puis disparaît.
-Les autres visiteurs conservent leur vitesse, leurs pauses et leurs dialogues.
+répétées se remplacent. Ho-Oh continue sa traversée puis disparaît.
+Les autres visiteurs conservent leur vitesse et leurs dialogues ; ils s’arrêtent
+pour parler pendant le temps de lecture, puis reprennent leur trajet.
+
+Les bulles restent affichées de 6,5 à 14 secondes selon la longueur du texte,
+avec une police légèrement agrandie. Une bulle créée en cours de marche partage
+les keyframes et l’horloge de la transition du personnage, dans le calque des
+annotations : elle ne commence plus un trajet indépendant qui la ferait dériver.
+Une accélération ou un arrêt recale aussi la bulle. L’ancrage vertical tient
+compte du sprite, y compris en True size. Les animations de suivi sont annulées
+avec la bulle, le personnage ou le panneau. Pas de RAF ou d’intervalle ajouté.
 
 Dans le jeu principal, la récompense émet ITEM_RECEIVED comme les drops de
 zone : la quête Ho-Oh progresse une seule fois. Dans la page cosmétique, qui
@@ -42,11 +51,14 @@ Validation : `node tools/test-vivarium-visitors.mjs` et
 `node tools/check-vivarium-visitors-browser.mjs` (Chromium isolé, vrais PNG,
 longs timers de visite pilotés). Ce dernier vérifie clic, clavier, accélération,
 récompense persistée sur sauvegarde fraîche, passage de quête 2→3, bulle unique,
-cible mobile, snapshots sans localStorage et annulation des timers.
+cible mobile, snapshots sans localStorage et annulation des timers. Le parcours
+personnages vérifie aussi, pendant une vraie transition CSS, qu’une annotation
+ajoutée en cours de marche reste à moins de deux pixels de son personnage.
+La durée minimale et la pause de lecture sont vérifiées dans le navigateur.
 
 Les 48 suites Node passent, ainsi que les parcours Chromium visiteurs, QG,
 personnages, placement/debug et PMD. Contrôles d’événements/appels morts et
-cache-busting valides. Build itch généré : 51,02 Mo, 2641 entrées ; pas
+cache-busting valides. Build itch généré : 51,02 Mo, 2643 entrées ; pas
 d’upload itch. Les tests mobiles sont des viewports Chromium, pas un essai
 sur téléphone physique. OBS est testé par snapshots injectés, sans connexion
 réelle au service cloud. Aucun compteur de tokens exact n’est exposé.

@@ -102,6 +102,8 @@ try {
       runTimer([...pending].find(([, job]) => job.ms === 0)[0]);
       document.querySelector('.gang-env-cameo').click();
       if (!document.querySelector('.gang-env-speech-bubble').textContent.includes('entre deux patrouilles')) throw Error('Assigned agent has no contextual click dialogue');
+      if (!document.querySelector('.gang-env-cameo').classList.contains('idle')) throw Error('Talking agent did not pause');
+      if (![...pending.values()].some(job => job.ms >= 6500 && job.ms <= 14000)) throw Error('Insufficient reading time');
       env.stopEnvironmentZone();
       if (pending.size) throw Error('Agent visit timers leaked');
     } finally { Object.defineProperty(window, 'localStorage', descriptor); }
