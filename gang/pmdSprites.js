@@ -126,12 +126,21 @@ export function createPmdRenderer({ metadata = PMD_METADATA, doc = document,
     const largest = Math.max(...Object.values(variant).flatMap(a => [a.w, a.h]));
     const scale = Math.min(2, 88 / largest);
     const animations = Object.values(variant);
+    const width = Math.max(...animations.map(a => a.w * scale));
+    const height = Math.max(...animations.map(a => a.h * scale));
+    const footprint = { rx: Math.max(12, Math.min(26, width / 4)),
+      ry: Math.max(6, Math.min(12, height / 10)) };
+    const left = Math.min(...animations.map(a => 24 - a.ax * scale));
+    const top = Math.min(...animations.map(a => 40 - a.ay * scale));
+    const visualBounds = { x: left, y: top,
+      w: Math.max(...animations.map(a => 24 + (a.w - a.ax) * scale)) - left,
+      h: Math.max(...animations.map(a => 40 + (a.h - a.ay) * scale)) - top };
     const insets = {
       left: Math.max(0, ...animations.map(a => a.ax * scale - 24)),
       right: Math.max(0, ...animations.map(a => 24 + (a.w - a.ax) * scale - 48)),
       bottom: Math.max(0, ...animations.map(a => 40 + (a.h - a.ay) * scale - 48)),
     };
-    const actor = { host, insets, sheets: new Set(), elapsed: 0, direction: 0, animation: '',
+    const actor = { host, insets, footprint, visualBounds, sheets: new Set(), elapsed: 0, direction: 0, animation: '',
       sheet: null, meta: null, disposed: false, drawn: '',
       draw() {
         const a = actor.meta, sheet = actor.sheet;
