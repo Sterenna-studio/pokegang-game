@@ -378,8 +378,8 @@ function _refreshSpriteModeHint() {
   hint.textContent = count
     ? _t(`${count}/${total} Pokémon compatibles ${mode}`, `${count}/${total} Pokémon support ${mode}`)
     : _t(`Pas de sprites ${mode} pour ces Pokémon.`, `No ${mode} sprites for these Pokémon.`);
-  hint.title = _t('Les Pokémon sans animations Donjon Mystère disponibles conservent leurs sprites 2D.',
-    'Pokémon without available Mystery Dungeon animations keep their 2D sprites.');
+  hint.title = _t('Les Pokémon sans animations disponibles dans le mode choisi conservent leurs sprites 2D.',
+    'Pokémon without available animations in the selected mode keep their 2D sprites.');
 }
 
 function _bindSpriteModeSelector(zoneEl) {
