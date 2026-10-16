@@ -59,8 +59,9 @@ POKEGANG_PMD_REAL_ASSETS=1 node tools/check-vivarium-pmd-browser.mjs
 ```
 
 Les scripts Chromium nécessitent `POKEGANG_PLAYWRIGHT_PATH` et éventuellement
-`POKEGANG_CHROMIUM_PATH`. Le test de personnages décode les vrais PNG et anime
-leurs frames dans Chromium, mais déclenche explicitement les timers de trajet
+`POKEGANG_CHROMIUM_PATH`. `POKEGANG_CHARACTERS_BASE_URL` permet de vérifier le runtime
+publié sur le lab dans un profil isolé, sans compte ni sauvegarde réelle.
+Le test décode les vrais PNG et anime leurs frames dans Chromium, mais déclenche explicitement les timers de trajet
 pour contrôler les apparitions. Les portraits de ce test sont des fixtures ;
 les portraits du jeu ne sont pas remplacés. Les tests PMD existants couvrent
 aussi les sources, les rencontres, le clic, le fond, le mobile et les sauvegardes.
