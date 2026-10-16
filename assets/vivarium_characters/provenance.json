@@ -1,0 +1,238 @@
+{
+  "source": "https://eeveeexpo.com/resources/609/",
+  "archive_sha256": "e9d240918b62460c76d56ec9e5d4067a4ee853979d16a6657c05917d9bfd2b99",
+  "credit": "PurpleZaffre",
+  "resources": [
+    {
+      "key": "nurse",
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/NPC_115_Nurse_1.png",
+      "source_sha256": "05f056d424d489155063f917f2572d43b4cee4477de9cf730313202a43fb2b0b",
+      "file": "nurse/Walk.png",
+      "sha256": "2234fcb09b18d3624d52eaf6edbe82d581c272e46625646a5a8d44c70f3a5622"
+    },
+    {
+      "key": "scientist",
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/NPC_054_Scientist_M.png",
+      "source_sha256": "337e6146967eb76b2db757eec013c38c27b0f7ed8561fe4035e4b146bf2ab373",
+      "file": "scientist/Walk.png",
+      "sha256": "a2c8d84d017f78cfade22997a14400fbf84a38df1f6a9685ac9d79a1a929cff2"
+    },
+    {
+      "key": "rocketgrunt",
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/NPC_184_Rocket_Grunt_M.png",
+      "source_sha256": "4972edb056136df170ecc30aa10c984711293dd832b7068bbfbb2646e964b5b5",
+      "file": "rocketgrunt/Walk.png",
+      "sha256": "82d3bf86c51607336b481e1dedce278122dfffcae0fbde065322c799fe9a95f4"
+    },
+    {
+      "key": "rocketgruntf",
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/NPC_185_Rocket_Grunt_F.png",
+      "source_sha256": "ccf7274cf36f21096feebefe6555c2c55dc6ce5bd21cf11ea7f3819f58278576",
+      "file": "rocketgruntf/Walk.png",
+      "sha256": "a0a5cb728f3bea2d35404da329c552aa5c97d9c803bd7faba36b8e85a074fd16"
+    },
+    {
+      "key": "archer",
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/NPC_189_Rocket_Executive_Archer.png",
+      "source_sha256": "015d402916106dc00f4ae7c5149caa514da9bf8ded3c37a76f73021c68096238",
+      "file": "archer/Walk.png",
+      "sha256": "ed557d8f2e5e5298eff8567699ef01879805ee66be2d1a3fdd3974dea97294b7"
+    },
+    {
+      "key": "ariana",
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/NPC_188_Rocket_Executive_Ariana.png",
+      "source_sha256": "8845fe3574c0d715e40a1185756664671ed8fb6c345867c4e5b6977d86792d4d",
+      "file": "ariana/Walk.png",
+      "sha256": "c5dfbd5ef66ed069bbb6c07c2ee89c655e97457e2a6236f939880e62663119be"
+    },
+    {
+      "key": "proton",
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/NPC_187_Rocket_Executive_Proton.png",
+      "source_sha256": "20e4bc52ca7671d99ec0e491ad4829ba71c734b92033e8561017ae63eb0424fa",
+      "file": "proton/Walk.png",
+      "sha256": "8d95da2d0b5a49ccd2f7b7f833cca2b690d444e947afc24a7fd492368eef8d43"
+    },
+    {
+      "key": "giovanni",
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/NPC_190_Rocket_Boss_Giovanni.png",
+      "source_sha256": "75cbd61f816d65dafd6d85680adf7eabedf629b05da05c05e901de25fd4f1a10",
+      "file": "giovanni/Walk.png",
+      "sha256": "8293670e71161d6e4bde898c1023cf1863bd8bb6bcd814bc320b5547a9eec4c9"
+    },
+    {
+      "key": "acetrainer",
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/NPC_001_Ace_Trainer_M.png",
+      "source_sha256": "05ce72450da42c9bdbafbabd499c733478b5189da06a666110c93314a9d7f985",
+      "file": "acetrainer/Walk.png",
+      "sha256": "12a031bd8ba17a3e7bacde4f3952ff295a39619b3525db7a59e6419cea62b685"
+    },
+    {
+      "key": "acetrainerf",
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/NPC_002_Ace_Trainer_F.png",
+      "source_sha256": "24136fa8be04e98e3c4923b14449b86179f9c03609d2f229534f7d9a1c93ace2",
+      "file": "acetrainerf/Walk.png",
+      "sha256": "9113ad4e5ac0ba73a2d62c92e19d1daa3762aa50e981080c0c8b2ac4558f0984"
+    },
+    {
+      "key": "pokefan",
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/NPC_040_Poke_Fan_M.png",
+      "source_sha256": "f30be3728c0a24a1d71d31b23a8861bdbee67bcebab6f15f2adc084f5ff60a08",
+      "file": "pokefan/Walk.png",
+      "sha256": "f5991e2918b247e25b695e0dbef4baccad98ec83e0af2b7f1479d2f6f7b4b57d"
+    },
+    {
+      "key": "pokefanf",
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/NPC_041_Poke_Fan_F.png",
+      "source_sha256": "5e0d8a11632c908285ba62e52a86e73441bd8053968545ad2c1d76f573da1826",
+      "file": "pokefanf/Walk.png",
+      "sha256": "c582ff1d507fda32169c589a239c331f00f5e60deb1d373570cd0b852a9bc4bd"
+    },
+    {
+      "key": "camper",
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/NPC_015_Camper.png",
+      "source_sha256": "88fb2fdd3cb8de4cd67036d74ad1ce6a931d22a1687b8162458fb46e868a0daf",
+      "file": "camper/Walk.png",
+      "sha256": "d3f08217eed959e95946af0ced132f6477d4ab8a307cb93a32d1db74abb25554"
+    },
+    {
+      "key": "picnicker",
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/NPC_016_Picnicker.png",
+      "source_sha256": "fb5d9ad83d6da0cb17bcf6f133852b02976d7b2981c389ddbcb481b6718d7711",
+      "file": "picnicker/Walk.png",
+      "sha256": "b492e036fe3537a6b84759a9c920526dd3eadff65b510fb1c9e46d7fe66b63ae"
+    },
+    {
+      "key": "youngster",
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/NPC_024_Youngster.png",
+      "source_sha256": "d2465bdf3aeaa6a0c7c62cbb8ad2da671cdfbfee4422e79ca5d0a8445db3dd91",
+      "file": "youngster/Walk.png",
+      "sha256": "254137d5fc8afd61016d85a56e797addae9a401b7349336c9483ab370d581a6a"
+    },
+    {
+      "key": "lass",
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/NPC_026_Lass.png",
+      "source_sha256": "d2bea855f1576a64e5bc05e334af10eeb0219c7b2d99967e440e98deaf93f1e5",
+      "file": "lass/Walk.png",
+      "sha256": "bf733cb83b746a809c5c747ee6dd3d5834a251a5c6be40641bf1b74f2269d455"
+    },
+    {
+      "key": "bugcatcher",
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/NPC_014_Bug_Catcher.png",
+      "source_sha256": "d822fc2748e1ec7408cee022932449bc5391677b1322980fee7b4dc6a5cce579",
+      "file": "bugcatcher/Walk.png",
+      "sha256": "1341be15ab5b14eccd283ba10e38d4c4a45a13a97ca727bfa53f8b4b13b57167"
+    },
+    {
+      "key": "hiker",
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/NPC_046_Hiker.png",
+      "source_sha256": "6083839ee06400d4d0f9d451659156d1e4e3f7a3ba7e5340469ea7e4e1e9efee",
+      "file": "hiker/Walk.png",
+      "sha256": "8f4870415414aa18b42024e775309400fc1170f9fc18fe8f2c75a5c7a7a4e84b"
+    },
+    {
+      "key": "fisherman",
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/NPC_068_Fisherman.png",
+      "source_sha256": "ce1b82ff6545fab7dda5f4987afd9ddc06b8879e45a8596fdb5048971339f49f",
+      "file": "fisherman/Walk.png",
+      "sha256": "b048508c5d87e1602915eeef4982682219077065540493dc55f8f53c7d6073d5"
+    },
+    {
+      "key": "beauty",
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/NPC_045_Beauty.png",
+      "source_sha256": "f089d1c61405b97ffa12526701ac9b93481efd8c4017b7b9cfb7885e9134d3c3",
+      "file": "beauty/Walk.png",
+      "sha256": "d4da32ce47d197c3aa22e489e2dfbbb78db8ce00738452c0819d5be8d765d150"
+    },
+    {
+      "key": "blackbelt",
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/NPC_007_Black_Belt.png",
+      "source_sha256": "ee2c5dc9a9cd91b3fbd333d4b71d822600159b39c894d98ece3f471347b4182b",
+      "file": "blackbelt/Walk.png",
+      "sha256": "d6850611076b6bc4fb1f813e99669ba5419138515fa8a5e33069f363d818029a"
+    },
+    {
+      "key": "swimmer",
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/NPC_028_Swimmer_M.png",
+      "source_sha256": "66692f970fe55c4014507e38536840b905676663317ebe7de8c025d824817c40",
+      "file": "swimmer/Walk.png",
+      "sha256": "81c2d321db16c9e54916230d5552693a659c8088fdf72f45e84410a79e1d72a1"
+    },
+    {
+      "key": "swimmerf",
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/NPC_030_Swimmer_F.png",
+      "source_sha256": "aa307f6c6a54ce5c620a7d39a9a96c9a77a0ecd4ce8b60fa1022e11a609dbb3b",
+      "file": "swimmerf/Walk.png",
+      "sha256": "ed025ea69a5438852930c4cad64e1d851bd607b6f4e297143fefcaa98882d3e3"
+    },
+    {
+      "key": "gentleman",
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/NPC_037_Gentleman.png",
+      "source_sha256": "572ec812ae3174127f9be6496f94637ca0cee357bf2cc57819ccd63bb28cc943",
+      "file": "gentleman/Walk.png",
+      "sha256": "2fb237c42fa13dba5aaab86ee5d822bcdaafbac1d4be3d124161035bf88901c1"
+    },
+    {
+      "key": "juggler",
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/NPC_086_Juggler.png",
+      "source_sha256": "0604b54e9913b768e786a9524d5eb8b4714fe00f68311556ce84c5acd0a5fcbc",
+      "file": "juggler/Walk.png",
+      "sha256": "7487c71746478d8ac613ff384f732ce1868b17c7e8970fe9237a3b7ad7264800"
+    },
+    {
+      "key": "burglar",
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/NPC_085_Burglar.png",
+      "source_sha256": "a3b5cb99360077fc2e3207bf0b9c6589f6ced5723c7300cc809cbd6ef029c6c6",
+      "file": "burglar/Walk.png",
+      "sha256": "c0a15637f110ac9d8f5a04dc3dfe3956fe3c8c9fa5b8811ff45dce77644bbaea"
+    },
+    {
+      "key": "boarder",
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/NPC_010_Boarder.png",
+      "source_sha256": "9564ba670e7fef7235e55c29d5ed0060d934c2baceafe07e5007f7df14adc6c0",
+      "file": "boarder/Walk.png",
+      "sha256": "8a8fb8caef4b9e7e1245decd45dd41051f2c84193aef4387aef3de479334d192"
+    },
+    {
+      "key": "kimonogirl",
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/NPC_071_Kimono_Girl.png",
+      "source_sha256": "075e5a3fd2873ed020b7372e2dd05b487ff65453560e2c2cb911ff4b35516dbf",
+      "file": "kimonogirl/Walk.png",
+      "sha256": "3296ab1b5f4e08204099c17aadd60d1435bfd130f60123b96d0287238a54856d"
+    },
+    {
+      "key": "firebreather",
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/NPC_048_Firebreather.png",
+      "source_sha256": "6d3cc92c5f0edc9738534c9f631a88ddc36270aebdfbf7f3f8933fc82f1628c6",
+      "file": "firebreather/Walk.png",
+      "sha256": "cea732c9da9f659363a18dd249789f88b2a5e574c0d37d86c728b5b39f5cd335"
+    },
+    {
+      "key": "guitarist",
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/NPC_069_Guitarist.png",
+      "source_sha256": "a897b5c1c587db0f26889dc3473a1dddb7b4a2587453dee5339261a2ee3ecbc1",
+      "file": "guitarist/Walk.png",
+      "sha256": "62454a91deda48ca5fd776ba6951d22f2e7a006edc490f02d8f1be05550d75d3"
+    },
+    {
+      "key": "sage",
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/NPC_072_Sage.png",
+      "source_sha256": "dd5c197cbe19ad2efda4219eae91d3b809af19133a8b4bead4501a2f9c525200",
+      "file": "sage/Walk.png",
+      "sha256": "ec2454c91e6462d1a179c97694c648ace0e4c7fb72172004461b1782ab5bea84"
+    },
+    {
+      "key": "skier",
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/NPC_011_Skier_M.png",
+      "source_sha256": "3e014964c02e6ffc95fd105e2dc7513c74c09ecf15e160329932a4cc6eda0f37",
+      "file": "skier/Walk.png",
+      "sha256": "32b8a6cca38d40317f1b373150caf5e2eb80afeb3d0cd00acc0161b53de5e6f9"
+    },
+    {
+      "key": "psychic",
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/NPC_082_Psychic.png",
+      "source_sha256": "24ac07977810be2945fe163a0f90ff24ac8ae0a7b5324f1dc8c7192230593b8c",
+      "file": "psychic/Walk.png",
+      "sha256": "58a079625e812f3cc1cd7629906b924ff33d964dcca86994b76be145494fa370"
+    }
+  ]
+}

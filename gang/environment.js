@@ -33,6 +33,7 @@ import {
   buildVivariumBackgroundData,
 } from '../modules/systems/vivariumSnapshot.js';
 import { attachPmdSprite, directionFromVector, stopPmdSprites } from './pmdSprites.js';
+import { attachCharacterSprite } from './characterSprites.js';
 
 const _t = (fr, en) => (globalThis.state?.lang === 'en' ? en : fr);
 
@@ -564,7 +565,7 @@ function _scheduleProximityScan(viewportEl, bounds) {
   }, PROXIMITY_SCAN_MS);
 }
 
-function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl, dialogueLine, hostile = false, pokemon = null) {
+function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl, dialogueLine, hostile = false, pokemon = null, character = null) {
   const el = document.createElement('div');
   el.className = 'gang-env-sprite gang-env-cameo';
   el.title = label || '';
@@ -580,12 +581,31 @@ function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl, dialogueLi
   if (pokemon) {
     _applySpriteMode(cameo);
     _pokemonCameos.add(cameo);
+  } else if (character) {
+    const inner = el.querySelector('.gang-env-sprite-inner');
+    cameo.animator = attachCharacterSprite(inner, character);
+    el._pmdAnimator = cameo.animator;
+    if (cameo.animator) {
+      inner.style.transform = '';
+      el.classList.add('gang-env-character');
+      _animate(cameo, 'Walk', fromLeft ? 1 : -1, 0);
+    }
   }
 
   const bubble = dialogueLine ? document.createElement('div') : null;
   if (bubble) {
     bubble.className = `gang-env-speech-bubble${hostile ? ' hostile' : ''}`;
-    bubble.textContent = dialogueLine;
+    if (character && cameo.animator) {
+      const portrait = document.createElement('img');
+      portrait.className = 'gang-env-speech-portrait';
+      portrait.src = imgUrl;
+      portrait.alt = '';
+      portrait.onerror = () => portrait.remove();
+      bubble.appendChild(portrait);
+    }
+    const text = document.createElement('span');
+    text.textContent = dialogueLine;
+    bubble.appendChild(text);
   }
 
   const legs = CAMEO_LEGS_MIN + Math.floor(Math.random() * (CAMEO_LEGS_MAX - CAMEO_LEGS_MIN + 1));
@@ -639,7 +659,7 @@ function _fireCameoFromPool(viewportEl, bounds, pool) {
   const entry = pool[Math.floor(Math.random() * pool.length)];
   const line = entry.lines?.length ? entry.lines[Math.floor(Math.random() * entry.lines.length)] : null;
   _spawnCameo(viewportEl, entry.spriteUrl, entry.label, bounds, entry.followIconUrl || null, line, !!entry.hostile,
-    entry.type === 'favorite' ? entry : null);
+    entry.type === 'favorite' ? entry : null, entry.type === 'favorite' ? null : entry);
 }
 
 function _scheduleCameos(viewportEl, bounds, poolProvider) {
@@ -710,7 +730,8 @@ export function renderEnvironmentZone(rootContainer) {
     </div>
     <button class="gang-zonebg-btn" id="gangZoneBgBtn" title="${_t('Changer le fond', 'Change background')}">🎨</button>
     <button class="gang-zonesrc-btn" id="gangZoneSrcBtn" title="${_t('Choisir les zones affichées', 'Choose displayed zones')}">👁</button>
-    <div class="gang-env-viewport" id="gangEnvViewport"></div>`;
+    <div class="gang-env-viewport" id="gangEnvViewport"></div>
+    <a class="gang-env-credits" href="https://eeveeexpo.com/resources/609/" target="_blank" rel="noopener noreferrer">${_t('Personnages', 'Characters')} : PurpleZaffre</a>`;
 
   const viewportEl = zoneEl.querySelector('#gangEnvViewport');
   _bindSpriteModeSelector(zoneEl);
