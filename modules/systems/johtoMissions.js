@@ -1,5 +1,7 @@
 'use strict';
 
+import { advanceRainbowWingQuest } from './vivariumRewards.js';
+
 // ════════════════════════════════════════════════════════════════
 //  JOHTO MISSIONS — Bêtes Sacrées · Lugia · Ho-Oh
 //  Trois quêtes parallèles inspirées de Pokémon Or/Argent.
@@ -278,9 +280,7 @@ function _onItemReceived({ itemId } = {}) {
   if (itemId === 'rainbow_wing') {
     const hm = _qHooh();
     if (hm?.active && hm.step === 2) {
-      hm.rainbowWings = Math.min((hm.rainbowWings || 0) + 1, 5);
-      if (hm.rainbowWings >= 5) {
-        hm.step = 3;
+      if (advanceRainbowWingQuest(s)) {
         _notify(_t("🌈 5 Arcenci'Ailes réunies ! Affrontez les Filles Kimono depuis la quête Ho-Oh.", '🌈 5 Rainbow Wings gathered! Face the Kimono Girls from the Ho-Oh quest.'), 'gold');
       }
       dirty = true;

@@ -5,6 +5,7 @@ import { CHARACTER_METADATA } from '../assets/vivarium_characters/metadata.js';
 import { resolveCharacterKey } from '../gang/characterSprites.js';
 import { createPmdRenderer } from '../gang/pmdSprites.js';
 import { buildVivariumCameoPool } from '../modules/systems/vivariumSnapshot.js';
+globalThis.pokeSprite = name => `${name}.png`;
 
 const root = new URL('../assets/vivarium_characters/', import.meta.url);
 const provenance = JSON.parse(fs.readFileSync(new URL('provenance.json', root)));

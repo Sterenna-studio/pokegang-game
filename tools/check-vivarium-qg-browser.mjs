@@ -24,7 +24,9 @@ try {
   const page = await context.newPage();
   page.on('pageerror', e => errors.push(e.message));
   page.on('request', r => requests.push(r.url()));
-  const seed = await fs.readFile(path.join(root, 'tools/dev-seed-save.json'), 'utf8');
+  const fixture = JSON.parse(await fs.readFile(path.join(root, 'tools/dev-seed-save.json'), 'utf8'));
+  fixture.cosmetics = { ...fixture.cosmetics, vivariumTrueSize: false };
+  const seed = JSON.stringify(fixture);
   await page.addInitScript(json => { if (!localStorage.getItem('pokeforge.v6')) localStorage.setItem('pokeforge.v6', json); }, seed);
   await page.goto(base + '/gang/index.html');
   await page.waitForSelector('#gangSpriteModeSelect');

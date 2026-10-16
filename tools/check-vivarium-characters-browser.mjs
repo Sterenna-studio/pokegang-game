@@ -108,6 +108,43 @@ try {
   assert.equal(await page.locator('.gang-env-speech-portrait').count(), 5);
   assert.equal(await page.locator('.gang-env-speech-bubble.hostile').count(), 1);
   assert.equal(await page.locator('.gang-env-character .gang-env-cameo-follow').count(), 5);
+  assert.ok(await page.locator('.gang-env-speech-bubble').first().evaluate(el => parseFloat(getComputedStyle(el).animationDuration) >= 6.5));
+  // Attach a bubble halfway through real CSS movement: it must follow the
+  // actor's existing timeline rather than begin its own full-length journey.
+  await page.evaluate(() => {
+    const viewport = document.createElement('div');
+    viewport.style.cssText = 'position:relative;width:400px;height:200px';
+    document.body.appendChild(viewport);
+    window.followViewport = viewport;
+  });
+  await page.evaluate(async base => {
+    const { createVivariumLayout } = await import(base + '/gang/vivariumLayout.js');
+    window.followLayout = createVivariumLayout(followViewport);
+    const el = document.createElement('div');
+    el.style.transform = 'translate(20px,80px)';
+    followLayout.actorLayer.appendChild(el);
+    window.followActor = { el, x: 20, y: 80, w: 48, h: 48 };
+    followLayout.register(followActor);
+    el.getBoundingClientRect();
+    el.style.transition = 'transform 1.4s ease-in-out';
+    el.style.transform = 'translate(280px,120px)';
+    el.getBoundingClientRect();
+  }, origin);
+  await page.waitForTimeout(350);
+  await page.evaluate(() => {
+    const bubble = document.createElement('div'); bubble.className = 'gang-env-speech-bubble';
+    bubble.textContent = 'Je marche avec ma bulle.';
+    followLayout.annotate(followActor, bubble);
+  });
+  for (let sample = 0; sample < 4; sample++) {
+    await page.waitForTimeout(150);
+    assert.ok(await page.evaluate(() => {
+      const actor = followActor.el.getBoundingClientRect();
+      const annotation = followLayout.overlayLayer.firstElementChild.getBoundingClientRect();
+      return Math.abs(actor.x - annotation.x) < 2 && Math.abs(actor.y - annotation.y) < 2;
+    }), 'Bubble remains attached during actual CSS interpolation');
+  }
+  await page.evaluate(() => { followLayout.dispose(); followViewport.remove(); });
   await page.evaluate(() => { window.idleBefore = pixelHash(); });
   await page.waitForTimeout(240);
   assert.equal(await page.evaluate(() => pixelHash() === idleBefore), true, 'Idle holds a resting pose');
