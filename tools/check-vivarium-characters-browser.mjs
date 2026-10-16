@@ -18,7 +18,8 @@ const server = http.createServer(async (req, res) => {
   } catch { res.writeHead(404); res.end(); }
 });
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-const origin = `http://127.0.0.1:${server.address().port}`;
+const origin = process.env.POKEGANG_CHARACTERS_BASE_URL?.replace(/\/$/, '')
+  || `http://127.0.0.1:${server.address().port}`;
 const browser = await chromium.launch({ headless: true, executablePath: process.env.POKEGANG_CHROMIUM_PATH || undefined });
 const context = await browser.newContext({ viewport: { width: 850, height: 600 } });
 const page = await context.newPage();
@@ -31,8 +32,8 @@ page.on('request', req => {
 await context.route('**/*', route => route.request().url().startsWith(origin) ? route.continue() : route.abort());
 try {
   await page.goto(origin + '/gang/live.html');
-  await page.evaluate(async () => {
-    window.env = await import('/gang/environment.js');
+  await page.evaluate(async base => {
+    window.env = await import(base + '/gang/environment.js');
     const later = window.setTimeout, cancel = window.clearTimeout;
     window.originalTimers = { later, cancel };
     window.pending = new Map();
@@ -59,7 +60,7 @@ try {
       runTimer([...pending].find(([, job]) => job.ms >= 45000 && job.ms <= 90000)[0]);
       runTimer([...pending].find(([, job]) => job.ms === 0)[0]);
     };
-  });
+  }, origin);
   assert.equal([...requests.keys()].filter(url => url.endsWith('.png')).length, 0, 'No character sheet downloaded at startup');
   const identities = [
     { type: 'nurse', trainerKey: 'nurse' },
