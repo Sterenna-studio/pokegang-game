@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
+import vm from 'node:vm';
 import { createPmdRenderer, directionFromVector, frameAt } from '../gang/pmdSprites.js';
 import { PMD_METADATA } from '../assets/pokemon_pmd/metadata.js';
 import { buildVivariumResidents, buildVivariumCameoPool } from '../modules/systems/vivariumSnapshot.js';
@@ -14,10 +15,22 @@ assert.equal(directionFromVector(0, 0, 7), 7);
 assert.equal(frameAt([6, 10, 6, 10], 99), 0);
 assert.equal(frameAt([6, 10, 6, 10], 100), 1);
 assert.equal(frameAt([6, 10, 6, 10], 534), 0);
-assert.deepEqual(Object.keys(PMD_METADATA).sort(), ['41', '52', '92']);
 const assetRoot = new URL('../assets/pokemon_pmd/', import.meta.url);
 const provenance = JSON.parse(fs.readFileSync(new URL('provenance.json', assetRoot), 'utf8'));
-assert.equal(provenance.resources.length, 12);
+const coverage = JSON.parse(fs.readFileSync(new URL('coverage.json', assetRoot), 'utf8'));
+const speciesContext = {};
+vm.createContext(speciesContext);
+vm.runInContext(fs.readFileSync(new URL('../data/species-data.js', import.meta.url), 'utf8')
+  + ';globalThis.supportedDex = Object.values(SPECIES_BY_EN).map(s => s.dex);', speciesContext);
+assert.equal(coverage.supported_species, speciesContext.supportedDex.length);
+for (const dex of speciesContext.supportedDex) {
+  for (const variant of ['normal', 'shiny']) {
+    assert.ok(PMD_METADATA[dex]?.[variant] || coverage.missing_variants.some(item => item.dex === dex && item.variant === variant),
+      `Missing unaccounted variant ${dex}/${variant}`);
+  }
+}
+assert.equal(provenance.resources.length, coverage.png_files);
+assert.ok(Object.keys(PMD_METADATA).length > 450, 'The catalog must cover the supported generations, not only the prototype');
 for (const resource of provenance.resources) {
   const bytes = fs.readFileSync(new URL(resource.file, assetRoot));
   assert.equal(crypto.createHash('sha256').update(bytes).digest('hex'), resource.sha256, resource.file);
@@ -27,7 +40,14 @@ for (const resource of provenance.resources) {
   assert.ok(a.d.every(d => d > 0));
   assert.equal(bytes.readUInt32BE(16), a.w * a.n, 'PNG width matches frame geometry');
   assert.equal(bytes.readUInt32BE(20), a.h * a.r, 'PNG height matches direction rows');
-  assert.equal(a.r, 8);
+  assert.ok(a.r >= 1 && a.r <= 8);
+}
+for (const variants of Object.values(PMD_METADATA)) {
+  for (const animations of Object.values(variants)) {
+    for (const [name, a] of Object.entries(animations)) {
+      assert.ok(provenance.resources.some(resource => resource.file === a.file && resource.animation === name));
+    }
+  }
 }
 
 const anim = (file, w = 24, h = 32, d = [6, 10, 6, 10]) => ({ file, w, h, n: d.length, r: 8, d, ax: w / 2, ay: 20 });
