@@ -59,7 +59,7 @@ const host = makeHost();
 const actor = renderer.attachAnimation(host, CHARACTER_METADATA.nurse, { assetBaseUrl: root });
 const second = renderer.attachAnimation(makeHost(), CHARACTER_METADATA.nurse, { assetBaseUrl: root });
 assert.equal(images.length, 1);
-assert.equal(jobs.size, 1);
+assert.equal(jobs.size, 0, 'Fixed Idle poses need no animation loop');
 Object.assign(images[0], { naturalWidth: 128, naturalHeight: 128 });
 images[0].onload();
 await Promise.resolve();
@@ -68,12 +68,15 @@ for (const time of [0, 160, 320]) {
 }
 assert.equal(draws.at(-1)[1], 0, 'Idle never advances to a walking pose');
 actor.set('Walk', 2);
+assert.equal(jobs.size, 1, 'Walking restarts the shared loop');
 assert.equal(images.length, 1, 'Walking reuses the same sheet');
 assert.equal(draws.at(-1)[2], 32, 'Right direction uses the second row');
 const pending = [...jobs.values()]; jobs.clear(); pending.forEach(fn => fn(420));
 const next = [...jobs.values()]; jobs.clear(); next.forEach(fn => fn(520));
+const last = [...jobs.values()]; jobs.clear(); last.forEach(fn => fn(620));
 assert.notEqual(draws.at(-1)[1], 0, 'Walk advances');
 actor.set('Idle', 6);
+assert.equal(jobs.size, 0, 'The loop stops when only fixed Idle poses remain');
 assert.equal(draws.at(-1)[2], 96, 'Left direction uses the fourth row');
 assert.equal(host.canvas.style.top, '-20px', 'Feet stay anchored at y=40');
 actor.destroy(); second.destroy(); renderer.dispose();

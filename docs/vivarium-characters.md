@@ -27,6 +27,8 @@ ni les sauvegardes. Elle n'ajoute pas le troisième mode Pokémon HGSS.
 - Les images manquantes ou invalides gardent le portrait de secours. La boucle
   est suspendue en page masquée et avec `prefers-reduced-motion`; le démontage
   du panneau détruit également les acteurs de personnages et vide le cache.
+  Si seuls des personnages au repos sont présents (Pokémon en mode 2D), le
+  RAF est arrêté jusqu'à la reprise de leur marche.
 
 ## Coût mesuré
 
