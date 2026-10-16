@@ -1,5 +1,5 @@
 'use strict';
-import { HQ_BACKGROUND, wantsHq } from './vivariumZones.js';
+import { HQ_BACKGROUND, wantsHq, residentLocation, cameoLocation } from './vivariumZones.js';
 
 // ════════════════════════════════════════════════════════════════
 //  vivariumSnapshot.js — construit, à partir d'un `state` donné, les
@@ -243,6 +243,7 @@ export function buildVivariumResidents(state) {
       if (!pk) continue;
       residents.push({
         ..._pokemonAnimationData(pk),
+        location: residentLocation(pk.id, state),
         spriteUrl:   globalThis.pokeSprite(pk.species_en, pk.shiny),
         label:       globalThis.pokemonDisplayName?.(pk) || pk.species_en,
         level:       pk.level,
@@ -274,7 +275,7 @@ export function buildVivariumCameoPool(state) {
     // appliqué à la création, cf. modules/systems/agent.js:72-73) — la
     // re-passer à trainerSprite() ici la traiterait à tort comme une clé brute.
     const spriteUrl = agent.spriteKey ? globalThis.trainerSprite(agent.spriteKey) : agent.sprite;
-    pool.push({ type: 'agent', trainerKey: agent.spriteKey, spriteUrl, label: agent.name, followIconUrl, lines: _buildAgentLines(agent, state) });
+    pool.push({ type: 'agent', resting: !!agent.resting, trainerKey: agent.spriteKey, spriteUrl, label: agent.name, followIconUrl, lines: _buildAgentLines(agent, state) });
   }
 
   const favs = state.pokemons.filter(p => p.favorite);
@@ -319,7 +320,7 @@ export function buildVivariumCameoPool(state) {
     pool.push({ type: 'boss', trainerKey: state.gang.bossSprite, spriteUrl: globalThis.trainerSprite(state.gang.bossSprite), label: state.gang.bossName || 'Boss', lines });
   }
 
-  return pool;
+  return pool.map(entry => ({ ...entry, location: cameoLocation(entry) }));
 }
 
 // ── Fond de la zone (state.cosmetics.bossBg) — retourne un descripteur
@@ -327,7 +328,13 @@ export function buildVivariumCameoPool(state) {
 // (image plein cadre, gradient CSS, tissu carrelé) ont chacune une façon
 // différente d'être appliquées en CSS (cf. gang/environment.js:_applyBackgroundData).
 export function buildVivariumBackgroundData(state) {
-  if (wantsHq(state)) return { ...HQ_BACKGROUND };
+  if (wantsHq(state)) {
+    const occupancy = { pc: 0, pension: 0, training: 0, rest: (state.agents || []).filter(a => a.resting).length };
+    if (state.gang && Array.isArray(state.pokemons)) {
+      for (const resident of buildVivariumResidents(state)) occupancy[resident.location]++;
+    }
+    return { ...HQ_BACKGROUND, occupancy };
+  }
   const key = state.cosmetics?.bossBg || null;
   if (!key) {
     // Pas de fond choisi : celui de la route de base plutôt qu'un dégradé

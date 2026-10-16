@@ -13,3 +13,26 @@ export function wantsHq(state) {
   return cosmetics.vivariumScene === 'hq'
     || (cosmetics.vivariumScene !== 'classic' && !cosmetics.bossBg);
 }
+
+export function residentLocation(id, state) {
+  if (state.pension?.slots?.includes(id)) return 'pension';
+  if (state.trainingRoom?.pokemon?.includes(id)) return 'training';
+  return 'pc'; // active team and showcase remain deduplicated in the lobby.
+}
+
+export function cameoLocation(entry) {
+  if (entry.type === 'nurse') return 'pension';
+  if (entry.type === 'scientist') return 'training';
+  if (entry.type === 'agent' && entry.resting) return 'rest';
+  return 'pc';
+}
+
+export function hqRange(id, bounds, footprint, envelope) {
+  const area = HQ_AREAS.find(a => a.id === id) || HQ_AREAS[0];
+  const height = bounds.height || 480;
+  const minX = Math.max(envelope.minX, area.x * bounds.width + footprint.rx + 3 - 24);
+  const maxX = Math.min(envelope.maxX, (area.x + area.w) * bounds.width - footprint.rx - 3 - 24);
+  const minY = Math.max(0, area.y * height + footprint.ry + 3 - 40);
+  const maxY = (area.y + area.h) * height - footprint.ry - 3 - 40;
+  return { minX, maxX: Math.max(minX, maxX), minY, maxY: Math.max(minY, maxY) };
+}
