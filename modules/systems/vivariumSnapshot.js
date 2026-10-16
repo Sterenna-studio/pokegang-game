@@ -1,4 +1,5 @@
 'use strict';
+import { HQ_BACKGROUND, wantsHq } from './vivariumZones.js';
 
 // ════════════════════════════════════════════════════════════════
 //  vivariumSnapshot.js — construit, à partir d'un `state` donné, les
@@ -326,6 +327,7 @@ export function buildVivariumCameoPool(state) {
 // (image plein cadre, gradient CSS, tissu carrelé) ont chacune une façon
 // différente d'être appliquées en CSS (cf. gang/environment.js:_applyBackgroundData).
 export function buildVivariumBackgroundData(state) {
+  if (wantsHq(state)) return { ...HQ_BACKGROUND };
   const key = state.cosmetics?.bossBg || null;
   if (!key) {
     // Pas de fond choisi : celui de la route de base plutôt qu'un dégradé

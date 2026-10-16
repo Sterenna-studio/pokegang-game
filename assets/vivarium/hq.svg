@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="640" viewBox="0 0 960 640" preserveAspectRatio="none" shape-rendering="crispEdges">
+<defs>
+ <pattern id="grass" width="32" height="32" patternUnits="userSpaceOnUse"><path fill="#6a9057" d="M0 0h32v32H0z"/><path fill="#729a5e" d="M4 8h4v3H4zm18 14h5v3h-5z"/></pattern>
+ <pattern id="paving" width="40" height="24" patternUnits="userSpaceOnUse"><path fill="#c1b68e" d="M0 0h40v24H0z"/><path fill="#afa57e" d="M0 22h40v2H0zM38 0h2v22h-2z"/></pattern>
+ <g id="tree"><path fill="#354e36" d="M-25 4h50v18h-50z"/><path fill="#7a573a" d="M-5 10H5v20H-5z"/><path fill="#294d3b" d="M-23-16h46v30h-46z"/><path fill="#3b6c46" d="M-28-20h56V4h-56zM-20-32h40v16h-40z"/><path fill="#56854c" d="M-16-28h28v8h-28zM-22-16H8v6h-30z"/></g>
+ <g id="house"><path fill="#3c493d" d="M-5 77h354v14H-5z"/><path fill="#d8c7a0" d="M0 0h340v80H0z"/><path fill="#a99773" d="M0 70h340v10H0zM0 0h8v70H0zm332 0h8v70h-8z"/><path fill="#504a40" d="M148 32h44v48h-44z"/><path fill="#866b4b" d="M152 36h36v40h-36z"/><path fill="#d2ba6e" d="M180 54h4v7h-4z"/><path fill="#6a7767" d="M30 20h64v35H30zm216 0h64v35h-64z"/><path fill="#97c6b5" d="M34 24h56v27H34zm216 0h56v27h-56z"/><path fill="#e6d4ac" d="M60 20h5v35h-5zm216 0h5v35h-5z"/></g>
+ <g id="roof"><path fill="#34453a" d="M-12 8h364v14H-12z"/><path fill="currentColor" d="M-12-48h364V8H-12zM0-64h340v16H0z"/><path fill="#ffffff" opacity=".14" d="M0-61h340v7H0zM-8-40h356v3H-8zM-8-21h356v3H-8z"/><path fill="#1b302e" opacity=".28" d="M-12 2h364v6H-12z"/></g>
+ <g id="bench"><path fill="#344f39" d="M0 20h64v6H0z"/><path fill="#563f2d" d="M8 0h5v24H8zm43 0h5v24h-5z"/><path fill="#a78655" d="M0 2h64v6H0zm0 9h64v7H0z"/></g>
+</defs>
+<path fill="url(#grass)" d="M0 0h960v640H0z"/>
+<path fill="#465b40" d="M434 0h92v640h-92zM0 282h960v76H0z"/>
+<path fill="url(#paving)" d="M442 0h76v640h-76zM0 290h960v60H0z"/>
+<path fill="#4d6d47" d="M42 148h378v132H42zm498 0h378v132H540zM42 470h378v154H42zm498 0h378v154H540z"/>
+<path fill="url(#paving)" d="M50 156h362v116H50zm498 0h362v116H548zM50 478h362v138H50zm498 0h362v138H548z"/>
+<path fill="#b8b68c" d="M412 218h30v30h-30zm106 0h30v30h-30zM412 540h30v30h-30zm106 0h30v30h-30z"/>
+<!-- North: PC and daycare. South: agent lounge and training court. -->
+<use href="#house" x="62" y="72"/><use href="#roof" x="62" y="72" color="#4b7891"/>
+<use href="#house" x="558" y="72"/><use href="#roof" x="558" y="72" color="#a16c72"/>
+<use href="#house" x="62" y="394"/><use href="#roof" x="62" y="394" color="#826f9b"/>
+<use href="#house" x="558" y="394"/><use href="#roof" x="558" y="394" color="#af874a"/>
+<path fill="#d9e6d1" d="M681 38h20v22h-20zM675 45h32v8h-32z"/>
+<path fill="#273f4a" d="M174 104h34v24h-34z"/><path fill="#73cdcd" d="M178 108h26v16h-26z"/>
+<use href="#bench" x="76" y="562"/><use href="#bench" x="312" y="562"/>
+<path fill="#e3d5b3" d="M666 540h126v60H666z"/><path fill="#b99b6e" d="M674 548h110v44H674z"/>
+<path fill="#e3d5b3" d="M727 548h4v44h-4z"/>
+<path fill="#775849" d="M552 206h5v54h-5zm347 0h5v54h-5zM552 218h352v5H552zM552 250h352v5H552z"/>
+<g><use href="#tree" x="22" y="68"/><use href="#tree" x="938" y="68"/><use href="#tree" x="22" y="394"/><use href="#tree" x="938" y="394"/><use href="#tree" x="22" y="610"/><use href="#tree" x="938" y="610"/></g>
+<path fill="#dfb5a5" d="M26 305h8v8h-8zm900 25h8v8h-8z"/><path fill="#e9d798" d="M26 325h8v8h-8zm900-20h8v8h-8z"/>
+</svg>

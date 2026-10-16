@@ -33,6 +33,7 @@ import {
 } from '../modules/systems/vivariumSnapshot.js';
 import { attachPmdSprite, directionFromVector, stopPmdSprites } from './pmdSprites.js';
 import { attachCharacterSprite } from './characterSprites.js';
+import { HQ_AREAS, wantsHq } from '../modules/systems/vivariumZones.js';
 import { devFeaturesEnabled } from '../modules/core/devFeatures.js';
 import { createVivariumLayout, pickGroundTarget, readSpritePosition, DEFAULT_FOOTPRINT,
   groundIndex, groundClearance } from './vivariumLayout.js';
@@ -114,13 +115,27 @@ export function stopEnvironmentZone() {
 }
 
 function _applyBackgroundData(viewportEl, bgData) {
+  viewportEl.dataset.scene = bgData?.scene === 'hq' ? 'hq' : 'classic';
+  viewportEl.querySelector('.gang-hq-labels')?.remove();
+  if (bgData?.scene === 'hq') {
+    const labels = document.createElement('div');
+    labels.className = 'gang-hq-labels';
+    for (const area of HQ_AREAS) {
+      const label = document.createElement('span');
+      label.textContent = _t(area.fr, area.en);
+      label.style.left = `${(area.x + area.w / 2) * 100}%`;
+      label.style.top = `${(area.y - .018) * 100}%`;
+      labels.appendChild(label);
+    }
+    viewportEl.appendChild(labels);
+  }
   if (bgData?.type === 'image' || bgData?.type === 'fabric') {
     viewportEl.style.backgroundImage = `url('${bgData.url}')`;
     if (bgData.type === 'fabric') {
       viewportEl.style.backgroundSize = '160px';
       viewportEl.style.backgroundRepeat = 'repeat';
     } else {
-      viewportEl.style.backgroundSize = 'cover';
+      viewportEl.style.backgroundSize = bgData.scene === 'hq' ? '100% 100%' : 'cover';
       viewportEl.style.backgroundPosition = 'center';
     }
   } else if (bgData?.type === 'gradient') {
@@ -257,6 +272,7 @@ function _openZoneBgPicker(viewportEl) {
         return;
       }
       state.cosmetics.bossBg = key;
+      state.cosmetics.vivariumScene = 'classic';
       globalThis.saveState();
       _applyZoneBackground(viewportEl);
       modal.remove();
@@ -753,6 +769,8 @@ export function renderEnvironmentZone(rootContainer) {
         <option value="pmd">${_t('Donjon Mystère', 'Mystery Dungeon')}</option>
       </select>
       <span class="gang-sprite-mode-hint" id="gangSpriteModeHint" hidden></span>
+      <label for="gangSceneSelect">${_t('Décor', 'Scene')}</label>
+      <select id="gangSceneSelect"><option value="hq">QG</option><option value="classic">${_t('Fond personnalisé', 'Custom background')}</option></select>
     </div>
     <button class="gang-zonebg-btn" id="gangZoneBgBtn" title="${_t('Changer le fond', 'Change background')}">🎨</button>
     <button class="gang-zonesrc-btn" id="gangZoneSrcBtn" title="${_t('Choisir les zones affichées', 'Choose displayed zones')}">👁</button>
@@ -762,6 +780,13 @@ export function renderEnvironmentZone(rootContainer) {
   const viewportEl = zoneEl.querySelector('#gangEnvViewport');
   _bindSpriteModeSelector(zoneEl);
   _applyZoneBackground(viewportEl);
+  const sceneSelect = zoneEl.querySelector('#gangSceneSelect');
+  sceneSelect.value = wantsHq(globalThis.state) ? 'hq' : 'classic';
+  sceneSelect.addEventListener('change', () => {
+    globalThis.state.cosmetics.vivariumScene = sceneSelect.value;
+    globalThis.saveState();
+    renderEnvironmentZone(rootContainer);
+  });
   zoneEl.querySelector('#gangZoneBgBtn').addEventListener('click', () => _openZoneBgPicker(viewportEl));
   zoneEl.querySelector('#gangZoneSrcBtn').addEventListener('click', () => _openZoneSourcesPicker(rootContainer));
 
