@@ -262,8 +262,8 @@
   50%      { transform: translateY(-3px); }
 }
 
-/* Résidents (vitrine + équipe boss) cliquables — les cameos (agents/favoris
-   de passage) restent pointer-events:none, aucune interaction prévue dessus. */
+/* Residents and passing visitors share a 48px mouse/touch target. */
+.gang-env-clickable:focus-visible { outline: 2px solid var(--gold); border-radius: 6px; }
 .gang-env-sprite.gang-env-clickable {
   pointer-events: auto;
   cursor: pointer;
