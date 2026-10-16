@@ -1,5 +1,5 @@
 'use strict';
-import { HQ_BACKGROUND, wantsHq, residentLocation, cameoLocation } from './vivariumZones.js';
+import { HQ_BACKGROUND, wantsHq, residentLocation, cameoLocation, vivariumDisplay } from './vivariumZones.js';
 
 // ════════════════════════════════════════════════════════════════
 //  vivariumSnapshot.js — construit, à partir d'un `state` donné, les
@@ -244,6 +244,7 @@ export function buildVivariumResidents(state) {
       residents.push({
         ..._pokemonAnimationData(pk),
         location: residentLocation(pk.id, state),
+        display: vivariumDisplay(state),
         spriteUrl:   globalThis.pokeSprite(pk.species_en, pk.shiny),
         label:       globalThis.pokemonDisplayName?.(pk) || pk.species_en,
         level:       pk.level,
@@ -320,7 +321,7 @@ export function buildVivariumCameoPool(state) {
     pool.push({ type: 'boss', trainerKey: state.gang.bossSprite, spriteUrl: globalThis.trainerSprite(state.gang.bossSprite), label: state.gang.bossName || 'Boss', lines });
   }
 
-  return pool.map(entry => ({ ...entry, location: cameoLocation(entry) }));
+  return pool.map(entry => ({ ...entry, location: cameoLocation(entry), display: vivariumDisplay(state) }));
 }
 
 // ── Fond de la zone (state.cosmetics.bossBg) — retourne un descripteur

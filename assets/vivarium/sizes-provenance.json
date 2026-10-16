@@ -1,0 +1,9 @@
+{
+  "source": "https://github.com/PokeAPI/pokeapi/blob/81d20919845b6a445969b9265aab5cec6b04cece/data/v2/csv/pokemon.csv",
+  "revision": "81d20919845b6a445969b9265aab5cec6b04cece",
+  "source_sha256": "16c81c33188b0eac403aa2f759fcbe9e42c611f722d263f5b5a6a5bff9f8ce6b",
+  "units": "decimetres",
+  "species": 493,
+  "license": "PokeAPI-LICENSE.md",
+  "body_metrics": "First Down Idle frame alpha bounds of shipped PMD sheets; regenerate when updating assets."
+}

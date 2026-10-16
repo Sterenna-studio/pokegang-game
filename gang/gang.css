@@ -538,6 +538,9 @@
 .gang-sprite-mode-control select:focus-visible { border-color: var(--gold); }
 .gang-sprite-mode-control option { background: var(--bg); color: var(--text); }
 .gang-sprite-mode-hint { line-height: 1.6; color: var(--text-dim); }
+.gang-scene-options { position: relative; }
+.gang-scene-options summary { cursor: pointer; padding: 5px; background: rgba(0,0,0,.75); border-radius: 4px; }
+.gang-scene-options > div { position: absolute; top: 100%; left: 0; display: flex; flex-direction: column; gap: 5px; padding: 8px; background: #181818; border: 1px solid var(--border-light); border-radius: 6px; width: 100%; box-sizing: border-box; }
 
 /* ── Zone sources picker (quels résidents alimentent le vivarium) ─ */
 .gang-source-list {

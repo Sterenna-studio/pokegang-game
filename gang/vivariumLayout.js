@@ -81,7 +81,7 @@ export function createVivariumLayout(viewport, { onBlocked = () => {}, doc = doc
   function measure(state) {
     state.previous = state.position;
     state.position = readPosition(state.entry.el);
-    state.footprint = state.entry.animator?.footprint || DEFAULT_FOOTPRINT;
+    state.footprint = state.entry.animator?.footprint || state.entry.fallbackMetrics?.footprint || DEFAULT_FOOTPRINT;
     state.x = state.position.x + 24; state.y = state.position.y + 40;
     state.rx = state.footprint.rx; state.ry = state.footprint.ry;
   }

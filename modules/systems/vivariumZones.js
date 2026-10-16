@@ -14,6 +14,12 @@ export function wantsHq(state) {
     || (cosmetics.vivariumScene !== 'classic' && !cosmetics.bossBg);
 }
 
+export function vivariumDisplay(state) {
+  const cosmetics = state?.cosmetics || {};
+  return { trueSize: cosmetics.vivariumTrueSize === true,
+    spriteMode: ['2d', 'pmd', 'hgss'].includes(cosmetics.vivariumSpriteMode) ? cosmetics.vivariumSpriteMode : 'pmd' };
+}
+
 export function residentLocation(id, state) {
   if (state.pension?.slots?.includes(id)) return 'pension';
   if (state.trainingRoom?.pokemon?.includes(id)) return 'training';
