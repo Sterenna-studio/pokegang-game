@@ -263,6 +263,11 @@ export function buildVivariumResidents(state) {
 export function buildVivariumCameoPool(state) {
   const pool = [];
 
+  pool.push({ type: 'event', dex: 250, shiny: false,
+    spriteUrl: globalThis.pokeSprite('ho-oh', false), label: 'Ho-Oh',
+    lines: [_t(state, 'Une plume arc-en-ciel scintille… Cliquez sur Ho-Oh !',
+      'A rainbow feather sparkles… Click Ho-Oh!')] });
+
   if (state.agents.length > 0) {
     const agent = state.agents[Math.floor(Math.random() * state.agents.length)];
     const hasTeam = agent.team && agent.team.length > 0;
@@ -330,7 +335,8 @@ export function buildVivariumCameoPool(state) {
 // différente d'être appliquées en CSS (cf. gang/environment.js:_applyBackgroundData).
 export function buildVivariumBackgroundData(state) {
   if (wantsHq(state)) {
-    const occupancy = { pc: 0, pension: 0, training: 0, rest: (state.agents || []).filter(a => a.resting).length };
+    // Visitors are transient; do not label assigned/resting agents as occupants.
+    const occupancy = { pc: 0, pension: 0, training: 0 };
     if (state.gang && Array.isArray(state.pokemons)) {
       for (const resident of buildVivariumResidents(state)) occupancy[resident.location]++;
     }

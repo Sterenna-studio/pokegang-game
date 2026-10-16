@@ -37,6 +37,8 @@ import { attachHgssPokemon } from './hgssPokemon.js';
 import { attachCharacterSprite } from './characterSprites.js';
 import { HQ_AREAS, wantsHq, hqRange, cameoLocation } from '../modules/systems/vivariumZones.js';
 import { devFeaturesEnabled } from '../modules/core/devFeatures.js';
+import { EventBus, EVENTS } from '../modules/core/eventBus.js';
+import { collectVivariumWing } from '../modules/systems/vivariumRewards.js';
 import { createVivariumLayout, pickGroundTarget, readSpritePosition, DEFAULT_FOOTPRINT,
   groundIndex, groundClearance } from './vivariumLayout.js';
 
@@ -92,6 +94,7 @@ let _resizeObserver = null;
 let _bounds = null;
 let _spriteMode = 'pmd';
 let _trueSize = false;
+let _readOnly = true;
 const _pokemonCameos = new Set();
 let _layout = null, _devPanel = null;
 
@@ -115,6 +118,7 @@ export function stopEnvironmentZone() {
   _residents = [];
   _zoneEl = null;
   _liveCameoPool = [];
+  _readOnly = true;
 }
 
 function _applyBackgroundData(viewportEl, bgData) {
@@ -651,15 +655,23 @@ function _scheduleProximityScan(viewportEl, bounds) {
 
 function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl, dialogueLine, hostile = false, pokemon = null, character = null) {
   const el = document.createElement('div');
-  el.className = 'gang-env-sprite gang-env-cameo';
+  el.className = 'gang-env-sprite gang-env-cameo gang-env-clickable';
   el.title = label || '';
+  el.tabIndex = 0;
+  el.setAttribute('role', 'button');
+  el.setAttribute('aria-label', label || _t('Visiteur', 'Visitor'));
   el.innerHTML = `<div class="gang-env-sprite-inner"><img src="${imgUrl}" alt="">${extraIconUrl ? `<img class="gang-env-cameo-follow" src="${extraIconUrl}" alt="">` : ''}</div>`;
   const fromLeft = Math.random() < 0.5;
   const startX = fromLeft ? -60 : bounds.width + 60;
   const endX   = fromLeft ? bounds.width + 60 : -60;
-  const home = bounds.scene === 'hq' ? hqRange(character?.location || cameoLocation(character || {}), bounds,
+  const isHooh = pokemon?.dex === 250;
+  const home = !isHooh && bounds.scene === 'hq' ? hqRange(character?.location || cameoLocation(character || {}), bounds,
     DEFAULT_FOOTPRINT, { minX: 0, maxX: Math.max(0, bounds.width - 48) }) : null;
-  const baseY = home ? (home.minY + home.maxY) / 2 : bounds.groundTop + Math.random() * bounds.groundHeight;
+  // Keep the full touch target above the lower edge, including classic scenes.
+  const minY = Math.min(isHooh ? 56 : bounds.groundTop, Math.max(0, bounds.height - 64));
+  const maxY = Math.max(minY, bounds.height - 64);
+  const baseY = home ? (home.minY + home.maxY) / 2 : isHooh
+    ? Math.max(minY, Math.min(maxY, bounds.height * .35)) : minY + Math.random() * (maxY - minY);
   const homeX = home ? (home.minX + home.maxX) / 2 : null;
   _setPosition(el, startX, baseY);
   _flip(el, !fromLeft);
@@ -702,6 +714,65 @@ function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl, dialogueLi
   const legs = CAMEO_LEGS_MIN + Math.floor(Math.random() * (CAMEO_LEGS_MAX - CAMEO_LEGS_MIN + 1));
   const bubbleLeg = bubble ? (home ? legs - 1 : 1 + Math.floor(Math.random() * (legs - 1))) : -1;
   let leg = 0;
+  let legTimer = null, arrival = null, moving = false, speedFactor = 1;
+  let legSpeed = CAMEO_SPEED_PX_PER_S;
+  let removeClickBubble = null, clickBubbleTimer = null;
+
+  function moveToTarget() {
+    const cur = _currentPos(el);
+    const dist = Math.max(1, _dist(cur.x, cur.y, cameo.x, cameo.y));
+    const duration = Math.max(isHooh ? .12 : .8, dist / (legSpeed * speedFactor));
+    moving = true;
+    el.classList.remove('idle');
+    _animate(cameo, 'Walk', cameo.x - cur.x, cameo.y - cur.y);
+    el.style.transition = `transform ${duration}s ${isHooh ? 'linear' : 'ease-in-out'}`;
+    _setPosition(el, cameo.x, cameo.y);
+    legTimer = _later(() => { moving = false; arrival(); }, duration * 1000);
+  }
+
+  function react() {
+    if (!el.isConnected) return;
+    removeClickBubble?.();
+    _cancel(clickBubbleTimer);
+    const reaction = document.createElement('div');
+    reaction.className = 'gang-env-speech-bubble';
+    const hooh = pokemon?.dex === 250;
+    let rewarded = false;
+    if (hooh && !_readOnly && globalThis.state) {
+      if (globalThis.claimVivariumWing) rewarded = globalThis.claimVivariumWing() === true;
+      else {
+        collectVivariumWing(globalThis.state, payload => EventBus.emit(EVENTS.ITEM_RECEIVED, payload));
+        globalThis.saveState?.();
+        rewarded = true;
+      }
+    }
+    reaction.textContent = hooh ? (rewarded ? _t('🪶 +1 Arcenci’Aile !', '🪶 +1 Rainbow Wing!') : '🌈 Ho-Oh !')
+      : dialogueLine || _t(`${label} vous salue !`, `${label} greets you!`);
+    removeClickBubble = _annotate(cameo, reaction);
+    clickBubbleTimer = _later(() => { removeClickBubble?.(); removeClickBubble = null; }, 2200);
+    if (hooh) {
+      speedFactor = Math.min(8, speedFactor * 1.4);
+      el.dataset.speedFactor = String(speedFactor);
+      if (moving) {
+        _cancel(legTimer);
+        const position = _currentPos(el);
+        el.style.transition = 'none';
+        _setPosition(el, position.x, position.y);
+        el.getBoundingClientRect(); // Commit the current position before retiming.
+        moveToTarget();
+      } else if (leg < legs) {
+        _cancel(legTimer);
+        nextLeg();
+      }
+    }
+  }
+  el.addEventListener('click', react);
+  el.addEventListener('keydown', event => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      if (!event.repeat) react();
+    }
+  });
 
   function nextLeg() {
     if (!el.isConnected) return;
@@ -711,21 +782,12 @@ function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl, dialogueLi
       : startX + (endX - startX) * progress;
     const y = leg >= legs
       ? baseY
-      : Math.min(home?.maxY ?? bounds.groundTop + bounds.groundHeight,
-        Math.max(home?.minY ?? bounds.groundTop, baseY + (Math.random() * 2 - 1) * CAMEO_Y_WOBBLE_PX));
-
-    const cur = _currentPos(el);
-    const dist = Math.max(1, _dist(cur.x, cur.y, x, y));
-    const speed = CAMEO_SPEED_PX_PER_S * (0.7 + Math.random() * 0.6);
-    const duration = Math.max(0.8, dist / speed);
+      : Math.min(home?.maxY ?? maxY,
+        Math.max(home?.minY ?? minY, baseY + (Math.random() * 2 - 1) * CAMEO_Y_WOBBLE_PX));
     cameo.x = x; cameo.y = y;
+    legSpeed = CAMEO_SPEED_PX_PER_S * (0.7 + Math.random() * 0.6);
 
-    el.classList.remove('idle');
-    _animate(cameo, 'Walk', x - cur.x, y - cur.y);
-    el.style.transition = `transform ${duration}s ease-in-out`;
-    _setPosition(el, x, y);
-
-    _later(() => {
+    arrival = () => {
       if (!el.isConnected) return;
       _animate(cameo, 'Idle');
       if (leg === bubbleLeg) {
@@ -741,11 +803,12 @@ function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl, dialogueLi
       const pause = shouldPause
         ? CAMEO_PAUSE_MIN_MS + Math.random() * (CAMEO_PAUSE_MAX_MS - CAMEO_PAUSE_MIN_MS)
         : 80 + Math.random() * 200;
-      _later(nextLeg, pause);
-    }, duration * 1000);
+      legTimer = _later(nextLeg, pause / speedFactor);
+    };
+    moveToTarget();
   }
 
-  _later(nextLeg, 0);
+  legTimer = _later(nextLeg, 0);
 }
 
 function _fireCameoFromPool(viewportEl, bounds, pool) {
@@ -753,7 +816,8 @@ function _fireCameoFromPool(viewportEl, bounds, pool) {
   const entry = pool[Math.floor(Math.random() * pool.length)];
   const line = entry.lines?.length ? entry.lines[Math.floor(Math.random() * entry.lines.length)] : null;
   _spawnCameo(viewportEl, entry.spriteUrl, entry.label, bounds, entry.followIconUrl || null, line, !!entry.hostile,
-    entry.type === 'favorite' ? entry : null, entry.type === 'favorite' ? null : entry);
+    entry.type === 'favorite' || entry.type === 'event' ? entry : null,
+    entry.type === 'favorite' || entry.type === 'event' ? null : entry);
 }
 
 function _scheduleCameos(viewportEl, bounds, poolProvider) {
@@ -810,6 +874,7 @@ export function renderEnvironmentZone(rootContainer) {
   const zoneEl = rootContainer.querySelector('#gangEnvironmentZone');
   if (!zoneEl) return;
   stopEnvironmentZone();
+  _readOnly = false;
   const savedMode = globalThis.state?.cosmetics?.vivariumSpriteMode;
   _spriteMode = ['2d', 'pmd', 'hgss'].includes(savedMode) ? savedMode : 'pmd';
   _trueSize = globalThis.state?.cosmetics?.vivariumTrueSize === true;

@@ -23,10 +23,11 @@ const state = { cosmetics: { vivariumSources: ['showcase', 'team', 'pension', 't
 const before = JSON.stringify(state);
 assert.equal(residentLocation('p', state), 'pension');
 assert.equal(cameoLocation({ type: 'agent', resting: true }), 'rest');
+assert.equal(cameoLocation({ type: 'agent', resting: false, assignedZone: 'route1' }), 'rest');
 assert.equal(cameoLocation({ type: 'nurse' }), 'pension');
 assert.equal(cameoLocation({ type: 'scientist' }), 'training');
 assert.deepEqual(buildVivariumResidents(state).map(r => r.location), ['pension', 'training']);
-assert.deepEqual(buildVivariumBackgroundData(state).occupancy, { pc: 0, pension: 1, training: 1, rest: 1 });
+assert.deepEqual(buildVivariumBackgroundData(state).occupancy, { pc: 0, pension: 1, training: 1 });
 for (const area of HQ_AREAS) {
   const r = hqRange(area.id, { width: 390, height: 480 }, { rx: 18, ry: 9 }, { minX: 0, maxX: 342 });
   assert.ok(r.maxX >= r.minX && r.maxY >= r.minY && r.minX >= 0 && r.maxX <= 342);
