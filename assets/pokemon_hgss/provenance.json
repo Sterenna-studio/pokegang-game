@@ -1,0 +1,247 @@
+{
+  "source": "https://eeveeexpo.com/resources/609/",
+  "archive_sha256": "e9d240918b62460c76d56ec9e5d4067a4ee853979d16a6657c05917d9bfd2b99",
+  "credit": "PurpleZaffre",
+  "resources": [
+    {
+      "dex": 427,
+      "variant": "normal",
+      "body_height": 18,
+      "exact_x2_reduction": true,
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/Pokemon_Buneary.png",
+      "source_sha256": "201d6960850c61ce0e79e0a6d3614531e374a575ec5f99a82da90ef578003293",
+      "file": "427/Walk.png",
+      "sha256": "3292bf6a53126f4e7b7344342149189495b0c9b444e7bab50961e11cd3ee4d41"
+    },
+    {
+      "dex": 390,
+      "variant": "normal",
+      "body_height": 19,
+      "exact_x2_reduction": true,
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/Pokemon_Chimchar.png",
+      "source_sha256": "c593e20e96aa18b632f605c4dd2a25d9f114553c241b5f91a661f22f3f1e7d57",
+      "file": "390/Walk.png",
+      "sha256": "86edf738f48c8f0d2697e78328e10087eb84dd192e2084dd0704c105562d7ab6"
+    },
+    {
+      "dex": 35,
+      "variant": "normal",
+      "body_height": 15,
+      "exact_x2_reduction": true,
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/Pokemon_Clefairy.png",
+      "source_sha256": "b6a59e2a2b6b196b85e4448c0d1d18ced2391e4796771036c9082b0f9c8e4f82",
+      "file": "35/Walk.png",
+      "sha256": "b90038cd7664ebae8516f39cff57877a4726640a70b78f9fc25306fba5137344"
+    },
+    {
+      "dex": 453,
+      "variant": "normal",
+      "body_height": 16,
+      "exact_x2_reduction": true,
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/Pokemon_Croagunk.png",
+      "source_sha256": "fd25a521d9aaec75f908a5192c4f745169fbb67d8bf27136c34980d5aae64bc9",
+      "file": "453/Walk.png",
+      "sha256": "90dbc219e1816ed16ce2f1f24eedcbfc0d0dc44d13a2972f10a5fd3e42ca010c"
+    },
+    {
+      "dex": 425,
+      "variant": "normal",
+      "body_height": 22,
+      "exact_x2_reduction": true,
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/Pokemon_Drifloon.png",
+      "source_sha256": "0355c5fc6737c1c9ed91bb4bec41d2e14288c8613240e58bb1bd047086a518d2",
+      "file": "425/Walk.png",
+      "sha256": "9363064000d082f69a8a2497142443b0021ca75fe6d0115111aeee2df9fc529e"
+    },
+    {
+      "dex": 395,
+      "variant": "normal",
+      "body_height": 24,
+      "exact_x2_reduction": true,
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/Pokemon_Empoleon.png",
+      "source_sha256": "48b5eb41f039fc995460a4ee154964f563258b95582718e4f60c37fc2a32bba1",
+      "file": "395/Walk.png",
+      "sha256": "46bfac57e11c1348ec7e8704d7503a9714e83e21b232ad95207f241bc34c3192"
+    },
+    {
+      "dex": 388,
+      "variant": "normal",
+      "body_height": 18,
+      "exact_x2_reduction": true,
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/Pokemon_Grotle.png",
+      "source_sha256": "476090e2a1022ee9b35192c0a7b0a63bb2d0c3ad685f9210e34c482e44664b50",
+      "file": "388/Walk.png",
+      "sha256": "d5cfb5f27ef16696539cb85f9ef647187b2b30a26aeca12b133de34d1552d9c3"
+    },
+    {
+      "dex": 130,
+      "variant": "shiny",
+      "body_height": 28,
+      "exact_x2_reduction": true,
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/Pokemon_Gyarados_Shiny.png",
+      "source_sha256": "b2a875d22799d58087a7507ea543fe477afc7e2e55edf8d4d7343aaaecba44ad",
+      "file": "130/s/Walk.png",
+      "sha256": "81d6a66e2a97c21ab3a5d9418b4a0f9c82e8d85205838b31d8b1189e425d7366"
+    },
+    {
+      "dex": 440,
+      "variant": "normal",
+      "body_height": 19,
+      "exact_x2_reduction": true,
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/Pokemon_Happiny.png",
+      "source_sha256": "d1d58040188270c6597a9f1ac128c4caa3f05cf7109f67212b20a5fe4b543adb",
+      "file": "440/Walk.png",
+      "sha256": "d34307f9d2a92aae0acd1ec70b7458d9ecd5bf6579bd28ed9b77c1392cb7e554"
+    },
+    {
+      "dex": 392,
+      "variant": "normal",
+      "body_height": 29,
+      "exact_x2_reduction": true,
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/Pokemon_Infernape.png",
+      "source_sha256": "31602e5b4fdcba5047e312fa327e2e76c167fba3fd36f594aeca0f73a4b77186",
+      "file": "392/Walk.png",
+      "sha256": "59e0476e18b68aa5d6087eb765ea6628b887463bb054ac70d70cad9524335d96"
+    },
+    {
+      "dex": 39,
+      "variant": "normal",
+      "body_height": 15,
+      "exact_x2_reduction": true,
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/Pokemon_Jigglypuff.png",
+      "source_sha256": "7858f143a84bee9eda09dc26ca99c74393fa700f63f2bf8c43ebe51e0b80e2c9",
+      "file": "39/Walk.png",
+      "sha256": "9ef44f3ead8f2b9c6b8b5aaf1dd047a9f3331d2622d7ed7435a78bc2b9ade092"
+    },
+    {
+      "dex": 131,
+      "variant": "normal",
+      "body_height": 22,
+      "exact_x2_reduction": true,
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/Pokemon_Lapras.png",
+      "source_sha256": "78b493973d0e1c8ccbdeb7fad1a70337b279c676c9425e7ad198c33f05a8e74a",
+      "file": "131/Walk.png",
+      "sha256": "5294e3d1a4bcc3cb37f9e96a0bc25bec7ec6003b776b8085a309434a2843f6eb"
+    },
+    {
+      "dex": 391,
+      "variant": "normal",
+      "body_height": 22,
+      "exact_x2_reduction": true,
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/Pokemon_Monferno.png",
+      "source_sha256": "44d6c9e9819ea07a641219c1566ed8890826b02bd2eafe77922126cbe32dac2e",
+      "file": "391/Walk.png",
+      "sha256": "7b7f59fc265de300cde8f22bf68ee39dc47a01be0c509ef1a06f63a38e0ec53e"
+    },
+    {
+      "dex": 417,
+      "variant": "normal",
+      "body_height": 20,
+      "exact_x2_reduction": true,
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/Pokemon_Pachirisu.png",
+      "source_sha256": "7f883e20daa062b411bff17f422b06c97b27951900fa483ab38eb193fc756dd5",
+      "file": "417/Walk.png",
+      "sha256": "c0b4bd953d1d215b112e7b295ef40729d4323199a7b8a268785703f9547f8679"
+    },
+    {
+      "dex": 25,
+      "variant": "normal",
+      "body_height": 18,
+      "exact_x2_reduction": true,
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/Pokemon_Pikachu.png",
+      "source_sha256": "a4bd117f084024d1d49f72eac321f04aefef267b3ea3bf11db344a7ea2771b74",
+      "file": "25/Walk.png",
+      "sha256": "6ce08c166203ea8267bfafcd75d599f92c011020de6b634358f0b4b6359bac2a"
+    },
+    {
+      "dex": 393,
+      "variant": "normal",
+      "body_height": 16,
+      "exact_x2_reduction": true,
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/Pokemon_Piplup.png",
+      "source_sha256": "953dfe637d69dc6a3d444e078fe574b48476a50513b8554ccbe71019090d9312",
+      "file": "393/Walk.png",
+      "sha256": "c35be119695b4025bd0a7e9516f771af0fc06629f3bebb4f1738426b2e54c7f7"
+    },
+    {
+      "dex": 394,
+      "variant": "normal",
+      "body_height": 20,
+      "exact_x2_reduction": true,
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/Pokemon_Prinplup.png",
+      "source_sha256": "c045379d1facbb22ccb337cfe1995dc1f95fc093e381226034b3fdcd014b2dfa",
+      "file": "394/Walk.png",
+      "sha256": "88cdd1423e7b45d6ad94876a606f66ff82faa1325c0047a9bcc46456d979f03b"
+    },
+    {
+      "dex": 54,
+      "variant": "normal",
+      "body_height": 36,
+      "exact_x2_reduction": false,
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/Pokemon_Psyduck.png",
+      "source_sha256": "ec9dc0db7169fef30e97c392bed3b87d1af6272f304bc7a4c84fa878dd953ff1",
+      "file": "54/Walk.png",
+      "sha256": "8cb39a651d20ed7800c0fc137151cae28922f6a2ed2a07954fdb6952f6b3f732"
+    },
+    {
+      "dex": 492,
+      "variant": "normal",
+      "body_height": 16,
+      "exact_x2_reduction": true,
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/Pokemon_Shaymin_Land.png",
+      "source_sha256": "21d8fd1fbd9be65303c1859f6cdce6a81c40d06e7628eda44c476cebcd66eba0",
+      "file": "492/Walk.png",
+      "sha256": "ef07ecf57357c72f35f942a9af168644c7f8214f5b11dcf8deae8f072c3f3df0"
+    },
+    {
+      "dex": 285,
+      "variant": "normal",
+      "body_height": 15,
+      "exact_x2_reduction": true,
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/Pokemon_Shroomish.png",
+      "source_sha256": "6597aab49e2e2e7fefa1c8e5b10a0ac5afaf9a1b8c41452fbed3c3275295dffa",
+      "file": "285/Walk.png",
+      "sha256": "dfb6556d95f35b2640dcb56737e845750e5a911d90bcfe48d01aa5581fa9873b"
+    },
+    {
+      "dex": 300,
+      "variant": "normal",
+      "body_height": 17,
+      "exact_x2_reduction": true,
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/Pokemon_Skitty.png",
+      "source_sha256": "dad9f1575fcf5d2d34ec2c8255efeadfdcc5249e2b18cc0cd6d6f58f4d2392b0",
+      "file": "300/Walk.png",
+      "sha256": "eba8aa16c419b9cf1087af944bad49e2e30475117f9c0dac3b7fd69cbab06d51"
+    },
+    {
+      "dex": 255,
+      "variant": "normal",
+      "body_height": 16,
+      "exact_x2_reduction": true,
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/Pokemon_Torchic.png",
+      "source_sha256": "4e4db085b68be0cff4c1eedeed100b61cd6846a8e3ec4ce88527cb54bdbe1d9d",
+      "file": "255/Walk.png",
+      "sha256": "8b6932e4de47150f5b2058510627a3b1f067d9069782ac2396a86cc503d6faa1"
+    },
+    {
+      "dex": 389,
+      "variant": "normal",
+      "body_height": 26,
+      "exact_x2_reduction": true,
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/Pokemon_Torterra.png",
+      "source_sha256": "025625dfd8edf1dd10b02bc61ab5f0be633ab6f833a446debad92ec4d5f8f5d7",
+      "file": "389/Walk.png",
+      "sha256": "1fa245a8ac5b2be27b25a0b2c27e548de7a898b5230caf82d56fbc9c247ce84b"
+    },
+    {
+      "dex": 387,
+      "variant": "normal",
+      "body_height": 17,
+      "exact_x2_reduction": true,
+      "source_file": "Ultimate Gen 4 Overworlds Pack/All Official Overworlds/Pokemon_Turtwig.png",
+      "source_sha256": "9e4141af82a9c3ea074d3ec68f66691dbaf1ca3aa6f83d2e3725d2eee80a4740",
+      "file": "387/Walk.png",
+      "sha256": "3b1ba3a28e1f76cbed4eb1416fe21507ff7b26ee587d4aed0f9bf290be12e94c"
+    }
+  ]
+}

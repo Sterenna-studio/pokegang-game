@@ -34,3 +34,15 @@ Les réglages d’affichage sont transportés avec les résidents et caméos du
 snapshot public. Les anciens snapshots gardent PMD/taille standard. Une mise
 à jour identique conserve les éléments DOM et la phase des animations.
 Les préférences restent limitées au vivarium ; pas de migration de sauvegarde.
+
+## Pokémon HGSS
+
+Troisième choix du sélecteur natif. 24 variantes du pack PurpleZaffre :
+23 espèces normales et Léviator shiny. Crédits, exclusions et SHA-256 dans
+`assets/pokemon_hgss/`. Le catalogue est incomplet ; chaque variante absente
+reprend directement le sprite classique de `pokeSprite()`. Aucun shiny n’est
+remplacé par un Pokémon normal. Les personnages gardent leur renderer HGSS.
+Les animations partagent la boucle et le cache LRU de 64 planches du renderer
+existant. Une seule planche par variante, demandée uniquement à son affichage.
+Le repos est une pose fixe et ne maintient pas seul une boucle d’animation.
+True size fonctionne aussi dans ce mode. Les autres écrans du jeu sont inchangés.
