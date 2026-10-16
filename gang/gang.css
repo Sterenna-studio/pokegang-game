@@ -203,6 +203,9 @@
   inset: 0;
   overflow: hidden;
 }
+.gang-hq-labels { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+.gang-hq-labels span { position: absolute; translate: -50% -100%; padding: 3px 6px; border-radius: 3px;
+  background: #17251de0; color: #f6edcf; font-size: 9px; white-space: nowrap; }
 .gang-env-actors, .gang-env-overlays { position: absolute; inset: 0; pointer-events: none; }
 .gang-env-actors { z-index: 1; }
 .gang-env-overlays { z-index: 4; }
