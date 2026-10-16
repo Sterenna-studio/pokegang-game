@@ -5,6 +5,7 @@ Deux previews distantes sont hébergées dans des répertoires séparés de
 
 - web FR : <https://lab.sterenna.fr/pokegang-preview/>
 - artefact itch EN : <https://lab.sterenna.fr/pokegang-itch-preview/>
+- outils et comparaisons QA : <https://lab.sterenna.fr/pokegang-preview/tools/>
 
 Les deux dossiers ont un cache HTTP désactivé et une directive `noindex`. Ils
 n'altèrent ni `pokegang.sterenna.fr`, ni sa sauvegarde navigateur. Les deux
@@ -23,9 +24,15 @@ Depuis PowerShell :
 # Une seule variante
 .\tools\deploy-ovh-previews.ps1 -Target web
 .\tools\deploy-ovh-previews.ps1 -Target itch
+
+# Mettre à jour uniquement les outils QA, sans retransférer le jeu
+.\tools\deploy-ovh-previews.ps1 -Target web -ToolsOnly
 ```
 
-Le script transfère uniquement les huit entrées runtime. La variante itch est
+Le script transfère les huit entrées runtime et publie séparément les outils
+web de `tools/lab-public-files.json`, en une archive compressée. Le reste de
+`tools/` (scripts, fixtures et fichiers privés de travail) n’est pas publié.
+La variante itch est
 toujours reconstruite avec `tools/build-itch.js` avant son transfert : anglais
 par défaut, aucun `config.js`, puis validation du ZIP livré.
 
