@@ -119,6 +119,8 @@ try {
   assert.equal(await page.evaluate(() => { crossTick(); return Number(crossActors[0].el.style.zIndex) > Number(crossActors[1].el.style.zIndex); }), true, 'Destination does not prematurely change depth');
   await page.waitForTimeout(500);
   assert.equal(await page.evaluate(() => { crossTick(); return Number(crossActors[0].el.style.zIndex) < Number(crossActors[1].el.style.zIndex); }), true, 'Crossing feet reverses visual depth during CSS movement');
+  await page.locator('#vivariumDevPanel summary').click();
+  await page.waitForSelector('.vivarium-dev-overlay');
   await page.evaluate(() => { cross.dispose(); env.stopEnvironmentZone(); });
   assert.equal(await page.locator('#vivariumDevPanel, .vivarium-dev-overlay').count(), 0);
   assert.equal(await page.evaluate(() => pending.size), 0);

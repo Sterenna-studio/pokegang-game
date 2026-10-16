@@ -5,10 +5,9 @@
 //  baladent les Pokémon de la vitrine, l'équipe active du boss, et
 //  occasionnellement un agent ou un Pokémon favori du Pokédex.
 //
-//  v1 volontairement simple (explicitement "test") : pas de canvas,
-//  pas de pathfinding — juste des sprites positionnés en absolu dont
-//  la position cible change périodiquement via une transition CSS.
-//  Les résidents (vitrine + équipe boss) évitent de se superposer et
+//  Déplacements par transitions CSS, sprites animés dans des canvas.
+//  Placement et profondeur suivent les pieds à faible fréquence, sans
+//  pathfinding. Les résidents évitent les destinations occupées et
 //  peuvent occasionnellement se rencontrer (mini-interaction ami/
 //  ennemi) quand ils passent près l'un de l'autre.
 //
