@@ -33,7 +33,7 @@ import {
 } from '../modules/systems/vivariumSnapshot.js';
 import { attachPmdSprite, directionFromVector, stopPmdSprites } from './pmdSprites.js';
 import { attachCharacterSprite } from './characterSprites.js';
-import { HQ_AREAS, wantsHq } from '../modules/systems/vivariumZones.js';
+import { HQ_AREAS, wantsHq, hqRange, cameoLocation } from '../modules/systems/vivariumZones.js';
 import { devFeaturesEnabled } from '../modules/core/devFeatures.js';
 import { createVivariumLayout, pickGroundTarget, readSpritePosition, DEFAULT_FOOTPRINT,
   groundIndex, groundClearance } from './vivariumLayout.js';
@@ -116,19 +116,22 @@ export function stopEnvironmentZone() {
 
 function _applyBackgroundData(viewportEl, bgData) {
   viewportEl.dataset.scene = bgData?.scene === 'hq' ? 'hq' : 'classic';
-  viewportEl.querySelector('.gang-hq-labels')?.remove();
+  if (bgData?.scene !== 'hq') viewportEl.querySelector('.gang-hq-labels')?.remove();
   if (bgData?.scene === 'hq') {
-    const labels = document.createElement('div');
+    const labels = viewportEl.querySelector('.gang-hq-labels') || document.createElement('div');
     labels.className = 'gang-hq-labels';
     for (const area of HQ_AREAS) {
-      const label = document.createElement('span');
-      label.textContent = _t(area.fr, area.en);
+      const label = labels.querySelector(`[data-area="${area.id}"]`) || document.createElement('span');
+      label.dataset.area = area.id;
+      const count = bgData.occupancy?.[area.id];
+      label.textContent = _t(area.fr, area.en) + (count == null ? '' : ` · ${count}`);
       label.style.left = `${(area.x + area.w / 2) * 100}%`;
       label.style.top = `${(area.y - .018) * 100}%`;
       labels.appendChild(label);
     }
-    viewportEl.appendChild(labels);
+    if (!labels.isConnected) viewportEl.appendChild(labels);
   }
+  if (_bounds) { _bounds.scene = viewportEl.dataset.scene; }
   if (bgData?.type === 'image' || bgData?.type === 'fabric') {
     viewportEl.style.backgroundImage = `url('${bgData.url}')`;
     if (bgData.type === 'fabric') {
@@ -392,6 +395,7 @@ function _watchBounds(viewportEl, bounds) {
     if (!rect.width || !rect.height) return;
     const previousBounds = { ...bounds };
     bounds.width = rect.width;
+    bounds.height = rect.height;
     bounds.groundTop = rect.height * 0.35;
     bounds.groundHeight = rect.height * 0.55;
     for (const entry of _residents) {
@@ -433,9 +437,12 @@ function _currentPos(el) {
 function _residentRange(entry, bounds) {
   const inset = entry.animator?.insets || { left: 0, right: 0, bottom: 0 };
   const minX = Math.min(inset.left, Math.max(0, bounds.width - entry.w));
-  return { minX, maxX: Math.max(minX, bounds.width - entry.w - inset.right),
+  const envelope = { minX, maxX: Math.max(minX, bounds.width - entry.w - inset.right),
     minY: bounds.groundTop,
     maxY: bounds.groundTop + Math.max(0, bounds.groundHeight - entry.h - inset.bottom) };
+  return bounds.scene === 'hq'
+    ? hqRange(entry.data?.location || 'pc', bounds, entry.animator?.footprint || DEFAULT_FOOTPRINT, envelope)
+    : envelope;
 }
 
 function _pickTarget(entry, bounds, seek = true) {
@@ -610,7 +617,10 @@ function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl, dialogueLi
   const fromLeft = Math.random() < 0.5;
   const startX = fromLeft ? -60 : bounds.width + 60;
   const endX   = fromLeft ? bounds.width + 60 : -60;
-  const baseY  = bounds.groundTop + Math.random() * bounds.groundHeight;
+  const home = bounds.scene === 'hq' ? hqRange(character?.location || cameoLocation(character || {}), bounds,
+    DEFAULT_FOOTPRINT, { minX: 0, maxX: Math.max(0, bounds.width - 48) }) : null;
+  const baseY = home ? (home.minY + home.maxY) / 2 : bounds.groundTop + Math.random() * bounds.groundHeight;
+  const homeX = home ? (home.minX + home.maxX) / 2 : null;
   _setPosition(el, startX, baseY);
   _flip(el, !fromLeft);
   (_layout?.actorLayer || viewportEl).appendChild(el);
@@ -650,17 +660,19 @@ function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl, dialogueLi
   }
 
   const legs = CAMEO_LEGS_MIN + Math.floor(Math.random() * (CAMEO_LEGS_MAX - CAMEO_LEGS_MIN + 1));
-  const bubbleLeg = bubble ? 1 + Math.floor(Math.random() * (legs - 1)) : -1;
+  const bubbleLeg = bubble ? (home ? legs - 1 : 1 + Math.floor(Math.random() * (legs - 1))) : -1;
   let leg = 0;
 
   function nextLeg() {
     if (!el.isConnected) return;
     leg++;
     const progress = leg / legs;
-    const x = startX + (endX - startX) * progress;
+    const x = home && leg < legs ? startX + (homeX - startX) * leg / (legs - 1)
+      : startX + (endX - startX) * progress;
     const y = leg >= legs
       ? baseY
-      : Math.min(bounds.groundTop + bounds.groundHeight, Math.max(bounds.groundTop, baseY + (Math.random() * 2 - 1) * CAMEO_Y_WOBBLE_PX));
+      : Math.min(home?.maxY ?? bounds.groundTop + bounds.groundHeight,
+        Math.max(home?.minY ?? bounds.groundTop, baseY + (Math.random() * 2 - 1) * CAMEO_Y_WOBBLE_PX));
 
     const cur = _currentPos(el);
     const dist = Math.max(1, _dist(cur.x, cur.y, x, y));
@@ -799,6 +811,7 @@ export function renderEnvironmentZone(rootContainer) {
   const rect = viewportEl.getBoundingClientRect();
   const bounds = {
     width: rect.width || 600,
+    height: rect.height || 320, scene: viewportEl.dataset.scene,
     groundTop: (rect.height || 320) * 0.35,
     groundHeight: (rect.height || 320) * 0.55,
   };
@@ -854,6 +867,7 @@ export function renderEnvironmentZoneFromSnapshot(rootContainer, blob) {
   const rect = viewportEl.getBoundingClientRect();
   const bounds = {
     width: rect.width || 600,
+    height: rect.height || 320, scene: viewportEl.dataset.scene,
     groundTop: (rect.height || 320) * 0.35,
     groundHeight: (rect.height || 320) * 0.55,
   };
@@ -883,6 +897,7 @@ export function updateEnvironmentSnapshot(blob) {
   if (!viewportEl) return;
 
   _liveCameoPool = blob?.cameoPool || [];
+  const sceneChanged = !!blob?.backgroundData && ((blob.backgroundData.scene === 'hq') !== (viewportEl.dataset.scene === 'hq'));
   if (blob?.backgroundData) _applyBackgroundData(viewportEl, blob.backgroundData);
 
   // Reconcile by stable Pokémon id; older snapshots use display identity + index.
@@ -894,12 +909,20 @@ export function updateEnvironmentSnapshot(blob) {
   viewportEl.querySelector('.gang-env-empty-hint')?.remove();
   for (const [i, data] of residents.entries()) {
     let entry = existing.get(key(data, i));
+    const homeChanged = entry && (sceneChanged || entry.data.location !== data.location);
     existing.delete(key(data, i));
     if (entry && (entry.data.dex !== data.dex || entry.data.shiny !== data.shiny || entry.data.spriteUrl !== data.spriteUrl)) {
       _cancel(entry.timer); _layout?.unregister(entry); entry.animator?.destroy(); entry.el.remove(); entry = null;
     }
     if (!entry) entry = _spawnResident(viewportEl, data.spriteUrl, data.label, _bounds, data);
     entry.data = data;
+    if (homeChanged) {
+      _cancel(entry.timer); _freeze(entry);
+      const position = _pickTarget(entry, _bounds, false);
+      entry.x = position.x; entry.y = position.y;
+      _setPosition(entry.el, entry.x, entry.y); _layout?.refresh(entry);
+      if (!entry.interacting) entry.timer = _later(() => _wanderStep(entry, _bounds), 400);
+    }
     entry.label = data.label; entry.level = data.level; entry.natureLabel = data.natureLabel;
     entry.el.title = data.label || '';
     next.push(entry);
