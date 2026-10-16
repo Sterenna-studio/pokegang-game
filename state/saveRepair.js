@@ -1,4 +1,5 @@
 'use strict';
+import { getObsoleteSaveZoneIds } from './zoneCatalog.js';
 
 let saveRepairContext = {};
 
@@ -80,14 +81,11 @@ export function applyAutoMutation(pokemons) {
 }
 
 export function cleanObsoleteData(saveData) {
-  const validIds = new Set(getZones().map(z => z.id));
   let removed = 0;
   if (saveData?.zones) {
-    for (const zoneId of Object.keys(saveData.zones)) {
-      if (!validIds.has(zoneId)) {
-        delete saveData.zones[zoneId];
-        removed++;
-      }
+    for (const zoneId of getObsoleteSaveZoneIds(saveData, getZones())) {
+      delete saveData.zones[zoneId];
+      removed++;
     }
   }
   return removed;

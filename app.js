@@ -34,6 +34,7 @@ import {
   cleanObsoleteData,
   repairSave,
 } from './state/saveRepair.js';
+import { getKnownSaveZones } from './state/zoneCatalog.js';
 import './modules/systems/llm.js';
 import {
   checkHourlyQuestResetTick,
@@ -1234,7 +1235,7 @@ configureSaveRepair({
   showConfirm,
   document,
   getTitles: () => TITLES,
-  getZones: () => ZONES,
+  getZones: getKnownSaveZones,
   MAX_HISTORY,
 });
 
