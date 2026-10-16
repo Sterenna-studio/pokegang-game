@@ -1146,9 +1146,6 @@ function triggerGymRaid(zoneId, isAuto) {
   // Auto requires at least 1 manual win
   if (isAuto && !zs.gymDefeated) return false;
 
-  zs.gymRaidLastFight = Date.now();
-  _save();
-
   // Build the gym leader's team
   const trainerKey = zone.gymLeader;
   const trainer = TRAINER_TYPES[trainerKey];
@@ -1172,6 +1169,8 @@ function triggerGymRaid(zoneId, isAuto) {
   };
 
   if (isAuto) {
+    zs.gymRaidLastFight = Date.now();
+    _save();
     // Auto-fight via agent power + boss (si assigné à la zone)
     const raidAgents = state.agents.filter(a => a.assignedZone === zoneId);
     let agentPower = raidAgents.reduce((s, a) => s + globalThis.getAgentCombatPower(a), 0);
@@ -1217,7 +1216,10 @@ function triggerGymRaid(zoneId, isAuto) {
   }
 
   // Manual raid → open combat popup
-  globalThis.openCombatPopup(zoneId, { type: 'trainer', trainerKey, trainer: raidTrainer, team, isGymRaid: true });
+  const opened = globalThis.openCombatPopup(zoneId, { type: 'trainer', trainerKey, trainer: raidTrainer, team, isGymRaid: true });
+  if (!opened) return false;
+  zs.gymRaidLastFight = Date.now();
+  _save();
   return true;
 }
 

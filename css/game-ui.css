@@ -113,17 +113,17 @@
       transition: border-color .2s;
     }
 
-    /* Bilan de fin de combat / raid (showCombatResultBanner) : bandeau centré dans le
+    /* Bilan de fin de combat / raid (showCombatResultBanner) : bandeau en bas du
        viewport pendant la pause de fin, et liseré sur la fenêtre qui s'estompe après. */
     .zone-combat-result {
       position: absolute;
       left: 50%;
-      top: 38%;
+      bottom: 34px;
       z-index: 40;
-      transform: translate(-50%, -50%);
+      transform: translateX(-50%);
       min-width: 150px;
       max-width: 88%;
-      padding: 8px 14px 9px;
+      padding: 5px 10px 6px;
       text-align: center;
       border: 2px solid currentColor;
       border-radius: var(--radius-sm);
@@ -139,8 +139,8 @@
     .zcr-loot  { margin-top: 4px; font-family: var(--font-pixel); font-size: 8px; }
     .zone-combat-result.loss .zcr-loot { color: var(--text-dim); }
     @keyframes zoneResultIn {
-      from { opacity: 0; transform: translate(-50%, -50%) scale(.6); }
-      to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+      from { opacity: 0; transform: translateX(-50%) scale(.9); }
+      to   { opacity: 1; transform: translateX(-50%) scale(1); }
     }
     .zone-window.zone-result-win  { animation: zoneResultGlowWin 3.2s ease-out; }
     .zone-window.zone-result-loss { animation: zoneResultGlowLoss 3.2s ease-out; }
@@ -1418,6 +1418,8 @@
     }
     /* Mode minimal : pas de log texte, juste vs + fuir */
     .zone-combat-hud-minimal {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
       min-height: 22px;
       padding: 2px 8px;
       justify-content: space-between;
@@ -1426,6 +1428,16 @@
     .zone-combat-hud-minimal .zchud-vs  { pointer-events: none; }
     .zone-combat-hud-minimal .zchud-flee,
     .zone-combat-hud-minimal .zchud-speed { pointer-events: auto; }
+    .zone-combat-hud .combat-tier-header {
+      grid-column: 1 / -1;
+      min-width: 0;
+      margin: 0;
+      padding: 2px 5px;
+      gap: 4px;
+      font-size: 7px;
+    }
+    .zone-combat-hud .ct-emoji { font-size: 10px; }
+    .zone-combat-hud .ct-ratio { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
     .zchud-vs  {
       flex: 1 1 auto;
       min-width: 0;
