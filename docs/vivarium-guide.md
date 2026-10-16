@@ -29,6 +29,6 @@ chargement à la demande, les cinq flèches, retour/suivant, les limites du popu
 mobile, Tab/Échap, la restauration du focus, l’absence d’écriture, le maintien
 des choix explicites après rechargement et le nettoyage. Les profils de test
 sont isolés des sauvegardes des joueurs. Build itch valide : 51,02 Mo,
-2642 entrées, pas d’upload itch. Les essais mobiles utilisent un viewport
+2643 entrées, pas d’upload itch. Les essais mobiles utilisent un viewport
 Chromium ; aucun benchmark sur téléphone physique. Compteur tokens exact
 indisponible dans cette session.

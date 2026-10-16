@@ -60,12 +60,13 @@ layout.moving(b, false);
 layout.moving(b, true); b.el.position = { x: 139, y: 100 }; step();
 assert.equal(blocked.length, 1, 'Walking out of an overlap is allowed');
 layout.moving(b, false);
-// Annotations share CSS target/transition for smooth movement, separate stacking.
+// Annotations share the target, with a compositor timeline rather than an
+// independently restarted CSS transition (real interpolation tested in Chromium).
 a.el.style.transition = 'transform 2s ease-in-out'; a.el.style.transform = 'translate(200px,100px)';
 const cleanup = layout.annotate(a, node());
 const annotation = layout.overlayLayer.children[0];
 assert.equal(annotation.style.transform, a.el.style.transform);
-assert.equal(annotation.style.transition, a.el.style.transition);
+assert.equal(annotation.style.transition, 'none');
 cleanup(); assert.equal(annotation.removed, true);
 layout.inspect(() => {}); assert.equal(jobs.size, 1);
 layout.inspect(null); assert.equal(jobs.size, 0, 'Closing inspector stops idle sampling');

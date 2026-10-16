@@ -2,6 +2,11 @@ import assert from 'node:assert/strict';
 import { advanceRainbowWingQuest, collectVivariumWing } from '../modules/systems/vivariumRewards.js';
 import { buildVivariumCameoPool } from '../modules/systems/vivariumSnapshot.js';
 import { cameoLocation } from '../modules/systems/vivariumZones.js';
+import { vivariumSpeechDuration } from '../gang/vivariumSpeech.js';
+
+assert.equal(vivariumSpeechDuration('Bonjour !'), 6500);
+assert.ok(vivariumSpeechDuration('Une longue discussion entre deux patrouilles. '.repeat(4)) > 10000);
+assert.equal(vivariumSpeechDuration('x'.repeat(1000)), 14000);
 
 const state = { inventory: { rainbow_wing: 7, silver_wing: 2 },
   hoohMission: { active: true, step: 2, rainbowWings: 3 }, gang: {},
