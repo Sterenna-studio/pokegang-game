@@ -57,7 +57,7 @@ try {
   // regional activation; new runtime/default zone fields may be added.
   await page.evaluate(() => localStorage.setItem('pokeforge.activeSlot', '1'));
   await page.reload();
-  await page.waitForFunction(() => window.state?.gang?.name === 'Import regression' && typeof window.initMissions === 'function');
+  await page.waitForFunction(() => window.state?.gang?.name === 'Import regression' && typeof window.initMissions === 'function', null, { timeout: 30000 });
   const loaded = await page.evaluate(() => JSON.parse(JSON.stringify(window.state)));
   for (const [id, zone] of Object.entries(state.zones)) {
     for (const [key, value] of Object.entries(zone)) assert.deepEqual(loaded.zones[id][key], value, `${id}.${key}`);

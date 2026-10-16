@@ -26,6 +26,8 @@ Validation :
   sélection de fichier depuis l’accueil, nettoyage explicitement activé,
   confirmation au clic, import dans un slot, démarrage réel sur ce slot puis
   import en cours de partie. Profil QA isolé ; aucune sauvegarde joueur utilisée.
+  Ce parcours passe en local et sur la preview publique du lab. Les cinq fichiers
+  runtime du patch sont contrôlés par SHA-256 après transfert.
 - Les tests vérifient la conservation des quêtes non expirées. Les resets
   normaux à échéance restent inchangés ; aucune logique de quête n’est modifiée.
 
