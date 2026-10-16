@@ -273,7 +273,7 @@ export function buildVivariumCameoPool(state) {
     // appliqué à la création, cf. modules/systems/agent.js:72-73) — la
     // re-passer à trainerSprite() ici la traiterait à tort comme une clé brute.
     const spriteUrl = agent.spriteKey ? globalThis.trainerSprite(agent.spriteKey) : agent.sprite;
-    pool.push({ type: 'agent', spriteUrl, label: agent.name, followIconUrl, lines: _buildAgentLines(agent, state) });
+    pool.push({ type: 'agent', trainerKey: agent.spriteKey, spriteUrl, label: agent.name, followIconUrl, lines: _buildAgentLines(agent, state) });
   }
 
   const favs = state.pokemons.filter(p => p.favorite);
@@ -291,6 +291,7 @@ export function buildVivariumCameoPool(state) {
   if ((state.eggs?.length || 0) > 0 || state.pension?.eggAt) {
     pool.push({
       type: 'nurse',
+      trainerKey: 'nurse',
       spriteUrl: globalThis.trainerSprite('nurse'),
       label: _t(state, 'Infirmière Joy', 'Nurse Joy'),
       followIconUrl: globalThis.EGG_SPRITES?.default,
@@ -298,12 +299,12 @@ export function buildVivariumCameoPool(state) {
     });
   }
 
-  pool.push({ type: 'scientist', spriteUrl: globalThis.trainerSprite('scientist'), label: _t(state, 'Chercheur', 'Researcher'), lines: _buildScientistLines(state) });
-  pool.push({ type: 'fan', spriteUrl: globalThis.trainerSprite('pokefan'), label: 'Fan Pokémon', lines: [...(_isEn(state) ? FAN_LINES_EN : FAN_LINES_FR)] });
+  pool.push({ type: 'scientist', trainerKey: 'scientist', spriteUrl: globalThis.trainerSprite('scientist'), label: _t(state, 'Chercheur', 'Researcher'), lines: _buildScientistLines(state) });
+  pool.push({ type: 'fan', trainerKey: 'pokefan', spriteUrl: globalThis.trainerSprite('pokefan'), label: 'Fan Pokémon', lines: [...(_isEn(state) ? FAN_LINES_EN : FAN_LINES_FR)] });
 
   if ((state.gang.reputation || 0) >= RIVAL_REP_THRESHOLD) {
     const sprite = RIVAL_SPRITES[Math.floor(Math.random() * RIVAL_SPRITES.length)];
-    pool.push({ type: 'rival', spriteUrl: globalThis.trainerSprite(sprite), label: 'Rival', lines: [...(_isEn(state) ? RIVAL_LINES_EN : RIVAL_LINES_FR)], hostile: true });
+    pool.push({ type: 'rival', trainerKey: sprite, spriteUrl: globalThis.trainerSprite(sprite), label: 'Rival', lines: [...(_isEn(state) ? RIVAL_LINES_EN : RIVAL_LINES_FR)], hostile: true });
   }
 
   if (state.gang.bossSprite) {
@@ -314,7 +315,7 @@ export function buildVivariumCameoPool(state) {
       `Puissance de l'équipe : ${power.toLocaleString()}. On progresse.`,
       `Team power: ${power.toLocaleString()}. We are making progress.`,
     ));
-    pool.push({ type: 'boss', spriteUrl: globalThis.trainerSprite(state.gang.bossSprite), label: state.gang.bossName || 'Boss', lines });
+    pool.push({ type: 'boss', trainerKey: state.gang.bossSprite, spriteUrl: globalThis.trainerSprite(state.gang.bossSprite), label: state.gang.bossName || 'Boss', lines });
   }
 
   return pool;

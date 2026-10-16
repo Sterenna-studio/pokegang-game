@@ -359,6 +359,21 @@
   border: 5px solid transparent;
   border-top-color: rgba(255,255,255,.95);
 }
+.gang-env-character .gang-env-speech-bubble {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 170px;
+}
+.gang-env-sprite .gang-env-speech-portrait {
+  width: 32px;
+  height: 40px;
+  flex: 0 0 32px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  animation: none;
+  filter: none;
+}
 /* Rival de gang — bulle teintée pour signaler le ton hostile au premier
    coup d'œil, même logique que le badge ami 💕/ennemi 💢 des résidents. */
 .gang-env-speech-bubble.hostile {
@@ -432,6 +447,17 @@
 }
 
 .gang-env-cameo { width: 44px; height: 44px; opacity: .96; }
+.gang-env-credits {
+  position: absolute;
+  bottom: 6px;
+  right: 8px;
+  z-index: 5;
+  font-size: 8px;
+  color: var(--text-dim);
+  background: rgba(0,0,0,.55);
+  padding: 3px 5px;
+  border-radius: 3px;
+}
 .gang-env-cameo-follow {
   position: absolute;
   width: 20px !important;
