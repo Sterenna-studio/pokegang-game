@@ -203,6 +203,9 @@
   inset: 0;
   overflow: hidden;
 }
+.gang-hq-labels { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+.gang-hq-labels span { position: absolute; translate: -50% -100%; padding: 3px 6px; border-radius: 3px;
+  background: #17251de0; color: #f6edcf; font-size: 9px; white-space: nowrap; }
 .gang-env-actors, .gang-env-overlays { position: absolute; inset: 0; pointer-events: none; }
 .gang-env-actors { z-index: 1; }
 .gang-env-overlays { z-index: 4; }
@@ -535,6 +538,9 @@
 .gang-sprite-mode-control select:focus-visible { border-color: var(--gold); }
 .gang-sprite-mode-control option { background: var(--bg); color: var(--text); }
 .gang-sprite-mode-hint { line-height: 1.6; color: var(--text-dim); }
+.gang-scene-options { position: relative; }
+.gang-scene-options summary { cursor: pointer; padding: 5px; background: rgba(0,0,0,.75); border-radius: 4px; }
+.gang-scene-options > div { position: absolute; top: 100%; left: 0; display: flex; flex-direction: column; gap: 5px; padding: 8px; background: #181818; border: 1px solid var(--border-light); border-radius: 6px; width: 100%; box-sizing: border-box; }
 
 /* ── Zone sources picker (quels résidents alimentent le vivarium) ─ */
 .gang-source-list {
