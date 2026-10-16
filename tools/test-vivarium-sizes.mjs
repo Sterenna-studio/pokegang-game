@@ -15,6 +15,7 @@ assert.equal(pokemonScale(null, 20, 48, 2), 2);
 assert.equal(pokemonScale(28, 14, 48, 1), 2);
 assert.equal(pokemonScale(144, 1, 64, 1), 3, 'Oversized padded sheets remain bounded at 192px');
 for (const height of Object.values(PMD_BODY_HEIGHT)) assert.ok(height > 0);
-assert.deepEqual(vivariumDisplay({}), { trueSize: false, spriteMode: 'pmd' });
+assert.deepEqual(vivariumDisplay({}), { trueSize: true, spriteMode: 'pmd' });
+assert.deepEqual(vivariumDisplay({ cosmetics: { vivariumTrueSize: false, vivariumSpriteMode: 'hgss' } }), { trueSize: false, spriteMode: 'hgss' });
 assert.deepEqual(vivariumDisplay({ cosmetics: { vivariumTrueSize: true, vivariumSpriteMode: '2d' } }), { trueSize: true, spriteMode: '2d' });
 console.log('PASS local sizes: 493 species, visible PMD bounds, tiny/large/unknown species, scale limits and backwards-compatible preferences');

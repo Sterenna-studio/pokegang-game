@@ -15,7 +15,9 @@ Les compteurs sont calculés lors de la construction du snapshot uniquement.
 
 ## True size
 
-Préférence facultative `cosmetics.vivariumTrueSize`, absente = taille standard.
+Préférence `cosmetics.vivariumTrueSize`, activée par défaut ; un choix explicite
+`false` conserve la taille standard. Un ancien snapshot OBS sans préférences
+reste en taille standard pour préserver sa présentation.
 Table locale des 493 espèces : hauteurs PokéAPI en décimètres, révision et SHA
 documentés dans `assets/vivarium/sizes-provenance.json`. Licence de PokéAPI et
 attribution conservées dans `assets/vivarium/PokeAPI-LICENSE.md` (Paul Hallett

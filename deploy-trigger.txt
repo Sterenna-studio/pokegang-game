@@ -4,6 +4,6 @@ Auto-updated on every commit by .githooks/pre-commit.
 Garantit qu'un marqueur horodaté est présent dans chaque commit
 et que le workflow GitHub Actions se déclenche.
 
-Last update : 2026-10-16 16:40:57 +0200
+Last update : 2026-10-16 17:02:54 +0200
 Branch      : feat/vivarium-interactive-visitors
-Previous sha: 46b533e
+Previous sha: f410b18

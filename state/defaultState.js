@@ -207,7 +207,8 @@ export const DEFAULT_STATE = {
     // 'showcase' (state.gang.showcase), 'team' (équipe active du boss),
     // 'pension' (state.pension.slots), 'training' (state.trainingRoom.pokemon).
     vivariumSources: ['showcase', 'team'],
-    vivariumSpriteMode: 'pmd', // 'pmd' | '2d', local vivarium only
+    vivariumSpriteMode: 'pmd', // 'pmd' | '2d' | 'hgss', local vivarium only
+    vivariumTrueSize: true,
   },
   lab: {
     trackedSpecies: [],
