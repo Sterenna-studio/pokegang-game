@@ -75,8 +75,37 @@ try {
   await page.locator('#gangSceneSelect').selectOption('classic');
   assert.equal(await page.locator('.gang-hq-labels').count(), 0);
   assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('pokeforge.v6')).cosmetics.vivariumScene), 'classic');
+  await page.locator('#gangSpriteModeSelect').selectOption('hgss');
+  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('pokeforge.v6')).cosmetics.vivariumSpriteMode), 'hgss');
+  // Public OBS fixture: no save/auth reads required; exact variant fallback.
+  await page.evaluate(async base => {
+    const env = await import(base + '/gang/environment.js');
+    const fallback = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48"><circle cx="24" cy="24" r="16" fill="gold"/></svg>');
+    window.qgBlob = { residents: [[25, false], [130, true], [52, false], [25, true]].map(([dex, shiny], i) => ({
+      id: `hgss-${i}`, dex, shiny, spriteUrl: fallback, label: `HGSS ${dex}`, location: ['pc', 'pension', 'training', 'pc'][i],
+      display: { spriteMode: 'hgss', trueSize: false },
+    })), cameoPool: [], backgroundData: { type: 'image', scene: 'hq', url: base + '/assets/vivarium/hq.svg' } };
+    const descriptor = Object.getOwnPropertyDescriptor(window, 'localStorage');
+    Object.defineProperty(window, 'localStorage', { configurable: true, get() { throw Error('OBS read localStorage'); } });
+    try { env.renderEnvironmentZoneFromSnapshot(document, qgBlob); } finally { Object.defineProperty(window, 'localStorage', descriptor); }
+    window.qgNodes = [...document.querySelectorAll('.gang-env-clickable')];
+  }, base);
+  await page.waitForFunction(() => document.querySelectorAll('.gang-env-clickable canvas:not([hidden])').length === 2);
+  assert.equal(await page.locator('.gang-env-clickable').count(), 4);
+  assert.equal(await page.locator('.gang-env-clickable canvas').count(), 2);
+  await page.evaluate(async base => {
+    const env = await import(base + '/gang/environment.js');
+    env.updateEnvironmentSnapshot(qgBlob);
+    if (!qgNodes.every((n, i) => n === document.querySelectorAll('.gang-env-clickable')[i])) throw Error('HGSS snapshot replaced residents');
+    qgBlob.residents.forEach(r => { r.display.trueSize = true; });
+    env.updateEnvironmentSnapshot(qgBlob);
+    if (!qgNodes.every((n, i) => n === document.querySelectorAll('.gang-env-clickable')[i])) throw Error('Size change replaced residents');
+  }, base);
+  await page.waitForFunction(() => document.querySelectorAll('.gang-env-clickable canvas:not([hidden])').length === 2);
+  assert.ok(requests.filter(url => url.includes('/assets/pokemon_hgss/') && url.endsWith('.png')).every(url => /\/(25\/Walk|130\/s\/Walk)\.png$/.test(url)), 'Only displayed HGSS sheets downloaded');
+  await page.screenshot({ path: path.join(root, 'coverage/vivarium-hgss-mobile.png'), fullPage: true });
   await page.locator('[data-panel="music"]').click();
   assert.equal(await page.locator('#vivariumDevPanel').count(), 0);
   assert.deepEqual(errors, []);
-  console.log('PASS Chromium QG: native scene selector, original static SVG, resident activity areas, stable OBS labels/nodes, saved scene, mobile and panel cleanup');
+  console.log('PASS Chromium QG: scene/activity areas, True size, saved HGSS selection, real normal/shiny sheets, exact variant fallback, OBS without localStorage, stable updates, mobile and cleanup');
 } finally { await browser.close(); await new Promise(resolve => server.close(resolve)); }

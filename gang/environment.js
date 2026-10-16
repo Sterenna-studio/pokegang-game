@@ -33,6 +33,7 @@ import {
 } from '../modules/systems/vivariumSnapshot.js';
 import { attachPmdSprite, directionFromVector, stopPmdSprites } from './pmdSprites.js';
 import { pokemonDisplayHeight } from './pokemonSize.js';
+import { attachHgssPokemon } from './hgssPokemon.js';
 import { attachCharacterSprite } from './characterSprites.js';
 import { HQ_AREAS, wantsHq, hqRange, cameoLocation } from '../modules/systems/vivariumZones.js';
 import { devFeaturesEnabled } from '../modules/core/devFeatures.js';
@@ -345,7 +346,9 @@ function _applySpriteMode(entry) {
   inner.style.transform = '';
   const fallback = inner.querySelector('img');
   if (fallback) fallback.style.scale = '';
-  entry.animator = _spriteMode === 'pmd' ? attachPmdSprite(inner, { ...entry.data, trueSize: _trueSize }) : null;
+  const pokemon = { ...entry.data, trueSize: _trueSize };
+  entry.animator = _spriteMode === 'pmd' ? attachPmdSprite(inner, pokemon)
+    : _spriteMode === 'hgss' ? attachHgssPokemon(inner, pokemon) : null;
   const size = !entry.animator && pokemonDisplayHeight(entry.data?.dex, _trueSize);
   entry.fallbackMetrics = size ? {
     footprint: { rx: Math.max(12, Math.min(26, size / 3)), ry: Math.max(6, Math.min(12, size / 8)) },
@@ -370,10 +373,11 @@ function _refreshSpriteModeHint() {
   if (!hint) return;
   const count = _residents.filter(entry => entry.animator).length;
   const total = _residents.length;
-  hint.hidden = _spriteMode !== 'pmd' || total === 0;
+  hint.hidden = _spriteMode === '2d' || total === 0;
+  const mode = _spriteMode === 'hgss' ? 'HGSS' : _t('Donjon Mystère', 'Mystery Dungeon');
   hint.textContent = count
-    ? _t(`${count}/${total} Pokémon compatibles Donjon Mystère`, `${count}/${total} Pokémon support Mystery Dungeon`)
-    : _t('Pas de sprites Donjon Mystère pour ces Pokémon.', 'No Mystery Dungeon sprites for these Pokémon.');
+    ? _t(`${count}/${total} Pokémon compatibles ${mode}`, `${count}/${total} Pokémon support ${mode}`)
+    : _t(`Pas de sprites ${mode} pour ces Pokémon.`, `No ${mode} sprites for these Pokémon.`);
   hint.title = _t('Les Pokémon sans animations Donjon Mystère disponibles conservent leurs sprites 2D.',
     'Pokémon without available Mystery Dungeon animations keep their 2D sprites.');
 }
@@ -382,7 +386,7 @@ function _bindSpriteModeSelector(zoneEl) {
   const select = zoneEl.querySelector('#gangSpriteModeSelect');
   select.value = _spriteMode;
   select.addEventListener('change', () => {
-    const nextMode = select.value === '2d' ? '2d' : 'pmd';
+    const nextMode = ['2d', 'pmd', 'hgss'].includes(select.value) ? select.value : 'pmd';
     if (nextMode === _spriteMode) return;
     _spriteMode = nextMode;
     const state = globalThis.state;
@@ -806,7 +810,8 @@ export function renderEnvironmentZone(rootContainer) {
   const zoneEl = rootContainer.querySelector('#gangEnvironmentZone');
   if (!zoneEl) return;
   stopEnvironmentZone();
-  _spriteMode = globalThis.state?.cosmetics?.vivariumSpriteMode === '2d' ? '2d' : 'pmd';
+  const savedMode = globalThis.state?.cosmetics?.vivariumSpriteMode;
+  _spriteMode = ['2d', 'pmd', 'hgss'].includes(savedMode) ? savedMode : 'pmd';
   _trueSize = globalThis.state?.cosmetics?.vivariumTrueSize === true;
   _zoneEl = zoneEl;
 
@@ -816,6 +821,7 @@ export function renderEnvironmentZone(rootContainer) {
       <select id="gangSpriteModeSelect">
         <option value="2d">2D</option>
         <option value="pmd">${_t('Donjon Mystère', 'Mystery Dungeon')}</option>
+        <option value="hgss">Pokémon HGSS</option>
       </select>
       <span class="gang-sprite-mode-hint" id="gangSpriteModeHint" hidden></span>
       <details class="gang-scene-options"><summary>${_t('Décor et taille', 'Scene and size')}</summary><div>
@@ -828,7 +834,7 @@ export function renderEnvironmentZone(rootContainer) {
     <button class="gang-zonebg-btn" id="gangZoneBgBtn" title="${_t('Changer le fond', 'Change background')}">🎨</button>
     <button class="gang-zonesrc-btn" id="gangZoneSrcBtn" title="${_t('Choisir les zones affichées', 'Choose displayed zones')}">👁</button>
     <div class="gang-env-viewport" id="gangEnvViewport"></div>
-    <a class="gang-env-credits" href="https://eeveeexpo.com/resources/609/" target="_blank" rel="noopener noreferrer">${_t('Personnages', 'Characters')} : PurpleZaffre</a>`;
+    <a class="gang-env-credits" href="https://eeveeexpo.com/resources/609/" target="_blank" rel="noopener noreferrer">Sprites HGSS : PurpleZaffre</a>`;
 
   const viewportEl = zoneEl.querySelector('#gangEnvViewport');
   _bindSpriteModeSelector(zoneEl);
