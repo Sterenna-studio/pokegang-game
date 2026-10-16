@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>PokéGang · Outils du lab</title><link rel="stylesheet" href="./lab.css"></head>
+<body><header><nav><a href="../index.html">← Jeu en preview</a><a href="../gang/">Vivarium et inspecteur</a></nav><p class="eyebrow">PokéGang · laboratoire</p><h1>Outils de test et de comparaison</h1><p>Choisir un outil à ouvrir. Aucun outil ni catalogue graphique n’est chargé en arrière-plan.</p></header>
+<main id="lab" hidden><section class="cards" aria-label="Outils disponibles">
+<a class="card" href="./gang-base-history/index.html"><span>Comparer</span><h2>Histoire de la base</h2><p>14 rendus, dates, commits et comparaison côte à côte.</p></a>
+<a class="card" href="./sprite-lab.html"><span>Tester</span><h2>Laboratoire de sprites</h2><p>2D, Donjon Mystère et HGSS : marche, repos, directions, shiny et True size.</p></a>
+<a class="card" href="./save-compare.html"><span>Contrôler</span><h2>Comparer deux sauvegardes</h2><p>Arènes, quêtes, compteurs et différences JSON. Lecture locale de fichiers, sans import dans le jeu.</p></a>
+<a class="card" href="./screenshot-studio/index.html"><span>Capturer</span><h2>Screenshot Studio</h2><p>Scènes de démonstration, langues, dimensions et exports visuels.</p></a>
+<a class="card" href="./screenshot-studio/album.html"><span>Consulter</span><h2>Album des visuels</h2><p>Références et captures déjà préparées dans le studio.</p></a>
+<a class="card" href="./zone-editor.html"><span>Préparer</span><h2>Éditeur de zones</h2><p>Outil existant de préparation des zones, avec export de données.</p></a>
+</section><section class="panel"><h2>Diagnostic des ressources publiques</h2><p>Contrôle les fichiers essentiels sans télécharger les catalogues complets. Aucun appel à Supabase.</p><button id="checkAssets" type="button">Vérifier les ressources</button><p id="checkStatus" role="status">Non exécuté.</p><div class="table-scroll"><table><thead><tr><th>Ressource</th><th>État</th><th>Type reçu</th></tr></thead><tbody id="assetResults"></tbody></table></div></section></main>
+<p id="gate" role="status">Vérification de l’accès au lab…</p><footer>Les sauvegardes du jeu ne sont pas modifiées par ce tableau de bord. <a href="./LAB-TOOLS.md">Documentation</a>.</footer><script type="module" src="./lab.js"></script></body></html>

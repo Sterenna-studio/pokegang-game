@@ -30,6 +30,7 @@ export function mountVivariumDev({ zone, viewport, layout, bounds }) {
         Les enveloppes peuvent inclure du transparent.</p>
       <p>Fermer ce panneau coupe les dessins de debug. Échap pour replier.</p>
       <p><a href="${new URL('../tools/gang-base-history/index.html', import.meta.url).href}" target="_blank" rel="noopener noreferrer">Comparer les anciennes bases du gang ↗</a></p>
+      <p><a href="${new URL('../tools/index.html', import.meta.url).href}" target="_blank" rel="noopener noreferrer">Tous les outils de test et comparaison ↗</a></p>
     </div>`;
   document.body.appendChild(panel);
   const canvas = document.createElement('canvas');
