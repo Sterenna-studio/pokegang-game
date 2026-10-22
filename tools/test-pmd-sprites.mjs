@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 import vm from 'node:vm';
-import { createPmdRenderer, directionFromVector, frameAt } from '../gang/pmdSprites.js';
+import { createPmdRenderer, directionFromVector, frameAt, isItchHost, pmdAssetBaseUrl, PMD_REMOTE_BASE_URL } from '../gang/pmdSprites.js';
 import { PMD_METADATA } from '../assets/pokemon_pmd/metadata.js';
 import { buildVivariumResidents, buildVivariumCameoPool } from '../modules/systems/vivariumSnapshot.js';
 
@@ -151,4 +151,31 @@ assert.deepEqual([residents[0].id, residents[0].dex, residents[0].shiny], ['a', 
 assert.equal(residents[0].spriteUrl, 'fallback/meowth/true');
 assert.equal(buildVivariumCameoPool(state).find(c => c.type === 'favorite').dex, 52);
 assert.equal(JSON.stringify(state), before);
+// Le build itch (1 000 fichiers max) n'embarque pas les feuilles : elles viennent du site web.
+assert.equal(isItchHost('x.itch.io'), true);
+assert.equal(isItchHost('html-classic.itch.zone'), true);
+assert.equal(isItchHost('pokegang.sterenna.fr'), false);
+assert.equal(isItchHost('localhost'), false);
+assert.equal(pmdAssetBaseUrl('x.itch.io').href, PMD_REMOTE_BASE_URL);
+assert.ok(pmdAssetBaseUrl('pokegang.sterenna.fr').pathname.endsWith('/assets/pokemon_pmd/'));
+
+// Une feuille en échec (coupure réseau passagère) est retentée après SHEET_RETRY_MS, pas gardée
+// en cache jusqu'au prochain rendu complet (overlay OBS : un seul rendu, puis du polling).
+{
+  const imgs = []; let clock = 0;
+  const retry = createPmdRenderer({ metadata, doc, motion, maxSheets: 8, now: () => clock,
+    raf: fn => { frames.set(++serial, fn); return serial; }, caf: id => frames.delete(id),
+    makeImage: () => { const image = {}; imgs.push(image); return image; } });
+  retry.attach(host(), { dex: 52 });
+  assert.equal(imgs.length, 1);
+  imgs[0].onerror(); await Promise.resolve();
+  clock = 5000;
+  retry.attach(host(), { dex: 52 });
+  assert.equal(imgs.length, 1, 'Un échec récent n’est pas retenté en boucle');
+  clock = 16000;
+  retry.attach(host(), { dex: 52 });
+  assert.equal(imgs.length, 2, 'Après le délai, la feuille est redemandée');
+  retry.dispose();
+}
+
 console.log('PASS PMD renderer: timing, directions, anchors, shiny, async race, errors, cache, visibility, disposal and snapshots');

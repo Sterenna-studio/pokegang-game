@@ -209,6 +209,7 @@ export const DEFAULT_STATE = {
     vivariumSources: ['showcase', 'team'],
     vivariumSpriteMode: 'pmd', // 'pmd' | '2d' | 'hgss', local vivarium only
     vivariumTrueSize: true,
+    vivariumScene: null, // 'hq' | 'classic' | null = automatique (QG sauf si un fond perso est posé, cf. wantsHq)
   },
   lab: {
     trackedSpecies: [],

@@ -4,6 +4,7 @@ import {
   getIncubationConfig,
   getEggIncubationAgent,
   getEggIncubationSummary,
+  getReadyEggs,
   markEggsReady,
   recordEggHatched,
   reconcileEggIncubationAssignments,
@@ -386,6 +387,9 @@ function openEggCrackPopup(egg, { remaining = 0, onNext = null, onDone = null } 
   }
 
   function finish(next) {
+    // Pendant le délai d'éclosion (450 ms) l'œuf va s'ouvrir quoi qu'il arrive : fermer ici
+    // le ferait éclore hors écran, sans révélation (et re-rendre un tas périmé).
+    if (busy) return;
     overlay.remove();
     if (next && onNext) onNext(); else onDone?.();
   }
@@ -402,7 +406,8 @@ function openEggCrackQueue(onDone, { agentId = null, eggIds = null } = {}) {
   const isFirst = egg => (agentId && (egg.incubationAgentId || egg.agentId) === agentId)
     || (eggIds && eggIds.includes(egg.id));
   const pick = () => {
-    const ready = globalThis.state.eggs.filter(e => e.status === 'ready');
+    // Même ordre (livraison) que la pile affichée à la base : le premier ouvert est celui du dessus.
+    const ready = getReadyEggs(globalThis.state);
     return [...ready.filter(isFirst), ...ready.filter(e => !isFirst(e))];
   };
   const step = () => {

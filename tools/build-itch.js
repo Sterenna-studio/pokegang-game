@@ -44,6 +44,15 @@ const ZIP_PATH = path.join(ROOT, RELEASE.uploadFile);
 // pour le détail (notamment gang/, qui n'est PAS que la page compagnon).
 const INCLUDE = ['index.html', 'app.js', 'css', 'data', 'modules', 'state', 'assets', 'gang'];
 
+// itch.io refuse les archives HTML5 de plus de 1 000 fichiers
+// (https://itch.io/docs/creators/html5#zip-file-requirements). Les ~2 000 feuilles
+// de sprites PMD (assets/pokemon_pmd/<dex>/…) y feraient dépasser la limite : le build itch
+// ne garde de ce dossier que l'indispensable runtime + les crédits, et gang/pmdSprites.js
+// charge les feuilles depuis le site web quand il tourne sur un hôte itch (PMD_REMOTE_BASE_URL).
+const ITCH_MAX_FILES = 1000;
+const PMD_DIR = path.join('assets', 'pokemon_pmd');
+const PMD_KEEP = new Set(['metadata.js', 'CREDITS.md', 'SPRITECOLLAB-LICENSE.md', 'credit_names.txt']);
+
 // music/ ne contient que les pistes .mp3 utilisees (elle a ete elaguee : importee
 // en bloc, 945 fichiers / ~43 Mo, dont 920 jamais charges). On ne copie malgre tout
 // que les pistes reellement referencees par le code : si une bibliotheque entiere
@@ -62,9 +71,32 @@ function stage() {
   for (const entry of INCLUDE) {
     fs.cpSync(path.join(ROOT, entry), path.join(STAGE_DIR, entry), { recursive: true });
   }
+  pruneRemoteAssets();
   const music = stageMusic();
   const suffix = music.length ? ` + ${music.length} pistes audio référencées` : '';
   console.log(`[build-itch] ${INCLUDE.length} entrées copiées dans dist-itch/${suffix}`);
+}
+
+// Retire les feuilles PMD de la copie stagée (le repo et le site web les gardent).
+function pruneRemoteAssets() {
+  const dir = path.join(STAGE_DIR, PMD_DIR);
+  if (!fs.existsSync(dir)) return;
+  let removed = 0;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isFile() && PMD_KEEP.has(entry.name)) continue;
+    const full = path.join(dir, entry.name);
+    removed += entry.isDirectory() ? countFiles(full) : 1;
+    fs.rmSync(full, { recursive: true, force: true });
+  }
+  console.log(`[build-itch] ${PMD_DIR} : ${removed} fichiers non embarqués (servis par le site web sur itch).`);
+}
+
+function countFiles(dir) {
+  let n = 0;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    n += entry.isDirectory() ? countFiles(path.join(dir, entry.name)) : 1;
+  }
+  return n;
 }
 
 // Relit les sources déjà stagées pour extraire les chemins `music/…mp3` cités par
@@ -274,9 +306,25 @@ function validate() {
     }
   }
 
+  // Limite itch.io : au-delà, l'upload est refusé alors que le zip est parfaitement valide —
+  // ni la validation du format ni la CI ne le voyaient (le build à 2 643 fichiers passait).
+  const fileEntries = names.filter(n => !n.endsWith('/'));
+  if (fileEntries.length > ITCH_MAX_FILES) {
+    const byDir = {};
+    for (const n of fileEntries) { const k = n.split('/').slice(0, 2).join('/'); byDir[k] = (byDir[k] || 0) + 1; }
+    const top = Object.entries(byDir).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k, v]) => `${k} (${v})`).join(', ');
+    throw new Error(
+      `[build-itch] ${fileEntries.length} fichiers dans le zip : itch.io plafonne les archives HTML5 à ${ITCH_MAX_FILES}. ` +
+      `Plus gros dossiers : ${top}.`
+    );
+  }
+  if (!names.includes(`${PMD_DIR.replaceAll(path.sep, '/')}/metadata.js`)) {
+    throw new Error('[build-itch] assets/pokemon_pmd/metadata.js doit rester dans l’archive (import statique de gang/pmdSprites.js).');
+  }
+
   validateReleaseAlignment();
   console.log(
-    `[build-itch] Validation OK : release v${RELEASE.version}, ${names.length} entrées, ` +
+    `[build-itch] Validation OK : release v${RELEASE.version}, ${names.length} entrées (${fileEntries.length}/${ITCH_MAX_FILES} fichiers), ` +
     `séparateurs '/', index.html à la racine, EN itch / FR site, Nitro masqué sur itch, config.js absent.`
   );
 }

@@ -217,6 +217,10 @@ const fakeDocument = { createElement: tagName => makeElement(tagName) };
   assert.equal((source.match(/createCombatReplayRunner\(\{/g) || []).length, 2);
   assert.doesNotMatch(source, /function playSwitch\(/);
   assert.doesNotMatch(source, /addEventListener\('click'.*zchud-speed/);
+  // Un clic sur un dresseur/raid/PNJ d'événement passe par _challengeSpawn : si le combat ne
+  // s'ouvre pas, le spawn est relâché (sinon il restait marqué « défié » et inclicable).
+  assert.equal((source.match(/_challengeSpawn\(\s*el,/g) || []).length, 4, 'définition + dresseur + raid + PNJ d’événement');
+  assert.equal((source.match(/dataset\.challenged = '1'/g) || []).length, 1, 'le marquage « défié » n’existe que dans _challengeSpawn');
 }
 
 console.log('combat replay DOM: shared presenter, runner and button wiring OK');

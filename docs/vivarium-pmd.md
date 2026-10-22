@@ -188,8 +188,14 @@ hors de cette validation.
   séparateurs ZIP corrects, configuration privée exclue, FR web / EN itch.
   L'archive générée n'est ni commitée ni publiée.
 
-Cette archive complète dépasse la limite standard itch.io de 1 000 fichiers
-HTML5 ([documentation itch.io](https://itch.io/docs/creators/html5#zip-file-requirements)).
-La validation du ZIP ne vaut donc pas validation d'un upload HTML5 itch.io :
-un empaquetage adapté ou une limite relevée sera nécessaire avant une telle
-publication. Le déploiement web OVH utilise les fichiers locaux directement.
+**Limite itch.io (1 000 fichiers HTML5).** L'archive complète (2 643 fichiers) dépassait la limite
+standard ([documentation itch.io](https://itch.io/docs/creators/html5#zip-file-requirements)),
+que ni la validation du ZIP ni la CI ne contrôlaient. Le build itch n'embarque donc plus les
+~1 990 feuilles `assets/pokemon_pmd/<dex>/…` : il ne garde que `metadata.js` (import statique) et
+les fichiers de crédits, et `gang/pmdSprites.js` charge les feuilles depuis le site web
+(`PMD_REMOTE_BASE_URL`) quand il tourne sur un hôte itch (simple `drawImage` inter-origine, aucune
+lecture de pixels, donc pas de CORS — comme les sprites Showdown déjà chargés à distance). Si une
+feuille ne charge pas, l'acteur reste en sprite 2D, et elle est retentée au bout de 15 s.
+`tools/build-itch.js` échoue désormais au-delà de 1 000 fichiers (651 aujourd'hui, 30,9 Mo).
+Le déploiement web OVH utilise les fichiers locaux directement, sans `provenance.json` ni
+`coverage.json` (outillage, exclus du rsync).

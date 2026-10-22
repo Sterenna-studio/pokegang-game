@@ -80,6 +80,8 @@ jobs:
             --exclude='*.mid' \
             --exclude='*.MID' \
             --exclude='*.ogg' \
+            --exclude='assets/pokemon_pmd/provenance.json' \
+            --exclude='assets/pokemon_pmd/coverage.json' \
             -e "ssh -i ~/.ssh/ovh_key" \
             ./ "${{ secrets.OVH_USER }}@${{ secrets.OVH_HOST }}:~/pokegang/"
 

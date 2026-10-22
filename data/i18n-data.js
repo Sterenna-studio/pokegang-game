@@ -297,6 +297,7 @@ const I18N = {
   zone_combat_progress_city:{ fr:'Combats : {count}{suffix}', en:'Battles: {count}{suffix}' },
   zone_combat_progress:    { fr:'Combats : {count}{target} | Cap : {captures}', en:'Battles: {count}{target} | Catches: {captures}' },
   zone_combat_in_progress: { fr:'Combat...', en:'Battle...' },
+  zone_combat_unavailable: { fr:'Un combat est déjà en cours — réessaie dans un instant.', en:'A battle is already under way — try again in a moment.' },
   zone_difficulty_short:   { fr:'diff.', en:'diff.' },
   zone_raid:               { fr:'Raid', en:'Raid' },
   // PC and Pokédex

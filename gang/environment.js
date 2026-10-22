@@ -35,15 +35,25 @@ import { attachPmdSprite, directionFromVector, stopPmdSprites } from './pmdSprit
 import { pokemonDisplayHeight } from './pokemonSize.js';
 import { attachHgssPokemon } from './hgssPokemon.js';
 import { attachCharacterSprite } from './characterSprites.js';
-import { HQ_AREAS, wantsHq, hqRange, cameoLocation, vivariumDisplay } from '../modules/systems/vivariumZones.js';
+import { HQ_AREAS, HQ_BACKGROUND, wantsHq, hqRange, cameoLocation, vivariumDisplay } from '../modules/systems/vivariumZones.js';
 import { devFeaturesEnabled } from '../modules/core/devFeatures.js';
 import { EventBus, EVENTS } from '../modules/core/eventBus.js';
-import { collectVivariumWing } from '../modules/systems/vivariumRewards.js';
+import {
+  collectVivariumWing,
+  isHoohEventCameo,
+  isWithinClickCooldown,
+  nextHoohSpeedFactor,
+} from '../modules/systems/vivariumRewards.js';
 import { vivariumSpeechDuration } from './vivariumSpeech.js';
 import { createVivariumLayout, pickGroundTarget, readSpritePosition, DEFAULT_FOOTPRINT,
   groundIndex, groundClearance } from './vivariumLayout.js';
 
-const _t = (fr, en) => (globalThis.state?.lang === 'en' ? en : fr);
+// Sur l'overlay OBS (live.html) il n'y a pas de `state` : la langue vient de `?lang=`, transmise par
+// live-app.js via setEnvironmentLang(). Dans le jeu, `state.lang` reste la source de vérité.
+let _langOverride = null;
+export function setEnvironmentLang(lang) { _langOverride = lang === 'en' ? 'en' : lang === 'fr' ? 'fr' : null; }
+const _t = (fr, en) => ((globalThis.state?.lang ?? _langOverride) === 'en' ? en : fr);
+const _creditNamesUrl = () => new URL('../assets/pokemon_pmd/credit_names.txt', import.meta.url).href;
 
 const CAMEO_MIN_DELAY_MS   = 45_000;
 const CAMEO_MAX_DELAY_MS   = 90_000;
@@ -144,7 +154,11 @@ function _applyBackgroundData(viewportEl, bgData) {
   }
   if (_bounds) { _bounds.scene = viewportEl.dataset.scene; }
   if (bgData?.type === 'image' || bgData?.type === 'fabric') {
-    viewportEl.style.backgroundImage = `url('${bgData.url}')`;
+    // Le plan du QG est un fichier du jeu : on le résout depuis CETTE origine plutôt que de
+    // reprendre l'URL absolue poussée par le client émetteur (itch, localhost, lab…), qui
+    // casserait le fond de l'overlay OBS servi depuis le site.
+    const url = bgData.scene === 'hq' ? HQ_BACKGROUND.url : bgData.url;
+    viewportEl.style.backgroundImage = `url('${url}')`;
     if (bgData.type === 'fabric') {
       viewportEl.style.backgroundSize = '160px';
       viewportEl.style.backgroundRepeat = 'repeat';
@@ -524,11 +538,31 @@ function _wanderStep(entry, bounds) {
   }, duration * 1000);
 }
 
+// Construit via le DOM (src affecté en propriété) plutôt qu'en gabarit innerHTML : ces URLs
+// viennent du snapshot vivarium d'un joueur (overlay OBS, même origine que le jeu), et une
+// guillemet dans spriteUrl/followIconUrl permettait d'injecter un attribut (onerror=…).
+function _spriteInner(imgUrl, extraIconUrl = null) {
+  const inner = document.createElement('div');
+  inner.className = 'gang-env-sprite-inner';
+  const img = document.createElement('img');
+  img.alt = '';
+  img.src = String(imgUrl ?? '');
+  inner.appendChild(img);
+  if (extraIconUrl) {
+    const follow = document.createElement('img');
+    follow.className = 'gang-env-cameo-follow';
+    follow.alt = '';
+    follow.src = String(extraIconUrl);
+    inner.appendChild(follow);
+  }
+  return inner;
+}
+
 function _spawnResident(viewportEl, imgUrl, label, bounds, meta = {}) {
   const el = document.createElement('div');
   el.className = 'gang-env-sprite idle gang-env-clickable';
   el.title = label || '';
-  el.innerHTML = `<div class="gang-env-sprite-inner"><img src="${imgUrl}" alt=""></div>`;
+  el.appendChild(_spriteInner(imgUrl));
   const x = Math.random() * Math.max(0, bounds.width - 48);
   const y = bounds.groundTop + Math.random() * bounds.groundHeight;
   _setPosition(el, x, y);
@@ -664,11 +698,11 @@ function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl, dialogueLi
   el.tabIndex = 0;
   el.setAttribute('role', 'button');
   el.setAttribute('aria-label', label || _t('Visiteur', 'Visitor'));
-  el.innerHTML = `<div class="gang-env-sprite-inner"><img src="${imgUrl}" alt="">${extraIconUrl ? `<img class="gang-env-cameo-follow" src="${extraIconUrl}" alt="">` : ''}</div>`;
+  el.appendChild(_spriteInner(imgUrl, extraIconUrl));
   const fromLeft = Math.random() < 0.5;
   const startX = fromLeft ? -60 : bounds.width + 60;
   const endX   = fromLeft ? bounds.width + 60 : -60;
-  const isHooh = pokemon?.dex === 250;
+  const isHooh = isHoohEventCameo(pokemon);
   const home = !isHooh && bounds.scene === 'hq' ? hqRange(character?.location || cameoLocation(character || {}), bounds,
     DEFAULT_FOOTPRINT, { minX: 0, maxX: Math.max(0, bounds.width - 48) }) : null;
   // Keep the full touch target above the lower edge, including classic scenes.
@@ -721,6 +755,7 @@ function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl, dialogueLi
   let legTimer = null, arrival = null, moving = false, speedFactor = 1;
   let legSpeed = CAMEO_SPEED_PX_PER_S;
   let removeSpeech = null, speechTimer = null, continueAfterSpeech = null;
+  let lastClickAt = null, wingsDropped = 0;
 
   function speak(node) {
     removeSpeech?.();
@@ -748,9 +783,13 @@ function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl, dialogueLi
 
   function react() {
     if (!el.isConnected) return;
+    // Délai de grâce : coupe l'autoclic (et le double clic) sur le visiteur.
+    const clickedAt = Date.now();
+    if (isWithinClickCooldown(lastClickAt, clickedAt)) return;
+    lastClickAt = clickedAt;
     const reaction = document.createElement('div');
     reaction.className = 'gang-env-speech-bubble';
-    const hooh = pokemon?.dex === 250;
+    const hooh = isHooh;
     let rewarded = false;
     if (hooh && !_readOnly && globalThis.state) {
       if (globalThis.claimVivariumWing) rewarded = globalThis.claimVivariumWing() === true;
@@ -764,7 +803,8 @@ function _spawnCameo(viewportEl, imgUrl, label, bounds, extraIconUrl, dialogueLi
       : dialogueLine || _t(`${label} vous salue !`, `${label} greets you!`);
     const readingTime = speak(reaction);
     if (hooh) {
-      speedFactor = Math.min(8, speedFactor * 1.4);
+      if (rewarded) wingsDropped++;
+      speedFactor = nextHoohSpeedFactor(speedFactor, wingsDropped);
       el.dataset.speedFactor = String(speedFactor);
       if (moving) {
         _cancel(legTimer);
@@ -932,7 +972,11 @@ export function renderEnvironmentZone(rootContainer) {
     <button class="gang-zonesrc-btn" id="gangZoneSrcBtn" title="${_t('Choisir les zones affichées', 'Choose displayed zones')}">👁</button>
     <button class="gang-vivarium-help" id="gangVivariumHelp" aria-label="${_t('Comprendre le vivarium', 'Vivarium guide')}" title="${_t('Comprendre le vivarium', 'Vivarium guide')}">?</button>
     <div class="gang-env-viewport" id="gangEnvViewport"></div>
-    <a class="gang-env-credits" href="https://eeveeexpo.com/resources/609/" target="_blank" rel="noopener noreferrer">Sprites HGSS : PurpleZaffre</a>`;
+    <div class="gang-env-credits">
+      <a href="https://sprites.pmdcollab.org/" target="_blank" rel="noopener noreferrer" title="${_t('Sprites PMD SpriteCollab (CC BY-NC 4.0) — liste des auteurs', 'PMD SpriteCollab sprites (CC BY-NC 4.0) — artist credits')}">Sprites PMD : SpriteCollab (CC BY-NC 4.0)</a>
+      · <a href="${_creditNamesUrl()}" target="_blank" rel="noopener noreferrer">${_t('Auteurs', 'Artists')}</a>
+      · <a href="https://eeveeexpo.com/resources/609/" target="_blank" rel="noopener noreferrer">Sprites HGSS : PurpleZaffre</a>
+    </div>`;
 
   const viewportEl = zoneEl.querySelector('#gangEnvViewport');
   _bindSpriteModeSelector(zoneEl);
@@ -1020,7 +1064,9 @@ export function renderEnvironmentZoneFromSnapshot(rootContainer, blob) {
   _zoneEl = zoneEl;
   _liveCameoPool = blob?.cameoPool || [];
 
-  zoneEl.innerHTML = `<div class="gang-env-viewport" id="gangEnvViewport"></div>`;
+  // Attribution requise (CC BY-NC 4.0) aussi pour l'overlay OBS : texte seul, non cliquable.
+  zoneEl.innerHTML = `<div class="gang-env-viewport" id="gangEnvViewport"></div>
+    <div class="gang-env-credits">Sprites : PMD SpriteCollab (CC BY-NC 4.0) · HGSS : PurpleZaffre</div>`;
   const viewportEl = zoneEl.querySelector('#gangEnvViewport');
   if (blob?.backgroundData) _applyBackgroundData(viewportEl, blob.backgroundData);
 
@@ -1047,8 +1093,7 @@ export function renderEnvironmentZoneFromSnapshot(rootContainer, blob) {
   if (residents.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'gang-env-empty-hint';
-    // Rendu distant (OBS) : pas de state disponible — EN par défaut.
-    empty.textContent = 'No residents to display for now.';
+    empty.textContent = _t('Aucun résident à afficher pour le moment.', 'No residents to display for now.');
     viewportEl.appendChild(empty);
   }
   _scheduleProximityScan(viewportEl, bounds);
@@ -1101,7 +1146,7 @@ export function updateEnvironmentSnapshot(blob) {
   if (residents.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'gang-env-empty-hint';
-    empty.textContent = 'No residents to display for now.';
+    empty.textContent = _t('Aucun résident à afficher pour le moment.', 'No residents to display for now.');
     viewportEl.appendChild(empty);
   }
 }

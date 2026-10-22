@@ -14,12 +14,13 @@
 //  (onglet Compte du jeu principal, section "Profil public / API").
 // ════════════════════════════════════════════════════════════════
 
-import { renderEnvironmentZoneFromSnapshot, updateEnvironmentSnapshot } from './environment.js';
+import { renderEnvironmentZoneFromSnapshot, setEnvironmentLang, updateEnvironmentSnapshot } from './environment.js';
 import { getNitroSupabaseConfig } from '../modules/nitro/nitro-supabase.js';
 
 const POLL_MS = 35_000;
 const _lang = new URLSearchParams(location.search).get('lang') === 'en' ? 'en' : 'fr';
 const _t = (fr, en) => (_lang === 'en' ? en : fr);
+setEnvironmentLang(_lang);
 
 function showMessage(text) {
   const root = document.getElementById('gangLiveRoot');

@@ -462,6 +462,8 @@
   padding: 3px 5px;
   border-radius: 3px;
 }
+.gang-env-credits a { color: inherit; text-decoration: underline dotted; }
+.gang-env-credits a:hover { color: var(--gold); }
 .gang-env-cameo-follow {
   position: absolute;
   width: 20px !important;

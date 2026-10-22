@@ -173,9 +173,13 @@ function claimVivariumWing() {
   const fresh = store.load();
   if (!fresh) return false;
   collectVivariumWing(fresh);
-  state = fresh;
-  globalThis.state = fresh;
   store.save();
+  // Surtout PAS `state = fresh` : les panneaux (Vitrine…) gardent des références vers
+  // `state.cosmetics` / `state.gang.showcase` de l'objet courant ; le remplacer sans le
+  // report par référence que fait saveState() faisait perdre silencieusement la
+  // modification suivante (retirer un slot de vitrine après avoir cliqué Ho-Oh). L'objet
+  // de la page ne lit pas l'inventaire, et le prochain saveState() relit le stockage —
+  // plume comprise — avant de n'y reporter que ses champs cosmétiques.
   updateTopbar();
   return true;
 }

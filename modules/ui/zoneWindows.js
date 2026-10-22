@@ -2050,12 +2050,11 @@ function renderEventTrainerInWindow(zoneId) {
   el.innerHTML = globalThis.safeTrainerImg(trainer.sprite, { style: 'width:56px;height:56px;filter:drop-shadow(0 0 8px rgba(255,80,80,.85))' });
   el.title = (state.lang === 'fr' ? eventDef.fr : eventDef.en) + ' — ' + (state.lang === 'fr' ? trainer.fr : trainer.en);
   el.style.animation = 'glow 1.2s ease-in-out infinite, float 2.4s ease-in-out infinite';
-  el.addEventListener('click', () => {
-    if (el.dataset.challenged) return;
-    el.dataset.challenged = '1';
-    _addVSBadge(el);
-    openEventBattlePopup(zoneId);
-  });
+  el.addEventListener('click', () => _challengeSpawn(
+    el,
+    () => openEventBattlePopup(zoneId),
+    () => !!currentCombat?.isEventBattle && currentCombat.zoneId === zoneId,
+  ));
   viewport.appendChild(el);
 }
 
@@ -2169,6 +2168,21 @@ function _tryWingDrop(zoneId) {
 }
 
 // Adds a red "VS" badge over a trainer spawn element to indicate combat
+// Clic sur un dresseur/raid : marque le spawn « défié » pendant que le combat s'ouvre. Si le
+// combat n'a pas démarré (autre combat en cours, auto-combat visuel sur la zone du boss,
+// ancre du boss introuvable…), on relâche le défi — sinon le spawn restait marqué et
+// inclicable, sans le moindre message, jusqu'à la fin de son TTL.
+function _challengeSpawn(el, open, started) {
+  if (el.dataset.challenged) return;
+  el.dataset.challenged = '1';
+  _addVSBadge(el);
+  open();
+  if (started()) return;
+  delete el.dataset.challenged;
+  el.querySelector('.spawn-vs-badge')?.remove();
+  _notify(_t('zone_combat_unavailable'), 'error');
+}
+
 function _addVSBadge(el) {
   if (!el || el.querySelector('.spawn-vs-badge')) return;
   const badge = document.createElement('div');
@@ -2269,12 +2283,11 @@ function renderSpawnInWindow(zoneId, spawnObj) {
       ? (spawnObj.trainer?.fr ?? spawnObj.trainerKey ?? 'Raid')
       : (spawnObj.trainer?.en ?? spawnObj.trainerKey ?? 'Raid');
     el.style.animation = 'glow 1s ease-in-out infinite, float 2s ease-in-out infinite';
-    el.addEventListener('click', () => {
-      if (el.dataset.challenged) return;
-      el.dataset.challenged = '1';
-      _addVSBadge(el);
-      openCombatPopup(zoneId, spawnObj);
-    });
+    el.addEventListener('click', () => _challengeSpawn(
+      el,
+      () => openCombatPopup(zoneId, spawnObj),
+      () => currentCombat?.spawnObj === spawnObj,
+    ));
   } else if (spawnObj.type === 'trainer') {
     const extraStyle = spawnObj.elite ? 'filter:drop-shadow(0 0 6px gold)' : '';
     const previewT = getTrainerCombatPreview({ ...spawnObj, zoneId }, null);
@@ -2283,12 +2296,11 @@ function renderSpawnInWindow(zoneId, spawnObj) {
       getDifficultyBadgeHtml(tierT);
     el.title = ((state.lang === 'fr' ? (spawnObj.trainer?.fr ?? spawnObj.trainerKey ?? '???') : (spawnObj.trainer?.en ?? spawnObj.trainerKey ?? '???'))) + (spawnObj.elite ? ' ⭐' : '') + ` · ${tierT.label} (${tierT.rationale})`;
     if (spawnObj.elite) el.style.animation = 'glow 1.5s ease-in-out infinite, float 3s ease-in-out infinite';
-    el.addEventListener('click', () => {
-      if (el.dataset.challenged) return;
-      el.dataset.challenged = '1';
-      _addVSBadge(el);
-      openCombatPopup(zoneId, spawnObj);
-    });
+    el.addEventListener('click', () => _challengeSpawn(
+      el,
+      () => openCombatPopup(zoneId, spawnObj),
+      () => currentCombat?.spawnObj === spawnObj,
+    ));
   } else if (spawnObj.type === 'chest') {
     el.innerHTML = `<div class="chest-sprite">📦</div>`;
     el.title = _t('zone_treasure_chest');

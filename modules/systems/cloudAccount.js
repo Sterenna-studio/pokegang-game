@@ -375,6 +375,9 @@ function _vivariumFingerprintOf(s) {
     (s.agents || []).map(a => `${a.id}:${(a.team || []).join('-')}:${a.assignedZone || ''}:${a.resting}`).join(','),
     s.gang.reputation, s.gang.bossSprite, s.gang.titleA, s.gang.titleB, s.gang.titleLiaison,
     s.stats?.shinyCaught, s.cosmetics?.bossBg,
+    // Réglages d'affichage embarqués dans le snapshot (display + scène) : sans eux, changer de
+    // mode sprite / taille / décor ne repoussait rien et l'overlay OBS gardait l'ancien rendu.
+    s.cosmetics?.vivariumSpriteMode, s.cosmetics?.vivariumTrueSize, s.cosmetics?.vivariumScene,
   ].join('|');
 }
 

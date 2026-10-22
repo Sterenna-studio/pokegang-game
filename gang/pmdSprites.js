@@ -25,13 +25,29 @@ function validAnimation(a) {
     && /^(?:\d+\/(?:s\/)?|[a-z][a-z0-9_-]*\/)(?:Idle|Walk)\.png$/.test(a.file);
 }
 
+// Le build itch.io plafonne l'archive à 1 000 fichiers (HTML5) : les ~2 000 feuilles PMD n'y sont
+// pas embarquées (cf. tools/build-itch.js). Sur itch, elles sont donc servies par le site web —
+// un simple <img>/drawImage inter-origine (aucune lecture de pixels, donc pas de CORS), comme les
+// sprites Showdown déjà chargés à distance. Ailleurs : les fichiers locaux.
+export const PMD_REMOTE_BASE_URL = 'https://pokegang.sterenna.fr/assets/pokemon_pmd/';
+export function isItchHost(hostname = globalThis.location?.hostname || '') {
+  return hostname.endsWith('.itch.io') || hostname.includes('itch.zone') || hostname.endsWith('.hwcdn.st');
+}
+export function pmdAssetBaseUrl(hostname) {
+  return isItchHost(hostname) ? new URL(PMD_REMOTE_BASE_URL) : new URL('../assets/pokemon_pmd/', import.meta.url);
+}
+
+// Une feuille en échec est retentée au bout de ce délai (coupure réseau passagère) plutôt que
+// de rester 2D jusqu'au prochain rendu complet — notamment sur l'overlay OBS qui ne re-rend pas.
+const SHEET_RETRY_MS = 15000;
+
 // One scheduler and bounded decoded-sheet cache shared by all residents/cameos.
 // Factory dependencies also allow deterministic tests without network or game state.
 export function createPmdRenderer({ metadata = PMD_METADATA, doc = document,
   makeImage = () => new Image(),
   raf = fn => requestAnimationFrame(fn), caf = id => cancelAnimationFrame(id),
   motion = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)'),
-  baseUrl = new URL('../assets/pokemon_pmd/', import.meta.url), maxSheets = 64,
+  baseUrl = pmdAssetBaseUrl(), maxSheets = 64, now = () => Date.now(),
 } = {}) {
   const actors = new Set(), cache = new Map();
   let request = null, lastTime = null, listening = false;
@@ -49,12 +65,15 @@ export function createPmdRenderer({ metadata = PMD_METADATA, doc = document,
   function sheetFor(file, actor, assetBaseUrl) {
     const key = new URL(file, assetBaseUrl).href;
     let sheet = cache.get(key);
+    if (sheet?.failed && now() - sheet.failedAt >= SHEET_RETRY_MS) {
+      release(sheet); cache.delete(key); sheet = null;
+    }
     if (!sheet) {
       const img = makeImage();
       sheet = { img, users: new Set(), ready: false, failed: false };
       sheet.promise = new Promise(resolve => {
         img.onload = () => { sheet.ready = true; img.onload = img.onerror = null; resolve(sheet); };
-        img.onerror = () => { sheet.failed = true; img.onload = img.onerror = null; resolve(sheet); };
+        img.onerror = () => { sheet.failed = true; sheet.failedAt = now(); img.onload = img.onerror = null; resolve(sheet); };
       });
       cache.set(key, sheet);
       img.src = key;

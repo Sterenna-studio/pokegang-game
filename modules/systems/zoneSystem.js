@@ -1217,7 +1217,11 @@ function triggerGymRaid(zoneId, isAuto) {
 
   // Manual raid → open combat popup
   const opened = globalThis.openCombatPopup(zoneId, { type: 'trainer', trainerKey, trainer: raidTrainer, team, isGymRaid: true });
-  if (!opened) return false;
+  if (!opened) {
+    // Autre combat en cours, boss non montable… sans message le bouton semblait mort.
+    _notify(_t('Un combat est déjà en cours — réessaie dans un instant.', 'A battle is already under way — try again in a moment.'), 'error');
+    return false;
+  }
   zs.gymRaidLastFight = Date.now();
   _save();
   return true;

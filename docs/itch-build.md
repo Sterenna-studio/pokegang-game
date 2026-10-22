@@ -44,11 +44,11 @@ Aucune dépendance npm n'est nécessaire.
 
 ## Ce que fait le script
 
-1. copie uniquement le runtime : `index.html`, `app.js`, `css/`, `data/`, `modules/`, `state/`, `assets/`, `gang/`, puis **uniquement les pistes audio référencées** de `music/` (voir plus bas) ;
+1. copie uniquement le runtime : `index.html`, `app.js`, `css/`, `data/`, `modules/`, `state/`, `assets/`, `gang/`, puis **uniquement les pistes audio référencées** de `music/` (voir plus bas) — sauf `assets/pokemon_pmd/<dex>/` (~1 990 feuilles de sprites) qui n'est PAS embarqué : itch.io plafonne les archives HTML5 à 1 000 fichiers, et `gang/pmdSprites.js` charge ces feuilles depuis le site web sur un hôte itch ;
 2. garde le site principal en français, mais remplace `lang: 'fr'` par `lang: 'en'` dans la copie itch uniquement ;
 3. exclut `config.js`, `docs/`, `tools/`, `supabase/`, `.git/` et les fichiers de développement ;
 4. crée le ZIP avec `index.html` à la racine ;
-5. vérifie les séparateurs ZIP, les dossiers runtime, la langue EN de la copie, la langue FR du source, l'absence de `config.js` et l'alignement de version, et que l'archive contient exactement les pistes audio citées par le code — ni moins (silence sur itch), ni plus (Mo inutiles).
+5. vérifie que l'archive ne dépasse pas 1 000 fichiers, les séparateurs ZIP, les dossiers runtime, la langue EN de la copie, la langue FR du source, l'absence de `config.js` et l'alignement de version, et que l'archive contient exactement les pistes audio citées par le code — ni moins (silence sur itch), ni plus (Mo inutiles).
 
 Une build saine se termine par un message du type :
 

@@ -34,5 +34,5 @@ Validation : `node tools/test-lab-tools.mjs` (pertes de progression, masquage,
 limite des différences et whitelist) et `node tools/check-lab-tools-browser.mjs`
 (diagnostic des 12 ressources, fichiers JSON locaux, sprites réels PMD/HGSS,
 chargement à la demande, mobile, absence d’accès aux sauvegardes, garde d’hôte).
-Le parcours navigateur passe en local et sur le lab. Les 47 suites Node,
+Le parcours navigateur passe en local et sur le lab. Les 48 suites Node,
 check-events, check-dead-calls et le build itch passent.

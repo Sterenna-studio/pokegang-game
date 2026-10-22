@@ -63,9 +63,14 @@ try {
   }), [3, 5, 1234], 'Reward preserves fresh progress and advances the quest');
   const speed = Number(await hooh.getAttribute('data-speed-factor'));
   await hooh.focus();
+  await page.waitForTimeout(150); // past the 0.1 s click cooldown
   await page.keyboard.press('Enter');
   assert.ok(Number(await hooh.getAttribute('data-speed-factor')) > speed);
   assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('pokeforge.v6')).inventory.rainbow_wing), 19);
+  // Two activations inside the cooldown pay a single wing (anti-autoclick).
+  await page.waitForTimeout(150);
+  await hooh.evaluate(el => { el.click(); el.click(); });
+  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('pokeforge.v6')).inventory.rainbow_wing), 20);
   assert.equal(await page.locator('.gang-env-speech-bubble').count(), 1, 'Rapid clicks replace the previous reward bubble');
   await page.setViewportSize({ width: 390, height: 844 });
   assert.ok(await hooh.evaluate(el => {
