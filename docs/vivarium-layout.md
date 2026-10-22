@@ -48,6 +48,13 @@ Il s'agit d'un évitement souple : les silhouettes peuvent se recouvrir selon
 la perspective, surtout si le viewport est saturé, sans rendre les acteurs
 physiquement rigides ou créer un moteur de pathfinding.
 
+![Vivarium saturé : la plupart des Pokémon Donjon Mystère regroupés et superposés au centre, quelques-uns isolés sur les bords](images/vivarium-scene-dense.png)
+
+*Capture du 16 octobre 2026 : scène dense en sprites Donjon Mystère. La
+plupart des résidents se superposent au centre, quelques-uns restent isolés
+sur les bords. C'est la limite de l'évitement souple décrite ci-dessus, à
+garder comme référence visuelle quand on retouche le placement.*
+
 Le redimensionnement conserve les positions relatives, puis réespace seulement
 les empreintes devenues trop proches. Les mises à jour OBS identiques gardent
 les mêmes nœuds, positions, directions et animations.

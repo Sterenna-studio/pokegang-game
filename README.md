@@ -269,10 +269,10 @@ pokeforge.v6.s3     slot 3
 pokeforge.activeSlot index du slot actif
 ```
 
-- `SAVE_SCHEMA_VERSION = 17` — une migration se déclenche automatiquement au boot si le schéma est inférieur.
+- `SAVE_SCHEMA_VERSION = 21` (`state/defaultState.js`) — une migration se déclenche automatiquement au boot si le schéma est inférieur.
 - Même `localStorage['pokeforge.v6']` (et slots 2/3) partagé nativement avec la page cosmétique séparée `gang/` (même origine) — pas de synchro réseau nécessaire, juste un rechargement à froid avant chaque écriture côté `gang/` pour limiter le risque d'écraser une progression faite entre-temps dans l'autre onglet.
 - Les Pokémon sont "slimifiés" avant sérialisation (champs dérivés supprimés) pour réduire la taille.
-- Cloud save optionnel via Supabase (throttle 1 save/30s).
+- Cloud save optionnel via Supabase : une sauvegarde par heure (`TICK_CLOUD_SAVE_MS`), qui n'écrase pas une progression cloud plus récente et plus avancée venue d'un autre appareil ou onglet.
 
 ---
 
