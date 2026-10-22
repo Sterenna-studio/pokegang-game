@@ -2,7 +2,7 @@
 
 // ── Version identique à app.js ────────────────────────────────────────────────
 export const APP_VERSION = '2.4.0';
-export const GAME_VERSION = 'v0.5 — open beta';
+export const GAME_VERSION = 'v0.6 — open beta';
 
 // Incrémenter à chaque ajout de champ majeur pour déclencher le banner migration.
 export const SAVE_SCHEMA_VERSION = 21;
