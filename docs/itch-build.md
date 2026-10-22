@@ -165,3 +165,23 @@ docs/devlogs/itch-v0.5.0.md
 ## Bruit console itch connu
 
 Les messages provenant du wrapper itch (`monetization`, `xr`, `allowfullscreen`, certains appels dashboard/CORS) ne sont pas nécessairement des erreurs du jeu. Les erreurs importantes à traiter sont celles qui concernent directement les fichiers PokéGang, les imports JS, les assets runtime ou les événements du jeu.
+
+## Sprites PurpleZaffre : PNG non suivis par Git
+
+Les conditions de l'auteur (`assets/pokemon_hgss/SOURCE-CONDITIONS.txt`,
+`assets/vivarium_characters/SOURCE-CONDITIONS.txt`) interdisent la redistribution. Le dépôt étant
+public, leurs ~57 PNG sont **ignorés** (`.gitignore`) ; métadonnées, crédits et `provenance.json`
+(hashs) restent versionnés.
+
+- **Disque du mainteneur** : les PNG y restent. `node tools/build-itch.js` et
+  `tools/deploy-ovh-previews.ps1` les embarquent depuis le disque. Le build **échoue** si l'un d'eux
+  manque (hors CI, où il n'avertit que) : une archive sans personnages ni Pokémon HGSS ne doit pas
+  partir sur itch.
+- **Production (OVH)** : le rsync de `.github/workflows/deploy-ovh.yml` exclut ces PNG
+  (`--exclude=…**.png`). Exclus, ils ne sont ni envoyés ni supprimés par `--delete` : les copies
+  déjà présentes sur le serveur restent servies. Pour les changer, les envoyer à la main
+  (`scp -r assets/pokemon_hgss assets/vivarium_characters` vers `~/pokegang/assets/`).
+- **CI / clone neuf** : les tests `test-vivarium-hgss-pokemon` et `test-vivarium-characters`
+  sautent la vérification d'octets (hash, géométrie) et vérifient seulement les métadonnées.
+- **Historique Git** : les anciens commits contiennent encore les PNG ; seule une réécriture
+  d'historique (`git filter-repo`) les retirerait.

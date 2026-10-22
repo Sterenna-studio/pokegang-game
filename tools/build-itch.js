@@ -53,6 +53,28 @@ const ITCH_MAX_FILES = 1000;
 const PMD_DIR = path.join('assets', 'pokemon_pmd');
 const PMD_KEEP = new Set(['metadata.js', 'CREDITS.md', 'SPRITECOLLAB-LICENSE.md', 'credit_names.txt']);
 
+// Sprites PurpleZaffre : PNG non suivis par Git (conditions de l'auteur, cf. .gitignore). Ils
+// existent sur le disque du mainteneur ; une machine qui ne les a pas (CI, clone neuf) produirait
+// une archive sans personnages ni Pokémon HGSS — acceptable pour un simple contrôle CI, pas pour
+// un upload. On avertit toujours, et on échoue hors CI.
+const UNTRACKED_SPRITE_PROVENANCE = ['assets/pokemon_hgss/provenance.json', 'assets/vivarium_characters/provenance.json'];
+
+function checkUntrackedSprites() {
+  const missing = [];
+  for (const rel of UNTRACKED_SPRITE_PROVENANCE) {
+    const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, rel), 'utf8'));
+    const dir = path.dirname(rel);
+    for (const r of manifest.resources || []) {
+      if (!fs.existsSync(path.join(ROOT, dir, r.file))) missing.push(`${dir}/${r.file}`);
+    }
+  }
+  if (!missing.length) return;
+  const msg = `[build-itch] ${missing.length} PNG PurpleZaffre absents (non suivis par Git), ex. ${missing[0]}. ` +
+    `L'archive n'aurait ni personnages ni Pokémon HGSS : à construire depuis la machine qui les possède.`;
+  if (process.env.CI) console.warn(msg + ' (CI : simple avertissement)');
+  else throw new Error(msg);
+}
+
 // music/ ne contient que les pistes .mp3 utilisees (elle a ete elaguee : importee
 // en bloc, 945 fichiers / ~43 Mo, dont 920 jamais charges). On ne copie malgre tout
 // que les pistes reellement referencees par le code : si une bibliotheque entiere
@@ -332,6 +354,7 @@ function validate() {
 function main() {
   console.log(`[build-itch] Préparation PokéGang v${RELEASE.version} (${RELEASE.channel}).`);
   clean();
+  checkUntrackedSprites();
   stage();
   patchLang();
   patchItchUi();

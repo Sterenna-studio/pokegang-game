@@ -81,7 +81,7 @@ jobs:
             --exclude='*.MID' \
             --exclude='*.ogg' \
             --exclude='assets/pokemon_pmd/provenance.json' \
-            --exclude='assets/pokemon_pmd/coverage.json' \
+            --exclude='assets/pokemon_pmd/coverage.json'             --exclude='assets/pokemon_hgss/**.png'             --exclude='assets/vivarium_characters/**.png' \
             -e "ssh -i ~/.ssh/ovh_key" \
             ./ "${{ secrets.OVH_USER }}@${{ secrets.OVH_HOST }}:~/pokegang/"
 

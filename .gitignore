@@ -21,3 +21,11 @@ pokegang-v*-itch.zip
 # OS/editor noise
 .DS_Store
 Thumbs.db
+
+# Sprites PurpleZaffre (HGSS Pokémon + personnages du vivarium) : leurs conditions interdisent
+# la redistribution (cf. assets/*/SOURCE-CONDITIONS.txt). Les PNG restent sur le disque du
+# mainteneur et sur le serveur de prod (le rsync de déploiement les exclut, donc ne les écrase
+# ni ne les supprime) mais ne sont pas suivis par Git. Métadonnées, crédits et
+# provenance.json (hashs) restent dans le dépôt. Voir docs/itch-build.md.
+assets/pokemon_hgss/**/*.png
+assets/vivarium_characters/**/*.png

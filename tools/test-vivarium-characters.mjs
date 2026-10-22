@@ -10,16 +10,24 @@ globalThis.pokeSprite = name => `${name}.png`;
 const root = new URL('../assets/vivarium_characters/', import.meta.url);
 const provenance = JSON.parse(fs.readFileSync(new URL('provenance.json', root)));
 assert.equal(provenance.resources.length, 33);
+// Les PNG ne sont pas suivis par Git (conditions de l'auteur : pas de redistribution, cf.
+// SOURCE-CONDITIONS.txt) : en CI ou sur un clone neuf ils sont absents. Les métadonnées sont
+// toujours vérifiées ; hash et géométrie des octets seulement quand les fichiers sont là.
+let pngChecked = 0;
 for (const resource of provenance.resources) {
-  const bytes = fs.readFileSync(new URL(resource.file, root));
-  assert.equal(crypto.createHash('sha256').update(bytes).digest('hex'), resource.sha256);
   const { Idle, Walk } = CHARACTER_METADATA[resource.key];
   assert.equal(Idle.file, Walk.file, 'Idle reuses the downloaded walk sheet');
   assert.equal(Idle.static, true);
+  assert.deepEqual([Idle.ax, Idle.ay], [Walk.ax, Walk.ay]);
+  const file = new URL(resource.file, root);
+  if (!fs.existsSync(file)) continue;
+  const bytes = fs.readFileSync(file);
+  assert.equal(crypto.createHash('sha256').update(bytes).digest('hex'), resource.sha256);
   assert.equal(bytes.readUInt32BE(16), Walk.w * Walk.n);
   assert.equal(bytes.readUInt32BE(20), Walk.h * Walk.r);
-  assert.deepEqual([Idle.ax, Idle.ay], [Walk.ax, Walk.ay]);
+  pngChecked++;
 }
+if (pngChecked < provenance.resources.length) console.log(`(characters: ${provenance.resources.length - pngChecked} PNG absents — hash/géométrie non vérifiés)`);
 assert.equal(resolveCharacterKey({ type: 'agent', trainerKey: 'acetrainerFGen2' }), 'acetrainerf');
 assert.equal(resolveCharacterKey({ type: 'nurse', spriteUrl: 'https://play.pokemonshowdown.com/sprites/trainers/nurse.png' }), 'nurse');
 assert.equal(resolveCharacterKey({ type: 'rival', spriteUrl: 'https://play.pokemonshowdown.com/sprites/trainers/rocketgruntf.png' }), 'rocketgruntf');
