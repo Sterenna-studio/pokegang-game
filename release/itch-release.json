@@ -2,5 +2,5 @@
   "version": "0.6.1",
   "channel": "open beta",
   "uploadFile": "pokegang-v0.6.1-itch.zip",
-  "itchDevlogType": "patch"
+  "itchDevlogType": "minor_update"
 }
